@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Rust/Tauri build outputs
+src-tauri/target/
+src-tauri/gen/
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Claude Code configuration
+.claude/
+.claudecode/
+
+# Temporary/backup files
+*~
+*.tmp
+*.bak
+
+# Old logo files (keep only public/logo.png and logo1024.png)
+logo2.png
+Logo3.png
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/

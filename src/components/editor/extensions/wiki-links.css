@@ -1,0 +1,130 @@
+/* Wiki link base styles */
+wiki-link {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 150ms ease;
+  font-weight: 500;
+}
+
+/* Existing note (blue) */
+wiki-link.wiki-link-exists {
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+wiki-link.wiki-link-exists:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+  text-decoration: underline;
+}
+
+/* Non-existing note (gray, dashed) */
+wiki-link.wiki-link-missing {
+  color: #9ca3af;
+  background-color: rgba(156, 163, 175, 0.1);
+  border-bottom: 1px dashed #9ca3af;
+}
+
+wiki-link.wiki-link-missing:hover {
+  background-color: rgba(156, 163, 175, 0.2);
+  color: #6b7280;
+}
+
+/* Dark mode */
+.dark wiki-link.wiki-link-exists {
+  color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.15);
+}
+
+.dark wiki-link.wiki-link-exists:hover {
+  background-color: rgba(96, 165, 250, 0.25);
+}
+
+.dark wiki-link.wiki-link-missing {
+  color: #9ca3af;
+  background-color: rgba(156, 163, 175, 0.1);
+  border-bottom-color: #6b7280;
+}
+
+.dark wiki-link.wiki-link-missing:hover {
+  background-color: rgba(156, 163, 175, 0.2);
+  color: #d1d5db;
+}
+
+/* Suggestion dropdown */
+.wiki-link-suggestions {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+  min-width: 200px;
+  pointer-events: auto;
+  z-index: 50;
+}
+
+.dark .wiki-link-suggestions {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+.wiki-link-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  transition: background-color 150ms ease;
+}
+
+.wiki-link-suggestion-item:hover,
+.wiki-link-suggestion-item.selected {
+  background-color: #f3f4f6;
+}
+
+.dark .wiki-link-suggestion-item:hover,
+.dark .wiki-link-suggestion-item.selected {
+  background-color: #374151;
+}
+
+.wiki-link-suggestion-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.wiki-link-suggestion-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wiki-link-suggestion-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dark .wiki-link-suggestion-title {
+  color: #f9fafb;
+}
+
+.wiki-link-suggestion-date {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.wiki-link-suggestion-empty {
+  padding: 12px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+}

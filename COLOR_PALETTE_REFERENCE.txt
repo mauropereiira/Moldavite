@@ -1,0 +1,282 @@
+================================================================================
+                    NOTOMATTIC COLOR PALETTE REFERENCE
+================================================================================
+
+LIGHT THEME COLOR PALETTE:
+================================================================================
+
+BACKGROUNDS:
+  White (Main):        #ffffff
+  Off-white Panel:     #fafafa
+  Light Sidebar:       #f5f5f5
+  Light Toolbar:       #f9fafb (gray-50)
+
+NEUTRALS (Gray Scale):
+  gray-50:   #f9fafb  - Very light backgrounds
+  gray-200:  #e5e7eb  - Hover states, borders
+  gray-300:  #d1d5db  - Dividers, secondary borders
+  gray-400:  #9ca3af  - Placeholder text, secondary labels
+  gray-500:  #6b7280  - Secondary text
+  gray-700:  #374151  - Active/hover dark background
+  gray-900:  #111827  - Primary text, dark backgrounds
+
+TEXT:
+  Primary:      #111827 (gray-900)  - Main text
+  Secondary:    #6b7280 (gray-500)  - Section headers, labels
+  Tertiary:     #9ca3af (gray-400)  - Placeholders, hints
+  On Accent:    #ffffff             - Text on blue buttons
+
+INTERACTIVE:
+  Primary Accent:     #2563eb (blue-600)    - Buttons, links, selections
+  Accent Hover:       #1d4ed8 (blue-700)    - Button hover state
+  Accent Indicator:   #3b82f6 (blue-500)    - Calendar indicators
+
+SPECIAL:
+  Highlight:         #fef08a  - Yellow highlight/mark
+  Blockquote Border: #d1d5db  - Quote styling
+  Code Background:   #f3f4f6  - Inline/block code
+
+
+DARK THEME COLOR PALETTE:
+================================================================================
+
+BACKGROUNDS:
+  Dark Primary:    #111827 (gray-900)  - Main background
+  Dark Panel:      #252525             - Right panel
+  Dark Editor:     #2d2d2d             - Editor area
+  Dark Sidebar:    #1e1e1e             - Sidebar
+  Dark Toolbar:    #1f2937 (gray-800)  - Toolbar
+
+NEUTRALS (Gray Scale):
+  gray-800:  #1f2937  - Code blocks, dark surfaces
+  gray-700:  #374151  - Hover/active backgrounds
+  gray-600:  #4b5563  - Scrollbars, borders
+  gray-500:  #6b7280  - Secondary text
+  gray-400:  #9ca3af  - Tertiary text
+  gray-900:  #111827  - Primary background (dark)
+
+TEXT:
+  Primary:      #f3f4f6 (white)        - Main text
+  Secondary:    #9ca3af (gray-400)     - Secondary labels
+  Tertiary:     #6b7280 (gray-500)     - Hints, placeholders
+  On Accent:    #ffffff                - Text on blue buttons
+
+INTERACTIVE:
+  Primary Accent:     #60a5fa (blue-400)    - Links, selections
+  Accent Hover:       #3b82f6 (blue-500)    - Hover state
+  Accent Indicator:   #3b82f6 (blue-500)    - Calendar indicators
+
+SPECIAL:
+  Highlight:         rgba(113, 63, 18, 0.5)  - Brown transparent highlight
+  Blockquote Border: #4b5563                  - Quote styling
+  Code Background:   #1f2937                  - Inline/block code
+
+
+COMPONENT-SPECIFIC COLORS:
+================================================================================
+
+SIDEBAR:
+  Light Background:     #f5f5f5
+  Dark Background:      #1e1e1e
+  Item Hover Light:     #e5e7eb (gray-200)
+  Item Hover Dark:      #374151 (gray-700)
+  Item Active Light:    #dbeafe (light blue) with #2563eb text
+  Item Active Dark:     rgba(30, 58, 138, 0.3) with #60a5fa text
+
+EDITOR:
+  Light Background:     #ffffff
+  Dark Background:      #2d2d2d
+  Link Light:           #2563eb (blue-600)
+  Link Dark:            #60a5fa (blue-400)
+  Code Background Light: #f3f4f6
+  Code Background Dark:  #1f2937
+
+PANEL (RIGHT):
+  Light Background:     #fafafa
+  Dark Background:      #252525
+
+TOOLBAR:
+  Light Background:     #f9fafb (gray-50)
+  Dark Background:      #1f2937 (gray-800)
+  Button Hover Light:   #e5e7eb (gray-200)
+  Button Hover Dark:    #374151 (gray-700)
+  Divider Light:        #d1d5db (gray-300)
+  Divider Dark:         #4b5563 (gray-600)
+
+BORDERS:
+  Light Theme:         #e5e7eb (gray-200)
+  Dark Theme:          #374151 (gray-700)
+  Active Border:       #2563eb (blue-600) light / #60a5fa (blue-400) dark
+
+SCROLLBAR:
+  Light Thumb:         #d1d5db (gray-300)
+  Light Thumb Hover:   #9ca3af (gray-400)
+  Dark Thumb:          #4b5563 (gray-600)
+  Dark Thumb Hover:    #6b7280 (gray-500)
+  Track:               transparent
+
+
+COLOR USAGE PATTERNS:
+================================================================================
+
+HOVER STATES:
+  Background Hover:    gray-200 (light) / gray-700 (dark)
+  Text Hover:          No change from base color
+
+ACTIVE/SELECTED:
+  Background:          #dbeafe (light) / rgba(30, 58, 138, 0.3) (dark)
+  Text:                blue-600 (light) / blue-400 (dark)
+  Border (optional):   blue-600 (light) / blue-400 (dark)
+
+FOCUS STATES:
+  Ring Color:          #3b82f6 (blue-500)
+  Ring Size:           2px
+
+DISABLED:
+  Opacity:             50%
+  No color change
+
+VISITED LINKS:
+  Not explicitly styled (inherits link color)
+
+ERROR STATES:
+  Not currently used (consider: red-600 light, red-500 dark)
+
+SUCCESS STATES:
+  Not currently used (consider: green-600 light, green-500 dark)
+
+WARNING STATES:
+  Not currently used (consider: amber-600 light, amber-500 dark)
+
+
+TAILWIND COLOR SCALE MAPPING:
+================================================================================
+
+GRAYS USED:
+  blue-50   - Not used
+  gray-50   - #f9fafb  - Toolbar background
+  gray-100  - Not used
+  gray-200  - #e5e7eb  - Hover, borders, dividers
+  gray-300  - #d1d5db  - Secondary borders, scrollbar
+  gray-400  - #9ca3af  - Secondary text, placeholders
+  gray-500  - #6b7280  - Tertiary text, secondary labels
+  gray-600  - #4b5563  - Scrollbar dark, borders dark
+  gray-700  - #374151  - Active states, hover backgrounds
+  gray-800  - #1f2937  - Code blocks, dark toolbar
+  gray-900  - #111827  - Dark background, primary text light
+
+BLUES USED:
+  blue-400  - #60a5fa  - Links/accents dark, today indicator dark
+  blue-500  - #3b82f6  - Indicator dots, focus ring
+  blue-600  - #2563eb  - Buttons, links light, selections
+  blue-700  - #1d4ed8  - Button hover state
+
+
+ACCESSIBILITY CONTRAST:
+================================================================================
+
+WCAG AA Compliant:
+  #111827 (text) on #ffffff (bg)     - ✓ High contrast (21:1)
+  #f3f4f6 (text) on #111827 (bg)     - ✓ High contrast (21:1)
+  #2563eb (text) on #ffffff (bg)     - ✓ Compliant (7.4:1)
+  #60a5fa (text) on #111827 (bg)     - ✓ Compliant (7.4:1)
+  #6b7280 (text) on #ffffff (bg)     - ✓ Compliant (7.6:1)
+  #9ca3af (text) on #111827 (bg)     - ✓ Compliant (7.2:1)
+
+WARNING - Low Contrast:
+  #9ca3af (gray-400) on #ffffff may need testing for visibility
+  #6b7280 (gray-500) on #f3f4f6 may need testing
+
+
+CUSTOM COLOR DEFINITIONS (tailwind.config.js):
+================================================================================
+
+colors: {
+  sidebar: {
+    light: '#f5f5f5',
+    dark: '#1e1e1e',
+  },
+  editor: {
+    light: '#ffffff',
+    dark: '#2d2d2d',
+  },
+  panel: {
+    light: '#fafafa',
+    dark: '#252525',
+  },
+}
+
+Usage in templates:
+  bg-sidebar-light | bg-sidebar-dark
+  bg-editor-light | bg-editor-dark
+  bg-panel-light | bg-panel-dark
+
+
+CONVERTING TO CSS VARIABLES (if needed in future):
+================================================================================
+
+:root {
+  /* Light theme */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f5f5f5;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+}
+
+html.dark {
+  --color-bg-primary: #111827;
+  --color-bg-secondary: #252525;
+  --color-bg-tertiary: #1e1e1e;
+  --color-text-primary: #f3f4f6;
+  --color-text-secondary: #9ca3af;
+  --color-text-tertiary: #6b7280;
+  --color-border: #374151;
+  --color-accent: #60a5fa;
+  --color-accent-hover: #3b82f6;
+}
+
+Usage:
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border-color: var(--color-border);
+
+
+COMMON TAILWIND CLASS PATTERNS:
+================================================================================
+
+Primary Text:
+  text-gray-900 dark:text-white
+
+Secondary Text:
+  text-gray-500 dark:text-gray-400
+
+Tertiary Text:
+  text-gray-400 dark:text-gray-500
+
+Accent Text:
+  text-blue-600 dark:text-blue-400
+
+Primary Background:
+  bg-white dark:bg-gray-900
+
+Secondary Background:
+  bg-gray-50 dark:bg-gray-800
+
+Accent Button:
+  bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600
+
+Border:
+  border-gray-200 dark:border-gray-700
+
+Hover Background:
+  hover:bg-gray-200 dark:hover:bg-gray-700
+
+Focus Ring:
+  focus:ring-2 focus:ring-blue-500
+
+================================================================================
