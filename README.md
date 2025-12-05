@@ -4,6 +4,33 @@ A privacy-first, native macOS note-taking application with WYSIWYG editing, dail
 
 ![Notomattic Logo](public/logo.png)
 
+## Download
+
+**[Download Notomattic v0.1.0 for macOS (Apple Silicon)](https://github.com/mauropereiira/notomattic/releases)** - 4.8 MB
+
+### Installation
+
+1. Download `Notomattic_0.1.0_aarch64.dmg`
+2. Open the DMG file
+3. Drag **Notomattic** to your Applications folder
+4. Launch Notomattic from Applications
+
+**Important:** When first opening Notomattic, macOS will show a security warning because the app is not code-signed:
+
+> "Notomattic can't be opened because it is from an unidentified developer"
+
+**To bypass this warning:**
+1. Right-click (or Control-click) the Notomattic app in Applications
+2. Select **Open** from the menu
+3. Click **Open** in the confirmation dialog
+
+You only need to do this once. After that, you can launch Notomattic normally.
+
+### System Requirements
+
+- macOS 10.15 (Catalina) or later
+- Apple Silicon (M1/M2/M3) Mac
+
 ## Features
 
 - **WYSIWYG Editor**: Rich text editing powered by TipTap with full formatting support
