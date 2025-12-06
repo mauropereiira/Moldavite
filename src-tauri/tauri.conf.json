@@ -59,7 +59,6 @@
         "language": "en-US"
       },
       "nsis": {
-        "license": null,
         "installerIcon": "icons/icon.ico",
         "installMode": "perUser",
         "languages": ["en-US"],
