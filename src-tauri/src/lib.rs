@@ -782,18 +782,18 @@ pub fn run() {
             // Wiki Link system commands
             scan_note_links,
             get_backlinks,
-            create_note_from_link
+            create_note_from_link,
             // Apple Calendar (EventKit) commands - macOS only
             #[cfg(target_os = "macos")]
-            ,get_calendar_permission
+            get_calendar_permission,
             #[cfg(target_os = "macos")]
-            ,request_calendar_permission
+            request_calendar_permission,
             #[cfg(target_os = "macos")]
-            ,is_calendar_authorized
+            is_calendar_authorized,
             #[cfg(target_os = "macos")]
-            ,fetch_calendar_events
+            fetch_calendar_events,
             #[cfg(target_os = "macos")]
-            ,list_calendars
+            list_calendars
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
