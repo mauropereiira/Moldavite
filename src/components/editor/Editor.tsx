@@ -27,14 +27,13 @@ import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplat
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 
 export function Editor() {
-  const { currentNote, updateNoteContent, isSaving, selectedDate, setSelectedDate, notes } = useNoteStore();
+  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes } = useNoteStore();
   const { spellCheck, showWordCount, showAutoSaveStatus } = useSettingsStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
   const { getTemplateContent } = useTemplates();
   const toast = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [isCreatingNote, setIsCreatingNote] = useState(false);
   const [showInlineTemplatePicker, setShowInlineTemplatePicker] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -110,12 +109,7 @@ export function Editor() {
   };
 
   const handleCreateNote = async () => {
-    setIsCreatingNote(true);
-    try {
-      await createNote('Untitled');
-    } finally {
-      setIsCreatingNote(false);
-    }
+    await createNote('Untitled');
   };
 
   // Track save completion to show success indicator
@@ -337,7 +331,7 @@ export function Editor() {
 
       // Use setTimeout(0) to ensure state is fully cleared before new content loads
       setTimeout(() => {
-        editor.commands.setContent(note.content || '', false);
+        editor.commands.setContent(note.content || '');
       }, 0);
     } else if (editor && !note) {
       editor.commands.clearContent();

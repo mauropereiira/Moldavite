@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Editor } from '@tiptap/react';
 import {
   Type,
@@ -12,7 +12,6 @@ import {
   Heading3,
   List,
   ListOrdered,
-  ListChecks,
   Quote,
   Code,
   Minus,

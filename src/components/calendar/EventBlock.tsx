@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { MapPin } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
@@ -39,7 +39,6 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
 
   // Calculate width and left position for overlapping events
   const width = `calc((100% - 60px - ${(totalColumns - 1) * 2}px) / ${totalColumns})`;
-  const leftOffset = 60 + (columnIndex * ((100 - 60) / totalColumns));
   const left = `calc(60px + ${columnIndex} * ((100% - 60px) / ${totalColumns}) + ${columnIndex * 2}px)`;
 
   // Format time for display

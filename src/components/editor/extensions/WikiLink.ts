@@ -104,7 +104,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         key: new PluginKey('wikiLinkClickHandler'),
         props: {
           handleDOMEvents: {
-            click: (view, event) => {
+            click: (_view, event) => {
               const target = event.target as HTMLElement;
               const wikiLink = target.closest('wiki-link');
 

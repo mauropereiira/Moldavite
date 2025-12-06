@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { format, parseISO, isToday, isSameDay } from 'date-fns';
+import { useEffect, useRef, useMemo } from 'react';
+import { format, isToday } from 'date-fns';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useNoteStore } from '@/stores';
 import type { CalendarEvent } from '@/types';
 import {
-  Calendar,
   Clock,
   RefreshCw,
   AlertCircle,

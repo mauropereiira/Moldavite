@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ShareMenu } from './ShareMenu';
@@ -7,7 +7,6 @@ import { MoreOptionsMenu } from './MoreOptionsMenu';
 import { useNoteStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { renameNote } from '@/lib';
-import type { NoteFile } from '@/types';
 
 interface EditorHeaderProps {
   editor: Editor | null;

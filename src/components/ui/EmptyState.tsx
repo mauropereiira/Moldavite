@@ -1,5 +1,5 @@
-import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import React, { RefAttributes } from 'react';
+import { LucideIcon, LucideProps } from 'lucide-react';
 
 interface EmptyStateAction {
   label: string;
@@ -9,7 +9,7 @@ interface EmptyStateAction {
 }
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon: LucideIcon | ((props: Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>) => React.ReactElement);
   heading: string;
   message?: string;
   actions?: EmptyStateAction[];

@@ -10,7 +10,7 @@ import type { NoteFile } from '@/types';
 
 export function Sidebar() {
   const { notes, loadNote, loadDailyNote, createNote, createFromTemplate } = useNotes();
-  const { currentNote, selectedDate, setSelectedDate, setNotes, setCurrentNote } = useNoteStore();
+  const { currentNote, setSelectedDate, setNotes, setCurrentNote } = useNoteStore();
   const { setIsSettingsOpen } = useSettingsStore();
   const search = useSearch();
   const toast = useToast();

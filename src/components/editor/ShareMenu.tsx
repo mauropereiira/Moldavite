@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { Share2, Link2, FileText, FileDown } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   MoreVertical,
   ExternalLink,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
-import { createNote, writeNote, readNote, htmlToMarkdown, markdownToHtml } from '@/lib';
+import { createNote, writeNote, htmlToMarkdown } from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import type { NoteFile } from '@/types';
 
@@ -22,7 +22,7 @@ interface MoreOptionsMenuProps {
 }
 
 export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount }: MoreOptionsMenuProps) {
-  const { currentNote, notes, setNotes, setCurrentNote } = useNoteStore();
+  const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
 
