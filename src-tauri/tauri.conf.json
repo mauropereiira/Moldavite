@@ -49,20 +49,8 @@
       "minimumSystemVersion": "10.15"
     },
     "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
-      },
-      "wix": {
-        "language": "en-US"
-      },
-      "nsis": {
-        "installerIcon": "icons/icon.ico",
-        "installMode": "perUser",
-        "languages": ["en-US"],
-        "displayLanguageSelector": false
       }
     }
   }
