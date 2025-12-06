@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Notomattic",
-  "version": "0.1.0",
-  "identifier": "com.notomattic.app",
+  "version": "0.1.1",
+  "identifier": "com.notomattic",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -27,8 +27,7 @@
     ],
     "security": {
       "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com"
-    },
-    "macOSPrivateApi": true
+    }
   },
   "bundle": {
     "active": true,

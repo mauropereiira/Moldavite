@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+#[cfg(target_os = "macos")]
 mod calendar;
+#[cfg(target_os = "macos")]
 use calendar::{CalendarEvent, CalendarInfo, CalendarPermission};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -710,23 +712,27 @@ fn create_note_from_template(
     Ok(())
 }
 
-// Apple Calendar (EventKit) Commands
+// Apple Calendar (EventKit) Commands - macOS only
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn get_calendar_permission() -> CalendarPermission {
     calendar::get_permission_status()
 }
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn request_calendar_permission() -> bool {
     calendar::request_permission()
 }
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn is_calendar_authorized() -> bool {
     calendar::is_authorized()
 }
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn fetch_calendar_events(
     start_date: String,
@@ -736,6 +742,7 @@ fn fetch_calendar_events(
     calendar::get_events(&start_date, &end_date, calendar_id.as_deref())
 }
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
     calendar::get_calendars()
@@ -775,13 +782,18 @@ pub fn run() {
             // Wiki Link system commands
             scan_note_links,
             get_backlinks,
-            create_note_from_link,
-            // Apple Calendar (EventKit) commands
-            get_calendar_permission,
-            request_calendar_permission,
-            is_calendar_authorized,
-            fetch_calendar_events,
-            list_calendars
+            create_note_from_link
+            // Apple Calendar (EventKit) commands - macOS only
+            #[cfg(target_os = "macos")]
+            ,get_calendar_permission
+            #[cfg(target_os = "macos")]
+            ,request_calendar_permission
+            #[cfg(target_os = "macos")]
+            ,is_calendar_authorized
+            #[cfg(target_os = "macos")]
+            ,fetch_calendar_events
+            #[cfg(target_os = "macos")]
+            ,list_calendars
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
