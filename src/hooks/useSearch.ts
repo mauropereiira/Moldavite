@@ -22,7 +22,7 @@ export function useSearch() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentCacheRef = useRef<Map<string, string>>(new Map());
 
   // Get only standalone notes (not daily notes) - memoize to prevent infinite loop

@@ -30,10 +30,10 @@ function isContentEmpty(content: string): boolean {
  * Debounces saves to prevent excessive disk writes while typing.
  */
 export function useAutoSave() {
-  const { currentNote, setIsSaving, notes, setNotes } = useNoteStore();
+  const { currentNote, setIsSaving, setNotes } = useNoteStore();
   const { autoSaveDelay } = useSettingsStore();
   const getState = useNoteStore.getState;
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastContentRef = useRef<string>('');
   const lastNoteIdRef = useRef<string | null>(null);
 

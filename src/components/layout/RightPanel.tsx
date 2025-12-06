@@ -1,4 +1,3 @@
-import React from 'react';
 import { Calendar } from '../calendar/Calendar';
 import { Timeline } from '../calendar/Timeline';
 

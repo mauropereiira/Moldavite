@@ -42,8 +42,7 @@ export function useNotes() {
     setNotes,
     currentNote,
     setCurrentNote,
-    setIsLoading,
-    selectedDate
+    setIsLoading
   } = useNoteStore();
 
   // Get fresh state to avoid stale closures

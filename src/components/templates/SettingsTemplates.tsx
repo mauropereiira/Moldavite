@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Edit2, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { Template } from '@/types/template';

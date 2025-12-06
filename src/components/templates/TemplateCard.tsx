@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Template } from '@/types/template';
 import { TemplateIcon } from './TemplateIcon';
 

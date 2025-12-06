@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme, useNoteStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { clearAllNotes } from '@/lib';
-import type { FontSize, LineHeight, DefaultNoteType } from '@/stores';
-import { Calendar, RefreshCw, Check, Lock, AlertCircle } from 'lucide-react';
+import { Calendar, RefreshCw, Check, Lock } from 'lucide-react';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
 type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
 
 export function SettingsModal() {
-  const settings = useSettingsStore();
+  const settingsStore = useSettingsStore();
   const { theme, setTheme } = useThemeStore();
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -34,19 +33,19 @@ export function SettingsModal() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        settings.setIsSettingsOpen(false);
+        settingsStore.setIsSettingsOpen(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [settings]);
+  }, [settingsStore]);
 
-  if (!settings.isSettingsOpen) return null;
+  if (!settingsStore.isSettingsOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      settings.setIsSettingsOpen(false);
+      settingsStore.setIsSettingsOpen(false);
     }
   };
 
@@ -76,7 +75,7 @@ export function SettingsModal() {
             Settings
           </h2>
           <button
-            onClick={() => settings.setIsSettingsOpen(false)}
+            onClick={() => settingsStore.setIsSettingsOpen(false)}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,17 +105,16 @@ export function SettingsModal() {
         <div className="flex-1 overflow-y-auto p-6">
           <div key={activeTab} className="tab-content-enter">
             {activeTab === 'general' && (
-              <GeneralSettings settings={settings} />
+              <GeneralSettings />
             )}
             {activeTab === 'appearance' && (
               <AppearanceSettings
-                settings={settings}
                 theme={theme}
                 onThemeChange={handleThemeChange}
               />
             )}
             {activeTab === 'editor' && (
-              <EditorSettings settings={settings} />
+              <EditorSettings />
             )}
             {activeTab === 'calendar' && (
               <CalendarSettings />
@@ -138,7 +136,8 @@ export function SettingsModal() {
 }
 
 // General Settings Section
-function GeneralSettings({ settings }: { settings: ReturnType<typeof useSettingsStore> }) {
+function GeneralSettings() {
+  const settings = useSettingsStore();
   const { setNotes, setCurrentNote } = useNoteStore();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -296,14 +295,13 @@ function GeneralSettings({ settings }: { settings: ReturnType<typeof useSettings
 
 // Appearance Settings Section
 function AppearanceSettings({
-  settings,
   theme,
   onThemeChange,
 }: {
-  settings: ReturnType<typeof useSettingsStore>;
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
 }) {
+  const settings = useSettingsStore();
   return (
     <div className="space-y-6">
       <div>
@@ -400,7 +398,8 @@ function AppearanceSettings({
 }
 
 // Editor Settings Section
-function EditorSettings({ settings }: { settings: ReturnType<typeof useSettingsStore> }) {
+function EditorSettings() {
+  const settings = useSettingsStore();
   return (
     <div className="space-y-6">
       <div>

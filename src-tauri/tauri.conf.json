@@ -32,7 +32,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
+    "targets": ["dmg", "app", "msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -41,13 +41,31 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "A native macOS note-taking app",
-    "longDescription": "Notomattic is a native macOS note-taking app with WYSIWYG editing, daily notes, and calendar integration.",
+    "shortDescription": "A privacy-first note-taking app",
+    "longDescription": "Notomattic is a privacy-first note-taking app with WYSIWYG editing, daily notes, wiki-style linking, and calendar integration.",
     "macOS": {
       "entitlements": null,
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "license": null,
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perUser",
+        "languages": ["en-US"],
+        "displayLanguageSelector": false
+      }
     }
   }
 }

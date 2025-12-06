@@ -136,7 +136,7 @@ export function markdownToHtml(markdown: string): string {
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
   processed = processed.replace(
     /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (match, text, target) => {
+    (_match, text, target) => {
       const displayText = text.trim();
       const targetNote = (target || text).trim();
       // Convert to filename format
@@ -171,10 +171,6 @@ export function isHtmlContent(content: string): boolean {
     trimmed.startsWith('<div>')
   );
 }
-
-const NOTES_DIR = 'Notomattic';
-const DAILY_DIR = 'daily';
-const STANDALONE_DIR = 'notes';
 
 /**
  * Ensures required note directories exist in the file system.
