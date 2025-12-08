@@ -34,7 +34,7 @@ jobs:
               repo: context.repo.repo,
               tag_name: `${process.env.GITHUB_REF_NAME}`,
               name: `Notomattic ${process.env.GITHUB_REF_NAME}`,
-              body: `## What's New\n\nSee [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CHANGELOG.md) for details.\n\n## Installation\n\n### macOS\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_aarch64.dmg\` or \`Notomattic_${process.env.PACKAGE_VERSION}_x64.dmg\`\n2. Open the DMG and drag to Applications\n3. First launch: Right-click → Open → Open (bypass Gatekeeper)\n\n### Windows\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_x64-setup.exe\` (recommended) or \`.msi\`\n2. Run the installer\n3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
+              body: `## What's New\n\nSee [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CHANGELOG.md) for details.\n\n## Installation\n\n### macOS\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_aarch64.dmg\` or \`Notomattic_${process.env.PACKAGE_VERSION}_x64.dmg\`\n2. Open the DMG and drag to Applications\n3. The app is now signed and notarized - it should open without Gatekeeper warnings!\n\n### Windows\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_x64-setup.exe\` (recommended) or \`.msi\`\n2. Run the installer\n3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
               draft: false,
               prerelease: false
             })
@@ -78,9 +78,32 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      # macOS code signing setup
+      - name: Import Apple Certificate
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+          rm certificate.p12
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: "Developer ID Application: Mauro de Brito Marques Pereira (J6Z5WJKHZB)"
+          # macOS notarization
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
