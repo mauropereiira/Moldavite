@@ -46,7 +46,9 @@
       "entitlements": null,
       "exceptionDomain": null,
       "frameworks": [],
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "Developer ID Application: Mauro de Brito Marques Pereira (J6Z5WJKHZB)",
+      "providerShortName": "J6Z5WJKHZB"
     },
     "windows": {
       "webviewInstallMode": {
