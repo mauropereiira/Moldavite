@@ -10,6 +10,8 @@ mod calendar;
 #[cfg(target_os = "macos")]
 use calendar::{CalendarEvent, CalendarInfo, CalendarPermission};
 
+mod encryption;
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteFile {
@@ -17,6 +19,7 @@ pub struct NoteFile {
     path: String,
     is_daily: bool,
     date: Option<String>,
+    is_locked: bool,
 }
 
 // Template System Data Structures
@@ -375,6 +378,14 @@ fn create_note_from_link(note_name: String) -> Result<String, String> {
 
     std::fs::write(&file_path, initial_content).map_err(|e| format!("Failed to create note: {}", e))?;
 
+    // Set restrictive file permissions (600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&file_path, permissions).map_err(|e| e.to_string())?;
+    }
+
     Ok(filename)
 }
 
@@ -384,9 +395,17 @@ fn ensure_directories() -> Result<(), String> {
     let daily_dir = get_daily_dir();
     let standalone_dir = get_standalone_dir();
 
-    fs::create_dir_all(&notes_dir).map_err(|e| e.to_string())?;
-    fs::create_dir_all(&daily_dir).map_err(|e| e.to_string())?;
-    fs::create_dir_all(&standalone_dir).map_err(|e| e.to_string())?;
+    for dir in [&notes_dir, &daily_dir, &standalone_dir] {
+        fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+
+        // Set restrictive directory permissions (700 = owner only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = fs::Permissions::from_mode(0o700);
+            fs::set_permissions(dir, permissions).map_err(|e| e.to_string())?;
+        }
+    }
 
     Ok(())
 }
@@ -401,14 +420,27 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "md") {
-                    let name = path.file_name().unwrap().to_string_lossy().to_string();
-                    let date = name.strip_suffix(".md").map(|s| s.to_string());
+                let filename = path.file_name().unwrap().to_string_lossy().to_string();
+
+                // Check for locked files (.md.locked)
+                if filename.ends_with(".md.locked") {
+                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                    let date = base_name.strip_suffix(".md").map(|s| s.to_string());
                     notes.push(NoteFile {
-                        name: name.clone(),
-                        path: format!("daily/{}", name),
+                        name: base_name.clone(),
+                        path: format!("daily/{}", base_name),
                         is_daily: true,
                         date,
+                        is_locked: true,
+                    });
+                } else if path.extension().map_or(false, |ext| ext == "md") {
+                    let date = filename.strip_suffix(".md").map(|s| s.to_string());
+                    notes.push(NoteFile {
+                        name: filename.clone(),
+                        path: format!("daily/{}", filename),
+                        is_daily: true,
+                        date,
+                        is_locked: false,
                     });
                 }
             }
@@ -421,13 +453,25 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
         if let Ok(entries) = fs::read_dir(&standalone_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "md") {
-                    let name = path.file_name().unwrap().to_string_lossy().to_string();
+                let filename = path.file_name().unwrap().to_string_lossy().to_string();
+
+                // Check for locked files (.md.locked)
+                if filename.ends_with(".md.locked") {
+                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
                     notes.push(NoteFile {
-                        name: name.clone(),
-                        path: format!("notes/{}", name),
+                        name: base_name.clone(),
+                        path: format!("notes/{}", base_name),
                         is_daily: false,
                         date: None,
+                        is_locked: true,
+                    });
+                } else if path.extension().map_or(false, |ext| ext == "md") {
+                    notes.push(NoteFile {
+                        name: filename.clone(),
+                        path: format!("notes/{}", filename),
+                        is_daily: false,
+                        date: None,
+                        is_locked: false,
                     });
                 }
             }
@@ -463,7 +507,17 @@ fn write_note(filename: String, content: String, is_daily: bool) -> Result<(), S
     };
 
     let path = dir.join(&filename);
-    fs::write(&path, content).map_err(|e| e.to_string())
+    fs::write(&path, content).map_err(|e| e.to_string())?;
+
+    // Set restrictive file permissions (600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -494,6 +548,15 @@ fn create_note(title: String) -> Result<String, String> {
     }
 
     fs::write(&path, "").map_err(|e| e.to_string())?;
+
+    // Set restrictive file permissions (600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
+    }
+
     Ok(filename)
 }
 
@@ -709,7 +772,178 @@ fn create_note_from_template(
 
     fs::write(&path, content).map_err(|e| e.to_string())?;
 
+    // Set restrictive file permissions (600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
+    }
+
     Ok(())
+}
+
+// Fix permissions on existing note files
+#[tauri::command]
+fn fix_note_permissions() -> Result<u32, String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut fixed_count = 0u32;
+
+        for dir in [get_daily_dir(), get_standalone_dir()] {
+            if !dir.exists() {
+                continue;
+            }
+
+            if let Ok(entries) = fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().map_or(false, |ext| ext == "md") {
+                        let permissions = fs::Permissions::from_mode(0o600);
+                        if fs::set_permissions(&path, permissions).is_ok() {
+                            fixed_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(fixed_count)
+    }
+
+    #[cfg(not(unix))]
+    Ok(0)
+}
+
+// Note Locking Commands
+
+/// Lock a note by encrypting it with a password
+#[tauri::command]
+fn lock_note(filename: String, password: String, is_daily: bool) -> Result<(), String> {
+    let dir = if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let original_path = dir.join(&filename);
+    let locked_path = dir.join(format!("{}.locked", filename));
+
+    // Check if original file exists
+    if !original_path.exists() {
+        return Err("Note not found".to_string());
+    }
+
+    // Check if already locked
+    if locked_path.exists() {
+        return Err("Note is already locked".to_string());
+    }
+
+    // Read the original content
+    let content = fs::read_to_string(&original_path)
+        .map_err(|e| format!("Failed to read note: {}", e))?;
+
+    // Encrypt the content
+    let encrypted = encryption::encrypt_content(&content, &password)?;
+
+    // Write the encrypted content to the new file
+    fs::write(&locked_path, encrypted)
+        .map_err(|e| format!("Failed to write locked note: {}", e))?;
+
+    // Set restrictive permissions on the locked file
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&locked_path, permissions).ok();
+    }
+
+    // Delete the original unencrypted file
+    fs::remove_file(&original_path)
+        .map_err(|e| format!("Failed to remove original note: {}", e))?;
+
+    Ok(())
+}
+
+/// Unlock a note temporarily to view it (returns decrypted content without saving)
+#[tauri::command]
+fn unlock_note(filename: String, password: String, is_daily: bool) -> Result<String, String> {
+    let dir = if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let locked_path = dir.join(format!("{}.locked", filename));
+
+    // Check if locked file exists
+    if !locked_path.exists() {
+        return Err("Locked note not found".to_string());
+    }
+
+    // Read the encrypted content
+    let encrypted = fs::read_to_string(&locked_path)
+        .map_err(|e| format!("Failed to read locked note: {}", e))?;
+
+    // Decrypt and return the content
+    encryption::decrypt_content(&encrypted, &password)
+}
+
+/// Permanently unlock a note (decrypt and save as regular .md file)
+#[tauri::command]
+fn permanently_unlock_note(filename: String, password: String, is_daily: bool) -> Result<(), String> {
+    let dir = if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let locked_path = dir.join(format!("{}.locked", filename));
+    let original_path = dir.join(&filename);
+
+    // Check if locked file exists
+    if !locked_path.exists() {
+        return Err("Locked note not found".to_string());
+    }
+
+    // Read the encrypted content
+    let encrypted = fs::read_to_string(&locked_path)
+        .map_err(|e| format!("Failed to read locked note: {}", e))?;
+
+    // Decrypt the content
+    let decrypted = encryption::decrypt_content(&encrypted, &password)?;
+
+    // Write the decrypted content to the original path
+    fs::write(&original_path, decrypted)
+        .map_err(|e| format!("Failed to write unlocked note: {}", e))?;
+
+    // Set restrictive permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&original_path, permissions).ok();
+    }
+
+    // Delete the locked file
+    fs::remove_file(&locked_path)
+        .map_err(|e| format!("Failed to remove locked note: {}", e))?;
+
+    Ok(())
+}
+
+/// Check if a note is locked
+#[tauri::command]
+fn is_note_locked(filename: String, is_daily: bool) -> bool {
+    let dir = if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let locked_path = dir.join(format!("{}.locked", filename));
+    locked_path.exists()
 }
 
 // Apple Calendar (EventKit) Commands - macOS only
@@ -752,6 +986,8 @@ fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -779,6 +1015,13 @@ pub fn run() {
             delete_template,
             apply_template,
             create_note_from_template,
+            // Privacy commands
+            fix_note_permissions,
+            // Note locking commands
+            lock_note,
+            unlock_note,
+            permanently_unlock_note,
+            is_note_locked,
             // Wiki Link system commands
             scan_note_links,
             get_backlinks,

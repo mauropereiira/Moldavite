@@ -1,0 +1,233 @@
+import { useState, useEffect, useRef } from 'react';
+import { X, Lock, Unlock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+
+interface PasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (password: string) => Promise<void>;
+  mode: 'lock' | 'unlock' | 'permanent-unlock';
+  noteTitle: string;
+}
+
+export function PasswordModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  mode,
+  noteTitle,
+}: PasswordModalProps) {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setPassword('');
+      setConfirmPassword('');
+      setShowPassword(false);
+      setError(null);
+      setIsSubmitting(false);
+      // Focus the input when modal opens
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Validation
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+
+    if (password.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+
+    if (mode === 'lock' && password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(password);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Operation failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const titles = {
+    lock: 'Lock Note',
+    unlock: 'Unlock Note',
+    'permanent-unlock': 'Remove Lock',
+  };
+
+  const descriptions = {
+    lock: 'This will encrypt your note with AES-256 encryption. You will need this password to view or edit the note.',
+    unlock: 'Enter your password to view this locked note.',
+    'permanent-unlock': 'Enter your password to permanently remove the lock from this note.',
+  };
+
+  const submitLabels = {
+    lock: 'Lock Note',
+    unlock: 'Unlock',
+    'permanent-unlock': 'Remove Lock',
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            {mode === 'lock' ? (
+              <Lock className="w-5 h-5 text-amber-500" />
+            ) : (
+              <Unlock className="w-5 h-5 text-blue-500" />
+            )}
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {titles[mode]}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleSubmit}>
+          <div className="px-6 py-4 space-y-4">
+            {/* Note title */}
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium text-gray-900 dark:text-white">
+                {noteTitle}
+              </span>
+            </div>
+
+            {/* Description */}
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {descriptions[mode]}
+            </p>
+
+            {/* Error message */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+
+            {/* Password input */}
+            <div className="space-y-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter password"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm password (only for lock mode) */}
+            {mode === 'lock' && (
+              <div className="space-y-1">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Confirm Password
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Confirm password"
+                  autoComplete="off"
+                />
+              </div>
+            )}
+
+            {/* Warning for lock mode */}
+            {mode === 'lock' && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Warning:</strong> If you forget your password, there
+                  is no way to recover the note. Make sure to remember it.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
+                mode === 'lock'
+                  ? 'bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400'
+                  : 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400'
+              }`}
+            >
+              {isSubmitting ? 'Processing...' : submitLabels[mode]}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

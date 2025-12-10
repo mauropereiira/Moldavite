@@ -51,6 +51,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
         name: filename,
         path: filename,
         isDaily: false,
+        isLocked: false,
       };
 
       // Add to notes list

@@ -77,6 +77,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         name: filename,
         path: filename,
         isDaily: false,
+        isLocked: false,
       };
       setNotes([...notes, noteFile]);
 

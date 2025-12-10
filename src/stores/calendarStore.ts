@@ -78,12 +78,16 @@ export const useCalendarStore = create<CalendarState>()(
 
       /**
        * Requests calendar access permission from the user.
+       * Includes a small delay to ensure the app window is focused before showing the system dialog.
        * Fetches calendars if permission is granted.
        * @returns True if permission was granted
        */
       requestPermission: async () => {
         set({ isRequestingPermission: true });
         try {
+          // Small delay to ensure window is focused before system dialog appears
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
           const granted = await requestCalendarPermission();
           const status = await getCalendarPermission();
           set({

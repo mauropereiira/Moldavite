@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Notomattic",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "identifier": "com.notomattic",
   "build": {
     "frontendDist": "../dist",
@@ -29,6 +29,14 @@
       "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE4MzFCRjE3NDI4RTRGMkUKUldRdVQ0NUNGNzh4cUIzZWVMRTZUNHdtblFLVFZEb1pYTXdsYTJ0RVdJdUhPeUlZLzVJNzZJVlQK",
+      "endpoints": [
+        "https://github.com/Automattic/notomattic/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["dmg", "app", "msi", "nsis"],
@@ -43,7 +51,7 @@
     "shortDescription": "A privacy-first note-taking app",
     "longDescription": "Notomattic is a privacy-first note-taking app with WYSIWYG editing, daily notes, wiki-style linking, and calendar integration.",
     "macOS": {
-      "entitlements": null,
+      "entitlements": "Notomattic.entitlements",
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15",

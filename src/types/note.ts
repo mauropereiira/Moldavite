@@ -13,6 +13,7 @@ export interface NoteFile {
   path: string;
   isDaily: boolean;
   date?: string;
+  isLocked: boolean;
 }
 
 export type NoteType = 'daily' | 'standalone';

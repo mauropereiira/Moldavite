@@ -91,6 +91,7 @@ export function Editor() {
             path: target,
             isDaily: isDailyNote,
             date: isDailyNote ? target.replace('.md', '') : undefined,
+            isLocked: false,
           });
 
           toast.success(`Created "${noteName}"`);

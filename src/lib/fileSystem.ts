@@ -245,6 +245,15 @@ export async function clearAllNotes(): Promise<void> {
 }
 
 /**
+ * Fixes permissions on all existing note files to be owner-only (600).
+ * This is a privacy improvement to ensure notes are not readable by other users.
+ * @returns The number of files that had their permissions fixed
+ */
+export async function fixNotePermissions(): Promise<number> {
+  return await invoke('fix_note_permissions');
+}
+
+/**
  * Generates a filename for a daily note based on the date.
  * @param date - The date for the daily note
  * @returns Filename in format "YYYY-MM-DD.md"
@@ -310,4 +319,49 @@ export async function checkNoteExists(noteName: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Note Locking Functions
+
+/**
+ * Locks a note by encrypting it with a password.
+ * The note will be stored as filename.md.locked with AES-256 encryption.
+ * @param filename - The note filename (e.g., "my-note.md")
+ * @param password - The password to encrypt the note with
+ * @param isDaily - Whether this is a daily note
+ */
+export async function lockNote(filename: string, password: string, isDaily: boolean): Promise<void> {
+  await invoke('lock_note', { filename, password, isDaily });
+}
+
+/**
+ * Temporarily unlocks a note to view its content.
+ * The note remains encrypted on disk; only returns decrypted content.
+ * @param filename - The note filename (e.g., "my-note.md")
+ * @param password - The password to decrypt the note
+ * @param isDaily - Whether this is a daily note
+ * @returns The decrypted content
+ */
+export async function unlockNote(filename: string, password: string, isDaily: boolean): Promise<string> {
+  return await invoke('unlock_note', { filename, password, isDaily });
+}
+
+/**
+ * Permanently unlocks a note, decrypting it and saving as a regular .md file.
+ * @param filename - The note filename (e.g., "my-note.md")
+ * @param password - The password to decrypt the note
+ * @param isDaily - Whether this is a daily note
+ */
+export async function permanentlyUnlockNote(filename: string, password: string, isDaily: boolean): Promise<void> {
+  await invoke('permanently_unlock_note', { filename, password, isDaily });
+}
+
+/**
+ * Checks if a note is currently locked.
+ * @param filename - The note filename (e.g., "my-note.md")
+ * @param isDaily - Whether this is a daily note
+ * @returns True if the note is locked
+ */
+export async function isNoteLocked(filename: string, isDaily: boolean): Promise<boolean> {
+  return await invoke('is_note_locked', { filename, isDaily });
 }
