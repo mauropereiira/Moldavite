@@ -1,10 +1,16 @@
 import { useEffect } from 'react';
-import { Layout, ToastContainer } from './components';
+import { Layout, ToastContainer, UpdateNotification } from './components';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode } from './stores';
+import { fixNotePermissions } from './lib/fileSystem';
 
 function App() {
   const { theme } = useThemeStore();
   const { fontSize, lineHeight, compactMode } = useSettingsStore();
+
+  // Fix note permissions on startup (privacy improvement)
+  useEffect(() => {
+    fixNotePermissions().catch(console.error);
+  }, []);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
@@ -39,6 +45,7 @@ function App() {
     <>
       <Layout />
       <ToastContainer />
+      <UpdateNotification />
     </>
   );
 }

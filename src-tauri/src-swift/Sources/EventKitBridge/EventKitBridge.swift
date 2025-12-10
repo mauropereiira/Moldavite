@@ -26,25 +26,33 @@ public func requestCalendarPermission() -> Bool {
     var granted = false
     let semaphore = DispatchSemaphore(value: 0)
 
-    if #available(macOS 14.0, *) {
-        eventStore.requestFullAccessToEvents { success, error in
-            granted = success
-            if let error = error {
-                print("EventKit permission error: \(error.localizedDescription)")
+    // Dispatch to main thread to ensure system dialog appears properly
+    DispatchQueue.main.async {
+        if #available(macOS 14.0, *) {
+            eventStore.requestFullAccessToEvents { success, error in
+                granted = success
+                if let error = error {
+                    print("EventKit permission error: \(error.localizedDescription)")
+                }
+                semaphore.signal()
             }
-            semaphore.signal()
-        }
-    } else {
-        eventStore.requestAccess(to: .event) { success, error in
-            granted = success
-            if let error = error {
-                print("EventKit permission error: \(error.localizedDescription)")
+        } else {
+            eventStore.requestAccess(to: .event) { success, error in
+                granted = success
+                if let error = error {
+                    print("EventKit permission error: \(error.localizedDescription)")
+                }
+                semaphore.signal()
             }
-            semaphore.signal()
         }
     }
 
-    semaphore.wait()
+    // Wait with a 30-second timeout to prevent hanging
+    let result = semaphore.wait(timeout: .now() + 30)
+    if result == .timedOut {
+        print("EventKit permission request timed out")
+        return false
+    }
     return granted
 }
 

@@ -110,6 +110,7 @@ export function useAutoSave() {
                 path: filename,
                 isDaily: true,
                 date: dateStr,
+                isLocked: false,
               };
               setNotes([...freshNotes, noteFile]);
             }

@@ -89,6 +89,7 @@ export function useNotes() {
             path: filename,
             isDaily: true,
             date: dateStr,
+            isLocked: false,
           };
           setNotes([...freshNotes, noteFile]);
         }
@@ -187,6 +188,7 @@ export function useNotes() {
             path: filename,
             isDaily: true,
             date: dateStr,
+            isLocked: false,
           };
 
           // Add to notes list
@@ -202,6 +204,7 @@ export function useNotes() {
             path: filename,
             isDaily: true,
             date: dateStr,
+            isLocked: false,
           };
           const note = filenameToNote(noteFile, '');
           setCurrentNote(note);
@@ -214,6 +217,7 @@ export function useNotes() {
           path: filename,
           isDaily: true,
           date: dateStr,
+          isLocked: false,
         };
         const note = filenameToNote(noteFile, '');
         setCurrentNote(note);
@@ -234,6 +238,7 @@ export function useNotes() {
         name: filename,
         path: filename,
         isDaily: false,
+        isLocked: false,
       };
       // Get fresh notes to avoid stale closure
       const freshNotes = getState().notes;
@@ -279,6 +284,7 @@ export function useNotes() {
         path: filename,
         isDaily,
         date: isDaily ? title : undefined,
+        isLocked: false,
       };
 
       // Get fresh notes to avoid stale closure

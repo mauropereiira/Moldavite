@@ -14,3 +14,4 @@ export {
   TimelineSkeleton,
   CalendarEventSkeleton,
 } from './Skeleton';
+export { PasswordModal } from './PasswordModal';

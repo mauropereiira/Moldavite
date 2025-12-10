@@ -1,6 +1,6 @@
 [package]
 name = "notomattic"
-version = "0.1.1"
+version = "0.2.0"
 description = "A privacy-first note-taking app"
 authors = ["Notomattic Team"]
 license = "UNLICENSED"
@@ -25,10 +25,18 @@ log = "0.4"
 tauri = { version = "2.9.2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 dirs = "5.0"
 chrono = "0.4"
 regex = "1"
 lazy_static = "1.4"
+
+# Encryption dependencies for note locking
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+base64 = "0.22"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0"

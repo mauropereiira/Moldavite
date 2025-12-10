@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Lock, Unlock, Trash2, MoreHorizontal } from 'lucide-react';
 import { useNotes, useSearch } from '@/hooks';
 import { useNoteStore, useSettingsStore } from '@/stores';
-import { deleteNote } from '@/lib';
+import { deleteNote, lockNote, unlockNote, permanentlyUnlockNote } from '@/lib';
 import { SettingsModal } from '@/components/settings';
-import { NoSearchResultsEmptyState, NoNotesEmptyState } from '@/components/ui/EmptyState';
+import { NoSearchResultsEmptyState, NoNotesEmptyState, PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
 import type { NoteFile } from '@/types';
+
+type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
 export function Sidebar() {
   const { notes, loadNote, loadDailyNote, createNote, createFromTemplate } = useNotes();
@@ -21,6 +24,12 @@ export function Sidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [pendingNoteTitle, setPendingNoteTitle] = useState('');
+
+  // Lock/unlock state
+  const [lockModalMode, setLockModalMode] = useState<LockModalMode>(null);
+  const [noteToLock, setNoteToLock] = useState<NoteFile | null>(null);
+  const [contextMenuNote, setContextMenuNote] = useState<NoteFile | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
   // Get standalone notes only (daily notes accessed via calendar)
   const standaloneNotes = notes
@@ -163,6 +172,91 @@ export function Sidebar() {
     setShowDeleteConfirm(false);
   };
 
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, note: NoteFile) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuNote(note);
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenuNote(null);
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => closeContextMenu();
+    if (contextMenuNote) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenuNote]);
+
+  // Lock/Unlock handlers
+  const handleLockNote = (note: NoteFile) => {
+    setNoteToLock(note);
+    setLockModalMode('lock');
+    closeContextMenu();
+  };
+
+  const handleUnlockNote = (note: NoteFile) => {
+    setNoteToLock(note);
+    setLockModalMode('unlock');
+    closeContextMenu();
+  };
+
+  const handlePermanentUnlock = (note: NoteFile) => {
+    setNoteToLock(note);
+    setLockModalMode('permanent-unlock');
+    closeContextMenu();
+  };
+
+  const handleLockSubmit = async (password: string) => {
+    if (!noteToLock) return;
+
+    if (lockModalMode === 'lock') {
+      await lockNote(noteToLock.name, password, noteToLock.isDaily);
+      toast.success('Note locked');
+      // Update note in list to show locked status
+      const updatedNotes = notes.map(n =>
+        n.path === noteToLock.path ? { ...n, isLocked: true } : n
+      );
+      setNotes(updatedNotes);
+      // Clear current note if it's the one being locked
+      if (currentNote && currentNote.id === noteToLock.path) {
+        setCurrentNote(null);
+      }
+    } else if (lockModalMode === 'unlock') {
+      const content = await unlockNote(noteToLock.name, password, noteToLock.isDaily);
+      // Load the decrypted content into the editor
+      const note = {
+        id: noteToLock.path,
+        title: noteToLock.name.replace(/\.md$/, ''),
+        content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isDaily: noteToLock.isDaily,
+        date: noteToLock.date,
+      };
+      setCurrentNote(note);
+      toast.success('Note unlocked (view only)');
+    } else if (lockModalMode === 'permanent-unlock') {
+      await permanentlyUnlockNote(noteToLock.name, password, noteToLock.isDaily);
+      toast.success('Note permanently unlocked');
+      // Update note in list to show unlocked status
+      const updatedNotes = notes.map(n =>
+        n.path === noteToLock.path ? { ...n, isLocked: false } : n
+      );
+      setNotes(updatedNotes);
+    }
+  };
+
+  const handleLockModalClose = () => {
+    setLockModalMode(null);
+    setNoteToLock(null);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Delete Confirmation Modal */}
@@ -235,6 +329,67 @@ export function Sidebar() {
 
       {/* Settings Modal */}
       <SettingsModal />
+
+      {/* Password Modal for Lock/Unlock */}
+      {lockModalMode && noteToLock && (
+        <PasswordModal
+          isOpen={true}
+          onClose={handleLockModalClose}
+          onSubmit={handleLockSubmit}
+          mode={lockModalMode}
+          noteTitle={noteToLock.name.replace(/\.md$/, '')}
+        />
+      )}
+
+      {/* Context Menu */}
+      {contextMenuNote && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
+          style={{
+            left: contextMenuPosition.x,
+            top: contextMenuPosition.y,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenuNote.isLocked ? (
+            <>
+              <button
+                onClick={() => handleUnlockNote(contextMenuNote)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Unlock className="w-4 h-4" />
+                View Note
+              </button>
+              <button
+                onClick={() => handlePermanentUnlock(contextMenuNote)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Unlock className="w-4 h-4" />
+                Remove Lock
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => handleLockNote(contextMenuNote)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <Lock className="w-4 h-4" />
+              Lock Note
+            </button>
+          )}
+          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+          <button
+            onClick={(e) => {
+              handleDeleteClick(e, contextMenuNote);
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Note
+          </button>
+        </div>
+      )}
 
       {/* Template Picker Modal */}
       <TemplatePickerModal
@@ -318,26 +473,40 @@ export function Sidebar() {
                 key={note.path}
                 className="group relative list-item-stagger"
                 style={{ '--index': index } as React.CSSProperties}
+                onContextMenu={(e) => handleContextMenu(e, note)}
               >
                 <button
                   onClick={() => {
-                    loadNote(note);
-                    search.clearSearch();
+                    if (note.isLocked) {
+                      // Open unlock modal for locked notes
+                      handleUnlockNote(note);
+                    } else {
+                      loadNote(note);
+                      search.clearSearch();
+                    }
                   }}
                   className={`note-card sidebar-item-animated w-full text-left text-sm truncate pr-8 focus-ring ${
                     isNoteActive(note) ? 'note-card-active text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  {note.name.replace(/\.md$/, '')}
+                  <span className="flex items-center gap-2">
+                    {note.isLocked && (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                    )}
+                    <span className="truncate">{note.name.replace(/\.md$/, '')}</span>
+                  </span>
                 </button>
                 <button
-                  onClick={(e) => handleDeleteClick(e, note)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 delete-btn-fade text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-500 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                  title="Delete note"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setContextMenuNote(note);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setContextMenuPosition({ x: rect.right, y: rect.top });
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 delete-btn-fade text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                  title="More options"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <MoreHorizontal className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
@@ -384,7 +553,7 @@ export function Sidebar() {
               Notomattic
             </p>
             <p className="text-[10px] text-gray-300 dark:text-gray-600">
-              v0.1.0
+              v0.2.0
             </p>
           </div>
         </div>
