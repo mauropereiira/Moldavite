@@ -13,15 +13,16 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
   const handleCopyLink = async () => {
     if (!currentNote) return;
 
-    const filename = currentNote.isDaily && currentNote.date
-      ? `${currentNote.date}.md`
-      : `${currentNote.title}.md`;
+    // Create wiki-style link for easy paste into other notes
+    const noteName = currentNote.isDaily && currentNote.date
+      ? currentNote.date
+      : currentNote.title;
 
-    const link = `notomattic://note/${encodeURIComponent(filename)}`;
+    const wikiLink = `[[${noteName}]]`;
 
     try {
-      await navigator.clipboard.writeText(link);
-      onShowToast?.('Link copied');
+      await navigator.clipboard.writeText(wikiLink);
+      onShowToast?.('Wiki link copied');
     } catch (error) {
       console.error('[ShareMenu] Failed to copy link:', error);
     }
@@ -67,7 +68,7 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
       position="right"
       trigger={
         <button
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
           title="Share"
         >
           <Share2 className="w-4 h-4" />
@@ -78,7 +79,7 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
         onClick={handleCopyLink}
         icon={<Link2 className="w-4 h-4" />}
       >
-        Copy note link
+        Copy wiki link
       </DropdownItem>
       <DropdownDivider />
       <DropdownItem
