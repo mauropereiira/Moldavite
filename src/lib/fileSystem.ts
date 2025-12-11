@@ -365,3 +365,48 @@ export async function permanentlyUnlockNote(filename: string, password: string, 
 export async function isNoteLocked(filename: string, isDaily: boolean): Promise<boolean> {
   return await invoke('is_note_locked', { filename, isDaily });
 }
+
+// Directory Management Functions
+
+/**
+ * Gets the current notes directory path.
+ * @returns The absolute path to the notes directory
+ */
+export async function getNotesDirectory(): Promise<string> {
+  return await invoke('get_notes_directory');
+}
+
+/**
+ * Sets a new notes directory and moves all existing notes.
+ * @param newPath - The new directory path
+ */
+export async function setNotesDirectory(newPath: string): Promise<void> {
+  await invoke('set_notes_directory', { newPath });
+}
+
+// Export/Import Functions
+
+export interface ImportResult {
+  dailyNotes: number;
+  standaloneNotes: number;
+  templates: number;
+}
+
+/**
+ * Exports all notes and templates to a ZIP file.
+ * @param destination - The path where the ZIP file will be created
+ * @returns The path to the created ZIP file
+ */
+export async function exportNotes(destination: string): Promise<string> {
+  return await invoke('export_notes', { destination });
+}
+
+/**
+ * Imports notes and templates from a ZIP file.
+ * @param zipPath - The path to the ZIP file to import
+ * @param merge - If true, merge with existing notes; if false, replace all notes
+ * @returns Import statistics (counts of imported items)
+ */
+export async function importNotes(zipPath: string, merge: boolean): Promise<ImportResult> {
+  return await invoke('import_notes', { zipPath, merge });
+}
