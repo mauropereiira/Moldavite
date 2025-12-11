@@ -30,6 +30,9 @@ interface CalendarState {
   calendarEnabled: boolean;
   showAllDayEvents: boolean;
 
+  // Onboarding
+  hasSeenOnboarding: boolean;
+
   // Actions
   checkPermission: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
@@ -38,6 +41,7 @@ interface CalendarState {
   setSelectedCalendarId: (id: string | null) => void;
   setCalendarEnabled: (enabled: boolean) => void;
   setShowAllDayEvents: (show: boolean) => void;
+  setHasSeenOnboarding: (seen: boolean) => void;
   clearEvents: () => void;
 }
 
@@ -56,6 +60,7 @@ export const useCalendarStore = create<CalendarState>()(
       selectedCalendarId: null,
       calendarEnabled: true,
       showAllDayEvents: true,
+      hasSeenOnboarding: false,
 
       /**
        * Checks the current calendar permission status and fetches calendars if authorized.
@@ -186,6 +191,12 @@ export const useCalendarStore = create<CalendarState>()(
       setShowAllDayEvents: (show) => set({ showAllDayEvents: show }),
 
       /**
+       * Marks the onboarding as seen.
+       * @param seen - True if onboarding has been seen
+       */
+      setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
+
+      /**
        * Clears all loaded events and sync timestamp.
        */
       clearEvents: () => set({ events: [], lastSynced: null }),
@@ -196,6 +207,7 @@ export const useCalendarStore = create<CalendarState>()(
         calendarEnabled: state.calendarEnabled,
         showAllDayEvents: state.showAllDayEvents,
         selectedCalendarId: state.selectedCalendarId,
+        hasSeenOnboarding: state.hasSeenOnboarding,
       }),
     }
   )

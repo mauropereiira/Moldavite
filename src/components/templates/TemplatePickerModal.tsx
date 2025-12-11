@@ -76,7 +76,7 @@ export function TemplatePickerModal({
       aria-modal="true"
       aria-labelledby="template-picker-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
+      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 id="template-picker-title" className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -101,7 +101,7 @@ export function TemplatePickerModal({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search templates..."
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 search-input-polished focus:outline-none"
+              className="w-full pl-9 pr-4 py-2 text-sm rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 search-input-polished focus:outline-none"
               aria-label="Search templates"
             />
           </div>
@@ -121,7 +121,7 @@ export function TemplatePickerModal({
               </p>
               <button
                 onClick={() => loadTemplates()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white rounded btn-primary-gradient btn-elevated focus-ring"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry
@@ -133,7 +133,7 @@ export function TemplatePickerModal({
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div
                   key={i}
-                  className="p-4 rounded-lg border border-gray-200 dark:border-gray-700"
+                  className="p-4 rounded border border-gray-200 dark:border-gray-700"
                 >
                   <div className="skeleton w-8 h-8 rounded mb-3" />
                   <div className="skeleton h-4 w-3/4 mb-2" />
@@ -162,9 +162,9 @@ export function TemplatePickerModal({
                 <div className="list-item-stagger" style={{ '--index': 0 } as React.CSSProperties}>
                   <button
                     onClick={handleBlankNote}
-                    className="w-full p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                    className="w-full p-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 mb-3 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400">
+                    <div className="w-8 h-8 mb-3 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>

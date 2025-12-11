@@ -15,3 +15,5 @@ export {
   CalendarEventSkeleton,
 } from './Skeleton';
 export { PasswordModal } from './PasswordModal';
+export { NoteColorPicker, NOTE_COLORS, getNoteBackgroundColor } from './NoteColorPicker';
+export type { NoteColorId } from './NoteColorPicker';

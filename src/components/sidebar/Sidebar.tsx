@@ -262,7 +262,7 @@ export function Sidebar() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && noteToDelete && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Delete Note
             </h3>
@@ -272,13 +272,13 @@ export function Sidebar() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleDeleteCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-danger-gradient btn-elevated focus-ring"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded btn-danger-gradient btn-elevated focus-ring"
               >
                 Delete
               </button>
@@ -293,7 +293,7 @@ export function Sidebar() {
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
           onClick={handleCreateModalBackdropClick}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 w-full modal-elevated modal-content-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 w-full modal-elevated modal-content-enter">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               New Note
             </h3>
@@ -303,20 +303,20 @@ export function Sidebar() {
               onChange={e => setNewNoteTitle(e.target.value)}
               onKeyDown={handleCreateModalKeyDown}
               placeholder="Note title..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleCancelCreate}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateNote}
                 disabled={!newNoteTitle.trim()}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient focus-ring ${
+                className={`px-3 py-1.5 text-sm font-medium text-white rounded btn-primary-gradient focus-ring ${
                   !newNoteTitle.trim() ? 'btn-disabled' : 'btn-elevated'
                 }`}
               >
@@ -344,7 +344,7 @@ export function Sidebar() {
       {/* Context Menu */}
       {contextMenuNote && (
         <div
-          className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
+          className="fixed z-50 bg-white dark:bg-gray-800 rounded shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
           style={{
             left: contextMenuPosition.x,
             top: contextMenuPosition.y,
@@ -403,7 +403,7 @@ export function Sidebar() {
       <div className="p-3">
         <button
           onClick={handleTodayClick}
-          className="w-full px-3 py-2.5 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring"
+          className="w-full px-3 py-2.5 text-sm font-medium text-white rounded btn-primary-gradient btn-elevated focus-ring"
         >
           Today's Note
         </button>
@@ -427,7 +427,7 @@ export function Sidebar() {
             onChange={(e) => search.setQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
             placeholder="Search notes..."
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 search-input-polished focus:outline-none"
+            className="w-full pl-9 pr-8 py-2 text-sm rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 search-input-polished focus:outline-none"
           />
           {search.query && (
             <button
@@ -530,7 +530,7 @@ export function Sidebar() {
         <div className="p-3 pb-2">
           <button
             onClick={() => setIsCreating(true)}
-            className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all shadow-system-xs hover:shadow-system-sm focus-ring"
+            className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-all shadow-system-xs hover:shadow-system-sm focus-ring"
           >
             + New Note
           </button>
@@ -540,7 +540,7 @@ export function Sidebar() {
         <div className="px-3 pb-3 flex flex-col items-center gap-2">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             title="Settings (⌘,)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

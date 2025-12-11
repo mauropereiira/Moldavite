@@ -1,16 +1,22 @@
 import { useEffect } from 'react';
-import { Layout, ToastContainer, UpdateNotification } from './components';
-import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode } from './stores';
+import { Layout, ToastContainer, UpdateNotification, CalendarOnboardingModal } from './components';
+import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
 
 function App() {
   const { theme } = useThemeStore();
-  const { fontSize, lineHeight, compactMode } = useSettingsStore();
+  const { fontSize, fontFamily, lineHeight, compactMode } = useSettingsStore();
+  const { loadColors } = useNoteColorsStore();
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {
     fixNotePermissions().catch(console.error);
   }, []);
+
+  // Load note colors on startup
+  useEffect(() => {
+    loadColors();
+  }, [loadColors]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
@@ -34,6 +40,10 @@ function App() {
   }, [fontSize]);
 
   useEffect(() => {
+    applyFontFamily(fontFamily);
+  }, [fontFamily]);
+
+  useEffect(() => {
     applyLineHeight(lineHeight);
   }, [lineHeight]);
 
@@ -46,6 +56,7 @@ function App() {
       <Layout />
       <ToastContainer />
       <UpdateNotification />
+      <CalendarOnboardingModal />
     </>
   );
 }

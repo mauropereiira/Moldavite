@@ -85,7 +85,7 @@ export function SettingsTemplates({
           onChange={(e) =>
             setDefaultDailyTemplate(e.target.value || null)
           }
-          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label="Select default daily template"
         >
           <option value="">Blank (no template)</option>
@@ -107,7 +107,7 @@ export function SettingsTemplates({
             {defaultTemplates.map((template) => (
               <div
                 key={template.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700"
+                className="flex items-center gap-3 p-3 rounded bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700"
               >
                 <div className="text-gray-400 dark:text-gray-500">
                   <TemplateIcon icon={template.icon} size={20} />
@@ -138,7 +138,7 @@ export function SettingsTemplates({
         </h3>
 
         {customTemplates.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
             <TemplateIcon
               icon="file"
               size={32}
@@ -156,7 +156,7 @@ export function SettingsTemplates({
             {customTemplates.map((template) => (
               <div
                 key={template.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-system-xs"
+                className="flex items-center gap-3 p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-system-xs"
               >
                 <div className="text-blue-500 dark:text-blue-400">
                   <TemplateIcon icon={template.icon} size={20} />
@@ -212,7 +212,7 @@ export function SettingsTemplates({
           aria-modal="true"
           aria-labelledby="delete-template-title"
         >
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -233,14 +233,14 @@ export function SettingsTemplates({
               <button
                 onClick={() => setDeletingTemplate(null)}
                 disabled={isDeleting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-danger-gradient btn-elevated focus-ring disabled:opacity-50 flex items-center gap-2"
+                className="px-3 py-1.5 text-sm font-medium text-white rounded btn-danger-gradient btn-elevated focus-ring disabled:opacity-50 flex items-center gap-2"
               >
                 {isDeleting ? (
                   <>
