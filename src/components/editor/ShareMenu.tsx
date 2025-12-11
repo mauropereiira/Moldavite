@@ -18,7 +18,7 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
       ? currentNote.date
       : currentNote.title;
 
-    const wikiLink = `[[${noteName}`;
+    const wikiLink = `[${noteName}`;
 
     try {
       await navigator.clipboard.writeText(wikiLink);
