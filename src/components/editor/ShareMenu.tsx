@@ -13,12 +13,12 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
   const handleCopyLink = async () => {
     if (!currentNote) return;
 
-    // Create wiki-style link for easy paste into other notes
+    // Create partial wiki link for easy paste - user can confirm via autocomplete
     const noteName = currentNote.isDaily && currentNote.date
       ? currentNote.date
       : currentNote.title;
 
-    const wikiLink = `[[${noteName}]]`;
+    const wikiLink = `[[${noteName}`;
 
     try {
       await navigator.clipboard.writeText(wikiLink);
