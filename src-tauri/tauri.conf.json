@@ -31,7 +31,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE4MzFCRjE3NDI4RTRGMkUKUldRdVQ0NUNGNzh4cUIzZWVMRTZUNHdtblFLVFZEb1pYTXdsYTJ0RVdJdUhPeUlZLzVJNzZJVlQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFNDcwRUFFRTdEN0U5RkUKUldUKzZkZm5yZzVIdnBGMGkvR2ZVcWJxa3o2YnpUTWszU3p0aGhNaTM1aHQ3cStmRVd5TTh1Z2MK",
       "endpoints": [
         "https://github.com/Automattic/notomattic/releases/latest/download/latest.json"
       ]
