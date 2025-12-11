@@ -1,6 +1,6 @@
 {
   "name": "notomattic",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Privacy-first native macOS note-taking app with WYSIWYG editing, daily notes, and calendar integration",
   "type": "module",
   "scripts": {

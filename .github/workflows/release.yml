@@ -110,3 +110,4 @@ jobs:
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
+          updaterJsonPreferNsis: true
