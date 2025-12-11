@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useSettingsStore, useThemeStore, applyTheme, useNoteStore } from '@/stores';
+import { useSettingsStore, useThemeStore, applyTheme, useNoteStore, applyFontFamily, useUpdateStore } from '@/stores';
+import type { FontFamily } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes } from '@/lib';
 import type { ImportResult } from '@/lib';
-import { Calendar, RefreshCw, Check, Lock, FolderOpen, Download, Upload } from 'lucide-react';
+import { Calendar, RefreshCw, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, CheckCircle, AlertCircle } from 'lucide-react';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { getVersion } from '@tauri-apps/api/app';
 
 type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
 
@@ -56,13 +58,13 @@ export function SettingsModal() {
     applyTheme(newTheme);
   };
 
-  const tabs: { id: SettingsTab; label: string }[] = [
-    { id: 'general', label: 'General' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'editor', label: 'Editor' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'templates', label: 'Templates' },
-    { id: 'about', label: 'About' },
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general', label: 'General', icon: <Settings className="w-4 h-4" /> },
+    { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
+    { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" /> },
+    { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
+    { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
   ];
 
   return (
@@ -70,7 +72,7 @@ export function SettingsModal() {
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
+      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -87,17 +89,18 @@ export function SettingsModal() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 px-6">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 px-6 overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-medium transition-all rounded-t-lg mx-0.5 focus-ring ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-t mx-0.5 focus-ring whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'settings-tab settings-tab-active text-blue-600 dark:text-blue-400'
                   : 'settings-tab text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
+              {tab.icon}
               {tab.label}
             </button>
           ))}
@@ -272,7 +275,7 @@ function GeneralSettings() {
     <div className="space-y-6">
       {/* Status Message */}
       {statusMessage && (
-        <div className={`p-3 rounded-lg text-sm ${
+        <div className={`p-3 rounded text-sm ${
           statusMessage.type === 'success'
             ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
             : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
@@ -281,121 +284,134 @@ function GeneralSettings() {
         </div>
       )}
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Notes Directory
+      {/* Storage Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          Storage
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Where your notes are stored
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={notesDirectory}
-            readOnly
-            className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400"
-          />
-          <button
-            onClick={handleChangeDirectory}
-            disabled={isChangingDir}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <FolderOpen className="w-4 h-4" />
-            {isChangingDir ? 'Moving...' : 'Change'}
-          </button>
+
+        <div>
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">
+            Notes Directory
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={notesDirectory}
+              readOnly
+              className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-600 dark:text-gray-400"
+            />
+            <button
+              onClick={handleChangeDirectory}
+              disabled={isChangingDir}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+            >
+              <FolderOpen className="w-4 h-4" />
+              {isChangingDir ? 'Moving...' : 'Change'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+            Existing notes will be moved to the new location
+          </p>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          Existing notes will be moved to the new location
-        </p>
       </div>
 
-      {/* Export/Import Section */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Backup & Restore
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          Export or import your notes and templates as a ZIP archive
-        </p>
+      {/* Backup & Restore Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Backup & Restore
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Export or import your notes and templates
+          </p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export Notes'}
+            {isExporting ? 'Exporting...' : 'Export'}
           </button>
           <button
             onClick={handleImportSelect}
             disabled={isImporting}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
           >
             <Upload className="w-4 h-4" />
-            {isImporting ? 'Importing...' : 'Import Notes'}
+            {isImporting ? 'Importing...' : 'Import'}
           </button>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Auto-save Delay
+      {/* Auto-save Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          Auto-save
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          How long to wait after typing before saving ({settings.autoSaveDelay}ms)
-        </p>
-        <input
-          type="range"
-          min="100"
-          max="2000"
-          step="100"
-          value={settings.autoSaveDelay}
-          onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-        />
-        <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-          <span>100ms (fast)</span>
-          <span>2000ms (slow)</span>
-        </div>
-      </div>
 
-      <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Show Auto-save Status
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Display "Saving..." indicator when saving
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Save delay
+            </label>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {settings.autoSaveDelay}ms
+            </span>
+          </div>
+          <input
+            type="range"
+            min="100"
+            max="2000"
+            step="100"
+            value={settings.autoSaveDelay}
+            onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded appearance-none cursor-pointer accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <span>Fast</span>
+            <span>Slow</span>
+          </div>
         </div>
-        <Toggle
-          enabled={settings.showAutoSaveStatus}
-          onChange={settings.setShowAutoSaveStatus}
-        />
+
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800">
+          <div>
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              Show save indicator
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Display "Saving..." when auto-saving
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.showAutoSaveStatus}
+            onChange={settings.setShowAutoSaveStatus}
+          />
+        </div>
       </div>
 
       {/* Danger Zone */}
-      <div className="pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
-        <div className="rounded-lg border-2 border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4">
-          <h3 className="text-sm font-medium text-red-800 dark:text-red-400 mb-1">
-            Danger Zone
-          </h3>
-          <p className="text-sm text-red-600 dark:text-red-400/80 mb-3">
-            Permanently delete all notes. This action cannot be undone.
-          </p>
-          <button
-            onClick={() => setShowClearConfirm(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Clear All Notes
-          </button>
-        </div>
+      <div className="p-4 rounded-md border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30">
+        <h3 className="text-sm font-medium text-red-800 dark:text-red-400 mb-1">
+          Danger Zone
+        </h3>
+        <p className="text-xs text-red-600 dark:text-red-400/80 mb-3">
+          Permanently delete all notes. This cannot be undone.
+        </p>
+        <button
+          onClick={() => setShowClearConfirm(true)}
+          className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
+        >
+          Clear All Notes
+        </button>
       </div>
 
       {/* Import Options Modal */}
       {showImportOptions && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Import Notes
             </h3>
@@ -405,7 +421,7 @@ function GeneralSettings() {
             <div className="space-y-2 mb-4">
               <button
                 onClick={() => handleImport(true)}
-                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
               >
                 <span className="font-semibold">Merge with existing</span>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -414,7 +430,7 @@ function GeneralSettings() {
               </button>
               <button
                 onClick={() => handleImport(false)}
-                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
               >
                 <span className="font-semibold">Replace all</span>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -427,7 +443,7 @@ function GeneralSettings() {
                 setShowImportOptions(false);
                 setPendingImportPath(null);
               }}
-              className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="w-full px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
@@ -438,7 +454,7 @@ function GeneralSettings() {
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
             <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
               Delete All Notes
             </h3>
@@ -453,7 +469,7 @@ function GeneralSettings() {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="Type DELETE"
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-3">
@@ -462,14 +478,14 @@ function GeneralSettings() {
                   setShowClearConfirm(false);
                   setConfirmText('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClearAllNotes}
                 disabled={confirmText !== 'DELETE' || isClearing}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-lg btn-danger-gradient focus-ring ${
+                className={`px-3 py-1.5 text-sm font-medium text-white rounded btn-danger-gradient focus-ring ${
                   confirmText !== 'DELETE' || isClearing ? 'btn-disabled' : 'btn-elevated'
                 }`}
               >
@@ -494,22 +510,25 @@ function AppearanceSettings({
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Theme
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Choose your preferred color scheme
-        </p>
+      {/* Theme Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Theme
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Choose your preferred color scheme
+          </p>
+        </div>
         <div className="flex gap-2">
           {(['light', 'dark', 'system'] as const).map((t) => (
             <button
               key={t}
               onClick={() => onThemeChange(t)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
                 theme === t
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -518,70 +537,108 @@ function AppearanceSettings({
         </div>
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Font Size
+      {/* Typography Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          Typography
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Editor text size
-        </p>
-        <div className="flex gap-2">
-          {([
-            { value: 'small', label: 'Small' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'large', label: 'Large' },
-            { value: 'extra-large', label: 'Extra Large' },
-          ] as const).map((size) => (
-            <button
-              key={size.value}
-              onClick={() => settings.setFontSize(size.value)}
-              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                settings.fontSize === size.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {size.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Sidebar Width
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Adjust sidebar width ({settings.sidebarWidth}px)
-        </p>
-        <input
-          type="range"
-          min="200"
-          max="400"
-          step="10"
-          value={settings.sidebarWidth}
-          onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-        />
-        <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-          <span>200px</span>
-          <span>400px</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Compact Mode
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Tighter spacing throughout the app
-          </p>
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+            Font Size
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: 'small', label: 'S' },
+              { value: 'medium', label: 'M' },
+              { value: 'large', label: 'L' },
+              { value: 'extra-large', label: 'XL' },
+            ] as const).map((size) => (
+              <button
+                key={size.value}
+                onClick={() => settings.setFontSize(size.value)}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                  settings.fontSize === size.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {size.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <Toggle
-          enabled={settings.compactMode}
-          onChange={settings.setCompactMode}
-        />
+
+        <div>
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+            Font Family
+          </label>
+          <select
+            value={settings.fontFamily}
+            onChange={(e) => {
+              const family = e.target.value as FontFamily;
+              settings.setFontFamily(family);
+              applyFontFamily(family);
+            }}
+            className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <optgroup label="System Fonts">
+              <option value="system-sans">Sans-serif (System)</option>
+              <option value="system-serif">Serif (System)</option>
+              <option value="system-mono">Monospace (System)</option>
+            </optgroup>
+            <optgroup label="Web Fonts">
+              <option value="inter">Inter</option>
+              <option value="merriweather">Merriweather</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      {/* Layout Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          Layout
+        </h3>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Sidebar Width
+            </label>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {settings.sidebarWidth}px
+            </span>
+          </div>
+          <input
+            type="range"
+            min="200"
+            max="400"
+            step="10"
+            value={settings.sidebarWidth}
+            onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded appearance-none cursor-pointer accent-blue-600"
+          />
+          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <span>Narrow</span>
+            <span>Wide</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800">
+          <div>
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              Compact Mode
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Tighter spacing throughout the app
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.compactMode}
+            onChange={settings.setCompactMode}
+          />
+        </div>
       </div>
     </div>
   );
@@ -592,22 +649,25 @@ function EditorSettings() {
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Default Note Type
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          What type of note to create by default
-        </p>
+      {/* Note Defaults Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Default Note Type
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            What type of note to create by default
+          </p>
+        </div>
         <div className="flex gap-2">
           {(['daily', 'standalone'] as const).map((type) => (
             <button
               key={type}
               onClick={() => settings.setDefaultNoteType(type)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
                 settings.defaultNoteType === type
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -616,73 +676,84 @@ function EditorSettings() {
         </div>
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Line Height
+      {/* Formatting Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          Formatting
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Spacing between lines in the editor
-        </p>
-        <div className="flex gap-2">
-          {(['comfortable', 'compact'] as const).map((height) => (
-            <button
-              key={height}
-              onClick={() => settings.setLineHeight(height)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                settings.lineHeight === height
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {height.charAt(0).toUpperCase() + height.slice(1)}
-            </button>
-          ))}
+
+        <div>
+          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+            Line Height
+          </label>
+          <div className="flex gap-2">
+            {(['comfortable', 'compact'] as const).map((height) => (
+              <button
+                key={height}
+                onClick={() => settings.setLineHeight(height)}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                  settings.lineHeight === height
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {height.charAt(0).toUpperCase() + height.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Spell Check
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Underline spelling errors
-          </p>
-        </div>
-        <Toggle
-          enabled={settings.spellCheck}
-          onChange={settings.setSpellCheck}
-        />
-      </div>
+      {/* Writing Assistance Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-1">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+          Writing Assistance
+        </h3>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Auto-capitalize
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Capitalize first letter of sentences
-          </p>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              Spell Check
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Underline spelling errors
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.spellCheck}
+            onChange={settings.setSpellCheck}
+          />
         </div>
-        <Toggle
-          enabled={settings.autoCapitalize}
-          onChange={settings.setAutoCapitalize}
-        />
-      </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-            Show Word Count
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Display word count at bottom of editor
-          </p>
+        <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+          <div>
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              Auto-capitalize
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Capitalize first letter of sentences
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.autoCapitalize}
+            onChange={settings.setAutoCapitalize}
+          />
         </div>
-        <Toggle
-          enabled={settings.showWordCount}
-          onChange={settings.setShowWordCount}
-        />
+
+        <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+          <div>
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              Show Word Count
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Display word count at bottom of editor
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.showWordCount}
+            onChange={settings.setShowWordCount}
+          />
+        </div>
       </div>
     </div>
   );
@@ -724,18 +795,20 @@ function CalendarSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Permission Status */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-          Calendar Access
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          Display events from Calendar.app in your timeline
-        </p>
+      {/* Permission Status Section */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Calendar Access
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Display events from Calendar.app in your timeline
+          </p>
+        </div>
 
         {isAuthorized ? (
-          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center flex-shrink-0">
               <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
             </div>
             <div>
@@ -743,12 +816,12 @@ function CalendarSettings() {
                 Calendar Access Enabled
               </p>
               <p className="text-xs text-green-600 dark:text-green-400">
-                Showing events from Calendar.app
+                Connected to Calendar.app
               </p>
             </div>
           </div>
         ) : permissionStatus === 'Denied' || permissionStatus === 'Restricted' ? (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
             <div className="flex items-center gap-2 mb-2">
               <Lock className="w-4 h-4 text-red-600 dark:text-red-400" />
               <p className="text-sm font-medium text-red-800 dark:text-red-200">
@@ -768,7 +841,7 @@ function CalendarSettings() {
           <button
             onClick={handleRequestPermission}
             disabled={isRequestingPermission}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded transition-colors"
           >
             {isRequestingPermission ? (
               <>
@@ -788,49 +861,58 @@ function CalendarSettings() {
       {/* Calendar Settings (only show when authorized) */}
       {isAuthorized && (
         <>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                Show Calendar Events
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Display events in the timeline
-              </p>
-            </div>
-            <Toggle
-              enabled={calendarEnabled}
-              onChange={setCalendarEnabled}
-            />
-          </div>
+          {/* Display Options Section */}
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-1">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              Display Options
+            </h3>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                Show All-Day Events
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Include events without specific times
-              </p>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  Show Calendar Events
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Display events in the timeline
+                </p>
+              </div>
+              <Toggle
+                enabled={calendarEnabled}
+                onChange={setCalendarEnabled}
+              />
             </div>
-            <Toggle
-              enabled={showAllDayEvents}
-              onChange={setShowAllDayEvents}
-            />
+
+            <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+              <div>
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  Show All-Day Events
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Include events without specific times
+                </p>
+              </div>
+              <Toggle
+                enabled={showAllDayEvents}
+                onChange={setShowAllDayEvents}
+              />
+            </div>
           </div>
 
           {/* Calendar Selection */}
           {calendars.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                Calendar
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                Choose which calendar to display
-              </p>
+            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Calendar Source
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Choose which calendar to display
+                </p>
+              </div>
               <select
                 value={selectedCalendarId || ''}
                 onChange={(e) => setSelectedCalendarId(e.target.value || null)}
-                className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Calendars</option>
                 {calendars.map((cal) => (
@@ -849,52 +931,192 @@ function CalendarSettings() {
 
 // About Section
 function AboutSection() {
+  const [appVersion, setAppVersion] = useState<string>('');
+  const {
+    available,
+    version: updateVersion,
+    isChecking,
+    lastChecked,
+    error,
+    downloading,
+    progress,
+    checkForUpdate,
+    installUpdate,
+  } = useUpdateStore();
+
+  // Fetch app version on mount
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
+  }, []);
+
+  // Format last checked time
+  const formatLastChecked = () => {
+    if (!lastChecked) return null;
+    const now = new Date();
+    const diff = now.getTime() - lastChecked.getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    return lastChecked.toLocaleDateString();
+  };
+
   return (
     <div className="space-y-6">
-      <div className="text-center py-4">
+      {/* App Info + Update Section */}
+      <div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
         {/* Logo */}
-        <div className="flex justify-center mb-4">
-          <img
-            src="/logo.png"
-            alt="Notomattic Logo"
-            className="h-20 w-auto rounded-lg"
-            style={{ backgroundColor: 'transparent' }}
-          />
+        <img
+          src="/logo.png"
+          alt="Notomattic Logo"
+          className="h-16 w-16 rounded-md flex-shrink-0"
+          style={{ backgroundColor: 'transparent' }}
+        />
+
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            Notomattic
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Version {appVersion || '...'}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            Privacy-first note-taking app
+          </p>
         </div>
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Notomattic
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Version 0.1.0 MVP
-        </p>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-          Privacy-first note-taking app
-        </p>
       </div>
 
-      <div>
+      {/* Update Status */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+            Software Updates
+          </h4>
+          {lastChecked && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              Checked {formatLastChecked()}
+            </span>
+          )}
+        </div>
+
+        {/* Update Available State */}
+        {available ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+              <Download className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Update Available: v{updateVersion}
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  A new version is ready to install
+                </p>
+              </div>
+            </div>
+
+            {/* Progress bar when downloading */}
+            {downloading && (
+              <div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+                  Downloading... {progress}%
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={installUpdate}
+                disabled={downloading}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded transition-colors"
+              >
+                {downloading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Install Update
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Up to date state */}
+            {lastChecked && !error && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Up to Date
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    You're running the latest version
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Error state */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Update Check Failed
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {error}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={checkForUpdate}
+              disabled={isChecking}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+              {isChecking ? 'Checking...' : 'Check for Updates'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard Shortcuts */}
+      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
         <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
           Keyboard Shortcuts
         </h4>
-        <div className="space-y-2 text-sm">
-          <ShortcutRow keys={['Cmd', ',']} description="Open Settings" />
-          <ShortcutRow keys={['Cmd', 'T']} description="New from Template" />
-          <ShortcutRow keys={['Cmd', 'B']} description="Bold" />
-          <ShortcutRow keys={['Cmd', 'I']} description="Italic" />
-          <ShortcutRow keys={['Cmd', 'U']} description="Underline" />
-          <ShortcutRow keys={['Cmd', 'K']} description="Add Link" />
-          <ShortcutRow keys={['Cmd', 'Z']} description="Undo" />
-          <ShortcutRow keys={['Cmd', 'Shift', 'Z']} description="Redo" />
-          <ShortcutRow keys={['Cmd', 'S']} description="Save (auto-saves)" />
-          <ShortcutRow keys={['Esc']} description="Close modal" />
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <ShortcutRow keys={['⌘', ',']} description="Settings" />
+          <ShortcutRow keys={['⌘', 'T']} description="Template" />
+          <ShortcutRow keys={['⌘', 'B']} description="Bold" />
+          <ShortcutRow keys={['⌘', 'I']} description="Italic" />
+          <ShortcutRow keys={['⌘', 'U']} description="Underline" />
+          <ShortcutRow keys={['⌘', 'K']} description="Link" />
+          <ShortcutRow keys={['⌘', 'Z']} description="Undo" />
+          <ShortcutRow keys={['⌘', '⇧', 'Z']} description="Redo" />
         </div>
       </div>
 
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+      {/* Footer */}
+      <div className="text-center space-y-1">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
           Built with Tauri, React, and TipTap
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
           Your notes are stored locally and never leave your device
         </p>
       </div>

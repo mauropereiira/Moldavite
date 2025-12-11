@@ -96,6 +96,14 @@ struct ImportResult {
     templates: u32,
 }
 
+// Note Metadata for colors and other per-note settings
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct NoteMetadata {
+    #[serde(default)]
+    colors: std::collections::HashMap<String, String>,
+}
+
 // Wiki Link Regex
 lazy_static! {
     // Matches [[Note Name]] or [[Display|note-name]]
@@ -1254,6 +1262,62 @@ fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
     calendar::get_calendars()
 }
 
+// Note Metadata Helper Functions
+
+fn get_metadata_path() -> PathBuf {
+    get_notes_dir().join(".note-metadata.json")
+}
+
+fn read_note_metadata() -> NoteMetadata {
+    let path = get_metadata_path();
+    if path.exists() {
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(metadata) = serde_json::from_str(&content) {
+                return metadata;
+            }
+        }
+    }
+    NoteMetadata::default()
+}
+
+fn write_note_metadata(metadata: &NoteMetadata) -> Result<(), String> {
+    let path = get_metadata_path();
+    let content = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
+    fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get the color ID for a specific note
+#[tauri::command]
+fn get_note_color(note_path: String) -> Option<String> {
+    let metadata = read_note_metadata();
+    metadata.colors.get(&note_path).cloned()
+}
+
+/// Set the color ID for a specific note
+#[tauri::command]
+fn set_note_color(note_path: String, color_id: Option<String>) -> Result<(), String> {
+    let mut metadata = read_note_metadata();
+
+    match color_id {
+        Some(id) if id != "default" => {
+            metadata.colors.insert(note_path, id);
+        }
+        _ => {
+            metadata.colors.remove(&note_path);
+        }
+    }
+
+    write_note_metadata(&metadata)
+}
+
+/// Get all note colors at once (for initial load)
+#[tauri::command]
+fn get_all_note_colors() -> std::collections::HashMap<String, String> {
+    let metadata = read_note_metadata();
+    metadata.colors
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1305,6 +1369,10 @@ pub fn run() {
             // Export/Import commands
             export_notes,
             import_notes,
+            // Note metadata commands
+            get_note_color,
+            set_note_color,
+            get_all_note_colors,
             // Apple Calendar (EventKit) commands - macOS only
             #[cfg(target_os = "macos")]
             get_calendar_permission,

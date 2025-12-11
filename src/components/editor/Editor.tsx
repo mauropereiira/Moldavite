@@ -17,8 +17,9 @@ import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
 import type { NoteFile } from '@/types';
-import { useNoteStore, useSettingsStore } from '@/stores';
+import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buildNotePath } from '@/stores';
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
+import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml } from '@/lib';
 import { Check } from 'lucide-react';
@@ -29,9 +30,19 @@ import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal'
 export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes } = useNoteStore();
   const { spellCheck, showWordCount, showAutoSaveStatus } = useSettingsStore();
+  const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
   const { getTemplateContent } = useTemplates();
+  const { getColor } = useNoteColorsStore();
   const toast = useToast();
+
+  // Determine if dark mode
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  // Get current note's background color
+  const notePath = currentNote ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily) : '';
+  const noteColorId = getColor(notePath);
+  const noteBackgroundColor = getNoteBackgroundColor(noteColorId, isDark);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [showInlineTemplatePicker, setShowInlineTemplatePicker] = useState(false);
@@ -466,7 +477,10 @@ export function Editor() {
       )}
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto mx-4 my-4 rounded-lg editor-paper relative">
+      <div
+        className="flex-1 overflow-y-auto mx-4 my-4 rounded-lg editor-paper relative transition-colors duration-200"
+        style={{ backgroundColor: noteBackgroundColor || (isDark ? '#1f2937' : 'white') }}
+      >
         <EditorContent key={currentNote?.id || 'empty'} editor={editor} className="h-full content-enter" />
 
         {/* Inline template picker for empty notes */}

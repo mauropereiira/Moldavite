@@ -18,7 +18,7 @@ export function TemplateCard({
     <button
       onClick={onClick}
       className={`
-        w-full text-left rounded-lg transition-all focus-ring
+        w-full text-left rounded transition-all focus-ring
         ${compact ? 'p-3' : 'p-4'}
         ${
           selected

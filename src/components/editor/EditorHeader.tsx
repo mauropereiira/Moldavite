@@ -4,7 +4,9 @@ import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ShareMenu } from './ShareMenu';
 import { FormattingMenu } from './FormattingMenu';
 import { MoreOptionsMenu } from './MoreOptionsMenu';
-import { useNoteStore } from '@/stores';
+import { NoteColorPicker } from '@/components/ui';
+import type { NoteColorId } from '@/components/ui/NoteColorPicker';
+import { useNoteStore, useThemeStore, useNoteColorsStore, buildNotePath } from '@/stores';
 import { useNotes } from '@/hooks';
 import { renameNote } from '@/lib';
 
@@ -15,11 +17,20 @@ interface EditorHeaderProps {
 
 export function EditorHeader({ editor, onDelete }: EditorHeaderProps) {
   const { currentNote, notes, setCurrentNote, setNotes } = useNoteStore();
+  const { theme } = useThemeStore();
   const { loadNote } = useNotes();
+  const { getColor, setColor } = useNoteColorsStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Determine if dark mode
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  // Get current note's color
+  const notePath = currentNote ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily) : '';
+  const currentColorId = getColor(notePath);
 
   // Get word and character counts
   const wordCount = editor
@@ -214,6 +225,13 @@ export function EditorHeader({ editor, onDelete }: EditorHeaderProps) {
 
       {/* Divider */}
       <div className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
+
+      {/* Note Color Picker */}
+      <NoteColorPicker
+        currentColorId={currentColorId}
+        onColorChange={(colorId: NoteColorId) => setColor(notePath, colorId)}
+        isDark={isDark}
+      />
 
       {/* Share Menu */}
       <ShareMenu onShowToast={showToast} />

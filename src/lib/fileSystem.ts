@@ -410,3 +410,31 @@ export async function exportNotes(destination: string): Promise<string> {
 export async function importNotes(zipPath: string, merge: boolean): Promise<ImportResult> {
   return await invoke('import_notes', { zipPath, merge });
 }
+
+// Note Color/Metadata Functions
+
+/**
+ * Gets the color ID for a specific note.
+ * @param notePath - The path identifier for the note (e.g., "daily/2024-12-11.md")
+ * @returns The color ID or null if no color is set
+ */
+export async function getNoteColor(notePath: string): Promise<string | null> {
+  return await invoke('get_note_color', { notePath });
+}
+
+/**
+ * Sets the color ID for a specific note.
+ * @param notePath - The path identifier for the note
+ * @param colorId - The color ID to set, or null/undefined to remove color
+ */
+export async function setNoteColor(notePath: string, colorId: string | null): Promise<void> {
+  return await invoke('set_note_color', { notePath, colorId });
+}
+
+/**
+ * Gets all note colors at once (for initial load).
+ * @returns A map of note paths to color IDs
+ */
+export async function getAllNoteColors(): Promise<Record<string, string>> {
+  return await invoke('get_all_note_colors');
+}

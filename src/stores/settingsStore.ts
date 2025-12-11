@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
 export type LineHeight = 'comfortable' | 'compact';
 export type DefaultNoteType = 'daily' | 'standalone';
+export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
 
 interface SettingsState {
   // General
@@ -13,6 +14,7 @@ interface SettingsState {
 
   // Appearance
   fontSize: FontSize;
+  fontFamily: FontFamily;
   sidebarWidth: number;
   rightPanelWidth: number;
   compactMode: boolean;
@@ -32,6 +34,7 @@ interface SettingsState {
   setAutoSaveDelay: (delay: number) => void;
   setShowAutoSaveStatus: (show: boolean) => void;
   setFontSize: (size: FontSize) => void;
+  setFontFamily: (family: FontFamily) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   setCompactMode: (compact: boolean) => void;
@@ -49,6 +52,7 @@ const defaultSettings = {
   autoSaveDelay: 300,
   showAutoSaveStatus: true,
   fontSize: 'medium' as FontSize,
+  fontFamily: 'system-sans' as FontFamily,
   sidebarWidth: 280,
   rightPanelWidth: 288,
   compactMode: false,
@@ -69,6 +73,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoSaveDelay: (delay) => set({ autoSaveDelay: delay }),
       setShowAutoSaveStatus: (show) => set({ showAutoSaveStatus: show }),
       setFontSize: (size) => set({ fontSize: size }),
+      setFontFamily: (family) => set({ fontFamily: family }),
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
       setRightPanelWidth: (width) => set({ rightPanelWidth: width }),
       setCompactMode: (compact) => set({ compactMode: compact }),
@@ -88,6 +93,7 @@ export const useSettingsStore = create<SettingsState>()(
         autoSaveDelay: state.autoSaveDelay,
         showAutoSaveStatus: state.showAutoSaveStatus,
         fontSize: state.fontSize,
+        fontFamily: state.fontFamily,
         sidebarWidth: state.sidebarWidth,
         rightPanelWidth: state.rightPanelWidth,
         compactMode: state.compactMode,
@@ -128,4 +134,16 @@ export function applyCompactMode(compact: boolean) {
   } else {
     document.documentElement.classList.remove('compact-mode');
   }
+}
+
+// Helper to apply font family CSS variable
+export function applyFontFamily(family: FontFamily) {
+  const fonts: Record<FontFamily, string> = {
+    'system-sans': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+    'system-serif': 'Georgia, "Times New Roman", Times, serif',
+    'system-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
+    'inter': '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    'merriweather': '"Merriweather", Georgia, serif',
+  };
+  document.documentElement.style.setProperty('--editor-font-family', fonts[family]);
 }

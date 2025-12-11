@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertCircle, Loader2 } from 'lucide-react';
 import type { Template } from '@/types/template';
 import { TemplateIcon, availableIcons } from './TemplateIcon';
@@ -118,16 +119,16 @@ export function EditTemplateModal({
 
   // Can't edit default templates
   if (template.isDefault) {
-    return (
+    return createPortal(
       <div
-        className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+        className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[70] modal-backdrop-enter"
         onClick={(e) => e.target === e.currentTarget && handleClose()}
         onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-template-title"
       >
-        <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 modal-elevated modal-content-enter">
+        <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-md mx-4 modal-elevated modal-content-enter shadow-2xl">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 id="edit-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
               Edit Template
@@ -150,28 +151,29 @@ export function EditTemplateModal({
             </p>
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
             >
               Close
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[70] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && !isSaving && handleClose()}
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-template-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter">
+      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <h2 id="edit-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
             Edit Template
           </h2>
@@ -185,8 +187,8 @@ export function EditTemplateModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Form - scrollable */}
+        <form id="edit-template-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
           {/* Name */}
           <div>
             <label
@@ -206,7 +208,7 @@ export function EditTemplateModal({
               }}
               maxLength={MAX_NAME_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               aria-describedby={error ? 'edit-template-name-error' : undefined}
               aria-invalid={!!error}
             />
@@ -237,7 +239,7 @@ export function EditTemplateModal({
               rows={2}
               maxLength={MAX_DESCRIPTION_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
             />
             <div className="flex justify-end mt-1">
               <span className="text-xs text-gray-400">
@@ -263,7 +265,7 @@ export function EditTemplateModal({
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
                 disabled={isSaving}
-                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer disabled:opacity-50"
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer disabled:opacity-50"
               >
                 {availableIcons.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -301,43 +303,45 @@ export function EditTemplateModal({
               id="edit-template-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              rows={8}
+              rows={6}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
               placeholder="<h1>Template Title</h1><p>Your content here...</p>"
             />
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Use HTML formatting (e.g., &lt;h1&gt;, &lt;p&gt;, &lt;ul&gt;)
             </p>
           </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving || !name.trim()}
-              className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
         </form>
+
+        {/* Footer - always visible at bottom */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-md flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="edit-template-form"
+            disabled={isSaving || !name.trim()}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors focus-ring disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

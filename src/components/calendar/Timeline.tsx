@@ -8,7 +8,9 @@ import {
   RefreshCw,
   AlertCircle,
   Lock,
+  ExternalLink,
 } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-shell';
 import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
 import { NoEventsEmptyState, ConnectCalendarEmptyState } from '@/components/ui/EmptyState';
@@ -151,18 +153,31 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 
 // Permission denied state
 function PermissionDeniedState() {
+  const handleOpenSettings = async () => {
+    try {
+      // Open macOS System Settings to Calendar privacy pane
+      await open('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars');
+    } catch (error) {
+      console.error('[Timeline] Failed to open System Settings:', error);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
       <Lock className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         Calendar Access Denied
       </h3>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-        To see your events, grant calendar access in
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        To see your events, grant calendar access in System Settings
       </p>
-      <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-        System Settings → Privacy & Security → Calendars
-      </p>
+      <button
+        onClick={handleOpenSettings}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+      >
+        <ExternalLink className="w-3 h-3" />
+        Open Settings
+      </button>
     </div>
   );
 }
