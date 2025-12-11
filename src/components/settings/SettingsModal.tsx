@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme, useNoteStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
-import { clearAllNotes } from '@/lib';
-import { Calendar, RefreshCw, Check, Lock } from 'lucide-react';
+import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes } from '@/lib';
+import type { ImportResult } from '@/lib';
+import { Calendar, RefreshCw, Check, Lock, FolderOpen, Download, Upload } from 'lucide-react';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
+import { open, save } from '@tauri-apps/plugin-dialog';
 
 type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
 
@@ -142,6 +144,111 @@ function GeneralSettings() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isClearing, setIsClearing] = useState(false);
+  const [notesDirectory, setNotesDirectoryState] = useState('');
+  const [isChangingDir, setIsChangingDir] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [showImportOptions, setShowImportOptions] = useState(false);
+  const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Fetch current notes directory on mount
+  useEffect(() => {
+    getNotesDirectory().then(setNotesDirectoryState).catch(console.error);
+  }, []);
+
+  // Clear status message after 3 seconds
+  useEffect(() => {
+    if (statusMessage) {
+      const timeout = setTimeout(() => setStatusMessage(null), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [statusMessage]);
+
+  const handleChangeDirectory = async () => {
+    try {
+      setIsChangingDir(true);
+      const selected = await open({
+        directory: true,
+        title: 'Select Notes Directory',
+      });
+
+      if (selected && typeof selected === 'string') {
+        await setNotesDirectory(selected);
+        setNotesDirectoryState(selected);
+        setStatusMessage({ type: 'success', text: 'Notes directory changed successfully!' });
+        // Refresh notes list
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to change directory:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    } finally {
+      setIsChangingDir(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const date = new Date().toISOString().split('T')[0];
+      const destination = await save({
+        title: 'Export Notes',
+        defaultPath: `notomattic-export-${date}.zip`,
+        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+      });
+
+      if (destination) {
+        await exportNotes(destination);
+        setStatusMessage({ type: 'success', text: 'Notes exported successfully!' });
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to export notes:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportSelect = async () => {
+    try {
+      const selected = await open({
+        title: 'Import Notes',
+        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+      });
+
+      if (selected && typeof selected === 'string') {
+        setPendingImportPath(selected);
+        setShowImportOptions(true);
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to select import file:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    }
+  };
+
+  const handleImport = async (merge: boolean) => {
+    if (!pendingImportPath) return;
+
+    try {
+      setIsImporting(true);
+      setShowImportOptions(false);
+      const result: ImportResult = await importNotes(pendingImportPath, merge);
+      const total = result.dailyNotes + result.standaloneNotes + result.templates;
+      setStatusMessage({
+        type: 'success',
+        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
+      });
+      setPendingImportPath(null);
+      // Refresh notes list
+      window.location.reload();
+    } catch (error) {
+      console.error('[Settings] Failed to import notes:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleClearAllNotes = async () => {
     if (confirmText !== 'DELETE') return;
@@ -163,6 +270,17 @@ function GeneralSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={`p-3 rounded-lg text-sm ${
+          statusMessage.type === 'success'
+            ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+            : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+        }`}>
+          {statusMessage.text}
+        </div>
+      )}
+
       <div>
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
           Notes Directory
@@ -173,21 +291,50 @@ function GeneralSettings() {
         <div className="flex items-center gap-2">
           <input
             type="text"
-            value={settings.notesDirectory}
+            value={notesDirectory}
             readOnly
             className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400"
           />
           <button
-            className="px-3 py-2 text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-not-allowed"
-            disabled
-            title="Coming soon"
+            onClick={handleChangeDirectory}
+            disabled={isChangingDir}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
           >
-            Change
+            <FolderOpen className="w-4 h-4" />
+            {isChangingDir ? 'Moving...' : 'Change'}
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          Changing directory will be available in a future update
+          Existing notes will be moved to the new location
         </p>
+      </div>
+
+      {/* Export/Import Section */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+          Backup & Restore
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          Export or import your notes and templates as a ZIP archive
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {isExporting ? 'Exporting...' : 'Export Notes'}
+          </button>
+          <button
+            onClick={handleImportSelect}
+            disabled={isImporting}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Upload className="w-4 h-4" />
+            {isImporting ? 'Importing...' : 'Import Notes'}
+          </button>
+        </div>
       </div>
 
       <div>
@@ -244,6 +391,49 @@ function GeneralSettings() {
           </button>
         </div>
       </div>
+
+      {/* Import Options Modal */}
+      {showImportOptions && (
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Import Notes
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              How would you like to import the notes?
+            </p>
+            <div className="space-y-2 mb-4">
+              <button
+                onClick={() => handleImport(true)}
+                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                <span className="font-semibold">Merge with existing</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Add new notes without overwriting existing ones
+                </p>
+              </button>
+              <button
+                onClick={() => handleImport(false)}
+                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                <span className="font-semibold">Replace all</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Clear existing notes and import from backup
+                </p>
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setShowImportOptions(false);
+                setPendingImportPath(null);
+              }}
+              className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (

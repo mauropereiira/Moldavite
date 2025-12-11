@@ -1,6 +1,6 @@
 {
   "name": "notomattic",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Privacy-first native macOS note-taking app with WYSIWYG editing, daily notes, and calendar integration",
   "type": "module",
   "scripts": {
@@ -38,6 +38,7 @@
     "@tauri-apps/plugin-shell": "^2.3.3",
     "@tauri-apps/plugin-updater": "^2",
     "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
     "@tiptap/extension-bubble-menu": "^3.10.8",
     "@tiptap/extension-highlight": "^3.10.8",
     "@tiptap/extension-image": "^3.10.8",

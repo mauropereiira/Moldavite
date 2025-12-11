@@ -3,7 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::{Read as IoRead, Write as IoWrite};
 use std::path::PathBuf;
+use zip::write::SimpleFileOptions;
+use zip::ZipArchive;
 
 #[cfg(target_os = "macos")]
 mod calendar;
@@ -77,16 +80,78 @@ struct LinkIndex {
     links_to: Vec<String>,
 }
 
+// App Configuration for custom notes directory
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct AppConfig {
+    notes_directory: Option<String>,
+}
+
+// Export/Import Result structures
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportResult {
+    daily_notes: u32,
+    standalone_notes: u32,
+    templates: u32,
+}
+
 // Wiki Link Regex
 lazy_static! {
     // Matches [[Note Name]] or [[Display|note-name]]
     static ref WIKI_LINK_REGEX: Regex = Regex::new(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]").unwrap();
 }
 
-fn get_notes_dir() -> PathBuf {
+// Config file helper functions
+
+fn get_config_path() -> PathBuf {
+    dirs::config_dir()
+        .expect("Could not find config directory")
+        .join("Notomattic")
+        .join("config.json")
+}
+
+fn read_config() -> AppConfig {
+    let config_path = get_config_path();
+    if config_path.exists() {
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                return config;
+            }
+        }
+    }
+    AppConfig::default()
+}
+
+fn write_config(config: &AppConfig) -> Result<(), String> {
+    let config_path = get_config_path();
+
+    // Ensure config directory exists
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+
+    let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+
+    Ok(())
+}
+
+fn get_default_notes_dir() -> PathBuf {
     dirs::document_dir()
         .expect("Could not find Documents directory")
         .join("Notomattic")
+}
+
+fn get_notes_dir() -> PathBuf {
+    let config = read_config();
+    if let Some(custom_dir) = config.notes_directory {
+        let path = PathBuf::from(&custom_dir);
+        if path.exists() {
+            return path;
+        }
+    }
+    get_default_notes_dir()
 }
 
 fn get_daily_dir() -> PathBuf {
@@ -100,10 +165,7 @@ fn get_standalone_dir() -> PathBuf {
 // Template System Helper Functions
 
 fn get_templates_dir() -> Result<PathBuf, String> {
-    let path = dirs::document_dir()
-        .ok_or("Could not find Documents directory")?
-        .join("Notomattic")
-        .join("templates");
+    let path = get_notes_dir().join("templates");
     Ok(path)
 }
 
@@ -946,6 +1008,216 @@ fn is_note_locked(filename: String, is_daily: bool) -> bool {
     locked_path.exists()
 }
 
+// Directory Management Commands
+
+/// Get the current notes directory path
+#[tauri::command]
+fn get_notes_directory() -> String {
+    get_notes_dir().to_string_lossy().to_string()
+}
+
+/// Set a new notes directory and move all existing notes
+#[tauri::command]
+fn set_notes_directory(new_path: String) -> Result<(), String> {
+    let new_dir = PathBuf::from(&new_path);
+    let old_dir = get_notes_dir();
+
+    // Don't do anything if it's the same directory
+    if new_dir == old_dir {
+        return Ok(());
+    }
+
+    // Create the new directory structure
+    fs::create_dir_all(&new_dir).map_err(|e| format!("Failed to create new directory: {}", e))?;
+
+    // Move/copy all subdirectories (daily, notes, templates)
+    for subdir in ["daily", "notes", "templates"] {
+        let old_subdir = old_dir.join(subdir);
+        let new_subdir = new_dir.join(subdir);
+
+        if old_subdir.exists() {
+            fs::create_dir_all(&new_subdir)
+                .map_err(|e| format!("Failed to create {}: {}", subdir, e))?;
+
+            // Copy all files from old to new
+            if let Ok(entries) = fs::read_dir(&old_subdir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let filename = path.file_name().unwrap();
+                        let dest = new_subdir.join(filename);
+                        fs::copy(&path, &dest)
+                            .map_err(|e| format!("Failed to copy file: {}", e))?;
+                    }
+                }
+            }
+        }
+    }
+
+    // Update the config
+    let mut config = read_config();
+    config.notes_directory = Some(new_path);
+    write_config(&config)?;
+
+    // After successful copy, remove old files
+    for subdir in ["daily", "notes", "templates"] {
+        let old_subdir = old_dir.join(subdir);
+        if old_subdir.exists() {
+            if let Ok(entries) = fs::read_dir(&old_subdir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let _ = fs::remove_file(&path);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// Export/Import Commands
+
+/// Export all notes and templates to a ZIP file
+#[tauri::command]
+fn export_notes(destination: String) -> Result<String, String> {
+    let notes_dir = get_notes_dir();
+    let zip_path = PathBuf::from(&destination);
+
+    let file = fs::File::create(&zip_path)
+        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
+    let mut zip = zip::ZipWriter::new(file);
+
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .unix_permissions(0o600);
+
+    // Add files from each subdirectory
+    for subdir in ["daily", "notes", "templates"] {
+        let subdir_path = notes_dir.join(subdir);
+        if !subdir_path.exists() {
+            continue;
+        }
+
+        if let Ok(entries) = fs::read_dir(&subdir_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    let filename = path.file_name().unwrap().to_string_lossy();
+                    let archive_path = format!("{}/{}", subdir, filename);
+
+                    let mut file_content = Vec::new();
+                    if let Ok(mut f) = fs::File::open(&path) {
+                        if f.read_to_end(&mut file_content).is_ok() {
+                            zip.start_file(&archive_path, options)
+                                .map_err(|e| format!("Failed to add file to ZIP: {}", e))?;
+                            zip.write_all(&file_content)
+                                .map_err(|e| format!("Failed to write file content: {}", e))?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+
+    Ok(zip_path.to_string_lossy().to_string())
+}
+
+/// Import notes and templates from a ZIP file
+#[tauri::command]
+fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
+    let notes_dir = get_notes_dir();
+    let zip_file = fs::File::open(&zip_path)
+        .map_err(|e| format!("Failed to open ZIP file: {}", e))?;
+    let mut archive = ZipArchive::new(zip_file)
+        .map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
+
+    let mut result = ImportResult {
+        daily_notes: 0,
+        standalone_notes: 0,
+        templates: 0,
+    };
+
+    // If not merging, clear existing notes first (but not templates)
+    if !merge {
+        for subdir in ["daily", "notes"] {
+            let subdir_path = notes_dir.join(subdir);
+            if subdir_path.exists() {
+                if let Ok(entries) = fs::read_dir(&subdir_path) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_file() {
+                            let _ = fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract files from the ZIP
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)
+            .map_err(|e| format!("Failed to read ZIP entry: {}", e))?;
+
+        let name = file.name().to_string();
+
+        // Parse the path (subdir/filename)
+        let parts: Vec<&str> = name.split('/').collect();
+        if parts.len() != 2 {
+            continue; // Skip invalid paths
+        }
+
+        let subdir = parts[0];
+        let filename = parts[1];
+
+        // Only process valid subdirectories
+        if !["daily", "notes", "templates"].contains(&subdir) {
+            continue;
+        }
+
+        let dest_dir = notes_dir.join(subdir);
+        fs::create_dir_all(&dest_dir)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+
+        let dest_path = dest_dir.join(filename);
+
+        // If merging, skip existing files
+        if merge && dest_path.exists() {
+            continue;
+        }
+
+        // Extract the file
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)
+            .map_err(|e| format!("Failed to read file from ZIP: {}", e))?;
+
+        fs::write(&dest_path, content)
+            .map_err(|e| format!("Failed to write file: {}", e))?;
+
+        // Set restrictive permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(&dest_path, permissions);
+        }
+
+        // Update counts
+        match subdir {
+            "daily" => result.daily_notes += 1,
+            "notes" => result.standalone_notes += 1,
+            "templates" => result.templates += 1,
+            _ => {}
+        }
+    }
+
+    Ok(result)
+}
+
 // Apple Calendar (EventKit) Commands - macOS only
 
 #[cfg(target_os = "macos")]
@@ -988,6 +1260,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -1026,6 +1299,12 @@ pub fn run() {
             scan_note_links,
             get_backlinks,
             create_note_from_link,
+            // Directory management commands
+            get_notes_directory,
+            set_notes_directory,
+            // Export/Import commands
+            export_notes,
+            import_notes,
             // Apple Calendar (EventKit) commands - macOS only
             #[cfg(target_os = "macos")]
             get_calendar_permission,

@@ -1,6 +1,6 @@
 [package]
 name = "notomattic"
-version = "0.2.0"
+version = "0.3.0"
 description = "A privacy-first note-taking app"
 authors = ["Notomattic Team"]
 license = "UNLICENSED"
@@ -37,6 +37,10 @@ aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.8"
 base64 = "0.22"
+
+# Export/Import and file dialogs
+zip = "2.2"
+tauri-plugin-dialog = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0"
