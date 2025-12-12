@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Notomattic",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.notomattic",
   "build": {
     "frontendDist": "../dist",
@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com"
+      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://github.com https://objects.githubusercontent.com"
     }
   },
   "plugins": {
