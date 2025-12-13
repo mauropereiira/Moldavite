@@ -9,6 +9,7 @@ import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { getVersion } from '@tauri-apps/api/app';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 
 type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
 
@@ -983,7 +984,7 @@ function AboutSection() {
           </div>
 
           <button
-            onClick={() => window.open('https://github.com/Automattic/notomattic/releases', '_blank')}
+            onClick={() => shellOpen('https://github.com/Automattic/notomattic/releases')}
             className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
           >
             <ExternalLink className="w-4 h-4" />
