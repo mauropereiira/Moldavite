@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { Lock, Unlock, Trash2, MoreHorizontal } from 'lucide-react';
 import { useNotes, useSearch } from '@/hooks';
 import { useNoteStore, useSettingsStore } from '@/stores';
@@ -28,6 +29,12 @@ export function Sidebar() {
   // Lock/unlock state
   const [lockModalMode, setLockModalMode] = useState<LockModalMode>(null);
   const [noteToLock, setNoteToLock] = useState<NoteFile | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  // Fetch app version
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
+  }, []);
   const [contextMenuNote, setContextMenuNote] = useState<NoteFile | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
@@ -553,7 +560,7 @@ export function Sidebar() {
               Notomattic
             </p>
             <p className="text-[10px] text-gray-300 dark:text-gray-600">
-              v0.2.0
+              v{appVersion || '...'}
             </p>
           </div>
         </div>
