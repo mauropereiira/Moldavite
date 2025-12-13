@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSettingsStore, useThemeStore, applyTheme, useNoteStore, applyFontFamily, useUpdateStore } from '@/stores';
+import { useSettingsStore, useThemeStore, applyTheme, useNoteStore, applyFontFamily } from '@/stores';
 import type { FontFamily } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes } from '@/lib';
 import type { ImportResult } from '@/lib';
-import { Calendar, RefreshCw, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw } from 'lucide-react';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -932,35 +932,11 @@ function CalendarSettings() {
 // About Section
 function AboutSection() {
   const [appVersion, setAppVersion] = useState<string>('');
-  const {
-    available,
-    version: updateVersion,
-    isChecking,
-    lastChecked,
-    error,
-    downloading,
-    progress,
-    checkForUpdate,
-    installUpdate,
-  } = useUpdateStore();
 
   // Fetch app version on mount
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
   }, []);
-
-  // Format last checked time
-  const formatLastChecked = () => {
-    if (!lastChecked) return null;
-    const now = new Date();
-    const diff = now.getTime() - lastChecked.getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-    return lastChecked.toLocaleDateString();
-  };
 
   return (
     <div className="space-y-6">
@@ -989,109 +965,31 @@ function AboutSection() {
 
       {/* Update Status */}
       <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-            Software Updates
-          </h4>
-          {lastChecked && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              Checked {formatLastChecked()}
-            </span>
-          )}
+        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+          Software Updates
+        </h4>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+            <Download className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Check for Updates
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Download the latest version from GitHub
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.open('https://github.com/Automattic/notomattic/releases', '_blank')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            View Releases on GitHub
+          </button>
         </div>
-
-        {/* Update Available State */}
-        {available ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-              <Download className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Update Available: v{updateVersion}
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  A new version is ready to install
-                </p>
-              </div>
-            </div>
-
-            {/* Progress bar when downloading */}
-            {downloading && (
-              <div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
-                  Downloading... {progress}%
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={installUpdate}
-                disabled={downloading}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded transition-colors"
-              >
-                {downloading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Installing...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Install Update
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {/* Up to date state */}
-            {lastChecked && !error && (
-              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                    Up to Date
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400">
-                    You're running the latest version
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Error state */}
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                    Update Check Failed
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {error}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={checkForUpdate}
-              disabled={isChecking}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-              {isChecking ? 'Checking...' : 'Check for Updates'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Keyboard Shortcuts */}
