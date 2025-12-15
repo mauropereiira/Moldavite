@@ -28,6 +28,9 @@ Thumbs.db
 .claude/
 .claudecode/
 
+# Internal documentation
+docs/
+
 # Temporary/backup files
 *~
 *.tmp
