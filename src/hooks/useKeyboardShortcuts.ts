@@ -26,7 +26,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   /**
-   * Creates a new note from a selected template.
+   * Applies a template to the current note, or creates a new note if none is open.
    * @param templateId - The template to use, or null to cancel
    */
   const handleTemplateSelect = useCallback(async (templateId: string | null) => {
@@ -34,46 +34,50 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
 
     if (!templateId) return;
 
-    // Generate a filename for the new note
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-    const filename = `Note ${timestamp}.md`;
+    // Get current note from store
+    const { currentNote, updateNoteContent } = useNoteStore.getState();
 
     try {
-      // Create note from template
-      await invoke('create_note_from_template', {
-        filename,
-        templateId,
-        isDaily: false
-      });
+      if (currentNote) {
+        // Apply template to current note
+        const markdownContent = await invoke<string>('get_template_content', { templateId });
+        const htmlContent = markdownToHtml(markdownContent);
+        updateNoteContent(htmlContent);
+        toast.success('Template applied');
+      } else {
+        // No note open - create a new note from template
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const filename = `Note ${timestamp}.md`;
 
-      // Create note file object
-      const noteFile: NoteFile = {
-        name: filename,
-        path: filename,
-        isDaily: false,
-        isLocked: false,
-      };
+        await invoke('create_note_from_template', {
+          filename,
+          templateId,
+          isDaily: false
+        });
 
-      // Add to notes list
-      setNotes([...notes, noteFile]);
+        const noteFile: NoteFile = {
+          name: filename,
+          path: filename,
+          isDaily: false,
+          isLocked: false,
+        };
 
-      // Read the created note content
-      const markdownContent = await invoke<string>('read_note', {
-        filename,
-        isDaily: false
-      });
+        setNotes([...notes, noteFile]);
 
-      // Convert markdown to HTML for the editor
-      const htmlContent = markdownToHtml(markdownContent);
+        const readContent = await invoke<string>('read_note', {
+          filename,
+          isDaily: false
+        });
 
-      // Load the note
-      const note = filenameToNote(noteFile, htmlContent);
-      setCurrentNote(note);
+        const htmlContent = markdownToHtml(readContent);
+        const note = filenameToNote(noteFile, htmlContent);
+        setCurrentNote(note);
 
-      toast.success('Note created from template');
+        toast.success('Note created from template');
+      }
     } catch (error) {
-      console.error('[useKeyboardShortcuts] Failed to create note from template:', error);
-      toast.error('Failed to create note from template');
+      console.error('[useKeyboardShortcuts] Failed to apply template:', error);
+      toast.error('Failed to apply template');
     }
   }, [notes, setNotes, setCurrentNote, toast]);
 
