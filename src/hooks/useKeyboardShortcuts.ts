@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useNoteStore } from '@/stores';
-import { filenameToNote, markdownToHtml } from '@/lib';
+import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
 
@@ -40,7 +40,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     try {
       if (currentNote) {
         // Apply template to current note
-        const markdownContent = await invoke<string>('get_template_content', { templateId });
+        const markdownContent = await applyTemplate(templateId);
         const htmlContent = markdownToHtml(markdownContent);
         updateNoteContent(htmlContent);
         toast.success('Template applied');
