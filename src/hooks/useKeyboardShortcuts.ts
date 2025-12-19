@@ -38,11 +38,11 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     const { currentNote, updateNoteContent } = useNoteStore.getState();
 
     try {
-      if (currentNote) {
-        // Apply template to current note
+      if (currentNote && editor) {
+        // Apply template to current note - update editor directly
         const markdownContent = await applyTemplate(templateId);
         const htmlContent = markdownToHtml(markdownContent);
-        updateNoteContent(htmlContent);
+        editor.commands.setContent(htmlContent);
         toast.success('Template applied');
       } else {
         // No note open - create a new note from template
@@ -79,7 +79,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
       console.error('[useKeyboardShortcuts] Failed to apply template:', error);
       toast.error('Failed to apply template');
     }
-  }, [notes, setNotes, setCurrentNote, toast]);
+  }, [editor, notes, setNotes, setCurrentNote, toast]);
 
   // Close template picker
   const handleTemplatePickerClose = useCallback(() => {
