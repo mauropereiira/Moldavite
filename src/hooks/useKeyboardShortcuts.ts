@@ -35,7 +35,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     if (!templateId) return;
 
     // Get current note from store
-    const { currentNote, updateNoteContent } = useNoteStore.getState();
+    const { currentNote } = useNoteStore.getState();
 
     try {
       if (currentNote && editor) {
