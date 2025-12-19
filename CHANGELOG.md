@@ -2,6 +2,12 @@
 
 All notable changes to Notomattic are documented here.
 
+## [0.3.9] - 2025-12-19
+
+### Fixed
+- Template application now visually updates the editor immediately
+- Added editor to useCallback dependencies for proper reactivity
+
 ## [0.3.2] - 2025-12-13
 
 ### Fixed
