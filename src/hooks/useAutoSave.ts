@@ -74,9 +74,16 @@ export function useAutoSave() {
     timeoutRef.current = setTimeout(async () => {
       try {
         setIsSaving(true);
-        const filename = currentNote.isDaily && currentNote.date
-          ? `${currentNote.date}.md`
-          : `${currentNote.title}.md`;
+
+        // Determine filename based on note type
+        let filename: string;
+        if (currentNote.isDaily && currentNote.date) {
+          filename = `${currentNote.date}.md`;
+        } else if (currentNote.isWeekly && currentNote.week) {
+          filename = `${currentNote.week}.md`;
+        } else {
+          filename = `${currentNote.title}.md`;
+        }
 
         const isEmpty = isContentEmpty(currentNote.content);
         const freshNotes = getState().notes;
@@ -89,7 +96,7 @@ export function useAutoSave() {
             // Content is empty - delete the file if it exists
             if (existsInList) {
               try {
-                await deleteNote(filename, true);
+                await deleteNote(filename, true, false);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete failed:', deleteError);
               }
@@ -101,7 +108,7 @@ export function useAutoSave() {
             // Content is not empty - save and add to list if needed
             // Convert HTML to Markdown before saving
             const markdownContent = htmlToMarkdown(currentNote.content);
-            await writeNote(filename, markdownContent, true);
+            await writeNote(filename, markdownContent, true, false);
 
             if (!existsInList) {
               // Add to notes list
@@ -109,7 +116,43 @@ export function useAutoSave() {
                 name: filename,
                 path: filename,
                 isDaily: true,
+                isWeekly: false,
                 date: dateStr,
+                isLocked: false,
+              };
+              setNotes([...freshNotes, noteFile]);
+            }
+          }
+        } else if (currentNote.isWeekly) {
+          const weekStr = currentNote.week;
+          const existsInList = freshNotes.some(n => n.isWeekly && n.week === weekStr);
+
+          if (isEmpty) {
+            // Content is empty - delete the file if it exists
+            if (existsInList) {
+              try {
+                await deleteNote(filename, false, true);
+              } catch (deleteError) {
+                console.error('[useAutoSave] Delete weekly note failed:', deleteError);
+              }
+              // Remove from notes list
+              const updatedNotes = freshNotes.filter(n => !(n.isWeekly && n.week === weekStr));
+              setNotes(updatedNotes);
+            }
+          } else {
+            // Content is not empty - save and add to list if needed
+            // Convert HTML to Markdown before saving
+            const markdownContent = htmlToMarkdown(currentNote.content);
+            await writeNote(filename, markdownContent, false, true);
+
+            if (!existsInList) {
+              // Add to notes list
+              const noteFile: NoteFile = {
+                name: filename,
+                path: `weekly/${filename}`,
+                isDaily: false,
+                isWeekly: true,
+                week: weekStr,
                 isLocked: false,
               };
               setNotes([...freshNotes, noteFile]);
@@ -119,7 +162,7 @@ export function useAutoSave() {
           // Standalone note - just save normally
           // Convert HTML to Markdown before saving
           const markdownContent = htmlToMarkdown(currentNote.content);
-          await writeNote(filename, markdownContent, false);
+          await writeNote(filename, markdownContent, false, false);
         }
 
         lastContentRef.current = currentNote.content;
@@ -135,5 +178,5 @@ export function useAutoSave() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentNote?.content, currentNote?.id, currentNote?.isDaily, currentNote?.date, currentNote?.title, setIsSaving, setNotes, getState, autoSaveDelay]);
+  }, [currentNote?.content, currentNote?.id, currentNote?.isDaily, currentNote?.isWeekly, currentNote?.date, currentNote?.week, currentNote?.title, setIsSaving, setNotes, getState, autoSaveDelay]);
 }

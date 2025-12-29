@@ -11,7 +11,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { Instance } from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
-import { EditorHeader } from './EditorHeader';
+import { EditorFooter } from './EditorFooter';
+import { TabBar } from './TabBar';
+import { SelectionToolbar } from './SelectionToolbar';
+import { EditorErrorBoundary } from './EditorErrorBoundary';
 import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
@@ -22,14 +25,13 @@ import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hoo
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml } from '@/lib';
-import { Check } from 'lucide-react';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 
 export function Editor() {
-  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes } = useNoteStore();
-  const { spellCheck, showWordCount, showAutoSaveStatus } = useSettingsStore();
+  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
+  const { spellCheck } = useSettingsStore();
   const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
   const { getTemplateContent } = useTemplates();
@@ -54,6 +56,17 @@ export function Editor() {
   // Ref to always access latest notes for wiki link handler
   const notesRef = useRef(notes);
   notesRef.current = notes;
+
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  // Ref for scrollable editor container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Handle wiki link clicks
   const handleWikiLinkClick = useCallback(async (target: string) => {
@@ -101,6 +114,7 @@ export function Editor() {
             name: target,
             path: target,
             isDaily: isDailyNote,
+            isWeekly: false,
             date: isDailyNote ? target.replace('.md', '') : undefined,
             isLocked: false,
           });
@@ -192,6 +206,8 @@ export function Editor() {
         heading: {
           levels: [1, 2, 3],
         },
+        link: false,      // Disable - we configure Link separately below
+        underline: false, // Disable - we add Underline separately below
       }),
       Placeholder.configure({
         placeholder: 'Start writing...',
@@ -240,55 +256,72 @@ export function Editor() {
 
             return {
               onStart: (props: any) => {
-                component = new ReactRenderer(WikiLinkSuggestionList, {
-                  props,
-                  editor: props.editor,
-                });
+                try {
+                  component = new ReactRenderer(WikiLinkSuggestionList, {
+                    props,
+                    editor: props.editor,
+                  });
 
-                if (!props.clientRect) {
-                  return;
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup = tippy('body', {
+                    getReferenceClientRect: props.clientRect,
+                    appendTo: () => document.body,
+                    content: component.element,
+                    showOnCreate: true,
+                    interactive: true,
+                    trigger: 'manual',
+                    placement: 'bottom-start',
+                    maxWidth: 'none',
+                  });
+                } catch (error) {
+                  console.warn('[WikiLinkSuggestion] onStart error:', error);
                 }
-
-                popup = tippy('body', {
-                  getReferenceClientRect: props.clientRect,
-                  appendTo: () => document.body,
-                  content: component.element,
-                  showOnCreate: true,
-                  interactive: true,
-                  trigger: 'manual',
-                  placement: 'bottom-start',
-                  maxWidth: 'none',
-                });
               },
 
               onUpdate(props: any) {
-                component?.updateProps(props);
+                try {
+                  component?.updateProps(props);
 
-                if (!props.clientRect) {
-                  return;
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup?.[0]?.setProps({
+                    getReferenceClientRect: props.clientRect,
+                  });
+                } catch (error) {
+                  console.warn('[WikiLinkSuggestion] onUpdate error:', error);
                 }
-
-                popup?.[0]?.setProps({
-                  getReferenceClientRect: props.clientRect,
-                });
               },
 
               onKeyDown(props: any) {
-                if (props.event.key === 'Escape') {
-                  popup?.[0]?.hide();
-                  return true;
-                }
+                try {
+                  if (props.event.key === 'Escape') {
+                    popup?.[0]?.hide();
+                    return true;
+                  }
 
-                return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                } catch (error) {
+                  console.warn('[WikiLinkSuggestion] onKeyDown error:', error);
+                  return false;
+                }
               },
 
               onExit() {
                 // CRITICAL: Proper cleanup to allow re-triggering
-                if (popup?.[0]) {
-                  popup[0].destroy();
-                }
-                if (component) {
-                  component.destroy();
+                try {
+                  if (popup?.[0]) {
+                    popup[0].destroy();
+                  }
+                  if (component) {
+                    component.destroy();
+                  }
+                } catch (error) {
+                  console.warn('[WikiLinkSuggestion] onExit error:', error);
                 }
                 // Reset references so suggestion can trigger again
                 popup = null;
@@ -315,20 +348,38 @@ export function Editor() {
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      updateNoteContent(html);
-      // Hide template picker when user starts typing
-      if (showInlineTemplatePicker && editor.getText().length > 0) {
-        setShowInlineTemplatePicker(false);
+      try {
+        const html = editor.getHTML();
+        // Pass current note ID to prevent race conditions when switching notes
+        const noteId = currentNoteRef.current?.id;
+        updateNoteContent(html, noteId);
+        // Hide template picker when user starts typing
+        if (showInlineTemplatePicker && editor.getText().length > 0) {
+          setShowInlineTemplatePicker(false);
+        }
+      } catch (error) {
+        console.warn('[Editor] onUpdate error:', error);
+      }
+    },
+    onDestroy: () => {
+      // Clean up any pending operations when editor is destroyed
+      console.log('[Editor] Editor destroyed');
+    },
+    onSelectionUpdate: () => {
+      // Wrap in try-catch to prevent crashes during selection
+      try {
+        // Selection update handling - no-op but catches errors
+      } catch (error) {
+        console.warn('[Editor] Selection update error:', error);
       }
     },
     editorProps: {
       attributes: {
-        class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full p-6',
+        class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
         spellcheck: spellCheck ? 'true' : 'false',
       },
     },
-  }, [currentNote?.id]); // Recreate editor for each note to reset plugin state
+  }, []); // Create editor ONCE - content updates handled separately
 
   // Update editor content when note changes
   // Use a ref to access the latest currentNote without adding it to deps
@@ -337,16 +388,50 @@ export function Editor() {
 
   React.useEffect(() => {
     const note = currentNoteRef.current;
-    if (editor && note) {
-      // Clear editor first to reset all plugin states (including suggestions)
-      editor.commands.clearContent();
 
-      // Use setTimeout(0) to ensure state is fully cleared before new content loads
-      setTimeout(() => {
-        editor.commands.setContent(note.content || '');
-      }, 0);
-    } else if (editor && !note) {
-      editor.commands.clearContent();
+    // Check if editor is valid and not destroyed
+    if (!editor || editor.isDestroyed) {
+      return;
+    }
+
+    // Check if component is still mounted
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    try {
+      if (note) {
+        // Use a microtask to ensure React has finished its commit phase
+        queueMicrotask(() => {
+          try {
+            // Double-check mounted and editor state before DOM operations
+            if (isMountedRef.current && editor && !editor.isDestroyed) {
+              // Clear and set content, then blur to clear any selection
+              editor.commands.setContent(note.content || '');
+              editor.commands.blur();
+              // Reset scroll position to top
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTop = 0;
+              }
+            }
+          } catch (error) {
+            console.warn('[Editor] setContent error:', error);
+          }
+        });
+      } else {
+        queueMicrotask(() => {
+          try {
+            // Double-check mounted and editor state before DOM operations
+            if (isMountedRef.current && editor && !editor.isDestroyed) {
+              editor.commands.clearContent();
+            }
+          } catch (error) {
+            console.warn('[Editor] clearContent error:', error);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('[Editor] Content update error:', error);
     }
   }, [editor, currentNote?.id]);
 
@@ -401,6 +486,7 @@ export function Editor() {
     showTemplatePicker: showShortcutTemplatePicker,
     handleTemplateSelect: handleShortcutTemplateSelect,
     handleTemplatePickerClose: handleShortcutTemplatePickerClose,
+    openTemplatePicker,
   } = useKeyboardShortcuts({
     editor,
     onNewNote: () => {
@@ -428,23 +514,23 @@ export function Editor() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Delete Note
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete this note? This cannot be undone.
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={handleDeleteCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+                className="btn focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-danger-gradient btn-elevated focus-ring"
+                className="btn btn-danger focus-ring"
               >
                 Delete
               </button>
@@ -453,53 +539,41 @@ export function Editor() {
         </div>
       )}
 
-      {/* Header with formatting menu */}
-      <EditorHeader editor={editor} onDelete={handleDeleteClick} />
-
-      {/* Saving indicator */}
-      {showAutoSaveStatus && (isSaving || showSaveSuccess) && (
-        <div className="px-4 py-1.5 text-xs bg-gray-50 dark:bg-gray-900/50 flex items-center gap-1.5">
-          {isSaving ? (
-            <>
-              <svg className="w-3 h-3 text-gray-400 dark:text-gray-500 spinner" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <span className="text-gray-400 dark:text-gray-500 saving-indicator">Saving...</span>
-            </>
-          ) : showSaveSuccess ? (
-            <>
-              <Check className="w-3 h-3 text-green-500 dark:text-green-400 save-success-icon" />
-              <span className="text-green-600 dark:text-green-400">Saved</span>
-            </>
-          ) : null}
-        </div>
-      )}
+      {/* Tab bar - only show when there are open tabs */}
+      {openTabs.length > 0 && <TabBar />}
 
       {/* Editor */}
       <div
-        className="flex-1 overflow-y-auto mx-4 my-4 rounded-lg editor-paper relative transition-colors duration-200"
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto mx-4 mt-6 mb-4 rounded-lg editor-paper relative transition-colors duration-200"
         style={{ backgroundColor: noteBackgroundColor || (isDark ? '#1f2937' : 'white') }}
       >
-        <EditorContent key={currentNote?.id || 'empty'} editor={editor} className="h-full content-enter" />
+        <EditorErrorBoundary resetKey={currentNote?.id}>
+          <EditorContent editor={editor} className="h-full content-enter" />
+          {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
+          {editor && !editor.isDestroyed && <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />}
+        </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes */}
         {showInlineTemplatePicker && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="pointer-events-auto">
-              <EmptyNoteTemplatePicker onSelectTemplate={handleTemplateSelect} />
+              <EmptyNoteTemplatePicker
+                onSelectTemplate={handleTemplateSelect}
+                onOpenAllTemplates={openTemplatePicker}
+              />
             </div>
           </div>
         )}
       </div>
 
-      {/* Word Count */}
-      {showWordCount && editor && (
-        <div className="px-6 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-          {editor.storage.characterCount?.words?.() ||
-           editor.getText().split(/\s+/).filter(word => word.length > 0).length} words
-        </div>
-      )}
+      {/* Footer with save status, toolbar, and word count */}
+      <EditorFooter
+        editor={editor}
+        onDelete={handleDeleteClick}
+        isSaving={isSaving}
+        showSaveSuccess={showSaveSuccess}
+      />
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}
       <TemplatePickerModal

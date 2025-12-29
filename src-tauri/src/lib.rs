@@ -4,7 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read as IoRead, Write as IoWrite};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
 
@@ -21,8 +21,54 @@ pub struct NoteFile {
     name: String,
     path: String,
     is_daily: bool,
+    is_weekly: bool,
     date: Option<String>,
+    week: Option<String>,
     is_locked: bool,
+    folder_path: Option<String>,
+}
+
+// Folder System Data Structures
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderInfo {
+    name: String,
+    path: String,
+    children: Vec<FolderInfo>,
+}
+
+// Trash System Data Structures
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashedNote {
+    id: String,
+    filename: String,
+    original_path: String,
+    is_daily: bool,
+    is_folder: bool,
+    contained_files: Vec<String>,
+    trashed_at: i64,
+    days_remaining: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct TrashMetadata {
+    items: Vec<TrashedNoteMetadata>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TrashedNoteMetadata {
+    id: String,
+    filename: String,
+    original_path: String,
+    is_daily: bool,
+    #[serde(default)]
+    is_folder: bool,
+    #[serde(default)]
+    contained_files: Vec<String>,
+    trashed_at: i64,
 }
 
 // Template System Data Structures
@@ -168,6 +214,44 @@ fn get_daily_dir() -> PathBuf {
 
 fn get_standalone_dir() -> PathBuf {
     get_notes_dir().join("notes")
+}
+
+fn get_weekly_dir() -> PathBuf {
+    get_notes_dir().join("weekly")
+}
+
+fn get_trash_dir() -> PathBuf {
+    get_notes_dir().join(".trash")
+}
+
+fn get_trash_metadata_path() -> PathBuf {
+    get_trash_dir().join("metadata.json")
+}
+
+fn ensure_trash_dir() -> Result<(), String> {
+    let trash_dir = get_trash_dir();
+    fs::create_dir_all(&trash_dir).map_err(|e| format!("Failed to create trash directory: {}", e))?;
+    Ok(())
+}
+
+fn read_trash_metadata() -> TrashMetadata {
+    let metadata_path = get_trash_metadata_path();
+    if metadata_path.exists() {
+        if let Ok(content) = fs::read_to_string(&metadata_path) {
+            if let Ok(metadata) = serde_json::from_str::<TrashMetadata>(&content) {
+                return metadata;
+            }
+        }
+    }
+    TrashMetadata::default()
+}
+
+fn write_trash_metadata(metadata: &TrashMetadata) -> Result<(), String> {
+    ensure_trash_dir()?;
+    let metadata_path = get_trash_metadata_path();
+    let json = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
+    fs::write(&metadata_path, json).map_err(|e| format!("Failed to write trash metadata: {}", e))?;
+    Ok(())
 }
 
 // Template System Helper Functions
@@ -464,8 +548,9 @@ fn ensure_directories() -> Result<(), String> {
     let notes_dir = get_notes_dir();
     let daily_dir = get_daily_dir();
     let standalone_dir = get_standalone_dir();
+    let weekly_dir = get_weekly_dir();
 
-    for dir in [&notes_dir, &daily_dir, &standalone_dir] {
+    for dir in [&notes_dir, &daily_dir, &standalone_dir, &weekly_dir] {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
 
         // Set restrictive directory permissions (700 = owner only)
@@ -480,11 +565,79 @@ fn ensure_directories() -> Result<(), String> {
     Ok(())
 }
 
+// Helper function to recursively scan notes in a directory
+fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut Vec<NoteFile>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+
+            if path.is_dir() {
+                // Skip hidden directories
+                if filename.starts_with('.') {
+                    continue;
+                }
+
+                // Recurse into subdirectory
+                let new_relative_path = if relative_path.is_empty() {
+                    filename.clone()
+                } else {
+                    format!("{}/{}", relative_path, filename)
+                };
+                scan_notes_recursive(&path, &new_relative_path, notes);
+            } else if path.is_file() {
+                // Determine folder_path (None if at root level)
+                let folder_path = if relative_path.is_empty() {
+                    None
+                } else {
+                    Some(relative_path.to_string())
+                };
+
+                // Check for locked files (.md.locked)
+                if filename.ends_with(".md.locked") {
+                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                    let note_path = if relative_path.is_empty() {
+                        format!("notes/{}", base_name)
+                    } else {
+                        format!("notes/{}/{}", relative_path, base_name)
+                    };
+                    notes.push(NoteFile {
+                        name: base_name,
+                        path: note_path,
+                        is_daily: false,
+                        is_weekly: false,
+                        date: None,
+                        week: None,
+                        is_locked: true,
+                        folder_path,
+                    });
+                } else if path.extension().map_or(false, |ext| ext == "md") {
+                    let note_path = if relative_path.is_empty() {
+                        format!("notes/{}", filename)
+                    } else {
+                        format!("notes/{}/{}", relative_path, filename)
+                    };
+                    notes.push(NoteFile {
+                        name: filename,
+                        path: note_path,
+                        is_daily: false,
+                        is_weekly: false,
+                        date: None,
+                        week: None,
+                        is_locked: false,
+                        folder_path,
+                    });
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 fn list_notes() -> Result<Vec<NoteFile>, String> {
     let mut notes = Vec::new();
 
-    // List daily notes
+    // List daily notes (non-recursive, daily notes are only at root level)
     let daily_dir = get_daily_dir();
     if daily_dir.exists() {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
@@ -500,8 +653,11 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         name: base_name.clone(),
                         path: format!("daily/{}", base_name),
                         is_daily: true,
+                        is_weekly: false,
                         date,
+                        week: None,
                         is_locked: true,
+                        folder_path: None,
                     });
                 } else if path.extension().map_or(false, |ext| ext == "md") {
                     let date = filename.strip_suffix(".md").map(|s| s.to_string());
@@ -509,18 +665,21 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         name: filename.clone(),
                         path: format!("daily/{}", filename),
                         is_daily: true,
+                        is_weekly: false,
                         date,
+                        week: None,
                         is_locked: false,
+                        folder_path: None,
                     });
                 }
             }
         }
     }
 
-    // List standalone notes
-    let standalone_dir = get_standalone_dir();
-    if standalone_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&standalone_dir) {
+    // List weekly notes (non-recursive, weekly notes are only at root level)
+    let weekly_dir = get_weekly_dir();
+    if weekly_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&weekly_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let filename = path.file_name().unwrap().to_string_lossy().to_string();
@@ -528,32 +687,53 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
                     let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                    let week = base_name.strip_suffix(".md").map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: base_name.clone(),
-                        path: format!("notes/{}", base_name),
+                        path: format!("weekly/{}", base_name),
                         is_daily: false,
+                        is_weekly: true,
                         date: None,
+                        week,
                         is_locked: true,
+                        folder_path: None,
                     });
                 } else if path.extension().map_or(false, |ext| ext == "md") {
+                    let week = filename.strip_suffix(".md").map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: filename.clone(),
-                        path: format!("notes/{}", filename),
+                        path: format!("weekly/{}", filename),
                         is_daily: false,
+                        is_weekly: true,
                         date: None,
+                        week,
                         is_locked: false,
+                        folder_path: None,
                     });
                 }
             }
         }
     }
 
+    // List standalone notes (recursive to support folders)
+    let standalone_dir = get_standalone_dir();
+    if standalone_dir.exists() {
+        scan_notes_recursive(&standalone_dir, "", &mut notes);
+    }
+
     Ok(notes)
 }
 
 #[tauri::command]
-fn read_note(filename: String, is_daily: bool) -> Result<String, String> {
-    let dir = if is_daily {
+fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    // Prevent path traversal attacks
+    if filename.contains("..") {
+        return Err("Invalid filename".to_string());
+    }
+
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -569,8 +749,15 @@ fn read_note(filename: String, is_daily: bool) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn write_note(filename: String, content: String, is_daily: bool) -> Result<(), String> {
-    let dir = if is_daily {
+fn write_note(filename: String, content: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    // Prevent path traversal attacks
+    if filename.contains("..") {
+        return Err("Invalid filename".to_string());
+    }
+
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -591,8 +778,15 @@ fn write_note(filename: String, content: String, is_daily: bool) -> Result<(), S
 }
 
 #[tauri::command]
-fn delete_note(filename: String, is_daily: bool) -> Result<(), String> {
-    let dir = if is_daily {
+fn delete_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    // Prevent path traversal attacks
+    if filename.contains("..") {
+        return Err("Invalid filename".to_string());
+    }
+
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -607,15 +801,462 @@ fn delete_note(filename: String, is_daily: bool) -> Result<(), String> {
     }
 }
 
+// Trash System Commands
+
 #[tauri::command]
-fn create_note(title: String) -> Result<String, String> {
-    let dir = get_standalone_dir();
-    let filename = format!("{}.md", title);
+fn trash_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    // Prevent path traversal attacks
+    if filename.contains("..") {
+        return Err("Invalid filename".to_string());
+    }
+
+    let source_dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let source_path = source_dir.join(&filename);
+    if !source_path.exists() {
+        return Err("Note does not exist".to_string());
+    }
+
+    // Generate unique ID for trash item
+    let id = format!("{}", chrono::Utc::now().timestamp_millis());
+
+    // Create trash directory if needed
+    ensure_trash_dir()?;
+
+    // Move file to trash with unique name to avoid conflicts
+    let trash_filename = format!("{}_{}", id, filename.replace('/', "_"));
+    let trash_path = get_trash_dir().join(&trash_filename);
+    fs::rename(&source_path, &trash_path).map_err(|e| format!("Failed to move to trash: {}", e))?;
+
+    // Update metadata
+    let mut metadata = read_trash_metadata();
+    metadata.items.push(TrashedNoteMetadata {
+        id: id.clone(),
+        filename: filename.clone(),
+        original_path: filename,
+        is_daily,
+        is_folder: false,
+        contained_files: Vec::new(),
+        trashed_at: chrono::Utc::now().timestamp(),
+    });
+    write_trash_metadata(&metadata)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn list_trash() -> Result<Vec<TrashedNote>, String> {
+    let metadata = read_trash_metadata();
+    let now = chrono::Utc::now().timestamp();
+    let seven_days_secs = 7 * 24 * 60 * 60;
+
+    let items: Vec<TrashedNote> = metadata.items.iter().map(|item| {
+        let elapsed_secs = now - item.trashed_at;
+        let remaining_secs = seven_days_secs - elapsed_secs;
+        let days_remaining = (remaining_secs as f64 / (24.0 * 60.0 * 60.0)).ceil() as i32;
+
+        TrashedNote {
+            id: item.id.clone(),
+            filename: item.filename.clone(),
+            original_path: item.original_path.clone(),
+            is_daily: item.is_daily,
+            is_folder: item.is_folder,
+            contained_files: item.contained_files.clone(),
+            trashed_at: item.trashed_at,
+            days_remaining: days_remaining.max(0),
+        }
+    }).collect();
+
+    Ok(items)
+}
+
+#[tauri::command]
+fn restore_note(trash_id: String) -> Result<(), String> {
+    let mut metadata = read_trash_metadata();
+
+    // Find the item in metadata
+    let item_index = metadata.items.iter().position(|item| item.id == trash_id)
+        .ok_or("Trash item not found")?;
+
+    let item = metadata.items[item_index].clone();
+
+    // Build trash file/folder path
+    let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+    let trash_path = get_trash_dir().join(&trash_filename);
+
+    if !trash_path.exists() {
+        // Remove from metadata anyway
+        metadata.items.remove(item_index);
+        write_trash_metadata(&metadata)?;
+        return Err("Trash file not found on disk".to_string());
+    }
+
+    // Determine destination
+    let dest_dir = if item.is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    if item.is_folder {
+        // Restore entire folder
+        let dest_path = dest_dir.join(&item.original_path);
+
+        // Ensure parent directory exists
+        if let Some(parent) = dest_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Move folder back
+        fs::rename(&trash_path, &dest_path).map_err(|e| format!("Failed to restore folder: {}", e))?;
+    } else {
+        // Ensure parent directory exists for notes in folders
+        let dest_path = dest_dir.join(&item.original_path);
+        if let Some(parent) = dest_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Move file back
+        fs::rename(&trash_path, &dest_path).map_err(|e| format!("Failed to restore: {}", e))?;
+    }
+
+    // Update metadata
+    metadata.items.remove(item_index);
+    write_trash_metadata(&metadata)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
+    let mut metadata = read_trash_metadata();
+
+    // Find the item in metadata
+    let item_index = metadata.items.iter().position(|item| item.id == trash_id)
+        .ok_or("Trash item not found")?;
+
+    let item = &metadata.items[item_index];
+
+    // Build trash file/folder path and delete
+    let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+    let trash_path = get_trash_dir().join(&trash_filename);
+
+    if trash_path.exists() {
+        if item.is_folder {
+            fs::remove_dir_all(&trash_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+        } else {
+            fs::remove_file(&trash_path).map_err(|e| format!("Failed to delete: {}", e))?;
+        }
+    }
+
+    // Update metadata
+    metadata.items.remove(item_index);
+    write_trash_metadata(&metadata)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn empty_trash() -> Result<(), String> {
+    let metadata = read_trash_metadata();
+
+    // Delete all files and folders
+    for item in &metadata.items {
+        let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+        let trash_path = get_trash_dir().join(&trash_filename);
+        if trash_path.exists() {
+            if item.is_folder {
+                let _ = fs::remove_dir_all(&trash_path);
+            } else {
+                let _ = fs::remove_file(&trash_path);
+            }
+        }
+    }
+
+    // Clear metadata
+    write_trash_metadata(&TrashMetadata::default())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn cleanup_old_trash() -> Result<u32, String> {
+    let mut metadata = read_trash_metadata();
+    let now = chrono::Utc::now().timestamp();
+    let seven_days_secs = 7 * 24 * 60 * 60;
+    let mut deleted_count = 0u32;
+
+    // Find expired items
+    let expired_items: Vec<(usize, bool)> = metadata.items.iter().enumerate()
+        .filter(|(_, item)| now - item.trashed_at >= seven_days_secs)
+        .map(|(i, item)| (i, item.is_folder))
+        .collect();
+
+    // Delete files/folders and remove from metadata (in reverse to maintain indices)
+    for (i, is_folder) in expired_items.into_iter().rev() {
+        let item = &metadata.items[i];
+        let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+        let trash_path = get_trash_dir().join(&trash_filename);
+
+        if trash_path.exists() {
+            let result = if is_folder {
+                fs::remove_dir_all(&trash_path)
+            } else {
+                fs::remove_file(&trash_path)
+            };
+            if result.is_ok() {
+                deleted_count += 1;
+            }
+        }
+
+        metadata.items.remove(i);
+    }
+
+    write_trash_metadata(&metadata)?;
+
+    Ok(deleted_count)
+}
+
+#[tauri::command]
+fn trash_folder(path: String) -> Result<(), String> {
+    // Prevent path traversal attacks
+    if path.contains("..") {
+        return Err("Invalid folder path".to_string());
+    }
+
+    let standalone_dir = get_standalone_dir();
+    let source_path = standalone_dir.join(&path);
+
+    if !source_path.exists() {
+        return Err("Folder does not exist".to_string());
+    }
+
+    if !source_path.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+
+    // Collect list of files in the folder
+    let mut contained_files: Vec<String> = Vec::new();
+    fn collect_files(dir: &std::path::Path, relative_path: &str, files: &mut Vec<String>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                if path.is_dir() {
+                    let sub_path = if relative_path.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{}/{}", relative_path, name)
+                    };
+                    collect_files(&path, &sub_path, files);
+                } else if path.extension().map_or(false, |ext| ext == "md") {
+                    let file_path = if relative_path.is_empty() {
+                        name
+                    } else {
+                        format!("{}/{}", relative_path, name)
+                    };
+                    files.push(file_path);
+                }
+            }
+        }
+    }
+    collect_files(&source_path, "", &mut contained_files);
+
+    // Generate unique ID for trash item
+    let id = format!("{}", chrono::Utc::now().timestamp_millis());
+
+    // Create trash directory if needed
+    ensure_trash_dir()?;
+
+    // Move folder to trash
+    let folder_name = source_path.file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&path)
+        .to_string();
+    let trash_filename = format!("{}_{}", id, path.replace('/', "_"));
+    let trash_path = get_trash_dir().join(&trash_filename);
+    fs::rename(&source_path, &trash_path).map_err(|e| format!("Failed to move folder to trash: {}", e))?;
+
+    // Update metadata
+    let mut metadata = read_trash_metadata();
+    metadata.items.push(TrashedNoteMetadata {
+        id: id.clone(),
+        filename: folder_name,
+        original_path: path,
+        is_daily: false,
+        is_folder: true,
+        contained_files,
+        trashed_at: chrono::Utc::now().timestamp(),
+    });
+    write_trash_metadata(&metadata)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn restore_note_from_folder(trash_id: String, note_filename: String) -> Result<(), String> {
+    let mut metadata = read_trash_metadata();
+
+    // Find the folder item in metadata
+    let item_index = metadata.items.iter().position(|item| item.id == trash_id && item.is_folder)
+        .ok_or("Trashed folder not found")?;
+
+    let item = &metadata.items[item_index];
+
+    // Build trash folder path
+    let trash_folder_name = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+    let trash_folder_path = get_trash_dir().join(&trash_folder_name);
+
+    if !trash_folder_path.exists() {
+        return Err("Trashed folder not found on disk".to_string());
+    }
+
+    // Find the note file inside the trashed folder
+    let note_path_in_trash = trash_folder_path.join(&note_filename);
+
+    if !note_path_in_trash.exists() {
+        return Err("Note not found in trashed folder".to_string());
+    }
+
+    // Destination is root of standalone notes (not back to original folder)
+    let standalone_dir = get_standalone_dir();
+    let dest_path = standalone_dir.join(note_path_in_trash.file_name().unwrap());
+
+    // Check if destination already exists
+    if dest_path.exists() {
+        return Err("A note with this name already exists in the notes folder".to_string());
+    }
+
+    // Move just this note to the root
+    fs::rename(&note_path_in_trash, &dest_path).map_err(|e| format!("Failed to restore note: {}", e))?;
+
+    // Update the contained_files list in metadata
+    let item = &mut metadata.items[item_index];
+    item.contained_files.retain(|f| f != &note_filename);
+
+    // If folder is now empty, remove it from trash entirely
+    let remaining_files = fs::read_dir(&trash_folder_path)
+        .map(|entries| entries.flatten().count())
+        .unwrap_or(0);
+
+    if remaining_files == 0 {
+        let _ = fs::remove_dir_all(&trash_folder_path);
+        metadata.items.remove(item_index);
+    }
+
+    write_trash_metadata(&metadata)?;
+
+    Ok(())
+}
+
+/// Generate a unique filename in the given directory.
+/// If "name.md" exists, tries "name (2).md", "name (3).md", etc.
+fn generate_unique_filename(dir: &Path, base_name: &str, extension: &str) -> String {
+    let filename = format!("{}.{}", base_name, extension);
     let path = dir.join(&filename);
 
-    if path.exists() {
-        return Err("A note with this name already exists".to_string());
+    if !path.exists() {
+        return filename;
     }
+
+    // File exists, need to find a unique name
+    // First, check if base_name already ends with " (N)" pattern
+    let re = regex::Regex::new(r"^(.+) \((\d+)\)$").unwrap();
+    let (actual_base, start_num) = if let Some(caps) = re.captures(base_name) {
+        (caps.get(1).unwrap().as_str().to_string(), caps.get(2).unwrap().as_str().parse::<u32>().unwrap_or(1))
+    } else {
+        (base_name.to_string(), 1)
+    };
+
+    // Start from 2 if this is a fresh duplicate, or from existing number + 1
+    let mut counter = if start_num == 1 { 2 } else { start_num + 1 };
+
+    loop {
+        let new_filename = format!("{} ({}).{}", actual_base, counter, extension);
+        let new_path = dir.join(&new_filename);
+        if !new_path.exists() {
+            return new_filename;
+        }
+        counter += 1;
+        // Safety limit to prevent infinite loops
+        if counter > 10000 {
+            // Fallback with timestamp
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            return format!("{} ({}).{}", actual_base, timestamp, extension);
+        }
+    }
+}
+
+/// Generate a unique folder name in the given directory.
+fn generate_unique_folder_name(parent_dir: &Path, base_name: &str) -> String {
+    let path = parent_dir.join(base_name);
+
+    if !path.exists() {
+        return base_name.to_string();
+    }
+
+    // Folder exists, need to find a unique name
+    let re = regex::Regex::new(r"^(.+) \((\d+)\)$").unwrap();
+    let (actual_base, start_num) = if let Some(caps) = re.captures(base_name) {
+        (caps.get(1).unwrap().as_str().to_string(), caps.get(2).unwrap().as_str().parse::<u32>().unwrap_or(1))
+    } else {
+        (base_name.to_string(), 1)
+    };
+
+    let mut counter = if start_num == 1 { 2 } else { start_num + 1 };
+
+    loop {
+        let new_name = format!("{} ({})", actual_base, counter);
+        let new_path = parent_dir.join(&new_name);
+        if !new_path.exists() {
+            return new_name;
+        }
+        counter += 1;
+        if counter > 10000 {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            return format!("{} ({})", actual_base, timestamp);
+        }
+    }
+}
+
+#[tauri::command]
+fn create_note(title: String, folder_path: Option<String>) -> Result<String, String> {
+    // Prevent path traversal attacks
+    if title.contains("..") {
+        return Err("Invalid title".to_string());
+    }
+    if let Some(ref folder) = folder_path {
+        if folder.contains("..") {
+            return Err("Invalid folder path".to_string());
+        }
+    }
+
+    let base_dir = get_standalone_dir();
+    let dir = match &folder_path {
+        Some(folder) => base_dir.join(folder),
+        None => base_dir,
+    };
+
+    // Ensure the folder exists
+    if !dir.exists() {
+        return Err("Folder does not exist".to_string());
+    }
+
+    // Generate unique filename if needed
+    let filename = generate_unique_filename(&dir, &title, "md");
+    let path = dir.join(&filename);
 
     fs::write(&path, "").map_err(|e| e.to_string())?;
 
@@ -627,12 +1268,18 @@ fn create_note(title: String) -> Result<String, String> {
         fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
     }
 
-    Ok(filename)
+    // Return the full relative path
+    match folder_path {
+        Some(folder) => Ok(format!("{}/{}", folder, filename)),
+        None => Ok(filename),
+    }
 }
 
 #[tauri::command]
-fn rename_note(old_filename: String, new_filename: String, is_daily: bool) -> Result<(), String> {
-    let dir = if is_daily {
+fn rename_note(old_filename: String, new_filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -681,6 +1328,289 @@ fn clear_all_notes() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+// Folder System Helper Functions
+
+fn scan_folders_recursive(dir: &std::path::Path, relative_path: &str) -> Vec<FolderInfo> {
+    let mut folders = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path.file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // Skip hidden directories
+                if name.starts_with('.') {
+                    continue;
+                }
+
+                let folder_relative_path = if relative_path.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{}/{}", relative_path, name)
+                };
+
+                // Recursively scan subdirectories
+                let children = scan_folders_recursive(&path, &folder_relative_path);
+
+                folders.push(FolderInfo {
+                    name,
+                    path: folder_relative_path,
+                    children,
+                });
+            }
+        }
+    }
+
+    // Sort folders alphabetically
+    folders.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    folders
+}
+
+// Folder System Commands
+
+#[tauri::command]
+fn list_folders() -> Result<Vec<FolderInfo>, String> {
+    let standalone_dir = get_standalone_dir();
+
+    if !standalone_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    Ok(scan_folders_recursive(&standalone_dir, ""))
+}
+
+#[tauri::command]
+fn create_folder(path: String) -> Result<(), String> {
+    let standalone_dir = get_standalone_dir();
+    let folder_path = standalone_dir.join(&path);
+
+    // Validate path - prevent path traversal
+    if path.contains("..") {
+        return Err("Invalid folder path".to_string());
+    }
+
+    // Create the folder (and any parent folders)
+    fs::create_dir_all(&folder_path)
+        .map_err(|e| format!("Failed to create folder: {}", e))?;
+
+    // Set restrictive permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o700);
+        fs::set_permissions(&folder_path, permissions).ok();
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn rename_folder(old_path: String, new_name: String) -> Result<String, String> {
+    let standalone_dir = get_standalone_dir();
+    let old_folder_path = standalone_dir.join(&old_path);
+
+    // Validate inputs
+    if old_path.contains("..") || new_name.contains('/') || new_name.contains('\\') {
+        return Err("Invalid folder path or name".to_string());
+    }
+
+    if !old_folder_path.exists() {
+        return Err("Folder not found".to_string());
+    }
+
+    // Calculate new path (same parent directory, new name)
+    let parent = old_folder_path.parent()
+        .ok_or_else(|| "Cannot rename root folder".to_string())?;
+    let new_folder_path = parent.join(&new_name);
+
+    if new_folder_path.exists() {
+        return Err("A folder with this name already exists".to_string());
+    }
+
+    fs::rename(&old_folder_path, &new_folder_path)
+        .map_err(|e| format!("Failed to rename folder: {}", e))?;
+
+    // Return the new relative path
+    let new_relative_path = new_folder_path
+        .strip_prefix(&standalone_dir)
+        .map_err(|_| "Failed to compute new path".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    Ok(new_relative_path)
+}
+
+#[tauri::command]
+fn delete_folder(path: String, force: bool) -> Result<(), String> {
+    let standalone_dir = get_standalone_dir();
+    let folder_path = standalone_dir.join(&path);
+
+    // Validate path
+    if path.contains("..") {
+        return Err("Invalid folder path".to_string());
+    }
+
+    if !folder_path.exists() {
+        return Ok(()); // Already deleted
+    }
+
+    // Check if folder is empty (unless force is true)
+    if !force {
+        let has_contents = fs::read_dir(&folder_path)
+            .map(|mut entries| entries.next().is_some())
+            .unwrap_or(false);
+
+        if has_contents {
+            return Err("Folder is not empty. Use force=true to delete anyway.".to_string());
+        }
+    }
+
+    if force {
+        fs::remove_dir_all(&folder_path)
+            .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    } else {
+        fs::remove_dir(&folder_path)
+            .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// Move a folder (and all its contents) to another folder or to root.
+/// Handles naming conflicts by appending (2), (3), etc.
+#[tauri::command]
+fn move_folder(folder_path: String, to_folder: Option<String>) -> Result<String, String> {
+    let standalone_dir = get_standalone_dir();
+
+    // Validate paths
+    if folder_path.contains("..") {
+        return Err("Invalid folder path".to_string());
+    }
+    if let Some(ref dest) = to_folder {
+        if dest.contains("..") {
+            return Err("Invalid destination path".to_string());
+        }
+    }
+
+    let source_path = standalone_dir.join(&folder_path);
+
+    if !source_path.exists() {
+        return Err("Folder not found".to_string());
+    }
+
+    if !source_path.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+
+    // Get the folder name
+    let folder_name = source_path.file_name()
+        .ok_or_else(|| "Invalid folder path".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    // Calculate destination parent directory
+    let dest_parent = match &to_folder {
+        Some(dest) => standalone_dir.join(dest),
+        None => standalone_dir.clone(),
+    };
+
+    // Ensure destination parent exists
+    if !dest_parent.exists() {
+        return Err("Destination folder does not exist".to_string());
+    }
+
+    // Prevent moving folder into itself or its descendants
+    if let Some(ref dest) = to_folder {
+        if dest == &folder_path || dest.starts_with(&format!("{}/", folder_path)) {
+            return Err("Cannot move folder into itself or its subfolder".to_string());
+        }
+    }
+
+    // Check if we're moving to the same parent (no-op)
+    let source_parent = source_path.parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| standalone_dir.clone());
+    if source_parent == dest_parent {
+        return Ok(folder_path); // Already in the right place
+    }
+
+    // Generate unique folder name if needed
+    let final_name = generate_unique_folder_name(&dest_parent, &folder_name);
+    let dest_path = dest_parent.join(&final_name);
+
+    // Move the folder
+    fs::rename(&source_path, &dest_path)
+        .map_err(|e| format!("Failed to move folder: {}", e))?;
+
+    // Return new relative path
+    let new_relative_path = match &to_folder {
+        Some(dest) => format!("{}/{}", dest, final_name),
+        None => final_name,
+    };
+
+    Ok(new_relative_path)
+}
+
+#[tauri::command]
+fn move_note(note_path: String, to_folder: Option<String>) -> Result<String, String> {
+    let standalone_dir = get_standalone_dir();
+
+    // Validate paths
+    if note_path.contains("..") {
+        return Err("Invalid note path".to_string());
+    }
+    if let Some(ref folder) = to_folder {
+        if folder.contains("..") {
+            return Err("Invalid folder path".to_string());
+        }
+    }
+
+    let source_path = standalone_dir.join(&note_path);
+
+    if !source_path.exists() {
+        return Err("Note not found".to_string());
+    }
+
+    // Get the filename and extract base name without extension
+    let filename = source_path.file_name()
+        .ok_or_else(|| "Invalid note path".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    // Calculate destination path
+    let dest_dir = match &to_folder {
+        Some(folder) => standalone_dir.join(folder),
+        None => standalone_dir.clone(),
+    };
+
+    // Ensure destination folder exists
+    if !dest_dir.exists() {
+        return Err("Destination folder does not exist".to_string());
+    }
+
+    // Generate unique filename if needed (handle conflicts)
+    let base_name = filename.trim_end_matches(".md");
+    let final_filename = generate_unique_filename(&dest_dir, base_name, "md");
+    let dest_path = dest_dir.join(&final_filename);
+
+    // Move the file
+    fs::rename(&source_path, &dest_path)
+        .map_err(|e| format!("Failed to move note: {}", e))?;
+
+    // Return new relative path
+    let new_relative_path = match &to_folder {
+        Some(folder) => format!("{}/{}", folder, final_filename),
+        None => final_filename,
+    };
+
+    Ok(format!("notes/{}", new_relative_path))
 }
 
 // Template System Commands
@@ -890,8 +1820,10 @@ fn fix_note_permissions() -> Result<u32, String> {
 
 /// Lock a note by encrypting it with a password
 #[tauri::command]
-fn lock_note(filename: String, password: String, is_daily: bool) -> Result<(), String> {
-    let dir = if is_daily {
+fn lock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -938,8 +1870,10 @@ fn lock_note(filename: String, password: String, is_daily: bool) -> Result<(), S
 
 /// Unlock a note temporarily to view it (returns decrypted content without saving)
 #[tauri::command]
-fn unlock_note(filename: String, password: String, is_daily: bool) -> Result<String, String> {
-    let dir = if is_daily {
+fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -962,8 +1896,10 @@ fn unlock_note(filename: String, password: String, is_daily: bool) -> Result<Str
 
 /// Permanently unlock a note (decrypt and save as regular .md file)
 #[tauri::command]
-fn permanently_unlock_note(filename: String, password: String, is_daily: bool) -> Result<(), String> {
-    let dir = if is_daily {
+fn permanently_unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -1005,8 +1941,10 @@ fn permanently_unlock_note(filename: String, password: String, is_daily: bool) -
 
 /// Check if a note is locked
 #[tauri::command]
-fn is_note_locked(filename: String, is_daily: bool) -> bool {
-    let dir = if is_daily {
+fn is_note_locked(filename: String, is_daily: bool, is_weekly: bool) -> bool {
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
         get_daily_dir()
     } else {
         get_standalone_dir()
@@ -1344,6 +2282,22 @@ pub fn run() {
             create_note,
             rename_note,
             clear_all_notes,
+            // Folder system commands
+            list_folders,
+            create_folder,
+            rename_folder,
+            delete_folder,
+            move_folder,
+            move_note,
+            // Trash system commands
+            trash_note,
+            trash_folder,
+            list_trash,
+            restore_note,
+            restore_note_from_folder,
+            permanently_delete_trash,
+            empty_trash,
+            cleanup_old_trash,
             // Template system commands
             list_templates,
             get_template,

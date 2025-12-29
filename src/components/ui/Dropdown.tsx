@@ -4,10 +4,11 @@ interface DropdownProps {
   trigger: React.ReactNode;
   children: React.ReactNode;
   position?: 'left' | 'right' | 'center';
+  openDirection?: 'up' | 'down';
   className?: string;
 }
 
-export function Dropdown({ trigger, children, position = 'left', className = '' }: DropdownProps) {
+export function Dropdown({ trigger, children, position = 'left', openDirection = 'down', className = '' }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,10 @@ export function Dropdown({ trigger, children, position = 'left', className = '' 
     center: 'left-1/2 -translate-x-1/2',
   };
 
+  const directionClasses = openDirection === 'up'
+    ? 'bottom-full mb-1'
+    : 'top-full mt-1';
+
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
       <div onClick={() => setIsOpen(!isOpen)}>
@@ -61,7 +66,13 @@ export function Dropdown({ trigger, children, position = 'left', className = '' 
       {isOpen && (
         <div
           ref={menuRef}
-          className={`absolute top-full mt-1 ${positionClasses[position]} z-50 min-w-[180px] py-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 animate-in fade-in slide-in-from-top-1 duration-150`}
+          className={`absolute ${directionClasses} ${positionClasses[position]} z-50 min-w-[180px] py-1 modal-content-enter`}
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-muted)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
+          }}
         >
           {React.Children.map(children, (child) => {
             if (React.isValidElement(child)) {
@@ -92,17 +103,21 @@ interface DropdownItemProps {
 }
 
 export function DropdownItem({ children, onClick, icon, variant = 'default', disabled = false }: DropdownItemProps) {
-  const baseClasses = 'w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors';
-  const variantClasses = {
-    default: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700',
-    danger: 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30',
-  };
-  const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer';
-
   return (
     <button
       onClick={disabled ? undefined : onClick}
-      className={`${baseClasses} ${variantClasses[variant]} ${disabledClasses}`}
+      className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors"
+      style={{
+        color: variant === 'danger' ? 'var(--error)' : 'var(--text-primary)',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
+      }}
       disabled={disabled}
     >
       {icon && <span className="w-4 h-4 flex-shrink-0">{icon}</span>}
@@ -113,13 +128,13 @@ export function DropdownItem({ children, onClick, icon, variant = 'default', dis
 
 // Divider component
 export function DropdownDivider() {
-  return <div className="my-1 border-t border-gray-200 dark:border-gray-700" />;
+  return <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />;
 }
 
 // Label/header component
 export function DropdownLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+    <div className="section-header px-3 py-1.5">
       {children}
     </div>
   );

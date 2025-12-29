@@ -120,10 +120,19 @@ function LoadingState() {
       {[1, 2, 3].map((i) => (
         <div key={i} className="animate-pulse">
           <div className="flex items-start gap-2 p-2">
-            <div className="w-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-1" />
+            <div
+              className="w-2 h-2 rounded-full mt-1"
+              style={{ backgroundColor: 'var(--border-default)' }}
+            />
             <div className="flex-1">
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1" />
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+              <div
+                className="h-3 rounded w-16 mb-1"
+                style={{ backgroundColor: 'var(--border-default)' }}
+              />
+              <div
+                className="h-4 rounded w-3/4"
+                style={{ backgroundColor: 'var(--border-default)' }}
+              />
             </div>
           </div>
         </div>
@@ -136,13 +145,16 @@ function LoadingState() {
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <AlertCircle className="w-8 h-8 text-red-400 mb-2" />
-      <p className="text-sm text-red-500 dark:text-red-400 mb-2">
+      <AlertCircle className="w-8 h-8 mb-2" style={{ color: 'var(--error)' }} />
+      <p className="text-sm mb-2" style={{ color: 'var(--error)' }}>
         {error}
       </p>
       <button
         onClick={onRetry}
-        className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
+        className="text-xs flex items-center gap-1 transition-colors"
+        style={{ color: 'var(--accent-primary)' }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
       >
         <RefreshCw className="w-3 h-3" />
         Retry
@@ -164,16 +176,23 @@ function PermissionDeniedState() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-      <Lock className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
-      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <Lock className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)' }} />
+      <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
         Calendar Access Denied
       </h3>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+      <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
         To see your events, grant calendar access in System Settings
       </p>
       <button
         onClick={handleOpenSettings}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
+        style={{
+          color: 'var(--accent-primary)',
+          backgroundColor: 'var(--accent-subtle)',
+          borderRadius: 'var(--radius-md)',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
       >
         <ExternalLink className="w-3 h-3" />
         Open Settings
@@ -239,8 +258,11 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
     <div className="flex flex-col h-full">
       {/* All-day events section */}
       {allDayEvents.length > 0 && (
-        <div className="border-b border-gray-200 dark:border-gray-700 p-2 space-y-1">
-          <div className="text-[10px] uppercase text-gray-500 dark:text-gray-400 font-medium mb-1">
+        <div className="p-2 space-y-1" style={{ borderBottom: '1px solid var(--border-default)' }}>
+          <div
+            className="text-[10px] uppercase font-medium mb-1"
+            style={{ color: 'var(--text-muted)' }}
+          >
             All Day
           </div>
           {allDayEvents.map(event => (
@@ -262,18 +284,20 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           {HOURS.map(hour => (
             <div
               key={hour}
-              className="absolute left-0 right-0 border-b border-gray-200 dark:border-gray-700"
+              className="absolute left-0 right-0"
               style={{
                 top: `${hour * HOUR_HEIGHT}px`,
                 height: `${HOUR_HEIGHT}px`,
+                borderBottom: '1px solid var(--border-default)',
               }}
             >
               {/* Time label */}
               <div
-                className="absolute top-0 text-[11px] text-gray-500 dark:text-gray-400 text-right pr-2"
+                className="absolute top-0 text-[11px] text-right pr-2"
                 style={{
                   width: `${TIME_COLUMN_WIDTH}px`,
                   transform: 'translateY(-50%)',
+                  color: 'var(--text-tertiary)',
                 }}
               >
                 {hour === 0 ? '' : format(new Date().setHours(hour, 0), 'HH:mm')}
@@ -281,10 +305,11 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
 
               {/* Half-hour dashed line */}
               <div
-                className="absolute left-0 right-0 border-b border-dashed border-gray-100 dark:border-gray-800"
+                className="absolute left-0 right-0 border-b border-dashed"
                 style={{
                   top: `${HOUR_HEIGHT / 2}px`,
                   left: `${TIME_COLUMN_WIDTH}px`,
+                  borderColor: 'var(--border-muted)',
                 }}
               />
             </div>
@@ -350,10 +375,10 @@ export function Timeline() {
   if (!calendarEnabled) {
     return (
       <div className="flex-1 p-4">
-        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+        <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-muted)' }}>
           Calendar
         </h3>
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+        <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>
           Calendar sync is disabled
         </p>
       </div>
@@ -372,13 +397,16 @@ export function Timeline() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+      <div
+        className="flex items-center justify-between p-3"
+        style={{ borderBottom: '1px solid var(--border-default)' }}
+      >
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             {headerDate}
           </h3>
           {lastSynced && !isLoadingEvents && (
-            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+            <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
               <Clock className="w-2.5 h-2.5" />
               <span>Synced {format(lastSynced, 'h:mm a')}</span>
             </div>
@@ -387,11 +415,14 @@ export function Timeline() {
         <button
           onClick={handleRefresh}
           disabled={isLoadingEvents}
-          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          className="p-1.5 transition-colors"
+          style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           title={lastSynced ? `Last synced: ${format(lastSynced, 'h:mm a')}` : 'Refresh'}
         >
           <RefreshCw
-            className={`w-3.5 h-3.5 text-gray-400 ${isLoadingEvents ? 'animate-spin' : ''}`}
+            className={`w-3.5 h-3.5 ${isLoadingEvents ? 'animate-spin' : ''}`}
           />
         </button>
       </div>

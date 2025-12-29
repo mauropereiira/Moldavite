@@ -73,15 +73,24 @@ export function SettingsModal() {
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter">
+      <div
+        className="w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter"
+        style={{ borderRadius: 'var(--radius-md)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <div
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid var(--border-default)' }}
+        >
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             Settings
           </h2>
           <button
             onClick={() => settingsStore.setIsSettingsOpen(false)}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+            className="p-1 transition-colors"
+            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -90,16 +99,27 @@ export function SettingsModal() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 px-6 overflow-x-auto">
+        <div
+          className="flex px-6 overflow-x-auto"
+          style={{ borderBottom: '1px solid var(--border-default)' }}
+        >
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-t mx-0.5 focus-ring whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'settings-tab settings-tab-active text-blue-600 dark:text-blue-400'
-                  : 'settings-tab text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all mx-0.5 focus-ring whitespace-nowrap"
+              style={{
+                borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
+                color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                backgroundColor: activeTab === tab.id ? 'var(--accent-subtle)' : 'transparent',
+                borderBottom: activeTab === tab.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
             >
               {tab.icon}
               {tab.label}
@@ -286,13 +306,13 @@ function GeneralSettings() {
       )}
 
       {/* Storage Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Storage
         </h3>
 
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block">
+          <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
             Notes Directory
           </label>
           <div className="flex items-center gap-2">
@@ -300,30 +320,42 @@ function GeneralSettings() {
               type="text"
               value={notesDirectory}
               readOnly
-              className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-600 dark:text-gray-400"
+              className="flex-1 px-3 py-2 text-sm"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-tertiary)',
+              }}
             />
             <button
               onClick={handleChangeDirectory}
               disabled={isChangingDir}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+              }}
             >
               <FolderOpen className="w-4 h-4" />
               {isChangingDir ? 'Moving...' : 'Change'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
             Existing notes will be moved to the new location
           </p>
         </div>
       </div>
 
       {/* Backup & Restore Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Backup & Restore
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Export or import your notes and templates
           </p>
         </div>
@@ -331,7 +363,8 @@ function GeneralSettings() {
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
           >
             <Download className="w-4 h-4" />
             {isExporting ? 'Exporting...' : 'Export'}
@@ -339,7 +372,13 @@ function GeneralSettings() {
           <button
             onClick={handleImportSelect}
             disabled={isImporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
           >
             <Upload className="w-4 h-4" />
             {isImporting ? 'Importing...' : 'Import'}
@@ -348,17 +387,17 @@ function GeneralSettings() {
       </div>
 
       {/* Auto-save Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Auto-save
         </h3>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
+            <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Save delay
             </label>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
               {settings.autoSaveDelay}ms
             </span>
           </div>
@@ -369,20 +408,21 @@ function GeneralSettings() {
             step="100"
             value={settings.autoSaveDelay}
             onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded appearance-none cursor-pointer accent-blue-600"
+            className="w-full h-2 rounded appearance-none cursor-pointer"
+            style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
           />
-          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             <span>Fast</span>
             <span>Slow</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
           <div>
-            <span className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Show save indicator
             </span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Display "Saving..." when auto-saving
             </p>
           </div>
@@ -394,16 +434,17 @@ function GeneralSettings() {
       </div>
 
       {/* Danger Zone */}
-      <div className="p-4 rounded-md border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30">
-        <h3 className="text-sm font-medium text-red-800 dark:text-red-400 mb-1">
+      <div className="p-4" style={{ borderRadius: 'var(--radius-md)', border: '2px solid var(--error)', backgroundColor: 'rgba(184, 92, 92, 0.1)' }}>
+        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--error)' }}>
           Danger Zone
         </h3>
-        <p className="text-xs text-red-600 dark:text-red-400/80 mb-3">
+        <p className="text-xs mb-3" style={{ color: 'var(--error)', opacity: 0.8 }}>
           Permanently delete all notes. This cannot be undone.
         </p>
         <button
           onClick={() => setShowClearConfirm(true)}
-          className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
+          className="px-3 py-1.5 text-sm font-medium text-white transition-colors"
+          style={{ backgroundColor: 'var(--error)', borderRadius: 'var(--radius-sm)' }}
         >
           Clear All Notes
         </button>
@@ -412,29 +453,31 @@ function GeneralSettings() {
       {/* Import Options Modal */}
       {showImportOptions && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Import Notes
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               How would you like to import the notes?
             </p>
             <div className="space-y-2 mb-4">
               <button
                 onClick={() => handleImport(true)}
-                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
+                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }}
               >
                 <span className="font-semibold">Merge with existing</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                   Add new notes without overwriting existing ones
                 </p>
               </button>
               <button
                 onClick={() => handleImport(false)}
-                className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
+                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }}
               >
                 <span className="font-semibold">Replace all</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                   Clear existing notes and import from backup
                 </p>
               </button>
@@ -444,7 +487,8 @@ function GeneralSettings() {
                 setShowImportOptions(false);
                 setPendingImportPath(null);
               }}
-              className="w-full px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="w-full px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
@@ -455,22 +499,28 @@ function GeneralSettings() {
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
-            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--error)' }}>
               Delete All Notes
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               This will permanently delete ALL notes. This cannot be undone.
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              Type <span className="font-mono font-bold text-red-600 dark:text-red-400">DELETE</span> to confirm:
+            <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>
+              Type <span className="font-mono font-bold" style={{ color: 'var(--error)' }}>DELETE</span> to confirm:
             </p>
             <input
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="Type DELETE"
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              className="w-full px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2"
+              style={{
+                backgroundColor: 'var(--bg-panel)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+              }}
               autoFocus
             />
             <div className="flex justify-end gap-3">
@@ -479,16 +529,18 @@ function GeneralSettings() {
                   setShowClearConfirm(false);
                   setConfirmText('');
                 }}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
+                className="px-3 py-1.5 text-sm font-medium transition-colors focus-ring"
+                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleClearAllNotes}
                 disabled={confirmText !== 'DELETE' || isClearing}
-                className={`px-3 py-1.5 text-sm font-medium text-white rounded btn-danger-gradient focus-ring ${
+                className={`px-3 py-1.5 text-sm font-medium text-white focus-ring ${
                   confirmText !== 'DELETE' || isClearing ? 'btn-disabled' : 'btn-elevated'
                 }`}
+                style={{ backgroundColor: 'var(--error)', borderRadius: 'var(--radius-sm)' }}
               >
                 {isClearing ? 'Deleting...' : 'Delete All'}
               </button>
@@ -512,12 +564,12 @@ function AppearanceSettings({
   return (
     <div className="space-y-6">
       {/* Theme Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Theme
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Choose your preferred color scheme
           </p>
         </div>
@@ -526,11 +578,13 @@ function AppearanceSettings({
             <button
               key={t}
               onClick={() => onThemeChange(t)}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                theme === t
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className="px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: theme === t ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                color: theme === t ? 'white' : 'var(--text-secondary)',
+                border: theme === t ? 'none' : '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+              }}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
@@ -539,13 +593,13 @@ function AppearanceSettings({
       </div>
 
       {/* Typography Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Typography
         </h3>
 
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+          <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
             Font Size
           </label>
           <div className="flex gap-2">
@@ -558,11 +612,13 @@ function AppearanceSettings({
               <button
                 key={size.value}
                 onClick={() => settings.setFontSize(size.value)}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                  settings.fontSize === size.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: settings.fontSize === size.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  color: settings.fontSize === size.value ? 'white' : 'var(--text-secondary)',
+                  border: settings.fontSize === size.value ? 'none' : '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
               >
                 {size.label}
               </button>
@@ -571,7 +627,7 @@ function AppearanceSettings({
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+          <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
             Font Family
           </label>
           <select
@@ -581,7 +637,13 @@ function AppearanceSettings({
               settings.setFontFamily(family);
               applyFontFamily(family);
             }}
-            className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+            }}
           >
             <optgroup label="System Fonts">
               <option value="system-sans">Sans-serif (System)</option>
@@ -597,17 +659,17 @@ function AppearanceSettings({
       </div>
 
       {/* Layout Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Layout
         </h3>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
+            <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Sidebar Width
             </label>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
               {settings.sidebarWidth}px
             </span>
           </div>
@@ -618,20 +680,21 @@ function AppearanceSettings({
             step="10"
             value={settings.sidebarWidth}
             onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded appearance-none cursor-pointer accent-blue-600"
+            className="w-full h-2 rounded appearance-none cursor-pointer"
+            style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
           />
-          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             <span>Narrow</span>
             <span>Wide</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
           <div>
-            <span className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Compact Mode
             </span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Tighter spacing throughout the app
             </p>
           </div>
@@ -651,12 +714,12 @@ function EditorSettings() {
   return (
     <div className="space-y-6">
       {/* Note Defaults Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Default Note Type
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             What type of note to create by default
           </p>
         </div>
@@ -665,11 +728,13 @@ function EditorSettings() {
             <button
               key={type}
               onClick={() => settings.setDefaultNoteType(type)}
-              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                settings.defaultNoteType === type
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className="px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: settings.defaultNoteType === type ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                color: settings.defaultNoteType === type ? 'white' : 'var(--text-secondary)',
+                border: settings.defaultNoteType === type ? 'none' : '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+              }}
             >
               {type.charAt(0).toUpperCase() + type.slice(1)}
             </button>
@@ -678,13 +743,13 @@ function EditorSettings() {
       </div>
 
       {/* Formatting Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Formatting
         </h3>
 
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">
+          <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
             Line Height
           </label>
           <div className="flex gap-2">
@@ -692,11 +757,13 @@ function EditorSettings() {
               <button
                 key={height}
                 onClick={() => settings.setLineHeight(height)}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-                  settings.lineHeight === height
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: settings.lineHeight === height ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  color: settings.lineHeight === height ? 'white' : 'var(--text-secondary)',
+                  border: settings.lineHeight === height ? 'none' : '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
               >
                 {height.charAt(0).toUpperCase() + height.slice(1)}
               </button>
@@ -706,17 +773,17 @@ function EditorSettings() {
       </div>
 
       {/* Writing Assistance Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-1">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Writing Assistance
         </h3>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <span className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Spell Check
             </span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Underline spelling errors
             </p>
           </div>
@@ -726,12 +793,12 @@ function EditorSettings() {
           />
         </div>
 
-        <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
           <div>
-            <span className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Auto-capitalize
             </span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Capitalize first letter of sentences
             </p>
           </div>
@@ -741,12 +808,12 @@ function EditorSettings() {
           />
         </div>
 
-        <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
           <div>
-            <span className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Show Word Count
             </span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Display word count at bottom of editor
             </p>
           </div>
@@ -797,42 +864,42 @@ function CalendarSettings() {
   return (
     <div className="space-y-6">
       {/* Permission Status Section */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Calendar Access
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Display events from Calendar.app in your timeline
           </p>
         </div>
 
         {isAuthorized ? (
-          <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center flex-shrink-0">
-              <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+          <div className="flex items-center gap-3 p-3" style={{ backgroundColor: 'rgba(90, 138, 110, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)' }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}>
+              <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
             </div>
             <div>
-              <p className="text-sm font-medium text-green-800 dark:text-green-200">
+              <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>
                 Calendar Access Enabled
               </p>
-              <p className="text-xs text-green-600 dark:text-green-400">
+              <p className="text-xs" style={{ color: 'var(--success)', opacity: 0.8 }}>
                 Connected to Calendar.app
               </p>
             </div>
           </div>
         ) : permissionStatus === 'Denied' || permissionStatus === 'Restricted' ? (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+          <div className="p-3" style={{ backgroundColor: 'rgba(184, 92, 92, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--error)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <Lock className="w-4 h-4 text-red-600 dark:text-red-400" />
-              <p className="text-sm font-medium text-red-800 dark:text-red-200">
+              <Lock className="w-4 h-4" style={{ color: 'var(--error)' }} />
+              <p className="text-sm font-medium" style={{ color: 'var(--error)' }}>
                 Access Denied
               </p>
             </div>
-            <p className="text-xs text-red-600 dark:text-red-400 mb-2">
+            <p className="text-xs mb-2" style={{ color: 'var(--error)', opacity: 0.9 }}>
               Calendar access was denied. To enable:
             </p>
-            <ol className="text-xs text-red-600 dark:text-red-400 list-decimal list-inside space-y-1">
+            <ol className="text-xs list-decimal list-inside space-y-1" style={{ color: 'var(--error)', opacity: 0.9 }}>
               <li>Open System Settings</li>
               <li>Go to Privacy & Security → Calendars</li>
               <li>Enable access for Notomattic</li>
@@ -842,7 +909,8 @@ function CalendarSettings() {
           <button
             onClick={handleRequestPermission}
             disabled={isRequestingPermission}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
           >
             {isRequestingPermission ? (
               <>
@@ -863,17 +931,17 @@ function CalendarSettings() {
       {isAuthorized && (
         <>
           {/* Display Options Section */}
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-1">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+          <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
               Display Options
             </h3>
 
             <div className="flex items-center justify-between py-2">
               <div>
-                <span className="text-sm text-gray-700 dark:text-gray-200">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Show Calendar Events
                 </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   Display events in the timeline
                 </p>
               </div>
@@ -883,12 +951,12 @@ function CalendarSettings() {
               />
             </div>
 
-            <div className="flex items-center justify-between py-2 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
               <div>
-                <span className="text-sm text-gray-700 dark:text-gray-200">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Show All-Day Events
                 </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   Include events without specific times
                 </p>
               </div>
@@ -901,19 +969,25 @@ function CalendarSettings() {
 
           {/* Calendar Selection */}
           {calendars.length > 0 && (
-            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md space-y-4">
+            <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   Calendar Source
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                   Choose which calendar to display
                 </p>
               </div>
               <select
                 value={selectedCalendarId || ''}
                 onChange={(e) => setSelectedCalendarId(e.target.value || null)}
-                className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                }}
               >
                 <option value="">All Calendars</option>
                 {calendars.map((cal) => (
@@ -942,42 +1016,42 @@ function AboutSection() {
   return (
     <div className="space-y-6">
       {/* App Info + Update Section */}
-      <div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+      <div className="flex items-start gap-4 p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         {/* Logo */}
         <img
           src="/logo.png"
           alt="Notomattic Logo"
-          className="h-16 w-16 rounded-md flex-shrink-0"
-          style={{ backgroundColor: 'transparent' }}
+          className="h-16 w-16 flex-shrink-0"
+          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
         />
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
             Notomattic
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             Privacy-first note-taking app
           </p>
         </div>
       </div>
 
       {/* Update Status */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+      <div className="p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Software Updates
         </h4>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-            <Download className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+          <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
+            <Download className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
             <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Check for Updates
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 Download the latest version from GitHub
               </p>
             </div>
@@ -985,7 +1059,8 @@ function AboutSection() {
 
           <button
             onClick={() => shellOpen('https://github.com/Automattic/notomattic/releases')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           >
             <ExternalLink className="w-4 h-4" />
             View Releases on GitHub
@@ -994,8 +1069,8 @@ function AboutSection() {
       </div>
 
       {/* Keyboard Shortcuts */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-md">
-        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+      <div className="p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Keyboard Shortcuts
         </h4>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -1012,10 +1087,10 @@ function AboutSection() {
 
       {/* Footer */}
       <div className="text-center space-y-1">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           Built with Tauri, React, and TipTap
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           Your notes are stored locally and never leave your device
         </p>
       </div>
@@ -1023,7 +1098,7 @@ function AboutSection() {
   );
 }
 
-// Toggle Component
+// Toggle Component - Modern pill style
 function Toggle({
   enabled,
   onChange,
@@ -1034,14 +1109,21 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
-        enabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-      }`}
+      className="relative inline-flex h-6 w-10 items-center transition-all"
+      style={{
+        borderRadius: '12px',
+        backgroundColor: enabled ? 'var(--accent-primary)' : 'var(--bg-inset)',
+        border: `1px solid ${enabled ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+      }}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-all duration-200 ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
-        }`}
+        className="inline-block h-4 w-4 transform transition-all"
+        style={{
+          borderRadius: '8px',
+          backgroundColor: 'white',
+          boxShadow: 'var(--shadow-sm)',
+          transform: enabled ? 'translateX(18px)' : 'translateX(3px)',
+        }}
       />
     </button>
   );
@@ -1051,12 +1133,18 @@ function Toggle({
 function ShortcutRow({ keys, description }: { keys: string[]; description: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-gray-600 dark:text-gray-400">{description}</span>
+      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{description}</span>
       <div className="flex gap-1">
         {keys.map((key, i) => (
           <kbd
             key={i}
-            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+            className="px-2 py-0.5 text-xs font-mono"
+            style={{
+              backgroundColor: 'var(--bg-inset)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+            }}
           >
             {key}
           </kbd>

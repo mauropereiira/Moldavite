@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Note, NoteFile } from '@/types';
-import { format, parse, isValid } from 'date-fns';
+import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
+import { format, parse, isValid, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
 
@@ -192,10 +192,11 @@ export async function listNotes(): Promise<NoteFile[]> {
  * Reads the content of a specific note file.
  * @param filename - The note filename (e.g., "2025-01-01.md")
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  * @returns The raw Markdown content
  */
-export async function readNote(filename: string, isDaily: boolean): Promise<string> {
-  return await invoke('read_note', { filename, isDaily });
+export async function readNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<string> {
+  return await invoke('read_note', { filename, isDaily, isWeekly });
 }
 
 /**
@@ -203,27 +204,30 @@ export async function readNote(filename: string, isDaily: boolean): Promise<stri
  * @param filename - The note filename
  * @param content - The Markdown content to write
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  */
-export async function writeNote(filename: string, content: string, isDaily: boolean): Promise<void> {
-  await invoke('write_note', { filename, content, isDaily });
+export async function writeNote(filename: string, content: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('write_note', { filename, content, isDaily, isWeekly });
 }
 
 /**
  * Deletes a note file from the file system.
  * @param filename - The note filename to delete
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  */
-export async function deleteNote(filename: string, isDaily: boolean): Promise<void> {
-  await invoke('delete_note', { filename, isDaily });
+export async function deleteNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('delete_note', { filename, isDaily, isWeekly });
 }
 
 /**
  * Creates a new standalone note file.
  * @param title - The note title
- * @returns The generated filename
+ * @param folderPath - Optional folder path to create the note in
+ * @returns The generated filename (with folder path if applicable)
  */
-export async function createNote(title: string): Promise<string> {
-  return await invoke('create_note', { title });
+export async function createNote(title: string, folderPath?: string): Promise<string> {
+  return await invoke('create_note', { title, folderPath });
 }
 
 /**
@@ -231,9 +235,10 @@ export async function createNote(title: string): Promise<string> {
  * @param oldFilename - Current filename
  * @param newFilename - New filename
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  */
-export async function renameNote(oldFilename: string, newFilename: string, isDaily: boolean): Promise<void> {
-  await invoke('rename_note', { oldFilename, newFilename, isDaily });
+export async function renameNote(oldFilename: string, newFilename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('rename_note', { oldFilename, newFilename, isDaily, isWeekly });
 }
 
 /**
@@ -276,6 +281,55 @@ export function parseDailyNoteFilename(filename: string): Date | null {
 }
 
 /**
+ * Generates a filename for a weekly note based on the date.
+ * Uses ISO week numbering (Monday start, week 1 contains Jan 4).
+ * @param date - Any date within the target week
+ * @returns Filename in format "YYYY-Www.md" (e.g., "2024-W52.md")
+ */
+export function getWeeklyNoteFilename(date: Date): string {
+  const weekYear = getISOWeekYear(date);
+  const weekNum = getISOWeek(date);
+  return `${weekYear}-W${weekNum.toString().padStart(2, '0')}.md`;
+}
+
+/**
+ * Parses a weekly note filename to extract the week info.
+ * @param filename - The filename to parse (e.g., "2024-W52.md")
+ * @returns Object with year, week number, and start/end dates, or null if invalid
+ */
+export function parseWeeklyNoteFilename(filename: string): { year: number; week: number; start: Date; end: Date } | null {
+  const match = filename.match(/^(\d{4})-W(\d{2})\.md$/);
+  if (!match) return null;
+
+  const year = parseInt(match[1], 10);
+  const week = parseInt(match[2], 10);
+
+  if (week < 1 || week > 53) return null;
+
+  // Create a date in the target week (use January 4 + weeks as it's always in week 1)
+  const jan4 = new Date(year, 0, 4);
+  const targetDate = new Date(jan4.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+
+  return {
+    year,
+    week,
+    start: startOfISOWeek(targetDate),
+    end: endOfISOWeek(targetDate),
+  };
+}
+
+/**
+ * Gets a human-readable title for a weekly note.
+ * @param week - The week string in YYYY-Www format (e.g., "2024-W52")
+ * @returns Formatted title (e.g., "Week 52, 2024")
+ */
+export function getWeeklyNoteTitle(week: string): string {
+  const match = week.match(/^(\d{4})-W(\d{2})$/);
+  if (!match) return week;
+  return `Week ${parseInt(match[2], 10)}, ${match[1]}`;
+}
+
+/**
  * Extracts the note title from a filename by removing the .md extension.
  * @param filename - The filename (e.g., "my-note.md")
  * @returns The title without extension
@@ -286,15 +340,21 @@ export function getNoteTitleFromFilename(filename: string): string {
 
 /**
  * Converts a note file metadata object into a full Note object.
- * Formats daily note titles as readable dates.
+ * Formats daily note titles as readable dates and weekly notes as "Week X, YYYY".
  * @param file - The note file metadata
  * @param content - The note's HTML content
  * @returns Complete Note object with formatted title
  */
 export function filenameToNote(file: NoteFile, content: string): Note {
-  const title = file.isDaily && file.date
-    ? format(parse(file.date, 'yyyy-MM-dd', new Date()), 'MMMM d, yyyy')
-    : getNoteTitleFromFilename(file.name);
+  let title: string;
+
+  if (file.isDaily && file.date) {
+    title = format(parse(file.date, 'yyyy-MM-dd', new Date()), 'MMMM d, yyyy');
+  } else if (file.isWeekly && file.week) {
+    title = getWeeklyNoteTitle(file.week);
+  } else {
+    title = getNoteTitleFromFilename(file.name);
+  }
 
   return {
     id: file.path,
@@ -303,7 +363,9 @@ export function filenameToNote(file: NoteFile, content: string): Note {
     createdAt: new Date(), // Would need file metadata for actual values
     updatedAt: new Date(),
     isDaily: file.isDaily,
+    isWeekly: file.isWeekly,
     date: file.date,
+    week: file.week,
   };
 }
 
@@ -329,9 +391,10 @@ export async function checkNoteExists(noteName: string): Promise<boolean> {
  * @param filename - The note filename (e.g., "my-note.md")
  * @param password - The password to encrypt the note with
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  */
-export async function lockNote(filename: string, password: string, isDaily: boolean): Promise<void> {
-  await invoke('lock_note', { filename, password, isDaily });
+export async function lockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('lock_note', { filename, password, isDaily, isWeekly });
 }
 
 /**
@@ -340,10 +403,11 @@ export async function lockNote(filename: string, password: string, isDaily: bool
  * @param filename - The note filename (e.g., "my-note.md")
  * @param password - The password to decrypt the note
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  * @returns The decrypted content
  */
-export async function unlockNote(filename: string, password: string, isDaily: boolean): Promise<string> {
-  return await invoke('unlock_note', { filename, password, isDaily });
+export async function unlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<string> {
+  return await invoke('unlock_note', { filename, password, isDaily, isWeekly });
 }
 
 /**
@@ -351,19 +415,21 @@ export async function unlockNote(filename: string, password: string, isDaily: bo
  * @param filename - The note filename (e.g., "my-note.md")
  * @param password - The password to decrypt the note
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  */
-export async function permanentlyUnlockNote(filename: string, password: string, isDaily: boolean): Promise<void> {
-  await invoke('permanently_unlock_note', { filename, password, isDaily });
+export async function permanentlyUnlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('permanently_unlock_note', { filename, password, isDaily, isWeekly });
 }
 
 /**
  * Checks if a note is currently locked.
  * @param filename - The note filename (e.g., "my-note.md")
  * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
  * @returns True if the note is locked
  */
-export async function isNoteLocked(filename: string, isDaily: boolean): Promise<boolean> {
-  return await invoke('is_note_locked', { filename, isDaily });
+export async function isNoteLocked(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<boolean> {
+  return await invoke('is_note_locked', { filename, isDaily, isWeekly });
 }
 
 // Directory Management Functions
@@ -437,4 +503,131 @@ export async function setNoteColor(notePath: string, colorId: string | null): Pr
  */
 export async function getAllNoteColors(): Promise<Record<string, string>> {
   return await invoke('get_all_note_colors');
+}
+
+// Folder System Functions
+
+/**
+ * Lists all folders in the notes directory recursively.
+ * @returns Array of folder info with nested children
+ */
+export async function listFolders(): Promise<FolderInfo[]> {
+  return await invoke('list_folders');
+}
+
+/**
+ * Creates a new folder in the notes directory.
+ * @param path - The folder path to create (e.g., "projects/2025")
+ */
+export async function createFolder(path: string): Promise<void> {
+  await invoke('create_folder', { path });
+}
+
+/**
+ * Renames a folder.
+ * @param oldPath - Current folder path
+ * @param newName - New name for the folder (not full path, just the name)
+ * @returns The new folder path
+ */
+export async function renameFolder(oldPath: string, newName: string): Promise<string> {
+  return await invoke('rename_folder', { oldPath, newName });
+}
+
+/**
+ * Deletes a folder.
+ * @param path - The folder path to delete
+ * @param force - If true, delete folder even if not empty
+ */
+export async function deleteFolder(path: string, force?: boolean): Promise<void> {
+  await invoke('delete_folder', { path, force: force ?? false });
+}
+
+/**
+ * Moves a note to a different folder.
+ * @param notePath - The current note path (relative path within notes/, e.g., "folder/note.md")
+ * @param toFolder - Destination folder path, or undefined for root
+ * @returns The new note path
+ */
+export async function moveNote(notePath: string, toFolder?: string): Promise<string> {
+  return await invoke('move_note', { notePath, toFolder });
+}
+
+/**
+ * Moves a folder (and all its contents) to a different folder or to root.
+ * Handles naming conflicts by appending (2), (3), etc.
+ * @param folderPath - The current folder path
+ * @param toFolder - Destination parent folder path, or undefined for root
+ * @returns The new folder path
+ */
+export async function moveFolder(folderPath: string, toFolder?: string): Promise<string> {
+  return await invoke('move_folder', { folderPath, toFolder });
+}
+
+// Trash System Functions
+
+/**
+ * Moves a note to the trash instead of permanently deleting it.
+ * @param filename - The note filename (relative path within notes/ or daily/ or weekly/)
+ * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
+ */
+export async function trashNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+  await invoke('trash_note', { filename, isDaily, isWeekly });
+}
+
+/**
+ * Lists all notes currently in the trash.
+ * @returns Array of trashed notes with metadata
+ */
+export async function listTrash(): Promise<TrashedNote[]> {
+  return await invoke('list_trash');
+}
+
+/**
+ * Restores a note from the trash to its original location.
+ * @param trashId - The unique ID of the trashed note
+ */
+export async function restoreNote(trashId: string): Promise<void> {
+  await invoke('restore_note', { trashId });
+}
+
+/**
+ * Permanently deletes a single note from the trash.
+ * @param trashId - The unique ID of the trashed note
+ */
+export async function permanentlyDeleteTrash(trashId: string): Promise<void> {
+  await invoke('permanently_delete_trash', { trashId });
+}
+
+/**
+ * Empties the entire trash, permanently deleting all notes.
+ */
+export async function emptyTrash(): Promise<void> {
+  await invoke('empty_trash');
+}
+
+/**
+ * Cleans up old trash items (older than 7 days).
+ * Should be called on app startup.
+ * @returns The number of items deleted
+ */
+export async function cleanupOldTrash(): Promise<number> {
+  return await invoke('cleanup_old_trash');
+}
+
+/**
+ * Moves a folder (and all its contents) to the trash.
+ * @param path - The folder path to trash (relative to notes directory)
+ */
+export async function trashFolder(path: string): Promise<void> {
+  await invoke('trash_folder', { path });
+}
+
+/**
+ * Restores a single note from a trashed folder to the root notes directory.
+ * @param trashId - The unique ID of the trashed folder
+ * @param noteFilename - The filename of the note within the folder
+ */
+export async function restoreNoteFromFolder(trashId: string, noteFilename: string): Promise<void> {
+  await invoke('restore_note_from_folder', { trashId, noteFilename });
 }

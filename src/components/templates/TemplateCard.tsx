@@ -20,21 +20,19 @@ export function TemplateCard({
       className={`
         w-full text-left rounded transition-all focus-ring
         ${compact ? 'p-3' : 'p-4'}
-        ${
-          selected
-            ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500 dark:border-blue-400'
-            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-        }
+        ${selected ? 'border-2' : 'border'}
         hover:shadow-system-md
         btn-interactive
       `}
+      style={{
+        backgroundColor: selected ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+        borderColor: selected ? 'var(--accent-color)' : 'var(--border-primary)',
+      }}
     >
       {/* Icon */}
       <div
-        className={`
-          ${compact ? 'mb-2' : 'mb-3'}
-          ${selected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}
-        `}
+        className={compact ? 'mb-2' : 'mb-3'}
+        style={{ color: selected ? 'var(--accent-color)' : 'var(--text-muted)' }}
       >
         <TemplateIcon
           icon={template.icon}
@@ -45,17 +43,15 @@ export function TemplateCard({
 
       {/* Name */}
       <h3
-        className={`
-          font-semibold text-gray-900 dark:text-white truncate
-          ${compact ? 'text-sm' : 'text-base'}
-        `}
+        className={`font-semibold truncate ${compact ? 'text-sm' : 'text-base'}`}
+        style={{ color: 'var(--text-primary)' }}
       >
         {template.name}
       </h3>
 
       {/* Description */}
       {!compact && template.description && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+        <p className="text-sm mt-1 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
           {template.description}
         </p>
       )}

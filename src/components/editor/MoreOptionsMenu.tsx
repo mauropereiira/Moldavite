@@ -19,9 +19,10 @@ interface MoreOptionsMenuProps {
   onShowToast?: (message: string) => void;
   wordCount: number;
   characterCount: number;
+  openDirection?: 'up' | 'down';
 }
 
-export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount }: MoreOptionsMenuProps) {
+export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount, openDirection = 'down' }: MoreOptionsMenuProps) {
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -77,6 +78,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         name: filename,
         path: filename,
         isDaily: false,
+        isWeekly: false,
         isLocked: false,
       };
       setNotes([...notes, noteFile]);
@@ -106,9 +108,10 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     <>
       <Dropdown
         position="right"
+        openDirection={openDirection}
         trigger={
           <button
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+            className="toolbar-button"
             title="More options"
           >
             <MoreVertical className="w-4 h-4" />
@@ -161,53 +164,56 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
       {/* Note Info Modal */}
       {showNoteInfo && currentNote && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowNoteInfo(false);
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm mx-4 shadow-xl w-full">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div
+            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
+            style={{ borderRadius: 'var(--radius-md)' }}
+          >
+            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
               Note Info
             </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Title</span>
-                <span className="text-gray-900 dark:text-white font-medium truncate max-w-[180px]">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Title</span>
+                <span className="truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
                   {currentNote.title}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Type</span>
-                <span className="text-gray-900 dark:text-white">
-                  {currentNote.isDaily ? 'Daily Note' : 'Standalone Note'}
+              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Type</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {currentNote.isDaily ? 'Daily' : 'Standalone'}
                 </span>
               </div>
               {currentNote.isDaily && currentNote.date && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">Date</span>
-                  <span className="text-gray-900 dark:text-white">
+                <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Date</span>
+                  <span style={{ color: 'var(--text-primary)' }}>
                     {currentNote.date}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Words</span>
-                <span className="text-gray-900 dark:text-white">{wordCount}</span>
+              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Words</span>
+                <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Characters</span>
-                <span className="text-gray-900 dark:text-white">{characterCount}</span>
+              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Characters</span>
+                <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">File Size</span>
-                <span className="text-gray-900 dark:text-white">{getFileSizeEstimate()}</span>
+              <div className="flex justify-between py-1.5">
+                <span style={{ color: 'var(--text-muted)' }}>File Size</span>
+                <span style={{ color: 'var(--text-primary)' }}>{getFileSizeEstimate()}</span>
               </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowNoteInfo(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="btn focus-ring"
               >
                 Close
               </button>
