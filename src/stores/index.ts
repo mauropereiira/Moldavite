@@ -8,3 +8,5 @@ export { useCalendarStore } from './calendarStore';
 export { useTemplateStore } from './templateStore';
 export { useNoteColorsStore, buildNotePath } from './noteColorsStore';
 export { useUpdateStore } from './updateStore';
+export { useFolderStore } from './folderStore';
+export { useTrashStore } from './trashStore';

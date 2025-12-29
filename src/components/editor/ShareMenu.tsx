@@ -5,9 +5,10 @@ import { htmlToMarkdown } from '@/lib';
 
 interface ShareMenuProps {
   onShowToast?: (message: string) => void;
+  openDirection?: 'up' | 'down';
 }
 
-export function ShareMenu({ onShowToast }: ShareMenuProps) {
+export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProps) {
   const { currentNote } = useNoteStore();
 
   const handleCopyLink = async () => {
@@ -66,9 +67,10 @@ export function ShareMenu({ onShowToast }: ShareMenuProps) {
   return (
     <Dropdown
       position="right"
+      openDirection={openDirection}
       trigger={
         <button
-          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+          className="toolbar-button"
           title="Share"
         >
           <Share2 className="w-4 h-4" />

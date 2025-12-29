@@ -5,7 +5,7 @@ export function RightPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Calendar */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4" style={{ borderBottom: '1px solid var(--border-default)' }}>
         <Calendar />
       </div>
 

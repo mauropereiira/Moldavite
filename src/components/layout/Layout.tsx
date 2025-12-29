@@ -76,23 +76,32 @@ export function Layout() {
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white dark:bg-gray-900">
+    <div
+      className="flex h-screen w-screen overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-base)' }}
+    >
       {/* Left Sidebar */}
       <div
-        className="flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-sidebar-light dark:bg-sidebar-dark relative"
-        style={{ width: `${sidebarWidth}px` }}
+        className="flex-shrink-0 relative"
+        style={{
+          width: `${sidebarWidth}px`,
+          backgroundColor: 'var(--bg-sidebar)',
+          borderRight: '1px solid var(--border-default)'
+        }}
       >
         <Sidebar />
 
         {/* Left Resize Handle */}
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors duration-150
-            ${isResizing === 'left'
-              ? 'bg-blue-500'
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+          style={{
+            transitionDuration: 'var(--duration-fast)',
+            backgroundColor: isResizing === 'left'
+              ? 'var(--accent-primary)'
               : isHovering === 'left'
-                ? 'bg-gray-300 dark:bg-gray-600'
-                : 'bg-transparent'
-            }`}
+                ? 'var(--border-strong)'
+                : 'transparent'
+          }}
           onMouseDown={handleMouseDown('left')}
           onMouseEnter={() => setIsHovering('left')}
           onMouseLeave={() => setIsHovering(null)}
@@ -109,24 +118,33 @@ export function Layout() {
       </div>
 
       {/* Center Editor */}
-      <div className="flex-1 flex flex-col min-w-0 bg-editor-light dark:bg-editor-dark">
+      <div
+        className="flex-1 flex flex-col min-w-0"
+        style={{ backgroundColor: 'var(--bg-editor)' }}
+      >
         <Editor />
       </div>
 
       {/* Right Panel */}
       <div
-        className="flex-shrink-0 border-l border-gray-200 dark:border-gray-700 bg-panel-light dark:bg-panel-dark relative"
-        style={{ width: `${rightPanelWidth}px` }}
+        className="flex-shrink-0 relative"
+        style={{
+          width: `${rightPanelWidth}px`,
+          backgroundColor: 'var(--bg-panel)',
+          borderLeft: '1px solid var(--border-default)'
+        }}
       >
         {/* Right Resize Handle */}
         <div
-          className={`absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors duration-150
-            ${isResizing === 'right'
-              ? 'bg-blue-500'
+          className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+          style={{
+            transitionDuration: 'var(--duration-fast)',
+            backgroundColor: isResizing === 'right'
+              ? 'var(--accent-primary)'
               : isHovering === 'right'
-                ? 'bg-gray-300 dark:bg-gray-600'
-                : 'bg-transparent'
-            }`}
+                ? 'var(--border-strong)'
+                : 'transparent'
+          }}
           onMouseDown={handleMouseDown('right')}
           onMouseEnter={() => setIsHovering('right')}
           onMouseLeave={() => setIsHovering(null)}

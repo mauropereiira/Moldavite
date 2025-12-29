@@ -21,7 +21,7 @@ interface ShortcutOptions {
  */
 export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInsertLink }: ShortcutOptions) {
   const { setIsSettingsOpen } = useSettingsStore();
-  const { setCurrentNote, notes, setNotes } = useNoteStore();
+  const { setCurrentNote, notes, setNotes, activeTabId, closeTab } = useNoteStore();
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -59,6 +59,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
           name: filename,
           path: filename,
           isDaily: false,
+          isWeekly: false,
           isLocked: false,
         };
 
@@ -86,6 +87,11 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     setShowTemplatePicker(false);
   }, []);
 
+  // Open template picker programmatically
+  const openTemplatePicker = useCallback(() => {
+    setShowTemplatePicker(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
@@ -111,6 +117,15 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
         return;
       }
 
+      // Cmd/Ctrl + W: Close active tab
+      if (isMod && e.key === 'w') {
+        e.preventDefault();
+        if (activeTabId) {
+          closeTab(activeTabId);
+        }
+        return;
+      }
+
       // Cmd/Ctrl + T: Open template picker
       if (isMod && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
@@ -133,11 +148,12 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor, onNewNote, onToggleTheme, onInsertLink, setIsSettingsOpen]);
+  }, [editor, onNewNote, onToggleTheme, onInsertLink, setIsSettingsOpen, activeTabId, closeTab]);
 
   return {
     showTemplatePicker,
     handleTemplateSelect,
     handleTemplatePickerClose,
+    openTemplatePicker,
   };
 }

@@ -1,26 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
 
-// Muted, harmonious color palette that works in both light and dark modes
+// Graphite-inspired muted color palette - desaturated, industrial aesthetic
 export const NOTE_COLORS = [
   { id: 'default', name: 'Default', light: 'transparent', dark: 'transparent' },
-  // Warm tones
-  { id: 'cream', name: 'Cream', light: '#fefce8', dark: '#422006' },
-  { id: 'peach', name: 'Peach', light: '#fff7ed', dark: '#431407' },
-  { id: 'rose', name: 'Rose', light: '#fff1f2', dark: '#4c0519' },
-  { id: 'blush', name: 'Blush', light: '#fdf2f8', dark: '#500724' },
-  // Cool tones
-  { id: 'lavender', name: 'Lavender', light: '#faf5ff', dark: '#3b0764' },
-  { id: 'periwinkle', name: 'Periwinkle', light: '#eef2ff', dark: '#1e1b4b' },
-  { id: 'sky', name: 'Sky', light: '#f0f9ff', dark: '#0c4a6e' },
-  { id: 'aqua', name: 'Aqua', light: '#ecfeff', dark: '#164e63' },
-  { id: 'mint', name: 'Mint', light: '#ecfdf5', dark: '#064e3b' },
-  // Neutral tones
-  { id: 'sage', name: 'Sage', light: '#f0fdf4', dark: '#14532d' },
-  { id: 'sand', name: 'Sand', light: '#fafaf9', dark: '#292524' },
-  { id: 'stone', name: 'Stone', light: '#f5f5f4', dark: '#1c1917' },
-  { id: 'slate', name: 'Slate', light: '#f8fafc', dark: '#0f172a' },
-  { id: 'zinc', name: 'Zinc', light: '#fafafa', dark: '#18181b' },
+  // Warm graphite tones
+  { id: 'warm', name: 'Warm', light: '#f8f6f2', dark: '#2a2826' },
+  { id: 'sand', name: 'Sand', light: '#f5f0e8', dark: '#2c2820' },
+  { id: 'clay', name: 'Clay', light: '#f2ebe4', dark: '#2e2a24' },
+  { id: 'terracotta', name: 'Terracotta', light: '#f0e8e4', dark: '#302826' },
+  // Cool steel tones
+  { id: 'steel', name: 'Steel', light: '#f0f2f4', dark: '#262a2c' },
+  { id: 'slate', name: 'Slate', light: '#eef0f2', dark: '#24282a' },
+  { id: 'mist', name: 'Mist', light: '#ecf0f4', dark: '#222a30' },
+  { id: 'ice', name: 'Ice', light: '#e8f0f4', dark: '#202c32' },
+  { id: 'sky', name: 'Sky', light: '#e4eef4', dark: '#1e2c36' },
+  // Muted accent tones
+  { id: 'sage', name: 'Sage', light: '#e8f0ea', dark: '#222a24' },
+  { id: 'olive', name: 'Olive', light: '#eaefe6', dark: '#262a22' },
+  { id: 'rose', name: 'Rose', light: '#f4eaec', dark: '#2c2426' },
+  { id: 'lavender', name: 'Lavender', light: '#eee8f2', dark: '#28242c' },
+  { id: 'storm', name: 'Storm', light: '#e6e8ea', dark: '#2a2c2e' },
 ] as const;
 
 export type NoteColorId = (typeof NOTE_COLORS)[number]['id'];
@@ -29,9 +29,10 @@ interface NoteColorPickerProps {
   currentColorId: NoteColorId;
   onColorChange: (colorId: NoteColorId) => void;
   isDark?: boolean;
+  openDirection?: 'up' | 'down';
 }
 
-export function NoteColorPicker({ currentColorId, onColorChange, isDark = false }: NoteColorPickerProps) {
+export function NoteColorPicker({ currentColorId, onColorChange, isDark = false, openDirection = 'down' }: NoteColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -78,12 +79,20 @@ export function NoteColorPicker({ currentColorId, onColorChange, isDark = false 
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 p-3 bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-700 z-50 w-64 modal-content-enter">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+        <div
+          className={`absolute ${openDirection === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 p-3 z-50 w-64 modal-content-enter`}
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          <div className="section-header mb-2">
             Note Background
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {NOTE_COLORS.map((color) => {
               const bgColor = isDark ? color.dark : color.light;
               const isSelected = currentColorId === color.id;
@@ -96,23 +105,26 @@ export function NoteColorPicker({ currentColorId, onColorChange, isDark = false 
                     onColorChange(color.id);
                     setIsOpen(false);
                   }}
-                  className={`
-                    relative w-10 h-10 rounded border-2 transition-all
-                    ${isSelected
-                      ? 'border-blue-500 ring-2 ring-blue-500/30'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                    }
-                    ${isDefault ? 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600' : ''}
-                  `}
-                  style={{ backgroundColor: isDefault ? undefined : bgColor }}
+                  className="relative w-9 h-9 transition-all"
+                  style={{
+                    borderRadius: 'var(--radius-sm)',
+                    border: isSelected
+                      ? '2px solid var(--accent-primary)'
+                      : '1px solid var(--border-default)',
+                    boxShadow: isSelected ? '0 0 0 2px var(--accent-subtle)' : 'none',
+                    backgroundColor: isDefault ? 'var(--bg-inset)' : bgColor,
+                  }}
                   title={color.name}
                   aria-label={color.name}
                 >
                   {isSelected && (
-                    <Check className="w-4 h-4 absolute inset-0 m-auto text-blue-600 dark:text-blue-400" />
+                    <Check className="w-3 h-3 absolute inset-0 m-auto" style={{ color: 'var(--accent-primary)' }} />
                   )}
                   {isDefault && !isSelected && (
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-400 dark:text-gray-500">
+                    <span
+                      className="absolute inset-0 flex items-center justify-center text-[10px]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       ∅
                     </span>
                   )}
@@ -121,8 +133,8 @@ export function NoteColorPicker({ currentColorId, onColorChange, isDark = false 
             })}
           </div>
 
-          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
               {currentColor.name}
             </p>
           </div>

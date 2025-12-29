@@ -71,20 +71,23 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
       {/* Content */}
       <div className="relative p-2 h-full flex flex-col">
         {/* Time */}
-        <span className="text-[11px] text-gray-600 dark:text-gray-300 leading-tight">
+        <span className="text-[11px] leading-tight" style={{ color: 'var(--text-secondary)' }}>
           {format(start, 'h:mm a')}
         </span>
 
         {/* Title */}
-        <div className="text-xs font-medium text-gray-900 dark:text-white truncate leading-tight mt-0.5">
+        <div
+          className="text-xs font-medium truncate leading-tight mt-0.5"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {event.title}
         </div>
 
         {/* Location (if space and available) */}
         {event.location && height > 50 && (
           <div className="flex items-center gap-0.5 mt-0.5">
-            <MapPin className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+            <MapPin className="w-2.5 h-2.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+            <span className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
               {event.location}
             </span>
           </div>
@@ -93,26 +96,40 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
 
       {/* Tooltip on hover */}
       {showTooltip && (
-        <div className="absolute left-full top-0 ml-2 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 min-w-[200px] max-w-[280px]">
-          <div className="font-medium text-sm text-gray-900 dark:text-white mb-1">
+        <div
+          className="absolute left-full top-0 ml-2 z-30 p-3 min-w-[200px] max-w-[280px]"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          <div className="font-medium text-sm mb-1" style={{ color: 'var(--text-primary)' }}>
             {event.title}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
             {timeDisplay}
           </div>
           {event.location && (
-            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
               <MapPin className="w-3 h-3" />
               {event.location}
             </div>
           )}
           {event.notes && (
-            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 line-clamp-3">
+            <div
+              className="mt-2 pt-2 text-xs line-clamp-3"
+              style={{
+                borderTop: '1px solid var(--border-muted)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               {event.notes}
             </div>
           )}
           {event.url && (
-            <div className="mt-2 text-[10px] text-blue-500">
+            <div className="mt-2 text-[10px]" style={{ color: 'var(--accent-primary)' }}>
               Click to open in calendar
             </div>
           )}
@@ -138,18 +155,25 @@ export function AllDayEvent({ event }: AllDayEventProps) {
 
   return (
     <div
-      className={`h-[30px] rounded px-2 flex items-center ${event.url ? 'cursor-pointer hover:opacity-80' : ''}`}
+      className={`h-[30px] px-2 flex items-center ${event.url ? 'cursor-pointer hover:opacity-80' : ''}`}
       style={{
         backgroundColor: `${backgroundColor}30`,
         borderLeft: `3px solid ${backgroundColor}`,
+        borderRadius: 'var(--radius-sm)',
       }}
       onClick={handleClick}
     >
-      <span className="text-xs font-medium text-gray-900 dark:text-white truncate">
+      <span
+        className="text-xs font-medium truncate"
+        style={{ color: 'var(--text-primary)' }}
+      >
         {event.title}
       </span>
       {event.location && (
-        <span className="ml-2 text-[10px] text-gray-500 dark:text-gray-400 truncate hidden sm:inline">
+        <span
+          className="ml-2 text-[10px] truncate hidden sm:inline"
+          style={{ color: 'var(--text-muted)' }}
+        >
           {event.location}
         </span>
       )}

@@ -29,7 +29,7 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
 }
 
 function ToolbarDivider() {
-  return <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />;
+  return <div className="toolbar-divider" />;
 }
 
 export function Toolbar({ editor }: ToolbarProps) {
@@ -67,7 +67,13 @@ export function Toolbar({ editor }: ToolbarProps) {
   };
 
   return (
-    <div className="flex items-center gap-0.5 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+    <div
+      className="flex items-center gap-0.5 p-2"
+      style={{
+        borderBottom: '1px solid var(--border-default)',
+        backgroundColor: 'var(--bg-inset)'
+      }}
+    >
       {/* Text formatting */}
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}

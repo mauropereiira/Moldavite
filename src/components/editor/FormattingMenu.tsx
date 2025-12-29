@@ -24,9 +24,10 @@ import { ImageModal } from './ImageModal';
 
 interface FormattingMenuProps {
   editor: Editor | null;
+  openDirection?: 'up' | 'down';
 }
 
-export function FormattingMenu({ editor }: FormattingMenuProps) {
+export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMenuProps) {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [linkInitialValues, setLinkInitialValues] = useState({ url: '', text: '' });
@@ -78,9 +79,10 @@ export function FormattingMenu({ editor }: FormattingMenuProps) {
     <>
       <Dropdown
         position="center"
+        openDirection={openDirection}
         trigger={
           <button
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+            className="toolbar-button"
             title="Formatting"
           >
             <Type className="w-4 h-4" />
@@ -169,7 +171,6 @@ export function FormattingMenu({ editor }: FormattingMenuProps) {
           >
             Numbered List
           </DropdownItem>
-
           <DropdownDivider />
 
           {/* Blocks */}
