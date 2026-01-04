@@ -2,6 +2,32 @@
 
 All notable changes to Notomattic are documented here.
 
+## [0.4.0] - 2025-01-04
+
+### Added
+- **Weekly Notes**: Click week numbers in the calendar to create/open weekly notes
+  - Week numbers displayed on left side of calendar (ISO week numbering)
+  - Weekly notes stored in `weekly/` directory with `YYYY-Www.md` format
+  - Virtual until content added, auto-deleted if emptied
+- **Editor Tabs**: Multiple notes can be open in tabs
+  - Pin tabs (up to 5)
+  - Drag to reorder tabs
+- **Folder System**: Organize notes into folders
+  - Create, rename, delete folders
+  - Drag notes into folders
+  - Move to folder modal
+- **Trash System**: 7-day recovery for deleted notes
+  - Restore notes from trash
+  - Permanent delete option
+  - Auto-cleanup after 7 days
+- **Selection Toolbar**: Quick formatting toolbar appears on text selection
+- **Editor Error Boundary**: Prevents app crashes from editor errors
+
+### Fixed
+- Editor Cmd+A crash bug resolved
+- Selection state no longer persists across notes
+- Line spacing preserved when switching notes
+
 ## [0.3.9] - 2025-12-19
 
 ### Fixed
