@@ -7,13 +7,30 @@ interface SearchResult {
   note: NoteFile;
   matchType: 'title' | 'content' | 'both';
   contentPreview?: string;
+  highlightedPreview?: string;
+}
+
+/**
+ * Escapes special regex characters in a string.
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Highlights search term matches in text with <mark> tags.
+ */
+function highlightMatches(text: string, searchTerm: string): string {
+  if (!searchTerm.trim()) return text;
+  const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+  return text.replace(regex, '<mark>$1</mark>');
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * Provides full-text search across standalone notes with title and content matching.
- * Searches are debounced and results include content previews showing match context.
+ * Provides full-text search across all notes with title and content matching.
+ * Searches are debounced and results include content previews with highlighting.
  * @returns Search state and control functions
  */
 export function useSearch() {
@@ -25,8 +42,8 @@ export function useSearch() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentCacheRef = useRef<Map<string, string>>(new Map());
 
-  // Get only standalone notes (not daily notes) - memoize to prevent infinite loop
-  const standaloneNotes = useMemo(() => notes.filter(n => !n.isDaily), [notes]);
+  // Include all notes (daily, weekly, and standalone) - memoize to prevent infinite loop
+  const searchableNotes = useMemo(() => notes, [notes]);
 
   // Debounce the search query
   useEffect(() => {
@@ -58,16 +75,17 @@ export function useSearch() {
       const searchTerm = debouncedQuery.toLowerCase().trim();
       const searchResults: SearchResult[] = [];
 
-      for (const note of standaloneNotes) {
+      for (const note of searchableNotes) {
         const titleMatch = note.name.toLowerCase().includes(searchTerm);
         let contentMatch = false;
         let contentPreview = '';
+        let highlightedPreview = '';
 
         // Check content cache first, then load if needed
         let content = contentCacheRef.current.get(note.path);
         if (content === undefined) {
           try {
-            content = await readNote(note.name, note.isDaily || false);
+            content = await readNote(note.name, note.isDaily || false, note.isWeekly || false);
             contentCacheRef.current.set(note.path, content);
           } catch (error) {
             console.error('[useSearch] Failed to load note content:', note.name, error);
@@ -78,16 +96,18 @@ export function useSearch() {
         // Search in content (strip HTML tags for better matching)
         const plainContent = content
           .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .toLowerCase();
+          .replace(/&nbsp;/g, ' ');
+        const plainContentLower = plainContent.toLowerCase();
 
-        if (plainContent.includes(searchTerm)) {
+        if (plainContentLower.includes(searchTerm)) {
           contentMatch = true;
-          // Extract preview around the match
-          const matchIndex = plainContent.indexOf(searchTerm);
+          // Extract preview around the match (preserve original case for display)
+          const matchIndex = plainContentLower.indexOf(searchTerm);
           const start = Math.max(0, matchIndex - 30);
           const end = Math.min(plainContent.length, matchIndex + searchTerm.length + 30);
-          contentPreview = '...' + plainContent.slice(start, end).trim() + '...';
+          contentPreview = (start > 0 ? '...' : '') + plainContent.slice(start, end).trim() + (end < plainContent.length ? '...' : '');
+          // Create highlighted version
+          highlightedPreview = highlightMatches(contentPreview, debouncedQuery.trim());
         }
 
         if (titleMatch || contentMatch) {
@@ -95,6 +115,7 @@ export function useSearch() {
             note,
             matchType: titleMatch && contentMatch ? 'both' : titleMatch ? 'title' : 'content',
             contentPreview: contentMatch ? contentPreview : undefined,
+            highlightedPreview: contentMatch ? highlightedPreview : undefined,
           });
         }
       }
@@ -111,7 +132,7 @@ export function useSearch() {
     };
 
     performSearch();
-  }, [debouncedQuery, standaloneNotes]);
+  }, [debouncedQuery, searchableNotes]);
 
   /**
    * Clears the current search query and results.

@@ -7,6 +7,8 @@ import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
 import { invoke } from '@tauri-apps/api/core';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { Instance } from 'tippy.js';
@@ -15,12 +17,13 @@ import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
-import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList } from './extensions';
+import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
+import './extensions/tags.css';
 import type { NoteFile } from '@/types';
-import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buildNotePath } from '@/stores';
+import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buildNotePath, useTagStore } from '@/stores';
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
@@ -31,12 +34,18 @@ import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal'
 
 export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
-  const { spellCheck } = useSettingsStore();
+  const { spellCheck, tagsEnabled } = useSettingsStore();
   const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
+  const { setSelectedTag } = useTagStore();
   const toast = useToast();
+
+  // Handle tag clicks - filter notes by tag
+  const handleTagClick = useCallback((tag: string) => {
+    setSelectedTag(tag);
+  }, [setSelectedTag]);
 
   // Determine if dark mode
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -233,9 +242,17 @@ export function Editor() {
           };
         },
       }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
       WikiLink.configure({
         onLinkClick: handleWikiLinkClick,
       }),
+      // Only include TagMark when tags are enabled
+      ...(tagsEnabled ? [TagMark.configure({
+        onTagClick: handleTagClick,
+      })] : []),
       WikiLinkSuggestion.configure({
         suggestion: {
           char: '[',
@@ -379,7 +396,7 @@ export function Editor() {
         spellcheck: spellCheck ? 'true' : 'false',
       },
     },
-  }, []); // Create editor ONCE - content updates handled separately
+  }, [tagsEnabled]); // Recreate editor when tagsEnabled changes
 
   // Update editor content when note changes
   // Use a ref to access the latest currentNote without adding it to deps

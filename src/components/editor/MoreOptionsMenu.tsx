@@ -1,16 +1,18 @@
 import { useState } from 'react';
+import { save } from '@tauri-apps/plugin-dialog';
 import {
   MoreVertical,
   ExternalLink,
   Link2,
   Copy,
+  Download,
   Trash2,
   Info,
   Star
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
-import { createNote, writeNote, htmlToMarkdown } from '@/lib';
+import { createNote, writeNote, htmlToMarkdown, exportSingleNote } from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import type { NoteFile } from '@/types';
 
@@ -90,6 +92,38 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     }
   };
 
+  const handleExport = async () => {
+    if (!currentNote) return;
+
+    try {
+      const filename = currentNote.isDaily && currentNote.date
+        ? `${currentNote.date}.md`
+        : currentNote.isWeekly && currentNote.week
+        ? `${currentNote.week}.md`
+        : `${currentNote.title}.md`;
+
+      const defaultName = filename.replace(/\.md$/, '');
+      const destination = await save({
+        title: 'Export Note',
+        defaultPath: `${defaultName}.md`,
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      });
+
+      if (destination) {
+        await exportSingleNote(
+          filename,
+          destination,
+          currentNote.isDaily || false,
+          currentNote.isWeekly || false
+        );
+        onShowToast?.('Note exported');
+      }
+    } catch (error) {
+      console.error('[MoreOptionsMenu] Failed to export:', error);
+      onShowToast?.('Failed to export');
+    }
+  };
+
   const handleShowInfo = () => {
     setShowNoteInfo(true);
   };
@@ -137,6 +171,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           disabled={currentNote?.isDaily}
         >
           Duplicate note
+        </DropdownItem>
+        <DropdownItem
+          onClick={handleExport}
+          icon={<Download className="w-4 h-4" />}
+        >
+          Export note
         </DropdownItem>
         <DropdownItem
           onClick={() => setShowSaveTemplateModal(true)}

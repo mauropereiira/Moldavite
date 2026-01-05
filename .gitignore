@@ -36,7 +36,7 @@ docs/
 *.tmp
 *.bak
 
-# Old logo files (keep only public/logo.png and logo1024.png)
+# Old logo files (keep only public/logo.png and public/logo1024.png)
 logo2.png
 Logo3.png
 

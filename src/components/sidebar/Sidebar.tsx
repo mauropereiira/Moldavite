@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { Lock, Unlock, Trash2, FolderPlus, FilePlus, Pencil, FolderInput, Layers } from 'lucide-react';
+import { save } from '@tauri-apps/plugin-dialog';
+import { Lock, Unlock, Trash2, FolderPlus, FilePlus, Pencil, FolderInput, Layers, Copy, Download } from 'lucide-react';
 import { useNotes, useSearch, useFolders, useTrash } from '@/hooks';
-import { useNoteStore, useSettingsStore } from '@/stores';
-import { lockNote, unlockNote, permanentlyUnlockNote } from '@/lib';
+import { useNoteStore, useSettingsStore, useTagStore } from '@/stores';
+import { lockNote, unlockNote, permanentlyUnlockNote, aggregateTags, hasTag, readNote, exportSingleNote } from '@/lib';
 import { SettingsModal } from '@/components/settings';
 import { NoSearchResultsEmptyState, NoNotesEmptyState, PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -13,14 +14,15 @@ import { DraggableNoteItem } from './DraggableNoteItem';
 import { FolderTree } from './FolderTree';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { TrashModal } from './TrashModal';
+import { TagsSection } from './TagsSection';
 import type { NoteFile, FolderInfo } from '@/types';
 
 type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
 export function Sidebar() {
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate } = useNotes();
-  const { currentNote, setSelectedDate, setNotes, setCurrentNote } = useNoteStore();
-  const { setIsSettingsOpen } = useSettingsStore();
+  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote } = useNotes();
+  const { currentNote, setSelectedDate, setNotes, setCurrentNote, unlockNote: trackUnlockedNote } = useNoteStore();
+  const { setIsSettingsOpen, tagsEnabled } = useSettingsStore();
   const search = useSearch();
   const toast = useToast();
   const {
@@ -47,6 +49,8 @@ export function Sidebar() {
     emptyTrash,
     cleanupOld: cleanupOldTrash,
   } = useTrash();
+
+  const { allTags, selectedTag, setAllTags, setSelectedTag } = useTagStore();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -104,6 +108,50 @@ export function Sidebar() {
     cleanupOldTrash();
   }, [loadTrash, cleanupOldTrash]);
 
+  // Track note content for tag extraction
+  const noteContentCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Aggregate tags from all notes (only when tags are enabled)
+  useEffect(() => {
+    if (!tagsEnabled) {
+      setAllTags(new Map());
+      return;
+    }
+
+    const aggregateAllTags = async () => {
+      const contents: string[] = [];
+
+      for (const note of notes) {
+        if (note.isLocked) continue; // Skip locked notes
+
+        // Check cache first
+        let content = noteContentCacheRef.current.get(note.path);
+        if (content === undefined) {
+          try {
+            content = await readNote(note.name, note.isDaily || false);
+            noteContentCacheRef.current.set(note.path, content);
+          } catch (error) {
+            console.error('[Sidebar] Failed to read note for tags:', note.name);
+            content = '';
+          }
+        }
+        contents.push(content);
+      }
+
+      const tags = aggregateTags(contents);
+      setAllTags(tags);
+    };
+
+    aggregateAllTags();
+  }, [notes, setAllTags, tagsEnabled]);
+
+  // Clear tag filter when notes change significantly
+  useEffect(() => {
+    if (selectedTag && !allTags.has(selectedTag)) {
+      setSelectedTag(null);
+    }
+  }, [allTags, selectedTag, setSelectedTag]);
+
   const [contextMenuNote, setContextMenuNote] = useState<NoteFile | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
@@ -117,10 +165,31 @@ export function Sidebar() {
     .filter(n => !n.isDaily)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Filter notes based on search
-  const displayedNotes = search.isActive
-    ? search.results.map(r => r.note)
-    : unfiledNotes;
+  // Filter notes by selected tag
+  const filterByTag = useMemo(() => {
+    if (!selectedTag) return (notes: NoteFile[]) => notes;
+
+    return (notes: NoteFile[]) => {
+      return notes.filter(note => {
+        const content = noteContentCacheRef.current.get(note.path);
+        if (!content) return false;
+        return hasTag(content, selectedTag);
+      });
+    };
+  }, [selectedTag]);
+
+  // Filter notes based on search and tag
+  // When filtering by tag, include ALL notes (including daily notes)
+  const displayedNotes = useMemo(() => {
+    if (search.isActive) {
+      return filterByTag(search.results.map(r => r.note));
+    }
+    // When a tag is selected, search all notes (including daily)
+    if (selectedTag) {
+      return filterByTag(notes);
+    }
+    return unfiledNotes;
+  }, [search.isActive, search.results, unfiledNotes, filterByTag, selectedTag, notes]);
 
   // Keyboard shortcuts for search
   useEffect(() => {
@@ -332,6 +401,8 @@ export function Sidebar() {
         week: noteToLock.week,
       };
       setCurrentNote(note);
+      // Track this note as temporarily unlocked for auto-lock feature
+      trackUnlockedNote(noteToLock.path);
       toast.success('Note unlocked (view only)');
     } else if (lockModalMode === 'permanent-unlock') {
       await permanentlyUnlockNote(noteToLock.name, password, noteToLock.isDaily);
@@ -678,6 +749,61 @@ export function Sidebar() {
               Open in New Tab
             </button>
           )}
+          {/* Duplicate Note */}
+          {!contextMenuNote.isLocked && (
+            <button
+              onClick={async () => {
+                try {
+                  await duplicateNote(contextMenuNote);
+                  toast.success('Note duplicated');
+                } catch (error) {
+                  toast.error('Failed to duplicate note');
+                }
+                closeContextMenu();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Copy className="w-4 h-4" />
+              Duplicate
+            </button>
+          )}
+          {/* Export Note */}
+          {!contextMenuNote.isLocked && (
+            <button
+              onClick={async () => {
+                try {
+                  const defaultName = contextMenuNote.name.replace(/\.md$/, '');
+                  const destination = await save({
+                    title: 'Export Note',
+                    defaultPath: `${defaultName}.md`,
+                    filters: [{ name: 'Markdown', extensions: ['md'] }],
+                  });
+                  if (destination) {
+                    await exportSingleNote(
+                      contextMenuNote.name,
+                      destination,
+                      contextMenuNote.isDaily || false,
+                      contextMenuNote.isWeekly || false
+                    );
+                    toast.success('Note exported');
+                  }
+                } catch (error) {
+                  toast.error('Failed to export note');
+                }
+                closeContextMenu();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+          )}
           {!contextMenuNote.isDaily && (
             <button
               onClick={() => handleMoveToFolder(contextMenuNote)}
@@ -955,24 +1081,32 @@ export function Sidebar() {
               </h2>
             </div>
             <div className="space-y-1">
-              {displayedNotes.map((note) => (
-                <DraggableNoteItem
-                  key={note.path}
-                  note={note}
-                  isActive={isNoteActive(note)}
-                  onClick={(e) => {
-                    if (note.isLocked) {
-                      handleUnlockNote(note);
-                    } else {
-                      const inNewTab = e.metaKey || e.ctrlKey;
-                      loadNote(note, inNewTab);
-                      search.clearSearch();
-                    }
-                  }}
-                  onContextMenu={(e) => handleContextMenu(e, note)}
-                />
+              {search.results.map((result) => (
+                <div key={result.note.path}>
+                  <DraggableNoteItem
+                    note={result.note}
+                    isActive={isNoteActive(result.note)}
+                    onClick={(e) => {
+                      if (result.note.isLocked) {
+                        handleUnlockNote(result.note);
+                      } else {
+                        const inNewTab = e.metaKey || e.ctrlKey;
+                        loadNote(result.note, inNewTab);
+                        search.clearSearch();
+                      }
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, result.note)}
+                  />
+                  {result.highlightedPreview && (
+                    <p
+                      className="text-xs px-3 pb-1 truncate search-preview"
+                      style={{ color: 'var(--text-muted)', marginTop: '-2px' }}
+                      dangerouslySetInnerHTML={{ __html: result.highlightedPreview }}
+                    />
+                  )}
+                </div>
               ))}
-              {displayedNotes.length === 0 && (
+              {search.results.length === 0 && (
                 <NoSearchResultsEmptyState
                   query={search.query}
                   onClear={search.clearSearch}
@@ -985,10 +1119,10 @@ export function Sidebar() {
           <div className="py-2">
             {/* Notes Section - Unfiled notes only */}
             <CollapsibleSection
-              title="Notes"
+              title={selectedTag ? `Notes #${selectedTag}` : "Notes"}
               isCollapsed={sectionsCollapsed.notes}
               onToggle={() => toggleSection('notes')}
-              count={unfiledNotes.length}
+              count={selectedTag ? displayedNotes.length : unfiledNotes.length}
               rightAction={
                 <button
                   onClick={() => setIsCreating(true)}
@@ -1016,7 +1150,7 @@ export function Sidebar() {
                 onDragLeave={handleRootDragLeave}
                 onDrop={handleRootDrop}
               >
-                {unfiledNotes.map((note) => (
+                {displayedNotes.map((note) => (
                   <DraggableNoteItem
                     key={note.path}
                     note={note}
@@ -1032,8 +1166,13 @@ export function Sidebar() {
                     onContextMenu={(e) => handleContextMenu(e, note)}
                   />
                 ))}
-                {unfiledNotes.length === 0 && (
+                {displayedNotes.length === 0 && !selectedTag && (
                   <NoNotesEmptyState onCreateNote={() => setIsCreating(true)} />
+                )}
+                {displayedNotes.length === 0 && selectedTag && (
+                  <p className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    No notes with #{selectedTag}
+                  </p>
                 )}
               </div>
             </CollapsibleSection>
@@ -1096,6 +1235,17 @@ export function Sidebar() {
                 )}
               </div>
             </CollapsibleSection>
+
+            {/* Tags Section */}
+            {tagsEnabled && (
+              <TagsSection
+                allTags={allTags}
+                selectedTag={selectedTag}
+                isCollapsed={sectionsCollapsed.tags}
+                onToggle={() => toggleSection('tags')}
+                onSelectTag={setSelectedTag}
+              />
+            )}
           </div>
         )}
       </div>

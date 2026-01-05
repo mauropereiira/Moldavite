@@ -12,6 +12,7 @@ import {
   Heading3,
   List,
   ListOrdered,
+  ListTodo,
   Quote,
   Code,
   Minus,
@@ -170,6 +171,12 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             icon={<ListOrdered className="w-4 h-4" />}
           >
             Numbered List
+          </DropdownItem>
+          <DropdownItem
+            onClick={() => editor.chain().focus().toggleTaskList().run()}
+            icon={<ListTodo className="w-4 h-4" />}
+          >
+            Task List
           </DropdownItem>
           <DropdownDivider />
 

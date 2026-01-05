@@ -1,16 +1,54 @@
+/**
+ * Settings Modal Component
+ *
+ * A tabbed settings interface for Notomattic configuration.
+ *
+ * ## Sections
+ *
+ * - **General**: Notes directory, import/export, encrypted backups, auto-lock, clear data
+ * - **Appearance**: Theme selection, font family, font size, line height, compact mode
+ * - **Editor**: Default note type, auto-save delay
+ * - **Calendar**: Calendar permissions, calendar selection, onboarding
+ * - **Templates**: Template management (uses SettingsTemplates component)
+ * - **About**: Version info, links, credits
+ *
+ * ## Architecture
+ *
+ * The modal uses internal function components for each section:
+ * - `GeneralSettings` - Notes directory and backup operations
+ * - `AppearanceSettings` - Theme and display settings
+ * - `EditorSettings` - Editor behavior settings
+ * - `CalendarSettings` - Calendar integration
+ * - `AboutSection` - App information
+ *
+ * ## Future Improvements
+ *
+ * These sections can be extracted to separate files in `./sections/` for better
+ * maintainability. The current internal organization provides a foundation for
+ * incremental migration.
+ *
+ * @module components/settings/SettingsModal
+ */
+
 import { useState, useEffect } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme, useNoteStore, applyFontFamily } from '@/stores';
 import type { FontFamily } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
-import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes } from '@/lib';
+import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
 import type { ImportResult } from '@/lib';
-import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw } from 'lucide-react';
+import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw, Shield, Eye, EyeOff, Timer } from 'lucide-react';
+import type { AutoLockTimeout } from '@/stores';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/** Available settings tabs */
 type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
 
 export function SettingsModal() {
@@ -176,6 +214,15 @@ function GeneralSettings() {
   const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Encrypted backup state
+  const [showEncryptedExportModal, setShowEncryptedExportModal] = useState(false);
+  const [showEncryptedImportModal, setShowEncryptedImportModal] = useState(false);
+  const [encryptedPassword, setEncryptedPassword] = useState('');
+  const [encryptedConfirmPassword, setEncryptedConfirmPassword] = useState('');
+  const [showEncryptedPassword, setShowEncryptedPassword] = useState(false);
+  const [pendingEncryptedImportPath, setPendingEncryptedImportPath] = useState<string | null>(null);
+  const [encryptedImportMerge, setEncryptedImportMerge] = useState(true);
+
   // Fetch current notes directory on mount
   useEffect(() => {
     getNotesDirectory().then(setNotesDirectoryState).catch(console.error);
@@ -271,6 +318,100 @@ function GeneralSettings() {
       setStatusMessage({ type: 'error', text: String(error) });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  // Encrypted backup handlers
+  const handleEncryptedExportStart = () => {
+    setEncryptedPassword('');
+    setEncryptedConfirmPassword('');
+    setShowEncryptedPassword(false);
+    setShowEncryptedExportModal(true);
+  };
+
+  const handleEncryptedExport = async () => {
+    if (encryptedPassword.length < 8) {
+      setStatusMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (encryptedPassword !== encryptedConfirmPassword) {
+      setStatusMessage({ type: 'error', text: 'Passwords do not match' });
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      setShowEncryptedExportModal(false);
+      const date = new Date().toISOString().split('T')[0];
+      const destination = await save({
+        title: 'Export Encrypted Backup',
+        defaultPath: `notomattic-backup-${date}.notomattic-backup`,
+        filters: [{ name: 'Notomattic Backup', extensions: ['notomattic-backup'] }],
+      });
+
+      if (destination) {
+        await exportEncryptedBackup(destination, encryptedPassword);
+        setStatusMessage({ type: 'success', text: 'Encrypted backup created successfully!' });
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to export encrypted backup:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    } finally {
+      setIsExporting(false);
+      setEncryptedPassword('');
+      setEncryptedConfirmPassword('');
+    }
+  };
+
+  const handleEncryptedImportSelect = async () => {
+    try {
+      const selected = await open({
+        title: 'Import Encrypted Backup',
+        filters: [{ name: 'Notomattic Backup', extensions: ['notomattic-backup'] }],
+      });
+
+      if (selected && typeof selected === 'string') {
+        setPendingEncryptedImportPath(selected);
+        setEncryptedPassword('');
+        setShowEncryptedPassword(false);
+        setShowEncryptedImportModal(true);
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to select encrypted backup:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    }
+  };
+
+  const handleEncryptedImport = async () => {
+    if (!pendingEncryptedImportPath) return;
+
+    try {
+      setIsImporting(true);
+      setShowEncryptedImportModal(false);
+      const result: ImportResult = await importEncryptedBackup(
+        pendingEncryptedImportPath,
+        encryptedPassword,
+        encryptedImportMerge
+      );
+      const total = result.dailyNotes + result.standaloneNotes + result.templates;
+      setStatusMessage({
+        type: 'success',
+        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
+      });
+      setPendingEncryptedImportPath(null);
+      // Refresh notes list
+      window.location.reload();
+    } catch (error) {
+      console.error('[Settings] Failed to import encrypted backup:', error);
+      const errorMsg = String(error);
+      if (errorMsg.includes('Decryption failed')) {
+        setStatusMessage({ type: 'error', text: 'Incorrect password or corrupted backup file' });
+      } else {
+        setStatusMessage({ type: 'error', text: errorMsg });
+      }
+    } finally {
+      setIsImporting(false);
+      setEncryptedPassword('');
     }
   };
 
@@ -383,6 +524,96 @@ function GeneralSettings() {
             <Upload className="w-4 h-4" />
             {isImporting ? 'Importing...' : 'Import'}
           </button>
+        </div>
+      </div>
+
+      {/* Encrypted Backup Section */}
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)' }}>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+            <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Encrypted Backup
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Password-protected backup with AES-256 encryption
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleEncryptedExportStart}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+          >
+            <Lock className="w-4 h-4" />
+            {isExporting ? 'Exporting...' : 'Export Encrypted'}
+          </button>
+          <button
+            onClick={handleEncryptedImportSelect}
+            disabled={isImporting}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <Upload className="w-4 h-4" />
+            {isImporting ? 'Importing...' : 'Import Encrypted'}
+          </button>
+        </div>
+      </div>
+
+      {/* Security Section */}
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+            <Timer className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Auto-Lock
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Automatically re-lock notes after inactivity
+            </p>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
+            Lock after
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { value: 5, label: '5 min' },
+              { value: 15, label: '15 min' },
+              { value: 30, label: '30 min' },
+              { value: 60, label: '1 hour' },
+              { value: 0, label: 'Never' },
+            ] as { value: AutoLockTimeout; label: string }[]).map((option) => (
+              <button
+                key={option.value}
+                onClick={() => settings.setAutoLockTimeout(option.value)}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: settings.autoLockTimeout === option.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  color: settings.autoLockTimeout === option.value ? 'white' : 'var(--text-secondary)',
+                  border: settings.autoLockTimeout === option.value ? 'none' : '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+            Unlocked notes will be automatically re-locked after the selected period of inactivity
+          </p>
         </div>
       </div>
 
@@ -543,6 +774,218 @@ function GeneralSettings() {
                 style={{ backgroundColor: 'var(--error)', borderRadius: 'var(--radius-sm)' }}
               >
                 {isClearing ? 'Deleting...' : 'Delete All'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Encrypted Export Modal */}
+      {showEncryptedExportModal && (
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
+          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+                <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Create Encrypted Backup
+                </h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Your backup will be protected with AES-256
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Password (minimum 8 characters)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showEncryptedPassword ? 'text' : 'password'}
+                    value={encryptedPassword}
+                    onChange={(e) => setEncryptedPassword(e.target.value)}
+                    placeholder="Enter password"
+                    className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: 'var(--bg-panel)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {showEncryptedPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Confirm Password
+                </label>
+                <input
+                  type={showEncryptedPassword ? 'text' : 'password'}
+                  value={encryptedConfirmPassword}
+                  onChange={(e) => setEncryptedConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: 'var(--bg-panel)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="p-3 mb-4" style={{ backgroundColor: 'rgba(201, 163, 103, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--warning)' }}>
+              <p className="text-xs" style={{ color: 'var(--warning)' }}>
+                <strong>Warning:</strong> If you forget this password, your backup cannot be recovered.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowEncryptedExportModal(false);
+                  setEncryptedPassword('');
+                  setEncryptedConfirmPassword('');
+                }}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEncryptedExport}
+                disabled={encryptedPassword.length < 8 || encryptedPassword !== encryptedConfirmPassword}
+                className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+                style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+              >
+                Create Backup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Encrypted Import Modal */}
+      {showEncryptedImportModal && (
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
+          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+                <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Import Encrypted Backup
+                </h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Enter the password to decrypt your backup
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showEncryptedPassword ? 'text' : 'password'}
+                    value={encryptedPassword}
+                    onChange={(e) => setEncryptedPassword(e.target.value)}
+                    placeholder="Enter backup password"
+                    className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: 'var(--bg-panel)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {showEncryptedPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Import Mode
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEncryptedImportMerge(true)}
+                    className="flex-1 px-3 py-2 text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: encryptedImportMerge ? 'var(--accent-primary)' : 'var(--bg-panel)',
+                      color: encryptedImportMerge ? 'white' : 'var(--text-secondary)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: encryptedImportMerge ? 'none' : '1px solid var(--border-default)',
+                    }}
+                  >
+                    Merge
+                  </button>
+                  <button
+                    onClick={() => setEncryptedImportMerge(false)}
+                    className="flex-1 px-3 py-2 text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: !encryptedImportMerge ? 'var(--accent-primary)' : 'var(--bg-panel)',
+                      color: !encryptedImportMerge ? 'white' : 'var(--text-secondary)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: !encryptedImportMerge ? 'none' : '1px solid var(--border-default)',
+                    }}
+                  >
+                    Replace All
+                  </button>
+                </div>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {encryptedImportMerge
+                    ? 'Add new notes without overwriting existing ones'
+                    : 'Clear existing notes and import from backup'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowEncryptedImportModal(false);
+                  setEncryptedPassword('');
+                  setPendingEncryptedImportPath(null);
+                }}
+                className="px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEncryptedImport}
+                disabled={!encryptedPassword}
+                className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+                style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+              >
+                Import Backup
               </button>
             </div>
           </div>
@@ -822,6 +1265,21 @@ function EditorSettings() {
             onChange={settings.setShowWordCount}
           />
         </div>
+
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+          <div>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Tags (#hashtags)
+            </span>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Highlight #tags and show in sidebar
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.tagsEnabled}
+            onChange={settings.setTagsEnabled}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1032,9 +1490,6 @@ function AboutSection() {
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Privacy-first note-taking app
-          </p>
         </div>
       </div>
 
@@ -1085,15 +1540,6 @@ function AboutSection() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="text-center space-y-1">
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          Built with Tauri, React, and TipTap
-        </p>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          Your notes are stored locally and never leave your device
-        </p>
-      </div>
     </div>
   );
 }
