@@ -1,10 +1,10 @@
 [package]
 name = "notomattic"
-version = "0.4.0"
+version = "0.5.0"
 description = "A privacy-first note-taking app"
 authors = ["Notomattic Team"]
-license = "UNLICENSED"
-repository = "https://github.com/mauropereiira/notomattic"
+license = "MIT"
+repository = "https://github.com/mauropereira/notomattic"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -37,6 +37,7 @@ aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.8"
 base64 = "0.22"
+zeroize = { version = "1.7", features = ["derive"] }
 
 # Export/Import and file dialogs
 zip = "2.2"

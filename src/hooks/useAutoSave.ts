@@ -1,28 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNoteStore, useSettingsStore } from '@/stores';
-import { writeNote, deleteNote, htmlToMarkdown } from '@/lib';
+import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty } from '@/lib';
 import type { NoteFile } from '@/types';
-
-/**
- * Checks if note content is effectively empty by stripping HTML tags.
- * @param content - The HTML content to check
- * @returns True if content contains no meaningful text
- */
-function isContentEmpty(content: string): boolean {
-  if (!content) return true;
-
-  // Remove HTML tags and check if anything remains
-  const textOnly = content
-    .replace(/<[^>]*>/g, '') // Remove all HTML tags
-    .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
-    .trim();
-
-  if (textOnly === '') {
-    return true;
-  }
-
-  return false;
-}
 
 /**
  * Automatically saves note changes after a configurable delay.

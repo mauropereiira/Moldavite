@@ -13,24 +13,11 @@ import {
   filenameToNote,
   markdownToHtml,
   htmlToMarkdown,
-  isHtmlContent
+  isHtmlContent,
+  isContentEmpty
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
-
-/**
- * Checks if note content is effectively empty by stripping HTML tags.
- * @param content - The HTML content to check
- * @returns True if content contains no meaningful text
- */
-function isContentEmpty(content: string): boolean {
-  if (!content) return true;
-  const textOnly = content
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .trim();
-  return textOnly === '';
-}
 
 /**
  * Manages note operations including loading, creating, and deleting notes.
@@ -436,6 +423,55 @@ export function useNotes() {
   }, [getState, setNotes, loadNote, setIsLoading]);
 
   /**
+   * Duplicates an existing note with " (copy)" suffix.
+   * @param sourceNote - The note to duplicate
+   * @throws {Error} If note duplication fails
+   */
+  const duplicateNote = useCallback(async (sourceNote: NoteFile) => {
+    try {
+      setIsLoading(true);
+      // Flush current note first to ensure all content is saved to disk
+      await flushCurrentNote();
+      const newFilename = await invoke<string>('duplicate_note', {
+        filename: sourceNote.name,
+        isDaily: sourceNote.isDaily || false,
+        isWeekly: sourceNote.isWeekly || false,
+      });
+
+      // Create note file object for the duplicate
+      const noteFile: NoteFile = {
+        name: newFilename,
+        path: sourceNote.isDaily
+          ? `daily/${newFilename}`
+          : sourceNote.isWeekly
+          ? `weekly/${newFilename}`
+          : sourceNote.folderPath
+          ? `notes/${sourceNote.folderPath}/${newFilename}`
+          : `notes/${newFilename}`,
+        isDaily: sourceNote.isDaily || false,
+        isWeekly: sourceNote.isWeekly || false,
+        isLocked: false,
+        folderPath: sourceNote.folderPath,
+      };
+
+      // Get fresh notes to avoid stale closure
+      const freshNotes = getState().notes;
+      // Add to notes list
+      if (!freshNotes.find(n => n.path === noteFile.path)) {
+        setNotes([...freshNotes, noteFile]);
+      }
+
+      // Load the duplicated note
+      await loadNote(noteFile);
+    } catch (error) {
+      console.error('[useNotes] Failed to duplicate note:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getState, setNotes, loadNote, setIsLoading]);
+
+  /**
    * Deletes the currently loaded note from disk and removes it from the note list.
    * @throws {Error} If note deletion fails
    */
@@ -492,6 +528,7 @@ export function useNotes() {
     loadWeeklyNote,
     createNote,
     createFromTemplate,
+    duplicateNote,
     deleteCurrentNote,
     refresh: initialize,
   };

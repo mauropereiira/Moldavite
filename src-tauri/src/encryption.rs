@@ -8,9 +8,12 @@ use argon2::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::rngs::OsRng;
+use zeroize::Zeroize;
 
 // Constants
 const NONCE_LENGTH: usize = 12;
+
+#[allow(dead_code)]
 const SALT_LENGTH: usize = 22; // SaltString uses 22 characters
 
 /// Encrypted note format:
@@ -25,6 +28,9 @@ const SALT_LENGTH: usize = 22; // SaltString uses 22 characters
 ///
 /// # Returns
 /// A formatted string containing salt, nonce, and ciphertext (base64 encoded)
+///
+/// # Security
+/// Sensitive key material is zeroized after use to minimize exposure in memory.
 pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> {
     // Generate random salt for Argon2
     let salt = SaltString::generate(&mut OsRng);
@@ -44,9 +50,19 @@ pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> 
         return Err("Derived key too short".to_string());
     }
 
+    // Copy key to a mutable buffer that we can zeroize
+    let mut key_buffer = [0u8; 32];
+    key_buffer.copy_from_slice(&key_bytes[..32]);
+
     // Create AES-256-GCM cipher
-    let cipher = Aes256Gcm::new_from_slice(&key_bytes[..32])
-        .map_err(|e| format!("Failed to create cipher: {}", e))?;
+    let cipher = Aes256Gcm::new_from_slice(&key_buffer)
+        .map_err(|e| {
+            key_buffer.zeroize();
+            format!("Failed to create cipher: {}", e)
+        })?;
+
+    // Zeroize key buffer immediately after cipher creation
+    key_buffer.zeroize();
 
     // Generate random nonce
     let mut nonce_bytes = [0u8; NONCE_LENGTH];
@@ -56,11 +72,17 @@ pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> 
     // Encrypt the content
     let ciphertext = cipher
         .encrypt(nonce, content.as_bytes())
-        .map_err(|e| format!("Encryption failed: {}", e))?;
+        .map_err(|e| {
+            nonce_bytes.zeroize();
+            format!("Encryption failed: {}", e)
+        })?;
 
     // Encode components as base64
     let nonce_b64 = BASE64.encode(nonce_bytes);
     let ciphertext_b64 = BASE64.encode(ciphertext);
+
+    // Zeroize nonce after encoding
+    nonce_bytes.zeroize();
 
     // Return formatted string: salt$nonce$ciphertext
     Ok(format!("{}${}${}", salt.as_str(), nonce_b64, ciphertext_b64))
@@ -74,6 +96,9 @@ pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> 
 ///
 /// # Returns
 /// The decrypted plaintext content
+///
+/// # Security
+/// Sensitive key material is zeroized after use to minimize exposure in memory.
 pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String> {
     // Parse the encrypted string
     let parts: Vec<&str> = encrypted.split('$').collect();
@@ -86,48 +111,92 @@ pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String
     let ciphertext_b64 = parts[2];
 
     // Decode base64 components
-    let nonce_bytes = BASE64
+    let mut nonce_bytes = BASE64
         .decode(nonce_b64)
         .map_err(|e| format!("Failed to decode nonce: {}", e))?;
-    let ciphertext = BASE64
+    let mut ciphertext = BASE64
         .decode(ciphertext_b64)
         .map_err(|e| format!("Failed to decode ciphertext: {}", e))?;
 
     // Reconstruct salt
     let salt = SaltString::from_b64(salt_str)
-        .map_err(|e| format!("Failed to parse salt: {}", e))?;
+        .map_err(|e| {
+            nonce_bytes.zeroize();
+            ciphertext.zeroize();
+            format!("Failed to parse salt: {}", e)
+        })?;
 
     // Derive key from password using same Argon2 parameters
     let argon2 = Argon2::default();
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| format!("Failed to hash password: {}", e))?;
+        .map_err(|e| {
+            nonce_bytes.zeroize();
+            ciphertext.zeroize();
+            format!("Failed to hash password: {}", e)
+        })?;
 
-    let hash = password_hash.hash.ok_or("Failed to get hash bytes")?;
+    let hash = password_hash.hash.ok_or_else(|| {
+        nonce_bytes.zeroize();
+        ciphertext.zeroize();
+        "Failed to get hash bytes".to_string()
+    })?;
     let key_bytes = hash.as_bytes();
 
     if key_bytes.len() < 32 {
+        nonce_bytes.zeroize();
+        ciphertext.zeroize();
         return Err("Derived key too short".to_string());
     }
 
+    // Copy key to a mutable buffer that we can zeroize
+    let mut key_buffer = [0u8; 32];
+    key_buffer.copy_from_slice(&key_bytes[..32]);
+
     // Create cipher with derived key
-    let cipher = Aes256Gcm::new_from_slice(&key_bytes[..32])
-        .map_err(|e| format!("Failed to create cipher: {}", e))?;
+    let cipher = Aes256Gcm::new_from_slice(&key_buffer)
+        .map_err(|e| {
+            key_buffer.zeroize();
+            nonce_bytes.zeroize();
+            ciphertext.zeroize();
+            format!("Failed to create cipher: {}", e)
+        })?;
+
+    // Zeroize key buffer immediately after cipher creation
+    key_buffer.zeroize();
 
     // Create nonce from bytes
     if nonce_bytes.len() != NONCE_LENGTH {
+        nonce_bytes.zeroize();
+        ciphertext.zeroize();
         return Err("Invalid nonce length".to_string());
     }
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     // Decrypt the content
-    let plaintext = cipher
+    let mut plaintext = cipher
         .decrypt(nonce, ciphertext.as_ref())
-        .map_err(|_| "Decryption failed - wrong password or corrupted data".to_string())?;
+        .map_err(|_| {
+            nonce_bytes.zeroize();
+            ciphertext.zeroize();
+            "Decryption failed - wrong password or corrupted data".to_string()
+        })?;
+
+    // Zeroize intermediate buffers
+    nonce_bytes.zeroize();
+    ciphertext.zeroize();
 
     // Convert to string
-    String::from_utf8(plaintext)
-        .map_err(|e| format!("Failed to convert decrypted content to string: {}", e))
+    let result = String::from_utf8(plaintext.clone())
+        .map_err(|e| {
+            plaintext.zeroize();
+            format!("Failed to convert decrypted content to string: {}", e)
+        });
+
+    // Zeroize plaintext bytes
+    plaintext.zeroize();
+
+    result
 }
 
 #[cfg(test)]

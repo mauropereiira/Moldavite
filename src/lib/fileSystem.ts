@@ -3,6 +3,8 @@ import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
 import { format, parse, isValid, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
+import markdownItTaskLists from 'markdown-it-task-lists';
+import DOMPurify from 'dompurify';
 
 // Initialize conversion libraries
 const turndownService = new TurndownService({
@@ -62,12 +64,92 @@ turndownService.addRule('wikiLink', {
   },
 });
 
+// Add rule for TipTap task list items - converts to GFM checkbox syntax
+turndownService.addRule('taskItem', {
+  filter: function (node) {
+    return node.nodeName === 'LI' &&
+           node.getAttribute &&
+           node.getAttribute('data-type') === 'taskItem';
+  },
+  replacement: function (content, node) {
+    const element = node as HTMLElement;
+    const isChecked = element.getAttribute('data-checked') === 'true';
+    const checkbox = isChecked ? '[x]' : '[ ]';
+    // Clean up the content - remove any label/checkbox artifacts and trim
+    const cleanContent = content
+      .replace(/^\s*\n/, '') // Remove leading newline
+      .replace(/\n\s*$/, '') // Remove trailing newline
+      .trim();
+    return `- ${checkbox} ${cleanContent}\n`;
+  }
+});
+
+// Add rule for TipTap task list container
+turndownService.addRule('taskList', {
+  filter: function (node) {
+    return node.nodeName === 'UL' &&
+           node.getAttribute &&
+           node.getAttribute('data-type') === 'taskList';
+  },
+  replacement: function (content) {
+    // Content is already processed by taskItem rule
+    return '\n' + content + '\n';
+  }
+});
+
 const md = new MarkdownIt({
   html: true, // Allow HTML tags for unsupported features
   breaks: false,
   linkify: true,
   typographer: false,
 });
+
+// Add task list plugin for GFM checkbox syntax (- [ ] and - [x])
+md.use(markdownItTaskLists, {
+  enabled: true,
+  label: true,
+  labelAfter: true,
+});
+
+// Configure DOMPurify for safe HTML rendering
+// Allow only tags and attributes needed for note content
+const DOMPURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    // Text formatting
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark', 'code', 'pre',
+    // Headings
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    // Lists
+    'ul', 'ol', 'li',
+    // Blocks
+    'blockquote', 'hr', 'div', 'span',
+    // Links and media
+    'a', 'img',
+    // Tables
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    // Form elements for task lists
+    'input', 'label',
+    // Custom elements
+    'wiki-link',
+  ],
+  ALLOWED_ATTR: [
+    // Global
+    'class', 'id', 'style',
+    // Links
+    'href', 'target', 'rel',
+    // Images
+    'src', 'alt', 'title', 'width', 'height',
+    // Data attributes (for TipTap)
+    'data-type', 'data-checked', 'data-target', 'data-label', 'data-wiki-link',
+    // Form elements
+    'type', 'checked', 'disabled',
+  ],
+  ALLOW_DATA_ATTR: true,
+  // Forbid potentially dangerous attributes
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+  // Don't allow javascript: URLs
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+};
 
 /**
  * Checks if text contains wiki link syntax [[Note Name]].
@@ -123,9 +205,10 @@ export function htmlToMarkdown(html: string): string {
 
 /**
  * Converts Markdown content to HTML for display in the editor.
- * Processes wiki links and converts them to custom HTML elements.
+ * Processes wiki links and task lists, converting them to TipTap-compatible HTML.
+ * Sanitizes output with DOMPurify to prevent XSS attacks.
  * @param markdown - The Markdown content to convert
- * @returns HTML representation with wiki links processed
+ * @returns Sanitized HTML representation with wiki links and task lists processed
  */
 export function markdownToHtml(markdown: string): string {
   if (!markdown || markdown.trim() === '') return '';
@@ -146,7 +229,35 @@ export function markdownToHtml(markdown: string): string {
     }
   );
 
-  return md.render(processed);
+  // Render markdown to HTML
+  let html = md.render(processed);
+
+  // Post-process: Convert markdown-it-task-lists output to TipTap format
+  // markdown-it generates: <ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" ...>text</li></ul>
+  // TipTap expects: <ul data-type="taskList"><li data-type="taskItem" data-checked="true/false"><label><input.../></label><div><p>text</p></div></li></ul>
+
+  // Replace task list containers
+  html = html.replace(
+    /<ul class="contains-task-list">/g,
+    '<ul data-type="taskList">'
+  );
+
+  // Replace task list items - handle both checked and unchecked
+  // Match: <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled> text</li>
+  // or: <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled> text</li>
+  html = html.replace(
+    /<li class="task-list-item">\s*<input[^>]*class="task-list-item-checkbox"[^>]*checked[^>]*>\s*([\s\S]*?)<\/li>/g,
+    '<li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked"></label><div><p>$1</p></div></li>'
+  );
+
+  html = html.replace(
+    /<li class="task-list-item">\s*<input[^>]*class="task-list-item-checkbox"[^>]*>\s*([\s\S]*?)<\/li>/g,
+    '<li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>$1</p></div></li>'
+  );
+
+  // Sanitize HTML to prevent XSS attacks
+  // This removes any potentially dangerous scripts, event handlers, and malicious content
+  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG);
 }
 
 /**
@@ -475,6 +586,44 @@ export async function exportNotes(destination: string): Promise<string> {
  */
 export async function importNotes(zipPath: string, merge: boolean): Promise<ImportResult> {
   return await invoke('import_notes', { zipPath, merge });
+}
+
+/**
+ * Exports all notes and templates to an encrypted backup file.
+ * @param destination - The path where the backup file will be created
+ * @param password - The password to encrypt the backup with
+ * @returns The path to the created backup file
+ */
+export async function exportEncryptedBackup(destination: string, password: string): Promise<string> {
+  return await invoke('export_encrypted_backup', { destination, password });
+}
+
+/**
+ * Imports notes and templates from an encrypted backup file.
+ * @param backupPath - The path to the encrypted backup file
+ * @param password - The password to decrypt the backup
+ * @param merge - If true, merge with existing notes; if false, replace all notes
+ * @returns Import statistics (counts of imported items)
+ */
+export async function importEncryptedBackup(backupPath: string, password: string, merge: boolean): Promise<ImportResult> {
+  return await invoke('import_encrypted_backup', { backupPath, password, merge });
+}
+
+/**
+ * Exports a single note to a specified destination as Markdown.
+ * @param filename - The note filename (e.g., "my-note.md")
+ * @param destination - The full path where the file will be exported
+ * @param isDaily - Whether this is a daily note
+ * @param isWeekly - Whether this is a weekly note
+ * @returns The path to the exported file
+ */
+export async function exportSingleNote(
+  filename: string,
+  destination: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<string> {
+  return await invoke('export_single_note', { filename, destination, isDaily, isWeekly });
 }
 
 // Note Color/Metadata Functions

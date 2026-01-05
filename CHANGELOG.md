@@ -2,6 +2,30 @@
 
 All notable changes to Notomattic are documented here.
 
+## [0.5.0] - 2025-01-04
+
+### Added
+- **Open Source**: Now available under MIT license
+- **Security Hardening**:
+  - HTML sanitization to prevent XSS attacks
+  - Brute-force protection with rate limiting for locked notes
+  - Password strength requirements (8+ chars, uppercase, lowercase, number)
+  - Secure memory handling with zeroization for sensitive data
+  - Encrypted backup exports with password protection
+  - Session auto-lock timeout (configurable 1-60 minutes)
+- **Contributing Guidelines**: Added CONTRIBUTING.md for contributors
+- **Code Documentation**: Added JSDoc comments throughout codebase
+
+### Changed
+- **Codebase Restructure**: Improved module organization for maintainability
+  - Backend split into focused command modules
+  - Added utility modules for shared functionality
+  - Standardized barrel exports across frontend
+- **Settings UI**: Cleaned up About section
+
+### Fixed
+- Repository URL typo in Cargo.toml
+
 ## [0.4.0] - 2025-01-04
 
 ### Added

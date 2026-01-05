@@ -69,9 +69,13 @@ npm run tauri build
 - **State:** Zustand
 - **Styling:** Tailwind CSS
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
-Proprietary - All rights reserved
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 

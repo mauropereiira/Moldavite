@@ -1125,7 +1125,6 @@ body {
   list-style: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  contain: layout style;
 }
 
 /* Prevent pseudo-elements from affecting layout */
@@ -1146,19 +1145,21 @@ body {
 
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"] {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5em;
   padding: 0 !important;
-  margin: 0.375rem 0;
+  margin: 0.25rem 0;
+  min-height: 1.5em;
 }
 
-/* Label wrapper - align checkbox with first line of text */
+/* Label wrapper - align checkbox with text */
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label {
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  margin-top: 0.2em;
+  margin: 0;
+  padding: 0;
   line-height: 1;
 }
 
@@ -1226,29 +1227,52 @@ body {
 /* Checked item text - strikethrough */
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div,
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div p,
+.tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div span,
 .tiptap ul[data-type="taskList"] li.task-item[data-checked="true"] > div,
-.tiptap ul[data-type="taskList"] li.task-item[data-checked="true"] > div p {
-  opacity: 0.5;
-  text-decoration: line-through;
+.tiptap ul[data-type="taskList"] li.task-item[data-checked="true"] > div p,
+.tiptap li[data-checked="true"] > div,
+.tiptap li[data-checked="true"] > div p,
+.tiptap li[data-checked="true"] > div span {
+  opacity: 0.5 !important;
+  text-decoration: line-through !important;
+  text-decoration-color: var(--text-secondary) !important;
 }
 
-/* Content wrapper - prevent line breaks and layout shifts */
+/* Content wrapper - ensure selection works */
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div {
   flex: 1;
   min-width: 0;
   line-height: 1.5;
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
-/* Inner paragraph - prevent margin collapse and layout shifts */
+/* Inner paragraph - ensure selection works */
 .tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div p {
   margin: 0 !important;
   padding: 0 !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
-/* Prevent layout shifts during selection */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"]::selection,
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] *::selection {
-  background-color: var(--accent-subtle);
+/* Selection styles for task lists - ensure visibility */
+.tiptap ul[data-type="taskList"]::selection,
+.tiptap ul[data-type="taskList"] *::selection,
+.tiptap li[data-type="taskItem"]::selection,
+.tiptap li[data-type="taskItem"] *::selection,
+.tiptap li[data-type="taskItem"] div::selection,
+.tiptap li[data-type="taskItem"] div *::selection,
+.tiptap li[data-type="taskItem"] p::selection {
+  background-color: rgba(74, 124, 155, 0.4) !important;
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+
+.dark .tiptap ul[data-type="taskList"]::selection,
+.dark .tiptap ul[data-type="taskList"] *::selection,
+.dark .tiptap li[data-type="taskItem"]::selection,
+.dark .tiptap li[data-type="taskItem"] *::selection {
+  background-color: rgba(74, 124, 155, 0.5) !important;
 }
 
 /* Nested task lists */
@@ -1361,13 +1385,15 @@ body {
 
 .tiptap ul[data-type="taskList"] li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
 }
 
 .tiptap ul[data-type="taskList"] li > label {
   flex-shrink: 0;
-  margin-top: 0.25rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
 }
 
 .tiptap ul[data-type="taskList"] li > div {
@@ -1376,11 +1402,21 @@ body {
 
 /* Selection */
 .tiptap ::selection {
-  background-color: var(--accent-subtle);
+  background-color: var(--accent-subtle) !important;
 }
 
 .dark .tiptap ::selection {
-  background-color: var(--accent-muted);
+  background-color: rgba(74, 124, 155, 0.4) !important;
+}
+
+/* TipTap/ProseMirror node selection */
+.tiptap .ProseMirror-selectednode {
+  outline: 2px solid var(--accent-primary) !important;
+}
+
+.tiptap [data-type="taskItem"].ProseMirror-selectednode,
+.tiptap [data-type="taskItem"]:has(.ProseMirror-selectednode) {
+  background-color: rgba(74, 124, 155, 0.2) !important;
 }
 
 /* Placeholder */
@@ -1996,4 +2032,21 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===========================================
+   SEARCH HIGHLIGHT
+   =========================================== */
+
+.search-preview mark {
+  background-color: var(--accent-subtle);
+  color: var(--accent-primary);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+.dark .search-preview mark {
+  background-color: var(--accent-muted);
+  color: var(--text-primary);
 }

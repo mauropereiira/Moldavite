@@ -1,3 +1,33 @@
+//! Notomattic - A privacy-first note-taking app
+//!
+//! This is the main library file that contains all Tauri commands.
+//! The codebase is organized into modules for better maintainability:
+//!
+//! # Module Structure
+//!
+//! - `commands/` - Tauri command modules (types and helpers)
+//!   - `notes.rs` - Note CRUD operations
+//!   - `folders.rs` - Folder management
+//!   - `trash.rs` - Trash/recycle bin
+//!   - `templates.rs` - Template management
+//!   - `encryption.rs` - Note locking/unlocking
+//!   - `import_export.rs` - Import/export operations
+//!   - `wiki.rs` - Wiki link system
+//!   - `metadata.rs` - Note metadata (colors)
+//!
+//! - `encryption.rs` - Core AES-256-GCM encryption logic
+//! - `security.rs` - Rate limiting and security utilities
+//! - `calendar.rs` - macOS calendar integration (EventKit)
+//! - `utils.rs` - Shared utilities (paths, config, permissions)
+//!
+//! # Security
+//!
+//! - All file operations validate paths to prevent traversal attacks
+//! - File permissions are set to 0o600 (owner read/write only)
+//! - Directory permissions are set to 0o700 (owner only)
+//! - Note encryption uses AES-256-GCM with Argon2 key derivation
+//! - Rate limiting prevents brute-force attacks on locked notes
+
 use chrono::Local;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -8,12 +38,27 @@ use std::path::{Path, PathBuf};
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
 
+// =============================================================================
+// MODULE DECLARATIONS
+// =============================================================================
+
+/// macOS calendar integration (EventKit)
 #[cfg(target_os = "macos")]
 mod calendar;
 #[cfg(target_os = "macos")]
 use calendar::{CalendarEvent, CalendarInfo, CalendarPermission};
 
+/// Core encryption logic (AES-256-GCM)
 mod encryption;
+
+/// Security utilities (rate limiting)
+mod security;
+
+/// Shared utilities (paths, config, permissions)
+mod utils;
+
+/// Command modules (types and helpers)
+mod commands;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1276,6 +1321,78 @@ fn create_note(title: String, folder_path: Option<String>) -> Result<String, Str
 }
 
 #[tauri::command]
+fn duplicate_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    // Determine source directory
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let source_path = dir.join(&filename);
+
+    if !source_path.exists() {
+        return Err("Note not found".to_string());
+    }
+
+    // Read source content
+    let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
+
+    // Generate new filename with " (copy)" suffix
+    let base_name = filename.trim_end_matches(".md");
+    let new_base = format!("{} (copy)", base_name);
+    let new_filename = generate_unique_filename(&dir, &new_base, "md");
+    let new_path = dir.join(&new_filename);
+
+    // Write content to new file
+    fs::write(&new_path, &content).map_err(|e| e.to_string())?;
+
+    // Set restrictive file permissions (600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        fs::set_permissions(&new_path, permissions).map_err(|e| e.to_string())?;
+    }
+
+    Ok(new_filename)
+}
+
+#[tauri::command]
+fn export_single_note(
+    filename: String,
+    destination: String,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<String, String> {
+    // Determine source directory
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+
+    let source_path = dir.join(&filename);
+
+    if !source_path.exists() {
+        return Err("Note not found".to_string());
+    }
+
+    // Read source content
+    let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
+
+    // Write to destination
+    let dest_path = Path::new(&destination);
+    fs::write(dest_path, &content).map_err(|e| e.to_string())?;
+
+    Ok(destination)
+}
+
+#[tauri::command]
 fn rename_note(old_filename: String, new_filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
     let dir = if is_weekly {
         get_weekly_dir()
@@ -1869,8 +1986,19 @@ fn lock_note(filename: String, password: String, is_daily: bool, is_weekly: bool
 }
 
 /// Unlock a note temporarily to view it (returns decrypted content without saving)
+/// Includes brute-force protection with rate limiting.
 #[tauri::command]
 fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    // Create a unique identifier for this note
+    let note_id = format!("{}:{}:{}", if is_weekly { "weekly" } else if is_daily { "daily" } else { "standalone" }, filename, "");
+
+    // Check rate limit before attempting
+    let rate_check = security::check_rate_limit(&note_id);
+    if !rate_check.allowed {
+        let secs = rate_check.retry_after_secs.unwrap_or(30);
+        return Err(format!("RATE_LIMITED:{}:Too many failed attempts. Please wait {} seconds before trying again.", secs, secs));
+    }
+
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -1890,13 +2018,41 @@ fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bo
     let encrypted = fs::read_to_string(&locked_path)
         .map_err(|e| format!("Failed to read locked note: {}", e))?;
 
-    // Decrypt and return the content
-    encryption::decrypt_content(&encrypted, &password)
+    // Attempt to decrypt
+    match encryption::decrypt_content(&encrypted, &password) {
+        Ok(content) => {
+            // Success - clear the attempt history
+            security::record_successful_attempt(&note_id);
+            Ok(content)
+        }
+        Err(_) => {
+            // Failed - record the attempt and return error with remaining attempts
+            let result = security::record_failed_attempt(&note_id);
+            if !result.allowed {
+                let secs = result.retry_after_secs.unwrap_or(30);
+                Err(format!("RATE_LIMITED:{}:Too many failed attempts. Please wait {} seconds before trying again.", secs, secs))
+            } else {
+                let remaining = result.remaining_attempts.unwrap_or(0);
+                Err(format!("WRONG_PASSWORD:{}:Incorrect password. {} attempts remaining.", remaining, remaining))
+            }
+        }
+    }
 }
 
 /// Permanently unlock a note (decrypt and save as regular .md file)
+/// Includes brute-force protection with rate limiting.
 #[tauri::command]
 fn permanently_unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    // Create a unique identifier for this note (same as unlock_note)
+    let note_id = format!("{}:{}:{}", if is_weekly { "weekly" } else if is_daily { "daily" } else { "standalone" }, filename, "");
+
+    // Check rate limit before attempting
+    let rate_check = security::check_rate_limit(&note_id);
+    if !rate_check.allowed {
+        let secs = rate_check.retry_after_secs.unwrap_or(30);
+        return Err(format!("RATE_LIMITED:{}:Too many failed attempts. Please wait {} seconds before trying again.", secs, secs));
+    }
+
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -1917,11 +2073,28 @@ fn permanently_unlock_note(filename: String, password: String, is_daily: bool, i
     let encrypted = fs::read_to_string(&locked_path)
         .map_err(|e| format!("Failed to read locked note: {}", e))?;
 
-    // Decrypt the content
-    let decrypted = encryption::decrypt_content(&encrypted, &password)?;
+    // Attempt to decrypt the content
+    let decrypted = match encryption::decrypt_content(&encrypted, &password) {
+        Ok(content) => {
+            // Success - clear the attempt history
+            security::record_successful_attempt(&note_id);
+            content
+        }
+        Err(_) => {
+            // Failed - record the attempt and return error with remaining attempts
+            let result = security::record_failed_attempt(&note_id);
+            if !result.allowed {
+                let secs = result.retry_after_secs.unwrap_or(30);
+                return Err(format!("RATE_LIMITED:{}:Too many failed attempts. Please wait {} seconds before trying again.", secs, secs));
+            } else {
+                let remaining = result.remaining_attempts.unwrap_or(0);
+                return Err(format!("WRONG_PASSWORD:{}:Incorrect password. {} attempts remaining.", remaining, remaining));
+            }
+        }
+    };
 
     // Write the decrypted content to the original path
-    fs::write(&original_path, decrypted)
+    fs::write(&original_path, &decrypted)
         .map_err(|e| format!("Failed to write unlocked note: {}", e))?;
 
     // Set restrictive permissions
@@ -2164,6 +2337,200 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
     Ok(result)
 }
 
+/// Export all notes and templates to an encrypted backup file
+#[tauri::command]
+fn export_encrypted_backup(destination: String, password: String) -> Result<String, String> {
+    use std::io::Cursor;
+
+    let notes_dir = get_notes_dir();
+
+    // Create ZIP in memory
+    let mut zip_buffer = Cursor::new(Vec::new());
+    {
+        let mut zip = zip::ZipWriter::new(&mut zip_buffer);
+        let options = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o600);
+
+        // Add files from each subdirectory
+        for subdir in ["daily", "notes", "templates", "weekly"] {
+            let subdir_path = notes_dir.join(subdir);
+            if !subdir_path.exists() {
+                continue;
+            }
+
+            if let Ok(entries) = fs::read_dir(&subdir_path) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let filename = path.file_name().unwrap().to_string_lossy();
+                        let archive_path = format!("{}/{}", subdir, filename);
+
+                        let mut file_content = Vec::new();
+                        if let Ok(mut f) = fs::File::open(&path) {
+                            if f.read_to_end(&mut file_content).is_ok() {
+                                zip.start_file(&archive_path, options)
+                                    .map_err(|e| format!("Failed to add file to ZIP: {}", e))?;
+                                zip.write_all(&file_content)
+                                    .map_err(|e| format!("Failed to write file content: {}", e))?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+    }
+
+    // Get the ZIP data
+    let zip_data = zip_buffer.into_inner();
+
+    // Encrypt the ZIP data using our encryption module
+    let zip_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &zip_data);
+    let encrypted = encryption::encrypt_content(&zip_b64, &password)?;
+
+    // Add a header to identify encrypted backups
+    let backup_content = format!("NOTOMATTIC_ENCRYPTED_BACKUP_V1\n{}", encrypted);
+
+    // Write to destination
+    let backup_path = PathBuf::from(&destination);
+    fs::write(&backup_path, backup_content)
+        .map_err(|e| format!("Failed to write backup file: {}", e))?;
+
+    // Set restrictive permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        let _ = fs::set_permissions(&backup_path, permissions);
+    }
+
+    Ok(backup_path.to_string_lossy().to_string())
+}
+
+/// Import notes and templates from an encrypted backup file
+#[tauri::command]
+fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -> Result<ImportResult, String> {
+    use std::io::Cursor;
+
+    let notes_dir = get_notes_dir();
+
+    // Read the backup file
+    let backup_content = fs::read_to_string(&backup_path)
+        .map_err(|e| format!("Failed to read backup file: {}", e))?;
+
+    // Verify header and extract encrypted data
+    let lines: Vec<&str> = backup_content.splitn(2, '\n').collect();
+    if lines.len() != 2 || lines[0] != "NOTOMATTIC_ENCRYPTED_BACKUP_V1" {
+        return Err("Invalid backup file format".to_string());
+    }
+    let encrypted = lines[1];
+
+    // Decrypt the data
+    let zip_b64 = encryption::decrypt_content(encrypted, &password)?;
+
+    // Decode base64 to get ZIP data
+    let zip_data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &zip_b64)
+        .map_err(|e| format!("Failed to decode backup data: {}", e))?;
+
+    // Open the ZIP archive from memory
+    let cursor = Cursor::new(zip_data);
+    let mut archive = ZipArchive::new(cursor)
+        .map_err(|e| format!("Failed to read backup archive: {}", e))?;
+
+    let mut result = ImportResult {
+        daily_notes: 0,
+        standalone_notes: 0,
+        templates: 0,
+    };
+
+    // If not merging, clear existing notes first (but not templates)
+    if !merge {
+        for subdir in ["daily", "notes", "weekly"] {
+            let subdir_path = notes_dir.join(subdir);
+            if subdir_path.exists() {
+                if let Ok(entries) = fs::read_dir(&subdir_path) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_file() {
+                            let _ = fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract files from the ZIP
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)
+            .map_err(|e| format!("Failed to read archive entry: {}", e))?;
+
+        let name = file.name().to_string();
+
+        // Parse the path (subdir/filename)
+        let parts: Vec<&str> = name.split('/').collect();
+        if parts.len() != 2 {
+            continue;
+        }
+
+        let subdir = parts[0];
+        let filename = parts[1];
+
+        // Only process valid subdirectories
+        if !["daily", "notes", "templates", "weekly"].contains(&subdir) {
+            continue;
+        }
+
+        // Validate filename
+        if filename.is_empty() || filename.contains("..") || filename.starts_with('/') {
+            continue;
+        }
+
+        // Ensure subdirectory exists
+        let subdir_path = notes_dir.join(subdir);
+        if !subdir_path.exists() {
+            fs::create_dir_all(&subdir_path)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Build destination path
+        let dest_path = subdir_path.join(filename);
+
+        // Skip if file exists and merging
+        if merge && dest_path.exists() {
+            continue;
+        }
+
+        // Read and write file content
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)
+            .map_err(|e| format!("Failed to read file from archive: {}", e))?;
+
+        fs::write(&dest_path, content)
+            .map_err(|e| format!("Failed to write file: {}", e))?;
+
+        // Set restrictive permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(&dest_path, permissions);
+        }
+
+        // Update counts
+        match subdir {
+            "daily" | "weekly" => result.daily_notes += 1,
+            "notes" => result.standalone_notes += 1,
+            "templates" => result.templates += 1,
+            _ => {}
+        }
+    }
+
+    Ok(result)
+}
+
 // Apple Calendar (EventKit) Commands - macOS only
 
 #[cfg(target_os = "macos")]
@@ -2280,6 +2647,8 @@ pub fn run() {
             write_note,
             delete_note,
             create_note,
+            duplicate_note,
+            export_single_note,
             rename_note,
             clear_all_notes,
             // Folder system commands
@@ -2323,6 +2692,8 @@ pub fn run() {
             // Export/Import commands
             export_notes,
             import_notes,
+            export_encrypted_backup,
+            import_encrypted_backup,
             // Note metadata commands
             get_note_color,
             set_note_color,

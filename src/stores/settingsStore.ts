@@ -5,6 +5,7 @@ export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
 export type LineHeight = 'comfortable' | 'compact';
 export type DefaultNoteType = 'daily' | 'standalone';
 export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
+export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60; // 0 = never, values in minutes
 
 interface SettingsState {
   // General
@@ -25,6 +26,10 @@ interface SettingsState {
   autoCapitalize: boolean;
   showWordCount: boolean;
   lineHeight: LineHeight;
+  tagsEnabled: boolean;
+
+  // Security
+  autoLockTimeout: AutoLockTimeout;
 
   // UI State
   isSettingsOpen: boolean;
@@ -43,6 +48,8 @@ interface SettingsState {
   setAutoCapitalize: (enabled: boolean) => void;
   setShowWordCount: (show: boolean) => void;
   setLineHeight: (height: LineHeight) => void;
+  setTagsEnabled: (enabled: boolean) => void;
+  setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
   setIsSettingsOpen: (open: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -61,6 +68,8 @@ const defaultSettings = {
   autoCapitalize: true,
   showWordCount: false,
   lineHeight: 'comfortable' as LineHeight,
+  tagsEnabled: true,
+  autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
   isSettingsOpen: false,
 };
 
@@ -82,6 +91,8 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoCapitalize: (enabled) => set({ autoCapitalize: enabled }),
       setShowWordCount: (show) => set({ showWordCount: show }),
       setLineHeight: (height) => set({ lineHeight: height }),
+      setTagsEnabled: (enabled) => set({ tagsEnabled: enabled }),
+      setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
       setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
       resetToDefaults: () => set(defaultSettings),
     }),
@@ -102,6 +113,8 @@ export const useSettingsStore = create<SettingsState>()(
         autoCapitalize: state.autoCapitalize,
         showWordCount: state.showWordCount,
         lineHeight: state.lineHeight,
+        tagsEnabled: state.tagsEnabled,
+        autoLockTimeout: state.autoLockTimeout,
       }),
     }
   )

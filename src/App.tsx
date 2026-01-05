@@ -2,11 +2,15 @@ import { useEffect } from 'react';
 import { Layout, ToastContainer, UpdateNotification, CalendarOnboardingModal } from './components';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
+import { useAutoLock } from './hooks';
 
 function App() {
   const { theme } = useThemeStore();
   const { fontSize, fontFamily, lineHeight, compactMode } = useSettingsStore();
   const { loadColors } = useNoteColorsStore();
+
+  // Auto-lock: Monitor inactivity and re-lock notes after timeout
+  useAutoLock();
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {

@@ -105,6 +105,24 @@ export function hasContent(html: string): boolean {
 }
 
 /**
+ * Checks if note content is effectively empty by stripping HTML tags.
+ * This is used to determine whether to save or delete auto-created notes (daily/weekly).
+ * @param content - The HTML content to check
+ * @returns True if content contains no meaningful text
+ */
+export function isContentEmpty(content: string): boolean {
+  if (!content) return true;
+
+  // Remove HTML tags and check if anything remains
+  const textOnly = content
+    .replace(/<[^>]*>/g, '') // Remove all HTML tags
+    .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
+    .trim();
+
+  return textOnly === '';
+}
+
+/**
  * Sanitizes a note name for use as a filename
  * @param name - The note name to sanitize
  * @returns A sanitized filename-safe string
@@ -145,4 +163,132 @@ export function isEmpty(str: string | null | undefined): boolean {
 export function hasValidExtension(filename: string, allowedExtensions: string[]): boolean {
   const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
   return allowedExtensions.includes(ext);
+}
+
+/**
+ * Password strength levels
+ */
+export type PasswordStrengthLevel = 'weak' | 'fair' | 'good' | 'strong';
+
+/**
+ * Result of password strength check
+ */
+export interface PasswordStrength {
+  /** Numerical score from 0-4 */
+  score: 0 | 1 | 2 | 3 | 4;
+  /** Human-readable strength level */
+  level: PasswordStrengthLevel;
+  /** Feedback message for the user */
+  feedback: string;
+  /** Whether the password meets minimum requirements */
+  isAcceptable: boolean;
+  /** Specific suggestions for improvement */
+  suggestions: string[];
+}
+
+/**
+ * Checks the strength of a password.
+ * Based on OWASP and NIST guidelines for password security.
+ *
+ * @param password - The password to check
+ * @returns Password strength information
+ */
+export function checkPasswordStrength(password: string): PasswordStrength {
+  const suggestions: string[] = [];
+  let score = 0;
+
+  // Length checks (most important factor per NIST)
+  if (password.length >= 8) {
+    score++;
+  } else {
+    suggestions.push('Use at least 8 characters');
+  }
+
+  if (password.length >= 12) {
+    score++;
+  } else if (password.length >= 8) {
+    suggestions.push('Consider using 12+ characters for better security');
+  }
+
+  // Character variety checks
+  const hasLowercase = /[a-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
+
+  if (hasLowercase && hasUppercase) {
+    score++;
+  } else if (!hasLowercase || !hasUppercase) {
+    suggestions.push('Mix uppercase and lowercase letters');
+  }
+
+  if (hasNumbers) {
+    score += 0.5;
+  } else {
+    suggestions.push('Include at least one number');
+  }
+
+  if (hasSpecial) {
+    score += 0.5;
+  } else {
+    suggestions.push('Include a special character (!@#$%...)');
+  }
+
+  // Check for common patterns (weak passwords)
+  const commonPatterns = [
+    /^(password|123456|qwerty|abc123|letmein|welcome|admin|login)/i,
+    /^(.)\1+$/, // All same character
+    /^(12345|123456|1234567|12345678)/,
+    /^(abcdef|qwerty|asdfgh)/i,
+  ];
+
+  const hasCommonPattern = commonPatterns.some((pattern) => pattern.test(password));
+  if (hasCommonPattern) {
+    score = Math.max(0, score - 2);
+    suggestions.unshift('Avoid common passwords and patterns');
+  }
+
+  // Normalize score to 0-4 range
+  const normalizedScore = Math.min(4, Math.max(0, Math.round(score))) as 0 | 1 | 2 | 3 | 4;
+
+  // Determine level and feedback
+  let level: PasswordStrengthLevel;
+  let feedback: string;
+
+  switch (normalizedScore) {
+    case 0:
+      level = 'weak';
+      feedback = 'Very weak password';
+      break;
+    case 1:
+      level = 'weak';
+      feedback = 'Weak password';
+      break;
+    case 2:
+      level = 'fair';
+      feedback = 'Fair password';
+      break;
+    case 3:
+      level = 'good';
+      feedback = 'Good password';
+      break;
+    case 4:
+      level = 'strong';
+      feedback = 'Strong password';
+      break;
+    default:
+      level = 'weak';
+      feedback = 'Weak password';
+  }
+
+  // Password is acceptable if score >= 2 and length >= 8
+  const isAcceptable = normalizedScore >= 2 && password.length >= 8;
+
+  return {
+    score: normalizedScore,
+    level,
+    feedback,
+    isAcceptable,
+    suggestions: suggestions.slice(0, 3), // Max 3 suggestions
+  };
 }

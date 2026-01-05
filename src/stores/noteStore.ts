@@ -13,6 +13,9 @@ interface NoteState {
   selectedDate: Date;
   selectedWeek: Date | null; // The Monday of the selected week
 
+  // Security - tracks temporarily unlocked notes for auto-lock feature
+  unlockedNotes: Set<string>;
+
   // Actions
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
@@ -31,6 +34,11 @@ interface NoteState {
   pinTab: (noteId: string) => { success: boolean; message?: string };
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   loadPinnedTabs: () => void;
+
+  // Security actions for auto-lock
+  unlockNote: (noteId: string) => void;
+  lockNote: (noteId: string) => void;
+  lockAllNotes: () => void;
 }
 
 export const useNoteStore = create<NoteState>((set, get) => ({
@@ -42,6 +50,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   isSaving: false,
   selectedDate: new Date(),
   selectedWeek: null,
+  unlockedNotes: new Set<string>(),
 
   /**
    * Replaces the entire notes list.
@@ -345,5 +354,57 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     } catch (error) {
       console.error('[noteStore] Failed to load pinned tabs:', error);
     }
+  },
+
+  /**
+   * Marks a note as temporarily unlocked (for auto-lock tracking).
+   * Called when a user enters the correct password for a locked note.
+   * @param noteId - The note ID to mark as unlocked
+   */
+  unlockNote: (noteId) =>
+    set((state) => {
+      const newUnlocked = new Set(state.unlockedNotes);
+      newUnlocked.add(noteId);
+      return { unlockedNotes: newUnlocked };
+    }),
+
+  /**
+   * Re-locks a previously unlocked note and closes its tab.
+   * Called by auto-lock when inactivity timeout expires.
+   * @param noteId - The note ID to re-lock
+   */
+  lockNote: (noteId) => {
+    const state = get();
+    const newUnlocked = new Set(state.unlockedNotes);
+    newUnlocked.delete(noteId);
+
+    // Close the tab for the locked note to clear decrypted content
+    const tabExists = state.openTabs.some((t) => t.id === noteId);
+    if (tabExists) {
+      // Use closeTab to properly handle switching to another tab
+      set({ unlockedNotes: newUnlocked });
+      get().closeTab(noteId);
+    } else {
+      set({ unlockedNotes: newUnlocked });
+    }
+  },
+
+  /**
+   * Re-locks all temporarily unlocked notes.
+   * Called when the app is about to close or after inactivity timeout.
+   */
+  lockAllNotes: () => {
+    const state = get();
+    const notesToLock = Array.from(state.unlockedNotes);
+
+    // Close all tabs for locked notes
+    notesToLock.forEach((noteId) => {
+      const tabExists = state.openTabs.some((t) => t.id === noteId);
+      if (tabExists) {
+        get().closeTab(noteId);
+      }
+    });
+
+    set({ unlockedNotes: new Set() });
   },
 }));
