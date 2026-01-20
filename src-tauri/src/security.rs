@@ -8,8 +8,11 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// Maximum number of failed attempts before lockout
+/// Maximum number of failed attempts before lockout (per note)
 const MAX_ATTEMPTS: u32 = 5;
+
+/// Maximum number of failed attempts globally before lockout
+const GLOBAL_MAX_ATTEMPTS: u32 = 15;
 
 /// Base lockout duration in seconds (doubles with each lockout)
 const BASE_LOCKOUT_SECS: u64 = 30;
@@ -19,6 +22,19 @@ const MAX_LOCKOUT_SECS: u64 = 600;
 
 /// Time after which attempt counter resets (if no new attempts)
 const ATTEMPT_RESET_SECS: u64 = 300; // 5 minutes
+
+/// Global attempt tracking info
+#[derive(Debug)]
+struct GlobalAttemptInfo {
+    /// Total failed attempts across all notes
+    attempts: u32,
+    /// Timestamp of the last attempt
+    last_attempt: Instant,
+    /// If locked out globally, when the lockout expires
+    locked_until: Option<Instant>,
+    /// Number of global lockouts (for exponential backoff)
+    lockout_count: u32,
+}
 
 /// Information about unlock attempts for a specific note
 #[derive(Debug, Clone)]
@@ -45,8 +61,16 @@ impl AttemptInfo {
 }
 
 lazy_static! {
-    /// Global attempt tracker - maps note identifiers to their attempt info
+    /// Per-note attempt tracker - maps note identifiers to their attempt info
     static ref ATTEMPT_TRACKER: Mutex<HashMap<String, AttemptInfo>> = Mutex::new(HashMap::new());
+
+    /// Global attempt tracker - limits total attempts across all notes
+    static ref GLOBAL_TRACKER: Mutex<GlobalAttemptInfo> = Mutex::new(GlobalAttemptInfo {
+        attempts: 0,
+        last_attempt: Instant::now(),
+        locked_until: None,
+        lockout_count: 0,
+    });
 }
 
 /// Result of a rate limit check
@@ -62,12 +86,34 @@ pub struct RateLimitResult {
 
 /// Checks if an unlock attempt is allowed for the given note.
 ///
+/// Checks both per-note and global rate limits.
+///
 /// # Arguments
 /// * `note_id` - Unique identifier for the note (e.g., filename)
 ///
 /// # Returns
 /// A `RateLimitResult` indicating whether the attempt is allowed
 pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
+    // First check global rate limit
+    {
+        let global = GLOBAL_TRACKER.lock().unwrap();
+
+        // Reset global counter if it's been a while
+        if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
+            // Will be reset on next failed attempt
+        } else if let Some(locked_until) = global.locked_until {
+            if Instant::now() < locked_until {
+                let remaining = locked_until.duration_since(Instant::now());
+                return RateLimitResult {
+                    allowed: false,
+                    retry_after_secs: Some(remaining.as_secs() + 1),
+                    remaining_attempts: None,
+                };
+            }
+        }
+    }
+
+    // Then check per-note rate limit
     let mut tracker = ATTEMPT_TRACKER.lock().unwrap();
 
     // Clean up old entries while we have the lock
@@ -110,7 +156,8 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 
 /// Records a failed unlock attempt for the given note.
 ///
-/// If the maximum number of attempts is exceeded, a lockout is triggered.
+/// If the maximum number of attempts is exceeded (per-note or globally),
+/// a lockout is triggered.
 ///
 /// # Arguments
 /// * `note_id` - Unique identifier for the note
@@ -118,6 +165,36 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 /// # Returns
 /// A `RateLimitResult` with the current state after recording the failure
 pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
+    // Update global tracker first
+    {
+        let mut global = GLOBAL_TRACKER.lock().unwrap();
+
+        // Reset global counter if it's been a while
+        if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
+            global.attempts = 0;
+            global.locked_until = None;
+        }
+
+        global.attempts += 1;
+        global.last_attempt = Instant::now();
+
+        // Check if we need to trigger a global lockout
+        if global.attempts >= GLOBAL_MAX_ATTEMPTS {
+            let lockout_multiplier = 2u64.pow(global.lockout_count);
+            let lockout_secs = (BASE_LOCKOUT_SECS * lockout_multiplier).min(MAX_LOCKOUT_SECS);
+
+            global.locked_until = Some(Instant::now() + Duration::from_secs(lockout_secs));
+            global.lockout_count += 1;
+
+            return RateLimitResult {
+                allowed: false,
+                retry_after_secs: Some(lockout_secs),
+                remaining_attempts: Some(0),
+            };
+        }
+    }
+
+    // Then update per-note tracker
     let mut tracker = ATTEMPT_TRACKER.lock().unwrap();
 
     let info = tracker.entry(note_id.to_string()).or_insert_with(AttemptInfo::new);
@@ -132,7 +209,7 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     info.attempts += 1;
     info.last_attempt = Instant::now();
 
-    // Check if we need to trigger a lockout
+    // Check if we need to trigger a per-note lockout
     if info.attempts >= MAX_ATTEMPTS {
         // Calculate lockout duration with exponential backoff
         let lockout_multiplier = 2u64.pow(info.lockout_count);

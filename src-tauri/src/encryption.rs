@@ -4,7 +4,7 @@ use aes_gcm::{
 };
 use argon2::{
     password_hash::{PasswordHasher, SaltString},
-    Argon2,
+    Argon2, Algorithm, Params, Version,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::rngs::OsRng;
@@ -15,6 +15,25 @@ const NONCE_LENGTH: usize = 12;
 
 #[allow(dead_code)]
 const SALT_LENGTH: usize = 22; // SaltString uses 22 characters
+
+/// Creates Argon2 with hardened parameters for password-based encryption.
+///
+/// Parameters chosen based on OWASP recommendations:
+/// - Algorithm: Argon2id (resistant to side-channel and GPU attacks)
+/// - Memory: 19456 KiB (~19 MiB) - balances security and performance
+/// - Iterations: 3 - increases computational cost
+/// - Parallelism: 1 - single thread for consistent timing
+fn create_hardened_argon2() -> Argon2<'static> {
+    // Use explicit hardened parameters instead of defaults
+    let params = Params::new(
+        19456,  // m_cost: 19 MiB memory
+        3,      // t_cost: 3 iterations
+        1,      // p_cost: 1 parallel lane
+        Some(32) // output length: 32 bytes for AES-256
+    ).expect("Invalid Argon2 parameters");
+
+    Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
+}
 
 /// Encrypted note format:
 /// [22 bytes salt (base64)][12 bytes nonce (base64)][encrypted content (base64)]
@@ -36,7 +55,7 @@ pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> 
     let salt = SaltString::generate(&mut OsRng);
 
     // Derive key from password using Argon2
-    let argon2 = Argon2::default();
+    let argon2 = create_hardened_argon2();
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Failed to hash password: {}", e))?;
@@ -127,7 +146,7 @@ pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String
         })?;
 
     // Derive key from password using same Argon2 parameters
-    let argon2 = Argon2::default();
+    let argon2 = create_hardened_argon2();
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| {
