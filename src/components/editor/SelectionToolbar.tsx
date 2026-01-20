@@ -64,7 +64,7 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
           setIsVisible(true);
           return true;
         } catch (error) {
-          console.warn('[SelectionToolbar] shouldShow error:', error);
+          console.error('[SelectionToolbar] shouldShow error:', error);
           setIsVisible(false);
           return false;
         }
@@ -78,7 +78,7 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
     try {
       editor.registerPlugin(plugin);
     } catch (error) {
-      console.warn('[SelectionToolbar] registerPlugin error:', error);
+      console.error('[SelectionToolbar] registerPlugin error:', error);
     }
 
     return () => {
@@ -89,7 +89,7 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
           editor.unregisterPlugin('selectionToolbar');
         }
       } catch (error) {
-        console.warn('[SelectionToolbar] cleanup error:', error);
+        console.error('[SelectionToolbar] cleanup error:', error);
       }
     };
   }, [editor]);

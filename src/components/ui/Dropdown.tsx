@@ -59,13 +59,18 @@ export function Dropdown({ trigger, children, position = 'left', openDirection =
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
-      <div onClick={() => setIsOpen(!isOpen)}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+      >
         {trigger}
       </div>
 
       {isOpen && (
         <div
           ref={menuRef}
+          role="menu"
           className={`absolute ${directionClasses} ${positionClasses[position]} z-50 min-w-[180px] py-1 modal-content-enter`}
           style={{
             backgroundColor: 'var(--bg-elevated)',
@@ -106,7 +111,8 @@ export function DropdownItem({ children, onClick, icon, variant = 'default', dis
   return (
     <button
       onClick={disabled ? undefined : onClick}
-      className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors"
+      role="menuitem"
+      className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors focus-ring"
       style={{
         color: variant === 'danger' ? 'var(--error)' : 'var(--text-primary)',
         opacity: disabled ? 0.5 : 1,
@@ -119,6 +125,7 @@ export function DropdownItem({ children, onClick, icon, variant = 'default', dis
         e.currentTarget.style.backgroundColor = 'transparent';
       }}
       disabled={disabled}
+      aria-disabled={disabled}
     >
       {icon && <span className="w-4 h-4 flex-shrink-0">{icon}</span>}
       {children}

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
 import { format, parse, isValid, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
+import { hasTag, renameTagInContent } from './tags';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
@@ -64,6 +65,49 @@ turndownService.addRule('wikiLink', {
   },
 });
 
+// Add rule to ignore checkbox inputs inside task items (we handle them via data-checked attribute)
+turndownService.addRule('taskItemCheckbox', {
+  filter: function (node) {
+    return node.nodeName === 'INPUT' &&
+           node.getAttribute &&
+           node.getAttribute('type') === 'checkbox';
+  },
+  replacement: function () {
+    return ''; // Don't output anything for checkboxes
+  }
+});
+
+// Add rule to ignore labels inside task items (they just wrap the checkbox)
+turndownService.addRule('taskItemLabel', {
+  filter: function (node) {
+    // Only match labels that are direct children of task items
+    const parent = node.parentNode as HTMLElement | null;
+    return !!(node.nodeName === 'LABEL' &&
+           parent &&
+           parent.getAttribute &&
+           parent.getAttribute('data-type') === 'taskItem');
+  },
+  replacement: function () {
+    return ''; // Don't output anything for task item labels
+  }
+});
+
+// Add rule for divs inside task items - strip block formatting
+// TipTap wraps task text in <div><p>text</p></div>, and Turndown treats <div>
+// as a block element, adding newlines. This rule prevents that.
+turndownService.addRule('taskItemDiv', {
+  filter: function (node) {
+    const parent = node.parentNode as HTMLElement | null;
+    return !!(node.nodeName === 'DIV' &&
+           parent &&
+           parent.getAttribute &&
+           parent.getAttribute('data-type') === 'taskItem');
+  },
+  replacement: function (content) {
+    return content.replace(/^\n+/, '').replace(/\n+$/, '');
+  }
+});
+
 // Add rule for TipTap task list items - converts to GFM checkbox syntax
 turndownService.addRule('taskItem', {
   filter: function (node) {
@@ -75,10 +119,11 @@ turndownService.addRule('taskItem', {
     const element = node as HTMLElement;
     const isChecked = element.getAttribute('data-checked') === 'true';
     const checkbox = isChecked ? '[x]' : '[ ]';
-    // Clean up the content - remove any label/checkbox artifacts and trim
+    // Clean up the content - remove any whitespace artifacts
     const cleanContent = content
-      .replace(/^\s*\n/, '') // Remove leading newline
-      .replace(/\n\s*$/, '') // Remove trailing newline
+      .replace(/^\s+/, '')              // Strip ALL leading whitespace
+      .replace(/\s+$/, '')              // Strip ALL trailing whitespace
+      .replace(/\\\[[\sx]?\\\]/g, '')   // Remove any escaped checkbox remnants
       .trim();
     return `- ${checkbox} ${cleanContent}\n`;
   }
@@ -105,10 +150,10 @@ const md = new MarkdownIt({
 });
 
 // Add task list plugin for GFM checkbox syntax (- [ ] and - [x])
+// Note: label: false produces simpler HTML that's easier to convert to TipTap format
 md.use(markdownItTaskLists, {
   enabled: true,
-  label: true,
-  labelAfter: true,
+  label: false,
 });
 
 // Configure DOMPurify for safe HTML rendering
@@ -204,6 +249,55 @@ export function htmlToMarkdown(html: string): string {
 }
 
 /**
+ * Splits mixed task lists (containing both task items and regular items) into separate lists.
+ * This is needed because markdown-it merges adjacent task and regular list items into
+ * a single <ul class="contains-task-list">, but TipTap expects task lists to only contain
+ * task items. Without this, regular bullets inside a task list container get treated as
+ * broken/empty task items.
+ * @param html - The HTML from markdown-it
+ * @returns HTML with mixed lists split into separate task and regular lists
+ */
+function splitMixedTaskLists(html: string): string {
+  // Parse HTML using DOMParser
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+
+  // Find all contains-task-list ULs
+  const taskLists = doc.querySelectorAll('ul.contains-task-list');
+
+  taskLists.forEach(ul => {
+    const items = Array.from(ul.children);
+    const taskItems: Element[] = [];
+    const regularItems: Element[] = [];
+
+    // Separate task items from regular items
+    items.forEach(li => {
+      if (li.classList.contains('task-list-item')) {
+        taskItems.push(li);
+      } else {
+        regularItems.push(li);
+      }
+    });
+
+    // If mixed, split into two lists
+    if (taskItems.length > 0 && regularItems.length > 0) {
+      // Create new regular <ul> for non-task items
+      const regularUl = doc.createElement('ul');
+      regularItems.forEach(item => {
+        regularUl.appendChild(item);
+      });
+
+      // Insert regular list after the task list
+      ul.parentNode?.insertBefore(regularUl, ul.nextSibling);
+    }
+  });
+
+  // Return the inner HTML of the wrapper div
+  const wrapper = doc.body.querySelector('div');
+  return wrapper?.innerHTML || html;
+}
+
+/**
  * Converts Markdown content to HTML for display in the editor.
  * Processes wiki links and task lists, converting them to TipTap-compatible HTML.
  * Sanitizes output with DOMPurify to prevent XSS attacks.
@@ -232,6 +326,10 @@ export function markdownToHtml(markdown: string): string {
   // Render markdown to HTML
   let html = md.render(processed);
 
+  // Split mixed task lists (task items + regular items) into separate lists
+  // This must happen BEFORE we convert task list containers to TipTap format
+  html = splitMixedTaskLists(html);
+
   // Post-process: Convert markdown-it-task-lists output to TipTap format
   // markdown-it generates: <ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" ...>text</li></ul>
   // TipTap expects: <ul data-type="taskList"><li data-type="taskItem" data-checked="true/false"><label><input.../></label><div><p>text</p></div></li></ul>
@@ -243,21 +341,48 @@ export function markdownToHtml(markdown: string): string {
   );
 
   // Replace task list items - handle both checked and unchecked
-  // Match: <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" checked disabled> text</li>
-  // or: <li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled> text</li>
+  // markdown-it-task-lists produces: <li class="task-list-item enabled"><input class="task-list-item-checkbox" type="checkbox">text</li>
+  // Note: class may be "task-list-item" or "task-list-item enabled", and input attributes can be in any order
+
+  // Checked items - look for 'checked' attribute anywhere in the input tag
+  // markdown-it-task-lists wraps the input and text in a <p> tag: <li class="..."><p><input ...> text</p></li>
   html = html.replace(
-    /<li class="task-list-item">\s*<input[^>]*class="task-list-item-checkbox"[^>]*checked[^>]*>\s*([\s\S]*?)<\/li>/g,
+    /<li class="task-list-item[^"]*">\s*(?:<p>\s*)?<input[^>]*checked[^>]*>\s*([\s\S]*?)(?:\s*<\/p>)?\s*<\/li>/gi,
     '<li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked"></label><div><p>$1</p></div></li>'
   );
 
+  // Unchecked items - use negative lookahead to exclude items with 'checked' attribute
+  // markdown-it-task-lists wraps the input and text in a <p> tag: <li class="..."><p><input ...> text</p></li>
   html = html.replace(
-    /<li class="task-list-item">\s*<input[^>]*class="task-list-item-checkbox"[^>]*>\s*([\s\S]*?)<\/li>/g,
+    /<li class="task-list-item[^"]*">\s*(?:<p>\s*)?<input(?![^>]*checked)[^>]*>\s*([\s\S]*?)(?:\s*<\/p>)?\s*<\/li>/gi,
     '<li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>$1</p></div></li>'
   );
 
   // Sanitize HTML to prevent XSS attacks
   // This removes any potentially dangerous scripts, event handlers, and malicious content
   return DOMPurify.sanitize(html, DOMPURIFY_CONFIG);
+}
+
+/**
+ * Parses HTML content to count task items and their completion status.
+ * Used for calendar indicators to show days with incomplete tasks.
+ * @param html - The HTML content to parse
+ * @returns Object with totalTasks and completedTasks counts
+ */
+export function parseTaskStatus(html: string): { totalTasks: number; completedTasks: number } {
+  if (!html) return { totalTasks: 0, completedTasks: 0 };
+
+  // Count total task items (TipTap format)
+  const taskItemRegex = /data-type="taskItem"/g;
+  const totalMatches = html.match(taskItemRegex);
+  const totalTasks = totalMatches ? totalMatches.length : 0;
+
+  // Count completed task items
+  const checkedRegex = /data-type="taskItem"[^>]*data-checked="true"/g;
+  const checkedMatches = html.match(checkedRegex);
+  const completedTasks = checkedMatches ? checkedMatches.length : 0;
+
+  return { totalTasks, completedTasks };
 }
 
 /**
@@ -779,4 +904,124 @@ export async function trashFolder(path: string): Promise<void> {
  */
 export async function restoreNoteFromFolder(trashId: string, noteFilename: string): Promise<void> {
   await invoke('restore_note_from_folder', { trashId, noteFilename });
+}
+
+// Tag Management Functions
+
+/**
+ * Renames a tag across all notes in the system.
+ * @param oldTag - The tag to rename (without #)
+ * @param newTag - The new tag name (without #)
+ * @returns Number of notes that were updated
+ */
+export async function renameTagGlobally(oldTag: string, newTag: string): Promise<number> {
+  const notes = await listNotes();
+  let updatedCount = 0;
+
+  for (const note of notes) {
+    try {
+      // Read the note content (returns markdown)
+      const content = await readNote(note.name, note.isDaily, note.isWeekly);
+
+      // Check if this note has the tag
+      if (!hasTag(content, oldTag)) {
+        continue;
+      }
+
+      // Rename the tag in content
+      const updatedContent = renameTagInContent(content, oldTag, newTag);
+
+      // Only write if content actually changed
+      if (updatedContent !== content) {
+        await writeNote(note.name, updatedContent, note.isDaily, note.isWeekly);
+        updatedCount++;
+      }
+    } catch (err) {
+      console.error(`[renameTagGlobally] Failed to process note ${note.name}:`, err);
+      // Continue with other notes even if one fails
+    }
+  }
+
+  return updatedCount;
+}
+
+// PDF Export Functions
+
+/**
+ * Exports a note to PDF format.
+ * @param title - The note title (for filename and header)
+ * @param htmlContent - The HTML content to export
+ * @param destination - The path where the PDF will be saved
+ * @returns The path to the created PDF file
+ */
+export async function exportNoteToPdf(
+  title: string,
+  htmlContent: string,
+  destination: string
+): Promise<string> {
+  // Dynamically import html2pdf.js (it's a CJS module)
+  const html2pdf = (await import('html2pdf.js')).default;
+
+  // Create a container element with proper styling
+  const container = document.createElement('div');
+  container.innerHTML = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto;">
+      <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a;">${title}</h1>
+      <div style="font-size: 14px; line-height: 1.6; color: #333;">
+        ${htmlContent}
+      </div>
+    </div>
+  `;
+
+  // Apply some styling fixes for PDF
+  container.querySelectorAll('a').forEach(link => {
+    link.style.color = '#2563eb';
+    link.style.textDecoration = 'underline';
+  });
+
+  container.querySelectorAll('code').forEach(code => {
+    code.style.backgroundColor = '#f3f4f6';
+    code.style.padding = '2px 4px';
+    code.style.borderRadius = '4px';
+    code.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace';
+    code.style.fontSize = '13px';
+  });
+
+  container.querySelectorAll('pre').forEach(pre => {
+    pre.style.backgroundColor = '#f3f4f6';
+    pre.style.padding = '12px';
+    pre.style.borderRadius = '8px';
+    pre.style.overflow = 'auto';
+  });
+
+  container.querySelectorAll('blockquote').forEach(bq => {
+    bq.style.borderLeft = '3px solid #d1d5db';
+    bq.style.paddingLeft = '16px';
+    bq.style.marginLeft = '0';
+    bq.style.color = '#6b7280';
+  });
+
+  // Generate PDF
+  const options = {
+    margin: 10,
+    filename: destination,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+  };
+
+  // Generate and save PDF
+  const pdfBlob = await html2pdf().set(options).from(container).outputPdf('blob');
+
+  // Convert blob to array buffer for Tauri
+  const arrayBuffer = await pdfBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  // Write the PDF file using Tauri
+  await invoke('write_binary_file', {
+    path: destination,
+    contents: Array.from(uint8Array),
+  });
+
+  return destination;
 }

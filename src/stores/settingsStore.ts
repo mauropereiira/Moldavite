@@ -6,6 +6,7 @@ export type LineHeight = 'comfortable' | 'compact';
 export type DefaultNoteType = 'daily' | 'standalone';
 export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
 export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60; // 0 = never, values in minutes
+export type SortOption = 'name-asc' | 'name-desc';
 
 interface SettingsState {
   // General
@@ -27,6 +28,9 @@ interface SettingsState {
   showWordCount: boolean;
   lineHeight: LineHeight;
   tagsEnabled: boolean;
+
+  // Sidebar
+  sortOption: SortOption;
 
   // Security
   autoLockTimeout: AutoLockTimeout;
@@ -50,6 +54,7 @@ interface SettingsState {
   setLineHeight: (height: LineHeight) => void;
   setTagsEnabled: (enabled: boolean) => void;
   setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
+  setSortOption: (option: SortOption) => void;
   setIsSettingsOpen: (open: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -70,6 +75,7 @@ const defaultSettings = {
   lineHeight: 'comfortable' as LineHeight,
   tagsEnabled: true,
   autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
+  sortOption: 'name-asc' as SortOption,
   isSettingsOpen: false,
 };
 
@@ -93,6 +99,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLineHeight: (height) => set({ lineHeight: height }),
       setTagsEnabled: (enabled) => set({ tagsEnabled: enabled }),
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
+      setSortOption: (option) => set({ sortOption: option }),
       setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
       resetToDefaults: () => set(defaultSettings),
     }),
@@ -115,6 +122,7 @@ export const useSettingsStore = create<SettingsState>()(
         lineHeight: state.lineHeight,
         tagsEnabled: state.tagsEnabled,
         autoLockTimeout: state.autoLockTimeout,
+        sortOption: state.sortOption,
       }),
     }
   )

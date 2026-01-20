@@ -17,7 +17,8 @@ import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
-import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark } from './extensions';
+import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList } from './extensions';
+import type { TagItem } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
@@ -39,7 +40,7 @@ export function Editor() {
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
-  const { setSelectedTag } = useTagStore();
+  const { allTags, setSelectedTag } = useTagStore();
   const toast = useToast();
 
   // Handle tag clicks - filter notes by tag
@@ -65,6 +66,10 @@ export function Editor() {
   // Ref to always access latest notes for wiki link handler
   const notesRef = useRef(notes);
   notesRef.current = notes;
+
+  // Ref to always access latest tags for tag suggestion handler
+  const tagsRef = useRef(allTags);
+  tagsRef.current = allTags;
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -249,9 +254,121 @@ export function Editor() {
       WikiLink.configure({
         onLinkClick: handleWikiLinkClick,
       }),
-      // Only include TagMark when tags are enabled
+      // Only include TagMark and TagSuggestion when tags are enabled
       ...(tagsEnabled ? [TagMark.configure({
         onTagClick: handleTagClick,
+      })] : []),
+      ...(tagsEnabled ? [TagSuggestion.configure({
+        suggestion: {
+          char: '#',
+          allowSpaces: false,
+          items: ({ query }: { query: string }) => {
+            // Get tags from ref and filter based on query
+            const currentTags = tagsRef.current;
+            const tagItems: TagItem[] = [];
+
+            currentTags.forEach((count, name) => {
+              if (name.toLowerCase().includes(query.toLowerCase())) {
+                tagItems.push({ name, count });
+              }
+            });
+
+            // Sort by count (descending), then alphabetically
+            tagItems.sort((a, b) => {
+              if (b.count !== a.count) return b.count - a.count;
+              return a.name.localeCompare(b.name);
+            });
+
+            return tagItems.slice(0, 10); // Limit to 10 results
+          },
+          render: () => {
+            let component: ReactRenderer | null = null;
+            let popup: Instance[] | null = null;
+
+            return {
+              onStart: (props: any) => {
+                try {
+                  component = new ReactRenderer(TagSuggestionList, {
+                    props,
+                    editor: props.editor,
+                  });
+
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup = tippy('body', {
+                    getReferenceClientRect: props.clientRect,
+                    appendTo: () => document.body,
+                    content: component.element,
+                    showOnCreate: true,
+                    interactive: true,
+                    trigger: 'manual',
+                    placement: 'bottom-start',
+                    maxWidth: 'none',
+                  });
+                } catch (error) {
+                  console.error('[TagSuggestion] onStart error:', error);
+                }
+              },
+
+              onUpdate(props: any) {
+                try {
+                  component?.updateProps(props);
+
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup?.[0]?.setProps({
+                    getReferenceClientRect: props.clientRect,
+                  });
+                } catch (error) {
+                  console.error('[TagSuggestion] onUpdate error:', error);
+                }
+              },
+
+              onKeyDown(props: any) {
+                try {
+                  if (props.event.key === 'Escape') {
+                    popup?.[0]?.hide();
+                    return true;
+                  }
+
+                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                } catch (error) {
+                  console.error('[TagSuggestion] onKeyDown error:', error);
+                  return false;
+                }
+              },
+
+              onExit() {
+                try {
+                  if (popup?.[0]) {
+                    popup[0].destroy();
+                  }
+                  if (component) {
+                    component.destroy();
+                  }
+                } catch (error) {
+                  console.error('[TagSuggestion] onExit error:', error);
+                }
+                popup = null;
+                component = null;
+              },
+            };
+          },
+          command: ({ editor, range, props }: any) => {
+            const tag = props as TagItem;
+            // Insert the tag text (the # is already typed, just add the name)
+            editor
+              .chain()
+              .focus()
+              .deleteRange(range)
+              .insertContent(`#${tag.name} `)
+              .run();
+          },
+        },
       })] : []),
       WikiLinkSuggestion.configure({
         suggestion: {
@@ -294,7 +411,7 @@ export function Editor() {
                     maxWidth: 'none',
                   });
                 } catch (error) {
-                  console.warn('[WikiLinkSuggestion] onStart error:', error);
+                  console.error('[WikiLinkSuggestion] onStart error:', error);
                 }
               },
 
@@ -310,7 +427,7 @@ export function Editor() {
                     getReferenceClientRect: props.clientRect,
                   });
                 } catch (error) {
-                  console.warn('[WikiLinkSuggestion] onUpdate error:', error);
+                  console.error('[WikiLinkSuggestion] onUpdate error:', error);
                 }
               },
 
@@ -323,7 +440,7 @@ export function Editor() {
 
                   return (component?.ref as any)?.onKeyDown(props.event) || false;
                 } catch (error) {
-                  console.warn('[WikiLinkSuggestion] onKeyDown error:', error);
+                  console.error('[WikiLinkSuggestion] onKeyDown error:', error);
                   return false;
                 }
               },
@@ -338,7 +455,7 @@ export function Editor() {
                     component.destroy();
                   }
                 } catch (error) {
-                  console.warn('[WikiLinkSuggestion] onExit error:', error);
+                  console.error('[WikiLinkSuggestion] onExit error:', error);
                 }
                 // Reset references so suggestion can trigger again
                 popup = null;
@@ -375,7 +492,7 @@ export function Editor() {
           setShowInlineTemplatePicker(false);
         }
       } catch (error) {
-        console.warn('[Editor] onUpdate error:', error);
+        console.error('[Editor] onUpdate error:', error);
       }
     },
     onDestroy: () => {
@@ -387,7 +504,7 @@ export function Editor() {
       try {
         // Selection update handling - no-op but catches errors
       } catch (error) {
-        console.warn('[Editor] Selection update error:', error);
+        console.error('[Editor] Selection update error:', error);
       }
     },
     editorProps: {
@@ -432,7 +549,7 @@ export function Editor() {
               }
             }
           } catch (error) {
-            console.warn('[Editor] setContent error:', error);
+            console.error('[Editor] setContent error:', error);
           }
         });
       } else {
@@ -443,12 +560,12 @@ export function Editor() {
               editor.commands.clearContent();
             }
           } catch (error) {
-            console.warn('[Editor] clearContent error:', error);
+            console.error('[Editor] clearContent error:', error);
           }
         });
       }
     } catch (error) {
-      console.warn('[Editor] Content update error:', error);
+      console.error('[Editor] Content update error:', error);
     }
   }, [editor, currentNote?.id]);
 

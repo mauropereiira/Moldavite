@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useNoteStore, useTemplateStore } from '@/stores';
+import { useNoteStore, useTemplateStore, useTaskStatusStore } from '@/stores';
 import {
   ensureDirectories,
   listNotes,
@@ -14,7 +14,8 @@ import {
   markdownToHtml,
   htmlToMarkdown,
   isHtmlContent,
-  isContentEmpty
+  isContentEmpty,
+  parseTaskStatus,
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
@@ -137,6 +138,26 @@ export function useNotes() {
       await ensureDirectories();
       const noteFiles = await listNotes();
       setNotes(noteFiles);
+
+      // Build task status cache for daily notes (non-blocking)
+      const dailyNotes = noteFiles.filter(n => n.isDaily && n.date);
+      const { setTaskStatus } = useTaskStatusStore.getState();
+
+      // Process daily notes in the background
+      Promise.all(
+        dailyNotes.map(async (noteFile) => {
+          try {
+            const rawContent = await readNote(noteFile.name, true, false);
+            const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
+            const status = parseTaskStatus(htmlContent);
+            if (status.totalTasks > 0 && noteFile.date) {
+              setTaskStatus(noteFile.date, status);
+            }
+          } catch {
+            // Silently skip notes that can't be parsed
+          }
+        })
+      );
     } catch (error) {
       console.error('[useNotes] Failed to initialize:', error);
     } finally {
@@ -165,6 +186,12 @@ export function useNotes() {
         htmlContent = rawContent;
       } else {
         htmlContent = markdownToHtml(rawContent);
+      }
+
+      // Update task status cache for daily notes
+      if (noteFile.isDaily && noteFile.date) {
+        const taskStatus = parseTaskStatus(htmlContent);
+        useTaskStatusStore.getState().setTaskStatus(noteFile.date, taskStatus);
       }
 
       const note = filenameToNote(noteFile, htmlContent);

@@ -39,21 +39,19 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
         pointer-events-auto flex flex-col min-w-72 max-w-96
         rounded-md border-l-4 shadow-lg overflow-hidden
         ${isExiting ? 'toast-exit-new' : 'toast-enter-new'}
-        ${
-          isSuccess
-            ? 'bg-emerald-50 border-emerald-500 text-emerald-800 dark:bg-emerald-900/90 dark:border-emerald-400 dark:text-emerald-100'
-            : 'bg-red-50 border-red-500 text-red-800 dark:bg-red-900/90 dark:border-red-400 dark:text-red-100'
-        }
       `}
+      style={{
+        backgroundColor: isSuccess ? 'var(--success-muted)' : 'var(--error-muted)',
+        borderLeftColor: isSuccess ? 'var(--success)' : 'var(--error)',
+        color: isSuccess ? 'var(--success)' : 'var(--error)',
+      }}
       role="alert"
     >
       <div className="flex items-center p-3 px-4">
       {/* Icon */}
       <span
-        className={`
-          w-5 h-5 mr-3 flex-shrink-0 flex items-center justify-center
-          ${isSuccess ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}
-        `}
+        className="w-5 h-5 mr-3 flex-shrink-0 flex items-center justify-center"
+        style={{ color: isSuccess ? 'var(--success)' : 'var(--error)' }}
       >
         {isSuccess ? (
           <svg
@@ -90,7 +88,10 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       {/* Close button */}
       <button
         onClick={handleDismiss}
-        className="ml-3 p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        className="ml-3 p-1 rounded transition-colors focus-ring"
+        style={{ color: isSuccess ? 'var(--success)' : 'var(--error)', opacity: 0.7 }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
         aria-label="Dismiss"
       >
         <svg
@@ -105,12 +106,13 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 w-full bg-black/5 dark:bg-white/5">
+      <div className="h-1 w-full" style={{ backgroundColor: 'var(--border-muted)' }}>
         <div
-          className={`h-full toast-progress-bar ${
-            isSuccess ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-red-500 dark:bg-red-400'
-          }`}
-          style={{ '--duration': `${toast.duration}ms` } as React.CSSProperties}
+          className="h-full toast-progress-bar"
+          style={{
+            backgroundColor: isSuccess ? 'var(--success)' : 'var(--error)',
+            '--duration': `${toast.duration}ms`,
+          } as React.CSSProperties}
         />
       </div>
     </div>

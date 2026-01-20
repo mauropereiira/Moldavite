@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { save } from '@tauri-apps/plugin-dialog';
-import { Lock, Unlock, Trash2, FolderPlus, FilePlus, Pencil, FolderInput, Layers, Copy, Download } from 'lucide-react';
+import { Lock, Unlock, Trash2, FolderPlus, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown, ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
 import { useNotes, useSearch, useFolders, useTrash } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore } from '@/stores';
-import { lockNote, unlockNote, permanentlyUnlockNote, aggregateTags, hasTag, readNote, exportSingleNote } from '@/lib';
+import { lockNote, unlockNote, permanentlyUnlockNote, aggregateTags, hasTag, readNote, exportSingleNote, exportNoteToPdf, getNoteTitleError } from '@/lib';
 import { SettingsModal } from '@/components/settings';
 import { NoSearchResultsEmptyState, NoNotesEmptyState, PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -20,9 +20,9 @@ import type { NoteFile, FolderInfo } from '@/types';
 type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
 export function Sidebar() {
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote } = useNotes();
+  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, refresh: refreshNotes } = useNotes();
   const { currentNote, setSelectedDate, setNotes, setCurrentNote, unlockNote: trackUnlockedNote } = useNoteStore();
-  const { setIsSettingsOpen, tagsEnabled } = useSettingsStore();
+  const { setIsSettingsOpen, tagsEnabled, sortOption, setSortOption } = useSettingsStore();
   const search = useSearch();
   const toast = useToast();
   const {
@@ -155,15 +155,28 @@ export function Sidebar() {
   const [contextMenuNote, setContextMenuNote] = useState<NoteFile | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
+  // Sort function based on current sort option
+  const sortNotes = (notesToSort: NoteFile[]) => {
+    return [...notesToSort].sort((a, b) => {
+      switch (sortOption) {
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'name-asc':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  };
+
   // Notes that are NOT in any folder (for the Notes section)
-  const unfiledNotes = notes
-    .filter(n => !n.isDaily && !n.folderPath)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const unfiledNotes = sortNotes(
+    notes.filter(n => !n.isDaily && !n.folderPath)
+  );
 
   // All standalone notes (for FolderTree to filter by folder)
-  const allStandaloneNotes = notes
-    .filter(n => !n.isDaily)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const allStandaloneNotes = sortNotes(
+    notes.filter(n => !n.isDaily)
+  );
 
   // Filter notes by selected tag
   const filterByTag = useMemo(() => {
@@ -214,13 +227,14 @@ export function Sidebar() {
       searchInputRef.current?.blur();
     } else if (e.key === 'Enter' && displayedNotes.length > 0) {
       loadNote(displayedNotes[0]);
-      search.clearSearch();
+      // Don't clear search - let user browse other results
       searchInputRef.current?.blur();
     }
   };
 
   const handleCreateNote = async () => {
-    if (newNoteTitle.trim()) {
+    const error = getNoteTitleError(newNoteTitle);
+    if (!error) {
       // Store the title and show template picker
       setPendingNoteTitle(newNoteTitle.trim());
       setNewNoteTitle('');
@@ -266,7 +280,7 @@ export function Sidebar() {
   };
 
   const handleCreateModalKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && newNoteTitle.trim()) {
+    if (e.key === 'Enter' && !getNoteTitleError(newNoteTitle)) {
       handleCreateNote();
     } else if (e.key === 'Escape') {
       handleCancelCreate();
@@ -633,42 +647,57 @@ export function Sidebar() {
       )}
 
       {/* Create Note Modal */}
-      {isCreating && (
-        <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
-          onClick={handleCreateModalBackdropClick}
-        >
-          <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full" style={{ borderRadius: 'var(--radius-md)' }}>
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              New Note
-            </h3>
-            <input
-              type="text"
-              value={newNoteTitle}
-              onChange={e => setNewNoteTitle(e.target.value)}
-              onKeyDown={handleCreateModalKeyDown}
-              placeholder="Note title..."
-              className="input mb-4"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleCancelCreate}
-                className="btn focus-ring"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateNote}
-                disabled={!newNoteTitle.trim()}
-                className="btn btn-primary focus-ring"
-              >
-                Create
-              </button>
+      {isCreating && (() => {
+        const titleError = newNoteTitle.trim() ? getNoteTitleError(newNoteTitle) : null;
+        return (
+          <div
+            className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+            onClick={handleCreateModalBackdropClick}
+          >
+            <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full" style={{ borderRadius: 'var(--radius-md)' }}>
+              <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                New Note
+              </h3>
+              <input
+                type="text"
+                value={newNoteTitle}
+                onChange={e => setNewNoteTitle(e.target.value)}
+                onKeyDown={handleCreateModalKeyDown}
+                placeholder="Note title..."
+                className="input"
+                style={{
+                  marginBottom: titleError ? '0.5rem' : '1rem',
+                  borderColor: titleError ? 'var(--status-error, #ef4444)' : undefined,
+                }}
+                autoFocus
+              />
+              {titleError && (
+                <p
+                  className="text-xs mb-4"
+                  style={{ color: 'var(--status-error, #ef4444)' }}
+                >
+                  {titleError}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={handleCancelCreate}
+                  className="btn focus-ring"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateNote}
+                  disabled={!newNoteTitle.trim() || !!titleError}
+                  className="btn btn-primary focus-ring"
+                >
+                  Create
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Settings Modal */}
       <SettingsModal />
@@ -770,7 +799,7 @@ export function Sidebar() {
               Duplicate
             </button>
           )}
-          {/* Export Note */}
+          {/* Export Note as Markdown */}
           {!contextMenuNote.isLocked && (
             <button
               onClick={async () => {
@@ -801,7 +830,44 @@ export function Sidebar() {
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <Download className="w-4 h-4" />
-              Export
+              Export as Markdown
+            </button>
+          )}
+          {/* Export Note as PDF */}
+          {!contextMenuNote.isLocked && (
+            <button
+              onClick={async () => {
+                try {
+                  const defaultName = contextMenuNote.name.replace(/\.md$/, '');
+                  const destination = await save({
+                    title: 'Export as PDF',
+                    defaultPath: `${defaultName}.pdf`,
+                    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+                  });
+                  if (destination) {
+                    // Read the note content
+                    const content = await readNote(
+                      contextMenuNote.name,
+                      contextMenuNote.isDaily || false,
+                      contextMenuNote.isWeekly || false
+                    );
+                    // Export as PDF
+                    await exportNoteToPdf(defaultName, content, destination);
+                    toast.success('Note exported as PDF');
+                  }
+                } catch (error) {
+                  console.error('[Sidebar] PDF export failed:', error);
+                  toast.error('Failed to export PDF');
+                }
+                closeContextMenu();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <FileDown className="w-4 h-4" />
+              Export as PDF
             </button>
           )}
           {!contextMenuNote.isDaily && (
@@ -1092,7 +1158,7 @@ export function Sidebar() {
                       } else {
                         const inNewTab = e.metaKey || e.ctrlKey;
                         loadNote(result.note, inNewTab);
-                        search.clearSearch();
+                        // Don't clear search - let user browse other results
                       }
                     }}
                     onContextMenu={(e) => handleContextMenu(e, result.note)}
@@ -1124,18 +1190,34 @@ export function Sidebar() {
               onToggle={() => toggleSection('notes')}
               count={selectedTag ? displayedNotes.length : unfiledNotes.length}
               rightAction={
-                <button
-                  onClick={() => setIsCreating(true)}
-                  className="p-1 transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                  title="New note"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')}
+                    className="p-1 transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                    title={sortOption === 'name-asc' ? 'Sort Z-A' : 'Sort A-Z'}
+                  >
+                    {sortOption === 'name-asc' ? (
+                      <ArrowUpAZ className="w-4 h-4" />
+                    ) : (
+                      <ArrowDownAZ className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsCreating(true)}
+                    className="p-1 transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                    title="New note"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
               }
             >
               <div
@@ -1244,6 +1326,7 @@ export function Sidebar() {
                 isCollapsed={sectionsCollapsed.tags}
                 onToggle={() => toggleSection('tags')}
                 onSelectTag={setSelectedTag}
+                onTagsChanged={refreshNotes}
               />
             )}
           </div>

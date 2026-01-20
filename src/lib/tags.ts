@@ -122,3 +122,22 @@ export function sortTagsByCount(tagCounts: Map<string, number>): [string, number
     return a[0].localeCompare(b[0]);
   });
 }
+
+/**
+ * Renames a tag in content by replacing all occurrences.
+ * Preserves the original case of the # symbol position.
+ * @param content - The content to modify
+ * @param oldTag - The tag to replace (without #)
+ * @param newTag - The new tag name (without #)
+ * @returns Updated content with tag renamed
+ */
+export function renameTagInContent(content: string, oldTag: string, newTag: string): string {
+  if (!content || !oldTag || !newTag) return content;
+
+  // Create a regex that matches the tag case-insensitively
+  // but only when followed by word boundary (space, punctuation, end of line)
+  const escapedOldTag = oldTag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const tagRegex = new RegExp(`#${escapedOldTag}(?=[\\s.,!?;:\\]\\)}"'<>]|$)`, 'gi');
+
+  return content.replace(tagRegex, `#${newTag}`);
+}

@@ -6,6 +6,7 @@ interface TemplateStore {
   // State
   templates: Template[];
   defaultDailyTemplate: string | null; // template ID
+  pinnedTemplateIds: string[]; // templates to show in "Start with template" picker
   isLoading: boolean;
 
   // Actions
@@ -14,6 +15,8 @@ interface TemplateStore {
   updateTemplateInStore: (id: string, template: Template) => void;
   removeTemplate: (id: string) => void;
   setDefaultDailyTemplate: (templateId: string | null) => void;
+  setPinnedTemplateIds: (ids: string[]) => void;
+  togglePinnedTemplate: (id: string) => void;
   setIsLoading: (loading: boolean) => void;
 }
 
@@ -22,6 +25,7 @@ export const useTemplateStore = create<TemplateStore>()(
     (set) => ({
       templates: [],
       defaultDailyTemplate: null,
+      pinnedTemplateIds: [],
       isLoading: false,
 
       setTemplates: (templates) => set({ templates }),
@@ -37,10 +41,22 @@ export const useTemplateStore = create<TemplateStore>()(
       removeTemplate: (id) =>
         set((state) => ({
           templates: state.templates.filter((t) => t.id !== id),
+          // Also remove from pinned if present
+          pinnedTemplateIds: state.pinnedTemplateIds.filter((pid) => pid !== id),
         })),
 
       setDefaultDailyTemplate: (templateId) =>
         set({ defaultDailyTemplate: templateId }),
+
+      setPinnedTemplateIds: (ids) =>
+        set({ pinnedTemplateIds: ids }),
+
+      togglePinnedTemplate: (id) =>
+        set((state) => ({
+          pinnedTemplateIds: state.pinnedTemplateIds.includes(id)
+            ? state.pinnedTemplateIds.filter((pid) => pid !== id)
+            : [...state.pinnedTemplateIds, id],
+        })),
 
       setIsLoading: (loading) => set({ isLoading: loading }),
     }),
@@ -48,6 +64,7 @@ export const useTemplateStore = create<TemplateStore>()(
       name: 'template-storage',
       partialize: (state) => ({
         defaultDailyTemplate: state.defaultDailyTemplate,
+        pinnedTemplateIds: state.pinnedTemplateIds,
       }),
     }
   )

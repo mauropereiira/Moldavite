@@ -18,7 +18,7 @@ export function isValidUrl(url: string): boolean {
   }
 
   // Validate full URLs
-  const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+  const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
   return urlPattern.test(url);
 }
 
@@ -42,8 +42,15 @@ export function isValidImageUrl(url: string): boolean {
   return urlPattern.test(url);
 }
 
+/** Maximum length for note titles */
+export const MAX_NOTE_TITLE_LENGTH = 100;
+
+/** Pattern for valid note titles: letters, numbers, spaces, hyphens only */
+const VALID_NOTE_TITLE_PATTERN = /^[a-zA-Z0-9\s-]+$/;
+
 /**
- * Validates a note name
+ * Validates a note name (strict mode - matches backend filename generation)
+ * Only allows letters, numbers, spaces, and hyphens.
  * @param name - The note name to validate
  * @returns True if the note name is valid
  */
@@ -54,9 +61,45 @@ export function isValidNoteName(name: string): boolean {
     return false;
   }
 
-  // Disallow path separators and special characters that could cause file system issues
-  const invalidChars = /[\/\\:*?"<>|]/;
-  return !invalidChars.test(trimmed);
+  if (trimmed.length > MAX_NOTE_TITLE_LENGTH) {
+    return false;
+  }
+
+  // Block path traversal
+  if (trimmed.includes('..')) {
+    return false;
+  }
+
+  // Only allow letters, numbers, spaces, and hyphens
+  return VALID_NOTE_TITLE_PATTERN.test(trimmed);
+}
+
+/**
+ * Gets a specific error message for an invalid note title.
+ * Returns null if the title is valid.
+ * @param name - The note name to validate
+ * @returns Error message string or null if valid
+ */
+export function getNoteTitleError(name: string): string | null {
+  const trimmed = name.trim();
+
+  if (!trimmed) {
+    return 'Note title cannot be empty';
+  }
+
+  if (trimmed.length > MAX_NOTE_TITLE_LENGTH) {
+    return `Title must be ${MAX_NOTE_TITLE_LENGTH} characters or less`;
+  }
+
+  if (trimmed.includes('..')) {
+    return 'Title cannot contain ".."';
+  }
+
+  if (!VALID_NOTE_TITLE_PATTERN.test(trimmed)) {
+    return 'Title can only contain letters, numbers, spaces, and hyphens';
+  }
+
+  return null;
 }
 
 /**
@@ -130,7 +173,7 @@ export function isContentEmpty(content: string): boolean {
 export function sanitizeNoteName(name: string): string {
   return name
     .trim()
-    .replace(/[\/\\:*?"<>|]/g, '-')
+    .replace(/[/\\:*?"<>|]/g, '-')
     .replace(/\s+/g, ' ')
     .substring(0, 255); // Max filename length on most systems
 }
@@ -214,7 +257,7 @@ export function checkPasswordStrength(password: string): PasswordStrength {
   const hasLowercase = /[a-z]/.test(password);
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumbers = /\d/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(password);
 
   if (hasLowercase && hasUppercase) {
     score++;

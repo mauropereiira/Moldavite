@@ -2623,6 +2623,56 @@ fn get_all_note_colors() -> std::collections::HashMap<String, String> {
     metadata.colors
 }
 
+/// Write binary data to a file (used for PDF export)
+/// The path must be an absolute path and not try to access system directories
+#[tauri::command]
+fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    let file_path = Path::new(&path);
+
+    // Ensure it's an absolute path
+    if !file_path.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+
+    // Prevent writing to system directories
+    let path_str = path.to_lowercase();
+    let forbidden_prefixes = [
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/library",
+    ];
+
+    for prefix in &forbidden_prefixes {
+        if path_str.starts_with(prefix) {
+            return Err("Cannot write to system directories".to_string());
+        }
+    }
+
+    // Create parent directory if it doesn't exist
+    if let Some(parent) = file_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    // Write the binary contents
+    let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
+    file.write_all(&contents).map_err(|e| e.to_string())?;
+
+    // Set file permissions (644 = owner read/write, group/others read)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o644);
+        fs::set_permissions(file_path, permissions).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2698,6 +2748,8 @@ pub fn run() {
             get_note_color,
             set_note_color,
             get_all_note_colors,
+            // Binary file write (PDF export)
+            write_binary_file,
             // Apple Calendar (EventKit) commands - macOS only
             #[cfg(target_os = "macos")]
             get_calendar_permission,

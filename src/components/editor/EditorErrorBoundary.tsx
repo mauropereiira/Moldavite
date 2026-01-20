@@ -30,8 +30,8 @@ export class EditorErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log the error but don't crash the app
-    console.warn('[EditorErrorBoundary] Caught error:', error.message);
-    console.warn('[EditorErrorBoundary] Component stack:', errorInfo.componentStack);
+    console.error('[EditorErrorBoundary] Caught error:', error.message);
+    console.error('[EditorErrorBoundary] Component stack:', errorInfo.componentStack);
 
     // Increment error count
     this.setState(prev => ({ errorCount: prev.errorCount + 1 }));
