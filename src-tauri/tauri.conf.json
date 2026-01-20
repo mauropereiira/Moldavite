@@ -27,7 +27,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://github.com https://objects.githubusercontent.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://github.com https://objects.githubusercontent.com; frame-src 'none'; object-src 'none'; base-uri 'self'"
     }
   },
   "plugins": {

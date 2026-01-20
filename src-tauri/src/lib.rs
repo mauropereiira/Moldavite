@@ -231,7 +231,70 @@ fn write_config(config: &AppConfig) -> Result<(), String> {
     }
 
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {}", e))?;
+    fs::write(&config_path, &json).map_err(|e| format!("Failed to write config: {}", e))?;
+
+    // Set restrictive permissions on config file (0o600 = owner read/write only)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        let _ = fs::set_permissions(&config_path, permissions);
+    }
+
+    Ok(())
+}
+
+/// Validates that a filename is safe (no path traversal, no absolute paths)
+fn is_safe_filename(filename: &str) -> bool {
+    // Reject empty filenames
+    if filename.is_empty() {
+        return false;
+    }
+
+    // Reject path traversal attempts
+    if filename.contains("..") {
+        return false;
+    }
+
+    // Reject absolute paths
+    if filename.starts_with('/') || filename.starts_with('\\') {
+        return false;
+    }
+
+    // Reject paths with directory separators
+    if filename.contains('/') || filename.contains('\\') {
+        return false;
+    }
+
+    // Reject null bytes
+    if filename.contains('\0') {
+        return false;
+    }
+
+    true
+}
+
+/// Validates that a destination path is within the expected base directory
+fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), String> {
+    // Canonicalize the base directory
+    let canonical_base = base_dir
+        .canonicalize()
+        .map_err(|_| "Base directory does not exist".to_string())?;
+
+    // For the destination, we need to check if its parent exists first
+    // since the file itself might not exist yet
+    let parent = dest_path
+        .parent()
+        .ok_or_else(|| "Invalid destination path".to_string())?;
+
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| "Destination directory does not exist".to_string())?;
+
+    // The canonical parent must start with the canonical base
+    if !canonical_parent.starts_with(&canonical_base) {
+        return Err("Path traversal attempt detected".to_string());
+    }
 
     Ok(())
 }
@@ -2146,6 +2209,46 @@ fn set_notes_directory(new_path: String) -> Result<(), String> {
         return Ok(());
     }
 
+    // Validate the path is absolute
+    if !new_dir.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+
+    // Prevent setting to system directories
+    let path_str = new_path.to_lowercase();
+    let forbidden_prefixes = [
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/private/etc",
+        "/library",
+        "/applications",
+        "/cores",
+        "/dev",
+        "/tmp",
+        "/private/tmp",
+    ];
+
+    for prefix in &forbidden_prefixes {
+        if path_str.starts_with(prefix) {
+            return Err("Cannot use system directories for notes storage".to_string());
+        }
+    }
+
+    // Must be under a user's home directory or /Volumes
+    let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
+    let is_valid_location = new_dir.starts_with(&home_dir)
+        || new_dir.starts_with("/Volumes/")
+        || new_dir.starts_with("/Users/");
+
+    if !is_valid_location {
+        return Err("Notes directory must be in your home folder or on an external volume".to_string());
+    }
+
     // Create the new directory structure
     fs::create_dir_all(&new_dir).map_err(|e| format!("Failed to create new directory: {}", e))?;
 
@@ -2298,11 +2401,21 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
             continue;
         }
 
+        // Validate filename is safe (no path traversal)
+        if !is_safe_filename(filename) {
+            continue; // Skip unsafe filenames
+        }
+
         let dest_dir = notes_dir.join(subdir);
         fs::create_dir_all(&dest_dir)
             .map_err(|e| format!("Failed to create directory: {}", e))?;
 
         let dest_path = dest_dir.join(filename);
+
+        // Validate the final path is within the notes directory
+        if validate_path_within_base(&dest_path, &notes_dir).is_err() {
+            continue; // Skip paths that escape the notes directory
+        }
 
         // If merging, skip existing files
         if merge && dest_path.exists() {
@@ -2483,9 +2596,9 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
             continue;
         }
 
-        // Validate filename
-        if filename.is_empty() || filename.contains("..") || filename.starts_with('/') {
-            continue;
+        // Validate filename is safe (no path traversal)
+        if !is_safe_filename(filename) {
+            continue; // Skip unsafe filenames
         }
 
         // Ensure subdirectory exists
@@ -2497,6 +2610,11 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
 
         // Build destination path
         let dest_path = subdir_path.join(filename);
+
+        // Validate the final path is within the notes directory
+        if validate_path_within_base(&dest_path, &notes_dir).is_err() {
+            continue; // Skip paths that escape the notes directory
+        }
 
         // Skip if file exists and merging
         if merge && dest_path.exists() {

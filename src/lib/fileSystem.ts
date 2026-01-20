@@ -184,12 +184,14 @@ const DOMPURIFY_CONFIG = {
     'href', 'target', 'rel',
     // Images
     'src', 'alt', 'title', 'width', 'height',
-    // Data attributes (for TipTap)
+    // Data attributes (only specific ones needed for TipTap - no wildcards)
     'data-type', 'data-checked', 'data-target', 'data-label', 'data-wiki-link',
+    'data-text-align', 'data-indent', 'data-node-type',
     // Form elements
     'type', 'checked', 'disabled',
   ],
-  ALLOW_DATA_ATTR: true,
+  // Only allow explicitly listed data-* attributes above (not all data-* attributes)
+  ALLOW_DATA_ATTR: false,
   // Forbid potentially dangerous attributes
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   // Don't allow javascript: URLs
