@@ -1,4 +1,4 @@
-import { Share2, Link2, FileText, FileDown } from 'lucide-react';
+import { Share2, Link2, FileText } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { htmlToMarkdown } from '@/lib';
@@ -27,11 +27,6 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
     } catch (error) {
       console.error('[ShareMenu] Failed to copy link:', error);
     }
-  };
-
-  const handleExportPDF = () => {
-    // Placeholder for PDF export
-    onShowToast?.('PDF export coming soon');
   };
 
   const handleExportText = async () => {
@@ -84,13 +79,6 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
         Copy wiki link
       </DropdownItem>
       <DropdownDivider />
-      <DropdownItem
-        onClick={handleExportPDF}
-        icon={<FileDown className="w-4 h-4" />}
-        disabled
-      >
-        Export as PDF
-      </DropdownItem>
       <DropdownItem
         onClick={handleExportText}
         icon={<FileText className="w-4 h-4" />}

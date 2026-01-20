@@ -34,7 +34,16 @@ export function EmptyState({
   const containerClasses = {
     default: 'py-12 px-6',
     compact: 'py-6 px-4',
-    card: 'py-8 px-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700',
+    card: 'py-8 px-6 rounded-xl',
+  };
+
+  const containerStyles = {
+    default: {},
+    compact: {},
+    card: {
+      backgroundColor: 'var(--bg-inset)',
+      border: '1px solid var(--border-muted)',
+    },
   };
 
   const iconSizes = {
@@ -52,34 +61,37 @@ export function EmptyState({
   return (
     <div
       className={`flex flex-col items-center justify-center text-center max-w-md mx-auto content-enter ${containerClasses[variant]} ${className}`}
+      style={containerStyles[variant]}
     >
       {/* Icon */}
       <div
-        className={`mb-6 ${iconColor || 'text-gray-300 dark:text-gray-600'}`}
+        className={`mb-6 ${iconColor || ''}`}
+        style={iconColor ? undefined : { color: 'var(--text-muted)' }}
       >
         <Icon className={iconSizes[variant]} strokeWidth={1.5} />
       </div>
 
       {/* Heading */}
       <h3
-        className={`font-semibold text-gray-900 dark:text-white mb-2 ${headingSizes[variant]}`}
+        className={`font-semibold mb-2 ${headingSizes[variant]}`}
+        style={{ color: 'var(--text-primary)' }}
       >
         {heading}
       </h3>
 
       {/* Message */}
       {message && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
+        <p className="text-sm mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {message}
         </p>
       )}
 
       {/* Features list */}
       {features && features.length > 0 && (
-        <ul className="text-sm text-gray-600 dark:text-gray-300 mb-6 space-y-2 text-left">
+        <ul className="text-sm mb-6 space-y-2 text-left" style={{ color: 'var(--text-secondary)' }}>
           {features.map((feature, index) => (
             <li key={index} className="flex items-center gap-2">
-              <span className="text-green-500 dark:text-green-400">✓</span>
+              <span style={{ color: 'var(--success)' }}>✓</span>
               {feature}
             </li>
           ))}
@@ -92,14 +104,22 @@ export function EmptyState({
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
             const baseClasses =
-              'px-4 py-2 text-sm font-medium rounded-lg transition-all btn-interactive flex items-center gap-2 justify-center';
+              'px-4 py-2 text-sm font-medium rounded-lg transition-all btn-interactive flex items-center gap-2 justify-center focus-ring';
             const variantClasses = {
-              primary:
-                'text-white bg-blue-600 hover:bg-blue-700 btn-primary',
-              secondary:
-                'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600',
-              outline:
-                'text-gray-700 dark:text-gray-300 bg-transparent border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800',
+              primary: 'text-white btn-primary btn-primary-gradient',
+              secondary: '',
+              outline: 'bg-transparent',
+            };
+            const variantStyles = {
+              primary: {},
+              secondary: {
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--bg-inset)',
+              },
+              outline: {
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-default)',
+              },
             };
 
             return (
@@ -107,6 +127,7 @@ export function EmptyState({
                 key={index}
                 onClick={action.onClick}
                 className={`${baseClasses} ${variantClasses[action.variant || 'primary']}`}
+                style={variantStyles[action.variant || 'primary']}
               >
                 {ActionIcon && <ActionIcon className="w-4 h-4" />}
                 {action.label}
@@ -118,7 +139,7 @@ export function EmptyState({
 
       {/* Hint */}
       {hint && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+        <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
           {hint}
         </p>
       )}

@@ -2,6 +2,17 @@
 
 All notable changes to Notomattic are documented here.
 
+## [0.6.0] - 2025-01-20
+
+### Added
+- **PDF Export**: Right-click any note to export as PDF with styled formatting
+- **Tag Management**: Right-click tags in sidebar to rename them across all notes
+- **Template Picker Customization**: Pin up to 6 templates for quick access in "Start with a template"
+- **Sort Options**: Toggle A-Z/Z-A sorting for notes in sidebar
+
+### Fixed
+- Search results now persist after selecting a note (no longer clears search)
+
 ## [0.5.0] - 2025-01-04
 
 ### Added

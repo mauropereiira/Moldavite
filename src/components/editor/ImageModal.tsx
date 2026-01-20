@@ -15,6 +15,35 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
 
+  // Validate and preview image
+  const validateAndPreviewImage = (imageUrl: string) => {
+    setIsLoading(true);
+    setError('');
+
+    // Basic URL validation
+    const urlPattern = /^(https?:\/\/)|(data:image\/)/;
+    if (!urlPattern.test(imageUrl)) {
+      setError('URL must start with http://, https://, or be a data URL');
+      setIsLoading(false);
+      setPreviewUrl('');
+      return;
+    }
+
+    // Try to load the image to validate it
+    const img = new window.Image();
+    img.onload = () => {
+      setPreviewUrl(imageUrl);
+      setError('');
+      setIsLoading(false);
+    };
+    img.onerror = () => {
+      setError('Unable to load image. Please check the URL.');
+      setPreviewUrl('');
+      setIsLoading(false);
+    };
+    img.src = imageUrl;
+  };
+
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -43,34 +72,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
 
     return () => clearTimeout(timeoutId);
   }, [url]);
-
-  const validateAndPreviewImage = async (imageUrl: string) => {
-    setIsLoading(true);
-    setError('');
-
-    // Basic URL validation
-    const urlPattern = /^(https?:\/\/)|(data:image\/)/;
-    if (!urlPattern.test(imageUrl)) {
-      setError('URL must start with http://, https://, or be a data URL');
-      setIsLoading(false);
-      setPreviewUrl('');
-      return;
-    }
-
-    // Try to load the image to validate it
-    const img = new Image();
-    img.onload = () => {
-      setPreviewUrl(imageUrl);
-      setError('');
-      setIsLoading(false);
-    };
-    img.onerror = () => {
-      setError('Unable to load image. Please check the URL.');
-      setPreviewUrl('');
-      setIsLoading(false);
-    };
-    img.src = imageUrl;
-  };
 
   const handleInsert = () => {
     if (!url.trim()) {

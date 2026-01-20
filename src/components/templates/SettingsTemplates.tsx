@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { Edit2, Trash2, AlertCircle, Loader2, Pin, PinOff } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { Template } from '@/types/template';
 import { TemplateIcon } from './TemplateIcon';
@@ -25,6 +25,8 @@ export function SettingsTemplates({
     templates,
     defaultDailyTemplate,
     setDefaultDailyTemplate,
+    pinnedTemplateIds,
+    togglePinnedTemplate,
   } = useTemplateStore();
 
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
@@ -95,6 +97,53 @@ export function SettingsTemplates({
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Pinned Templates for Quick Picker */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+          Quick Access Templates
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          Select templates to show in "Start with a template" picker (max 6)
+        </p>
+        <div className="space-y-1.5">
+          {templates.map((template) => {
+            const isPinned = pinnedTemplateIds.includes(template.id);
+            const canPin = isPinned || pinnedTemplateIds.length < 6;
+            return (
+              <button
+                key={template.id}
+                onClick={() => canPin && togglePinnedTemplate(template.id)}
+                disabled={!canPin}
+                className={`w-full flex items-center gap-3 p-2 rounded transition-colors text-left ${
+                  isPinned
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                    : 'bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                } ${!canPin ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className={isPinned ? 'text-blue-500' : 'text-gray-400'}>
+                  <TemplateIcon icon={template.icon} size={16} />
+                </div>
+                <span className={`flex-1 text-sm truncate ${
+                  isPinned ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+                }`}>
+                  {template.name}
+                </span>
+                {isPinned ? (
+                  <Pin className="w-4 h-4 text-blue-500" />
+                ) : (
+                  <PinOff className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {pinnedTemplateIds.length === 0 && templates.length > 0 && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+            No templates pinned. First 3 templates will be shown by default.
+          </p>
+        )}
       </div>
 
       {/* Default Templates (read-only list) */}

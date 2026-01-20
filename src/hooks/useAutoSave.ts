@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useNoteStore, useSettingsStore } from '@/stores';
-import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty } from '@/lib';
+import { useNoteStore, useSettingsStore, useTaskStatusStore } from '@/stores';
+import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus } from '@/lib';
 import type { NoteFile } from '@/types';
 
 /**
@@ -70,6 +70,7 @@ export function useAutoSave() {
         if (currentNote.isDaily) {
           const dateStr = currentNote.date;
           const existsInList = freshNotes.some(n => n.isDaily && n.date === dateStr);
+          const { setTaskStatus, removeTaskStatus } = useTaskStatusStore.getState();
 
           if (isEmpty) {
             // Content is empty - delete the file if it exists
@@ -82,6 +83,10 @@ export function useAutoSave() {
               // Remove from notes list
               const updatedNotes = freshNotes.filter(n => !(n.isDaily && n.date === dateStr));
               setNotes(updatedNotes);
+            }
+            // Remove task status for this date
+            if (dateStr) {
+              removeTaskStatus(dateStr);
             }
           } else {
             // Content is not empty - save and add to list if needed
@@ -100,6 +105,12 @@ export function useAutoSave() {
                 isLocked: false,
               };
               setNotes([...freshNotes, noteFile]);
+            }
+
+            // Update task status for this date
+            if (dateStr) {
+              const taskStatus = parseTaskStatus(currentNote.content);
+              setTaskStatus(dateStr, taskStatus);
             }
           }
         } else if (currentNote.isWeekly) {

@@ -11,12 +11,20 @@ export function EmptyNoteTemplatePicker({
   onSelectTemplate,
   onOpenAllTemplates,
 }: EmptyNoteTemplatePickerProps) {
-  const { templates } = useTemplateStore();
+  const { templates, pinnedTemplateIds } = useTemplateStore();
 
-  // Show only first 3 templates for compact view
-  const displayTemplates = templates.slice(0, 3);
+  // Show pinned templates if any, otherwise fall back to first 3
+  const displayTemplates = pinnedTemplateIds.length > 0
+    ? templates.filter(t => pinnedTemplateIds.includes(t.id)).slice(0, 6)
+    : templates.slice(0, 3);
 
   if (templates.length === 0) {
+    return null;
+  }
+
+  // Don't show if no pinned templates and user has explicitly cleared them
+  // (pinnedTemplateIds would be empty array vs undefined)
+  if (displayTemplates.length === 0) {
     return null;
   }
 

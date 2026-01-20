@@ -39,7 +39,7 @@ export function LinkModal({
     }
 
     // Basic URL validation - allow common formats
-    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+    const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
     const isValid = urlPattern.test(urlString) || urlString.startsWith('/') || urlString.startsWith('#');
 
     if (!isValid) {

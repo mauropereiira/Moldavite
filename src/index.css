@@ -92,6 +92,7 @@
   --error-muted: #f5e8e8;
   --warning: #b89c5c;
   --warning-muted: #f5f0e8;
+  --status-error: #dc2626;  /* Vivid red for calendar incomplete task indicator */
 
   /* ===== INTERACTIVE ===== */
   --hover-overlay: rgba(0, 0, 0, 0.06);
@@ -169,6 +170,7 @@
   --error-muted: #281a1a;
   --warning: #c8ac7c;
   --warning-muted: #28221a;
+  --status-error: #ef4444;  /* Vivid red for calendar incomplete task indicator */
 
   /* Interactive */
   --hover-overlay: rgba(255, 255, 255, 0.06);

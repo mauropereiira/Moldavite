@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   MoreVertical,
-  ExternalLink,
   Link2,
   Copy,
   Download,
@@ -28,11 +27,6 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
-
-  const handleOpenNewWindow = () => {
-    // Placeholder for open in new window
-    onShowToast?.('Coming soon');
-  };
 
   const handleCopyUrl = async () => {
     if (!currentNote) return;
@@ -152,13 +146,6 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           </button>
         }
       >
-        <DropdownItem
-          onClick={handleOpenNewWindow}
-          icon={<ExternalLink className="w-4 h-4" />}
-          disabled
-        >
-          Open in new window
-        </DropdownItem>
         <DropdownItem
           onClick={handleCopyUrl}
           icon={<Link2 className="w-4 h-4" />}

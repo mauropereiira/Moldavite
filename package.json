@@ -1,6 +1,6 @@
 {
   "name": "notomattic",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Privacy-first native macOS note-taking app with WYSIWYG editing, daily notes, and calendar integration",
   "type": "module",
   "scripts": {
@@ -58,6 +58,7 @@
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.1",
     "geist": "^1.5.1",
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.554.0",
     "markdown-it": "^14.1.0",
     "markdown-it-task-lists": "^2.1.1",

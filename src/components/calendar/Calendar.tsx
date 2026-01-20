@@ -14,7 +14,7 @@ import {
   getISOWeekYear,
   startOfISOWeek,
 } from 'date-fns';
-import { useNoteStore } from '@/stores';
+import { useNoteStore, useTaskStatusStore } from '@/stores';
 import { useNotes } from '@/hooks';
 
 export function Calendar() {
@@ -47,6 +47,13 @@ export function Calendar() {
     const weekNum = getISOWeek(date);
     const weekStr = `${weekYear}-W${weekNum.toString().padStart(2, '0')}`;
     return notes.some(n => n.isWeekly && n.week === weekStr);
+  };
+
+  // Check if a day has incomplete tasks
+  const { hasIncompleteTasks } = useTaskStatusStore();
+  const dayHasIncompleteTasks = (date: Date): boolean => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return hasIncompleteTasks(dateStr);
   };
 
   // Check if a week is selected
@@ -203,11 +210,22 @@ export function Calendar() {
                     }}
                   >
                     {format(day, 'd')}
-                    {dayHasNote && !isSelected && (
-                      <span
-                        className="absolute bottom-0.5 w-1 h-1 rounded-full"
-                        style={{ backgroundColor: 'var(--accent-primary)' }}
-                      />
+                    {/* Indicator dots container */}
+                    {!isSelected && (dayHasNote || dayHasIncompleteTasks(day)) && (
+                      <span className="absolute bottom-0.5 flex gap-0.5 justify-center">
+                        {dayHasNote && (
+                          <span
+                            className="w-1 h-1 rounded-full"
+                            style={{ backgroundColor: 'var(--accent-primary)' }}
+                          />
+                        )}
+                        {dayHasIncompleteTasks(day) && (
+                          <span
+                            className="w-1 h-1 rounded-full"
+                            style={{ backgroundColor: 'var(--status-error, #ef4444)' }}
+                          />
+                        )}
+                      </span>
                     )}
                   </button>
                 );

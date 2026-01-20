@@ -5,3 +5,6 @@ export { WikiLinkSuggestionList } from './WikiLinkSuggestionList';
 export type { WikiLinkSuggestionListProps, WikiLinkSuggestionListRef } from './WikiLinkSuggestionList';
 export { TagMark } from './TagMark';
 export type { TagMarkOptions } from './TagMark';
+export { TagSuggestion } from './TagSuggestion';
+export { TagSuggestionList } from './TagSuggestionList';
+export type { TagSuggestionListProps, TagSuggestionListRef, TagItem } from './TagSuggestionList';

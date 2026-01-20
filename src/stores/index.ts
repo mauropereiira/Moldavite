@@ -38,3 +38,4 @@ export { useUpdateStore } from './updateStore';
 export { useFolderStore } from './folderStore';
 export { useTrashStore } from './trashStore';
 export { useTagStore } from './tagStore';
+export { useTaskStatusStore } from './taskStatusStore';

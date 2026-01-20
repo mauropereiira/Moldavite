@@ -19,7 +19,9 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`toolbar-button ${isActive ? 'toolbar-button-active' : ''} ${
+      aria-label={title}
+      aria-pressed={isActive}
+      className={`toolbar-button focus-ring ${isActive ? 'toolbar-button-active' : ''} ${
         disabled ? 'opacity-50 cursor-not-allowed' : ''
       }`}
     >
