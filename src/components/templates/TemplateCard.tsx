@@ -61,7 +61,7 @@ export function TemplateCard({
         <span
           className={`
             inline-block px-2 py-0.5 rounded-full text-xs font-medium
-            bg-accent-subtle dark:bg-moldavite-700 text-accent-dark dark:text-accent-glow
+            bg-accent-subtle dark:bg-moldavite-600 text-accent-dark dark:text-moldavite-100
             ${compact ? 'mt-1' : 'mt-2'}
           `}
         >
