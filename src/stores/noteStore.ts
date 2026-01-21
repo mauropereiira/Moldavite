@@ -13,6 +13,9 @@ interface NoteState {
   selectedDate: Date;
   selectedWeek: Date | null; // The Monday of the selected week
 
+  // Recent notes for quick switcher
+  recentNoteIds: string[];
+
   // Security - tracks temporarily unlocked notes for auto-lock feature
   unlockedNotes: Set<string>;
 
@@ -39,7 +42,23 @@ interface NoteState {
   unlockNote: (noteId: string) => void;
   lockNote: (noteId: string) => void;
   lockAllNotes: () => void;
+
+  // Recent notes tracking
+  addRecentNote: (noteId: string) => void;
 }
+
+// Load recent notes from localStorage
+const loadRecentNotes = (): string[] => {
+  try {
+    const stored = localStorage.getItem('moldavite-recent-notes');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('[noteStore] Failed to load recent notes:', error);
+  }
+  return [];
+};
 
 export const useNoteStore = create<NoteState>((set, get) => ({
   notes: [],
@@ -50,6 +69,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   isSaving: false,
   selectedDate: new Date(),
   selectedWeek: null,
+  recentNoteIds: loadRecentNotes(),
   unlockedNotes: new Set<string>(),
 
   /**
@@ -132,8 +152,11 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    * Opens a note in tabs. If inNewTab is false, replaces content in active tab
    * or switches to existing tab if already open.
    */
-  openTab: (note, inNewTab = false) =>
-    set((state) => {
+  openTab: (note, inNewTab = false) => {
+    // Track in recent notes
+    get().addRecentNote(note.id);
+
+    return set((state) => {
       // Check if note is already open
       const existingTabIndex = state.openTabs.findIndex((t) => t.id === note.id);
 
@@ -179,7 +202,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           };
         }
       }
-    }),
+    });
+  },
 
   /**
    * Closes a tab and switches to an adjacent tab if needed.
@@ -287,7 +311,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
       // Persist pinned tab IDs to localStorage
       const pinnedIds = sortedTabs.filter((t) => t.isPinned).map((t) => t.id);
-      localStorage.setItem('notomattic-pinned-tabs', JSON.stringify(pinnedIds));
+      localStorage.setItem('moldavite-pinned-tabs', JSON.stringify(pinnedIds));
 
       return {
         openTabs: sortedTabs,
@@ -328,7 +352,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    */
   loadPinnedTabs: () => {
     try {
-      const stored = localStorage.getItem('notomattic-pinned-tabs');
+      const stored = localStorage.getItem('moldavite-pinned-tabs');
       if (!stored) return;
 
       const pinnedIds: string[] = JSON.parse(stored);
@@ -407,4 +431,25 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
     set({ unlockedNotes: new Set() });
   },
+
+  /**
+   * Adds a note to the recent notes list.
+   * Keeps the last 7 notes, deduplicated.
+   * @param noteId - The note ID to add
+   */
+  addRecentNote: (noteId) =>
+    set((state) => {
+      // Remove if already exists, then add to front
+      const filtered = state.recentNoteIds.filter((id) => id !== noteId);
+      const updated = [noteId, ...filtered].slice(0, 7);
+
+      // Persist to localStorage
+      try {
+        localStorage.setItem('moldavite-recent-notes', JSON.stringify(updated));
+      } catch (error) {
+        console.error('[noteStore] Failed to save recent notes:', error);
+      }
+
+      return { recentNoteIds: updated };
+    }),
 }));

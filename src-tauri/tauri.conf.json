@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Notomattic",
-  "version": "0.6.0",
-  "identifier": "com.notomattic",
+  "productName": "Moldavite",
+  "version": "1.0.0",
+  "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Notomattic",
+        "title": "Moldavite",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
@@ -27,14 +27,18 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://github.com https://objects.githubusercontent.com; frame-src 'none'; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://github.com https://objects.githubusercontent.com; frame-src 'none'; object-src 'none'; base-uri 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$DOCUMENT/Moldavite/**", "$DOCUMENT/Moldavite/images/**"]
+      }
     }
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFNDcwRUFFRTdEN0U5RkUKUldUKzZkZm5yZzVIdnBGMGkvR2ZVcWJxa3o2YnpUTWszU3p0aGhNaTM1aHQ3cStmRVd5TTh1Z2MK",
       "endpoints": [
-        "https://github.com/Automattic/notomattic/releases/latest/download/latest.json"
+        "https://github.com/mauropereira/moldavite/releases/latest/download/latest.json"
       ]
     }
   },
@@ -50,10 +54,10 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "A privacy-first note-taking app",
-    "longDescription": "Notomattic is a privacy-first note-taking app with WYSIWYG editing, daily notes, wiki-style linking, and calendar integration.",
+    "shortDescription": "A local-first note-taking app for connected thinking",
+    "longDescription": "Moldavite is a privacy-first note-taking app with rich text editing, daily notes, wiki-style linking, and calendar integration. Forged from cosmic impact.",
     "macOS": {
-      "entitlements": "Notomattic.entitlements",
+      "entitlements": "Moldavite.entitlements",
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15",

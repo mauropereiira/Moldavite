@@ -1,6 +1,18 @@
 # Changelog
 
-All notable changes to Notomattic are documented here.
+All notable changes to Moldavite are documented here.
+
+## [1.0.0] - 2025-01-21
+
+### Changed
+- **Rebranded to Moldavite** - Complete visual identity refresh
+  - New name: Moldavite (from Notomattic)
+  - New color palette inspired by Moldavite crystal
+  - New icon and logo
+  - Updated typography: DM Sans, Instrument Serif, Space Mono
+  - Dark mode with cosmic space black theme
+- **Open Source Release** - Now available at github.com/mauropereira/moldavite
+- Data folder moved to `~/Documents/Moldavite/`
 
 ## [0.6.0] - 2025-01-20
 

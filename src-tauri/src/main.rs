@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    notomattic_lib::run();
+    moldavite_lib::run();
 }

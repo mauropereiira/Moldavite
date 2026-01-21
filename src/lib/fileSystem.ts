@@ -142,6 +142,25 @@ turndownService.addRule('taskList', {
   }
 });
 
+// Add rule to preserve images as HTML with all attributes (width, alignment)
+turndownService.addRule('image', {
+  filter: 'img',
+  replacement: function (_content, node) {
+    const element = node as HTMLElement;
+    const src = element.getAttribute('src') || '';
+    const alt = element.getAttribute('alt') || '';
+    const width = element.getAttribute('width');
+    const alignment = element.getAttribute('data-alignment');
+
+    // Build attribute string
+    let attrs = `src="${src}" alt="${alt}"`;
+    if (width) attrs += ` width="${width}"`;
+    if (alignment) attrs += ` data-alignment="${alignment}"`;
+
+    return `<img ${attrs}>`;
+  }
+});
+
 const md = new MarkdownIt({
   html: true, // Allow HTML tags for unsupported features
   breaks: false,
@@ -186,7 +205,7 @@ const DOMPURIFY_CONFIG = {
     'src', 'alt', 'title', 'width', 'height',
     // Data attributes (only specific ones needed for TipTap - no wildcards)
     'data-type', 'data-checked', 'data-target', 'data-label', 'data-wiki-link',
-    'data-text-align', 'data-indent', 'data-node-type',
+    'data-text-align', 'data-indent', 'data-node-type', 'data-alignment',
     // Form elements
     'type', 'checked', 'disabled',
   ],
@@ -196,7 +215,21 @@ const DOMPURIFY_CONFIG = {
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   // Don't allow javascript: URLs
   ALLOW_UNKNOWN_PROTOCOLS: false,
+  // Allow asset.localhost URLs (Tauri's asset protocol)
+  ADD_URI_SAFE_ATTR: ['src'],
 };
+
+// Add DOMPurify hook to allow asset.localhost URLs
+DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+  if (data.attrName === 'src' && data.attrValue) {
+    // Allow asset.localhost URLs (Tauri's convertFileSrc output)
+    if (data.attrValue.startsWith('http://asset.localhost/') ||
+        data.attrValue.startsWith('https://asset.localhost/') ||
+        data.attrValue.startsWith('asset://')) {
+      data.forceKeepAttr = true;
+    }
+  }
+});
 
 /**
  * Checks if text contains wiki link syntax [[Note Name]].
@@ -379,10 +412,14 @@ export function parseTaskStatus(html: string): { totalTasks: number; completedTa
   const totalMatches = html.match(taskItemRegex);
   const totalTasks = totalMatches ? totalMatches.length : 0;
 
-  // Count completed task items
-  const checkedRegex = /data-type="taskItem"[^>]*data-checked="true"/g;
-  const checkedMatches = html.match(checkedRegex);
-  const completedTasks = checkedMatches ? checkedMatches.length : 0;
+  // Count completed task items - handle both attribute orders
+  // Pattern 1: data-checked="true" comes before data-type="taskItem"
+  // Pattern 2: data-type="taskItem" comes before data-checked="true"
+  const checkedRegex1 = /data-checked="true"[^>]*data-type="taskItem"/g;
+  const checkedRegex2 = /data-type="taskItem"[^>]*data-checked="true"/g;
+  const checkedMatches1 = html.match(checkedRegex1) || [];
+  const checkedMatches2 = html.match(checkedRegex2) || [];
+  const completedTasks = checkedMatches1.length + checkedMatches2.length;
 
   return { totalTasks, completedTasks };
 }
@@ -406,7 +443,8 @@ export function isHtmlContent(content: string): boolean {
     trimmed.startsWith('<ol>') ||
     trimmed.startsWith('<blockquote>') ||
     trimmed.startsWith('<pre>') ||
-    trimmed.startsWith('<div>')
+    trimmed.startsWith('<div>') ||
+    trimmed.startsWith('<img')
   );
 }
 
@@ -694,6 +732,7 @@ export interface ImportResult {
   dailyNotes: number;
   standaloneNotes: number;
   templates: number;
+  images: number;
 }
 
 /**
@@ -1026,4 +1065,168 @@ export async function exportNoteToPdf(
   });
 
   return destination;
+}
+
+// Image handling
+
+/**
+ * Saves an image to the local images directory.
+ * @param data - Base64 encoded image data (can include data URL prefix)
+ * @param filename - Original filename (extension determines format)
+ * @returns The absolute path to the saved image
+ */
+export async function saveImage(data: string, filename: string): Promise<string> {
+  return await invoke('save_image', { data, filename });
+}
+
+/**
+ * Converts a File object to a base64 data URL.
+ * @param file - The file to convert
+ * @returns A promise resolving to the base64 data URL
+ */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Image resize options
+ */
+interface ResizeOptions {
+  /** Maximum width in pixels (default: 1200) */
+  maxWidth?: number;
+  /** Maximum height in pixels (default: 1200) */
+  maxHeight?: number;
+  /** JPEG quality 0-1 (default: 0.85) */
+  quality?: number;
+  /** Force output format: 'jpeg' | 'png' | 'webp' | 'auto' (default: 'auto') */
+  format?: 'jpeg' | 'png' | 'webp' | 'auto';
+}
+
+/**
+ * Resizes an image to fit within max dimensions while maintaining aspect ratio.
+ * Compresses to JPEG for photos, keeps PNG for images with transparency.
+ *
+ * @param file - The image file to resize
+ * @param options - Resize options
+ * @returns Promise resolving to { dataUrl, filename } with resized image
+ */
+export async function resizeImage(
+  file: File,
+  options: ResizeOptions = {}
+): Promise<{ dataUrl: string; filename: string }> {
+  const {
+    maxWidth = 1200,
+    maxHeight = 1200,
+    quality = 0.85,
+    format = 'auto',
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      reject(new Error('Failed to get canvas context'));
+      return;
+    }
+
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Calculate new dimensions maintaining aspect ratio
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw resized image
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Determine output format
+      let outputFormat: string;
+      let outputExt: string;
+      const originalExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+      if (format === 'auto') {
+        // Keep PNG for images that might have transparency, otherwise use JPEG
+        if (['png', 'gif', 'svg'].includes(originalExt)) {
+          // Check if image actually has transparency by sampling alpha channel
+          const imageData = ctx.getImageData(0, 0, width, height);
+          let hasTransparency = false;
+          for (let i = 3; i < imageData.data.length; i += 4) {
+            if (imageData.data[i] < 255) {
+              hasTransparency = true;
+              break;
+            }
+          }
+          outputFormat = hasTransparency ? 'image/png' : 'image/jpeg';
+          outputExt = hasTransparency ? 'png' : 'jpg';
+        } else {
+          outputFormat = 'image/jpeg';
+          outputExt = 'jpg';
+        }
+      } else {
+        outputFormat = `image/${format}`;
+        outputExt = format === 'jpeg' ? 'jpg' : format;
+      }
+
+      // Generate resized data URL
+      const dataUrl = canvas.toDataURL(outputFormat, quality);
+
+      // Generate new filename
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const filename = `${baseName}.${outputExt}`;
+
+      resolve({ dataUrl, filename });
+    };
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image'));
+    };
+
+    // Load image from file
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Processes an image file: resizes if needed and saves to storage.
+ * This is the main function to use when adding images to notes.
+ *
+ * @param file - The image file to process
+ * @param options - Resize options
+ * @returns The saved file path
+ */
+export async function processAndSaveImage(
+  file: File,
+  options: ResizeOptions = {}
+): Promise<string> {
+  // SVG files don't need resizing
+  if (file.type === 'image/svg+xml') {
+    const dataUrl = await fileToBase64(file);
+    return await saveImage(dataUrl, file.name);
+  }
+
+  // Resize the image
+  const { dataUrl, filename } = await resizeImage(file, options);
+
+  // Save the resized image
+  return await saveImage(dataUrl, filename);
 }

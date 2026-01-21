@@ -8,6 +8,7 @@ interface CollapsibleSectionProps {
   rightAction?: React.ReactNode;
   children: React.ReactNode;
   count?: number;
+  icon?: React.ReactNode;
 }
 
 export function CollapsibleSection({
@@ -17,6 +18,7 @@ export function CollapsibleSection({
   rightAction,
   children,
   count,
+  icon,
 }: CollapsibleSectionProps) {
   return (
     <div className="flex flex-col">
@@ -42,6 +44,7 @@ export function CollapsibleSection({
               transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           />
+          {icon && <span className="flex-shrink-0">{icon}</span>}
           <span>{title}</span>
           {count !== undefined && (
             <span

@@ -35,7 +35,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
       ? `${currentNote.date}.md`
       : `${currentNote.title}.md`;
 
-    const link = `notomattic://note/${encodeURIComponent(filename)}`;
+    const link = `moldavite://note/${encodeURIComponent(filename)}`;
 
     try {
       await navigator.clipboard.writeText(link);

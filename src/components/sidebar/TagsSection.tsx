@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Hash, Pencil } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, Hash, Pencil, Search, Check } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { renameTagGlobally, isValidTag } from '@/lib';
 import { useToast } from '@/hooks/useToast';
@@ -7,22 +7,33 @@ import { useToast } from '@/hooks/useToast';
 interface TagsSectionProps {
   allTags: Map<string, number>;
   selectedTag: string | null;
+  selectedTags: string[];
+  tagSearchQuery: string;
   isCollapsed: boolean;
   onToggle: () => void;
   onSelectTag: (tag: string | null) => void;
+  onToggleTag: (tag: string) => void;
+  onClearFilter: () => void;
+  onSearchChange: (query: string) => void;
   onTagsChanged?: () => void; // Callback to refresh notes after tag rename
 }
 
 /**
  * Sidebar section displaying all tags with counts.
- * Clicking a tag filters notes to show only those containing that tag.
+ * Supports multi-tag filtering and search.
+ * Click to toggle tag selection, Cmd/Ctrl+Click for single selection.
  */
 export function TagsSection({
   allTags,
   selectedTag,
+  selectedTags,
+  tagSearchQuery,
   isCollapsed,
   onToggle,
   onSelectTag,
+  onToggleTag,
+  onClearFilter,
+  onSearchChange,
   onTagsChanged,
 }: TagsSectionProps) {
   const toast = useToast();
@@ -31,11 +42,24 @@ export function TagsSection({
   const [isRenaming, setIsRenaming] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ tag: string; x: number; y: number } | null>(null);
 
-  // Sort tags by count (descending) then alphabetically
-  const sortedTags = Array.from(allTags.entries()).sort((a, b) => {
-    if (b[1] !== a[1]) return b[1] - a[1];
-    return a[0].localeCompare(b[0]);
-  });
+  // Sort and filter tags
+  const sortedTags = useMemo(() => {
+    const filtered = Array.from(allTags.entries()).filter(([tag]) =>
+      tag.toLowerCase().includes(tagSearchQuery.toLowerCase())
+    );
+    return filtered.sort((a, b) => {
+      // Selected tags first
+      const aSelected = selectedTags.includes(a[0]);
+      const bSelected = selectedTags.includes(b[0]);
+      if (aSelected !== bSelected) return aSelected ? -1 : 1;
+      // Then by count
+      if (b[1] !== a[1]) return b[1] - a[1];
+      // Then alphabetically
+      return a[0].localeCompare(b[0]);
+    });
+  }, [allTags, tagSearchQuery, selectedTags]);
+
+  const hasActiveFilter = selectedTags.length > 0;
 
   const handleContextMenu = (e: React.MouseEvent, tag: string) => {
     e.preventDefault();
@@ -92,9 +116,21 @@ export function TagsSection({
     setNewTagName('');
   };
 
-  if (sortedTags.length === 0) {
-    return null; // Don't show section if no tags
+  // Don't render if no tags exist at all
+  if (allTags.size === 0) {
+    return null;
   }
+
+  const handleTagClick = (e: React.MouseEvent, tag: string) => {
+    // Cmd/Ctrl+Click: Single select (replace current selection)
+    // Regular click: Toggle (add/remove from multi-selection)
+    if (e.metaKey || e.ctrlKey) {
+      const isOnlySelected = selectedTags.length === 1 && selectedTags[0] === tag;
+      onSelectTag(isOnlySelected ? null : tag);
+    } else {
+      onToggleTag(tag);
+    }
+  };
 
   return (
     <>
@@ -102,68 +138,128 @@ export function TagsSection({
         title="Tags"
         isCollapsed={isCollapsed}
         onToggle={onToggle}
-        count={sortedTags.length}
+        count={allTags.size}
         rightAction={
-          selectedTag ? (
+          hasActiveFilter ? (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectTag(null);
+                onClearFilter();
               }}
-              className="p-1 transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-              title="Clear filter"
+              className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium transition-all"
+              style={{
+                color: 'var(--accent-primary)',
+                backgroundColor: 'var(--accent-subtle)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--accent-muted)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--accent-subtle)';
+              }}
+              title="Clear all filters"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3 h-3" />
+              {selectedTags.length}
             </button>
           ) : undefined
         }
       >
-        <div className="px-3 space-y-0.5">
-          {sortedTags.map(([tag, count]) => {
-            const isSelected = selectedTag === tag;
-            return (
+        {/* Search Input */}
+        <div className="px-3 pb-2">
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 text-sm"
+            style={{
+              backgroundColor: 'var(--bg-inset)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              value={tagSearchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Filter tags..."
+              className="flex-1 bg-transparent text-sm outline-none"
+              style={{ color: 'var(--text-primary)' }}
+            />
+            {tagSearchQuery && (
               <button
-                key={tag}
-                onClick={() => onSelectTag(isSelected ? null : tag)}
-                onContextMenu={(e) => handleContextMenu(e, tag)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm transition-colors"
-                style={{
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
-                  color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-                    e.currentTarget.style.color = 'var(--text-primary)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-secondary)';
-                  }
-                }}
+                onClick={() => onSearchChange('')}
+                className="p-0.5 rounded transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
               >
-                <Hash className="w-3.5 h-3.5 flex-shrink-0" style={{ opacity: 0.7 }} />
-                <span className="flex-1 text-left truncate">{tag}</span>
-                <span
-                  className="text-xs px-1.5 py-0.5"
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tags List */}
+        <div className="px-3 space-y-0.5 max-h-[240px] overflow-y-auto scrollbar-on-hover">
+          {sortedTags.length === 0 ? (
+            <div className="py-3 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+              No tags match "{tagSearchQuery}"
+            </div>
+          ) : (
+            sortedTags.map(([tag, count]) => {
+              const isSelected = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={(e) => handleTagClick(e, tag)}
+                  onContextMenu={(e) => handleContextMenu(e, tag)}
+                  className="tag-filter-item w-full flex items-center gap-2 px-2 py-1.5 text-sm transition-all"
                   style={{
-                    color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
-                    backgroundColor: isSelected ? 'rgba(var(--accent-primary-rgb), 0.15)' : 'var(--count-badge-bg)',
                     borderRadius: 'var(--radius-sm)',
+                    backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
+                    color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   }}
                 >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                  {/* Checkbox indicator */}
+                  <div
+                    className="w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-all"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--accent-primary)' : 'transparent',
+                      border: isSelected ? 'none' : '1.5px solid var(--border-strong)',
+                    }}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <Hash className="w-3.5 h-3.5 flex-shrink-0" style={{ opacity: 0.6 }} />
+                  <span className="flex-1 text-left truncate">{tag}</span>
+                  <span
+                    className="text-xs px-1.5 py-0.5 font-medium"
+                    style={{
+                      color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
+                      backgroundColor: isSelected ? 'rgba(90, 122, 168, 0.15)' : 'var(--count-badge-bg)',
+                      borderRadius: 'var(--radius-sm)',
+                    }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
+
+        {/* Filter hint */}
+        {hasActiveFilter && (
+          <div
+            className="px-3 pt-2 pb-1 text-xs"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Showing notes with {selectedTags.length === 1 ? 'tag' : 'all tags'}:{' '}
+            <span style={{ color: 'var(--accent-primary)' }}>
+              {selectedTags.map(t => `#${t}`).join(', ')}
+            </span>
+          </div>
+        )}
       </CollapsibleSection>
 
       {/* Context Menu */}

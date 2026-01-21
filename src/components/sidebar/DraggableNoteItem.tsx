@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, MoreHorizontal } from 'lucide-react';
+import { Lock, MoreHorizontal, Hash } from 'lucide-react';
 import type { NoteFile } from '@/types';
 
 interface DraggableNoteItemProps {
@@ -8,6 +8,7 @@ interface DraggableNoteItemProps {
   onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   level?: number;
+  tags?: string[];
 }
 
 export function DraggableNoteItem({
@@ -16,6 +17,7 @@ export function DraggableNoteItem({
   onClick,
   onContextMenu,
   level = 0,
+  tags = [],
 }: DraggableNoteItemProps) {
   const handleDragStart = (e: React.DragEvent) => {
     // Store the note path for drag-and-drop
@@ -41,7 +43,7 @@ export function DraggableNoteItem({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && onClick(e as unknown as React.MouseEvent)}
-        className="note-card sidebar-item-animated w-full text-left text-sm truncate pr-8 focus-ring cursor-pointer"
+        className="note-card sidebar-item-animated w-full text-left text-sm pr-8 focus-ring cursor-pointer"
         style={{
           color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)',
           borderLeft: isActive ? '2px solid var(--accent-primary)' : '2px solid transparent',
@@ -55,6 +57,34 @@ export function DraggableNoteItem({
           )}
           <span className="truncate">{note.name.replace(/\.md$/, '')}</span>
         </span>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded"
+                style={{
+                  backgroundColor: 'var(--accent-subtle)',
+                  color: 'var(--accent-primary)',
+                }}
+              >
+                <Hash className="w-2.5 h-2.5" style={{ opacity: 0.7 }} />
+                {tag}
+              </span>
+            ))}
+            {tags.length > 3 && (
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+                style={{
+                  backgroundColor: 'var(--bg-inset)',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                +{tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <button
         onClick={(e) => {

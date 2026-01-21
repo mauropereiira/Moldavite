@@ -1,5 +1,5 @@
 /**
- * Zustand state stores for Notomattic
+ * Zustand state stores for Moldavite
  *
  * All stores use Zustand with persistence where appropriate.
  *

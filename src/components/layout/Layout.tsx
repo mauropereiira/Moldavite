@@ -16,6 +16,7 @@ export function Layout() {
   const {
     sidebarWidth,
     rightPanelWidth,
+    showRightPanel,
     setSidebarWidth,
     setRightPanelWidth
   } = useSettingsStore();
@@ -126,41 +127,43 @@ export function Layout() {
       </div>
 
       {/* Right Panel */}
-      <div
-        className="flex-shrink-0 relative"
-        style={{
-          width: `${rightPanelWidth}px`,
-          backgroundColor: 'var(--bg-panel)',
-          borderLeft: '1px solid var(--border-default)'
-        }}
-      >
-        {/* Right Resize Handle */}
+      {showRightPanel && (
         <div
-          className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+          className="flex-shrink-0 relative"
           style={{
-            transitionDuration: 'var(--duration-fast)',
-            backgroundColor: isResizing === 'right'
-              ? 'var(--accent-primary)'
-              : isHovering === 'right'
-                ? 'var(--border-strong)'
-                : 'transparent'
+            width: `${rightPanelWidth}px`,
+            backgroundColor: 'var(--bg-panel)',
+            borderLeft: '1px solid var(--border-default)'
           }}
-          onMouseDown={handleMouseDown('right')}
-          onMouseEnter={() => setIsHovering('right')}
-          onMouseLeave={() => setIsHovering(null)}
-        />
+        >
+          {/* Right Resize Handle */}
+          <div
+            className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+            style={{
+              transitionDuration: 'var(--duration-fast)',
+              backgroundColor: isResizing === 'right'
+                ? 'var(--accent-primary)'
+                : isHovering === 'right'
+                  ? 'var(--border-strong)'
+                  : 'transparent'
+            }}
+            onMouseDown={handleMouseDown('right')}
+            onMouseEnter={() => setIsHovering('right')}
+            onMouseLeave={() => setIsHovering(null)}
+          />
 
-        {/* Extended hit area for easier grabbing */}
-        <div
-          className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
-          style={{ transform: 'translateX(-50%)' }}
-          onMouseDown={handleMouseDown('right')}
-          onMouseEnter={() => setIsHovering('right')}
-          onMouseLeave={() => setIsHovering(null)}
-        />
+          {/* Extended hit area for easier grabbing */}
+          <div
+            className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
+            style={{ transform: 'translateX(-50%)' }}
+            onMouseDown={handleMouseDown('right')}
+            onMouseEnter={() => setIsHovering('right')}
+            onMouseLeave={() => setIsHovering(null)}
+          />
 
-        <RightPanel />
-      </div>
+          <RightPanel />
+        </div>
+      )}
     </div>
   );
 }

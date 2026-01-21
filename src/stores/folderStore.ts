@@ -9,6 +9,7 @@ interface FolderState {
     notes: boolean;
     folders: boolean;
     tags: boolean;
+    backlinks: boolean;
   };
 
   // Actions
@@ -16,7 +17,7 @@ interface FolderState {
   toggleFolder: (path: string) => void;
   expandFolder: (path: string) => void;
   collapseFolder: (path: string) => void;
-  toggleSection: (section: 'notes' | 'folders' | 'tags') => void;
+  toggleSection: (section: 'notes' | 'folders' | 'tags' | 'backlinks') => void;
   setExpandedFolders: (paths: string[]) => void;
 }
 
@@ -29,6 +30,7 @@ export const useFolderStore = create<FolderState>()(
         notes: false,
         folders: false,
         tags: false,
+        backlinks: false,
       },
 
       setFolders: (folders) => set({ folders }),
@@ -67,7 +69,7 @@ export const useFolderStore = create<FolderState>()(
       setExpandedFolders: (paths) => set({ expandedFolders: paths }),
     }),
     {
-      name: 'notomattic-folders',
+      name: 'moldavite-folders',
       partialize: (state) => ({
         expandedFolders: state.expandedFolders,
         sectionsCollapsed: state.sectionsCollapsed,

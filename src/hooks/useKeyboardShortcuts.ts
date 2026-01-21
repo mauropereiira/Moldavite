@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useNoteStore } from '@/stores';
+import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
@@ -92,9 +93,18 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     setShowTemplatePicker(true);
   }, []);
 
+  const { open: openQuickSwitcher } = useQuickSwitcherStore();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
+
+      // Cmd/Ctrl + P: Quick Switcher (also Cmd+K when not focused on editor)
+      if (isMod && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        openQuickSwitcher();
+        return;
+      }
 
       // Cmd/Ctrl + ,: Open settings
       if (isMod && e.key === ',') {
@@ -148,7 +158,7 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor, onNewNote, onToggleTheme, onInsertLink, setIsSettingsOpen, activeTabId, closeTab]);
+  }, [editor, onNewNote, onToggleTheme, onInsertLink, setIsSettingsOpen, activeTabId, closeTab, openQuickSwitcher]);
 
   return {
     showTemplatePicker,

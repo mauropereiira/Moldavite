@@ -1,5 +1,5 @@
 /**
- * Library utilities for Notomattic
+ * Library utilities for Moldavite
  *
  * This module re-exports all library utilities for convenient imports:
  *
@@ -23,3 +23,4 @@ export * from './templates';
 export * from './validation';
 export * from './constants';
 export * from './tags';
+export * from './backlinks';

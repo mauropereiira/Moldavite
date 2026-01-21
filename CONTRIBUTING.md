@@ -1,6 +1,6 @@
-# Contributing to Notomattic
+# Contributing to Moldavite
 
-Thank you for your interest in contributing to Notomattic! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Moldavite! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -23,8 +23,8 @@ Thank you for your interest in contributing to Notomattic! This document provide
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/mauropereira/notomattic.git
-   cd notomattic
+   git clone https://github.com/mauropereira/moldavite.git
+   cd moldavite
    ```
 
 2. **Install dependencies**
@@ -45,7 +45,7 @@ Thank you for your interest in contributing to Notomattic! This document provide
 ## Project Structure
 
 ```
-notomattic/
+moldavite/
 ├── src/                    # React/TypeScript frontend
 │   ├── components/         # React components
 │   ├── hooks/              # Custom React hooks
@@ -150,4 +150,4 @@ If you have questions, feel free to open an issue or discussion on GitHub.
 
 ---
 
-Thank you for contributing to Notomattic!
+Thank you for contributing to Moldavite!

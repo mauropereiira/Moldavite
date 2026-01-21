@@ -1,15 +1,15 @@
 [package]
-name = "notomattic"
-version = "0.6.0"
-description = "A privacy-first note-taking app"
-authors = ["Notomattic Team"]
+name = "moldavite"
+version = "1.0.0"
+description = "A local-first note-taking app for connected thinking"
+authors = ["Mauro Pereira"]
 license = "MIT"
-repository = "https://github.com/mauropereira/notomattic"
+repository = "https://github.com/mauropereira/moldavite"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "notomattic_lib"
+name = "moldavite_lib"
 crate-type = ["lib", "cdylib"]
 
 [build-dependencies]
@@ -22,7 +22,7 @@ swift-rs = { version = "1.0", features = ["build"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.9.2", features = [] }
+tauri = { version = "2.9.2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"

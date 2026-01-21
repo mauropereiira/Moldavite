@@ -1,4 +1,4 @@
-//! Shared utilities for Notomattic
+//! Shared utilities for Moldavite
 //!
 //! This module contains helper functions used across multiple command modules,
 //! including directory paths, configuration, and file permissions.
@@ -26,7 +26,7 @@ pub struct AppConfig {
 pub fn get_config_path() -> PathBuf {
     dirs::config_dir()
         .expect("Could not find config directory")
-        .join("Notomattic")
+        .join("Moldavite")
         .join("config.json")
 }
 
@@ -63,11 +63,11 @@ pub fn write_config(config: &AppConfig) -> Result<(), String> {
 // DIRECTORY PATHS
 // =============================================================================
 
-/// Get the default notes directory (Documents/Notomattic)
+/// Get the default notes directory (Documents/Moldavite)
 pub fn get_default_notes_dir() -> PathBuf {
     dirs::document_dir()
         .expect("Could not find Documents directory")
-        .join("Notomattic")
+        .join("Moldavite")
 }
 
 /// Get the current notes directory (custom or default)

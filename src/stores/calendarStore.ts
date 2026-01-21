@@ -202,7 +202,7 @@ export const useCalendarStore = create<CalendarState>()(
       clearEvents: () => set({ events: [], lastSynced: null }),
     }),
     {
-      name: 'notomattic-calendar',
+      name: 'moldavite-calendar',
       partialize: (state) => ({
         calendarEnabled: state.calendarEnabled,
         showAllDayEvents: state.showAllDayEvents,

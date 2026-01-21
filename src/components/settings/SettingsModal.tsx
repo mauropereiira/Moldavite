@@ -1,7 +1,7 @@
 /**
  * Settings Modal Component
  *
- * A tabbed settings interface for Notomattic configuration.
+ * A tabbed settings interface for Moldavite configuration.
  *
  * ## Sections
  *
@@ -36,7 +36,7 @@ import type { FontFamily } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
 import type { ImportResult } from '@/lib';
-import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw, Shield, Eye, EyeOff, Timer } from 'lucide-react';
+import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw, Shield, Eye, EyeOff, Timer, Zap, PanelLeft } from 'lucide-react';
 import type { AutoLockTimeout } from '@/stores';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
@@ -45,11 +45,78 @@ import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 
 // =============================================================================
+// INFO TOOLTIP COMPONENT
+// =============================================================================
+
+function InfoTooltip({ text }: { text: string }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center ml-1.5">
+      <button
+        type="button"
+        className="p-0.5 rounded-full transition-all duration-200"
+        style={{
+          color: 'var(--text-muted)',
+          backgroundColor: 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          setIsVisible(true);
+          e.currentTarget.style.color = 'var(--accent-primary)';
+          e.currentTarget.style.backgroundColor = 'var(--accent-subtle)';
+          e.currentTarget.style.transform = 'scale(1.1)';
+        }}
+        onMouseLeave={(e) => {
+          setIsVisible(false);
+          e.currentTarget.style.color = 'var(--text-muted)';
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onFocus={() => setIsVisible(true)}
+        onBlur={() => setIsVisible(false)}
+        aria-label="More information"
+      >
+        <Info className="w-3.5 h-3.5" />
+      </button>
+      {isVisible && (
+        <div
+          className="absolute z-50 px-3 py-2 text-xs max-w-[320px] whitespace-normal"
+          style={{
+            top: 'calc(100% + 8px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-lg)',
+            color: 'var(--text-secondary)',
+            animation: 'tooltipFadeInBelow 0.15s ease-out',
+          }}
+        >
+          {text}
+          <div
+            className="absolute w-2 h-2"
+            style={{
+              top: '-5px',
+              left: '50%',
+              transform: 'translateX(-50%) rotate(45deg)',
+              backgroundColor: 'var(--bg-elevated)',
+              borderLeft: '1px solid var(--border-default)',
+              borderTop: '1px solid var(--border-default)',
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
 /** Available settings tabs */
-type SettingsTab = 'general' | 'appearance' | 'editor' | 'calendar' | 'templates' | 'about';
+type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'about';
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
@@ -101,6 +168,8 @@ export function SettingsModal() {
     { id: 'general', label: 'General', icon: <Settings className="w-4 h-4" /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
     { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" /> },
+    { id: 'features', label: 'Features', icon: <Zap className="w-4 h-4" /> },
+    { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
     { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
     { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
@@ -138,8 +207,8 @@ export function SettingsModal() {
 
         {/* Tabs */}
         <div
-          className="flex px-6 overflow-x-auto"
-          style={{ borderBottom: '1px solid var(--border-default)' }}
+          className="flex px-6 overflow-x-auto flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--border-default)', minHeight: '48px' }}
         >
           {tabs.map(tab => (
             <button
@@ -153,10 +222,16 @@ export function SettingsModal() {
                 borderBottom: activeTab === tab.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
               }}
               onMouseEnter={(e) => {
-                if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--text-primary)';
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-inset)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--text-secondary)';
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
               {tab.icon}
@@ -179,6 +254,12 @@ export function SettingsModal() {
             )}
             {activeTab === 'editor' && (
               <EditorSettings />
+            )}
+            {activeTab === 'features' && (
+              <FeaturesSettings />
+            )}
+            {activeTab === 'sidebar' && (
+              <SidebarSettings />
             )}
             {activeTab === 'calendar' && (
               <CalendarSettings />
@@ -265,7 +346,7 @@ function GeneralSettings() {
       const date = new Date().toISOString().split('T')[0];
       const destination = await save({
         title: 'Export Notes',
-        defaultPath: `notomattic-export-${date}.zip`,
+        defaultPath: `moldavite-export-${date}.zip`,
         filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
       });
 
@@ -345,8 +426,8 @@ function GeneralSettings() {
       const date = new Date().toISOString().split('T')[0];
       const destination = await save({
         title: 'Export Encrypted Backup',
-        defaultPath: `notomattic-backup-${date}.notomattic-backup`,
-        filters: [{ name: 'Notomattic Backup', extensions: ['notomattic-backup'] }],
+        defaultPath: `moldavite-backup-${date}.moldavite-backup`,
+        filters: [{ name: 'Moldavite Backup', extensions: ['moldavite-backup'] }],
       });
 
       if (destination) {
@@ -367,7 +448,7 @@ function GeneralSettings() {
     try {
       const selected = await open({
         title: 'Import Encrypted Backup',
-        filters: [{ name: 'Notomattic Backup', extensions: ['notomattic-backup'] }],
+        filters: [{ name: 'Moldavite Backup', extensions: ['moldavite-backup'] }],
       });
 
       if (selected && typeof selected === 'string') {
@@ -448,9 +529,12 @@ function GeneralSettings() {
 
       {/* Storage Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
-        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-          Storage
-        </h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Storage
+          </h3>
+          <InfoTooltip text="Where your notes are saved on your computer. All data is stored locally." />
+        </div>
 
         <div>
           <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
@@ -493,9 +577,12 @@ function GeneralSettings() {
       {/* Backup & Restore Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Backup & Restore
-          </h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Backup & Restore
+            </h3>
+            <InfoTooltip text="Create ZIP backups of all your notes and templates. Import to restore from backup." />
+          </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Export or import your notes and templates
           </p>
@@ -534,9 +621,12 @@ function GeneralSettings() {
             <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Encrypted Backup
-            </h3>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                Encrypted Backup
+              </h3>
+              <InfoTooltip text="Secure backups protected with military-grade AES-256 encryption. Requires a password to decrypt." />
+            </div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
               Password-protected backup with AES-256 encryption
             </p>
@@ -576,9 +666,12 @@ function GeneralSettings() {
             <Timer className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Auto-Lock
-            </h3>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                Auto-Lock
+              </h3>
+              <InfoTooltip text="For encrypted notes. Automatically locks unlocked notes after a period of inactivity for security." />
+            </div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
               Automatically re-lock notes after inactivity
             </p>
@@ -619,9 +712,12 @@ function GeneralSettings() {
 
       {/* Auto-save Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
-        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-          Auto-save
-        </h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Auto-save
+          </h3>
+          <InfoTooltip text="Notes are saved automatically as you type. Adjust the delay to balance between instant saves and reduced disk activity." />
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -1009,9 +1105,12 @@ function AppearanceSettings({
       {/* Theme Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Theme
-          </h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Theme
+            </h3>
+            <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your macOS appearance setting." />
+          </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Choose your preferred color scheme
           </p>
@@ -1285,6 +1384,295 @@ function EditorSettings() {
   );
 }
 
+// Features Settings Section
+function FeaturesSettings() {
+  const settings = useSettingsStore();
+  return (
+    <div className="space-y-6">
+      {/* Editor Features */}
+      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-center gap-1 mb-3">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Editor Features
+          </h3>
+          <InfoTooltip text="Enable or disable special editing features. Disabling features you don't use can simplify the interface." />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Slash Commands
+            </span>
+            <InfoTooltip text="Type '/' at the start of a line to see a menu of blocks: headings, lists, quotes, code blocks, and more." />
+          </div>
+          <Toggle
+            enabled={settings.slashCommandsEnabled}
+            onChange={settings.setSlashCommandsEnabled}
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Wiki Links [[...]]
+            </span>
+            <InfoTooltip text="Create links between notes using [[Note Name]] syntax. Clicking the link opens the referenced note." />
+          </div>
+          <Toggle
+            enabled={settings.wikiLinksEnabled}
+            onChange={settings.setWikiLinksEnabled}
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Tags (#hashtags)
+            </span>
+            <InfoTooltip text="Type #tagname to create tags. Tags are highlighted and can be filtered in the sidebar." />
+          </div>
+          <Toggle
+            enabled={settings.tagsEnabled}
+            onChange={settings.setTagsEnabled}
+          />
+        </div>
+      </div>
+
+      {/* Navigation Features */}
+      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-center gap-1 mb-3">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Navigation
+          </h3>
+          <InfoTooltip text="Ways to quickly find and navigate between your notes." />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Quick Switcher (⌘P)
+            </span>
+            <InfoTooltip text="Press ⌘P to open a search dialog. Type to fuzzy-search all notes and quickly jump to any note." />
+          </div>
+          <Toggle
+            enabled={settings.quickSwitcherEnabled}
+            onChange={settings.setQuickSwitcherEnabled}
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Backlinks
+            </span>
+            <InfoTooltip text="Shows a list of all notes that link to the current note. Helps you see connections between ideas." />
+          </div>
+          <Toggle
+            enabled={settings.backlinksEnabled}
+            onChange={settings.setBacklinksEnabled}
+          />
+        </div>
+      </div>
+
+      {/* Right Panel */}
+      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-center gap-1 mb-3">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Right Panel
+          </h3>
+          <InfoTooltip text="The right sidebar contains the calendar and timeline. Hide it for a more focused writing experience." />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Show Right Panel
+            </span>
+            <InfoTooltip text="Toggle the entire right sidebar on or off. Hiding it gives more space to the editor." />
+          </div>
+          <Toggle
+            enabled={settings.showRightPanel}
+            onChange={settings.setShowRightPanel}
+          />
+        </div>
+
+        {settings.showRightPanel && (
+          <>
+            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+              <div className="flex items-center gap-1">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Calendar Widget
+                </span>
+                <InfoTooltip text="A mini calendar showing the current month. Click dates to navigate to daily notes." />
+              </div>
+              <Toggle
+                enabled={settings.showCalendarWidget}
+                onChange={settings.setShowCalendarWidget}
+              />
+            </div>
+
+            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+              <div className="flex items-center gap-1">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Timeline Widget
+                </span>
+                <InfoTooltip text="Shows your daily schedule with events from Apple Calendar (requires Calendar access)." />
+              </div>
+              <Toggle
+                enabled={settings.showTimelineWidget}
+                onChange={settings.setShowTimelineWidget}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Sidebar Settings Section
+function SidebarSettings() {
+  const settings = useSettingsStore();
+  return (
+    <div className="space-y-6">
+      {/* Visible Sections */}
+      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-center gap-1 mb-3">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Visible Sections
+          </h3>
+          <InfoTooltip text="Choose which sections appear in the left sidebar. Hide sections you don't use." />
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Folders Section
+            </span>
+            <InfoTooltip text="Browse notes organized by folders. Useful if you organize notes into different directories." />
+          </div>
+          <Toggle
+            enabled={settings.showFoldersSection}
+            onChange={settings.setShowFoldersSection}
+          />
+        </div>
+
+        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Backlinks Section
+            </span>
+            <InfoTooltip text="Show backlinks in the sidebar. Requires Backlinks to be enabled in Features." />
+          </div>
+          <Toggle
+            enabled={settings.showBacklinksSection}
+            onChange={settings.setShowBacklinksSection}
+          />
+        </div>
+      </div>
+
+      {/* Sorting */}
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Sort Notes By
+            </h3>
+            <InfoTooltip text="Choose how notes are ordered in the sidebar list. Modified sorts by last edit time." />
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            How notes are ordered in the sidebar
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: 'name-asc', label: 'Name (A-Z)' },
+            { value: 'name-desc', label: 'Name (Z-A)' },
+            { value: 'modified-desc', label: 'Modified (Newest)' },
+            { value: 'modified-asc', label: 'Modified (Oldest)' },
+            { value: 'created-desc', label: 'Created (Newest)' },
+            { value: 'created-asc', label: 'Created (Oldest)' },
+          ] as const).map((option) => (
+            <button
+              key={option.value}
+              onClick={() => settings.setSortOption(option.value)}
+              className="px-3 py-2 text-sm font-medium transition-colors text-left"
+              style={{
+                backgroundColor: settings.sortOption === option.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                color: settings.sortOption === option.value ? 'white' : 'var(--text-secondary)',
+                border: settings.sortOption === option.value ? 'none' : '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Layout */}
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Layout
+          </h3>
+          <InfoTooltip text="Control the width of sidebars. Wider sidebars show more note titles, narrower gives more editor space." />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1">
+              <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Sidebar Width
+              </label>
+              <InfoTooltip text="Width of the left sidebar in pixels. Range: 200px (compact) to 400px (spacious)." />
+            </div>
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {settings.sidebarWidth}px
+            </span>
+          </div>
+          <input
+            type="range"
+            min="200"
+            max="400"
+            step="10"
+            value={settings.sidebarWidth}
+            onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
+            className="w-full h-2 rounded appearance-none cursor-pointer"
+            style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
+          />
+        </div>
+
+        {settings.showRightPanel && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Right Panel Width
+                </label>
+                <InfoTooltip text="Width of the right panel (calendar/timeline) in pixels. Range: 250px to 500px." />
+              </div>
+              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {settings.rightPanelWidth}px
+              </span>
+            </div>
+            <input
+              type="range"
+              min="250"
+              max="500"
+              step="10"
+              value={settings.rightPanelWidth}
+              onChange={(e) => settings.setRightPanelWidth(Number(e.target.value))}
+              className="w-full h-2 rounded appearance-none cursor-pointer"
+              style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Calendar Settings Section
 function CalendarSettings() {
   const {
@@ -1360,7 +1748,7 @@ function CalendarSettings() {
             <ol className="text-xs list-decimal list-inside space-y-1" style={{ color: 'var(--error)', opacity: 0.9 }}>
               <li>Open System Settings</li>
               <li>Go to Privacy & Security → Calendars</li>
-              <li>Enable access for Notomattic</li>
+              <li>Enable access for Moldavite</li>
             </ol>
           </div>
         ) : (
@@ -1478,14 +1866,14 @@ function AboutSection() {
         {/* Logo */}
         <img
           src="/logo.png"
-          alt="Notomattic Logo"
+          alt="Moldavite Logo"
           className="h-16 w-16 flex-shrink-0"
           style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
         />
 
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            Notomattic
+            Moldavite
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
@@ -1513,7 +1901,7 @@ function AboutSection() {
           </div>
 
           <button
-            onClick={() => shellOpen('https://github.com/Automattic/notomattic/releases')}
+            onClick={() => shellOpen('https://github.com/mauropereira/moldavite/releases')}
             className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           >

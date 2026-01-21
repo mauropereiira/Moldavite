@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -16,9 +15,11 @@ import 'tippy.js/dist/tippy.css';
 import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
+import { ImageToolbar } from './ImageToolbar';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
-import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList } from './extensions';
-import type { TagItem } from './extensions';
+import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList, SlashCommands, SlashCommandList, filterCommands } from './extensions';
+import { ResizableImage } from './extensions/ResizableImage';
+import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
@@ -28,7 +29,8 @@ import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buil
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
-import { markdownToHtml } from '@/lib';
+import { markdownToHtml, processAndSaveImage } from '@/lib';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -75,6 +77,8 @@ export function Editor() {
   const isMountedRef = useRef(true);
   // Ref for scrollable editor container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Ref for image file handler (to break circular dependency with useEditor)
+  const handleImageFileRef = useRef<((file: File) => Promise<void>) | null>(null);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -168,11 +172,13 @@ export function Editor() {
     if (currentNote) {
       const content = currentNote.content || '';
       // Check if content is empty (handle TipTap's empty HTML)
+      // Also check for images - if there's an img tag, the note has content
+      const hasImages = /<img\s/i.test(content);
       const textOnly = content
         .replace(/<[^>]*>/g, '')
         .replace(/&nbsp;/g, ' ')
         .trim();
-      setShowInlineTemplatePicker(textOnly === '');
+      setShowInlineTemplatePicker(textOnly === '' && !hasImages);
     } else {
       setShowInlineTemplatePicker(false);
     }
@@ -226,7 +232,7 @@ export function Editor() {
       Placeholder.configure({
         placeholder: 'Start writing...',
       }),
-      Image.configure({
+      ResizableImage.configure({
         inline: false,
         allowBase64: true,
       }),
@@ -479,6 +485,105 @@ export function Editor() {
           },
         },
       }),
+      SlashCommands.configure({
+        suggestion: {
+          char: '/',
+          allowSpaces: false,
+          startOfLine: true,
+          items: ({ query }: { query: string }) => {
+            return filterCommands(query);
+          },
+          render: () => {
+            let component: ReactRenderer | null = null;
+            let popup: Instance[] | null = null;
+
+            return {
+              onStart: (props: any) => {
+                try {
+                  component = new ReactRenderer(SlashCommandList, {
+                    props: {
+                      ...props,
+                      editor: props.editor,
+                    },
+                    editor: props.editor,
+                  });
+
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup = tippy('body', {
+                    getReferenceClientRect: props.clientRect,
+                    appendTo: () => document.body,
+                    content: component.element,
+                    showOnCreate: true,
+                    interactive: true,
+                    trigger: 'manual',
+                    placement: 'bottom-start',
+                    maxWidth: 'none',
+                  });
+                } catch (error) {
+                  console.error('[SlashCommands] onStart error:', error);
+                }
+              },
+
+              onUpdate(props: any) {
+                try {
+                  component?.updateProps({
+                    ...props,
+                    editor: props.editor,
+                  });
+
+                  if (!props.clientRect) {
+                    return;
+                  }
+
+                  popup?.[0]?.setProps({
+                    getReferenceClientRect: props.clientRect,
+                  });
+                } catch (error) {
+                  console.error('[SlashCommands] onUpdate error:', error);
+                }
+              },
+
+              onKeyDown(props: any) {
+                try {
+                  if (props.event.key === 'Escape') {
+                    popup?.[0]?.hide();
+                    return true;
+                  }
+
+                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                } catch (error) {
+                  console.error('[SlashCommands] onKeyDown error:', error);
+                  return false;
+                }
+              },
+
+              onExit() {
+                try {
+                  if (popup?.[0]) {
+                    popup[0].destroy();
+                  }
+                  if (component) {
+                    component.destroy();
+                  }
+                } catch (error) {
+                  console.error('[SlashCommands] onExit error:', error);
+                }
+                popup = null;
+                component = null;
+              },
+            };
+          },
+          command: ({ editor, range, props }: any) => {
+            const item = props as SlashCommandItem;
+            // Delete the "/" and run the command
+            editor.chain().focus().deleteRange(range).run();
+            item.command(editor);
+          },
+        },
+      }),
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -487,8 +592,8 @@ export function Editor() {
         // Pass current note ID to prevent race conditions when switching notes
         const noteId = currentNoteRef.current?.id;
         updateNoteContent(html, noteId);
-        // Hide template picker when user starts typing
-        if (showInlineTemplatePicker && editor.getText().length > 0) {
+        // Hide template picker when user adds any content (text or images)
+        if (showInlineTemplatePicker && !editor.isEmpty) {
           setShowInlineTemplatePicker(false);
         }
       } catch (error) {
@@ -512,8 +617,72 @@ export function Editor() {
         class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
         spellcheck: spellCheck ? 'true' : 'false',
       },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (file && handleImageFileRef.current) {
+              handleImageFileRef.current(file);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return false;
+
+        const file = files[0];
+        if (file.type.startsWith('image/')) {
+          event.preventDefault();
+          if (handleImageFileRef.current) {
+            handleImageFileRef.current(file);
+          }
+          return true;
+        }
+        return false;
+      },
     },
   }, [tagsEnabled]); // Recreate editor when tagsEnabled changes
+
+  // Handle image file from paste or drop
+  const handleImageFile = useCallback(async (file: File) => {
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Unsupported image format');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('Image must be smaller than 10MB');
+      return;
+    }
+
+    try {
+      // Resize and save image
+      const savedPath = await processAndSaveImage(file);
+      const imageUrl = convertFileSrc(savedPath);
+
+      // Insert the image at the current cursor position
+      if (editor && !editor.isDestroyed) {
+        editor.chain().focus().setImage({ src: imageUrl }).run();
+        toast.success('Image added');
+      }
+    } catch (err) {
+      toast.error(`Failed to upload image: ${err}`);
+    }
+  }, [editor, toast]);
+
+  // Keep ref updated for use in editorProps
+  handleImageFileRef.current = handleImageFile;
 
   // Update editor content when note changes
   // Use a ref to access the latest currentNote without adding it to deps
@@ -679,19 +848,33 @@ export function Editor() {
       {/* Editor */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto mx-4 mt-6 mb-4 rounded-lg editor-paper relative transition-colors duration-200"
-        style={{ backgroundColor: noteBackgroundColor || (isDark ? '#1f2937' : 'white') }}
+        className="flex-1 overflow-y-auto editor-paper relative transition-colors duration-200"
+        style={{ backgroundColor: noteBackgroundColor || (isDark ? '#0f1512' : 'white') }}
       >
         <EditorErrorBoundary resetKey={currentNote?.id}>
           <EditorContent editor={editor} className="h-full content-enter" />
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
           {editor && !editor.isDestroyed && <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />}
+          {/* Image Toolbar - shows when image is selected */}
+          {editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes */}
         {showInlineTemplatePicker && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="pointer-events-auto">
+          <div
+            className="absolute inset-0 flex items-center justify-center z-50"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            {/* Clickable overlay to dismiss picker and focus editor */}
+            <div
+              className="absolute inset-0 bg-transparent cursor-text"
+              onClick={() => {
+                setShowInlineTemplatePicker(false);
+                editor?.commands.focus();
+              }}
+            />
+            <div className="relative z-10">
               <EmptyNoteTemplatePicker
                 onSelectTemplate={handleTemplateSelect}
                 onOpenAllTemplates={openTemplatePicker}
