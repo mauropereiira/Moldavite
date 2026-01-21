@@ -15,6 +15,7 @@ interface FolderItemProps {
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
   onNoteContextMenu: (e: React.MouseEvent, note: NoteFile) => void;
+  getNoteTags?: (notePath: string) => string[];
   renderChildren?: React.ReactNode;
 }
 
@@ -30,6 +31,7 @@ export function FolderItem({
   isNoteActive,
   onNoteClick,
   onNoteContextMenu,
+  getNoteTags,
   renderChildren,
 }: FolderItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -240,6 +242,7 @@ export function FolderItem({
               onClick={(e) => onNoteClick(note, e)}
               onContextMenu={(e) => onNoteContextMenu(e, note)}
               level={level + 1}
+              tags={getNoteTags?.(note.path)}
             />
           ))}
         </div>

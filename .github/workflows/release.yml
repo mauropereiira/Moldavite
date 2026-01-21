@@ -33,8 +33,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `${process.env.GITHUB_REF_NAME}`,
-              name: `Notomattic ${process.env.GITHUB_REF_NAME}`,
-              body: `## What's New\n\nSee [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CHANGELOG.md) for details.\n\n## Installation\n\n### macOS\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_aarch64.dmg\` (Apple Silicon) or \`Notomattic_${process.env.PACKAGE_VERSION}_x64.dmg\` (Intel)\n2. Open the DMG and drag to Applications\n3. First launch: Right-click the app → Open → Open (this is only needed once)\n\n### Windows\n1. Download \`Notomattic_${process.env.PACKAGE_VERSION}_x64-setup.exe\` (recommended) or \`.msi\`\n2. Run the installer\n3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
+              name: `Moldavite ${process.env.GITHUB_REF_NAME}`,
+              body: `## What's New\n\nSee [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CHANGELOG.md) for details.\n\n## Installation\n\n### macOS\n1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_aarch64.dmg\` (Apple Silicon) or \`Moldavite_${process.env.PACKAGE_VERSION}_x64.dmg\` (Intel)\n2. Open the DMG and drag to Applications\n3. First launch: Right-click the app → Open → Open (this is only needed once)\n\n### Windows\n1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_x64-setup.exe\` (recommended) or \`.msi\`\n2. Run the installer\n3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
               draft: false,
               prerelease: false
             })

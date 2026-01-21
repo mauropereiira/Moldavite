@@ -1,5 +1,5 @@
 /**
- * React components for Notomattic
+ * React components for Moldavite
  *
  * ## Component Groups
  *

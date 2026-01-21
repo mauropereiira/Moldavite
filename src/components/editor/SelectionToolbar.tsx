@@ -12,6 +12,9 @@ import {
   Quote,
   Code,
   Braces,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 
 interface SelectionToolbarProps {
@@ -55,8 +58,8 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
             return false;
           }
 
-          // Don't show in code blocks
-          if (e.isActive('codeBlock')) {
+          // Don't show in code blocks or when image is selected
+          if (e.isActive('codeBlock') || e.isActive('image')) {
             setIsVisible(false);
             return false;
           }
@@ -187,6 +190,32 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         title="Code Block"
       >
         <Braces className="w-4 h-4" />
+      </button>
+
+      {/* Divider */}
+      <div className="toolbar-divider" />
+
+      {/* Text Alignment */}
+      <button
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        className={`toolbar-button ${editor.isActive({ textAlign: 'left' }) ? 'toolbar-button-active' : ''}`}
+        title="Align Left"
+      >
+        <AlignLeft className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        className={`toolbar-button ${editor.isActive({ textAlign: 'center' }) ? 'toolbar-button-active' : ''}`}
+        title="Align Center"
+      >
+        <AlignCenter className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        className={`toolbar-button ${editor.isActive({ textAlign: 'right' }) ? 'toolbar-button-active' : ''}`}
+        title="Align Right"
+      >
+        <AlignRight className="w-4 h-4" />
       </button>
     </div>
   );

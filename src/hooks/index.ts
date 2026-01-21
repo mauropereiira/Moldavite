@@ -1,5 +1,5 @@
 /**
- * Custom React hooks for Notomattic
+ * Custom React hooks for Moldavite
  *
  * These hooks encapsulate complex logic and provide clean interfaces
  * for components to interact with app features.

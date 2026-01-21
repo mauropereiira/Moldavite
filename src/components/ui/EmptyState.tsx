@@ -160,12 +160,12 @@ export function WelcomeEmptyState({
       icon={({ className }) => (
         <img
           src="/logo.png"
-          alt="Notomattic Logo"
+          alt="Moldavite Logo"
           className={className}
         />
       )}
-      heading="Welcome to Notomattic"
-      message="Your privacy-first note-taking app. All your notes stay on your Mac, never uploaded anywhere."
+      heading="Welcome to Moldavite"
+      message="Your thoughts, forged from cosmic impact. Local-first notes that stay private on your device."
       actions={[
         {
           label: "Today's Note",

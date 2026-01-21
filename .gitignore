@@ -24,21 +24,16 @@ src-tauri/gen/
 **/.DS_Store
 Thumbs.db
 
-# Claude Code configuration
+# Development tools (not needed for users)
 .claude/
 .claudecode/
-
-# Internal documentation
+CLAUDE.md
 docs/
 
 # Temporary/backup files
 *~
 *.tmp
 *.bak
-
-# Old logo files (keep only public/logo.png and public/logo1024.png)
-logo2.png
-Logo3.png
 
 # Logs
 *.log

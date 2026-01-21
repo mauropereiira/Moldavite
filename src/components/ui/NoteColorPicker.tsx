@@ -1,26 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
 
-// Graphite-inspired muted color palette - desaturated, industrial aesthetic
+// Moldavite-inspired color palette - crystal greens, cosmic golds, earth tones
 export const NOTE_COLORS = [
   { id: 'default', name: 'Default', light: 'transparent', dark: 'transparent' },
-  // Warm graphite tones
-  { id: 'warm', name: 'Warm', light: '#f8f6f2', dark: '#2a2826' },
-  { id: 'sand', name: 'Sand', light: '#f5f0e8', dark: '#2c2820' },
-  { id: 'clay', name: 'Clay', light: '#f2ebe4', dark: '#2e2a24' },
-  { id: 'terracotta', name: 'Terracotta', light: '#f0e8e4', dark: '#302826' },
-  // Cool steel tones
-  { id: 'steel', name: 'Steel', light: '#f0f2f4', dark: '#262a2c' },
-  { id: 'slate', name: 'Slate', light: '#eef0f2', dark: '#24282a' },
-  { id: 'mist', name: 'Mist', light: '#ecf0f4', dark: '#222a30' },
-  { id: 'ice', name: 'Ice', light: '#e8f0f4', dark: '#202c32' },
-  { id: 'sky', name: 'Sky', light: '#e4eef4', dark: '#1e2c36' },
-  // Muted accent tones
-  { id: 'sage', name: 'Sage', light: '#e8f0ea', dark: '#222a24' },
-  { id: 'olive', name: 'Olive', light: '#eaefe6', dark: '#262a22' },
-  { id: 'rose', name: 'Rose', light: '#f4eaec', dark: '#2c2426' },
-  { id: 'lavender', name: 'Lavender', light: '#eee8f2', dark: '#28242c' },
-  { id: 'storm', name: 'Storm', light: '#e6e8ea', dark: '#2a2c2e' },
+  // Moldavite crystal greens
+  { id: 'crystal', name: 'Crystal', light: '#e8f0ec', dark: '#1a2a22' },
+  { id: 'moss', name: 'Moss', light: '#e6f0e8', dark: '#1c2a1e' },
+  { id: 'fern', name: 'Fern', light: '#e4efe8', dark: '#1e2c20' },
+  { id: 'forest', name: 'Forest', light: '#e2ede6', dark: '#1a2820' },
+  // Cosmic gold/amber tones
+  { id: 'amber', name: 'Amber', light: '#f4f0e4', dark: '#2a2618' },
+  { id: 'gold', name: 'Gold', light: '#f6f2e6', dark: '#2c281a' },
+  { id: 'honey', name: 'Honey', light: '#f5f0e2', dark: '#2e2a1c' },
+  { id: 'bronze', name: 'Bronze', light: '#f2ece2', dark: '#2a2620' },
+  // Earth tones (Bohemian origin)
+  { id: 'earth', name: 'Earth', light: '#f0ebe6', dark: '#2a2622' },
+  { id: 'stone', name: 'Stone', light: '#eeebe8', dark: '#282624' },
+  { id: 'clay', name: 'Clay', light: '#f0e8e4', dark: '#2c2824' },
+  // Cosmic/space tones
+  { id: 'cosmos', name: 'Cosmos', light: '#e8eaf0', dark: '#1e2028' },
+  { id: 'nebula', name: 'Nebula', light: '#eae8f0', dark: '#22202a' },
+  { id: 'midnight', name: 'Midnight', light: '#e6e8ec', dark: '#1a1c22' },
 ] as const;
 
 export type NoteColorId = (typeof NOTE_COLORS)[number]['id'];

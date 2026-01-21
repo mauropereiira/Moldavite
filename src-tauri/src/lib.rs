@@ -1,4 +1,4 @@
-//! Notomattic - A privacy-first note-taking app
+//! Moldavite - A local-first note-taking app for connected thinking
 //!
 //! This is the main library file that contains all Tauri commands.
 //! The codebase is organized into modules for better maintainability:
@@ -185,6 +185,7 @@ struct ImportResult {
     daily_notes: u32,
     standalone_notes: u32,
     templates: u32,
+    images: u32,
 }
 
 // Note Metadata for colors and other per-note settings
@@ -206,7 +207,7 @@ lazy_static! {
 fn get_config_path() -> PathBuf {
     dirs::config_dir()
         .expect("Could not find config directory")
-        .join("Notomattic")
+        .join("Moldavite")
         .join("config.json")
 }
 
@@ -302,7 +303,7 @@ fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), St
 fn get_default_notes_dir() -> PathBuf {
     dirs::document_dir()
         .expect("Could not find Documents directory")
-        .join("Notomattic")
+        .join("Moldavite")
 }
 
 fn get_notes_dir() -> PathBuf {
@@ -326,6 +327,10 @@ fn get_standalone_dir() -> PathBuf {
 
 fn get_weekly_dir() -> PathBuf {
     get_notes_dir().join("weekly")
+}
+
+fn get_images_dir() -> PathBuf {
+    get_notes_dir().join("images")
 }
 
 fn get_trash_dir() -> PathBuf {
@@ -2316,7 +2321,7 @@ fn export_notes(destination: String) -> Result<String, String> {
         .unix_permissions(0o600);
 
     // Add files from each subdirectory
-    for subdir in ["daily", "notes", "templates"] {
+    for subdir in ["daily", "notes", "templates", "images"] {
         let subdir_path = notes_dir.join(subdir);
         if !subdir_path.exists() {
             continue;
@@ -2361,11 +2366,12 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
         daily_notes: 0,
         standalone_notes: 0,
         templates: 0,
+        images: 0,
     };
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
-        for subdir in ["daily", "notes"] {
+        for subdir in ["daily", "notes", "images"] {
             let subdir_path = notes_dir.join(subdir);
             if subdir_path.exists() {
                 if let Ok(entries) = fs::read_dir(&subdir_path) {
@@ -2397,7 +2403,7 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
         let filename = parts[1];
 
         // Only process valid subdirectories
-        if !["daily", "notes", "templates"].contains(&subdir) {
+        if !["daily", "notes", "templates", "images"].contains(&subdir) {
             continue;
         }
 
@@ -2443,6 +2449,7 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
             "daily" => result.daily_notes += 1,
             "notes" => result.standalone_notes += 1,
             "templates" => result.templates += 1,
+            "images" => result.images += 1,
             _ => {}
         }
     }
@@ -2466,7 +2473,7 @@ fn export_encrypted_backup(destination: String, password: String) -> Result<Stri
             .unix_permissions(0o600);
 
         // Add files from each subdirectory
-        for subdir in ["daily", "notes", "templates", "weekly"] {
+        for subdir in ["daily", "notes", "templates", "weekly", "images"] {
             let subdir_path = notes_dir.join(subdir);
             if !subdir_path.exists() {
                 continue;
@@ -2504,7 +2511,7 @@ fn export_encrypted_backup(destination: String, password: String) -> Result<Stri
     let encrypted = encryption::encrypt_content(&zip_b64, &password)?;
 
     // Add a header to identify encrypted backups
-    let backup_content = format!("NOTOMATTIC_ENCRYPTED_BACKUP_V1\n{}", encrypted);
+    let backup_content = format!("MOLDAVITE_ENCRYPTED_BACKUP_V1\n{}", encrypted);
 
     // Write to destination
     let backup_path = PathBuf::from(&destination);
@@ -2535,7 +2542,7 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
 
     // Verify header and extract encrypted data
     let lines: Vec<&str> = backup_content.splitn(2, '\n').collect();
-    if lines.len() != 2 || lines[0] != "NOTOMATTIC_ENCRYPTED_BACKUP_V1" {
+    if lines.len() != 2 || lines[0] != "MOLDAVITE_ENCRYPTED_BACKUP_V1" {
         return Err("Invalid backup file format".to_string());
     }
     let encrypted = lines[1];
@@ -2556,11 +2563,12 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
         daily_notes: 0,
         standalone_notes: 0,
         templates: 0,
+        images: 0,
     };
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
-        for subdir in ["daily", "notes", "weekly"] {
+        for subdir in ["daily", "notes", "weekly", "images"] {
             let subdir_path = notes_dir.join(subdir);
             if subdir_path.exists() {
                 if let Ok(entries) = fs::read_dir(&subdir_path) {
@@ -2592,7 +2600,7 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
         let filename = parts[1];
 
         // Only process valid subdirectories
-        if !["daily", "notes", "templates", "weekly"].contains(&subdir) {
+        if !["daily", "notes", "templates", "weekly", "images"].contains(&subdir) {
             continue;
         }
 
@@ -2642,6 +2650,7 @@ fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -
             "daily" | "weekly" => result.daily_notes += 1,
             "notes" => result.standalone_notes += 1,
             "templates" => result.templates += 1,
+            "images" => result.images += 1,
             _ => {}
         }
     }
@@ -2791,6 +2800,75 @@ fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     Ok(())
 }
 
+/// Save an image to the images directory
+/// Takes base64-encoded image data and returns the saved file path
+#[tauri::command]
+fn save_image(data: String, filename: String) -> Result<String, String> {
+    // Validate filename - only allow safe characters
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
+
+    // Ensure it has a valid image extension
+    let lower_filename = filename.to_lowercase();
+    let valid_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
+    if !valid_extensions.iter().any(|ext| lower_filename.ends_with(ext)) {
+        return Err("Invalid image format".to_string());
+    }
+
+    // Get or create images directory
+    let images_dir = get_images_dir();
+    fs::create_dir_all(&images_dir).map_err(|e| format!("Failed to create images directory: {}", e))?;
+
+    // Set directory permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o700);
+        let _ = fs::set_permissions(&images_dir, permissions);
+    }
+
+    // Generate unique filename with timestamp to avoid collisions
+    let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f").to_string();
+    let extension = filename.rsplit('.').next().unwrap_or("png");
+    let unique_filename = format!("{}_{}.{}",
+        filename.rsplit('.').last().map(|_| filename.trim_end_matches(&format!(".{}", extension))).unwrap_or("image"),
+        timestamp,
+        extension
+    );
+
+    let file_path = images_dir.join(&unique_filename);
+
+    // Decode base64 data
+    // Handle data URLs (e.g., "data:image/png;base64,...")
+    let base64_data = if data.contains(",") {
+        data.split(',').nth(1).unwrap_or(&data)
+    } else {
+        &data
+    };
+
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let image_bytes = STANDARD.decode(base64_data)
+        .map_err(|e| format!("Failed to decode image data: {}", e))?;
+
+    // Write the image file
+    let mut file = fs::File::create(&file_path)
+        .map_err(|e| format!("Failed to create image file: {}", e))?;
+    file.write_all(&image_bytes)
+        .map_err(|e| format!("Failed to write image data: {}", e))?;
+
+    // Set file permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = fs::Permissions::from_mode(0o600);
+        let _ = fs::set_permissions(&file_path, permissions);
+    }
+
+    // Return the absolute path
+    Ok(file_path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2868,6 +2946,8 @@ pub fn run() {
             get_all_note_colors,
             // Binary file write (PDF export)
             write_binary_file,
+            // Image handling
+            save_image,
             // Apple Calendar (EventKit) commands - macOS only
             #[cfg(target_os = "macos")]
             get_calendar_permission,

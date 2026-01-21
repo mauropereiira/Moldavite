@@ -3,9 +3,9 @@
  */
 
 // Application metadata
-export const APP_NAME = 'Notomattic';
-export const APP_VERSION = '0.1.0 MVP';
-export const APP_DESCRIPTION = 'Privacy-first note-taking app';
+export const APP_NAME = 'Moldavite';
+export const APP_VERSION = '1.0.0';
+export const APP_DESCRIPTION = 'A local-first note-taking app for connected thinking';
 
 // File system
 export const NOTES_DIR = 'notes';

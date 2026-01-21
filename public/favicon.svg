@@ -1,7 +1,170 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#3B82F6"/>
-  <path d="M30 30h40v5H30z" fill="white"/>
-  <path d="M30 45h35v5H30z" fill="white"/>
-  <path d="M30 60h40v5H30z" fill="white"/>
-  <path d="M30 75h25v5H30z" fill="white"/>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main stone gradient -->
+    <linearGradient id="stoneGradient" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#7cb992"/>
+      <stop offset="35%" stop-color="#3d7a52"/>
+      <stop offset="70%" stop-color="#2d5a3d"/>
+      <stop offset="100%" stop-color="#1a3d2e"/>
+    </linearGradient>
+    
+    <!-- Background gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#151d19"/>
+      <stop offset="50%" stop-color="#0a0f0d"/>
+      <stop offset="100%" stop-color="#0d1210"/>
+    </linearGradient>
+    
+    <!-- Highlight gradient for top facet -->
+    <linearGradient id="highlightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9ed4b0"/>
+      <stop offset="100%" stop-color="#7cb992"/>
+    </linearGradient>
+    
+    <!-- Mid facet gradient -->
+    <linearGradient id="midGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5a9970"/>
+      <stop offset="100%" stop-color="#3d7a52"/>
+    </linearGradient>
+    
+    <!-- Deep facet gradient -->
+    <linearGradient id="deepGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3d7a52"/>
+      <stop offset="100%" stop-color="#1a3d2e"/>
+    </linearGradient>
+    
+    <!-- Shadow facet gradient -->
+    <linearGradient id="shadowGradient" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2d5a3d"/>
+      <stop offset="100%" stop-color="#142920"/>
+    </linearGradient>
+    
+    <!-- Cosmic gold accent -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8b923"/>
+      <stop offset="100%" stop-color="#c9a227"/>
+    </linearGradient>
+    
+    <!-- Outer glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    
+    <!-- Subtle inner shadow -->
+    <filter id="innerShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="0" dy="4"/>
+      <feGaussianBlur stdDeviation="8"/>
+      <feComposite operator="out" in="SourceGraphic"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0"/>
+      <feBlend mode="multiply" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners for app icon -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bgGradient)"/>
+  
+  <!-- Subtle radial glow behind stone -->
+  <ellipse cx="512" cy="520" rx="280" ry="300" fill="#2d5a3d" opacity="0.3"/>
+  <ellipse cx="512" cy="512" rx="200" ry="220" fill="#3d7a52" opacity="0.2"/>
+  
+  <!-- Main stone shape - irregular, organic moldavite form -->
+  <!-- Centered and sized to ~70% of icon with padding -->
+  <g filter="url(#glow)">
+    <!-- Base stone shape -->
+    <path d="M512 180 
+             L700 260 
+             L780 420 
+             L750 600 
+             L650 760 
+             L480 820 
+             L320 780 
+             L240 620 
+             L260 400 
+             L360 250 Z" 
+          fill="url(#stoneGradient)"/>
+  </g>
+  
+  <!-- Facet 1: Top highlight (brightest) -->
+  <path d="M512 180 
+           L540 380 
+           L700 260 Z" 
+        fill="url(#highlightGradient)" opacity="0.9"/>
+  
+  <!-- Facet 2: Upper right -->
+  <path d="M700 260 
+           L540 380 
+           L620 480 
+           L780 420 Z" 
+        fill="url(#midGradient)" opacity="0.7"/>
+  
+  <!-- Facet 3: Center right -->
+  <path d="M780 420 
+           L620 480 
+           L660 600 
+           L750 600 Z" 
+        fill="url(#deepGradient)" opacity="0.6"/>
+  
+  <!-- Facet 4: Upper left -->
+  <path d="M360 250 
+           L512 180 
+           L540 380 
+           L440 400 Z" 
+        fill="url(#highlightGradient)" opacity="0.7"/>
+  
+  <!-- Facet 5: Left side -->
+  <path d="M240 620 
+           L260 400 
+           L440 400 
+           L400 560 Z" 
+        fill="url(#shadowGradient)" opacity="0.8"/>
+  
+  <!-- Facet 6: Center -->
+  <path d="M540 380 
+           L620 480 
+           L520 620 
+           L440 400 Z" 
+        fill="url(#deepGradient)" opacity="0.5"/>
+  
+  <!-- Facet 7: Lower center -->
+  <path d="M440 400 
+           L520 620 
+           L400 560 Z" 
+        fill="url(#shadowGradient)" opacity="0.6"/>
+  
+  <!-- Facet 8: Bottom left -->
+  <path d="M320 780 
+           L240 620 
+           L400 560 
+           L420 720 Z" 
+        fill="url(#shadowGradient)" opacity="0.7"/>
+  
+  <!-- Facet 9: Bottom center -->
+  <path d="M480 820 
+           L320 780 
+           L420 720 
+           L520 620 
+           L580 740 Z" 
+        fill="url(#deepGradient)" opacity="0.6"/>
+  
+  <!-- Facet 10: Bottom right -->
+  <path d="M650 760 
+           L480 820 
+           L580 740 
+           L660 600 
+           L750 600 Z" 
+        fill="url(#shadowGradient)" opacity="0.5"/>
+  
+  <!-- Cosmic gold sparkle/highlight (meteor impact reference) -->
+  <path d="M380 280 
+           L420 340 
+           L400 360 
+           L365 300 Z" 
+        fill="url(#goldGradient)" opacity="0.8"/>
+  
+  <!-- Small secondary sparkle -->
+  <circle cx="680" cy="340" r="8" fill="#e8b923" opacity="0.6"/>
+  
+  <!-- Tiny accent sparkle -->
+  <circle cx="340" cy="420" r="5" fill="#c9a227" opacity="0.4"/>
 </svg>

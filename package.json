@@ -1,7 +1,7 @@
 {
-  "name": "notomattic",
-  "version": "0.6.0",
-  "description": "Privacy-first native macOS note-taking app with WYSIWYG editing, daily notes, and calendar integration",
+  "name": "moldavite",
+  "version": "1.0.0",
+  "description": "A local-first note-taking app for connected thinking. Forged from cosmic impact.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,15 +23,21 @@
     "wysiwyg",
     "daily-notes",
     "wiki-links",
-    "tiptap",
-    "privacy"
+    "backlinks",
+    "local-first",
+    "privacy",
+    "moldavite"
   ],
-  "author": "Notomattic Team",
-  "license": "UNLICENSED",
-  "private": true,
+  "author": "Mauro Pereira",
+  "license": "MIT",
+  "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/notomattic/notomattic.git"
+    "url": "git+https://github.com/mauropereira/moldavite.git"
+  },
+  "homepage": "https://github.com/mauropereira/moldavite",
+  "bugs": {
+    "url": "https://github.com/mauropereira/moldavite/issues"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

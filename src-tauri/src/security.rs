@@ -1,4 +1,4 @@
-//! Security utilities for Notomattic
+//! Security utilities for Moldavite
 //!
 //! This module provides brute-force protection through rate limiting
 //! for note unlock attempts.

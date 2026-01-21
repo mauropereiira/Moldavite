@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
     <key>NSCalendarsUsageDescription</key>
-    <string>Notomattic needs access to your calendar to display your events in the timeline.</string>
+    <string>Moldavite needs access to your calendar to display your events in the timeline.</string>
 </dict>
 </plist>

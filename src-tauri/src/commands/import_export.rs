@@ -8,7 +8,7 @@
 //!
 //! # Backup Format
 //! - Standard export: ZIP file containing markdown files
-//! - Encrypted export: `.notomattic-backup` file (AES-256-GCM encrypted)
+//! - Encrypted export: `.moldavite-backup` file (AES-256-GCM encrypted)
 
 use serde::{Deserialize, Serialize};
 
