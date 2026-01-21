@@ -36,7 +36,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFNDcwRUFFRTdEN0U5RkUKUldUKzZkZm5yZzVIdnBGMGkvR2ZVcWJxa3o2YnpUTWszU3p0aGhNaTM1aHQ3cStmRVd5TTh1Z2MK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQxOTIwNjQ3RkVDOUM3MUMKUldRY3g4bitSd2FTMFFONjV0WWhjT3ErS2lqbHB3bDFYREtXVnFmeDlGS2NTZDVOeU5IaS9Ma0wK",
       "endpoints": [
         "https://github.com/mauropereiira/Moldavite/releases/latest/download/latest.json"
       ]
