@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moldavite - Your thoughts, forged from cosmic impact</title>
+  <meta name="description" content="A beautiful, privacy-first note-taking app for macOS. Local-first, no cloud, no tracking.">
+  <meta property="og:title" content="Moldavite">
+  <meta property="og:description" content="Your thoughts, forged from cosmic impact. A privacy-first note-taking app for macOS.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="icon.png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-dark: #0c110e;
+      --bg-card: #131a16;
+      --accent: #2d5a3d;
+      --accent-light: #3d7a52;
+      --accent-glow: #7cb992;
+      --gold: #c9a227;
+      --text-primary: #e8f0ec;
+      --text-secondary: #8a9a8f;
+      --text-muted: #5a6a5f;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px 24px;
+    }
+
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 32px;
+      filter: drop-shadow(0 0 40px rgba(125, 185, 146, 0.3));
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-glow) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      margin-bottom: 48px;
+      font-style: italic;
+    }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--accent);
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.1rem;
+      transition: all 0.2s ease;
+      border: 1px solid var(--accent-light);
+    }
+
+    .download-btn:hover {
+      background: var(--accent-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(45, 90, 61, 0.4);
+    }
+
+    .download-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .platform-note {
+      margin-top: 16px;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* Story */
+    .story {
+      padding: 80px 24px;
+      text-align: center;
+      border-top: 1px solid rgba(138, 154, 143, 0.1);
+    }
+
+    .story p {
+      max-width: 600px;
+      margin: 0 auto;
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    .story strong {
+      color: var(--accent-glow);
+    }
+
+    /* Features */
+    .features {
+      padding: 80px 24px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .feature {
+      background: var(--bg-card);
+      border: 1px solid rgba(138, 154, 143, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+    }
+
+    .feature h3 {
+      font-size: 1.125rem;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .feature p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 24px;
+      text-align: center;
+      border-top: 1px solid rgba(138, 154, 143, 0.1);
+    }
+
+    footer p {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    footer a {
+      color: var(--accent-glow);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+
+    .github-link:hover {
+      color: var(--text-primary);
+    }
+
+    .github-link svg {
+      width: 18px;
+      height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <img src="icon.png" alt="Moldavite" class="logo">
+    <h1>Moldavite</h1>
+    <p class="tagline">Your thoughts, forged from cosmic impact.</p>
+
+    <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="download-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download for Mac
+    </a>
+    <p class="platform-note">macOS 10.15+ · Apple Silicon & Intel</p>
+  </section>
+
+  <section class="story">
+    <div class="container">
+      <p>
+        Moldavite is a rare green gemstone formed 15 million years ago when a meteorite struck Earth.
+        The impact fused terrestrial and extraterrestrial matter into something entirely new.<br><br>
+        This app carries that spirit. Your notes live <strong>only on your Mac</strong>—fused with your workflow,
+        shaped by your thinking, belonging entirely to you.<br><br>
+        No cloud. No accounts. No tracking.
+      </p>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="features-grid">
+      <div class="feature">
+        <h3>Local-first privacy</h3>
+        <p>Notes stored in ~/Documents/Moldavite/. Your data never leaves your device. Period.</p>
+      </div>
+      <div class="feature">
+        <h3>Rich editing</h3>
+        <p>Markdown shortcuts, [[wiki links]], images, code blocks, and task lists.</p>
+      </div>
+      <div class="feature">
+        <h3>Daily notes</h3>
+        <p>One click to today's note. Apple Calendar integration in the sidebar.</p>
+      </div>
+      <div class="feature">
+        <h3>Connected thinking</h3>
+        <p>Backlinks show what connects to what. Folders when you need structure.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a></p>
+    <a href="https://github.com/mauropereiira/Moldavite" class="github-link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+      View on GitHub
+    </a>
+  </footer>
+</body>
+</html>
