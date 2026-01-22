@@ -177,7 +177,7 @@ export function SettingsModal() {
 
   return (
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[100] modal-backdrop-enter"
       onClick={handleBackdropClick}
     >
       <div
