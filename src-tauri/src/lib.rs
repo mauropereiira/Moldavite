@@ -35,6 +35,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read as IoRead, Write as IoWrite};
 use std::path::{Path, PathBuf};
+use zeroize::Zeroizing;
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
 
@@ -275,15 +276,15 @@ fn is_safe_filename(filename: &str) -> bool {
     true
 }
 
-/// Validates that a destination path is within the expected base directory
+/// Validates that a destination path is within the expected base directory.
+/// Also rejects any path component along the way that is itself a symlink,
+/// so pre-placed symlinks inside `base_dir` cannot be used to redirect writes
+/// outside the canonicalized base.
 fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), String> {
-    // Canonicalize the base directory
     let canonical_base = base_dir
         .canonicalize()
         .map_err(|_| "Base directory does not exist".to_string())?;
 
-    // For the destination, we need to check if its parent exists first
-    // since the file itself might not exist yet
     let parent = dest_path
         .parent()
         .ok_or_else(|| "Invalid destination path".to_string())?;
@@ -292,9 +293,24 @@ fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), St
         .canonicalize()
         .map_err(|_| "Destination directory does not exist".to_string())?;
 
-    // The canonical parent must start with the canonical base
     if !canonical_parent.starts_with(&canonical_base) {
         return Err("Path traversal attempt detected".to_string());
+    }
+
+    // Walk the non-canonicalized parent walk-back, rejecting any symlink component
+    // that sits at or below `base_dir`. This closes the gap where canonicalize()
+    // silently follows a symlink that points inside the base (still resolving to a
+    // valid prefix) but whose link target sits outside of it after later operations.
+    let mut cursor = parent.to_path_buf();
+    while cursor.starts_with(base_dir) || cursor == base_dir {
+        if let Ok(meta) = fs::symlink_metadata(&cursor) {
+            if meta.file_type().is_symlink() {
+                return Err("Refusing to traverse a symlink".to_string());
+            }
+        }
+        if !cursor.pop() {
+            break;
+        }
     }
 
     Ok(())
@@ -683,7 +699,13 @@ fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut 
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            // Skip symlinks so we never recurse outside the notes tree.
+            if fs::symlink_metadata(&path).map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                continue;
+            }
+            let Some(filename) = path.file_name().map(|f| f.to_string_lossy().to_string()) else {
+                continue;
+            };
 
             if path.is_dir() {
                 // Skip hidden directories
@@ -839,8 +861,8 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
 
 #[tauri::command]
 fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
-    // Prevent path traversal attacks
-    if filename.contains("..") {
+    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
+    if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
 
@@ -863,8 +885,8 @@ fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String
 
 #[tauri::command]
 fn write_note(filename: String, content: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
-    // Prevent path traversal attacks
-    if filename.contains("..") {
+    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
+    if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
 
@@ -892,8 +914,8 @@ fn write_note(filename: String, content: String, is_daily: bool, is_weekly: bool
 
 #[tauri::command]
 fn delete_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
-    // Prevent path traversal attacks
-    if filename.contains("..") {
+    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
+    if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
 
@@ -918,8 +940,8 @@ fn delete_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), 
 
 #[tauri::command]
 fn trash_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
-    // Prevent path traversal attacks
-    if filename.contains("..") {
+    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
+    if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
 
@@ -1160,7 +1182,12 @@ fn trash_folder(path: String) -> Result<(), String> {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                if fs::symlink_metadata(&path).map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                    continue;
+                }
+                let Some(name) = path.file_name().map(|f| f.to_string_lossy().to_string()) else {
+                    continue;
+                };
                 if path.is_dir() {
                     let sub_path = if relative_path.is_empty() {
                         name.clone()
@@ -1214,6 +1241,9 @@ fn trash_folder(path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn restore_note_from_folder(trash_id: String, note_filename: String) -> Result<(), String> {
+    if !is_safe_filename(&note_filename) {
+        return Err("Invalid note filename".to_string());
+    }
     let mut metadata = read_trash_metadata();
 
     // Find the folder item in metadata
@@ -1390,6 +1420,9 @@ fn create_note(title: String, folder_path: Option<String>) -> Result<String, Str
 
 #[tauri::command]
 fn duplicate_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
     // Determine source directory
     let dir = if is_weekly {
         get_weekly_dir()
@@ -1435,6 +1468,9 @@ fn export_single_note(
     is_daily: bool,
     is_weekly: bool,
 ) -> Result<String, String> {
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
     // Determine source directory
     let dir = if is_weekly {
         get_weekly_dir()
@@ -1453,8 +1489,24 @@ fn export_single_note(
     // Read source content
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
-    // Write to destination
+    // Validate the destination: the caller receives `destination` from the OS save
+    // dialog (plugin-dialog), but this command is also callable from any JS context,
+    // so re-check that the path's parent exists and is writeable by the user.
     let dest_path = Path::new(&destination);
+    let parent = dest_path
+        .parent()
+        .ok_or_else(|| "Invalid destination path".to_string())?;
+    if !parent.is_dir() {
+        return Err("Destination directory does not exist".to_string());
+    }
+    // Only allow writing plain markdown/text via this command.
+    let ext_ok = dest_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "md" | "markdown" | "txt"));
+    if !ext_ok {
+        return Err("Destination must have a .md, .markdown, or .txt extension".to_string());
+    }
     fs::write(dest_path, &content).map_err(|e| e.to_string())?;
 
     Ok(destination)
@@ -1462,6 +1514,9 @@ fn export_single_note(
 
 #[tauri::command]
 fn rename_note(old_filename: String, new_filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    if !is_safe_filename(&old_filename) || !is_safe_filename(&new_filename) {
+        return Err("Invalid filename".to_string());
+    }
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -1523,6 +1578,10 @@ fn scan_folders_recursive(dir: &std::path::Path, relative_path: &str) -> Vec<Fol
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
+            // Skip symlinks so we can't be redirected out of the notes tree.
+            if fs::symlink_metadata(&path).map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                continue;
+            }
             if path.is_dir() {
                 let name = path.file_name()
                     .and_then(|s| s.to_str())
@@ -2006,6 +2065,11 @@ fn fix_note_permissions() -> Result<u32, String> {
 /// Lock a note by encrypting it with a password
 #[tauri::command]
 fn lock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
+    // Zeroize the password buffer when this function returns.
+    let password = Zeroizing::new(password);
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -2057,6 +2121,10 @@ fn lock_note(filename: String, password: String, is_daily: bool, is_weekly: bool
 /// Includes brute-force protection with rate limiting.
 #[tauri::command]
 fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
+    let password = Zeroizing::new(password);
     // Create a unique identifier for this note
     let note_id = format!("{}:{}:{}", if is_weekly { "weekly" } else if is_daily { "daily" } else { "standalone" }, filename, "");
 
@@ -2111,6 +2179,10 @@ fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bo
 /// Includes brute-force protection with rate limiting.
 #[tauri::command]
 fn permanently_unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+    if !is_safe_filename(&filename) {
+        return Err("Invalid filename".to_string());
+    }
+    let password = Zeroizing::new(password);
     // Create a unique identifier for this note (same as unlock_note)
     let note_id = format!("{}:{}:{}", if is_weekly { "weekly" } else if is_daily { "daily" } else { "standalone" }, filename, "");
 
@@ -2183,6 +2255,9 @@ fn permanently_unlock_note(filename: String, password: String, is_daily: bool, i
 /// Check if a note is locked
 #[tauri::command]
 fn is_note_locked(filename: String, is_daily: bool, is_weekly: bool) -> bool {
+    if !is_safe_filename(&filename) {
+        return false;
+    }
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -2219,8 +2294,16 @@ fn set_notes_directory(new_path: String) -> Result<(), String> {
         return Err("Path must be absolute".to_string());
     }
 
-    // Prevent setting to system directories
-    let path_str = new_path.to_lowercase();
+    // Canonicalize before any prefix check so `.` / `..` / symlinks can't bypass
+    // the policy. The target dir may not exist yet, so fall back to the parent.
+    let canonical_candidate = match new_dir.canonicalize() {
+        Ok(p) => p,
+        Err(_) => new_dir
+            .parent()
+            .and_then(|p| p.canonicalize().ok())
+            .unwrap_or_else(|| new_dir.clone()),
+    };
+    let path_str = canonical_candidate.to_string_lossy().to_lowercase();
     let forbidden_prefixes = [
         "/system",
         "/usr",
@@ -2244,11 +2327,12 @@ fn set_notes_directory(new_path: String) -> Result<(), String> {
         }
     }
 
-    // Must be under a user's home directory or /Volumes
+    // Must be under the current user's home directory or /Volumes. The old
+    // policy allowed `/Users/` (any user's home) — tighten to this user's home.
     let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-    let is_valid_location = new_dir.starts_with(&home_dir)
-        || new_dir.starts_with("/Volumes/")
-        || new_dir.starts_with("/Users/");
+    let canonical_home = home_dir.canonicalize().unwrap_or(home_dir.clone());
+    let is_valid_location = canonical_candidate.starts_with(&canonical_home)
+        || canonical_candidate.starts_with("/Volumes/");
 
     if !is_valid_location {
         return Err("Notes directory must be in your home folder or on an external volume".to_string());
@@ -2460,6 +2544,7 @@ fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
 /// Export all notes and templates to an encrypted backup file
 #[tauri::command]
 fn export_encrypted_backup(destination: String, password: String) -> Result<String, String> {
+    let password = Zeroizing::new(password);
     use std::io::Cursor;
 
     let notes_dir = get_notes_dir();
@@ -2532,6 +2617,7 @@ fn export_encrypted_backup(destination: String, password: String) -> Result<Stri
 /// Import notes and templates from an encrypted backup file
 #[tauri::command]
 fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -> Result<ImportResult, String> {
+    let password = Zeroizing::new(password);
     use std::io::Cursor;
 
     let notes_dir = get_notes_dir();
@@ -2750,19 +2836,41 @@ fn get_all_note_colors() -> std::collections::HashMap<String, String> {
     metadata.colors
 }
 
-/// Write binary data to a file (used for PDF export)
-/// The path must be an absolute path and not try to access system directories
+/// Write binary data to a file (used for PDF export).
+///
+/// Hardened: the target must be a PDF, its parent directory must already exist
+/// (so we can canonicalize it), and that canonical parent must not live inside
+/// a sensitive dotfile directory like ~/.ssh, ~/.config, or ~/Library. This
+/// command is callable from any JS context, so the policy can't rely on the
+/// file-save dialog to pick a "sane" path.
 #[tauri::command]
 fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     let file_path = Path::new(&path);
 
-    // Ensure it's an absolute path
     if !file_path.is_absolute() {
         return Err("Path must be absolute".to_string());
     }
 
-    // Prevent writing to system directories
-    let path_str = path.to_lowercase();
+    // Only allow PDF export via this command (filename extension check).
+    let ext_ok = file_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("pdf"));
+    if !ext_ok {
+        return Err("Only .pdf files may be written via this command".to_string());
+    }
+
+    // Parent must exist and be canonicalizable (prevents symlink traversal tricks
+    // since canonicalize resolves symlinks).
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| "Invalid destination path".to_string())?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| "Destination directory does not exist".to_string())?;
+    let canonical_str = canonical_parent.to_string_lossy().to_lowercase();
+
+    // Deny system directories (same list as before, but applied after canonicalization).
     let forbidden_prefixes = [
         "/system",
         "/usr",
@@ -2773,19 +2881,46 @@ fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
         "/private/var",
         "/library",
     ];
-
     for prefix in &forbidden_prefixes {
-        if path_str.starts_with(prefix) {
+        if canonical_str.starts_with(prefix) {
             return Err("Cannot write to system directories".to_string());
         }
     }
 
-    // Create parent directory if it doesn't exist
-    if let Some(parent) = file_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    // Deny writes into sensitive dotfile dirs that provide code-execution
+    // persistence (shell rc, ssh, launch agents, cron, etc.).
+    if let Some(home) = dirs::home_dir() {
+        if let Ok(home_canon) = home.canonicalize() {
+            let forbidden_subpaths = [
+                ".ssh",
+                ".gnupg",
+                ".aws",
+                ".config",
+                ".docker",
+                ".kube",
+                "Library/LaunchAgents",
+                "Library/LaunchDaemons",
+                "Library/Preferences",
+                "Library/Application Support",
+                "Library/Keychains",
+            ];
+            for sub in &forbidden_subpaths {
+                let denied = home_canon.join(sub);
+                if canonical_parent.starts_with(&denied) {
+                    return Err("Cannot write into a protected directory".to_string());
+                }
+            }
+        }
     }
 
-    // Write the binary contents
+    // Any dotfile-prefixed final component is suspicious for PDF export.
+    if let Some(name) = file_path.file_name().and_then(|s| s.to_str()) {
+        if name.starts_with('.') {
+            return Err("Refusing to write a dotfile".to_string());
+        }
+    }
+
+    // Write the binary contents.
     let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
     file.write_all(&contents).map_err(|e| e.to_string())?;
 
