@@ -7,23 +7,8 @@ interface SearchResult {
   note: NoteFile;
   matchType: 'title' | 'content' | 'both';
   contentPreview?: string;
-  highlightedPreview?: string;
-}
-
-/**
- * Escapes special regex characters in a string.
- */
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Highlights search term matches in text with <mark> tags.
- */
-function highlightMatches(text: string, searchTerm: string): string {
-  if (!searchTerm.trim()) return text;
-  const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-  return text.replace(regex, '<mark>$1</mark>');
+  /** The search term that produced this preview, so consumers can highlight safely as React nodes. */
+  previewTerm?: string;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -79,7 +64,6 @@ export function useSearch() {
         const titleMatch = note.name.toLowerCase().includes(searchTerm);
         let contentMatch = false;
         let contentPreview = '';
-        let highlightedPreview = '';
 
         // Check content cache first, then load if needed
         let content = contentCacheRef.current.get(note.path);
@@ -106,8 +90,6 @@ export function useSearch() {
           const start = Math.max(0, matchIndex - 30);
           const end = Math.min(plainContent.length, matchIndex + searchTerm.length + 30);
           contentPreview = (start > 0 ? '...' : '') + plainContent.slice(start, end).trim() + (end < plainContent.length ? '...' : '');
-          // Create highlighted version
-          highlightedPreview = highlightMatches(contentPreview, debouncedQuery.trim());
         }
 
         if (titleMatch || contentMatch) {
@@ -115,7 +97,7 @@ export function useSearch() {
             note,
             matchType: titleMatch && contentMatch ? 'both' : titleMatch ? 'title' : 'content',
             contentPreview: contentMatch ? contentPreview : undefined,
-            highlightedPreview: contentMatch ? highlightedPreview : undefined,
+            previewTerm: contentMatch ? debouncedQuery.trim() : undefined,
           });
         }
       }

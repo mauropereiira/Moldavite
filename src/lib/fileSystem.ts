@@ -1003,16 +1003,30 @@ export async function exportNoteToPdf(
   // Dynamically import html2pdf.js (it's a CJS module)
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Create a container element with proper styling
+  // Build the container safely: title goes via textContent (never innerHTML)
+  // to prevent markup injection; htmlContent is sanitized upstream by markdownToHtml
+  // but we re-sanitize here as defense in depth.
   const container = document.createElement('div');
-  container.innerHTML = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto;">
-      <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a;">${title}</h1>
-      <div style="font-size: 14px; line-height: 1.6; color: #333;">
-        ${htmlContent}
-      </div>
-    </div>
-  `;
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto;";
+
+  const heading = document.createElement('h1');
+  heading.style.cssText = 'font-size: 24px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a;';
+  heading.textContent = title;
+  wrapper.appendChild(heading);
+
+  const body = document.createElement('div');
+  body.style.cssText = 'font-size: 14px; line-height: 1.6; color: #333;';
+  body.innerHTML = DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
+  // Strip remote images from the export DOM to avoid leaking URLs to third parties.
+  body.querySelectorAll('img').forEach((img) => {
+    const src = img.getAttribute('src') ?? '';
+    if (!/^(data:|asset:|blob:|file:|https:\/\/asset\.localhost)/i.test(src)) {
+      img.remove();
+    }
+  });
+  wrapper.appendChild(body);
+  container.appendChild(wrapper);
 
   // Apply some styling fixes for PDF
   container.querySelectorAll('a').forEach(link => {
@@ -1047,7 +1061,9 @@ export async function exportNoteToPdf(
     margin: 10,
     filename: destination,
     image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
+    // useCORS and allowTaint disabled: remote images were already stripped above
+    // to prevent the exporter from leaking image URLs to third-party servers.
+    html2canvas: { scale: 2, useCORS: false, allowTaint: false },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
   };
 
