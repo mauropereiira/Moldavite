@@ -120,7 +120,6 @@ export function useTrash() {
     try {
       const deletedCount = await cleanupOldTrash();
       if (deletedCount > 0) {
-        console.log(`[useTrash] Cleaned up ${deletedCount} old trash items`);
         await loadTrash();
       }
     } catch (error) {

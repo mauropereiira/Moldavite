@@ -133,11 +133,7 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
         }
 
         // Not locked out, return remaining attempts
-        let remaining = if info.attempts >= MAX_ATTEMPTS {
-            0
-        } else {
-            MAX_ATTEMPTS - info.attempts
-        };
+        let remaining = MAX_ATTEMPTS.saturating_sub(info.attempts);
 
         RateLimitResult {
             allowed: true,
@@ -248,40 +244,9 @@ fn cleanup_old_entries(tracker: &mut HashMap<String, AttemptInfo>) {
 
     tracker.retain(|_, info| {
         // Keep entries that are currently locked out or were recently accessed
-        info.locked_until.map_or(false, |until| Instant::now() < until)
+        info.locked_until.is_some_and(|until| Instant::now() < until)
             || info.last_attempt.elapsed() < cleanup_threshold
     });
-}
-
-/// Gets the current status for a note (for UI display).
-///
-/// # Arguments
-/// * `note_id` - Unique identifier for the note
-///
-/// # Returns
-/// A tuple of (remaining_attempts, locked_for_secs) where locked_for_secs is None if not locked
-pub fn get_attempt_status(note_id: &str) -> (u32, Option<u64>) {
-    let tracker = ATTEMPT_TRACKER.lock().unwrap();
-
-    if let Some(info) = tracker.get(note_id) {
-        let locked_for = info.locked_until.and_then(|until| {
-            if Instant::now() < until {
-                Some(until.duration_since(Instant::now()).as_secs() + 1)
-            } else {
-                None
-            }
-        });
-
-        let remaining = if info.attempts >= MAX_ATTEMPTS {
-            0
-        } else {
-            MAX_ATTEMPTS - info.attempts
-        };
-
-        (remaining, locked_for)
-    } else {
-        (MAX_ATTEMPTS, None)
-    }
 }
 
 #[cfg(test)]

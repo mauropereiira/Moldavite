@@ -47,6 +47,10 @@ export default [
         DragEvent: 'readonly',
         ClipboardEvent: 'readonly',
         SVGSVGElement: 'readonly',
+        HTMLImageElement: 'readonly',
+        HTMLAnchorElement: 'readonly',
+        HTMLSpanElement: 'readonly',
+        HTMLParagraphElement: 'readonly',
         // Browser APIs
         Blob: 'readonly',
         File: 'readonly',
@@ -90,6 +94,7 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
       }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
@@ -102,6 +107,8 @@ export default [
       'react/display-name': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/immutability': 'warn',
 
       // General
       'no-console': ['warn', { allow: ['error'] }],
@@ -126,6 +133,7 @@ export default [
       'node_modules/**',
       'src-tauri/target/**',
       'src-tauri/gen/**',
+      '.claude/**',
       '*.config.js',
       '*.config.ts',
     ],
