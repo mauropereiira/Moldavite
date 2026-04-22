@@ -121,8 +121,7 @@ pub fn get_events(
     let end_cstring = CString::new(end_date).map_err(|e| format!("Invalid end date: {}", e))?;
 
     let calendar_id_cstring = calendar_id
-        .map(|id| CString::new(id).ok())
-        .flatten();
+        .and_then(|id| CString::new(id).ok());
 
     let calendar_id_ptr = calendar_id_cstring
         .as_ref()

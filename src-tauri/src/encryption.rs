@@ -35,9 +35,9 @@ fn create_hardened_argon2() -> Argon2<'static> {
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
 
-/// Encrypted note format:
-/// [22 bytes salt (base64)][12 bytes nonce (base64)][encrypted content (base64)]
-/// Stored as: salt$nonce$ciphertext
+// Encrypted note format:
+// [22 bytes salt (base64)][12 bytes nonce (base64)][encrypted content (base64)]
+// Stored as: salt$nonce$ciphertext
 
 /// Encrypts content using AES-256-GCM with Argon2 key derivation.
 ///

@@ -750,7 +750,7 @@ function GeneralSettings() {
               Show save indicator
             </span>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Display "Saving..." when auto-saving
+              Display &quot;Saving...&quot; when auto-saving
             </p>
           </div>
           <Toggle

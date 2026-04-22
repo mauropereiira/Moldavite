@@ -15,7 +15,8 @@ export function useAutoLock() {
   const { autoLockTimeout } = useSettingsStore();
   const { unlockedNotes, lockNote } = useNoteStore();
   const timeoutRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  // Initialized in the effect below (cannot call Date.now() during render).
+  const lastActivityRef = useRef<number | null>(null);
 
   // Reset the inactivity timer
   const resetTimer = useCallback(() => {
@@ -40,7 +41,6 @@ export function useAutoLock() {
       notesToLock.forEach((noteId) => {
         lockNote(noteId);
       });
-      console.log(`[AutoLock] Locked ${notesToLock.length} notes after ${autoLockTimeout} minutes of inactivity`);
     }, timeoutMs);
   }, [autoLockTimeout, unlockedNotes, lockNote]);
 
@@ -51,6 +51,11 @@ export function useAutoLock() {
 
   // Set up event listeners
   useEffect(() => {
+    // Initialize the "last activity" timestamp on mount.
+    if (lastActivityRef.current === null) {
+      lastActivityRef.current = Date.now();
+    }
+
     // Skip if auto-lock is disabled
     if (autoLockTimeout === 0) {
       return;
@@ -98,7 +103,7 @@ export function useAutoLock() {
     if (autoLockTimeout === 0 || unlockedNotes.size === 0) {
       return null;
     }
-    const elapsed = Date.now() - lastActivityRef.current;
+    const elapsed = Date.now() - (lastActivityRef.current ?? Date.now());
     const remaining = (autoLockTimeout * 60 * 1000) - elapsed;
     return Math.max(0, remaining);
   }, [autoLockTimeout, unlockedNotes]);

@@ -5,7 +5,7 @@
 //!
 //! # Module Structure
 //!
-//! - `commands/` - Tauri command modules (types and helpers)
+//! (Tauri command modules live inline in this file.)
 //!   - `notes.rs` - Note CRUD operations
 //!   - `folders.rs` - Folder management
 //!   - `trash.rs` - Trash/recycle bin
@@ -57,9 +57,6 @@ mod security;
 
 /// Shared utilities (paths, config, permissions)
 mod utils;
-
-/// Command modules (types and helpers)
-mod commands;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,15 +127,6 @@ struct Template {
     content: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TemplateFile {
-    id: String,
-    name: String,
-    description: String,
-    icon: String,
-}
-
 #[derive(Debug, Deserialize)]
 struct SaveTemplateInput {
     name: String,
@@ -163,13 +151,6 @@ struct BacklinkInfo {
     from_note: String,
     from_title: String,
     context: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LinkIndex {
-    note: String,
-    links_to: Vec<String>,
 }
 
 // App Configuration for custom notes directory
@@ -746,7 +727,7 @@ fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut 
                         is_locked: true,
                         folder_path,
                     });
-                } else if path.extension().map_or(false, |ext| ext == "md") {
+                } else if path.extension().is_some_and(|ext| ext == "md") {
                     let note_path = if relative_path.is_empty() {
                         format!("notes/{}", filename)
                     } else {
@@ -794,7 +775,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked: true,
                         folder_path: None,
                     });
-                } else if path.extension().map_or(false, |ext| ext == "md") {
+                } else if path.extension().is_some_and(|ext| ext == "md") {
                     let date = filename.strip_suffix(".md").map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: filename.clone(),
@@ -833,7 +814,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked: true,
                         folder_path: None,
                     });
-                } else if path.extension().map_or(false, |ext| ext == "md") {
+                } else if path.extension().is_some_and(|ext| ext == "md") {
                     let week = filename.strip_suffix(".md").map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: filename.clone(),
@@ -1195,7 +1176,7 @@ fn trash_folder(path: String) -> Result<(), String> {
                         format!("{}/{}", relative_path, name)
                     };
                     collect_files(&path, &sub_path, files);
-                } else if path.extension().map_or(false, |ext| ext == "md") {
+                } else if path.extension().is_some_and(|ext| ext == "md") {
                     let file_path = if relative_path.is_empty() {
                         name
                     } else {
@@ -1547,7 +1528,7 @@ fn clear_all_notes() -> Result<(), String> {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
                     fs::remove_file(&path).map_err(|e| e.to_string())?;
                 }
             }
@@ -1560,7 +1541,7 @@ fn clear_all_notes() -> Result<(), String> {
         if let Ok(entries) = fs::read_dir(&standalone_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
                     fs::remove_file(&path).map_err(|e| e.to_string())?;
                 }
             }
@@ -1869,7 +1850,7 @@ fn list_templates() -> Result<Vec<Template>, String> {
         if let Ok(entries) = fs::read_dir(&templates_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "json") {
+                if path.extension().is_some_and(|ext| ext == "json") {
                     if let Ok(content) = fs::read_to_string(&path) {
                         if let Ok(template) = serde_json::from_str::<Template>(&content) {
                             templates.push(template);
@@ -2043,7 +2024,7 @@ fn fix_note_permissions() -> Result<u32, String> {
             if let Ok(entries) = fs::read_dir(&dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().map_or(false, |ext| ext == "md") {
+                    if path.extension().is_some_and(|ext| ext == "md") {
                         let permissions = fs::Permissions::from_mode(0o600);
                         if fs::set_permissions(&path, permissions).is_ok() {
                             fixed_count += 1;
@@ -2967,7 +2948,7 @@ fn save_image(data: String, filename: String) -> Result<String, String> {
     let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f").to_string();
     let extension = filename.rsplit('.').next().unwrap_or("png");
     let unique_filename = format!("{}_{}.{}",
-        filename.rsplit('.').last().map(|_| filename.trim_end_matches(&format!(".{}", extension))).unwrap_or("image"),
+        filename.rsplit('.').next_back().map(|_| filename.trim_end_matches(&format!(".{}", extension))).unwrap_or("image"),
         timestamp,
         extension
     );
@@ -3098,3 +3079,142 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    // ---- is_safe_filename --------------------------------------------------
+
+    #[test]
+    fn is_safe_filename_accepts_simple_names() {
+        assert!(is_safe_filename("note.md"));
+        assert!(is_safe_filename("My Note 2024.md"));
+        assert!(is_safe_filename("a"));
+        assert!(is_safe_filename("日本語.md"));
+    }
+
+    #[test]
+    fn is_safe_filename_rejects_empty() {
+        assert!(!is_safe_filename(""));
+    }
+
+    #[test]
+    fn is_safe_filename_rejects_path_traversal() {
+        assert!(!is_safe_filename(".."));
+        assert!(!is_safe_filename("../secrets.md"));
+        assert!(!is_safe_filename("..\\secrets.md"));
+        assert!(!is_safe_filename("foo/../bar.md"));
+        assert!(!is_safe_filename("notes/..hidden"));
+    }
+
+    #[test]
+    fn is_safe_filename_rejects_absolute_paths() {
+        assert!(!is_safe_filename("/etc/passwd"));
+        assert!(!is_safe_filename("\\Windows\\System32"));
+    }
+
+    #[test]
+    fn is_safe_filename_rejects_directory_separators() {
+        assert!(!is_safe_filename("sub/note.md"));
+        assert!(!is_safe_filename("sub\\note.md"));
+    }
+
+    #[test]
+    fn is_safe_filename_rejects_null_bytes() {
+        assert!(!is_safe_filename("note\0.md"));
+    }
+
+    // ---- validate_path_within_base -----------------------------------------
+
+    fn make_tmp_base() -> PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "moldavite-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&base).unwrap();
+        base
+    }
+
+    #[test]
+    fn validate_path_within_base_accepts_child() {
+        let base = make_tmp_base();
+        let dest = base.join("child.md");
+        // Parent (== base) must exist; dest itself does not need to
+        assert!(validate_path_within_base(&dest, &base).is_ok());
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn validate_path_within_base_accepts_nested_child() {
+        let base = make_tmp_base();
+        let sub = base.join("sub");
+        fs::create_dir_all(&sub).unwrap();
+        let dest = sub.join("note.md");
+        assert!(validate_path_within_base(&dest, &base).is_ok());
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn validate_path_within_base_rejects_sibling() {
+        let base = make_tmp_base();
+        let outside = base.parent().unwrap().join(format!(
+            "moldavite-test-outside-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&outside).unwrap();
+        let dest = outside.join("leak.md");
+        let result = validate_path_within_base(&dest, &base);
+        assert!(result.is_err(), "expected rejection, got {:?}", result);
+        fs::remove_dir_all(&base).ok();
+        fs::remove_dir_all(&outside).ok();
+    }
+
+    #[test]
+    fn validate_path_within_base_rejects_missing_base() {
+        let base = std::env::temp_dir().join(format!(
+            "moldavite-does-not-exist-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let dest = base.join("foo.md");
+        assert!(validate_path_within_base(&dest, &base).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_path_within_base_rejects_symlinked_subdir() {
+        use std::os::unix::fs::symlink;
+
+        let base = make_tmp_base();
+        // Create a real directory outside of base
+        let outside = base.parent().unwrap().join(format!(
+            "moldavite-test-symtarget-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&outside).unwrap();
+
+        // Create a symlink inside base pointing to the outside directory
+        let link = base.join("evil");
+        symlink(&outside, &link).unwrap();
+
+        let dest = link.join("pwned.md");
+        let result = validate_path_within_base(&dest, &base);
+        assert!(result.is_err(), "expected symlink rejection, got {:?}", result);
+
+        fs::remove_dir_all(&base).ok();
+        fs::remove_dir_all(&outside).ok();
+    }
+}
+

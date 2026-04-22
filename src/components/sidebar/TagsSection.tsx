@@ -203,7 +203,7 @@ export function TagsSection({
         <div className="px-3 space-y-0.5 max-h-[240px] overflow-y-auto scrollbar-on-hover">
           {sortedTags.length === 0 ? (
             <div className="py-3 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-              No tags match "{tagSearchQuery}"
+              No tags match &quot;{tagSearchQuery}&quot;
             </div>
           ) : (
             sortedTags.map(([tag, count]) => {

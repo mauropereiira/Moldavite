@@ -172,7 +172,7 @@ export function Sidebar() {
           try {
             content = await readNote(note.name, note.isDaily || false);
             noteContentCacheRef.current.set(note.path, content);
-          } catch (error) {
+          } catch (_error) {
             console.error('[Sidebar] Failed to read note for tags:', note.name);
             content = '';
           }
@@ -669,7 +669,7 @@ export function Sidebar() {
               Delete Note
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Delete "{noteToDelete.name.replace(/\.md$/, '')}"? It will be moved to trash for 7 days.
+              Delete &quot;{noteToDelete.name.replace(/\.md$/, '')}&quot;? It will be moved to trash for 7 days.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -828,7 +828,7 @@ export function Sidebar() {
                 try {
                   await duplicateNote(contextMenuNote);
                   toast.success('Note duplicated');
-                } catch (error) {
+                } catch (_error) {
                   toast.error('Failed to duplicate note');
                 }
                 closeContextMenu();
@@ -862,7 +862,7 @@ export function Sidebar() {
                     );
                     toast.success('Note exported');
                   }
-                } catch (error) {
+                } catch (_error) {
                   toast.error('Failed to export note');
                 }
                 closeContextMenu();
@@ -1114,7 +1114,7 @@ export function Sidebar() {
               Delete Folder
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Delete "{folderToDelete.name}" and all its contents? They will be moved to trash for 7 days.
+              Delete &quot;{folderToDelete.name}&quot; and all its contents? They will be moved to trash for 7 days.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -1411,7 +1411,7 @@ export function Sidebar() {
             onClick={handleTodayClick}
             className="btn btn-primary w-full py-2.5 focus-ring"
           >
-            Today's Note
+            Today&apos;s Note
           </button>
           <button
             onClick={() => setIsCreating(true)}

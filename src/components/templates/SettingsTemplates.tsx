@@ -105,7 +105,7 @@ export function SettingsTemplates({
           Quick Access Templates
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Select templates to show in "Start with a template" picker (max 6)
+          Select templates to show in &quot;Start with a template&quot; picker (max 6)
         </p>
         <div className="space-y-1.5">
           {templates.map((template) => {
@@ -271,7 +271,7 @@ export function SettingsTemplates({
               </h3>
             </div>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Delete "{deletingTemplate.name}"? This cannot be undone.
+              Delete &quot;{deletingTemplate.name}&quot;? This cannot be undone.
             </p>
             {defaultDailyTemplate === deletingTemplate.id && (
               <p className="text-sm text-amber-600 dark:text-amber-400 mb-4 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
