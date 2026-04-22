@@ -608,7 +608,6 @@ export function Editor() {
     },
     onDestroy: () => {
       // Clean up any pending operations when editor is destroyed
-      console.log('[Editor] Editor destroyed');
     },
     onSelectionUpdate: () => {
       // Wrap in try-catch to prevent crashes during selection

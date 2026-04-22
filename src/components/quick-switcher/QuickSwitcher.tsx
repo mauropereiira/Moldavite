@@ -225,8 +225,8 @@ export function QuickSwitcher() {
     close();
     try {
       await loadNote(noteFile);
-    } catch (error) {
-      console.error('[QuickSwitcher] Failed to load note:', error);
+    } catch (_error) {
+      console.error('[QuickSwitcher] Failed to load note:', _error);
     }
   };
 
