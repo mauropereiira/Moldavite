@@ -33,13 +33,16 @@
   "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mauropereira/moldavite.git"
+    "url": "git+https://github.com/mauropereiira/Moldavite.git"
   },
-  "homepage": "https://github.com/mauropereira/moldavite",
+  "homepage": "https://github.com/mauropereiira/Moldavite",
   "bugs": {
-    "url": "https://github.com/mauropereira/moldavite/issues"
+    "url": "https://github.com/mauropereiira/Moldavite/issues"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/instrument-serif": "^5.2.8",
+    "@fontsource/space-mono": "^5.2.9",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-process": "^2",

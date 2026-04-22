@@ -18,6 +18,22 @@ import { TagsSection } from './TagsSection';
 import { BacklinksSection } from './BacklinksSection';
 import type { NoteFile, FolderInfo } from '@/types';
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderHighlightedPreview(text: string, term: string): React.ReactNode {
+  if (!term) return text;
+  const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+  const parts = text.split(regex);
+  // split() with a capture group interleaves: [nonmatch, match, nonmatch, match, ...]
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <mark key={i}>{part}</mark>
+      : <React.Fragment key={i}>{part}</React.Fragment>
+  );
+}
+
 type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
 export function Sidebar() {
@@ -1191,12 +1207,13 @@ export function Sidebar() {
                     onContextMenu={(e) => handleContextMenu(e, result.note)}
                     tags={tagsEnabled ? getNoteTags(result.note.path) : undefined}
                   />
-                  {result.highlightedPreview && (
+                  {result.contentPreview && (
                     <p
                       className="text-xs px-3 pb-1 truncate search-preview"
                       style={{ color: 'var(--text-muted)', marginTop: '-2px' }}
-                      dangerouslySetInnerHTML={{ __html: result.highlightedPreview }}
-                    />
+                    >
+                      {renderHighlightedPreview(result.contentPreview, result.previewTerm ?? '')}
+                    </p>
                   )}
                 </div>
               ))}

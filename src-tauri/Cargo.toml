@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "A local-first note-taking app for connected thinking"
 authors = ["Mauro Pereira"]
 license = "MIT"
-repository = "https://github.com/mauropereira/moldavite"
+repository = "https://github.com/mauropereiira/Moldavite"
 edition = "2021"
 rust-version = "1.77.2"
 
