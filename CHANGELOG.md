@@ -2,6 +2,43 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.0.3] - 2026-04-22
+
+### Security
+- **Path traversal hardening**: replaced weak `..` string checks with a strict
+  `is_safe_filename` validator across every filesystem-touching Tauri command.
+- **Symlink redirect protection**: `validate_path_within_base` now rejects any
+  symlink component along the destination parent chain, preventing pre-placed
+  symlinks from redirecting writes outside the notes directory.
+- **Password zeroization**: unlock / lock / export / import paths now wrap
+  plaintext passwords in `Zeroizing` so they are scrubbed from memory after use.
+- **XSS sink removal**: eliminated `dangerouslySetInnerHTML` in search previews,
+  hardened PDF export (DOMPurify + remote-image strip), and restricted Tiptap
+  link protocols to `http`/`https`/`mailto` with `rel="noopener noreferrer nofollow"`.
+- **Tighter CSP**: dropped wildcard `img-src https:`, removed third-party host
+  allowances, added `form-action 'none'`.
+- **Self-hosted fonts**: replaced Google Fonts CDN with `@fontsource/*` packages
+  — no more third-party font requests at runtime.
+- **PDF export hardening**: `write_binary_file` now canonicalizes, enforces the
+  `.pdf` extension, and rejects dotfile directories.
+- **Notes directory scope**: `set_notes_directory` canonicalizes before the
+  forbidden-prefix check and restricts the destination to the current user's home.
+- Added 11 Rust unit tests covering `is_safe_filename` and
+  `validate_path_within_base` (including symlink redirect rejection).
+
+### Changed
+- Removed ~1000 lines of dead scaffolding (`src-tauri/src/commands/*`) that was
+  never wired into the Tauri handler.
+- Bumped Vite build target to `es2022` / `chrome110` / `safari15` for newer jspdf.
+- Added CI workflow running ESLint + Vite build + `cargo clippy -D warnings`
+  + `cargo test` on every PR.
+
+### Fixed
+- `useAutoLock` no longer violates React's purity rule — the last-activity
+  timestamp is initialized inside the mount effect instead of during render.
+- Corrected `mauropereiira/Moldavite` repository URL in `Cargo.toml` and
+  `package.json` (was `mauropereira/moldavite`).
+
 ## [1.0.0] - 2025-01-21
 
 ### Changed
