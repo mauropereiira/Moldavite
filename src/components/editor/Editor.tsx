@@ -239,6 +239,12 @@ export function Editor() {
       Link.configure({
         openOnClick: true,
         autolink: true,
+        protocols: ['http', 'https', 'mailto'],
+        HTMLAttributes: {
+          rel: 'noopener noreferrer nofollow',
+          target: '_blank',
+        },
+        validate: (href) => /^(https?:|mailto:)/i.test(href),
       }),
       Underline,
       TextAlign.configure({
