@@ -34,7 +34,7 @@ export function useKeyboardShortcuts({
   onInsertLink,
 }: ShortcutOptions) {
   const { setIsSettingsOpen } = useSettingsStore();
-  const { setCurrentNote, notes, setNotes, activeTabId, closeTab } = useNoteStore();
+  const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } = useNoteStore();
   const { open: openQuickSwitcher } = useQuickSwitcherStore();
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -126,6 +126,8 @@ export function useKeyboardShortcuts({
       if (isMod && key === 'w') return 'closeTab';
       if (isMod && key === 't') return 'templatePicker';
       if (isMod && key === 'k') return 'insertLink';
+      if (isMod && e.altKey && (key === 'arrowright' || key === 'arrowdown')) return 'nextTab';
+      if (isMod && e.altKey && (key === 'arrowleft' || key === 'arrowup')) return 'prevTab';
       // Cmd+F is also owned by this list (registered in SHORTCUTS), but the
       // actual focus handler lives in Sidebar.tsx since that's where the
       // input ref is. We intentionally don't handle it here.
@@ -163,6 +165,17 @@ export function useKeyboardShortcuts({
           e.preventDefault();
           onInsertLink?.();
           return;
+        case 'nextTab':
+        case 'prevTab': {
+          if (openTabs.length < 2 || !activeTabId) return;
+          e.preventDefault();
+          const idx = openTabs.findIndex((t) => t.id === activeTabId);
+          if (idx === -1) return;
+          const delta = id === 'nextTab' ? 1 : -1;
+          const nextIdx = (idx + delta + openTabs.length) % openTabs.length;
+          switchTab(openTabs[nextIdx].id);
+          return;
+        }
         // Shortcuts listed in SHORTCUTS but handled elsewhere (e.g. 'search').
         default:
           return;
@@ -189,6 +202,8 @@ export function useKeyboardShortcuts({
     setIsSettingsOpen,
     activeTabId,
     closeTab,
+    openTabs,
+    switchTab,
     openQuickSwitcher,
   ]);
 

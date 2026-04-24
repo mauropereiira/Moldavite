@@ -33,7 +33,9 @@ export type ShortcutId =
   | 'closeTab'
   | 'templatePicker'
   | 'insertLink'
-  | 'shortcutHelp';
+  | 'shortcutHelp'
+  | 'nextTab'
+  | 'prevTab';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -87,6 +89,18 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['⌘', 'T'],
     description: 'Apply a template',
     category: 'files',
+  },
+  {
+    id: 'nextTab',
+    keys: ['⌘', '⌥', '→'],
+    description: 'Switch to the next open tab',
+    category: 'navigation',
+  },
+  {
+    id: 'prevTab',
+    keys: ['⌘', '⌥', '←'],
+    description: 'Switch to the previous open tab',
+    category: 'navigation',
   },
 
   // Editing
