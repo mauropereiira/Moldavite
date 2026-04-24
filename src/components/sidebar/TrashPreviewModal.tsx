@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { X, Undo2, Trash2, FileText, Calendar, Folder } from 'lucide-react';

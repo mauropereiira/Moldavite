@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { useNoteStore, useTemplateStore, useTaskStatusStore } from '@/stores';
 import {
   ensureDirectories,

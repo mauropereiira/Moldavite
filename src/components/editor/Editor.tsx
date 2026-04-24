@@ -8,7 +8,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { Instance } from 'tippy.js';
 import 'tippy.js/dist/tippy.css';

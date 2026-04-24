@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
