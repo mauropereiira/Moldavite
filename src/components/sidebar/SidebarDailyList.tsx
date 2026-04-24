@@ -7,7 +7,7 @@ interface SidebarDailyListProps {
   isCollapsed: boolean;
   onToggleSection: () => void;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
-  onNoteContextMenu: (e: React.MouseEvent, note: NoteFile) => void;
+  onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   isNoteActive: (note: NoteFile) => boolean;
   /** Callback when the user clicks the "Today" shortcut in the section header */
   onOpenToday: () => void;
@@ -63,8 +63,8 @@ export function SidebarDailyList({
               key={note.path}
               note={note}
               isActive={isNoteActive(note)}
-              onClick={(e) => onNoteClick(note, e)}
-              onContextMenu={(e) => onNoteContextMenu(e, note)}
+              onClick={onNoteClick}
+              onContextMenu={onNoteContextMenu}
             />
           ))
         )}
