@@ -30,3 +30,4 @@ export { useFolders } from './useFolders';
 export { useTrash } from './useTrash';
 export { useSidebarContextMenu } from './useSidebarContextMenu';
 export { useSidebarLock } from './useSidebarLock';
+export { useSidebarTags } from './useSidebarTags';

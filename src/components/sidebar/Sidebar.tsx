@@ -1,8 +1,15 @@
 import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
-import { useNotes, useFolders, useTrash, useSidebarContextMenu, useSidebarLock } from '@/hooks';
+import {
+  useNotes,
+  useFolders,
+  useTrash,
+  useSidebarContextMenu,
+  useSidebarLock,
+  useSidebarTags,
+} from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
-import { aggregateTags, hasTag, extractTags, readNote, getNoteTitleError } from '@/lib';
+import { getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
@@ -81,12 +88,12 @@ export function Sidebar() {
     selectedTag,
     selectedTags,
     tagSearchQuery,
-    setAllTags,
     setSelectedTag,
     toggleTag,
     clearFilter: clearTagFilter,
     setTagSearchQuery,
   } = useTagStore();
+  const { getNoteTags, filterByTag } = useSidebarTags(notes);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -133,56 +140,6 @@ export function Sidebar() {
     cleanupOldTrash();
   }, [loadTrash, cleanupOldTrash]);
 
-  // Track note content for tag extraction
-  const noteContentCacheRef = useRef<Map<string, string>>(new Map());
-
-  // Helper to get tags for a specific note from the cache
-  const getNoteTags = (notePath: string): string[] => {
-    const content = noteContentCacheRef.current.get(notePath);
-    if (!content) return [];
-    return extractTags(content);
-  };
-
-  // Aggregate tags from all notes (only when tags are enabled)
-  useEffect(() => {
-    if (!tagsEnabled) {
-      setAllTags(new Map());
-      return;
-    }
-
-    const aggregateAllTags = async () => {
-      const contents: string[] = [];
-
-      for (const note of notes) {
-        if (note.isLocked) continue; // Skip locked notes
-
-        let content = noteContentCacheRef.current.get(note.path);
-        if (content === undefined) {
-          try {
-            content = await readNote(note.name, note.isDaily || false);
-            noteContentCacheRef.current.set(note.path, content);
-          } catch (_error) {
-            console.error('[Sidebar] Failed to read note for tags:', note.name);
-            content = '';
-          }
-        }
-        contents.push(content);
-      }
-
-      const tags = aggregateTags(contents);
-      setAllTags(tags);
-    };
-
-    aggregateAllTags();
-  }, [notes, setAllTags, tagsEnabled]);
-
-  // Clear tag filter when notes change significantly
-  useEffect(() => {
-    if (selectedTag && !allTags.has(selectedTag)) {
-      setSelectedTag(null);
-    }
-  }, [allTags, selectedTag, setSelectedTag]);
-
   const { noteMenu, folderMenu } = useSidebarContextMenu();
 
   // Sort function based on current sort option
@@ -206,19 +163,6 @@ export function Sidebar() {
 
   // Daily notes
   const dailyNotes = useMemo(() => notes.filter((n) => n.isDaily), [notes]);
-
-  // Filter notes by selected tags (AND logic)
-  const filterByTag = useMemo(() => {
-    if (selectedTags.length === 0) return (notes: NoteFile[]) => notes;
-
-    return (notes: NoteFile[]) => {
-      return notes.filter((note) => {
-        const content = noteContentCacheRef.current.get(note.path);
-        if (!content) return false;
-        return selectedTags.every((tag) => hasTag(content, tag));
-      });
-    };
-  }, [selectedTags]);
 
   // Filter notes based on tag (search is handled separately with
   // full-text results from the backend).
