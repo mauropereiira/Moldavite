@@ -21,7 +21,8 @@ import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
 import { MoveToFolderModal } from './MoveToFolderModal';
-import { TrashModal } from './TrashModal';
+import { TrashPopover } from './TrashPopover';
+import { TrashPreviewModal } from './TrashPreviewModal';
 import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
@@ -30,7 +31,7 @@ import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
-import type { NoteFile, FolderInfo } from '@/types';
+import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
 type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
@@ -72,7 +73,6 @@ export function Sidebar() {
     trashNote,
     trashFolder,
     restoreNote,
-    restoreNoteFromFolder,
     permanentlyDelete,
     emptyTrash,
     cleanupOld: cleanupOldTrash,
@@ -115,8 +115,9 @@ export function Sidebar() {
   const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderInfo | null>(null);
 
-  // Trash state
-  const [showTrashModal, setShowTrashModal] = useState(false);
+  // Trash state (popover anchored to footer Trash button + preview modal)
+  const [trashPopoverAnchor, setTrashPopoverAnchor] = useState<HTMLElement | null>(null);
+  const [trashPreviewNote, setTrashPreviewNote] = useState<TrashedNote | null>(null);
 
   // Track target folder for new note creation
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
@@ -264,7 +265,7 @@ export function Sidebar() {
         loadNote(note);
       }
     } else {
-      console.warn('[Sidebar] search match had no matching note in store:', match.path);
+      console.error('[Sidebar] search match had no matching note in store:', match.path);
     }
   };
 
@@ -1220,18 +1221,25 @@ export function Sidebar() {
         onToday={handleTodayClick}
         onNewNote={() => setIsCreating(true)}
         onSettings={() => setIsSettingsOpen(true)}
-        onTrash={() => setShowTrashModal(true)}
+        onTrash={(anchor) => setTrashPopoverAnchor((prev) => (prev ? null : anchor))}
       />
 
-      {/* Trash Modal (will become TrashPopover in step 6) */}
-      <TrashModal
-        isOpen={showTrashModal}
-        onClose={() => setShowTrashModal(false)}
+      {/* Trash popover + read-only preview modal */}
+      <TrashPopover
+        isOpen={trashPopoverAnchor !== null}
+        anchor={trashPopoverAnchor}
         trashedNotes={trashedNotes}
+        onClose={() => setTrashPopoverAnchor(null)}
         onRestore={restoreNote}
-        onRestoreNoteFromFolder={restoreNoteFromFolder}
         onPermanentDelete={permanentlyDelete}
         onEmptyTrash={emptyTrash}
+        onPreview={(note) => setTrashPreviewNote(note)}
+      />
+      <TrashPreviewModal
+        note={trashPreviewNote}
+        onClose={() => setTrashPreviewNote(null)}
+        onRestore={restoreNote}
+        onPermanentDelete={permanentlyDelete}
       />
     </div>
   );
