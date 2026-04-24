@@ -136,6 +136,15 @@ export function useFolders() {
   const moveFolderToFolder = useCallback(
     async (folderPath: string, toFolder?: string) => {
       try {
+        // Frontend guard: refuse to move a folder into itself or any of
+        // its own descendants. Backend also rejects this, but bailing
+        // early avoids a round-trip + misleading error toast.
+        if (toFolder !== undefined) {
+          if (toFolder === folderPath || toFolder.startsWith(`${folderPath}/`)) {
+            toast.error('Cannot move a folder into itself');
+            throw new Error('self-descendant move rejected');
+          }
+        }
         const newPath = await moveFolderApi(folderPath, toFolder);
         // Refresh both folders and notes to reflect new paths
         await initialize();
