@@ -123,3 +123,79 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// Build a throwaway directory under the user's home dir.
+    ///
+    /// We can't use `std::env::temp_dir()` here because on macOS that
+    /// lives under `/private/var/...`, which `validate_user_export_path`
+    /// correctly rejects as a system path. Home-relative dirs aren't on
+    /// the forbidden list (as long as they don't live in `.ssh`, `.config`,
+    /// `Library/LaunchAgents`, etc.), so they exercise the happy path.
+    fn tmp_dir(tag: &str) -> PathBuf {
+        let home = dirs::home_dir().expect("home dir required for these tests");
+        let base = home.join(format!(
+            ".moldavite-validation-test-{}-{}",
+            tag,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&base).unwrap();
+        base
+    }
+
+    #[test]
+    fn user_export_path_accepts_valid_target() {
+        let dir = tmp_dir("valid");
+        let dest = dir.join("export.json");
+        assert!(validate_user_export_path(&dest, "json").is_ok());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_export_path_rejects_relative_path() {
+        let err = validate_user_export_path(Path::new("relative.json"), "json");
+        assert!(err.is_err(), "relative path must be rejected");
+    }
+
+    #[test]
+    fn user_export_path_rejects_wrong_extension() {
+        let dir = tmp_dir("wrong-ext");
+        let dest = dir.join("export.txt");
+        let err = validate_user_export_path(&dest, "json");
+        assert!(err.is_err(), "wrong extension must be rejected");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_export_path_rejects_missing_parent() {
+        let dir = tmp_dir("missing-parent");
+        let dest = dir.join("does-not-exist").join("out.json");
+        let err = validate_user_export_path(&dest, "json");
+        assert!(err.is_err(), "missing parent must be rejected");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_export_path_rejects_dotfile() {
+        let dir = tmp_dir("dotfile");
+        let dest = dir.join(".hidden.json");
+        let err = validate_user_export_path(&dest, "json");
+        assert!(err.is_err(), "dotfile target must be rejected");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_export_path_accepts_case_insensitive_extension() {
+        let dir = tmp_dir("upper-ext");
+        let dest = dir.join("export.JSON");
+        assert!(validate_user_export_path(&dest, "json").is_ok());
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

@@ -107,3 +107,69 @@ pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
 
     String::new()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_wiki_links_plain() {
+        let links = parse_wiki_links("See [[Meeting Notes]] and [[Project Plan]].");
+        assert_eq!(links, vec!["Meeting Notes", "Project Plan"]);
+    }
+
+    #[test]
+    fn parse_wiki_links_with_display_alias() {
+        // [[Display|target]] — the target (after the pipe) wins.
+        let links = parse_wiki_links("Check [[click me|actual-target]] now.");
+        assert_eq!(links, vec!["actual-target"]);
+    }
+
+    #[test]
+    fn parse_wiki_links_ignores_empty_target() {
+        // `[[]]` has an empty capture and must be dropped.
+        let links = parse_wiki_links("Start [[]] then [[Real]] end.");
+        assert_eq!(links, vec!["Real"]);
+    }
+
+    #[test]
+    fn parse_wiki_links_does_not_panic_on_unclosed_brackets() {
+        // Unclosed or garbled input must not panic; we don't over-specify
+        // which links come back from greedy matching.
+        let _ = parse_wiki_links("[[unclosed and [[ok]]");
+    }
+
+    #[test]
+    fn parse_wiki_links_handles_none() {
+        assert!(parse_wiki_links("plain text with no links").is_empty());
+    }
+
+    #[test]
+    fn note_name_to_filename_slugifies() {
+        assert_eq!(note_name_to_filename("Meeting Notes"), "meeting-notes.md");
+        assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
+        // Special chars stripped; spaces become hyphens.
+        assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+    }
+
+    #[test]
+    fn get_link_context_returns_surrounding_chars() {
+        let content = "Some intro text before [[Target Note]] and some more stuff after it.";
+        let context = get_link_context(content, "Target Note");
+        assert!(context.contains("[[Target Note]]"));
+        assert!(context.contains("before"));
+        assert!(context.contains("after"));
+    }
+
+    #[test]
+    fn get_link_context_supports_alias_syntax() {
+        let content = "Start [[label|actual-target]] end.";
+        let context = get_link_context(content, "label");
+        assert!(context.contains("[[label|actual-target]]"));
+    }
+
+    #[test]
+    fn get_link_context_returns_empty_when_missing() {
+        assert_eq!(get_link_context("no matches here", "Nowhere"), "");
+    }
+}
