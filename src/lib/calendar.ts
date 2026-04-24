@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from './ipc';
 import type { CalendarEvent, CalendarInfo, CalendarPermission } from '@/types';
 
 /**

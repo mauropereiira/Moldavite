@@ -8,9 +8,19 @@ import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { ReactRenderer } from '@tiptap/react';
+import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
+import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import tippy, { Instance } from 'tippy.js';
+
+/**
+ * Imperative handle every suggestion list (Tag, WikiLink, Slash) exposes
+ * via `useImperativeHandle` — a single entry point for keydown forwarding.
+ */
+interface SuggestionListHandle {
+  onKeyDown: (event: KeyboardEvent) => boolean;
+}
 import 'tippy.js/dist/tippy.css';
 import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
@@ -34,6 +44,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
+import { BacklinksPanel } from '@/components/backlinks';
 
 export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
@@ -298,7 +309,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<TagItem>) => {
                 try {
                   component = new ReactRenderer(TagSuggestionList, {
                     props,
@@ -310,7 +321,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -324,7 +335,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<TagItem>) {
                 try {
                   component?.updateProps(props);
 
@@ -333,21 +344,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[TagSuggestion] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[TagSuggestion] onKeyDown error:', error);
                   return false;
@@ -370,8 +381,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const tag = props as TagItem;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: TagItem }) => {
+            const tag = props;
             // Insert the tag text (the # is already typed, just add the name)
             editor
               .chain()
@@ -401,7 +412,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<NoteFile>) => {
                 try {
                   component = new ReactRenderer(WikiLinkSuggestionList, {
                     props,
@@ -413,7 +424,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -427,7 +438,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<NoteFile>) {
                 try {
                   component?.updateProps(props);
 
@@ -436,21 +447,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[WikiLinkSuggestion] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[WikiLinkSuggestion] onKeyDown error:', error);
                   return false;
@@ -475,8 +486,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const note = props as NoteFile;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: NoteFile }) => {
+            const note = props;
             const noteName = note.name.replace('.md', '');
 
             editor
@@ -504,7 +515,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<SlashCommandItem>) => {
                 try {
                   component = new ReactRenderer(SlashCommandList, {
                     props: {
@@ -519,7 +530,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -533,7 +544,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<SlashCommandItem>) {
                 try {
                   component?.updateProps({
                     ...props,
@@ -545,21 +556,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[SlashCommands] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[SlashCommands] onKeyDown error:', error);
                   return false;
@@ -582,8 +593,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const item = props as SlashCommandItem;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: SlashCommandItem }) => {
+            const item = props;
             // Delete the "/" and run the command
             editor.chain().focus().deleteRange(range).run();
             item.command(editor);
@@ -743,6 +754,54 @@ export function Editor() {
     }
   }, [editor, currentNote?.id]);
 
+  // Resolve wiki-link existence once the note is loaded so stale links render
+  // with the `wiki-link-missing` style and live ones with `wiki-link-exists`.
+  // We match the in-memory notes list (already authoritative) rather than
+  // round-tripping to the backend — resolution is O(links × notes) but
+  // typical notes have a handful of wiki links.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (!currentNote) return;
+
+    const raf = requestAnimationFrame(() => {
+      if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+
+      const currentNotes = notesRef.current;
+      const slugify = (s: string) =>
+        s.toLowerCase().replace(/\.md$/, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+      const updates: Array<{ pos: number; exists: string }> = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== 'wikiLink') return;
+        const target = (node.attrs['data-target'] || '') as string;
+        if (!target) return;
+        const targetSlug = slugify(target);
+        const found = currentNotes.some(
+          (n) => n.name === target || slugify(n.name) === targetSlug,
+        );
+        const nextExists = found ? 'true' : 'false';
+        if (node.attrs['data-exists'] !== nextExists) {
+          updates.push({ pos, exists: nextExists });
+        }
+      });
+
+      if (updates.length === 0) return;
+
+      const { tr } = editor.state;
+      for (const { pos, exists } of updates) {
+        const node = editor.state.doc.nodeAt(pos);
+        if (!node) continue;
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, 'data-exists': exists });
+      }
+      // Mark the transaction as an internal metadata change so it doesn't
+      // trigger onUpdate -> autosave churn.
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [editor, currentNote?.id, notes]);
+
   // Auto-save hook
   useAutoSave();
 
@@ -864,10 +923,13 @@ export function Editor() {
           {editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
-        {/* Inline template picker for empty notes */}
+        {/* Inline template picker for empty notes.
+            z-10 keeps it above the editor content but below modals/popovers
+            (which use z-[9999]). Previously z-50 caused it to paint over
+            Settings / Trash / other floating UI. */}
         {showInlineTemplatePicker && (
           <div
-            className="absolute inset-0 flex items-center justify-center z-50"
+            className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
@@ -888,6 +950,9 @@ export function Editor() {
           </div>
         )}
       </div>
+
+      {/* Backlinks panel sits below the editor scroll area, above the footer. */}
+      <BacklinksPanel />
 
       {/* Footer with save status, toolbar, and word count */}
       <EditorFooter

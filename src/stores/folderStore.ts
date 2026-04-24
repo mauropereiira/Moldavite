@@ -8,6 +8,7 @@ interface FolderState {
   sectionsCollapsed: {
     notes: boolean;
     folders: boolean;
+    daily: boolean;
     tags: boolean;
     backlinks: boolean;
   };
@@ -17,7 +18,7 @@ interface FolderState {
   toggleFolder: (path: string) => void;
   expandFolder: (path: string) => void;
   collapseFolder: (path: string) => void;
-  toggleSection: (section: 'notes' | 'folders' | 'tags' | 'backlinks') => void;
+  toggleSection: (section: 'notes' | 'folders' | 'daily' | 'tags' | 'backlinks') => void;
   setExpandedFolders: (paths: string[]) => void;
 }
 
@@ -29,6 +30,7 @@ export const useFolderStore = create<FolderState>()(
       sectionsCollapsed: {
         notes: false,
         folders: false,
+        daily: true,
         tags: false,
         backlinks: false,
       },

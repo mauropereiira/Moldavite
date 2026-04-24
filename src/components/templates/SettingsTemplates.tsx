@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Edit2, Trash2, AlertCircle, Loader2, Pin, PinOff } from 'lucide-react';
+import { Edit2, Trash2, AlertCircle, Loader2, Pin, PinOff, Plus } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { Template } from '@/types/template';
 import { TemplateIcon } from './TemplateIcon';
 import { EditTemplateModal } from './EditTemplateModal';
+import { TemplateEditorModal } from '@/components/settings/TemplateEditorModal';
 import { useToast } from '@/hooks/useToast';
 
 interface SettingsTemplatesProps {
@@ -32,6 +33,7 @@ export function SettingsTemplates({
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const toast = useToast();
 
@@ -182,9 +184,18 @@ export function SettingsTemplates({
 
       {/* Custom Templates */}
       <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-          Custom Templates ({customTemplates.length})
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+            Custom Templates ({customTemplates.length})
+          </h3>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors focus-ring"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New template
+          </button>
+        </div>
 
         {customTemplates.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
@@ -250,6 +261,12 @@ export function SettingsTemplates({
         onClose={() => setEditingTemplate(null)}
         template={editingTemplate}
         onSave={handleUpdateTemplate}
+      />
+
+      {/* New Template Modal */}
+      <TemplateEditorModal
+        isOpen={isCreating}
+        onClose={() => setIsCreating(false)}
       />
 
       {/* Delete Confirmation Modal */}

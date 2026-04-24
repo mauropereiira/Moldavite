@@ -20,6 +20,8 @@ export interface NoteFile {
   week?: string;
   isLocked: boolean;
   folderPath?: string;
+  /** Unix timestamp (seconds) of last filesystem modification, if known. */
+  modifiedAt?: number;
 }
 
 export interface FolderInfo {

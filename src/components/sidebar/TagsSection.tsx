@@ -188,6 +188,7 @@ export function TagsSection({
             {tagSearchQuery && (
               <button
                 onClick={() => onSearchChange('')}
+                aria-label="Clear tag search"
                 className="p-0.5 rounded transition-colors"
                 style={{ color: 'var(--text-muted)' }}
                 onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}

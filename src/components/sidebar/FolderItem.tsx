@@ -14,7 +14,8 @@ interface FolderItemProps {
   notes: NoteFile[];
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
-  onNoteContextMenu: (e: React.MouseEvent, note: NoteFile) => void;
+  onNoteSelectionClick?: (note: NoteFile, e: React.MouseEvent) => void;
+  onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
   renderChildren?: React.ReactNode;
 }
@@ -30,6 +31,7 @@ export function FolderItem({
   notes,
   isNoteActive,
   onNoteClick,
+  onNoteSelectionClick,
   onNoteContextMenu,
   getNoteTags,
   renderChildren,
@@ -239,8 +241,9 @@ export function FolderItem({
               key={note.path}
               note={note}
               isActive={isNoteActive(note)}
-              onClick={(e) => onNoteClick(note, e)}
-              onContextMenu={(e) => onNoteContextMenu(e, note)}
+              onClick={onNoteClick}
+              onSelectionClick={onNoteSelectionClick}
+              onContextMenu={onNoteContextMenu}
               level={level + 1}
               tags={getNoteTags?.(note.path)}
             />
