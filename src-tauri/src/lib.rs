@@ -70,6 +70,18 @@ pub struct NoteFile {
     week: Option<String>,
     is_locked: bool,
     folder_path: Option<String>,
+    /// Unix timestamp (seconds) of last filesystem modification, if known.
+    modified_at: Option<i64>,
+}
+
+fn file_modified_unix(path: &Path) -> Option<i64> {
+    fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs() as i64)
 }
 
 // Folder System Data Structures
@@ -710,6 +722,8 @@ fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut 
                     Some(relative_path.to_string())
                 };
 
+                let modified_at = file_modified_unix(&path);
+
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
                     let base_name = filename.strip_suffix(".locked").unwrap().to_string();
@@ -727,6 +741,7 @@ fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut 
                         week: None,
                         is_locked: true,
                         folder_path,
+                        modified_at,
                     });
                 } else if path.extension().is_some_and(|ext| ext == "md") {
                     let note_path = if relative_path.is_empty() {
@@ -743,6 +758,7 @@ fn scan_notes_recursive(dir: &std::path::Path, relative_path: &str, notes: &mut 
                         week: None,
                         is_locked: false,
                         folder_path,
+                        modified_at,
                     });
                 }
             }
@@ -761,6 +777,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let filename = path.file_name().unwrap().to_string_lossy().to_string();
+                let modified_at = file_modified_unix(&path);
 
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
@@ -775,6 +792,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         week: None,
                         is_locked: true,
                         folder_path: None,
+                        modified_at,
                     });
                 } else if path.extension().is_some_and(|ext| ext == "md") {
                     let date = filename.strip_suffix(".md").map(|s| s.to_string());
@@ -787,6 +805,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         week: None,
                         is_locked: false,
                         folder_path: None,
+                        modified_at,
                     });
                 }
             }
@@ -800,6 +819,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let filename = path.file_name().unwrap().to_string_lossy().to_string();
+                let modified_at = file_modified_unix(&path);
 
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
@@ -814,6 +834,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         week,
                         is_locked: true,
                         folder_path: None,
+                        modified_at,
                     });
                 } else if path.extension().is_some_and(|ext| ext == "md") {
                     let week = filename.strip_suffix(".md").map(|s| s.to_string());
@@ -826,6 +847,7 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
                         week,
                         is_locked: false,
                         folder_path: None,
+                        modified_at,
                     });
                 }
             }
