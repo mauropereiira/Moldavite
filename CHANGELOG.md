@@ -2,6 +2,48 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.1.0] - 2026-04-23
+
+### Added
+- **Full-text search** across notes with ranked content matches and snippets
+  (new `search_notes_content` Tauri command, powered by `walkdir` + regex).
+  Locked notes and trashed notes are excluded from results.
+- **Sidebar redesign**: dedicated sections for Search, Notes (standalone),
+  Folders, Daily, and Tags, with a footer containing [Today / New] and
+  [Settings / Trash] actions.
+- **Trash popover** with read-only preview of deleted notes (Tiptap editor in
+  `editable: false` mode, markdown rendered through `markdown-it` + DOMPurify).
+  Restore sends a note back to the live list; permanent delete is one click.
+- **Folder tree with drag-and-drop**: move notes between folders and reorganise
+  the hierarchy from the sidebar.
+- **Timeline view**: chronological feed of all notes bucketed by Today /
+  Yesterday / This Week / This Month / Earlier, with macOS EventKit
+  integration surfacing calendar events alongside notes.
+- **Backlinks panel** below the editor showing every note that links to the
+  current one.
+- **PDF export** from the editor overflow menu (hardened via the existing
+  `write_binary_file` command).
+- **Shortcut help modal** (`⌘/Ctrl + ?`) listing every keyboard shortcut,
+  driven by a new central `shortcuts.ts` registry.
+- **Custom template editor** under Settings → Templates.
+- **Settings JSON export / import**: back up and restore your preferences,
+  theme, folders and pinned tabs as a JSON file (new `export_settings_json` /
+  `import_settings_json` Tauri commands, scoped to the `moldavite-*`
+  `localStorage` keys — notes are not included).
+- **NoteFile.modified_at** is now exposed to the frontend so non-daily notes
+  can be bucketed by actual filesystem mtime in the timeline view.
+
+### Fixed
+- Empty-note template suggestion buttons no longer overlap the Settings / Trash
+  popovers (z-index regression).
+
+### Changed
+- Added `walkdir = "2.5"` to the Rust dependency set for recursive content
+  search.
+- Added 7 new Rust unit tests covering the content-search command (case
+  handling, ranking, trash/locked exclusion, `max_results`, folder path
+  reporting).
+
 ## [1.0.3] - 2026-04-22
 
 ### Security

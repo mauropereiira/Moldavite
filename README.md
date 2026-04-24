@@ -43,7 +43,17 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Daily notes** — One click to today's note. Apple Calendar in the sidebar.
 
-**Connected thinking** — Backlinks show what links to what. Folders when you need them.
+**Connected thinking** — Backlinks panel shows every note that links to the current one. Folders when you need them, tags when you don't.
+
+**Full-text search** — Ranked content search across every note, with snippets.
+
+**Timeline** — Chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier, with calendar events inline on macOS.
+
+**Trash with previews** — Deleted notes sit in a sidebar popover for 7 days with read-only previews before permanent delete.
+
+**Encrypted backups** — Export your entire vault as a password-protected AES-256 archive. Settings can be exported as JSON for cross-device sync.
+
+**Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
 ---
 

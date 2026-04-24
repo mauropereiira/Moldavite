@@ -3142,6 +3142,103 @@ fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     Ok(())
 }
 
+/// Validate that `path` is a safe absolute destination for a user-chosen
+/// export file with the given extension. Shared by settings JSON export.
+fn validate_user_export_path(path: &Path, required_ext: &str) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+    let ext_ok = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(required_ext));
+    if !ext_ok {
+        return Err(format!("Only .{} files may be written via this command", required_ext));
+    }
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid destination path".to_string())?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| "Destination directory does not exist".to_string())?;
+    let canonical_str = canonical_parent.to_string_lossy().to_lowercase();
+    let forbidden_prefixes = [
+        "/system", "/usr", "/bin", "/sbin", "/etc", "/var", "/private/var", "/library",
+    ];
+    for prefix in &forbidden_prefixes {
+        if canonical_str.starts_with(prefix) {
+            return Err("Cannot write to system directories".to_string());
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        if let Ok(home_canon) = home.canonicalize() {
+            let forbidden_subpaths = [
+                ".ssh", ".gnupg", ".aws", ".config", ".docker", ".kube",
+                "Library/LaunchAgents", "Library/LaunchDaemons",
+                "Library/Preferences", "Library/Application Support", "Library/Keychains",
+            ];
+            for sub in &forbidden_subpaths {
+                let denied = home_canon.join(sub);
+                if canonical_parent.starts_with(&denied) {
+                    return Err("Cannot write into a protected directory".to_string());
+                }
+            }
+        }
+    }
+    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+        if name.starts_with('.') {
+            return Err("Refusing to write a dotfile".to_string());
+        }
+    }
+    Ok(())
+}
+
+/// Write a settings JSON file to a user-chosen path.
+#[tauri::command]
+fn export_settings_json(path: String, json: String) -> Result<(), String> {
+    let file_path = Path::new(&path);
+    validate_user_export_path(file_path, "json")?;
+
+    // Reject oversized payloads (settings JSON should be tiny).
+    if json.len() > 2 * 1024 * 1024 {
+        return Err("Settings JSON too large".to_string());
+    }
+
+    let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
+    file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(file_path, fs::Permissions::from_mode(0o644));
+    }
+    Ok(())
+}
+
+/// Read a settings JSON file from a user-chosen path.
+#[tauri::command]
+fn import_settings_json(path: String) -> Result<String, String> {
+    let file_path = Path::new(&path);
+    if !file_path.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+    let ext_ok = file_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("json"));
+    if !ext_ok {
+        return Err("Only .json files may be read via this command".to_string());
+    }
+    // Reject symlinks.
+    let meta = fs::symlink_metadata(file_path).map_err(|e| e.to_string())?;
+    if meta.file_type().is_symlink() {
+        return Err("Refusing to read a symlinked file".to_string());
+    }
+    if meta.len() > 2 * 1024 * 1024 {
+        return Err("Settings JSON too large".to_string());
+    }
+    fs::read_to_string(file_path).map_err(|e| e.to_string())
+}
+
 /// Save an image to the images directory
 /// Takes base64-encoded image data and returns the saved file path
 #[tauri::command]
@@ -3290,6 +3387,9 @@ pub fn run() {
             get_all_note_colors,
             // Binary file write (PDF export)
             write_binary_file,
+            // Settings JSON export / import
+            export_settings_json,
+            import_settings_json,
             // Image handling
             save_image,
             // Apple Calendar (EventKit) commands - macOS only
