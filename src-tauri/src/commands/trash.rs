@@ -1,7 +1,11 @@
 //! Trash (recycle bin) commands.
 
 use std::fs;
+use std::sync::Arc;
 
+use tauri::State;
+
+use crate::backlinks_index::BacklinksIndex;
 use crate::paths::{
     ensure_trash_dir, get_daily_dir, get_standalone_dir, get_trash_dir, get_weekly_dir,
 };
@@ -10,7 +14,12 @@ use crate::types::{TrashMetadata, TrashedNote, TrashedNoteMetadata};
 use crate::validation::{is_safe_filename, validate_path_within_base};
 
 #[tauri::command]
-pub(crate) fn trash_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+pub(crate) fn trash_note(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
@@ -45,13 +54,15 @@ pub(crate) fn trash_note(filename: String, is_daily: bool, is_weekly: bool) -> R
     metadata.items.push(TrashedNoteMetadata {
         id: id.clone(),
         filename: filename.clone(),
-        original_path: filename,
+        original_path: filename.clone(),
         is_daily,
         is_folder: false,
         contained_files: Vec::new(),
         trashed_at: chrono::Utc::now().timestamp(),
     });
     write_trash_metadata(&metadata)?;
+
+    index.remove_note(&filename);
 
     Ok(())
 }
@@ -120,7 +131,10 @@ pub(crate) fn read_trashed_note(trash_id: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub(crate) fn restore_note(trash_id: String) -> Result<(), String> {
+pub(crate) fn restore_note(
+    trash_id: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     let mut metadata = read_trash_metadata();
 
     // Find the item in metadata
@@ -158,6 +172,9 @@ pub(crate) fn restore_note(trash_id: String) -> Result<(), String> {
 
         // Move folder back
         fs::rename(&trash_path, &dest_path).map_err(|e| format!("Failed to restore folder: {}", e))?;
+
+        // Re-index every contained .md file by walking the restored folder.
+        reindex_folder(&dest_path, &index);
     } else {
         // Ensure parent directory exists for notes in folders
         let dest_path = dest_dir.join(&item.original_path);
@@ -167,6 +184,11 @@ pub(crate) fn restore_note(trash_id: String) -> Result<(), String> {
 
         // Move file back
         fs::rename(&trash_path, &dest_path).map_err(|e| format!("Failed to restore: {}", e))?;
+
+        if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+            let content = fs::read_to_string(&dest_path).unwrap_or_default();
+            index.update_note(name, &content);
+        }
     }
 
     // Update metadata
@@ -174,6 +196,29 @@ pub(crate) fn restore_note(trash_id: String) -> Result<(), String> {
     write_trash_metadata(&metadata)?;
 
     Ok(())
+}
+
+fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if fs::symlink_metadata(&path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if path.is_dir() {
+            reindex_folder(&path, index);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("md") {
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                let content = fs::read_to_string(&path).unwrap_or_default();
+                index.update_note(name, &content);
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -267,7 +312,10 @@ pub(crate) fn cleanup_old_trash() -> Result<u32, String> {
 }
 
 #[tauri::command]
-pub(crate) fn trash_folder(path: String) -> Result<(), String> {
+pub(crate) fn trash_folder(
+    path: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     // Prevent path traversal attacks
     if path.contains("..") {
         return Err("Invalid folder path".to_string());
@@ -339,16 +387,32 @@ pub(crate) fn trash_folder(path: String) -> Result<(), String> {
         original_path: path,
         is_daily: false,
         is_folder: true,
-        contained_files,
+        contained_files: contained_files.clone(),
         trashed_at: chrono::Utc::now().timestamp(),
     });
     write_trash_metadata(&metadata)?;
+
+    // Remove every trashed note from the backlinks index. `contained_files`
+    // entries are relative paths inside the folder; we only care about the
+    // leaf .md filename for index keying.
+    for rel in &contained_files {
+        if let Some(name) = std::path::Path::new(rel)
+            .file_name()
+            .and_then(|s| s.to_str())
+        {
+            index.remove_note(name);
+        }
+    }
 
     Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn restore_note_from_folder(trash_id: String, note_filename: String) -> Result<(), String> {
+pub(crate) fn restore_note_from_folder(
+    trash_id: String,
+    note_filename: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     if !is_safe_filename(&note_filename) {
         return Err("Invalid note filename".to_string());
     }
@@ -386,6 +450,12 @@ pub(crate) fn restore_note_from_folder(trash_id: String, note_filename: String) 
 
     // Move just this note to the root
     fs::rename(&note_path_in_trash, &dest_path).map_err(|e| format!("Failed to restore note: {}", e))?;
+
+    // Re-index the restored note.
+    if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+        let content = fs::read_to_string(&dest_path).unwrap_or_default();
+        index.update_note(name, &content);
+    }
 
     // Update the contained_files list in metadata
     let item = &mut metadata.items[item_index];
