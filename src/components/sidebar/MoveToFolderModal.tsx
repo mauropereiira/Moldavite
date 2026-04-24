@@ -7,7 +7,10 @@ interface MoveToFolderModalProps {
   onClose: () => void;
   onSelect: (folderPath: string | null) => void;
   folders: FolderInfo[];
-  noteFilename: string;
+  /** Single-note mode: filename shown in the body copy. */
+  noteFilename?: string;
+  /** Bulk mode: count of notes being moved; takes precedence over noteFilename. */
+  bulkCount?: number;
 }
 
 function FolderOption({
@@ -86,6 +89,7 @@ export function MoveToFolderModal({
   onSelect,
   folders,
   noteFilename,
+  bulkCount,
 }: MoveToFolderModalProps) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -119,7 +123,7 @@ export function MoveToFolderModal({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Move Note
+            {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
           </h2>
           <button
             onClick={onClose}
@@ -132,7 +136,9 @@ export function MoveToFolderModal({
         {/* Content */}
         <div className="p-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Select a destination for &quot;{noteFilename.replace(/\.md$/, '')}&quot;
+            {bulkCount && bulkCount > 1
+              ? `Select a destination for ${bulkCount} notes`
+              : `Select a destination for "${(noteFilename ?? '').replace(/\.md$/, '')}"`}
           </p>
 
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-64 overflow-y-auto">

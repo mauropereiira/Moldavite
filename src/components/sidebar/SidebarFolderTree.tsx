@@ -17,6 +17,7 @@ interface SidebarFolderTreeProps {
   onFolderDrop: (folderPath: string, toFolder: string) => void;
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
+  onNoteSelectionClick?: (note: NoteFile, e: React.MouseEvent) => void;
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
   isDragOverFoldersRoot: boolean;
@@ -48,6 +49,7 @@ export function SidebarFolderTree({
   onFolderDrop,
   isNoteActive,
   onNoteClick,
+  onNoteSelectionClick,
   onNoteContextMenu,
   getNoteTags,
   isDragOverFoldersRoot,
@@ -98,6 +100,7 @@ export function SidebarFolderTree({
             onFolderDrop={onFolderDrop}
             isNoteActive={isNoteActive}
             onNoteClick={onNoteClick}
+            onNoteSelectionClick={onNoteSelectionClick}
             onNoteContextMenu={onNoteContextMenu}
             getNoteTags={getNoteTags}
           />

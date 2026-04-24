@@ -17,6 +17,7 @@ interface SidebarNotesListProps {
   onSortToggle: () => void;
   onNewNote: () => void;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
+  onNoteSelectionClick?: (note: NoteFile, e: React.MouseEvent) => void;
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   isNoteActive: (note: NoteFile) => boolean;
   getNoteTags?: (notePath: string) => string[];
@@ -48,6 +49,7 @@ export function SidebarNotesList({
   onSortToggle,
   onNewNote,
   onNoteClick,
+  onNoteSelectionClick,
   onNoteContextMenu,
   isNoteActive,
   getNoteTags,
@@ -125,6 +127,7 @@ export function SidebarNotesList({
             note={note}
             isActive={isNoteActive(note)}
             onClick={onNoteClick}
+            onSelectionClick={onNoteSelectionClick}
             onContextMenu={onNoteContextMenu}
             tags={getNoteTags ? getNoteTags(note.path) : undefined}
           />

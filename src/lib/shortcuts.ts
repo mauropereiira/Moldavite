@@ -35,7 +35,8 @@ export type ShortcutId =
   | 'insertLink'
   | 'shortcutHelp'
   | 'nextTab'
-  | 'prevTab';
+  | 'prevTab'
+  | 'clearSelection';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -100,6 +101,14 @@ export const SHORTCUTS: Shortcut[] = [
     id: 'prevTab',
     keys: ['⌘', '⌥', '←'],
     description: 'Switch to the previous open tab',
+    category: 'navigation',
+  },
+
+  // Selection
+  {
+    id: 'clearSelection',
+    keys: ['Esc'],
+    description: 'Clear sidebar selection',
     category: 'navigation',
   },
 

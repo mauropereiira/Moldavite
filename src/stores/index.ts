@@ -42,3 +42,5 @@ export { useTaskStatusStore } from './taskStatusStore';
 export { useSearchStore } from './searchStore';
 export type { ContentMatch } from './searchStore';
 export { useTimelineStore } from './timelineStore';
+export { useNoteSelectionStore } from './noteSelectionStore';
+export type { NoteSelectionState } from './noteSelectionStore';
