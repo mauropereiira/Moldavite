@@ -12,6 +12,7 @@ interface FolderTreeProps {
   onFolderDrop: (folderPath: string, toFolder: string) => void;
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
+  onNoteSelectionClick?: (note: NoteFile, e: React.MouseEvent) => void;
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
   level?: number;
@@ -27,6 +28,7 @@ export function FolderTree({
   onFolderDrop,
   isNoteActive,
   onNoteClick,
+  onNoteSelectionClick,
   onNoteContextMenu,
   getNoteTags,
   level = 0,
@@ -50,6 +52,7 @@ export function FolderTree({
           notes={notes}
           isNoteActive={isNoteActive}
           onNoteClick={onNoteClick}
+          onNoteSelectionClick={onNoteSelectionClick}
           onNoteContextMenu={onNoteContextMenu}
           getNoteTags={getNoteTags}
           renderChildren={
@@ -64,6 +67,7 @@ export function FolderTree({
                 onFolderDrop={onFolderDrop}
                 isNoteActive={isNoteActive}
                 onNoteClick={onNoteClick}
+                onNoteSelectionClick={onNoteSelectionClick}
                 onNoteContextMenu={onNoteContextMenu}
                 getNoteTags={getNoteTags}
                 level={level + 1}
