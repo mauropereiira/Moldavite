@@ -2320,7 +2320,7 @@ dependencies = [
 
 [[package]]
 name = "moldavite"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -2341,6 +2341,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "walkdir",
  "zeroize",
  "zip 2.4.2",
 ]

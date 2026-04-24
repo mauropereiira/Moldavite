@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useNoteStore, useSettingsStore, useTaskStatusStore } from '@/stores';
+import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
 import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus } from '@/lib';
 import type { NoteFile } from '@/types';
 
@@ -158,6 +158,8 @@ export function useAutoSave() {
         lastContentRef.current = currentNote.content;
       } catch (error) {
         console.error('[useAutoSave] Auto-save failed:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        useToastStore.getState().addToast('error', `Auto-save failed: ${msg}`);
       } finally {
         setIsSaving(false);
       }

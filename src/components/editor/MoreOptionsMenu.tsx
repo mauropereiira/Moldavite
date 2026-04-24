@@ -5,13 +5,14 @@ import {
   Link2,
   Copy,
   Download,
+  FileDown,
   Trash2,
   Info,
   Star
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
-import { createNote, writeNote, htmlToMarkdown, exportSingleNote } from '@/lib';
+import { createNote, writeNote, htmlToMarkdown, exportSingleNote, exportNoteToPdf } from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import type { NoteFile } from '@/types';
 
@@ -118,6 +119,32 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!currentNote) return;
+
+    try {
+      const baseName = currentNote.isDaily && currentNote.date
+        ? currentNote.date
+        : currentNote.isWeekly && currentNote.week
+        ? currentNote.week
+        : currentNote.title;
+
+      const destination = await save({
+        title: 'Export as PDF',
+        defaultPath: `${baseName}.pdf`,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+
+      if (destination) {
+        await exportNoteToPdf(baseName, currentNote.content, destination);
+        onShowToast?.('Exported as PDF');
+      }
+    } catch (error) {
+      console.error('[MoreOptionsMenu] PDF export failed:', error);
+      onShowToast?.('Failed to export PDF');
+    }
+  };
+
   const handleShowInfo = () => {
     setShowNoteInfo(true);
   };
@@ -163,7 +190,13 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           onClick={handleExport}
           icon={<Download className="w-4 h-4" />}
         >
-          Export note
+          Export as Markdown
+        </DropdownItem>
+        <DropdownItem
+          onClick={handleExportPdf}
+          icon={<FileDown className="w-4 h-4" />}
+        >
+          Export as PDF…
         </DropdownItem>
         <DropdownItem
           onClick={() => setShowSaveTemplateModal(true)}

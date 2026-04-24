@@ -46,11 +46,15 @@ export default [
         FocusEvent: 'readonly',
         DragEvent: 'readonly',
         ClipboardEvent: 'readonly',
+        DOMRect: 'readonly',
         SVGSVGElement: 'readonly',
         HTMLImageElement: 'readonly',
         HTMLAnchorElement: 'readonly',
         HTMLSpanElement: 'readonly',
         HTMLParagraphElement: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        CanvasRenderingContext2D: 'readonly',
+        getComputedStyle: 'readonly',
         // Browser APIs
         Blob: 'readonly',
         File: 'readonly',
@@ -136,6 +140,7 @@ export default [
       '.claude/**',
       '*.config.js',
       '*.config.ts',
+      'scripts/**',
     ],
   },
 ];
