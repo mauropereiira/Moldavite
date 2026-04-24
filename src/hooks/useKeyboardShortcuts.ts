@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
+import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
 
@@ -16,13 +17,25 @@ interface ShortcutOptions {
 
 /**
  * Manages global keyboard shortcuts for the application.
- * Handles shortcuts for settings, new notes, theme toggling, templates, and editor operations.
+ *
+ * The shortcut registry lives in `@/lib/shortcuts.ts`. This hook dispatches
+ * each event to the correct handler by matching on shortcut id. Adding a new
+ * shortcut therefore requires two edits:
+ *   1. Append an entry to `SHORTCUTS` in `shortcuts.ts` (updates the help modal)
+ *   2. Add a case for its `id` in `runShortcut` below (wires the handler)
+ *
  * @param options - Configuration including editor instance and callback handlers
  * @returns Template picker state and handlers
  */
-export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInsertLink }: ShortcutOptions) {
+export function useKeyboardShortcuts({
+  editor,
+  onNewNote,
+  onToggleTheme,
+  onInsertLink,
+}: ShortcutOptions) {
   const { setIsSettingsOpen } = useSettingsStore();
   const { setCurrentNote, notes, setNotes, activeTabId, closeTab } = useNoteStore();
+  const { open: openQuickSwitcher } = useQuickSwitcherStore();
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -93,72 +106,91 @@ export function useKeyboardShortcuts({ editor, onNewNote, onToggleTheme, onInser
     setShowTemplatePicker(true);
   }, []);
 
-  const { open: openQuickSwitcher } = useQuickSwitcherStore();
-
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    /**
+     * Resolve a KeyboardEvent to a known shortcut id, or null if none matched.
+     * Centralising this logic here keeps the dispatch table below tidy and
+     * ensures the help modal and handler agree on what each combo means.
+     */
+    const identify = (e: KeyboardEvent): ShortcutId | null => {
       const isMod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
 
-      // Cmd/Ctrl + P: Quick Switcher (also Cmd+K when not focused on editor)
-      if (isMod && (e.key === 'p' || e.key === 'P')) {
-        e.preventDefault();
-        openQuickSwitcher();
-        return;
+      // Cmd+/ (help modal) is intentionally NOT handled here — it's owned by
+      // `ShortcutHelpHost`, which mounts at the app root so the help modal
+      // is reachable even when no editor is mounted.
+      if (isMod && (key === 'p')) return 'quickSwitcher';
+      if (isMod && key === ',') return 'settings';
+      if (isMod && key === 'n') return 'newNote';
+      if (isMod && e.shiftKey && key === 'l') return 'toggleTheme';
+      if (isMod && key === 'w') return 'closeTab';
+      if (isMod && key === 't') return 'templatePicker';
+      if (isMod && key === 'k') return 'insertLink';
+      // Cmd+F is also owned by this list (registered in SHORTCUTS), but the
+      // actual focus handler lives in Sidebar.tsx since that's where the
+      // input ref is. We intentionally don't handle it here.
+      return null;
+    };
+
+    const runShortcut = (id: ShortcutId, e: KeyboardEvent) => {
+      switch (id) {
+        case 'quickSwitcher':
+          e.preventDefault();
+          openQuickSwitcher();
+          return;
+        case 'settings':
+          e.preventDefault();
+          setIsSettingsOpen(true);
+          return;
+        case 'newNote':
+          e.preventDefault();
+          onNewNote?.();
+          return;
+        case 'toggleTheme':
+          e.preventDefault();
+          onToggleTheme?.();
+          return;
+        case 'closeTab':
+          e.preventDefault();
+          if (activeTabId) closeTab(activeTabId);
+          return;
+        case 'templatePicker':
+          e.preventDefault();
+          setShowTemplatePicker(true);
+          return;
+        case 'insertLink':
+          if (!editor) return;
+          e.preventDefault();
+          onInsertLink?.();
+          return;
+        // Shortcuts listed in SHORTCUTS but handled elsewhere (e.g. 'search').
+        default:
+          return;
       }
+    };
 
-      // Cmd/Ctrl + ,: Open settings
-      if (isMod && e.key === ',') {
-        e.preventDefault();
-        setIsSettingsOpen(true);
-        return;
-      }
-
-      // Cmd/Ctrl + N: New note
-      if (isMod && e.key === 'n') {
-        e.preventDefault();
-        onNewNote?.();
-        return;
-      }
-
-      // Cmd/Ctrl + Shift + L: Toggle theme
-      if (isMod && e.shiftKey && e.key === 'l') {
-        e.preventDefault();
-        onToggleTheme?.();
-        return;
-      }
-
-      // Cmd/Ctrl + W: Close active tab
-      if (isMod && e.key === 'w') {
-        e.preventDefault();
-        if (activeTabId) {
-          closeTab(activeTabId);
-        }
-        return;
-      }
-
-      // Cmd/Ctrl + T: Open template picker
-      if (isMod && (e.key === 't' || e.key === 'T')) {
-        e.preventDefault();
-        setShowTemplatePicker(true);
-        return;
-      }
-
-      // Editor shortcuts (only if editor exists)
-      // Note: TipTap handles most formatting shortcuts natively (Bold, Italic, Underline, etc.)
-      // We only handle custom shortcuts here that need special behavior
-      if (!editor) return;
-
-      // Cmd/Ctrl + K: Link (custom handler with modal)
-      if (isMod && e.key === 'k') {
-        e.preventDefault();
-        onInsertLink?.();
-        return;
-      }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const id = identify(e);
+      if (!id) return;
+      // Defense: make sure the id we dispatched on is actually registered in
+      // the public list; helps catch drift if someone edits the dispatcher
+      // without updating shortcuts.ts.
+      if (!SHORTCUTS.some((s) => s.id === id)) return;
+      runShortcut(id, e);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor, onNewNote, onToggleTheme, onInsertLink, setIsSettingsOpen, activeTabId, closeTab, openQuickSwitcher]);
+  }, [
+    editor,
+    onNewNote,
+    onToggleTheme,
+    onInsertLink,
+    setIsSettingsOpen,
+    activeTabId,
+    closeTab,
+    openQuickSwitcher,
+  ]);
 
   return {
     showTemplatePicker,
