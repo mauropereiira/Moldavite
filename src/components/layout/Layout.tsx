@@ -1,9 +1,14 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useState, useCallback, useEffect, useRef } from 'react';
 import { Sidebar } from '../sidebar/Sidebar';
 import { Editor } from '../editor/Editor';
 import { RightPanel } from './RightPanel';
-import { TimelineView } from '../timeline';
 import { useSettingsStore, useTimelineStore } from '@/stores';
+
+// TimelineView pulls in calendar/event aggregation + its own render
+// pipeline — only load it when the user actually toggles the timeline on.
+const TimelineView = lazy(() =>
+  import('../timeline').then((m) => ({ default: m.TimelineView })),
+);
 
 // Sidebar constraints
 const LEFT_SIDEBAR_MIN = 200;
@@ -125,7 +130,13 @@ export function Layout() {
         className="flex-1 flex flex-col min-w-0"
         style={{ backgroundColor: 'var(--bg-editor)' }}
       >
-        {isTimelineOpen ? <TimelineView /> : <Editor />}
+        {isTimelineOpen ? (
+          <Suspense fallback={null}>
+            <TimelineView />
+          </Suspense>
+        ) : (
+          <Editor />
+        )}
       </div>
 
       {/* Right Panel */}
