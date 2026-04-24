@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/useToast';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { NoteContextMenu } from './NoteContextMenu';
 import { FolderContextMenu } from './FolderContextMenu';
+import { SidebarModals } from './SidebarModals';
 import { TrashPopover } from './TrashPopover';
 
 // Modals that only mount on-demand — code-split to keep them out of the
@@ -334,20 +335,6 @@ export function Sidebar() {
     setCreateNoteInFolder(null);
   };
 
-  const handleCreateModalKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !getNoteTitleError(newNoteTitle)) {
-      handleCreateNote();
-    } else if (e.key === 'Escape') {
-      handleCancelCreate();
-    }
-  };
-
-  const handleCreateModalBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      handleCancelCreate();
-    }
-  };
-
   const handleTodayClick = () => {
     const today = new Date();
     setSelectedDate(today);
@@ -657,74 +644,32 @@ export function Sidebar() {
 
   return (
     <div className="flex flex-col h-full select-none" style={{ color: 'var(--text-primary)' }}>
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && noteToDelete && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
-          <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Delete Note
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Delete &quot;{noteToDelete.name.replace(/\.md$/, '')}&quot;? It will be moved to trash for 7 days.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={handleDeleteCancel} className="btn focus-ring">
-                Cancel
-              </button>
-              <button onClick={handleDeleteConfirm} className="btn btn-danger focus-ring">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Note Modal */}
-      {isCreating && (() => {
-        const titleError = newNoteTitle.trim() ? getNoteTitleError(newNoteTitle) : null;
-        return (
-          <div
-            className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
-            onClick={handleCreateModalBackdropClick}
-          >
-            <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full" style={{ borderRadius: 'var(--radius-md)' }}>
-              <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                New Note
-              </h3>
-              <input
-                type="text"
-                value={newNoteTitle}
-                onChange={(e) => setNewNoteTitle(e.target.value)}
-                onKeyDown={handleCreateModalKeyDown}
-                placeholder="Note title..."
-                className="input"
-                style={{
-                  marginBottom: titleError ? '0.5rem' : '1rem',
-                  borderColor: titleError ? 'var(--status-error, #ef4444)' : undefined,
-                }}
-                autoFocus
-              />
-              {titleError && (
-                <p className="text-xs mb-4" style={{ color: 'var(--status-error, #ef4444)' }}>
-                  {titleError}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <button onClick={handleCancelCreate} className="btn focus-ring">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateNote}
-                  disabled={!newNoteTitle.trim() || !!titleError}
-                  className="btn btn-primary focus-ring"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <SidebarModals
+        deleteNote={showDeleteConfirm ? noteToDelete : null}
+        onDeleteNoteConfirm={handleDeleteConfirm}
+        onDeleteNoteCancel={handleDeleteCancel}
+        isCreatingNote={isCreating}
+        newNoteTitle={newNoteTitle}
+        onNewNoteTitleChange={setNewNoteTitle}
+        onCreateNote={handleCreateNote}
+        onCancelCreateNote={handleCancelCreate}
+        isCreatingFolder={isCreatingFolder}
+        newFolderName={newFolderName}
+        onNewFolderNameChange={setNewFolderName}
+        onCreateFolder={handleCreateFolder}
+        onCancelCreateFolder={() => setIsCreatingFolder(false)}
+        renamingFolder={isRenamingFolder ? folderToRename : null}
+        renameFolderName={renameFolderName}
+        onRenameFolderNameChange={setRenameFolderName}
+        onRenameFolderSubmit={handleRenameFolderSubmit}
+        onCancelRenameFolder={() => setIsRenamingFolder(false)}
+        deleteFolder={showDeleteFolderConfirm ? folderToDelete : null}
+        onDeleteFolderConfirm={handleDeleteFolderConfirm}
+        onDeleteFolderCancel={() => {
+          setShowDeleteFolderConfirm(false);
+          setFolderToDelete(null);
+        }}
+      />
 
       {/* Settings Modal — lazy-loaded so the ~2k-line tab tree stays out of
           the main bundle until the user opens it. */}
@@ -794,118 +739,6 @@ export function Sidebar() {
           onRename={handleRenameFolder}
           onDelete={handleDeleteFolder}
         />
-      )}
-
-      {/* Create Folder Modal */}
-      {isCreatingFolder && (
-        <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
-          onClick={() => setIsCreatingFolder(false)}
-        >
-          <div
-            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
-            style={{ borderRadius: 'var(--radius-md)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              New Folder
-            </h3>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newFolderName.trim()) handleCreateFolder();
-                if (e.key === 'Escape') setIsCreatingFolder(false);
-              }}
-              placeholder="Folder name..."
-              className="input mb-4"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setIsCreatingFolder(false)} className="btn focus-ring">
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateFolder}
-                disabled={!newFolderName.trim()}
-                className="btn btn-primary focus-ring"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rename Folder Modal */}
-      {isRenamingFolder && folderToRename && (
-        <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
-          onClick={() => setIsRenamingFolder(false)}
-        >
-          <div
-            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
-            style={{ borderRadius: 'var(--radius-md)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Rename Folder
-            </h3>
-            <input
-              type="text"
-              value={renameFolderName}
-              onChange={(e) => setRenameFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && renameFolderName.trim()) handleRenameFolderSubmit();
-                if (e.key === 'Escape') setIsRenamingFolder(false);
-              }}
-              placeholder="Folder name..."
-              className="input mb-4"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setIsRenamingFolder(false)} className="btn focus-ring">
-                Cancel
-              </button>
-              <button
-                onClick={handleRenameFolderSubmit}
-                disabled={!renameFolderName.trim()}
-                className="btn btn-primary focus-ring"
-              >
-                Rename
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Folder Confirmation Modal */}
-      {showDeleteFolderConfirm && folderToDelete && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
-          <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Delete Folder
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Delete &quot;{folderToDelete.name}&quot; and all its contents? They will be moved to trash for 7 days.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowDeleteFolderConfirm(false);
-                  setFolderToDelete(null);
-                }}
-                className="btn focus-ring"
-              >
-                Cancel
-              </button>
-              <button onClick={handleDeleteFolderConfirm} className="btn btn-danger focus-ring">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Search Bar */}
