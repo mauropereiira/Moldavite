@@ -55,7 +55,7 @@ export function CalendarSection() {
 
         {isAuthorized ? (
           <div className="flex items-center gap-3 p-3" style={{ backgroundColor: 'rgba(90, 138, 110, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)' }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}>
+            <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}>
               <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
             </div>
             <div>
@@ -70,7 +70,7 @@ export function CalendarSection() {
         ) : permissionStatus === 'Denied' || permissionStatus === 'Restricted' ? (
           <div className="p-3" style={{ backgroundColor: 'rgba(184, 92, 92, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--error)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <Lock className="w-4 h-4" style={{ color: 'var(--error)' }} />
+              <Lock aria-hidden="true" className="w-4 h-4" style={{ color: 'var(--error)' }} />
               <p className="text-sm font-medium" style={{ color: 'var(--error)' }}>
                 Access Denied
               </p>
@@ -93,12 +93,12 @@ export function CalendarSection() {
           >
             {isRequestingPermission ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw aria-hidden="true" className="w-4 h-4 animate-spin" />
                 Requesting...
               </>
             ) : (
               <>
-                <Calendar className="w-4 h-4" />
+                <Calendar aria-hidden="true" className="w-4 h-4" />
                 Enable Calendar Access
               </>
             )}

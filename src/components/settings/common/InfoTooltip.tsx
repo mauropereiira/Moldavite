@@ -37,7 +37,7 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
         onBlur={() => setIsVisible(false)}
         aria-label="More information"
       >
-        <Info className="w-3.5 h-3.5" />
+        <Info aria-hidden="true" className="w-3.5 h-3.5" />
       </button>
       {isVisible && (
         <div

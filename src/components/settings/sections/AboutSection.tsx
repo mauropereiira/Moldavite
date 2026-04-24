@@ -22,7 +22,7 @@ function SoftwareUpdatesSection() {
         {/* Update status */}
         {available ? (
           <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-color)' }}>
-            <Download className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-color)' }} />
+            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-color)' }} />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 Update Available: v{version}
@@ -34,7 +34,7 @@ function SoftwareUpdatesSection() {
           </div>
         ) : (
           <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
-            <Download className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {isChecking ? 'Checking for updates...' : 'You\'re up to date'}
@@ -77,7 +77,7 @@ function SoftwareUpdatesSection() {
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors text-white"
               style={{ backgroundColor: 'var(--accent-color)', borderRadius: 'var(--radius-sm)', opacity: downloading ? 0.7 : 1 }}
             >
-              <Download className="w-4 h-4" />
+              <Download aria-hidden="true" className="w-4 h-4" />
               {downloading ? 'Installing...' : 'Install Update'}
             </button>
           ) : (
@@ -87,7 +87,7 @@ function SoftwareUpdatesSection() {
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
               style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', opacity: isChecking ? 0.7 : 1 }}
             >
-              <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+              <RefreshCw aria-hidden="true" className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
               {isChecking ? 'Checking...' : 'Check for Updates'}
             </button>
           )}
@@ -99,7 +99,7 @@ function SoftwareUpdatesSection() {
           className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink aria-hidden="true" className="w-3 h-3" />
           View releases on GitHub
         </button>
       </div>

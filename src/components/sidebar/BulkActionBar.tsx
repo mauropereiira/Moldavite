@@ -40,29 +40,32 @@ export function BulkActionBar({ onMoveToFolder, onTrash }: BulkActionBarProps) {
       <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
         {count} selected
       </span>
-      <span style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
+      <span aria-hidden="true" style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
       <button
+        type="button"
         onClick={onMoveToFolder}
         className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
         style={{ color: 'var(--text-primary)' }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <FolderInput className="w-3.5 h-3.5" />
+        <FolderInput aria-hidden="true" className="w-3.5 h-3.5" />
         Move to folder
       </button>
       <button
+        type="button"
         onClick={onTrash}
         className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
         style={{ color: 'var(--error)' }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
         Trash
       </button>
-      <span style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
+      <span aria-hidden="true" style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
       <button
+        type="button"
         onClick={clear}
         className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors focus-ring"
         style={{ color: 'var(--text-muted)' }}
@@ -70,7 +73,7 @@ export function BulkActionBar({ onMoveToFolder, onTrash }: BulkActionBarProps) {
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         aria-label="Clear selection"
       >
-        <X className="w-3.5 h-3.5" />
+        <X aria-hidden="true" className="w-3.5 h-3.5" />
         Clear
       </button>
     </div>

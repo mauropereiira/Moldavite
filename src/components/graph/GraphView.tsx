@@ -52,6 +52,9 @@ export function GraphView() {
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const layoutRef = useRef<LayoutNode[]>([]);
   const tempRef = useRef<number>(100);
   const rafRef = useRef<number | null>(null);
@@ -101,7 +104,8 @@ export function GraphView() {
     };
   }, [isOpen]);
 
-  // Close on Escape.
+  // Close on Escape. Local handler (not via the global shortcut system) so the
+  // graph always owns its own dismissal regardless of shortcut configuration.
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -113,6 +117,27 @@ export function GraphView() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, close]);
+
+  // Focus management: when the overlay opens, remember the previously focused
+  // element and move focus into the dialog. When it closes, return focus to
+  // the trigger so keyboard users aren't dropped at the top of the page.
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
+    // Defer until the dialog is mounted and the close button ref has settled.
+    const raf = requestAnimationFrame(() => {
+      closeBtnRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      const prev = previousFocusRef.current;
+      if (prev && typeof prev.focus === 'function') {
+        prev.focus();
+      }
+      previousFocusRef.current = null;
+    };
+  }, [isOpen]);
 
   // Resize canvas to match its container (handles DPR).
   const resizeCanvas = useCallback(() => {
@@ -318,11 +343,12 @@ export function GraphView() {
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-[9998] flex flex-col"
       style={{ backgroundColor: 'var(--bg-base)' }}
       role="dialog"
       aria-modal="true"
-      aria-label="Note graph"
+      aria-labelledby="graph-view-title"
     >
       {/* Header */}
       <div
@@ -330,12 +356,13 @@ export function GraphView() {
         style={{ borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="flex items-center gap-3">
-          <span
-            className="text-sm font-semibold"
+          <h2
+            id="graph-view-title"
+            className="text-sm font-semibold m-0"
             style={{ color: 'var(--text-primary)' }}
           >
             Graph
-          </span>
+          </h2>
           {graph && (
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {graph.nodes.length} notes · {graph.edges.length} links
@@ -353,6 +380,7 @@ export function GraphView() {
           )}
         </div>
         <button
+          ref={closeBtnRef}
           type="button"
           onClick={close}
           className="p-1 focus-ring"
@@ -363,7 +391,7 @@ export function GraphView() {
           aria-label="Close graph view"
           title="Close (Esc)"
         >
-          <X className="w-5 h-5" />
+          <X aria-hidden="true" className="w-5 h-5" />
         </button>
       </div>
 
