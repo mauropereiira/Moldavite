@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, FileText, X } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { useNoteStore, useTimelineStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { readNote } from '@/lib';

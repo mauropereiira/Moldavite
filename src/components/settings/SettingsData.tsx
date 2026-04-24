@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, Upload, Lock, Loader2, Shield, Eye, EyeOff, Settings as SettingsIcon } from 'lucide-react';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import {
   exportNotes,
   importNotes,

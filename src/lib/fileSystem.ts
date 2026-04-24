@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from './ipc';
 import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
 import { format, parse, isValid, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
 import { hasTag, renameTagInContent } from './tags';
