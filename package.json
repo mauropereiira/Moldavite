@@ -40,6 +40,8 @@
     "url": "https://github.com/mauropereiira/Moldavite/issues"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@fontsource/dm-sans": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
     "@fontsource/space-mono": "^5.2.9",
