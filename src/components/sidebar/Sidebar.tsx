@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Lock, Unlock, Trash2, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown } from 'lucide-react';
-import { useNotes, useSearch, useFolders, useTrash } from '@/hooks';
-import { useNoteStore, useSettingsStore, useTagStore } from '@/stores';
+import { useNotes, useFolders, useTrash } from '@/hooks';
+import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
+import type { ContentMatch } from '@/stores';
 import {
   lockNote,
   unlockNote,
@@ -16,33 +17,20 @@ import {
   getNoteTitleError,
 } from '@/lib';
 import { SettingsModal } from '@/components/settings';
-import { NoSearchResultsEmptyState, PasswordModal } from '@/components/ui';
+import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
-import { DraggableNoteItem } from './DraggableNoteItem';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { TrashModal } from './TrashModal';
 import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
+import { SidebarSearchResults } from './SidebarSearchResults';
 import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo } from '@/types';
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function renderHighlightedPreview(text: string, term: string): React.ReactNode {
-  if (!term) return text;
-  const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
-  const parts = text.split(regex);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>
-  );
-}
 
 type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
 
@@ -58,7 +46,12 @@ export function Sidebar() {
     showBacklinksSection,
     backlinksEnabled,
   } = useSettingsStore();
-  const search = useSearch();
+  const searchStore = useSearchStore();
+  const searchQuery = searchStore.query;
+  const searchResults = searchStore.results;
+  const searchLoading = searchStore.loading;
+  const searchSelectedIndex = searchStore.selectedIndex;
+  const isSearchActive = searchQuery.trim().length > 0;
   const toast = useToast();
   const {
     folders,
@@ -235,18 +228,16 @@ export function Sidebar() {
     };
   }, [selectedTags]);
 
-  // Filter notes based on search and tag
+  // Filter notes based on tag (search is handled separately with
+  // full-text results from the backend).
   const displayedNotes = useMemo(() => {
-    if (search.isActive) {
-      return filterByTag(search.results.map((r) => r.note));
-    }
     if (selectedTags.length > 0) {
       return filterByTag(notes);
     }
     return unfiledNotes;
-  }, [search.isActive, search.results, unfiledNotes, filterByTag, selectedTags.length, notes]);
+  }, [unfiledNotes, filterByTag, selectedTags.length, notes]);
 
-  // Keyboard shortcuts for search
+  // Keyboard shortcuts: Cmd/Ctrl+F or Cmd/Ctrl+K focuses the search input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
@@ -260,13 +251,37 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  /** Map a full-text search ContentMatch back to a loadable NoteFile. */
+  const openSearchMatch = (match: ContentMatch) => {
+    // The backend returns paths relative to the notes root, e.g.
+    // "notes/foo/bar.md" or "daily/2026-04-23.md". The in-memory
+    // note store stores paths in the same form.
+    const note = notes.find((n) => n.path === match.path);
+    if (note) {
+      if (note.isLocked) {
+        handleUnlockNote(note);
+      } else {
+        loadNote(note);
+      }
+    } else {
+      console.warn('[Sidebar] search match had no matching note in store:', match.path);
+    }
+  };
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
-      search.clearSearch();
+      searchStore.clear();
       searchInputRef.current?.blur();
-    } else if (e.key === 'Enter' && displayedNotes.length > 0) {
-      loadNote(displayedNotes[0]);
+    } else if (e.key === 'Enter' && searchResults.length > 0) {
+      const idx = Math.max(0, Math.min(searchResults.length - 1, searchSelectedIndex));
+      openSearchMatch(searchResults[idx]);
       searchInputRef.current?.blur();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      searchStore.moveSelection(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      searchStore.moveSelection(-1);
     }
   };
 
@@ -1086,57 +1101,25 @@ export function Sidebar() {
       {/* Search Bar */}
       <SidebarSearch
         ref={searchInputRef}
-        query={search.query}
-        onChange={search.setQuery}
+        query={searchQuery}
+        onChange={searchStore.setQuery}
         onKeyDown={handleSearchKeyDown}
-        onClear={search.clearSearch}
-        isSearching={search.isSearching}
+        onClear={searchStore.clear}
+        isSearching={searchLoading}
       />
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
-        {search.isActive ? (
-          <div className="px-3 py-2">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="section-header">
-                {search.resultCount} {search.resultCount === 1 ? 'result' : 'results'}
-              </h2>
-            </div>
-            <div className="space-y-1">
-              {search.results.map((result) => (
-                <div key={result.note.path}>
-                  <DraggableNoteItem
-                    note={result.note}
-                    isActive={isNoteActive(result.note)}
-                    onClick={(e) => {
-                      if (result.note.isLocked) {
-                        handleUnlockNote(result.note);
-                      } else {
-                        const inNewTab = e.metaKey || e.ctrlKey;
-                        loadNote(result.note, inNewTab);
-                      }
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, result.note)}
-                    tags={tagsEnabled ? getNoteTags(result.note.path) : undefined}
-                  />
-                  {result.contentPreview && (
-                    <p
-                      className="text-xs px-3 pb-1 truncate search-preview"
-                      style={{ color: 'var(--text-muted)', marginTop: '-2px' }}
-                    >
-                      {renderHighlightedPreview(result.contentPreview, result.previewTerm ?? '')}
-                    </p>
-                  )}
-                </div>
-              ))}
-              {search.results.length === 0 && (
-                <NoSearchResultsEmptyState
-                  query={search.query}
-                  onClear={search.clearSearch}
-                />
-              )}
-            </div>
-          </div>
+        {isSearchActive ? (
+          <SidebarSearchResults
+            query={searchQuery}
+            results={searchResults}
+            loading={searchLoading}
+            selectedIndex={searchSelectedIndex}
+            onSelect={searchStore.setSelectedIndex}
+            onOpen={openSearchMatch}
+            onClear={searchStore.clear}
+          />
         ) : (
           <div className="py-2">
             <SidebarNotesList
