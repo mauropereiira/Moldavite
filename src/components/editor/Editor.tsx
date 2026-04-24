@@ -10,7 +10,17 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { ReactRenderer } from '@tiptap/react';
+import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
+import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import tippy, { Instance } from 'tippy.js';
+
+/**
+ * Imperative handle every suggestion list (Tag, WikiLink, Slash) exposes
+ * via `useImperativeHandle` — a single entry point for keydown forwarding.
+ */
+interface SuggestionListHandle {
+  onKeyDown: (event: KeyboardEvent) => boolean;
+}
 import 'tippy.js/dist/tippy.css';
 import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
@@ -299,7 +309,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<TagItem>) => {
                 try {
                   component = new ReactRenderer(TagSuggestionList, {
                     props,
@@ -311,7 +321,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -325,7 +335,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<TagItem>) {
                 try {
                   component?.updateProps(props);
 
@@ -334,21 +344,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[TagSuggestion] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[TagSuggestion] onKeyDown error:', error);
                   return false;
@@ -371,8 +381,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const tag = props as TagItem;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: TagItem }) => {
+            const tag = props;
             // Insert the tag text (the # is already typed, just add the name)
             editor
               .chain()
@@ -402,7 +412,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<NoteFile>) => {
                 try {
                   component = new ReactRenderer(WikiLinkSuggestionList, {
                     props,
@@ -414,7 +424,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -428,7 +438,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<NoteFile>) {
                 try {
                   component?.updateProps(props);
 
@@ -437,21 +447,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[WikiLinkSuggestion] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[WikiLinkSuggestion] onKeyDown error:', error);
                   return false;
@@ -476,8 +486,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const note = props as NoteFile;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: NoteFile }) => {
+            const note = props;
             const noteName = note.name.replace('.md', '');
 
             editor
@@ -505,7 +515,7 @@ export function Editor() {
             let popup: Instance[] | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: SuggestionProps<SlashCommandItem>) => {
                 try {
                   component = new ReactRenderer(SlashCommandList, {
                     props: {
@@ -520,7 +530,7 @@ export function Editor() {
                   }
 
                   popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                     appendTo: () => document.body,
                     content: component.element,
                     showOnCreate: true,
@@ -534,7 +544,7 @@ export function Editor() {
                 }
               },
 
-              onUpdate(props: any) {
+              onUpdate(props: SuggestionProps<SlashCommandItem>) {
                 try {
                   component?.updateProps({
                     ...props,
@@ -546,21 +556,21 @@ export function Editor() {
                   }
 
                   popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect,
+                    getReferenceClientRect: props.clientRect as () => DOMRect,
                   });
                 } catch (error) {
                   console.error('[SlashCommands] onUpdate error:', error);
                 }
               },
 
-              onKeyDown(props: any) {
+              onKeyDown(props: SuggestionKeyDownProps) {
                 try {
                   if (props.event.key === 'Escape') {
                     popup?.[0]?.hide();
                     return true;
                   }
 
-                  return (component?.ref as any)?.onKeyDown(props.event) || false;
+                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
                 } catch (error) {
                   console.error('[SlashCommands] onKeyDown error:', error);
                   return false;
@@ -583,8 +593,8 @@ export function Editor() {
               },
             };
           },
-          command: ({ editor, range, props }: any) => {
-            const item = props as SlashCommandItem;
+          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: SlashCommandItem }) => {
+            const item = props;
             // Delete the "/" and run the command
             editor.chain().focus().deleteRange(range).run();
             item.command(editor);
