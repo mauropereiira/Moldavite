@@ -34,6 +34,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
+import { BacklinksPanel } from '@/components/backlinks';
 
 export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
@@ -891,6 +892,9 @@ export function Editor() {
           </div>
         )}
       </div>
+
+      {/* Backlinks panel sits below the editor scroll area, above the footer. */}
+      <BacklinksPanel />
 
       {/* Footer with save status, toolbar, and word count */}
       <EditorFooter
