@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { useSettingsStore, useNoteStore } from '@/stores';
+import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
@@ -128,6 +128,18 @@ export function useKeyboardShortcuts({
       if (isMod && key === 'k') return 'insertLink';
       if (isMod && e.altKey && (key === 'arrowright' || key === 'arrowdown')) return 'nextTab';
       if (isMod && e.altKey && (key === 'arrowleft' || key === 'arrowup')) return 'prevTab';
+      // Esc clears any bulk sidebar selection. Only claim the event when a
+      // selection is actually active, so we don't steal Esc from modals or
+      // input fields that have their own handlers.
+      if (
+        key === 'escape' &&
+        !isMod &&
+        !e.shiftKey &&
+        !e.altKey &&
+        useNoteSelectionStore.getState().selectedIds.size > 0
+      ) {
+        return 'clearSelection';
+      }
       // Cmd+F is also owned by this list (registered in SHORTCUTS), but the
       // actual focus handler lives in Sidebar.tsx since that's where the
       // input ref is. We intentionally don't handle it here.
@@ -176,6 +188,11 @@ export function useKeyboardShortcuts({
           switchTab(openTabs[nextIdx].id);
           return;
         }
+        case 'clearSelection':
+          // Don't preventDefault — other Esc-reactive UI (modals,
+          // focus-restore) may still want the event afterwards.
+          useNoteSelectionStore.getState().clear();
+          return;
         // Shortcuts listed in SHORTCUTS but handled elsewhere (e.g. 'search').
         default:
           return;
