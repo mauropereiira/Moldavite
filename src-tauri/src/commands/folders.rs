@@ -49,7 +49,7 @@ pub(crate) fn scan_folders_recursive(dir: &Path, relative_path: &str) -> Vec<Fol
     }
 
     // Sort folders alphabetically
-    folders.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    folders.sort_by_key(|a| a.name.to_lowercase());
 
     folders
 }
