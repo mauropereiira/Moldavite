@@ -36,7 +36,8 @@ import type { FontFamily } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
 import type { ImportResult } from '@/lib';
-import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw, Shield, Eye, EyeOff, Timer, Zap, PanelLeft } from 'lucide-react';
+import { Calendar, Check, Lock, FolderOpen, Download, Upload, Settings, Palette, Type, FileText, Info, ExternalLink, RefreshCw, Shield, Eye, EyeOff, Timer, Zap, PanelLeft, Database } from 'lucide-react';
+import { SettingsData } from './SettingsData';
 import type { AutoLockTimeout } from '@/stores';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
@@ -116,7 +117,7 @@ function InfoTooltip({ text }: { text: string }) {
 // =============================================================================
 
 /** Available settings tabs */
-type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'about';
+type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'data' | 'about';
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
@@ -172,6 +173,7 @@ export function SettingsModal() {
     { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
     { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
     { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
+    { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
     { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
   ];
 
@@ -269,6 +271,9 @@ export function SettingsModal() {
                 onDeleteTemplate={handleDeleteTemplate}
                 onUpdateTemplate={handleUpdateTemplate}
               />
+            )}
+            {activeTab === 'data' && (
+              <SettingsData />
             )}
             {activeTab === 'about' && (
               <AboutSection />
