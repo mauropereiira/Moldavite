@@ -1,5 +1,5 @@
 import React, { RefAttributes } from 'react';
-import { LucideIcon, LucideProps } from 'lucide-react';
+import { LucideIcon, LucideProps, Link2, Trash2, Share2 } from 'lucide-react';
 
 interface EmptyStateAction {
   label: string;
@@ -289,6 +289,42 @@ export function ConnectCalendarEmptyState({
       ]}
       variant="card"
       iconColor="text-blue-400 dark:text-blue-500"
+    />
+  );
+}
+
+export function NoBacklinksEmptyState() {
+  return (
+    <EmptyState
+      icon={Link2}
+      heading="No backlinks yet"
+      message="When another note links to this one with [[wiki links]], it will show up here."
+      variant="compact"
+      iconColor="text-gray-400 dark:text-gray-500"
+    />
+  );
+}
+
+export function EmptyTrashEmptyState() {
+  return (
+    <EmptyState
+      icon={Trash2}
+      heading="Trash is empty"
+      message="Deleted notes and folders appear here for 7 days before being removed permanently."
+      variant="compact"
+      iconColor="text-gray-400 dark:text-gray-500"
+    />
+  );
+}
+
+export function EmptyGraphEmptyState() {
+  return (
+    <EmptyState
+      icon={Share2}
+      heading="Your graph is empty"
+      message="Create notes and connect them with [[wiki links]] to see your knowledge graph take shape."
+      variant="compact"
+      iconColor="text-gray-400 dark:text-gray-500"
     />
   );
 }
