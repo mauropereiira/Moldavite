@@ -3,10 +3,18 @@
 use std::fs;
 use std::path::Path;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 use crate::paths::{
     ensure_trash_dir, get_config_path, get_metadata_path, get_trash_metadata_path,
 };
 use crate::types::{AppConfig, NoteMetadata, TrashMetadata};
+
+lazy_static! {
+    /// Matches a trailing " (N)" counter on a name.
+    static ref COUNTER_SUFFIX_RE: Regex = Regex::new(r"^(.+) \((\d+)\)$").unwrap();
+}
 
 pub(crate) fn read_config() -> AppConfig {
     let config_path = get_config_path();
@@ -81,78 +89,66 @@ pub(crate) fn write_note_metadata(metadata: &NoteMetadata) -> Result<(), String>
     Ok(())
 }
 
-/// Generate a unique filename in the given directory.
-/// If "name.md" exists, tries "name (2).md", "name (3).md", etc.
-pub(crate) fn generate_unique_filename(dir: &Path, base_name: &str, extension: &str) -> String {
-    let filename = format!("{}.{}", base_name, extension);
-    let path = dir.join(&filename);
+/// Build the full on-disk name (file or folder) from a base name and
+/// optional extension.
+fn build_name(base: &str, counter: Option<u32>, extension: Option<&str>) -> String {
+    let with_counter = match counter {
+        Some(n) => format!("{} ({})", base, n),
+        None => base.to_string(),
+    };
+    match extension {
+        Some(ext) => format!("{}.{}", with_counter, ext),
+        None => with_counter,
+    }
+}
 
-    if !path.exists() {
-        return filename;
+/// Core uniqueness search shared by file and folder name generation.
+///
+/// If `extension` is `Some(ext)`, the returned name is `"<base>.<ext>"`
+/// (or `"<base> (N).<ext>"`). If `None`, the returned name has no
+/// extension (folder case).
+fn generate_unique_name(dir: &Path, base_name: &str, extension: Option<&str>) -> String {
+    let initial = build_name(base_name, None, extension);
+    if !dir.join(&initial).exists() {
+        return initial;
     }
 
-    // File exists, need to find a unique name
-    // First, check if base_name already ends with " (N)" pattern
-    let re = regex::Regex::new(r"^(.+) \((\d+)\)$").unwrap();
-    let (actual_base, start_num) = if let Some(caps) = re.captures(base_name) {
-        (caps.get(1).unwrap().as_str().to_string(), caps.get(2).unwrap().as_str().parse::<u32>().unwrap_or(1))
-    } else {
-        (base_name.to_string(), 1)
-    };
+    // Strip any existing " (N)" suffix so we don't produce "foo (2) (2)".
+    let (actual_base, start_num) = COUNTER_SUFFIX_RE
+        .captures(base_name)
+        .and_then(|caps| {
+            let base = caps.get(1)?.as_str().to_string();
+            let n = caps.get(2)?.as_str().parse::<u32>().ok()?;
+            Some((base, n))
+        })
+        .unwrap_or_else(|| (base_name.to_string(), 1));
 
-    // Start from 2 if this is a fresh duplicate, or from existing number + 1
+    // Start from 2 if this is a fresh duplicate, or from existing number + 1.
     let mut counter = if start_num == 1 { 2 } else { start_num + 1 };
 
     loop {
-        let new_filename = format!("{} ({}).{}", actual_base, counter, extension);
-        let new_path = dir.join(&new_filename);
-        if !new_path.exists() {
-            return new_filename;
+        let candidate = build_name(&actual_base, Some(counter), extension);
+        if !dir.join(&candidate).exists() {
+            return candidate;
         }
         counter += 1;
-        // Safety limit to prevent infinite loops
-        if counter > 10000 {
-            // Fallback with timestamp
+        if counter > 10_000 {
             let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_secs();
-            return format!("{} ({}).{}", actual_base, timestamp, extension);
+                .as_secs() as u32;
+            return build_name(&actual_base, Some(timestamp), extension);
         }
     }
 }
 
+/// Generate a unique filename in the given directory.
+/// If "name.md" exists, tries "name (2).md", "name (3).md", etc.
+pub(crate) fn generate_unique_filename(dir: &Path, base_name: &str, extension: &str) -> String {
+    generate_unique_name(dir, base_name, Some(extension))
+}
+
 /// Generate a unique folder name in the given directory.
 pub(crate) fn generate_unique_folder_name(parent_dir: &Path, base_name: &str) -> String {
-    let path = parent_dir.join(base_name);
-
-    if !path.exists() {
-        return base_name.to_string();
-    }
-
-    // Folder exists, need to find a unique name
-    let re = regex::Regex::new(r"^(.+) \((\d+)\)$").unwrap();
-    let (actual_base, start_num) = if let Some(caps) = re.captures(base_name) {
-        (caps.get(1).unwrap().as_str().to_string(), caps.get(2).unwrap().as_str().parse::<u32>().unwrap_or(1))
-    } else {
-        (base_name.to_string(), 1)
-    };
-
-    let mut counter = if start_num == 1 { 2 } else { start_num + 1 };
-
-    loop {
-        let new_name = format!("{} ({})", actual_base, counter);
-        let new_path = parent_dir.join(&new_name);
-        if !new_path.exists() {
-            return new_name;
-        }
-        counter += 1;
-        if counter > 10000 {
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            return format!("{} ({})", actual_base, timestamp);
-        }
-    }
+    generate_unique_name(parent_dir, base_name, None)
 }
