@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { Trash2, Undo2, FileText, Calendar, Folder, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Trash2, Undo2, FileText, Calendar, Folder, X, GripHorizontal } from 'lucide-react';
 import type { TrashedNote } from '@/types';
+
+const POPOVER_WIDTH = 380;
+const POPOVER_MAX_HEIGHT = 520;
+const GAP = 12;
 
 interface TrashPopoverProps {
   isOpen: boolean;
@@ -30,23 +34,89 @@ export function TrashPopover({
 }: TrashPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const dragStateRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Position the popover above the anchor button.
+  // First-open positioning: drop the popover to the right of the sidebar
+  // footer (using the anchor button as a reference), without covering it.
+  // Subsequent opens during the same session reuse the dragged position.
   useEffect(() => {
-    if (!isOpen || !anchor) {
-      setPosition(null);
-      return;
-    }
-    const rect = anchor.getBoundingClientRect();
-    const POPOVER_WIDTH = 340;
-    // Align roughly centered above the button, clamped within viewport.
-    let left = rect.left + rect.width / 2 - POPOVER_WIDTH / 2;
-    left = Math.max(8, Math.min(window.innerWidth - POPOVER_WIDTH - 8, left));
-    // Position above the button, with an 8px gap. The popover can
-    // render downward if space is tight (rare — trash is in the footer).
-    const top = rect.top - 8;
-    setPosition({ left, top });
+    if (!isOpen || !anchor) return;
+    setPosition((prev) => {
+      if (prev) {
+        // Clamp previous position in case the viewport shrank since.
+        return {
+          left: Math.max(
+            GAP,
+            Math.min(window.innerWidth - POPOVER_WIDTH - GAP, prev.left),
+          ),
+          top: Math.max(
+            GAP,
+            Math.min(window.innerHeight - 80 - GAP, prev.top),
+          ),
+        };
+      }
+      const rect = anchor.getBoundingClientRect();
+      // Anchor sits at the bottom of the sidebar — place popover just to
+      // the right of the sidebar, with its bottom aligned to the button.
+      const left = Math.min(
+        window.innerWidth - POPOVER_WIDTH - GAP,
+        rect.right + GAP,
+      );
+      const top = Math.max(
+        GAP,
+        Math.min(
+          window.innerHeight - POPOVER_MAX_HEIGHT - GAP,
+          rect.bottom - POPOVER_MAX_HEIGHT,
+        ),
+      );
+      return { left, top };
+    });
   }, [isOpen, anchor]);
+
+  // Drag handlers: the header is a drag handle. Updates `position` via
+  // mousemove and clamps to the viewport on mouseup.
+  const handleHeaderMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!position) return;
+      // Ignore drags that start on a button (close button, etc.).
+      if ((e.target as HTMLElement).closest('button')) return;
+      e.preventDefault();
+      dragStateRef.current = {
+        offsetX: e.clientX - position.left,
+        offsetY: e.clientY - position.top,
+      };
+      setIsDragging(true);
+    },
+    [position],
+  );
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleMove = (e: MouseEvent) => {
+      const drag = dragStateRef.current;
+      if (!drag) return;
+      const left = Math.max(
+        GAP,
+        Math.min(window.innerWidth - POPOVER_WIDTH - GAP, e.clientX - drag.offsetX),
+      );
+      const top = Math.max(
+        GAP,
+        Math.min(window.innerHeight - 80 - GAP, e.clientY - drag.offsetY),
+      );
+      setPosition({ left, top });
+    };
+    const handleUp = () => {
+      dragStateRef.current = null;
+      setIsDragging(false);
+    };
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  }, [isDragging]);
 
   // Close when clicking outside.
   useEffect(() => {
@@ -88,11 +158,9 @@ export function TrashPopover({
       className="fixed z-[9999] flex flex-col modal-content-enter"
       style={{
         left: position.left,
-        // Translate up so the bottom of the popover sits at `top`.
         top: position.top,
-        transform: 'translateY(-100%)',
-        width: 340,
-        maxHeight: 420,
+        width: POPOVER_WIDTH,
+        maxHeight: POPOVER_MAX_HEIGHT,
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
@@ -103,10 +171,18 @@ export function TrashPopover({
       aria-label="Trash"
     >
       <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: '1px solid var(--border-default)' }}
+        className="flex items-center justify-between px-3 py-2 select-none"
+        style={{
+          borderBottom: '1px solid var(--border-default)',
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}
+        onMouseDown={handleHeaderMouseDown}
       >
         <div className="flex items-center gap-2">
+          <GripHorizontal
+            className="w-3.5 h-3.5"
+            style={{ color: 'var(--text-muted)', opacity: 0.6 }}
+          />
           <Trash2 className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
           <h3 className="text-sm font-semibold">Trash</h3>
           <span
