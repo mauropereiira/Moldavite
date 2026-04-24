@@ -2,7 +2,11 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
+use tauri::State;
+
+use crate::backlinks_index::BacklinksIndex;
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
 };
@@ -210,7 +214,13 @@ pub(crate) fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Re
 }
 
 #[tauri::command]
-pub(crate) fn write_note(filename: String, content: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+pub(crate) fn write_note(
+    filename: String,
+    content: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
@@ -225,7 +235,7 @@ pub(crate) fn write_note(filename: String, content: String, is_daily: bool, is_w
     };
 
     let path = dir.join(&filename);
-    fs::write(&path, content).map_err(|e| e.to_string())?;
+    fs::write(&path, &content).map_err(|e| e.to_string())?;
 
     // Set restrictive file permissions (600 = owner read/write only)
     #[cfg(unix)]
@@ -235,11 +245,18 @@ pub(crate) fn write_note(filename: String, content: String, is_daily: bool, is_w
         fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
     }
 
+    index.update_note(&filename, &content);
+
     Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn delete_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+pub(crate) fn delete_note(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
@@ -256,14 +273,18 @@ pub(crate) fn delete_note(filename: String, is_daily: bool, is_weekly: bool) -> 
     let path = dir.join(&filename);
 
     if path.exists() {
-        fs::remove_file(&path).map_err(|e| e.to_string())
-    } else {
-        Ok(())
+        fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
+    index.remove_note(&filename);
+    Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn create_note(title: String, folder_path: Option<String>) -> Result<String, String> {
+pub(crate) fn create_note(
+    title: String,
+    folder_path: Option<String>,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
     // Prevent path traversal attacks
     if title.contains("..") {
         return Err("Invalid title".to_string());
@@ -299,6 +320,8 @@ pub(crate) fn create_note(title: String, folder_path: Option<String>) -> Result<
         fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
     }
 
+    index.update_note(&filename, "");
+
     // Return the full relative path
     match folder_path {
         Some(folder) => Ok(format!("{}/{}", folder, filename)),
@@ -307,7 +330,12 @@ pub(crate) fn create_note(title: String, folder_path: Option<String>) -> Result<
 }
 
 #[tauri::command]
-pub(crate) fn duplicate_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+pub(crate) fn duplicate_note(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
@@ -345,6 +373,8 @@ pub(crate) fn duplicate_note(filename: String, is_daily: bool, is_weekly: bool) 
         let permissions = fs::Permissions::from_mode(0o600);
         fs::set_permissions(&new_path, permissions).map_err(|e| e.to_string())?;
     }
+
+    index.update_note(&new_filename, &content);
 
     Ok(new_filename)
 }
@@ -401,7 +431,13 @@ pub(crate) fn export_single_note(
 }
 
 #[tauri::command]
-pub(crate) fn rename_note(old_filename: String, new_filename: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
+pub(crate) fn rename_note(
+    old_filename: String,
+    new_filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
     if !is_safe_filename(&old_filename) || !is_safe_filename(&new_filename) {
         return Err("Invalid filename".to_string());
     }
@@ -424,11 +460,16 @@ pub(crate) fn rename_note(old_filename: String, new_filename: String, is_daily: 
         return Err("A note with this name already exists".to_string());
     }
 
-    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())
+    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+
+    let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
+    index.rename_note(&old_filename, &new_filename, &content_after_rename);
+
+    Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn clear_all_notes() -> Result<(), String> {
+pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(), String> {
     // Delete all files in daily directory
     let daily_dir = get_daily_dir();
     if daily_dir.exists() {
@@ -455,11 +496,17 @@ pub(crate) fn clear_all_notes() -> Result<(), String> {
         }
     }
 
+    index.remove_all();
+
     Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn move_note(note_path: String, to_folder: Option<String>) -> Result<String, String> {
+pub(crate) fn move_note(
+    note_path: String,
+    to_folder: Option<String>,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
     let standalone_dir = get_standalone_dir();
 
     // Validate paths
@@ -503,6 +550,13 @@ pub(crate) fn move_note(note_path: String, to_folder: Option<String>) -> Result<
     // Move the file
     fs::rename(&source_path, &dest_path)
         .map_err(|e| format!("Failed to move note: {}", e))?;
+
+    // Keep backlinks index in sync: drop entries from old filename, then
+    // re-index using the (possibly deduplicated) new filename + content.
+    let old_filename = filename.clone();
+    index.remove_note(&old_filename);
+    let content = fs::read_to_string(&dest_path).unwrap_or_default();
+    index.update_note(&final_filename, &content);
 
     // Return new relative path
     let new_relative_path = match &to_folder {

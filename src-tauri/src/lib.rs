@@ -30,6 +30,7 @@ mod security;
 mod utils;
 
 // Refactored domain modules.
+pub(crate) mod backlinks_index;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
@@ -104,12 +105,19 @@ fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use std::sync::Arc;
+
+    use crate::backlinks_index::BacklinksIndex;
+
+    let backlinks_index = Arc::new(BacklinksIndex::new());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
-        .setup(|app| {
+        .manage(backlinks_index.clone())
+        .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -117,6 +125,11 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // Build backlinks index off the main thread so startup isn't blocked.
+            let idx = backlinks_index.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                idx.rebuild_from_disk();
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
