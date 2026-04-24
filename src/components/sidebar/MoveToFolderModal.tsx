@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Folder, FolderOpen, ChevronRight, Home } from 'lucide-react';
+import { EmptyState } from '@/components/ui';
 import type { FolderInfo } from '@/types';
 
 interface MoveToFolderModalProps {
@@ -169,9 +170,13 @@ export function MoveToFolderModal({
             ))}
 
             {folders.length === 0 && (
-              <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                No folders yet. Create one first.
-              </div>
+              <EmptyState
+                icon={Folder}
+                heading="No folders yet"
+                message="Create a folder in the sidebar first, then move notes here."
+                variant="compact"
+                iconColor="text-gray-400 dark:text-gray-500"
+              />
             )}
           </div>
         </div>
