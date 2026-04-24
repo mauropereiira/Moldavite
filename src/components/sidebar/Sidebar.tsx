@@ -1,6 +1,5 @@
 import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
-import { save } from '@tauri-apps/plugin-dialog';
-import { Lock, Unlock, Trash2, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown } from 'lucide-react';
+import { FilePlus, Pencil, Trash2 } from 'lucide-react';
 import { useNotes, useFolders, useTrash } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
@@ -12,14 +11,13 @@ import {
   hasTag,
   extractTags,
   readNote,
-  exportSingleNote,
-  exportNoteToPdf,
   getNoteTitleError,
 } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
 import { MoveToFolderModal } from './MoveToFolderModal';
+import { NoteContextMenu } from './NoteContextMenu';
 import { TrashPopover } from './TrashPopover';
 
 // Modals that only mount on-demand — code-split to keep them out of the
@@ -747,182 +745,18 @@ export function Sidebar() {
 
       {/* Context Menu */}
       {contextMenuNote && (
-        <div
-          className="fixed z-[9999] py-1 min-w-[160px]"
-          style={{
-            left: contextMenuPosition.x,
-            top: contextMenuPosition.y,
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: 'var(--shadow-md)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contextMenuNote.isLocked ? (
-            <>
-              <button
-                onClick={() => handleUnlockNote(contextMenuNote)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-                style={{ color: 'var(--text-primary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <Unlock className="w-4 h-4" />
-                View Note
-              </button>
-              <button
-                onClick={() => handlePermanentUnlock(contextMenuNote)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-                style={{ color: 'var(--text-primary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <Unlock className="w-4 h-4" />
-                Remove Lock
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleLockNote(contextMenuNote)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <Lock className="w-4 h-4" />
-              Lock Note
-            </button>
-          )}
-          {!contextMenuNote.isLocked && (
-            <button
-              onClick={() => {
-                loadNote(contextMenuNote, true);
-                closeContextMenu();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <Layers className="w-4 h-4" />
-              Open in New Tab
-            </button>
-          )}
-          {!contextMenuNote.isLocked && (
-            <button
-              onClick={async () => {
-                try {
-                  await duplicateNote(contextMenuNote);
-                  toast.success('Note duplicated');
-                } catch (_error) {
-                  toast.error('Failed to duplicate note');
-                }
-                closeContextMenu();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <Copy className="w-4 h-4" />
-              Duplicate
-            </button>
-          )}
-          {!contextMenuNote.isLocked && (
-            <button
-              onClick={async () => {
-                try {
-                  const defaultName = contextMenuNote.name.replace(/\.md$/, '');
-                  const destination = await save({
-                    title: 'Export Note',
-                    defaultPath: `${defaultName}.md`,
-                    filters: [{ name: 'Markdown', extensions: ['md'] }],
-                  });
-                  if (destination) {
-                    await exportSingleNote(
-                      contextMenuNote.name,
-                      destination,
-                      contextMenuNote.isDaily || false,
-                      contextMenuNote.isWeekly || false
-                    );
-                    toast.success('Note exported');
-                  }
-                } catch (_error) {
-                  toast.error('Failed to export note');
-                }
-                closeContextMenu();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <Download className="w-4 h-4" />
-              Export as Markdown
-            </button>
-          )}
-          {!contextMenuNote.isLocked && (
-            <button
-              onClick={async () => {
-                try {
-                  const defaultName = contextMenuNote.name.replace(/\.md$/, '');
-                  const destination = await save({
-                    title: 'Export as PDF',
-                    defaultPath: `${defaultName}.pdf`,
-                    filters: [{ name: 'PDF', extensions: ['pdf'] }],
-                  });
-                  if (destination) {
-                    const content = await readNote(
-                      contextMenuNote.name,
-                      contextMenuNote.isDaily || false,
-                      contextMenuNote.isWeekly || false
-                    );
-                    await exportNoteToPdf(defaultName, content, destination);
-                    toast.success('Note exported as PDF');
-                  }
-                } catch (error) {
-                  console.error('[Sidebar] PDF export failed:', error);
-                  toast.error('Failed to export PDF');
-                }
-                closeContextMenu();
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <FileDown className="w-4 h-4" />
-              Export as PDF
-            </button>
-          )}
-          {!contextMenuNote.isDaily && (
-            <button
-              onClick={() => handleMoveToFolder(contextMenuNote)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-              style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <FolderInput className="w-4 h-4" />
-              Move to Folder...
-            </button>
-          )}
-          <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />
-          <button
-            onClick={(e) => {
-              handleDeleteClick(e, contextMenuNote);
-              closeContextMenu();
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-            style={{ color: 'var(--error)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete Note
-          </button>
-        </div>
+        <NoteContextMenu
+          note={contextMenuNote}
+          position={contextMenuPosition}
+          onOpenInNewTab={(note) => loadNote(note, true)}
+          onDuplicate={duplicateNote}
+          onLock={handleLockNote}
+          onUnlock={handleUnlockNote}
+          onPermanentUnlock={handlePermanentUnlock}
+          onMoveToFolder={handleMoveToFolder}
+          onDelete={handleDeleteClick}
+          onClose={closeContextMenu}
+        />
       )}
 
       {/* Template Picker Modal */}
