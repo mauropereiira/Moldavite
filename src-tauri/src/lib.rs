@@ -48,6 +48,7 @@ use commands::export_import::{
     import_notes, import_settings_json,
 };
 use commands::folders::{create_folder, delete_folder, list_folders, move_folder, rename_folder};
+use commands::graph::get_note_graph;
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
 use commands::misc::{
     ensure_directories, get_all_note_colors, get_note_color, get_notes_directory, save_image,
@@ -180,6 +181,8 @@ pub fn run() {
             scan_note_links,
             get_backlinks,
             create_note_from_link,
+            // Graph view
+            get_note_graph,
             // Directory management commands
             get_notes_directory,
             set_notes_directory,
