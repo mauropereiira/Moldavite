@@ -36,7 +36,8 @@ export type ShortcutId =
   | 'shortcutHelp'
   | 'nextTab'
   | 'prevTab'
-  | 'toggleGraph';
+  | 'toggleGraph'
+  | 'clearSelection';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -107,6 +108,14 @@ export const SHORTCUTS: Shortcut[] = [
     id: 'toggleGraph',
     keys: ['⌘', '⇧', 'G'],
     description: 'Toggle graph view',
+    category: 'navigation',
+  },
+
+  // Selection
+  {
+    id: 'clearSelection',
+    keys: ['Esc'],
+    description: 'Clear sidebar selection',
     category: 'navigation',
   },
 

@@ -8,7 +8,13 @@ import {
   useSidebarTags,
   useSidebarDnd,
 } from '@/hooks';
-import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
+import {
+  useNoteStore,
+  useSettingsStore,
+  useTagStore,
+  useSearchStore,
+  useNoteSelectionStore,
+} from '@/stores';
 import type { ContentMatch } from '@/stores';
 import { getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
@@ -19,6 +25,7 @@ import { NoteContextMenu } from './NoteContextMenu';
 import { FolderContextMenu } from './FolderContextMenu';
 import { SidebarModals } from './SidebarModals';
 import { TrashPopover } from './TrashPopover';
+import { BulkActionBar } from './BulkActionBar';
 
 // Modals that only mount on-demand — code-split to keep them out of the
 // main bundle. Tiptap + markdown-it + DOMPurify (~200 KB gz) in
@@ -138,6 +145,16 @@ export function Sidebar() {
   }, [loadTrash, cleanupOldTrash]);
 
   const { noteMenu, folderMenu } = useSidebarContextMenu();
+
+  // Bulk selection state — the store holds the set of selected ids, this
+  // component owns the UI affordances (anchor for shift-range, move/trash
+  // modals) that sit on top of it.
+  const selectionToggle = useNoteSelectionStore((s) => s.toggle);
+  const selectionSelectRange = useNoteSelectionStore((s) => s.selectRange);
+  const selectionClear = useNoteSelectionStore((s) => s.clear);
+  const selectionAnchorRef = useRef<string | null>(null);
+  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+  const [showBulkTrashConfirm, setShowBulkTrashConfirm] = useState(false);
 
   // Sort function based on current sort option
   const sortNotes = (notesToSort: NoteFile[]) => {
@@ -401,8 +418,152 @@ export function Sidebar() {
     }
   };
 
+  /**
+   * Flat list of note ids (paths) in display order, used to resolve
+   * shift-click ranges. Kept in one place so ordering is consistent whether
+   * the user shift-clicks in the unfiled notes, a folder, or a mix of both
+   * (folders appear in tree order between their parent and next sibling).
+   *
+   * Notes inside collapsed folders are excluded — a user who can't see them
+   * almost certainly didn't mean to include them in a visual range.
+   */
+  const visibleNoteIds = useMemo(() => {
+    const ids: string[] = [];
+    // Unfiled notes first, matching the Notes section render order
+    for (const n of displayedNotes) ids.push(n.path);
+    // Then folder notes, depth-first, only when the folder is expanded
+    const walk = (fs: FolderInfo[]) => {
+      for (const f of fs) {
+        if (!expandedFolders.includes(f.path)) continue;
+        // Child folders render before child notes (see FolderItem)
+        if (f.children.length > 0) walk(f.children);
+        for (const n of allStandaloneNotes) {
+          if (n.folderPath === f.path) ids.push(n.path);
+        }
+      }
+    };
+    walk(folders);
+    return ids;
+  }, [displayedNotes, allStandaloneNotes, folders, expandedFolders]);
+
+  const handleSelectionClick = (note: NoteFile, e: React.MouseEvent) => {
+    const id = note.path;
+    if (e.shiftKey && selectionAnchorRef.current) {
+      // Range select between anchor and this row in whatever order they appear
+      const anchor = selectionAnchorRef.current;
+      const a = visibleNoteIds.indexOf(anchor);
+      const b = visibleNoteIds.indexOf(id);
+      if (a === -1 || b === -1) {
+        // Anchor is no longer visible — fall back to toggle behaviour
+        selectionToggle(id);
+        selectionAnchorRef.current = id;
+        return;
+      }
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      selectionSelectRange(visibleNoteIds.slice(lo, hi + 1));
+      return;
+    }
+    // Cmd/Ctrl click — toggle and update the anchor so a follow-up shift-click
+    // ranges from here.
+    selectionToggle(id);
+    selectionAnchorRef.current = id;
+  };
+
+  /** Resolve selected ids back to NoteFile objects (current snapshot). */
+  const resolveSelectedNotes = (): NoteFile[] => {
+    const ids = useNoteSelectionStore.getState().selectedIds;
+    return notes.filter((n) => ids.has(n.path));
+  };
+
+  const handleBulkMoveSelect = async (folderPath: string | null) => {
+    const selected = resolveSelectedNotes();
+    setShowBulkMoveModal(false);
+    if (selected.length === 0) return;
+
+    const results = await Promise.allSettled(
+      selected.map((n) => {
+        const relative = n.path.startsWith('notes/') ? n.path.slice(6) : n.path;
+        return moveNoteToFolder(relative, folderPath ?? undefined);
+      }),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      toast.error(`Failed to move ${failed} note${failed === 1 ? '' : 's'}`);
+    } else {
+      toast.success(`Moved ${selected.length} note${selected.length === 1 ? '' : 's'}`);
+    }
+    selectionClear();
+  };
+
+  const handleBulkTrashConfirm = async () => {
+    const selected = resolveSelectedNotes();
+    setShowBulkTrashConfirm(false);
+    if (selected.length === 0) return;
+
+    const results = await Promise.allSettled(
+      selected.map((n) => {
+        const relative = n.isDaily
+          ? n.name
+          : n.path.startsWith('notes/')
+            ? n.path.slice(6)
+            : n.name;
+        return trashNote(relative, n.isDaily || false);
+      }),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    // Drop the current note from view if it was trashed
+    if (currentNote && selected.some((n) => n.path === currentNote.id)) {
+      setCurrentNote(null);
+    }
+
+    if (failed > 0) {
+      toast.error(`Failed to trash ${failed} note${failed === 1 ? '' : 's'}`);
+    } else {
+      toast.success(`Moved ${selected.length} note${selected.length === 1 ? '' : 's'} to trash`);
+    }
+    selectionClear();
+  };
+
+  const handleSidebarRootClick = (e: React.MouseEvent) => {
+    // Only clear when the user clicks truly-empty sidebar chrome. Note rows,
+    // folder rows, buttons etc. call stopPropagation (or are interactive
+    // elements handled above this), so clicks on them never bubble here.
+    if (e.target === e.currentTarget) {
+      if (useNoteSelectionStore.getState().selectedIds.size > 0) {
+        selectionClear();
+        selectionAnchorRef.current = null;
+      }
+    }
+  };
+
+  // Esc clears the selection — registered centrally in useKeyboardShortcuts.
+  // We still reset the local anchor ref alongside it, which is why we keep
+  // a lightweight listener here.
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (useNoteSelectionStore.getState().selectedIds.size === 0) return;
+      selectionAnchorRef.current = null;
+    };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+  }, []);
+
+  // Keep the store pristine across unmounts (e.g. hot reload in dev).
+  useEffect(() => {
+    return () => {
+      selectionClear();
+    };
+  }, [selectionClear]);
+
+
   return (
-    <div className="flex flex-col h-full select-none" style={{ color: 'var(--text-primary)' }}>
+    <div
+      className="flex flex-col h-full select-none relative"
+      style={{ color: 'var(--text-primary)' }}
+      onClick={handleSidebarRootClick}
+    >
       <SidebarModals
         deleteNote={showDeleteConfirm ? noteToDelete : null}
         onDeleteNoteConfirm={handleDeleteConfirm}
@@ -536,6 +697,7 @@ export function Sidebar() {
               }
               onNewNote={() => setIsCreating(true)}
               onNoteClick={handleSidebarNoteClick}
+              onNoteSelectionClick={handleSelectionClick}
               onNoteContextMenu={handleContextMenu}
               isNoteActive={isNoteActive}
               getNoteTags={tagsEnabled ? getNoteTags : undefined}
@@ -563,6 +725,7 @@ export function Sidebar() {
                 onFolderDrop={handleFolderDrop}
                 isNoteActive={isNoteActive}
                 onNoteClick={handleSidebarNoteClick}
+                onNoteSelectionClick={handleSelectionClick}
                 onNoteContextMenu={handleContextMenu}
                 getNoteTags={tagsEnabled ? getNoteTags : undefined}
                 isDragOverFoldersRoot={dnd.isDragOverFoldersRoot}
@@ -616,6 +779,51 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      {/* Bulk selection floating bar + its modals */}
+      <BulkActionBar
+        onMoveToFolder={() => setShowBulkMoveModal(true)}
+        onTrash={() => setShowBulkTrashConfirm(true)}
+      />
+
+      {showBulkMoveModal && (
+        <MoveToFolderModal
+          isOpen={showBulkMoveModal}
+          onClose={() => setShowBulkMoveModal(false)}
+          onSelect={handleBulkMoveSelect}
+          folders={folders}
+          bulkCount={useNoteSelectionStore.getState().selectedIds.size}
+        />
+      )}
+
+      {showBulkTrashConfirm && (
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
+          <div
+            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
+            style={{ borderRadius: 'var(--radius-md)' }}
+          >
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+              Trash Notes
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Move {useNoteSelectionStore.getState().selectedIds.size} note
+              {useNoteSelectionStore.getState().selectedIds.size === 1 ? '' : 's'} to trash? They
+              will be kept for 7 days.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowBulkTrashConfirm(false)}
+                className="btn focus-ring"
+              >
+                Cancel
+              </button>
+              <button onClick={handleBulkTrashConfirm} className="btn btn-danger focus-ring">
+                Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <SidebarFooter
