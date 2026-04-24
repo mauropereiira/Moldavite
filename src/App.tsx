@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Layout, ToastContainer, UpdateNotification, CalendarOnboardingModal } from './components';
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
+import { GraphView } from './components/graph';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock } from './hooks';
@@ -64,6 +65,7 @@ function App() {
       <UpdateNotification />
       <CalendarOnboardingModal />
       <QuickSwitcher />
+      <GraphView />
       <ShortcutHelpHost />
     </>
   );

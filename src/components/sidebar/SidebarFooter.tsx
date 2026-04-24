@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { Calendar, Plus, Settings as SettingsIcon, Trash2, AlignJustify } from 'lucide-react';
-import { useTimelineStore } from '@/stores';
+import { Calendar, Plus, Settings as SettingsIcon, Trash2, AlignJustify, Share2 } from 'lucide-react';
+import { useTimelineStore, useGraphStore } from '@/stores';
 
 interface SidebarFooterProps {
   onToday: () => void;
@@ -26,6 +26,7 @@ export function SidebarFooter({
   const [appVersion, setAppVersion] = useState<string>('');
   const trashBtnRef = useRef<HTMLButtonElement>(null);
   const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
+  const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
@@ -65,8 +66,8 @@ export function SidebarFooter({
         </button>
       </div>
 
-      {/* Row 2: Timeline + Settings + Trash */}
-      <div className="px-3 pb-2 grid grid-cols-3 gap-2">
+      {/* Row 2: Timeline + Graph + Settings + Trash */}
+      <div className="px-3 pb-2 grid grid-cols-4 gap-2">
         <button
           onClick={toggleTimeline}
           className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
@@ -86,6 +87,27 @@ export function SidebarFooter({
         >
           <AlignJustify className="w-4 h-4" />
           <span>Timeline</span>
+        </button>
+        <button
+          onClick={toggleGraph}
+          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
+          style={{
+            ...iconBtnStyle,
+            backgroundColor: isGraphOpen ? 'var(--hover-overlay)' : 'transparent',
+            color: isGraphOpen ? 'var(--accent-primary)' : 'var(--text-muted)',
+          }}
+          onMouseEnter={(e) => {
+            if (!isGraphOpen) handleIconEnter(e);
+          }}
+          onMouseLeave={(e) => {
+            if (!isGraphOpen) handleIconLeave(e);
+          }}
+          title="Graph view (⌘⇧G)"
+          aria-pressed={isGraphOpen}
+          aria-label="Toggle graph view"
+        >
+          <Share2 className="w-4 h-4" />
+          <span>Graph</span>
         </button>
         <button
           onClick={onSettings}

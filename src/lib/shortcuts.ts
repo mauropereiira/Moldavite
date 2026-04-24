@@ -35,7 +35,8 @@ export type ShortcutId =
   | 'insertLink'
   | 'shortcutHelp'
   | 'nextTab'
-  | 'prevTab';
+  | 'prevTab'
+  | 'toggleGraph';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -100,6 +101,12 @@ export const SHORTCUTS: Shortcut[] = [
     id: 'prevTab',
     keys: ['⌘', '⌥', '←'],
     description: 'Switch to the previous open tab',
+    category: 'navigation',
+  },
+  {
+    id: 'toggleGraph',
+    keys: ['⌘', '⇧', 'G'],
+    description: 'Toggle graph view',
     category: 'navigation',
   },
 
