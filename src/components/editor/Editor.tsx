@@ -744,6 +744,54 @@ export function Editor() {
     }
   }, [editor, currentNote?.id]);
 
+  // Resolve wiki-link existence once the note is loaded so stale links render
+  // with the `wiki-link-missing` style and live ones with `wiki-link-exists`.
+  // We match the in-memory notes list (already authoritative) rather than
+  // round-tripping to the backend — resolution is O(links × notes) but
+  // typical notes have a handful of wiki links.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (!currentNote) return;
+
+    const raf = requestAnimationFrame(() => {
+      if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+
+      const currentNotes = notesRef.current;
+      const slugify = (s: string) =>
+        s.toLowerCase().replace(/\.md$/, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+      const updates: Array<{ pos: number; exists: string }> = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== 'wikiLink') return;
+        const target = (node.attrs['data-target'] || '') as string;
+        if (!target) return;
+        const targetSlug = slugify(target);
+        const found = currentNotes.some(
+          (n) => n.name === target || slugify(n.name) === targetSlug,
+        );
+        const nextExists = found ? 'true' : 'false';
+        if (node.attrs['data-exists'] !== nextExists) {
+          updates.push({ pos, exists: nextExists });
+        }
+      });
+
+      if (updates.length === 0) return;
+
+      const { tr } = editor.state;
+      for (const { pos, exists } of updates) {
+        const node = editor.state.doc.nodeAt(pos);
+        if (!node) continue;
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, 'data-exists': exists });
+      }
+      // Mark the transaction as an internal metadata change so it doesn't
+      // trigger onUpdate -> autosave churn.
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [editor, currentNote?.id, notes]);
+
   // Auto-save hook
   useAutoSave();
 
