@@ -89,12 +89,13 @@ export function Calendar() {
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={handlePrevMonth}
+          aria-label="Previous month"
           className="p-1 transition-colors"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -103,12 +104,13 @@ export function Calendar() {
         </span>
         <button
           onClick={handleNextMonth}
+          aria-label="Next month"
           className="p-1 transition-colors"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
