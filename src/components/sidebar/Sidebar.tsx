@@ -1,21 +1,34 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { getVersion } from '@tauri-apps/api/app';
 import { save } from '@tauri-apps/plugin-dialog';
-import { Lock, Unlock, Trash2, FolderPlus, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown, ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
+import { Lock, Unlock, Trash2, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown } from 'lucide-react';
 import { useNotes, useSearch, useFolders, useTrash } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore } from '@/stores';
-import { lockNote, unlockNote, permanentlyUnlockNote, aggregateTags, hasTag, extractTags, readNote, exportSingleNote, exportNoteToPdf, getNoteTitleError } from '@/lib';
+import {
+  lockNote,
+  unlockNote,
+  permanentlyUnlockNote,
+  aggregateTags,
+  hasTag,
+  extractTags,
+  readNote,
+  exportSingleNote,
+  exportNoteToPdf,
+  getNoteTitleError,
+} from '@/lib';
 import { SettingsModal } from '@/components/settings';
-import { NoSearchResultsEmptyState, NoNotesEmptyState, PasswordModal } from '@/components/ui';
+import { NoSearchResultsEmptyState, PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
-import { CollapsibleSection } from './CollapsibleSection';
 import { DraggableNoteItem } from './DraggableNoteItem';
-import { FolderTree } from './FolderTree';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { TrashModal } from './TrashModal';
-import { TagsSection } from './TagsSection';
+import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
+import { SidebarSearch } from './SidebarSearch';
+import { SidebarNotesList } from './SidebarNotesList';
+import { SidebarFolderTree } from './SidebarFolderTree';
+import { SidebarDailyList } from './SidebarDailyList';
+import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo } from '@/types';
 
 function escapeRegExp(str: string): string {
@@ -26,11 +39,8 @@ function renderHighlightedPreview(text: string, term: string): React.ReactNode {
   if (!term) return text;
   const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
   const parts = text.split(regex);
-  // split() with a capture group interleaves: [nonmatch, match, nonmatch, match, ...]
   return parts.map((part, i) =>
-    i % 2 === 1
-      ? <mark key={i}>{part}</mark>
-      : <React.Fragment key={i}>{part}</React.Fragment>
+    i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>
   );
 }
 
@@ -98,7 +108,6 @@ export function Sidebar() {
   // Lock/unlock state
   const [lockModalMode, setLockModalMode] = useState<LockModalMode>(null);
   const [noteToLock, setNoteToLock] = useState<NoteFile | null>(null);
-  const [appVersion, setAppVersion] = useState<string>('');
 
   // Folder state
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
@@ -126,11 +135,6 @@ export function Sidebar() {
   // Folders section drop zone state (for dragging folders back to root)
   const [isDragOverFoldersRoot, setIsDragOverFoldersRoot] = useState(false);
   const foldersRootDragCounterRef = useRef(0);
-
-  // Fetch app version
-  useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
-  }, []);
 
   // Initialize folders
   useEffect(() => {
@@ -166,7 +170,6 @@ export function Sidebar() {
       for (const note of notes) {
         if (note.isLocked) continue; // Skip locked notes
 
-        // Check cache first
         let content = noteContentCacheRef.current.get(note.path);
         if (content === undefined) {
           try {
@@ -211,36 +214,32 @@ export function Sidebar() {
   };
 
   // Notes that are NOT in any folder (for the Notes section)
-  const unfiledNotes = sortNotes(
-    notes.filter(n => !n.isDaily && !n.folderPath)
-  );
+  const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
 
   // All standalone notes (for FolderTree to filter by folder)
-  const allStandaloneNotes = sortNotes(
-    notes.filter(n => !n.isDaily)
-  );
+  const allStandaloneNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly));
 
-  // Filter notes by selected tags (AND logic - note must have ALL selected tags)
+  // Daily notes
+  const dailyNotes = useMemo(() => notes.filter((n) => n.isDaily), [notes]);
+
+  // Filter notes by selected tags (AND logic)
   const filterByTag = useMemo(() => {
     if (selectedTags.length === 0) return (notes: NoteFile[]) => notes;
 
     return (notes: NoteFile[]) => {
-      return notes.filter(note => {
+      return notes.filter((note) => {
         const content = noteContentCacheRef.current.get(note.path);
         if (!content) return false;
-        // Check if note has ALL selected tags
-        return selectedTags.every(tag => hasTag(content, tag));
+        return selectedTags.every((tag) => hasTag(content, tag));
       });
     };
   }, [selectedTags]);
 
   // Filter notes based on search and tag
-  // When filtering by tag, include ALL notes (including daily notes)
   const displayedNotes = useMemo(() => {
     if (search.isActive) {
-      return filterByTag(search.results.map(r => r.note));
+      return filterByTag(search.results.map((r) => r.note));
     }
-    // When tags are selected, search all notes (including daily)
     if (selectedTags.length > 0) {
       return filterByTag(notes);
     }
@@ -251,12 +250,9 @@ export function Sidebar() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
-
-      // Cmd/Ctrl + F or Cmd/Ctrl + K: Focus search
       if (isMod && (e.key === 'f' || e.key === 'k')) {
         e.preventDefault();
         searchInputRef.current?.focus();
-        return;
       }
     };
 
@@ -264,13 +260,12 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       search.clearSearch();
       searchInputRef.current?.blur();
     } else if (e.key === 'Enter' && displayedNotes.length > 0) {
       loadNote(displayedNotes[0]);
-      // Don't clear search - let user browse other results
       searchInputRef.current?.blur();
     }
   };
@@ -278,7 +273,6 @@ export function Sidebar() {
   const handleCreateNote = async () => {
     const error = getNoteTitleError(newNoteTitle);
     if (!error) {
-      // Store the title and show template picker
       setPendingNoteTitle(newNoteTitle.trim());
       setNewNoteTitle('');
       setIsCreating(false);
@@ -290,18 +284,15 @@ export function Sidebar() {
     setShowTemplatePicker(false);
     const targetFolder = createNoteInFolder;
     if (templateId) {
-      // Create note from template
       try {
         await createFromTemplate(pendingNoteTitle, templateId, false, targetFolder);
         toast.success('Note created from template');
       } catch (error) {
         console.error('[Sidebar] Failed to create note from template:', error);
         toast.error('Failed to create note from template');
-        // Fall back to creating empty note
         await createNote(pendingNoteTitle, targetFolder);
       }
     } else {
-      // Create blank note
       await createNote(pendingNoteTitle, targetFolder);
     }
     setPendingNoteTitle('');
@@ -310,8 +301,6 @@ export function Sidebar() {
 
   const handleTemplatePickerClose = () => {
     setShowTemplatePicker(false);
-    // Just clear the pending state - note creation is handled by handleTemplateSelect
-    // Don't create note here to avoid duplication (onSelect is already called before onClose)
     setPendingNoteTitle('');
     setCreateNoteInFolder(null);
   };
@@ -348,7 +337,7 @@ export function Sidebar() {
   };
 
   const handleDeleteClick = (e: React.MouseEvent, note: NoteFile) => {
-    e.stopPropagation(); // Prevent note selection
+    e.stopPropagation();
     setNoteToDelete(note);
     setShowDeleteConfirm(true);
   };
@@ -357,21 +346,16 @@ export function Sidebar() {
     if (!noteToDelete) return;
 
     try {
-      // For notes in folders, we need the relative path (e.g., "folder/note.md")
-      // noteToDelete.path is "notes/folder/note.md" or "daily/date.md"
       let relativePath: string;
       if (noteToDelete.isDaily) {
         relativePath = noteToDelete.name;
       } else {
-        // Strip "notes/" prefix to get relative path within notes directory
         relativePath = noteToDelete.path.startsWith('notes/')
           ? noteToDelete.path.slice(6)
           : noteToDelete.name;
       }
-      // Move to trash instead of permanent delete
       await trashNote(relativePath, noteToDelete.isDaily || false);
 
-      // Clear current note if it's the one being deleted
       if (currentNote && currentNote.id === noteToDelete.path) {
         setCurrentNote(null);
       }
@@ -400,7 +384,6 @@ export function Sidebar() {
     setContextMenuNote(null);
   };
 
-  // Close context menu when clicking outside
   useEffect(() => {
     const handleClick = () => closeContextMenu();
     if (contextMenuNote) {
@@ -434,18 +417,15 @@ export function Sidebar() {
     if (lockModalMode === 'lock') {
       await lockNote(noteToLock.name, password, noteToLock.isDaily);
       toast.success('Note locked');
-      // Update note in list to show locked status
-      const updatedNotes = notes.map(n =>
+      const updatedNotes = notes.map((n) =>
         n.path === noteToLock.path ? { ...n, isLocked: true } : n
       );
       setNotes(updatedNotes);
-      // Clear current note if it's the one being locked
       if (currentNote && currentNote.id === noteToLock.path) {
         setCurrentNote(null);
       }
     } else if (lockModalMode === 'unlock') {
       const content = await unlockNote(noteToLock.name, password, noteToLock.isDaily);
-      // Load the decrypted content into the editor
       const note = {
         id: noteToLock.path,
         title: noteToLock.name.replace(/\.md$/, ''),
@@ -458,14 +438,12 @@ export function Sidebar() {
         week: noteToLock.week,
       };
       setCurrentNote(note);
-      // Track this note as temporarily unlocked for auto-lock feature
       trackUnlockedNote(noteToLock.path);
       toast.success('Note unlocked (view only)');
     } else if (lockModalMode === 'permanent-unlock') {
       await permanentlyUnlockNote(noteToLock.name, password, noteToLock.isDaily);
       toast.success('Note permanently unlocked');
-      // Update note in list to show unlocked status
-      const updatedNotes = notes.map(n =>
+      const updatedNotes = notes.map((n) =>
         n.path === noteToLock.path ? { ...n, isLocked: false } : n
       );
       setNotes(updatedNotes);
@@ -487,7 +465,6 @@ export function Sidebar() {
   const handleMoveToFolderSelect = async (folderPath: string | null) => {
     if (!noteToMove) return;
 
-    // Extract the relative path within notes/ directory
     const relativePath = noteToMove.path.startsWith('notes/')
       ? noteToMove.path.slice(6)
       : noteToMove.path;
@@ -516,7 +493,6 @@ export function Sidebar() {
     setFolderContextMenu(null);
   };
 
-  // Close folder context menu when clicking outside
   useEffect(() => {
     const handleClick = () => closeFolderContextMenu();
     if (folderContextMenu) {
@@ -549,7 +525,6 @@ export function Sidebar() {
 
   const handleDeleteFolderConfirm = async () => {
     if (folderToDelete) {
-      // Use trash instead of permanent delete
       await trashFolder(folderToDelete.path);
     }
     setFolderToDelete(null);
@@ -568,7 +543,6 @@ export function Sidebar() {
   const handleRootDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     rootDragCounterRef.current++;
-    // Only accept notes, not folders
     const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
     const hasTextData = e.dataTransfer.types.includes('text/plain');
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
@@ -579,7 +553,6 @@ export function Sidebar() {
 
   const handleRootDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    // Only accept notes, not folders
     const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
     const hasTextData = e.dataTransfer.types.includes('text/plain');
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
@@ -602,19 +575,14 @@ export function Sidebar() {
     rootDragCounterRef.current = 0;
     setIsDragOverRoot(false);
 
-    // Only handle note drops (ignore folder drops in Notes section)
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if (hasFolderData) {
-      return; // Don't accept folders in Notes section
-    }
+    if (hasFolderData) return;
 
-    // Handle note drop
     let notePath = e.dataTransfer.getData('application/x-note-path');
     if (!notePath) {
       notePath = e.dataTransfer.getData('text/plain');
     }
     if (notePath) {
-      // Move note to root (undefined means no folder)
       await moveNoteToFolder(notePath, undefined);
     }
   };
@@ -623,16 +591,14 @@ export function Sidebar() {
   const handleFoldersRootDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     foldersRootDragCounterRef.current++;
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if (hasFolderData) {
+    if (e.dataTransfer.types.includes('application/x-folder-path')) {
       setIsDragOverFoldersRoot(true);
     }
   };
 
   const handleFoldersRootDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if (hasFolderData) {
+    if (e.dataTransfer.types.includes('application/x-folder-path')) {
       e.dataTransfer.dropEffect = 'move';
     }
   };
@@ -651,11 +617,18 @@ export function Sidebar() {
     foldersRootDragCounterRef.current = 0;
     setIsDragOverFoldersRoot(false);
 
-    // Only handle folder drops
     const folderPath = e.dataTransfer.getData('application/x-folder-path');
     if (folderPath) {
-      // Move folder to root (undefined means no parent folder)
       await moveFolderToFolder(folderPath, undefined);
+    }
+  };
+
+  const handleSidebarNoteClick = (note: NoteFile, e: React.MouseEvent) => {
+    if (note.isLocked) {
+      handleUnlockNote(note);
+    } else {
+      const inNewTab = e.metaKey || e.ctrlKey;
+      loadNote(note, inNewTab);
     }
   };
 
@@ -663,7 +636,7 @@ export function Sidebar() {
     <div className="flex flex-col h-full select-none" style={{ color: 'var(--text-primary)' }}>
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && noteToDelete && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
           <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Delete Note
@@ -672,16 +645,10 @@ export function Sidebar() {
               Delete &quot;{noteToDelete.name.replace(/\.md$/, '')}&quot;? It will be moved to trash for 7 days.
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={handleDeleteCancel}
-                className="btn focus-ring"
-              >
+              <button onClick={handleDeleteCancel} className="btn focus-ring">
                 Cancel
               </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="btn btn-danger focus-ring"
-              >
+              <button onClick={handleDeleteConfirm} className="btn btn-danger focus-ring">
                 Delete
               </button>
             </div>
@@ -694,7 +661,7 @@ export function Sidebar() {
         const titleError = newNoteTitle.trim() ? getNoteTitleError(newNoteTitle) : null;
         return (
           <div
-            className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+            className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
             onClick={handleCreateModalBackdropClick}
           >
             <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full" style={{ borderRadius: 'var(--radius-md)' }}>
@@ -704,7 +671,7 @@ export function Sidebar() {
               <input
                 type="text"
                 value={newNoteTitle}
-                onChange={e => setNewNoteTitle(e.target.value)}
+                onChange={(e) => setNewNoteTitle(e.target.value)}
                 onKeyDown={handleCreateModalKeyDown}
                 placeholder="Note title..."
                 className="input"
@@ -715,18 +682,12 @@ export function Sidebar() {
                 autoFocus
               />
               {titleError && (
-                <p
-                  className="text-xs mb-4"
-                  style={{ color: 'var(--status-error, #ef4444)' }}
-                >
+                <p className="text-xs mb-4" style={{ color: 'var(--status-error, #ef4444)' }}>
                   {titleError}
                 </p>
               )}
               <div className="flex justify-end gap-2">
-                <button
-                  onClick={handleCancelCreate}
-                  className="btn focus-ring"
-                >
+                <button onClick={handleCancelCreate} className="btn focus-ring">
                   Cancel
                 </button>
                 <button
@@ -759,7 +720,7 @@ export function Sidebar() {
       {/* Context Menu */}
       {contextMenuNote && (
         <div
-          className="fixed z-50 py-1 min-w-[160px]"
+          className="fixed z-[9999] py-1 min-w-[160px]"
           style={{
             left: contextMenuPosition.x,
             top: contextMenuPosition.y,
@@ -776,8 +737,8 @@ export function Sidebar() {
                 onClick={() => handleUnlockNote(contextMenuNote)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
                 style={{ color: 'var(--text-primary)' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Unlock className="w-4 h-4" />
                 View Note
@@ -786,8 +747,8 @@ export function Sidebar() {
                 onClick={() => handlePermanentUnlock(contextMenuNote)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
                 style={{ color: 'var(--text-primary)' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Unlock className="w-4 h-4" />
                 Remove Lock
@@ -798,14 +759,13 @@ export function Sidebar() {
               onClick={() => handleLockNote(contextMenuNote)}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <Lock className="w-4 h-4" />
               Lock Note
             </button>
           )}
-          {/* Open in New Tab */}
           {!contextMenuNote.isLocked && (
             <button
               onClick={() => {
@@ -814,14 +774,13 @@ export function Sidebar() {
               }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <Layers className="w-4 h-4" />
               Open in New Tab
             </button>
           )}
-          {/* Duplicate Note */}
           {!contextMenuNote.isLocked && (
             <button
               onClick={async () => {
@@ -835,14 +794,13 @@ export function Sidebar() {
               }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <Copy className="w-4 h-4" />
               Duplicate
             </button>
           )}
-          {/* Export Note as Markdown */}
           {!contextMenuNote.isLocked && (
             <button
               onClick={async () => {
@@ -869,14 +827,13 @@ export function Sidebar() {
               }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <Download className="w-4 h-4" />
               Export as Markdown
             </button>
           )}
-          {/* Export Note as PDF */}
           {!contextMenuNote.isLocked && (
             <button
               onClick={async () => {
@@ -888,13 +845,11 @@ export function Sidebar() {
                     filters: [{ name: 'PDF', extensions: ['pdf'] }],
                   });
                   if (destination) {
-                    // Read the note content
                     const content = await readNote(
                       contextMenuNote.name,
                       contextMenuNote.isDaily || false,
                       contextMenuNote.isWeekly || false
                     );
-                    // Export as PDF
                     await exportNoteToPdf(defaultName, content, destination);
                     toast.success('Note exported as PDF');
                   }
@@ -906,8 +861,8 @@ export function Sidebar() {
               }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <FileDown className="w-4 h-4" />
               Export as PDF
@@ -918,8 +873,8 @@ export function Sidebar() {
               onClick={() => handleMoveToFolder(contextMenuNote)}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <FolderInput className="w-4 h-4" />
               Move to Folder...
@@ -933,8 +888,8 @@ export function Sidebar() {
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
             style={{ color: 'var(--error)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <Trash2 className="w-4 h-4" />
             Delete Note
@@ -967,7 +922,7 @@ export function Sidebar() {
       {/* Folder Context Menu */}
       {folderContextMenu && (
         <div
-          className="fixed z-50 py-1 min-w-[160px]"
+          className="fixed z-[9999] py-1 min-w-[160px]"
           style={{
             left: folderContextMenuPosition.x,
             top: folderContextMenuPosition.y,
@@ -986,8 +941,8 @@ export function Sidebar() {
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
             style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <FilePlus className="w-4 h-4" />
             New Note in Folder
@@ -996,8 +951,8 @@ export function Sidebar() {
             onClick={() => handleRenameFolder(folderContextMenu)}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
             style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <Pencil className="w-4 h-4" />
             Rename Folder
@@ -1007,8 +962,8 @@ export function Sidebar() {
             onClick={() => handleDeleteFolder(folderContextMenu)}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
             style={{ color: 'var(--error)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <Trash2 className="w-4 h-4" />
             Delete Folder
@@ -1019,7 +974,7 @@ export function Sidebar() {
       {/* Create Folder Modal */}
       {isCreatingFolder && (
         <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
           onClick={() => setIsCreatingFolder(false)}
         >
           <div
@@ -1043,10 +998,7 @@ export function Sidebar() {
               autoFocus
             />
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsCreatingFolder(false)}
-                className="btn focus-ring"
-              >
+              <button onClick={() => setIsCreatingFolder(false)} className="btn focus-ring">
                 Cancel
               </button>
               <button
@@ -1064,7 +1016,7 @@ export function Sidebar() {
       {/* Rename Folder Modal */}
       {isRenamingFolder && folderToRename && (
         <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
           onClick={() => setIsRenamingFolder(false)}
         >
           <div
@@ -1088,10 +1040,7 @@ export function Sidebar() {
               autoFocus
             />
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsRenamingFolder(false)}
-                className="btn focus-ring"
-              >
+              <button onClick={() => setIsRenamingFolder(false)} className="btn focus-ring">
                 Cancel
               </button>
               <button
@@ -1108,7 +1057,7 @@ export function Sidebar() {
 
       {/* Delete Folder Confirmation Modal */}
       {showDeleteFolderConfirm && folderToDelete && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
+        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
           <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Delete Folder
@@ -1126,10 +1075,7 @@ export function Sidebar() {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleDeleteFolderConfirm}
-                className="btn btn-danger focus-ring"
-              >
+              <button onClick={handleDeleteFolderConfirm} className="btn btn-danger focus-ring">
                 Delete
               </button>
             </div>
@@ -1138,51 +1084,18 @@ export function Sidebar() {
       )}
 
       {/* Search Bar */}
-      <div className="px-3 py-3">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-            style={{ color: 'var(--text-muted)' }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={search.query}
-            onChange={(e) => search.setQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Search notes..."
-            className="search-input search-input-polished w-full pl-9 pr-8 py-2 focus:outline-none"
-            style={{ borderRadius: 'var(--radius-sm)' }}
-          />
-          {search.query && (
-            <button
-              onClick={() => search.clearSearch()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 search-clear-btn transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-        {search.isSearching && (
-          <p className="text-xs mt-1 px-1" style={{ color: 'var(--text-muted)' }}>
-            Searching...
-          </p>
-        )}
-      </div>
+      <SidebarSearch
+        ref={searchInputRef}
+        query={search.query}
+        onChange={search.setQuery}
+        onKeyDown={handleSearchKeyDown}
+        onClear={search.clearSearch}
+        isSearching={search.isSearching}
+      />
 
-      {/* Notes and Folders */}
+      {/* Body */}
       <div className="flex-1 overflow-y-auto">
-        {/* Search Results or Normal View */}
         {search.isActive ? (
-          // Search Results View
           <div className="px-3 py-2">
             <div className="flex items-center justify-between mb-2">
               <h2 className="section-header">
@@ -1201,7 +1114,6 @@ export function Sidebar() {
                       } else {
                         const inNewTab = e.metaKey || e.ctrlKey;
                         loadNote(result.note, inNewTab);
-                        // Don't clear search - let user browse other results
                       }
                     }}
                     onContextMenu={(e) => handleContextMenu(e, result.note)}
@@ -1226,150 +1138,68 @@ export function Sidebar() {
             </div>
           </div>
         ) : (
-          // Normal View with Collapsible Sections
           <div className="py-2">
-            {/* Notes Section - Unfiled notes only */}
-            <CollapsibleSection
-              title={selectedTags.length > 0 ? `Notes (filtered)` : "Notes"}
+            <SidebarNotesList
+              notes={displayedNotes}
               isCollapsed={sectionsCollapsed.notes}
-              onToggle={() => toggleSection('notes')}
+              onToggleSection={() => toggleSection('notes')}
+              title={selectedTags.length > 0 ? 'Notes (filtered)' : 'Notes'}
               count={selectedTags.length > 0 ? displayedNotes.length : unfiledNotes.length}
-              rightAction={
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')}
-                    className="p-1 transition-colors"
-                    style={{ color: 'var(--text-muted)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                    title={sortOption === 'name-asc' ? 'Sort Z-A' : 'Sort A-Z'}
-                  >
-                    {sortOption === 'name-asc' ? (
-                      <ArrowUpAZ className="w-4 h-4" />
-                    ) : (
-                      <ArrowDownAZ className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setIsCreating(true)}
-                    className="p-1 transition-colors"
-                    style={{ color: 'var(--text-muted)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                    title="New note"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
+              sortOption={sortOption === 'name-desc' ? 'name-desc' : 'name-asc'}
+              onSortToggle={() =>
+                setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')
               }
-            >
-              <div
-                className="px-3 space-y-1 min-h-[20px] transition-colors"
-                style={{
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: isDragOverRoot ? 'var(--accent-subtle)' : 'transparent',
-                  boxShadow: isDragOverRoot ? '0 0 0 2px var(--accent-primary)' : 'none',
-                }}
-                onDragEnter={handleRootDragEnter}
-                onDragOver={handleRootDragOver}
-                onDragLeave={handleRootDragLeave}
-                onDrop={handleRootDrop}
-              >
-                {displayedNotes.map((note) => (
-                  <DraggableNoteItem
-                    key={note.path}
-                    note={note}
-                    isActive={isNoteActive(note)}
-                    onClick={(e) => {
-                      if (note.isLocked) {
-                        handleUnlockNote(note);
-                      } else {
-                        const inNewTab = e.metaKey || e.ctrlKey;
-                        loadNote(note, inNewTab);
-                      }
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, note)}
-                    tags={tagsEnabled ? getNoteTags(note.path) : undefined}
-                  />
-                ))}
-                {displayedNotes.length === 0 && selectedTags.length === 0 && (
-                  <NoNotesEmptyState onCreateNote={() => setIsCreating(true)} />
-                )}
-                {displayedNotes.length === 0 && selectedTags.length > 0 && (
-                  <p className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    No notes match the selected {selectedTags.length === 1 ? 'tag' : 'tags'}
-                  </p>
-                )}
-              </div>
-            </CollapsibleSection>
+              onNewNote={() => setIsCreating(true)}
+              onNoteClick={handleSidebarNoteClick}
+              onNoteContextMenu={handleContextMenu}
+              isNoteActive={isNoteActive}
+              getNoteTags={tagsEnabled ? getNoteTags : undefined}
+              isDragOverRoot={isDragOverRoot}
+              onRootDragEnter={handleRootDragEnter}
+              onRootDragOver={handleRootDragOver}
+              onRootDragLeave={handleRootDragLeave}
+              onRootDrop={handleRootDrop}
+              showEmptyState={displayedNotes.length === 0 && selectedTags.length === 0}
+              showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
+              filteredEmptyTagCount={selectedTags.length}
+            />
 
-            {/* Folders Section */}
             {showFoldersSection && (
-            <CollapsibleSection
-              title="Folders"
-              isCollapsed={sectionsCollapsed.folders}
-              onToggle={() => toggleSection('folders')}
-              count={folders.length}
-              rightAction={
-                <button
-                  onClick={() => setIsCreatingFolder(true)}
-                  className="p-1 transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                  title="New folder"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                </button>
-              }
-            >
-              <div
-                className="px-1 min-h-[20px] transition-colors"
-                style={{
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: isDragOverFoldersRoot ? 'var(--accent-subtle)' : 'transparent',
-                  boxShadow: isDragOverFoldersRoot ? '0 0 0 2px var(--accent-primary)' : 'none',
-                }}
-                onDragEnter={handleFoldersRootDragEnter}
-                onDragOver={handleFoldersRootDragOver}
-                onDragLeave={handleFoldersRootDragLeave}
-                onDrop={handleFoldersRootDrop}
-              >
-                {folders.length > 0 ? (
-                  <FolderTree
-                    folders={folders}
-                    notes={allStandaloneNotes}
-                    expandedFolders={expandedFolders}
-                    onToggleFolder={toggleFolder}
-                    onFolderContextMenu={handleFolderContextMenu}
-                    onNoteDrop={handleNoteDrop}
-                    onFolderDrop={handleFolderDrop}
-                    isNoteActive={isNoteActive}
-                    onNoteClick={(note, e) => {
-                      if (note.isLocked) {
-                        handleUnlockNote(note);
-                      } else {
-                        const inNewTab = e.metaKey || e.ctrlKey;
-                        loadNote(note, inNewTab);
-                      }
-                    }}
-                    onNoteContextMenu={handleContextMenu}
-                    getNoteTags={tagsEnabled ? getNoteTags : undefined}
-                  />
-                ) : (
-                  <p className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    No folders yet
-                  </p>
-                )}
-              </div>
-            </CollapsibleSection>
+              <SidebarFolderTree
+                folders={folders}
+                notes={allStandaloneNotes}
+                expandedFolders={expandedFolders}
+                isCollapsed={sectionsCollapsed.folders}
+                onToggleSection={() => toggleSection('folders')}
+                onToggleFolder={toggleFolder}
+                onFolderContextMenu={handleFolderContextMenu}
+                onNewFolder={() => setIsCreatingFolder(true)}
+                onNoteDrop={handleNoteDrop}
+                onFolderDrop={handleFolderDrop}
+                isNoteActive={isNoteActive}
+                onNoteClick={handleSidebarNoteClick}
+                onNoteContextMenu={handleContextMenu}
+                getNoteTags={tagsEnabled ? getNoteTags : undefined}
+                isDragOverFoldersRoot={isDragOverFoldersRoot}
+                onFoldersRootDragEnter={handleFoldersRootDragEnter}
+                onFoldersRootDragOver={handleFoldersRootDragOver}
+                onFoldersRootDragLeave={handleFoldersRootDragLeave}
+                onFoldersRootDrop={handleFoldersRootDrop}
+              />
             )}
 
-            {/* Tags Section */}
+            <SidebarDailyList
+              notes={dailyNotes}
+              isCollapsed={sectionsCollapsed.daily}
+              onToggleSection={() => toggleSection('daily')}
+              onNoteClick={handleSidebarNoteClick}
+              onNoteContextMenu={handleContextMenu}
+              isNoteActive={isNoteActive}
+              onOpenToday={handleTodayClick}
+            />
+
             {tagsEnabled && (
-              <TagsSection
+              <SidebarTagList
                 allTags={allTags}
                 selectedTag={selectedTag}
                 selectedTags={selectedTags}
@@ -1384,7 +1214,6 @@ export function Sidebar() {
               />
             )}
 
-            {/* Backlinks Section */}
             {backlinksEnabled && showBacklinksSection && (
               <BacklinksSection
                 notes={notes}
@@ -1404,82 +1233,14 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div style={{ borderTop: '1px solid var(--border-default)' }}>
-        {/* Action Buttons */}
-        <div className="px-3 pt-3 pb-2 space-y-2">
-          <button
-            onClick={handleTodayClick}
-            className="btn btn-primary w-full py-2.5 focus-ring"
-          >
-            Today&apos;s Note
-          </button>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="btn w-full py-2 focus-ring"
-          >
-            + New Note
-          </button>
-        </div>
+      <SidebarFooter
+        onToday={handleTodayClick}
+        onNewNote={() => setIsCreating(true)}
+        onSettings={() => setIsSettingsOpen(true)}
+        onTrash={() => setShowTrashModal(true)}
+      />
 
-        {/* Settings & Trash Icons */}
-        <div className="px-3 pb-2 flex justify-center gap-1">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 transition-colors"
-            style={{
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-muted)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-muted)';
-            }}
-            title="Settings (⌘,)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setShowTrashModal(true)}
-            className="p-2 transition-colors"
-            style={{
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-muted)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-muted)';
-            }}
-            title="Trash"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* App Info */}
-        <div className="px-3 pb-3 flex flex-col items-center">
-          <div className="text-center">
-            <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
-              MOLDAVITE
-            </p>
-            <p className="text-[10px]" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
-              v{appVersion || '...'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Trash Modal */}
+      {/* Trash Modal (will become TrashPopover in step 6) */}
       <TrashModal
         isOpen={showTrashModal}
         onClose={() => setShowTrashModal(false)}
