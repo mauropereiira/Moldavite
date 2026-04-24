@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Download, Upload, Lock, Loader2, Shield, Eye, EyeOff } from 'lucide-react';
+import { Download, Upload, Lock, Loader2, Shield, Eye, EyeOff, Settings as SettingsIcon } from 'lucide-react';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import {
   exportNotes,
   importNotes,
@@ -10,16 +11,31 @@ import {
 import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 
+const SETTINGS_LS_KEYS = [
+  'moldavite-calendar',
+  'moldavite-folders',
+  'moldavite-pinned-tabs',
+  'moldavite-recent-notes',
+  'moldavite-settings',
+  'moldavite-theme',
+] as const;
+
+const SETTINGS_EXPORT_VERSION = 1;
+
+interface SettingsExportPayload {
+  app: 'moldavite';
+  kind: 'settings';
+  version: number;
+  exportedAt: string;
+  entries: Record<string, string>;
+}
+
 /**
  * Data tab — bulk import / export actions.
  *
- * Four plain actions (Export/Import notes, Export/Import encrypted backup).
- * Each shows an inline loading state and reports result via the global toast
- * store. The encrypted variants prompt for a password inline.
- *
- * Settings-level export/import (JSON) was called for in the design doc but
- * the backend commands (`export_settings` / `import_settings`) don't exist,
- * so those buttons are intentionally omitted — see implementation report.
+ * Plain ZIP export/import, encrypted backup export/import, and JSON
+ * settings export/import (frontend-only: serialises the `moldavite-*`
+ * localStorage keys without touching the backend).
  */
 export function SettingsData() {
   const toast = useToast();
@@ -28,6 +44,8 @@ export function SettingsData() {
   const [isImportingNotes, setIsImportingNotes] = useState(false);
   const [isExportingBackup, setIsExportingBackup] = useState(false);
   const [isImportingBackup, setIsImportingBackup] = useState(false);
+  const [isExportingSettings, setIsExportingSettings] = useState(false);
+  const [isImportingSettings, setIsImportingSettings] = useState(false);
 
   // Import-mode picker (merge vs replace) for plain notes import
   const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
@@ -184,6 +202,87 @@ export function SettingsData() {
     }
   };
 
+  // ---- Settings JSON export / import (frontend-only) -----------------------
+  const handleExportSettings = async () => {
+    try {
+      setIsExportingSettings(true);
+      const entries: Record<string, string> = {};
+      for (const key of SETTINGS_LS_KEYS) {
+        const value = localStorage.getItem(key);
+        if (value !== null) entries[key] = value;
+      }
+      const payload: SettingsExportPayload = {
+        app: 'moldavite',
+        kind: 'settings',
+        version: SETTINGS_EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        entries,
+      };
+      const date = new Date().toISOString().split('T')[0];
+      const destination = await save({
+        title: 'Export Settings',
+        defaultPath: `moldavite-settings-${date}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (!destination) return;
+      await invoke('export_settings_json', {
+        path: destination,
+        json: JSON.stringify(payload, null, 2),
+      });
+      toast.success('Settings exported successfully');
+    } catch (error) {
+      console.error('[SettingsData] export settings failed:', error);
+      toast.error(`Export failed: ${String(error)}`);
+    } finally {
+      setIsExportingSettings(false);
+    }
+  };
+
+  const handleImportSettings = async () => {
+    try {
+      const selected = await open({
+        title: 'Import Settings',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (!selected || typeof selected !== 'string') return;
+      setIsImportingSettings(true);
+      const raw = await invoke<string>('import_settings_json', { path: selected });
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        toast.error('Invalid JSON file');
+        return;
+      }
+      const payload = parsed as Partial<SettingsExportPayload>;
+      if (
+        !payload ||
+        payload.app !== 'moldavite' ||
+        payload.kind !== 'settings' ||
+        typeof payload.entries !== 'object' ||
+        payload.entries === null
+      ) {
+        toast.error('Not a valid Moldavite settings file');
+        return;
+      }
+      let applied = 0;
+      for (const key of SETTINGS_LS_KEYS) {
+        const value = (payload.entries as Record<string, unknown>)[key];
+        if (typeof value === 'string') {
+          localStorage.setItem(key, value);
+          applied += 1;
+        }
+      }
+      toast.success(`Imported ${applied} settings keys — reloading…`);
+      setTimeout(() => window.location.reload(), 400);
+    } catch (error) {
+      console.error('[SettingsData] import settings failed:', error);
+      toast.error(`Import failed: ${String(error)}`);
+    } finally {
+      setIsImportingSettings(false);
+    }
+  };
+
   const buttonPrimary =
     'flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50';
   const buttonSecondary =
@@ -313,6 +412,69 @@ export function SettingsData() {
               <Upload className="w-4 h-4" />
             )}
             {isImportingBackup ? 'Importing...' : 'Import encrypted backup'}
+          </button>
+        </div>
+      </div>
+
+      {/* Settings JSON export / import */}
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--accent-subtle)' }}
+          >
+            <SettingsIcon className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+          </div>
+          <div>
+            <h3
+              className="text-sm font-medium"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Settings
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Export your preferences, theme, folders and pinned tabs as JSON —
+              useful for syncing across devices. Notes are not included.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleExportSettings}
+            disabled={isExportingSettings}
+            className={buttonPrimary}
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            {isExportingSettings ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {isExportingSettings ? 'Exporting...' : 'Export settings (.json)'}
+          </button>
+          <button
+            onClick={handleImportSettings}
+            disabled={isImportingSettings}
+            className={buttonSecondary}
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {isImportingSettings ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            {isImportingSettings ? 'Importing...' : 'Import settings (.json)'}
           </button>
         </div>
       </div>

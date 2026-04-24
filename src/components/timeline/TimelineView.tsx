@@ -269,11 +269,9 @@ function EventPill({ event }: { event: CalendarEvent }) {
 }
 
 /**
- * Sort notes into the five buckets. For daily notes we trust their `date`
- * field; for standalone/weekly notes we don't currently have mtime exposed
- * from the backend, so they all flow into "Earlier" and sort alphabetically
- * by filename. Improving this requires a new Rust command that stat()s
- * the files — out of scope for this ticket.
+ * Sort notes into the five buckets. Daily notes use their `date` field;
+ * standalone and weekly notes use `modifiedAt` when the backend provides
+ * it, falling back to "Earlier" + alphabetical when it doesn't.
  */
 function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
   const result: Record<BucketId, NoteFile[]> = {
@@ -289,6 +287,10 @@ function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfYesterday = new Date(yesterday);
+  startOfYesterday.setHours(0, 0, 0, 0);
 
   const weekAgo = new Date(now);
   weekAgo.setDate(now.getDate() - 7);
@@ -311,14 +313,25 @@ function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
           result.earlier.push(note);
         }
       }
+    } else if (typeof note.modifiedAt === 'number') {
+      const d = new Date(note.modifiedAt * 1000);
+      if (d >= startOfToday) result.today.push(note);
+      else if (d >= startOfYesterday) result.yesterday.push(note);
+      else if (d >= weekAgo) result.thisWeek.push(note);
+      else if (d >= monthAgo) result.thisMonth.push(note);
+      else result.earlier.push(note);
     } else {
       result.earlier.push(note);
     }
   }
 
-  // Within each bucket, sort daily by date desc, others alphabetical.
+  // Within each bucket, sort by modifiedAt desc when present, else daily
+  // date desc, else alphabetical.
   const sortBucket = (arr: NoteFile[]) =>
     arr.sort((a, b) => {
+      if (typeof a.modifiedAt === 'number' && typeof b.modifiedAt === 'number') {
+        return b.modifiedAt - a.modifiedAt;
+      }
       if (a.isDaily && b.isDaily && a.date && b.date) return b.date.localeCompare(a.date);
       return a.name.localeCompare(b.name);
     });
