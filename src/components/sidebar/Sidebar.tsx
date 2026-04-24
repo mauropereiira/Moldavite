@@ -1,17 +1,8 @@
 import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
-import { useNotes, useFolders, useTrash, useSidebarContextMenu } from '@/hooks';
+import { useNotes, useFolders, useTrash, useSidebarContextMenu, useSidebarLock } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
-import {
-  lockNote,
-  unlockNote,
-  permanentlyUnlockNote,
-  aggregateTags,
-  hasTag,
-  extractTags,
-  readNote,
-  getNoteTitleError,
-} from '@/lib';
+import { aggregateTags, hasTag, extractTags, readNote, getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
@@ -41,11 +32,10 @@ import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
-type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
-
 export function Sidebar() {
   const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, refresh: refreshNotes } = useNotes();
-  const { currentNote, setSelectedDate, setNotes, setCurrentNote, unlockNote: trackUnlockedNote } = useNoteStore();
+  const { currentNote, setSelectedDate, setCurrentNote } = useNoteStore();
+  const lock = useSidebarLock();
   const {
     setIsSettingsOpen,
     tagsEnabled,
@@ -105,10 +95,6 @@ export function Sidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [pendingNoteTitle, setPendingNoteTitle] = useState('');
-
-  // Lock/unlock state
-  const [lockModalMode, setLockModalMode] = useState<LockModalMode>(null);
-  const [noteToLock, setNoteToLock] = useState<NoteFile | null>(null);
 
   // Folder state
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
@@ -382,67 +368,18 @@ export function Sidebar() {
   const handleContextMenu = noteMenu.open;
   const closeContextMenu = noteMenu.close;
 
-  // Lock/Unlock handlers
+  // Lock/Unlock handlers — thin wrappers that close the context menu too.
   const handleLockNote = (note: NoteFile) => {
-    setNoteToLock(note);
-    setLockModalMode('lock');
+    lock.openLock(note);
     closeContextMenu();
   };
-
   const handleUnlockNote = (note: NoteFile) => {
-    setNoteToLock(note);
-    setLockModalMode('unlock');
+    lock.openUnlock(note);
     closeContextMenu();
   };
-
   const handlePermanentUnlock = (note: NoteFile) => {
-    setNoteToLock(note);
-    setLockModalMode('permanent-unlock');
+    lock.openPermanentUnlock(note);
     closeContextMenu();
-  };
-
-  const handleLockSubmit = async (password: string) => {
-    if (!noteToLock) return;
-
-    if (lockModalMode === 'lock') {
-      await lockNote(noteToLock.name, password, noteToLock.isDaily);
-      toast.success('Note locked');
-      const updatedNotes = notes.map((n) =>
-        n.path === noteToLock.path ? { ...n, isLocked: true } : n
-      );
-      setNotes(updatedNotes);
-      if (currentNote && currentNote.id === noteToLock.path) {
-        setCurrentNote(null);
-      }
-    } else if (lockModalMode === 'unlock') {
-      const content = await unlockNote(noteToLock.name, password, noteToLock.isDaily);
-      const note = {
-        id: noteToLock.path,
-        title: noteToLock.name.replace(/\.md$/, ''),
-        content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isDaily: noteToLock.isDaily,
-        isWeekly: noteToLock.isWeekly || false,
-        date: noteToLock.date,
-        week: noteToLock.week,
-      };
-      setCurrentNote(note);
-      trackUnlockedNote(noteToLock.path);
-      toast.success('Note unlocked (view only)');
-    } else if (lockModalMode === 'permanent-unlock') {
-      await permanentlyUnlockNote(noteToLock.name, password, noteToLock.isDaily);
-      toast.success('Note permanently unlocked');
-      const updatedNotes = notes.map((n) =>
-        n.path === noteToLock.path ? { ...n, isLocked: false } : n
-      );
-      setNotes(updatedNotes);
-    }
-  };
-
-  const handleLockModalClose = () => {
-    setLockModalMode(null);
-    setNoteToLock(null);
   };
 
   // Folder handlers
@@ -643,13 +580,13 @@ export function Sidebar() {
       </Suspense>
 
       {/* Password Modal for Lock/Unlock */}
-      {lockModalMode && noteToLock && (
+      {lock.mode && lock.noteToLock && (
         <PasswordModal
           isOpen={true}
-          onClose={handleLockModalClose}
-          onSubmit={handleLockSubmit}
-          mode={lockModalMode}
-          noteTitle={noteToLock.name.replace(/\.md$/, '')}
+          onClose={lock.close}
+          onSubmit={(password) => lock.submit(password, notes)}
+          mode={lock.mode}
+          noteTitle={lock.noteToLock.name.replace(/\.md$/, '')}
         />
       )}
 
