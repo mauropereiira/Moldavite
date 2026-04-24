@@ -298,7 +298,7 @@ export function GeneralSection() {
                 color: 'var(--text-secondary)',
               }}
             >
-              <FolderOpen className="w-4 h-4" />
+              <FolderOpen aria-hidden="true" className="w-4 h-4" />
               {isChangingDir ? 'Moving...' : 'Change'}
             </button>
           </div>
@@ -328,7 +328,7 @@ export function GeneralSection() {
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
             style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
           >
-            <Download className="w-4 h-4" />
+            <Download aria-hidden="true" className="w-4 h-4" />
             {isExporting ? 'Exporting...' : 'Export'}
           </button>
           <button
@@ -342,7 +342,7 @@ export function GeneralSection() {
               color: 'var(--text-secondary)',
             }}
           >
-            <Upload className="w-4 h-4" />
+            <Upload aria-hidden="true" className="w-4 h-4" />
             {isImporting ? 'Importing...' : 'Import'}
           </button>
         </div>
@@ -351,7 +351,7 @@ export function GeneralSection() {
       {/* Encrypted Backup Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)' }}>
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+          <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
             <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
@@ -373,7 +373,7 @@ export function GeneralSection() {
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
             style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
           >
-            <Lock className="w-4 h-4" />
+            <Lock aria-hidden="true" className="w-4 h-4" />
             {isExporting ? 'Exporting...' : 'Export Encrypted'}
           </button>
           <button
@@ -387,7 +387,7 @@ export function GeneralSection() {
               color: 'var(--text-secondary)',
             }}
           >
-            <Upload className="w-4 h-4" />
+            <Upload aria-hidden="true" className="w-4 h-4" />
             {isImporting ? 'Importing...' : 'Import Encrypted'}
           </button>
         </div>
@@ -396,7 +396,7 @@ export function GeneralSection() {
       {/* Security Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+          <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
             <Timer className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
@@ -615,7 +615,7 @@ export function GeneralSection() {
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
           <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+              <div aria-hidden="true" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
                 <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
@@ -653,8 +653,10 @@ export function GeneralSection() {
                     onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
                     style={{ color: 'var(--text-muted)' }}
+                    aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showEncryptedPassword}
                   >
-                    {showEncryptedPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showEncryptedPassword ? <EyeOff aria-hidden="true" className="w-4 h-4" /> : <Eye aria-hidden="true" className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -715,7 +717,7 @@ export function GeneralSection() {
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
           <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+              <div aria-hidden="true" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
                 <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
@@ -753,8 +755,10 @@ export function GeneralSection() {
                     onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
                     style={{ color: 'var(--text-muted)' }}
+                    aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showEncryptedPassword}
                   >
-                    {showEncryptedPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showEncryptedPassword ? <EyeOff aria-hidden="true" className="w-4 h-4" /> : <Eye aria-hidden="true" className="w-4 h-4" />}
                   </button>
                 </div>
               </div>

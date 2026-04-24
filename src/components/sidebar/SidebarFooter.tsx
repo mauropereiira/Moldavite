@@ -51,17 +51,19 @@ export function SidebarFooter({
       {/* Row 1: Today + New */}
       <div className="px-3 pt-3 pb-2 grid grid-cols-2 gap-2">
         <button
+          type="button"
           onClick={onToday}
           className="btn btn-primary w-full py-2 focus-ring flex items-center justify-center gap-1.5"
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar aria-hidden="true" className="w-4 h-4" />
           <span>Today</span>
         </button>
         <button
+          type="button"
           onClick={onNewNote}
           className="btn w-full py-2 focus-ring flex items-center justify-center gap-1.5"
         >
-          <Plus className="w-4 h-4" />
+          <Plus aria-hidden="true" className="w-4 h-4" />
           <span>New</span>
         </button>
       </div>
@@ -69,6 +71,7 @@ export function SidebarFooter({
       {/* Row 2: Timeline + Graph + Settings + Trash */}
       <div className="px-3 pb-2 grid grid-cols-4 gap-2">
         <button
+          type="button"
           onClick={toggleTimeline}
           className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
           style={{
@@ -84,11 +87,13 @@ export function SidebarFooter({
           }}
           title="Timeline"
           aria-pressed={isTimelineOpen}
+          aria-label="Toggle timeline"
         >
-          <AlignJustify className="w-4 h-4" />
+          <AlignJustify aria-hidden="true" className="w-4 h-4" />
           <span>Timeline</span>
         </button>
         <button
+          type="button"
           onClick={toggleGraph}
           className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
           style={{
@@ -106,21 +111,24 @@ export function SidebarFooter({
           aria-pressed={isGraphOpen}
           aria-label="Toggle graph view"
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 aria-hidden="true" className="w-4 h-4" />
           <span>Graph</span>
         </button>
         <button
+          type="button"
           onClick={onSettings}
           className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
           style={iconBtnStyle}
           onMouseEnter={handleIconEnter}
           onMouseLeave={handleIconLeave}
           title="Settings (⌘,)"
+          aria-label="Open settings"
         >
-          <SettingsIcon className="w-4 h-4" />
+          <SettingsIcon aria-hidden="true" className="w-4 h-4" />
           <span>Settings</span>
         </button>
         <button
+          type="button"
           ref={trashBtnRef}
           onClick={() => onTrash(trashBtnRef.current)}
           className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
@@ -128,8 +136,9 @@ export function SidebarFooter({
           onMouseEnter={handleIconEnter}
           onMouseLeave={handleIconLeave}
           title="Trash"
+          aria-label="Open trash"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 aria-hidden="true" className="w-4 h-4" />
           <span>Trash</span>
         </button>
       </div>

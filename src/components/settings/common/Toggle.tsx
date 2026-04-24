@@ -5,11 +5,17 @@
 export interface ToggleProps {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
+  /** Optional accessible label for screen readers when no visible label is associated. */
+  ariaLabel?: string;
 }
 
-export function Toggle({ enabled, onChange }: ToggleProps) {
+export function Toggle({ enabled, onChange, ariaLabel }: ToggleProps) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={ariaLabel}
       onClick={() => onChange(!enabled)}
       className="relative inline-flex h-6 w-10 items-center transition-all"
       style={{
@@ -19,6 +25,7 @@ export function Toggle({ enabled, onChange }: ToggleProps) {
       }}
     >
       <span
+        aria-hidden="true"
         className="inline-block h-4 w-4 transform transition-all"
         style={{
           borderRadius: '8px',
