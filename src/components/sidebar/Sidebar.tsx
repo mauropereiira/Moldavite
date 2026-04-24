@@ -1,5 +1,4 @@
 import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
-import { FilePlus, Pencil, Trash2 } from 'lucide-react';
 import { useNotes, useFolders, useTrash } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
@@ -18,6 +17,7 @@ import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal'
 import { useToast } from '@/hooks/useToast';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { NoteContextMenu } from './NoteContextMenu';
+import { FolderContextMenu } from './FolderContextMenu';
 import { TrashPopover } from './TrashPopover';
 
 // Modals that only mount on-demand — code-split to keep them out of the
@@ -783,54 +783,17 @@ export function Sidebar() {
 
       {/* Folder Context Menu */}
       {folderContextMenu && (
-        <div
-          className="fixed z-[9999] py-1 min-w-[160px]"
-          style={{
-            left: folderContextMenuPosition.x,
-            top: folderContextMenuPosition.y,
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: 'var(--shadow-md)',
+        <FolderContextMenu
+          folder={folderContextMenu}
+          position={folderContextMenuPosition}
+          onNewNoteInFolder={(folder) => {
+            setCreateNoteInFolder(folder.path);
+            setIsCreating(true);
+            closeFolderContextMenu();
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => {
-              setCreateNoteInFolder(folderContextMenu.path);
-              setIsCreating(true);
-              closeFolderContextMenu();
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-            style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <FilePlus className="w-4 h-4" />
-            New Note in Folder
-          </button>
-          <button
-            onClick={() => handleRenameFolder(folderContextMenu)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-            style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <Pencil className="w-4 h-4" />
-            Rename Folder
-          </button>
-          <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />
-          <button
-            onClick={() => handleDeleteFolder(folderContextMenu)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
-            style={{ color: 'var(--error)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete Folder
-          </button>
-        </div>
+          onRename={handleRenameFolder}
+          onDelete={handleDeleteFolder}
+        />
       )}
 
       {/* Create Folder Modal */}
