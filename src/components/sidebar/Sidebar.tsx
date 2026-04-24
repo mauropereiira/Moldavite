@@ -6,6 +6,7 @@ import {
   useSidebarContextMenu,
   useSidebarLock,
   useSidebarTags,
+  useSidebarDnd,
 } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
@@ -121,13 +122,9 @@ export function Sidebar() {
   // Track target folder for new note creation
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
 
-  // Notes section drop zone state (for dragging notes back to root)
-  const [isDragOverRoot, setIsDragOverRoot] = useState(false);
-  const rootDragCounterRef = useRef(0);
-
-  // Folders section drop zone state (for dragging folders back to root)
-  const [isDragOverFoldersRoot, setIsDragOverFoldersRoot] = useState(false);
-  const foldersRootDragCounterRef = useRef(0);
+  // Root-level drop zones (notes section accepts notes, folders section
+  // accepts folders). Lives in a dedicated hook.
+  const dnd = useSidebarDnd({ moveNoteToFolder, moveFolderToFolder });
 
   // Initialize folders
   useEffect(() => {
@@ -395,90 +392,6 @@ export function Sidebar() {
     await moveFolderToFolder(folderPath, toFolder);
   };
 
-  // Notes section drop zone handlers (only accepts notes, not folders)
-  const handleRootDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    rootDragCounterRef.current++;
-    const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if ((hasNoteData || hasTextData) && !hasFolderData) {
-      setIsDragOverRoot(true);
-    }
-  };
-
-  const handleRootDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if ((hasNoteData || hasTextData) && !hasFolderData) {
-      e.dataTransfer.dropEffect = 'move';
-    }
-  };
-
-  const handleRootDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    rootDragCounterRef.current--;
-    if (rootDragCounterRef.current === 0) {
-      setIsDragOverRoot(false);
-    }
-  };
-
-  const handleRootDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    rootDragCounterRef.current = 0;
-    setIsDragOverRoot(false);
-
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if (hasFolderData) return;
-
-    let notePath = e.dataTransfer.getData('application/x-note-path');
-    if (!notePath) {
-      notePath = e.dataTransfer.getData('text/plain');
-    }
-    if (notePath) {
-      await moveNoteToFolder(notePath, undefined);
-    }
-  };
-
-  // Folders section drop zone handlers (only accepts folders, not notes)
-  const handleFoldersRootDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    foldersRootDragCounterRef.current++;
-    if (e.dataTransfer.types.includes('application/x-folder-path')) {
-      setIsDragOverFoldersRoot(true);
-    }
-  };
-
-  const handleFoldersRootDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-folder-path')) {
-      e.dataTransfer.dropEffect = 'move';
-    }
-  };
-
-  const handleFoldersRootDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    foldersRootDragCounterRef.current--;
-    if (foldersRootDragCounterRef.current === 0) {
-      setIsDragOverFoldersRoot(false);
-    }
-  };
-
-  const handleFoldersRootDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    foldersRootDragCounterRef.current = 0;
-    setIsDragOverFoldersRoot(false);
-
-    const folderPath = e.dataTransfer.getData('application/x-folder-path');
-    if (folderPath) {
-      await moveFolderToFolder(folderPath, undefined);
-    }
-  };
-
   const handleSidebarNoteClick = (note: NoteFile, e: React.MouseEvent) => {
     if (note.isLocked) {
       handleUnlockNote(note);
@@ -626,11 +539,11 @@ export function Sidebar() {
               onNoteContextMenu={handleContextMenu}
               isNoteActive={isNoteActive}
               getNoteTags={tagsEnabled ? getNoteTags : undefined}
-              isDragOverRoot={isDragOverRoot}
-              onRootDragEnter={handleRootDragEnter}
-              onRootDragOver={handleRootDragOver}
-              onRootDragLeave={handleRootDragLeave}
-              onRootDrop={handleRootDrop}
+              isDragOverRoot={dnd.isDragOverRoot}
+              onRootDragEnter={dnd.onRootDragEnter}
+              onRootDragOver={dnd.onRootDragOver}
+              onRootDragLeave={dnd.onRootDragLeave}
+              onRootDrop={dnd.onRootDrop}
               showEmptyState={displayedNotes.length === 0 && selectedTags.length === 0}
               showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
               filteredEmptyTagCount={selectedTags.length}
@@ -652,11 +565,11 @@ export function Sidebar() {
                 onNoteClick={handleSidebarNoteClick}
                 onNoteContextMenu={handleContextMenu}
                 getNoteTags={tagsEnabled ? getNoteTags : undefined}
-                isDragOverFoldersRoot={isDragOverFoldersRoot}
-                onFoldersRootDragEnter={handleFoldersRootDragEnter}
-                onFoldersRootDragOver={handleFoldersRootDragOver}
-                onFoldersRootDragLeave={handleFoldersRootDragLeave}
-                onFoldersRootDrop={handleFoldersRootDrop}
+                isDragOverFoldersRoot={dnd.isDragOverFoldersRoot}
+                onFoldersRootDragEnter={dnd.onFoldersRootDragEnter}
+                onFoldersRootDragOver={dnd.onFoldersRootDragOver}
+                onFoldersRootDragLeave={dnd.onFoldersRootDragLeave}
+                onFoldersRootDrop={dnd.onFoldersRootDrop}
               />
             )}
 
