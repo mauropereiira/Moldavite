@@ -864,10 +864,13 @@ export function Editor() {
           {editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
-        {/* Inline template picker for empty notes */}
+        {/* Inline template picker for empty notes.
+            z-10 keeps it above the editor content but below modals/popovers
+            (which use z-[9999]). Previously z-50 caused it to paint over
+            Settings / Trash / other floating UI. */}
         {showInlineTemplatePicker && (
           <div
-            className="absolute inset-0 flex items-center justify-center z-50"
+            className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
