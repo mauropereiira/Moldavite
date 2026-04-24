@@ -152,3 +152,81 @@ pub(crate) fn generate_unique_filename(dir: &Path, base_name: &str, extension: &
 pub(crate) fn generate_unique_folder_name(parent_dir: &Path, base_name: &str) -> String {
     generate_unique_name(parent_dir, base_name, None)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            let base = std::env::temp_dir().join(format!(
+                "moldavite-persist-{}-{}",
+                tag,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir_all(&base).unwrap();
+            Self(base)
+        }
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn unique_filename_returns_base_when_free() {
+        let tmp = TempDir::new("unique-free");
+        let name = generate_unique_filename(tmp.path(), "hello", "md");
+        assert_eq!(name, "hello.md");
+    }
+
+    #[test]
+    fn unique_filename_appends_counter_on_collision() {
+        let tmp = TempDir::new("unique-collide");
+        fs::write(tmp.path().join("hello.md"), "").unwrap();
+        let name = generate_unique_filename(tmp.path(), "hello", "md");
+        assert_eq!(name, "hello (2).md");
+    }
+
+    #[test]
+    fn unique_filename_increments_over_multiple_collisions() {
+        let tmp = TempDir::new("unique-multi");
+        for n in ["hello.md", "hello (2).md", "hello (3).md"] {
+            fs::write(tmp.path().join(n), "").unwrap();
+        }
+        let name = generate_unique_filename(tmp.path(), "hello", "md");
+        assert_eq!(name, "hello (4).md");
+    }
+
+    #[test]
+    fn unique_filename_does_not_double_counter_suffix() {
+        let tmp = TempDir::new("unique-nodouble");
+        fs::write(tmp.path().join("hello (2).md"), "").unwrap();
+        let name = generate_unique_filename(tmp.path(), "hello (2)", "md");
+        assert_eq!(name, "hello (3).md");
+    }
+
+    #[test]
+    fn unique_folder_name_returns_base_when_free() {
+        let tmp = TempDir::new("unique-folder-free");
+        let name = generate_unique_folder_name(tmp.path(), "projects");
+        assert_eq!(name, "projects");
+    }
+
+    #[test]
+    fn unique_folder_name_appends_counter_on_collision() {
+        let tmp = TempDir::new("unique-folder-collide");
+        fs::create_dir(tmp.path().join("projects")).unwrap();
+        let name = generate_unique_folder_name(tmp.path(), "projects");
+        assert_eq!(name, "projects (2)");
+    }
+}

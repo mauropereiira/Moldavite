@@ -55,3 +55,51 @@ pub(crate) fn generate_template_id(name: &str) -> String {
         .collect::<Vec<&str>>()
         .join("-")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn template_id_slugifies_name() {
+        assert_eq!(generate_template_id("My Template"), "my-template");
+        assert_eq!(generate_template_id("  Spaces  "), "spaces");
+        assert_eq!(
+            generate_template_id("Special: Chars / Go!"),
+            "special-chars-go"
+        );
+    }
+
+    #[test]
+    fn template_id_collapses_runs_of_non_alnum() {
+        assert_eq!(generate_template_id("hello---world"), "hello-world");
+        assert_eq!(generate_template_id("a / b / c"), "a-b-c");
+    }
+
+    #[test]
+    fn template_variable_substitution_replaces_placeholders() {
+        let out = replace_template_variables(
+            "Today is {{date}} ({{day_of_week}}) at {{time}}.".into(),
+        );
+        assert!(!out.contains("{{date}}"));
+        assert!(!out.contains("{{day_of_week}}"));
+        assert!(!out.contains("{{time}}"));
+    }
+
+    #[test]
+    fn template_variable_substitution_leaves_unknown_placeholders() {
+        let out = replace_template_variables("Hello {{name}}".into());
+        assert_eq!(out, "Hello {{name}}");
+    }
+
+    #[test]
+    fn default_templates_have_expected_ids() {
+        let ids: Vec<String> = get_default_templates()
+            .into_iter()
+            .map(|t| t.id)
+            .collect();
+        assert!(ids.contains(&"meeting-notes".to_string()));
+        assert!(ids.contains(&"daily-log".to_string()));
+        assert!(ids.contains(&"project-plan".to_string()));
+    }
+}
