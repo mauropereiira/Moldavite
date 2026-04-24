@@ -1159,6 +1159,43 @@ fn list_trash() -> Result<Vec<TrashedNote>, String> {
     Ok(items)
 }
 
+/// Read the raw contents of a trashed note for read-only preview.
+///
+/// Returns an empty string for trashed folders (their contents live on disk
+/// but there is no single "file" to preview).
+#[tauri::command]
+fn read_trashed_note(trash_id: String) -> Result<String, String> {
+    let metadata = read_trash_metadata();
+    let item = metadata
+        .items
+        .iter()
+        .find(|item| item.id == trash_id)
+        .ok_or("Trash item not found")?;
+
+    if item.is_folder {
+        return Ok(String::new());
+    }
+
+    let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
+    let trash_path = get_trash_dir().join(&trash_filename);
+    validate_path_within_base(&trash_path, &get_trash_dir())?;
+
+    if !trash_path.exists() {
+        return Err("Trash file not found on disk".to_string());
+    }
+
+    // Refuse to read locked notes from trash (ciphertext is not useful for preview).
+    if trash_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.ends_with(".md.locked"))
+    {
+        return Err("Locked notes cannot be previewed from trash".to_string());
+    }
+
+    fs::read_to_string(&trash_path).map_err(|e| format!("Failed to read trashed note: {}", e))
+}
+
 #[tauri::command]
 fn restore_note(trash_id: String) -> Result<(), String> {
     let mut metadata = read_trash_metadata();
@@ -3192,6 +3229,7 @@ pub fn run() {
             trash_note,
             trash_folder,
             list_trash,
+            read_trashed_note,
             restore_note,
             restore_note_from_folder,
             permanently_delete_trash,
