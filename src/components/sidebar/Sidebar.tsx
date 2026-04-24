@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Lock, Unlock, Trash2, FilePlus, Pencil, FolderInput, Layers, Copy, Download, FileDown } from 'lucide-react';
 import { useNotes, useFolders, useTrash } from '@/hooks';
@@ -16,13 +16,22 @@ import {
   exportNoteToPdf,
   getNoteTitleError,
 } from '@/lib';
-import { SettingsModal } from '@/components/settings';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { TrashPopover } from './TrashPopover';
-import { TrashPreviewModal } from './TrashPreviewModal';
+
+// Modals that only mount on-demand — code-split to keep them out of the
+// main bundle. Tiptap + markdown-it + DOMPurify (~200 KB gz) in
+// TrashPreviewModal and the entire settings tree (~150 KB) don't need
+// to ship with the first render.
+const SettingsModal = lazy(() =>
+  import('@/components/settings').then((m) => ({ default: m.SettingsModal })),
+);
+const TrashPreviewModal = lazy(() =>
+  import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal })),
+);
 import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
@@ -719,8 +728,11 @@ export function Sidebar() {
         );
       })()}
 
-      {/* Settings Modal */}
-      <SettingsModal />
+      {/* Settings Modal — lazy-loaded so the ~2k-line tab tree stays out of
+          the main bundle until the user opens it. */}
+      <Suspense fallback={null}>
+        <SettingsModal />
+      </Suspense>
 
       {/* Password Modal for Lock/Unlock */}
       {lockModalMode && noteToLock && (
@@ -1235,12 +1247,18 @@ export function Sidebar() {
         onEmptyTrash={emptyTrash}
         onPreview={(note) => setTrashPreviewNote(note)}
       />
-      <TrashPreviewModal
-        note={trashPreviewNote}
-        onClose={() => setTrashPreviewNote(null)}
-        onRestore={restoreNote}
-        onPermanentDelete={permanentlyDelete}
-      />
+      {/* Trash preview pulls in Tiptap + markdown-it + DOMPurify — only
+          mount it when the user actually opens a trashed note. */}
+      {trashPreviewNote && (
+        <Suspense fallback={null}>
+          <TrashPreviewModal
+            note={trashPreviewNote}
+            onClose={() => setTrashPreviewNote(null)}
+            onRestore={restoreNote}
+            onPermanentDelete={permanentlyDelete}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
