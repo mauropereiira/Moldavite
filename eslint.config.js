@@ -46,6 +46,7 @@ export default [
         FocusEvent: 'readonly',
         DragEvent: 'readonly',
         ClipboardEvent: 'readonly',
+        DOMRect: 'readonly',
         SVGSVGElement: 'readonly',
         HTMLImageElement: 'readonly',
         HTMLAnchorElement: 'readonly',
@@ -136,6 +137,7 @@ export default [
       '.claude/**',
       '*.config.js',
       '*.config.ts',
+      'scripts/**',
     ],
   },
 ];

@@ -5,13 +5,14 @@ import type { NoteFile } from '@/types';
 interface DraggableNoteItemProps {
   note: NoteFile;
   isActive: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  onContextMenu: (e: React.MouseEvent) => void;
+  /** Stable callback — note is passed back so the parent can keep one reference across the list. */
+  onClick: (note: NoteFile, e: React.MouseEvent) => void;
+  onContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   level?: number;
   tags?: string[];
 }
 
-export function DraggableNoteItem({
+function DraggableNoteItemImpl({
   note,
   isActive,
   onClick,
@@ -19,6 +20,8 @@ export function DraggableNoteItem({
   level = 0,
   tags = [],
 }: DraggableNoteItemProps) {
+  const handleClick = (e: React.MouseEvent) => onClick(note, e);
+  const handleContextMenu = (e: React.MouseEvent) => onContextMenu(note, e);
   const handleDragStart = (e: React.DragEvent) => {
     // Store the note path for drag-and-drop
     // Strip "notes/" prefix for the relative path within notes folder
@@ -34,15 +37,15 @@ export function DraggableNoteItem({
     <div
       className="group relative"
       style={{ paddingLeft: level > 0 ? `${level * 12}px` : undefined }}
-      onContextMenu={onContextMenu}
+      onContextMenu={handleContextMenu}
       draggable
       onDragStart={handleDragStart}
     >
       <div
-        onClick={onClick}
+        onClick={handleClick}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && onClick(e as unknown as React.MouseEvent)}
+        onKeyDown={(e) => e.key === 'Enter' && handleClick(e as unknown as React.MouseEvent)}
         className="note-card sidebar-item-animated w-full text-left text-sm pr-8 focus-ring cursor-pointer"
         style={{
           color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)',
@@ -89,7 +92,7 @@ export function DraggableNoteItem({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onContextMenu(e);
+          handleContextMenu(e);
         }}
         draggable={false}
         className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-60 transition-all"
@@ -110,3 +113,21 @@ export function DraggableNoteItem({
     </div>
   );
 }
+
+const arraysEqual = (a: string[] = [], b: string[] = []) => {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+
+export const DraggableNoteItem = React.memo(
+  DraggableNoteItemImpl,
+  (prev, next) =>
+    prev.note === next.note &&
+    prev.isActive === next.isActive &&
+    prev.level === next.level &&
+    prev.onClick === next.onClick &&
+    prev.onContextMenu === next.onContextMenu &&
+    arraysEqual(prev.tags, next.tags),
+);

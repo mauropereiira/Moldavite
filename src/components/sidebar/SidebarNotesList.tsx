@@ -17,7 +17,7 @@ interface SidebarNotesListProps {
   onSortToggle: () => void;
   onNewNote: () => void;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
-  onNoteContextMenu: (e: React.MouseEvent, note: NoteFile) => void;
+  onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   isNoteActive: (note: NoteFile) => boolean;
   getNoteTags?: (notePath: string) => string[];
   /** Drag-over state for the root drop zone */
@@ -124,8 +124,8 @@ export function SidebarNotesList({
             key={note.path}
             note={note}
             isActive={isNoteActive(note)}
-            onClick={(e) => onNoteClick(note, e)}
-            onContextMenu={(e) => onNoteContextMenu(e, note)}
+            onClick={onNoteClick}
+            onContextMenu={onNoteContextMenu}
             tags={getNoteTags ? getNoteTags(note.path) : undefined}
           />
         ))}

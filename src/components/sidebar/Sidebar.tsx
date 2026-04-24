@@ -398,7 +398,7 @@ export function Sidebar() {
   };
 
   // Context menu handlers
-  const handleContextMenu = (e: React.MouseEvent, note: NoteFile) => {
+  const handleContextMenu = (note: NoteFile, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenuNote(note);
