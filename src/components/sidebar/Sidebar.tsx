@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
-import { useNotes, useFolders, useTrash } from '@/hooks';
+import { useNotes, useFolders, useTrash, useSidebarContextMenu } from '@/hooks';
 import { useNoteStore, useSettingsStore, useTagStore, useSearchStore } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import {
@@ -115,8 +115,6 @@ export function Sidebar() {
   const [noteToMove, setNoteToMove] = useState<NoteFile | null>(null);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [folderContextMenu, setFolderContextMenu] = useState<FolderInfo | null>(null);
-  const [folderContextMenuPosition, setFolderContextMenuPosition] = useState({ x: 0, y: 0 });
   const [isRenamingFolder, setIsRenamingFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<FolderInfo | null>(null);
   const [renameFolderName, setRenameFolderName] = useState('');
@@ -199,8 +197,7 @@ export function Sidebar() {
     }
   }, [allTags, selectedTag, setSelectedTag]);
 
-  const [contextMenuNote, setContextMenuNote] = useState<NoteFile | null>(null);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const { noteMenu, folderMenu } = useSidebarContextMenu();
 
   // Sort function based on current sort option
   const sortNotes = (notesToSort: NoteFile[]) => {
@@ -382,25 +379,8 @@ export function Sidebar() {
     setShowDeleteConfirm(false);
   };
 
-  // Context menu handlers
-  const handleContextMenu = (note: NoteFile, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenuNote(note);
-    setContextMenuPosition({ x: e.clientX, y: e.clientY });
-  };
-
-  const closeContextMenu = () => {
-    setContextMenuNote(null);
-  };
-
-  useEffect(() => {
-    const handleClick = () => closeContextMenu();
-    if (contextMenuNote) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [contextMenuNote]);
+  const handleContextMenu = noteMenu.open;
+  const closeContextMenu = noteMenu.close;
 
   // Lock/Unlock handlers
   const handleLockNote = (note: NoteFile) => {
@@ -492,24 +472,9 @@ export function Sidebar() {
     }
   };
 
-  const handleFolderContextMenu = (e: React.MouseEvent, folder: FolderInfo) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFolderContextMenu(folder);
-    setFolderContextMenuPosition({ x: e.clientX, y: e.clientY });
-  };
-
-  const closeFolderContextMenu = () => {
-    setFolderContextMenu(null);
-  };
-
-  useEffect(() => {
-    const handleClick = () => closeFolderContextMenu();
-    if (folderContextMenu) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [folderContextMenu]);
+  const handleFolderContextMenu = (e: React.MouseEvent, folder: FolderInfo) =>
+    folderMenu.open(folder, e);
+  const closeFolderContextMenu = folderMenu.close;
 
   const handleRenameFolder = (folder: FolderInfo) => {
     setFolderToRename(folder);
@@ -689,10 +654,10 @@ export function Sidebar() {
       )}
 
       {/* Context Menu */}
-      {contextMenuNote && (
+      {noteMenu.target && (
         <NoteContextMenu
-          note={contextMenuNote}
-          position={contextMenuPosition}
+          note={noteMenu.target}
+          position={noteMenu.position}
           onOpenInNewTab={(note) => loadNote(note, true)}
           onDuplicate={duplicateNote}
           onLock={handleLockNote}
@@ -727,10 +692,10 @@ export function Sidebar() {
       )}
 
       {/* Folder Context Menu */}
-      {folderContextMenu && (
+      {folderMenu.target && (
         <FolderContextMenu
-          folder={folderContextMenu}
-          position={folderContextMenuPosition}
+          folder={folderMenu.target}
+          position={folderMenu.position}
           onNewNoteInFolder={(folder) => {
             setCreateNoteInFolder(folder.path);
             setIsCreating(true);
