@@ -1,5 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { invoke } from '@tauri-apps/api/core';
+import MarkdownIt from 'markdown-it';
+import DOMPurify from 'dompurify';
 import { X, Undo2, Trash2, FileText, Calendar, Folder } from 'lucide-react';
 import type { TrashedNote } from '@/types';
 
@@ -10,15 +14,11 @@ interface TrashPreviewModalProps {
   onPermanentDelete: (trashId: string) => void;
 }
 
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
+
 /**
  * Read-only preview of a trashed note. Uses a Tiptap editor with
- * `editable: false` and no toolbar, matching the editor elsewhere
- * in the app.
- *
- * NOTE: The backend doesn't yet expose a `read_trashed_content`
- * command, so the preview body is currently a metadata-only message.
- * When that command lands, swap the placeholder content for the
- * actual trashed note HTML.
+ * `editable: false` and no toolbar.
  */
 export function TrashPreviewModal({
   note,
@@ -26,23 +26,45 @@ export function TrashPreviewModal({
   onRestore,
   onPermanentDelete,
 }: TrashPreviewModalProps) {
-  const placeholderHtml = note
-    ? `<p><em>Preview of trashed notes is metadata-only until the backend exposes read access to the trash directory.</em></p>
-       <ul>
-         <li><strong>File:</strong> ${escapeHtml(note.filename)}</li>
-         <li><strong>Original path:</strong> ${escapeHtml(note.originalPath)}</li>
-         <li><strong>Days remaining:</strong> ${note.daysRemaining}</li>
-       </ul>
-       <p>Restore the note to read its contents.</p>`
-    : '';
+  const [html, setHtml] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!note) {
+      setHtml('');
+      return;
+    }
+    if (note.isFolder) {
+      setHtml(
+        `<p><em>Folder trash — restore to browse its contents.</em></p>
+         <ul><li><strong>Folder:</strong> ${escapeHtml(note.filename)}</li></ul>`
+      );
+      return;
+    }
+    invoke<string>('read_trashed_note', { trashId: note.id })
+      .then((markdown) => {
+        if (cancelled) return;
+        const rendered = md.render(markdown || '*(empty note)*');
+        setHtml(DOMPurify.sanitize(rendered));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setHtml(
+          `<p><em>Could not read this note: ${escapeHtml(String(err))}.</em></p>`
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [note]);
 
   const editor = useEditor(
     {
       extensions: [StarterKit],
-      content: placeholderHtml,
+      content: html,
       editable: false,
     },
-    [note?.id]
+    [note?.id, html]
   );
 
   if (!note) return null;
