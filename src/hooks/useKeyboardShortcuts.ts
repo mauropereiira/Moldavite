@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
+import { useGraphStore } from '@/stores/graphStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
@@ -36,6 +37,7 @@ export function useKeyboardShortcuts({
   const { setIsSettingsOpen } = useSettingsStore();
   const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } = useNoteStore();
   const { open: openQuickSwitcher } = useQuickSwitcherStore();
+  const { toggle: toggleGraph } = useGraphStore();
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -123,6 +125,7 @@ export function useKeyboardShortcuts({
       if (isMod && key === ',') return 'settings';
       if (isMod && key === 'n') return 'newNote';
       if (isMod && e.shiftKey && key === 'l') return 'toggleTheme';
+      if (isMod && e.shiftKey && key === 'g') return 'toggleGraph';
       if (isMod && key === 'w') return 'closeTab';
       if (isMod && key === 't') return 'templatePicker';
       if (isMod && key === 'k') return 'insertLink';
@@ -151,6 +154,10 @@ export function useKeyboardShortcuts({
         case 'toggleTheme':
           e.preventDefault();
           onToggleTheme?.();
+          return;
+        case 'toggleGraph':
+          e.preventDefault();
+          toggleGraph();
           return;
         case 'closeTab':
           e.preventDefault();
@@ -205,6 +212,7 @@ export function useKeyboardShortcuts({
     openTabs,
     switchTab,
     openQuickSwitcher,
+    toggleGraph,
   ]);
 
   return {

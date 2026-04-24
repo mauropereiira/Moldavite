@@ -52,6 +52,9 @@ export default [
         HTMLAnchorElement: 'readonly',
         HTMLSpanElement: 'readonly',
         HTMLParagraphElement: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        CanvasRenderingContext2D: 'readonly',
+        getComputedStyle: 'readonly',
         // Browser APIs
         Blob: 'readonly',
         File: 'readonly',
