@@ -13,6 +13,32 @@ use crate::paths::get_notes_dir;
 use crate::types::ImportResult;
 use crate::validation::{is_safe_filename, validate_path_within_base, validate_user_export_path};
 
+// Zip-bomb / malicious archive guardrails. Chosen to comfortably cover a
+// very large real vault (tens of thousands of notes + images) while still
+// rejecting pathological archives that would exhaust disk or memory.
+const MAX_ARCHIVE_ENTRIES: usize = 50_000;
+const MAX_ENTRY_UNCOMPRESSED_SIZE: u64 = 100 * 1024 * 1024; // 100 MB per file
+const MAX_TOTAL_UNCOMPRESSED_SIZE: u64 = 2 * 1024 * 1024 * 1024; // 2 GB total
+
+/// Basic structure validation for a single ZIP entry name — rejects empty
+/// names, absolute paths, drive letters, NUL bytes, and backslash separators
+/// (which some Windows-created ZIPs use and that our `parts.len() != 2` split
+/// on `/` would silently accept).
+fn is_acceptable_entry_name(name: &str) -> bool {
+    if name.is_empty() || name.contains('\0') || name.contains('\\') {
+        return false;
+    }
+    if name.starts_with('/') {
+        return false;
+    }
+    // Reject Windows drive letters like "C:" at the start.
+    let bytes = name.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        return false;
+    }
+    true
+}
+
 /// Export all notes and templates to a ZIP file
 #[tauri::command]
 pub(crate) fn export_notes(destination: String) -> Result<String, String> {
@@ -69,12 +95,21 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
     let mut archive = ZipArchive::new(zip_file)
         .map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
 
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(format!(
+            "Archive has too many entries ({}); maximum is {}",
+            archive.len(),
+            MAX_ARCHIVE_ENTRIES
+        ));
+    }
+
     let mut result = ImportResult {
         daily_notes: 0,
         standalone_notes: 0,
         templates: 0,
         images: 0,
     };
+    let mut total_uncompressed: u64 = 0;
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
@@ -100,6 +135,10 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
 
         let name = file.name().to_string();
 
+        if !is_acceptable_entry_name(&name) {
+            continue;
+        }
+
         // Parse the path (subdir/filename)
         let parts: Vec<&str> = name.split('/').collect();
         if parts.len() != 2 {
@@ -119,6 +158,19 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
             continue; // Skip unsafe filenames
         }
 
+        // Reject entries whose reported uncompressed size is above the per-file
+        // cap before we ever allocate for them.
+        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "Archive entry '{}' exceeds per-file size limit",
+                name
+            ));
+        }
+        total_uncompressed = total_uncompressed.saturating_add(file.size());
+        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
+            return Err("Archive total uncompressed size exceeds limit".to_string());
+        }
+
         let dest_dir = notes_dir.join(subdir);
         fs::create_dir_all(&dest_dir)
             .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -135,10 +187,19 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
             continue;
         }
 
-        // Extract the file
+        // Extract the file, bounded by the per-entry size limit as defence in
+        // depth against mismatched `file.size()` metadata.
         let mut content = Vec::new();
-        file.read_to_end(&mut content)
+        (&mut file)
+            .take(MAX_ENTRY_UNCOMPRESSED_SIZE + 1)
+            .read_to_end(&mut content)
             .map_err(|e| format!("Failed to read file from ZIP: {}", e))?;
+        if content.len() as u64 > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "Archive entry '{}' exceeds per-file size limit",
+                name
+            ));
+        }
 
         fs::write(&dest_path, content)
             .map_err(|e| format!("Failed to write file: {}", e))?;
@@ -268,12 +329,21 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| format!("Failed to read backup archive: {}", e))?;
 
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(format!(
+            "Archive has too many entries ({}); maximum is {}",
+            archive.len(),
+            MAX_ARCHIVE_ENTRIES
+        ));
+    }
+
     let mut result = ImportResult {
         daily_notes: 0,
         standalone_notes: 0,
         templates: 0,
         images: 0,
     };
+    let mut total_uncompressed: u64 = 0;
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
@@ -299,6 +369,10 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
 
         let name = file.name().to_string();
 
+        if !is_acceptable_entry_name(&name) {
+            continue;
+        }
+
         // Parse the path (subdir/filename)
         let parts: Vec<&str> = name.split('/').collect();
         if parts.len() != 2 {
@@ -316,6 +390,17 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
         // Validate filename is safe (no path traversal)
         if !is_safe_filename(filename) {
             continue; // Skip unsafe filenames
+        }
+
+        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "Backup entry '{}' exceeds per-file size limit",
+                name
+            ));
+        }
+        total_uncompressed = total_uncompressed.saturating_add(file.size());
+        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
+            return Err("Backup total uncompressed size exceeds limit".to_string());
         }
 
         // Ensure subdirectory exists
@@ -338,10 +423,18 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
             continue;
         }
 
-        // Read and write file content
+        // Read and write file content, bounded by per-entry limit.
         let mut content = Vec::new();
-        file.read_to_end(&mut content)
+        (&mut file)
+            .take(MAX_ENTRY_UNCOMPRESSED_SIZE + 1)
+            .read_to_end(&mut content)
             .map_err(|e| format!("Failed to read file from archive: {}", e))?;
+        if content.len() as u64 > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "Backup entry '{}' exceeds per-file size limit",
+                name
+            ));
+        }
 
         fs::write(&dest_path, content)
             .map_err(|e| format!("Failed to write file: {}", e))?;
