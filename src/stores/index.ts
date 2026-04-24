@@ -41,3 +41,4 @@ export { useTagStore } from './tagStore';
 export { useTaskStatusStore } from './taskStatusStore';
 export { useSearchStore } from './searchStore';
 export type { ContentMatch } from './searchStore';
+export { useTimelineStore } from './timelineStore';
