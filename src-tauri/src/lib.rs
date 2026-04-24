@@ -35,6 +35,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read as IoRead, Write as IoWrite};
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 use zeroize::Zeroizing;
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
@@ -838,6 +839,172 @@ fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     Ok(notes)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentMatch {
+    filename: String,
+    path: String,
+    snippet: String,
+    line_number: usize,
+    match_count: u32,
+    is_daily: bool,
+    is_weekly: bool,
+    folder_path: Option<String>,
+}
+
+fn classify_note_path(
+    notes_dir: &Path,
+    file_path: &Path,
+) -> Option<(String, bool, bool, Option<String>)> {
+    let rel = file_path.strip_prefix(notes_dir).ok()?;
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+    let mut parts = rel_str.splitn(2, '/');
+    let top = parts.next()?;
+    let rest = parts.next().unwrap_or("");
+    match top {
+        "daily" => Some((rel_str.clone(), true, false, None)),
+        "weekly" => Some((rel_str.clone(), false, true, None)),
+        "notes" => {
+            if rest.contains('/') {
+                let folder = rest.rsplit_once('/').map(|(f, _)| f.to_string());
+                Some((rel_str, false, false, folder))
+            } else {
+                Some((rel_str, false, false, None))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn build_snippet(line: &str, term_lower: &str, max_width: usize) -> String {
+    let line_lower = line.to_lowercase();
+    let idx = line_lower.find(term_lower).unwrap_or(0);
+    let half = max_width / 2;
+    let start_byte = {
+        let mut s = idx.saturating_sub(half);
+        while !line.is_char_boundary(s) && s > 0 {
+            s -= 1;
+        }
+        s
+    };
+    let end_target = (idx + term_lower.len() + half).min(line.len());
+    let end_byte = {
+        let mut e = end_target;
+        while e < line.len() && !line.is_char_boundary(e) {
+            e += 1;
+        }
+        e
+    };
+    let prefix = if start_byte > 0 { "…" } else { "" };
+    let suffix = if end_byte < line.len() { "…" } else { "" };
+    format!("{}{}{}", prefix, &line[start_byte..end_byte], suffix)
+}
+
+fn search_notes_content_in(
+    notes_dir: &Path,
+    trash_dir: &Path,
+    query: &str,
+    max_results: u32,
+) -> Vec<ContentMatch> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let term_lower = query.to_lowercase();
+    let cap = max_results.clamp(1, 500) as usize;
+    let mut results: Vec<ContentMatch> = Vec::new();
+
+    let walker = WalkDir::new(notes_dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            // Skip the trash directory entirely
+            entry.path() != trash_dir
+        });
+
+    for entry in walker.flatten() {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let path = entry.path();
+        let filename = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n,
+            None => continue,
+        };
+        // Only unlocked markdown files
+        if filename.ends_with(".md.locked") {
+            continue;
+        }
+        if !filename.ends_with(".md") {
+            continue;
+        }
+
+        let Ok(content) = fs::read_to_string(path) else { continue };
+        let content_lower = content.to_lowercase();
+        if !content_lower.contains(&term_lower) {
+            continue;
+        }
+
+        let mut match_count: u32 = 0;
+        let mut first_line_number: usize = 0;
+        let mut first_snippet: Option<String> = None;
+        for (idx, line) in content.lines().enumerate() {
+            let line_lower = line.to_lowercase();
+            let occurrences = line_lower.matches(&term_lower).count() as u32;
+            if occurrences == 0 {
+                continue;
+            }
+            if first_snippet.is_none() {
+                first_line_number = idx + 1;
+                first_snippet = Some(build_snippet(line, &term_lower, 120));
+            }
+            match_count = match_count.saturating_add(occurrences);
+        }
+
+        let Some(snippet) = first_snippet else { continue };
+        let Some((rel_path, is_daily, is_weekly, folder_path)) =
+            classify_note_path(notes_dir, path)
+        else {
+            continue;
+        };
+
+        results.push(ContentMatch {
+            filename: filename.to_string(),
+            path: rel_path,
+            snippet,
+            line_number: first_line_number,
+            match_count,
+            is_daily,
+            is_weekly,
+            folder_path,
+        });
+    }
+
+    results.sort_by(|a, b| {
+        b.match_count
+            .cmp(&a.match_count)
+            .then_with(|| a.filename.cmp(&b.filename))
+    });
+    results.truncate(cap);
+    results
+}
+
+/// Full-text search across all unlocked markdown notes.
+///
+/// Case-insensitive substring match. Skips `.md.locked` files and the
+/// internal `.trash` directory. Results are sorted by match count desc.
+#[tauri::command]
+fn search_notes_content(query: String, max_results: u32) -> Result<Vec<ContentMatch>, String> {
+    let notes_dir = get_notes_dir();
+    let trash_dir = get_trash_dir();
+    Ok(search_notes_content_in(
+        &notes_dir,
+        &trash_dir,
+        &query,
+        max_results,
+    ))
 }
 
 #[tauri::command]
@@ -3005,6 +3172,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ensure_directories,
             list_notes,
+            search_notes_content,
             read_note,
             write_note,
             delete_note,
@@ -3215,6 +3383,117 @@ mod tests {
 
         fs::remove_dir_all(&base).ok();
         fs::remove_dir_all(&outside).ok();
+    }
+
+    // ---- search_notes_content_in ------------------------------------------
+
+    fn seed_notes(base: &Path) {
+        fs::create_dir_all(base.join("notes")).unwrap();
+        fs::create_dir_all(base.join("notes/Projects")).unwrap();
+        fs::create_dir_all(base.join("daily")).unwrap();
+        fs::create_dir_all(base.join("weekly")).unwrap();
+        fs::create_dir_all(base.join(".trash")).unwrap();
+
+        fs::write(
+            base.join("notes/alpha.md"),
+            "First line\nThe quick brown fox\nalpha beta gamma\n",
+        )
+        .unwrap();
+        fs::write(
+            base.join("notes/Projects/beta.md"),
+            "beta appears once here\nno match on this line\nand beta again\n",
+        )
+        .unwrap();
+        fs::write(
+            base.join("daily/2026-04-24.md"),
+            "Daily log\nDiscussed the fox plan\n",
+        )
+        .unwrap();
+        fs::write(
+            base.join("weekly/2026-W17.md"),
+            "Weekly review\nfox sightings up\n",
+        )
+        .unwrap();
+        // A locked note that must never be scanned
+        fs::write(base.join("notes/secret.md.locked"), "fox fox fox fox").unwrap();
+        // A trashed note that must never be scanned
+        fs::write(base.join(".trash/old.md"), "fox fox fox").unwrap();
+    }
+
+    #[test]
+    fn search_notes_content_finds_matches() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
+        let names: Vec<_> = results.iter().map(|r| r.filename.clone()).collect();
+        assert!(names.contains(&"alpha.md".to_string()));
+        assert!(names.contains(&"2026-04-24.md".to_string()));
+        assert!(names.contains(&"2026-W17.md".to_string()));
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_excludes_locked_files() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
+        for r in &results {
+            assert!(!r.filename.ends_with(".locked"), "locked file surfaced: {}", r.filename);
+            assert!(!r.path.starts_with(".trash"), "trash file surfaced: {}", r.path);
+        }
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_is_case_insensitive() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let lower = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
+        let upper = search_notes_content_in(&base, &base.join(".trash"), "FOX", 100);
+        assert_eq!(lower.len(), upper.len());
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_sorts_by_match_count() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "beta", 100);
+        assert!(!results.is_empty());
+        // beta.md has 2 matches, alpha.md has 1. beta.md must come first.
+        assert_eq!(results[0].filename, "beta.md");
+        assert_eq!(results[0].match_count, 2);
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_respects_max_results() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 2);
+        assert!(results.len() <= 2);
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_empty_query_returns_nothing() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "   ", 100);
+        assert!(results.is_empty());
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_reports_folder_path() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "beta", 100);
+        let beta = results.iter().find(|r| r.filename == "beta.md").unwrap();
+        assert_eq!(beta.folder_path.as_deref(), Some("Projects"));
+        assert!(!beta.is_daily);
+        assert!(!beta.is_weekly);
+        fs::remove_dir_all(&base).ok();
     }
 }
 

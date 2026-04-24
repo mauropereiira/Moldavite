@@ -2341,6 +2341,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "walkdir",
  "zeroize",
  "zip 2.4.2",
 ]
