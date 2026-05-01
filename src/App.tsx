@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Layout, ToastContainer, UpdateNotification, CalendarOnboardingModal } from './components';
+import { Layout, ToastContainer, UpdateNotification, CalendarOnboardingModal, AppOnboardingModal } from './components';
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
@@ -67,6 +67,7 @@ function App() {
       <ToastContainer />
       <UpdateNotification />
       <CalendarOnboardingModal />
+      <AppOnboardingModal />
       <QuickSwitcher />
       <GraphView />
       <ShortcutHelpHost />
