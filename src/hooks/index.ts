@@ -32,3 +32,4 @@ export { useSidebarContextMenu } from './useSidebarContextMenu';
 export { useSidebarLock } from './useSidebarLock';
 export { useSidebarTags } from './useSidebarTags';
 export { useSidebarDnd } from './useSidebarDnd';
+export { useForgeWatcher } from './useForgeWatcher';

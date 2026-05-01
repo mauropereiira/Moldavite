@@ -29,6 +29,15 @@ mod security;
 /// Shared utilities (paths, config, permissions)
 mod utils;
 
+/// YAML frontmatter parsing for note files.
+pub(crate) mod frontmatter;
+
+/// One-shot migration: sidecar metadata JSON → per-file YAML frontmatter.
+pub(crate) mod migration;
+
+/// Filesystem watcher (notify) that emits `forge:changed` events.
+pub(crate) mod forge_watcher;
+
 // Refactored domain modules.
 pub(crate) mod backlinks_index;
 pub(crate) mod commands;
@@ -51,8 +60,9 @@ use commands::folders::{create_folder, delete_folder, list_folders, move_folder,
 use commands::graph::get_note_graph;
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
 use commands::misc::{
-    ensure_directories, get_all_note_colors, get_note_color, get_notes_directory, save_image,
-    set_note_color, set_notes_directory, write_binary_file,
+    ensure_directories, get_all_note_colors, get_note_color, get_notes_directory,
+    open_forge_in_finder, rescan_forge, save_image, set_note_color, set_notes_directory,
+    write_binary_file,
 };
 use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
@@ -108,9 +118,12 @@ fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
 pub fn run() {
     use std::sync::Arc;
 
+    use tauri::Manager;
+
     use crate::backlinks_index::BacklinksIndex;
 
     let backlinks_index = Arc::new(BacklinksIndex::new());
+    let recent_writes = Arc::new(forge_watcher::RecentWrites::new());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -118,6 +131,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(backlinks_index.clone())
+        .manage(recent_writes.clone())
         .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -126,11 +140,27 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // Run sidecar-metadata → frontmatter migration once. Idempotent,
+            // safe to call on every launch.
+            match migration::migrate_metadata_to_frontmatter() {
+                Ok(0) => {}
+                Ok(n) => log::info!("[forge] migrated {} note colors to frontmatter", n),
+                Err(e) => log::warn!("[forge] migration error: {}", e),
+            }
             // Build backlinks index off the main thread so startup isn't blocked.
             let idx = backlinks_index.clone();
             tauri::async_runtime::spawn_blocking(move || {
                 idx.rebuild_from_disk();
             });
+            // Spawn the file watcher.
+            let watcher_handle = forge_watcher::spawn(app.handle().clone(), recent_writes.clone());
+            match watcher_handle {
+                Ok(h) => {
+                    // Keep the handle alive for the lifetime of the app.
+                    app.manage(h);
+                }
+                Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -186,6 +216,8 @@ pub fn run() {
             // Directory management commands
             get_notes_directory,
             set_notes_directory,
+            rescan_forge,
+            open_forge_in_finder,
             // Export/Import commands
             export_notes,
             import_notes,

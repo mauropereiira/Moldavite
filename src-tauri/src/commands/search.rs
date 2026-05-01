@@ -94,7 +94,10 @@ pub(crate) fn search_notes_content_in(
             continue;
         }
 
-        let Ok(content) = fs::read_to_string(path) else { continue };
+        let Ok(raw) = fs::read_to_string(path) else { continue };
+        // Don't search YAML frontmatter — it would surface "color: red" as a
+        // hit when the user searches for "red".
+        let content = crate::frontmatter::parse_note(&raw).body;
         let content_lower = content.to_lowercase();
         if !content_lower.contains(&term_lower) {
             continue;
