@@ -56,6 +56,9 @@ interface SettingsState {
   // Security
   autoLockTimeout: AutoLockTimeout;
 
+  // Onboarding
+  hasSeenAppOnboarding: boolean;
+
   // UI State
   isSettingsOpen: boolean;
 
@@ -91,6 +94,7 @@ interface SettingsState {
   setShowTimelineWidget: (show: boolean) => void;
   setQuickSwitcherEnabled: (enabled: boolean) => void;
   setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
+  setHasSeenAppOnboarding: (seen: boolean) => void;
   setIsSettingsOpen: (open: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -127,6 +131,7 @@ const defaultSettings = {
   showTimelineWidget: true,
   quickSwitcherEnabled: true,
   autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
+  hasSeenAppOnboarding: false,
   isSettingsOpen: false,
 };
 
@@ -166,6 +171,7 @@ export const useSettingsStore = create<SettingsState>()(
       setShowTimelineWidget: (show) => set({ showTimelineWidget: show }),
       setQuickSwitcherEnabled: (enabled) => set({ quickSwitcherEnabled: enabled }),
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
+      setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
       setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
       resetToDefaults: () => set(defaultSettings),
     }),
@@ -204,6 +210,7 @@ export const useSettingsStore = create<SettingsState>()(
         showTimelineWidget: state.showTimelineWidget,
         quickSwitcherEnabled: state.quickSwitcherEnabled,
         autoLockTimeout: state.autoLockTimeout,
+        hasSeenAppOnboarding: state.hasSeenAppOnboarding,
       }),
     }
   )
