@@ -7,11 +7,13 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::backlinks_index::BacklinksIndex;
+use crate::forge_watcher::RecentWrites;
+use crate::frontmatter;
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
 };
 use crate::persist::generate_unique_filename;
-use crate::types::NoteFile;
+use crate::types::{NoteFile, NoteRead};
 use crate::validation::is_safe_filename;
 
 // Helper function to recursively scan notes in a directory
@@ -190,7 +192,11 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
 }
 
 #[tauri::command]
-pub(crate) fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
+pub(crate) fn read_note(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<NoteRead, String> {
     // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
@@ -206,11 +212,19 @@ pub(crate) fn read_note(filename: String, is_daily: bool, is_weekly: bool) -> Re
 
     let path = dir.join(&filename);
 
-    if path.exists() {
-        fs::read_to_string(&path).map_err(|e| e.to_string())
-    } else {
-        Ok(String::new())
+    if !path.exists() {
+        return Ok(NoteRead {
+            content: String::new(),
+            color: None,
+        });
     }
+
+    let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let parsed = frontmatter::parse_note(&raw);
+    Ok(NoteRead {
+        content: parsed.body,
+        color: parsed.color,
+    })
 }
 
 #[tauri::command]
@@ -219,7 +233,9 @@ pub(crate) fn write_note(
     content: String,
     is_daily: bool,
     is_weekly: bool,
+    color: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
+    recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<(), String> {
     // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
     if !is_safe_filename(&filename) {
@@ -235,7 +251,29 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
-    fs::write(&path, &content).map_err(|e| e.to_string())?;
+
+    // Preserve any extra frontmatter keys from the existing file so external
+    // tools that add their own metadata don't lose it on save. If the caller
+    // didn't pass a `color`, also preserve the existing color from the file
+    // so a normal content save doesn't strip it.
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let parsed_existing = frontmatter::parse_note(&existing);
+    let resolved_color: Option<String> = match color {
+        // Explicit clear: caller passed "default" or "" to wipe color.
+        Some(ref c) if c.is_empty() || c == "default" => None,
+        // Explicit set.
+        Some(c) => Some(c),
+        // Untouched: keep what's on disk.
+        None => parsed_existing.color.clone(),
+    };
+    let serialized = frontmatter::serialize_note(
+        resolved_color.as_deref(),
+        &parsed_existing.extra,
+        &content,
+    );
+
+    fs::write(&path, &serialized).map_err(|e| e.to_string())?;
+    recent.record(&path);
 
     // Set restrictive file permissions (600 = owner read/write only)
     #[cfg(unix)]
@@ -245,6 +283,7 @@ pub(crate) fn write_note(
         fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
     }
 
+    // The backlinks index only cares about the body, not frontmatter.
     index.update_note(&filename, &content);
 
     Ok(())

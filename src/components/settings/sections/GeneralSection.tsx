@@ -7,11 +7,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Lock, FolderOpen, Download, Upload, Shield, Eye, EyeOff, Timer } from 'lucide-react';
+import { Lock, FolderOpen, Download, Upload, Shield, Eye, EyeOff, Timer, RefreshCw, ExternalLink } from 'lucide-react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import type { AutoLockTimeout } from '@/stores';
-import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
+import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup, rescanForge, openForgeInFinder, listNotes } from '@/lib';
 import type { ImportResult } from '@/lib';
 import { InfoTooltip, Toggle } from '../common';
 
@@ -23,6 +23,7 @@ export function GeneralSection() {
   const [isClearing, setIsClearing] = useState(false);
   const [notesDirectory, setNotesDirectoryState] = useState('');
   const [isChangingDir, setIsChangingDir] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportOptions, setShowImportOptions] = useState(false);
@@ -51,23 +52,47 @@ export function GeneralSection() {
     }
   }, [statusMessage]);
 
+  const handleRescan = async () => {
+    try {
+      setIsRescanning(true);
+      await rescanForge();
+      const fresh = await listNotes();
+      useNoteStore.getState().setNotes(fresh);
+      setStatusMessage({ type: 'success', text: 'Forge re-scanned' });
+    } catch (error) {
+      console.error('[Settings] Failed to rescan Forge:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    } finally {
+      setIsRescanning(false);
+    }
+  };
+
+  const handleOpenInFinder = async () => {
+    try {
+      await openForgeInFinder();
+    } catch (error) {
+      console.error('[Settings] Failed to open Forge in Finder:', error);
+      setStatusMessage({ type: 'error', text: String(error) });
+    }
+  };
+
   const handleChangeDirectory = async () => {
     try {
       setIsChangingDir(true);
       const selected = await open({
         directory: true,
-        title: 'Select Notes Directory',
+        title: 'Select Forge Directory',
       });
 
       if (selected && typeof selected === 'string') {
         await setNotesDirectory(selected);
         setNotesDirectoryState(selected);
-        setStatusMessage({ type: 'success', text: 'Notes directory changed successfully!' });
+        setStatusMessage({ type: 'success', text: 'Forge moved successfully!' });
         // Refresh notes list
         window.location.reload();
       }
     } catch (error) {
-      console.error('[Settings] Failed to change directory:', error);
+      console.error('[Settings] Failed to change Forge directory:', error);
       setStatusMessage({ type: 'error', text: String(error) });
     } finally {
       setIsChangingDir(false);
@@ -261,18 +286,18 @@ export function GeneralSection() {
         </div>
       )}
 
-      {/* Storage Section */}
+      {/* Forge Section */}
       <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
         <div className="flex items-center gap-1">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Storage
+            Forge
           </h3>
-          <InfoTooltip text="Where your notes are saved on your computer. All data is stored locally." />
+          <InfoTooltip text="Your notes live in your Forge — a folder of plain .md files you can sync, back up, or open in any other tool." />
         </div>
 
         <div>
           <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-            Notes Directory
+            Forge location
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -303,8 +328,38 @@ export function GeneralSection() {
             </button>
           </div>
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Existing notes will be moved to the new location
+            Plain .md files. Sync, back up, or open in any other tool. Existing notes will be moved if you change this.
           </p>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleOpenInFinder}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <ExternalLink aria-hidden="true" className="w-4 h-4" />
+            Open Forge in Finder
+          </button>
+          <button
+            onClick={handleRescan}
+            disabled={isRescanning}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <RefreshCw aria-hidden="true" className={`w-4 h-4 ${isRescanning ? 'animate-spin' : ''}`} />
+            {isRescanning ? 'Rescanning...' : 'Rescan Forge'}
+          </button>
         </div>
       </div>
 
