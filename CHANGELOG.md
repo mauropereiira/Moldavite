@@ -2,6 +2,31 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.2.0] - 2026-05-01
+
+### Added
+- **Forge** — Moldavite's note storage is now first-class for external tools.
+  - YAML frontmatter on every note (currently `color`; schema is extensible — unknown keys round-trip cleanly).
+  - One-shot, idempotent migration moves the legacy `.note-metadata.json` sidecar into per-file frontmatter.
+  - Live file watcher (`notify` v6 + 300 ms debounce) emits a `forge:changed` event so external edits show up live; self-write echoes are suppressed.
+  - New `rescan_forge` command (Settings → General button) re-runs the directory scan and rebuilds the in-memory backlinks index.
+  - New `open_forge_in_finder` command and Settings button.
+  - Public docs at `docs/FORGE.md` describing directory layout, frontmatter schema, wiki-link syntax, locked-file caveat.
+- **Theme presets** — Solarized, Dracula, Nord, Sepia, Gruvbox alongside the default Moldavite palette. `<html>` carries a `data-theme` attribute beside the existing `dark` class so Tailwind `dark:` selectors keep working. Settings → Appearance picker shows preset cards with swatches.
+- **QuickSwitcher upgrades** — action commands (Open Settings, Toggle Timeline, Toggle Theme, Open Graph, etc.), recent searches (last 5, persisted), pinned notes (hover star), section headers, refreshed keyboard footer.
+- **First-run onboarding modal** — 3 steps (Welcome → pick your Forge → quick tour). Re-trigger from Settings → About.
+- **PDF export options** — page size (Letter / A4 / Legal) and margins (Narrow / Normal / Wide), persisted last-used choice.
+- **Plaintext export** — markdown-stripped `.txt` output from editor overflow menu and sidebar context menu.
+- **Bulk export** — Export… button on the bulk-action bar; select Markdown / Plaintext / PDF + a destination folder, one file per note.
+- **Empty-state polish** — `NoBacklinks`, `EmptyTrash`, `EmptyGraph` variants; consistent empty UI across the sidebar, graph view, and trash popover.
+
+### Changed
+- App-level a11y pass on Graph view, BulkActionBar, SidebarFooter, and Settings sections (dialog roles, focus management, `aria-label`s, `aria-hidden` on decorative icons, `role="switch"` on toggles).
+- Bundle raw budget raised to 460 KB to accommodate v1.2 features (gzip cap unchanged at 120 KB; gzipped size ≈ 111 KB).
+
+### Removed
+- Sidecar `.note-metadata.json` is replaced by frontmatter; the file is renamed to `.note-metadata.json.migrated` after migration so it can be inspected/reverted manually if needed.
+
 ## [1.1.0] - 2026-04-23
 
 ### Added
