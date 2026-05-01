@@ -14,7 +14,9 @@ import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdow
 import { useNoteStore } from '@/stores';
 import { createNote, writeNote, htmlToMarkdown, exportSingleNote, exportNoteToPdf } from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
+import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
+import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 
 interface MoreOptionsMenuProps {
   onDelete: () => void;
@@ -28,6 +30,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showPdfOptions, setShowPdfOptions] = useState(false);
 
   const handleCopyUrl = async () => {
     if (!currentNote) return;
@@ -119,7 +122,20 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     }
   };
 
-  const handleExportPdf = async () => {
+  // Step 1: open the options modal. Step 2 (handlePdfExportConfirm) actually
+  // shows the save dialog and writes the PDF. Splitting these keeps the menu
+  // click responsive — the file picker only opens after the user confirms
+  // page size + margin choices.
+  const handleExportPdf = () => {
+    if (!currentNote) return;
+    setShowPdfOptions(true);
+  };
+
+  const handlePdfExportConfirm = async (opts: {
+    pageSize: PdfPageSize;
+    margin: PdfMarginPreset;
+  }) => {
+    setShowPdfOptions(false);
     if (!currentNote) return;
 
     try {
@@ -136,7 +152,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
       });
 
       if (destination) {
-        await exportNoteToPdf(baseName, currentNote.content, destination);
+        await exportNoteToPdf(baseName, currentNote.content, destination, opts);
         onShowToast?.('Exported as PDF');
       }
     } catch (error) {
@@ -290,6 +306,13 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           initialContent={htmlToMarkdown(currentNote.content)}
         />
       )}
+
+      {/* PDF export options modal */}
+      <PdfExportOptionsModal
+        isOpen={showPdfOptions}
+        onClose={() => setShowPdfOptions(false)}
+        onConfirm={handlePdfExportConfirm}
+      />
     </>
   );
 }

@@ -46,3 +46,5 @@ export { useTimelineStore } from './timelineStore';
 export { useGraphStore } from './graphStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
+export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
+export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
