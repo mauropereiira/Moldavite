@@ -8,7 +8,7 @@ import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock } from './hooks';
 
 function App() {
-  const { theme } = useThemeStore();
+  const { theme, preset } = useThemeStore();
   const { fontSize, fontFamily, lineHeight, compactMode } = useSettingsStore();
   const { loadColors } = useNoteColorsStore();
 
@@ -27,19 +27,19 @@ function App() {
 
   // Apply theme on mount and when it changes
   useEffect(() => {
-    applyTheme(theme);
+    applyTheme(theme, preset);
 
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
       if (theme === 'system') {
-        applyTheme('system');
+        applyTheme('system', preset);
       }
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
+  }, [theme, preset]);
 
   // Apply settings on mount and when they change
   useEffect(() => {
