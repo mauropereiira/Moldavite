@@ -37,7 +37,7 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 ### What You Get
 
-**Local-first privacy** — Notes stored in `~/Documents/Moldavite/`. Period.
+**Local-first privacy** — Notes stored in your [Forge](docs/FORGE.md) — a folder of plain `.md` files at `~/Documents/Moldavite/`. Sync it, back it up, or edit it in any other tool.
 
 **Rich editing** — Markdown shortcuts, `[[wiki links]]`, images, code blocks, task lists.
 

@@ -5,7 +5,7 @@ import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
-import { useAutoLock } from './hooks';
+import { useAutoLock, useForgeWatcher } from './hooks';
 
 function App() {
   const { theme, preset } = useThemeStore();
@@ -14,6 +14,9 @@ function App() {
 
   // Auto-lock: Monitor inactivity and re-lock notes after timeout
   useAutoLock();
+
+  // Forge watcher: refresh notes list when files change on disk
+  useForgeWatcher();
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {

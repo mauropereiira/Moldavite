@@ -5,11 +5,16 @@ use std::fs;
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 
+use crate::forge_watcher::RecentWrites;
+use crate::frontmatter;
 use crate::paths::{
     get_daily_dir, get_images_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
 };
-use crate::persist::{read_config, read_note_metadata, write_config, write_note_metadata};
+use crate::persist::{read_config, write_config};
 use crate::validation::is_safe_filename;
+use std::sync::Arc;
+use tauri::State;
+use walkdir::WalkDir;
 
 #[tauri::command]
 pub(crate) fn ensure_directories() -> Result<(), String> {
@@ -37,6 +42,42 @@ pub(crate) fn ensure_directories() -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn get_notes_directory() -> String {
     get_notes_dir().to_string_lossy().to_string()
+}
+
+/// Force a re-scan of the Forge directory: rebuilds the in-memory backlinks
+/// index from disk so any externally-added notes show up. The frontend is
+/// expected to call `list_notes` afterward to refresh its own state.
+#[tauri::command]
+pub(crate) fn rescan_forge(
+    index: State<'_, std::sync::Arc<crate::backlinks_index::BacklinksIndex>>,
+) -> Result<(), String> {
+    index.rebuild_from_disk();
+    Ok(())
+}
+
+/// Open the Forge directory in the system file browser. macOS: Finder.
+/// Other platforms: best-effort no-op (returns Ok with a log warning).
+#[tauri::command]
+pub(crate) fn open_forge_in_finder() -> Result<(), String> {
+    let dir = get_notes_dir();
+    if !dir.exists() {
+        return Err("Forge directory does not exist".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("failed to open Finder: {}", e))?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        log::info!("[forge] open_forge_in_finder is a no-op on this platform");
+        Ok(())
+    }
 }
 
 /// Set a new notes directory and move all existing notes
@@ -149,35 +190,130 @@ pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Get the color ID for a specific note
+/// Resolve a `note_path` (relative, like `daily/foo.md` or `notes/sub/x.md`)
+/// to an absolute path under the notes dir. Refuses traversal attempts.
+fn resolve_note_path(note_path: &str) -> Option<PathBuf> {
+    if note_path.is_empty()
+        || note_path.contains("..")
+        || note_path.contains('\0')
+        || note_path.starts_with('/')
+        || note_path.starts_with('\\')
+    {
+        return None;
+    }
+    Some(get_notes_dir().join(note_path))
+}
+
+/// Get the color ID for a specific note (reads from YAML frontmatter).
 #[tauri::command]
 pub(crate) fn get_note_color(note_path: String) -> Option<String> {
-    let metadata = read_note_metadata();
-    metadata.colors.get(&note_path).cloned()
+    let abs = resolve_note_path(&note_path)?;
+    if !abs.exists() {
+        return None;
+    }
+    let raw = fs::read_to_string(&abs).ok()?;
+    frontmatter::parse_note(&raw).color
 }
 
-/// Set the color ID for a specific note
+/// Set the color ID for a specific note by updating its YAML frontmatter.
 #[tauri::command]
-pub(crate) fn set_note_color(note_path: String, color_id: Option<String>) -> Result<(), String> {
-    let mut metadata = read_note_metadata();
+pub(crate) fn set_note_color(
+    note_path: String,
+    color_id: Option<String>,
+    recent: State<'_, Arc<RecentWrites>>,
+) -> Result<(), String> {
+    let abs = resolve_note_path(&note_path).ok_or_else(|| "Invalid note path".to_string())?;
 
-    match color_id {
-        Some(id) if id != "default" => {
-            metadata.colors.insert(note_path, id);
-        }
-        _ => {
-            metadata.colors.remove(&note_path);
-        }
+    // Locked notes can't carry frontmatter (they're encrypted blobs).
+    if abs
+        .file_name()
+        .and_then(|f| f.to_str())
+        .is_some_and(|n| n.ends_with(".md.locked"))
+    {
+        return Err("Cannot set color on locked note".to_string());
     }
 
-    write_note_metadata(&metadata)
+    let existing = fs::read_to_string(&abs).unwrap_or_default();
+    let parsed = frontmatter::parse_note(&existing);
+    let new_color = color_id.filter(|c| !c.is_empty() && c != "default");
+    let new_content = frontmatter::serialize_note(
+        new_color.as_deref(),
+        &parsed.extra,
+        &parsed.body,
+    );
+
+    // Make sure the directory exists before we write.
+    if let Some(parent) = abs.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&abs, new_content).map_err(|e| e.to_string())?;
+    recent.record(&abs);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&abs, fs::Permissions::from_mode(0o600));
+    }
+
+    Ok(())
 }
 
-/// Get all note colors at once (for initial load)
+/// Walk the Forge tree and harvest every note color. Used for the initial
+/// load on app start.
 #[tauri::command]
 pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String> {
-    let metadata = read_note_metadata();
-    metadata.colors
+    let mut out: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let root = get_notes_dir();
+    if !root.exists() {
+        return out;
+    }
+    for sub in ["daily", "notes", "weekly"] {
+        let dir = root.join(sub);
+        if !dir.exists() {
+            continue;
+        }
+        for entry in WalkDir::new(&dir)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let p = entry.path();
+            // Skip directories starting with "."
+            if entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with('.')
+                && entry.depth() > 0
+            {
+                continue;
+            }
+            if !p.is_file() {
+                continue;
+            }
+            let name = match p.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            // Don't try to parse encrypted blobs.
+            if !name.ends_with(".md") {
+                continue;
+            }
+            let Ok(rel) = p.strip_prefix(&root) else {
+                continue;
+            };
+            let rel_str = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join("/");
+            if let Ok(raw) = fs::read_to_string(p) {
+                if let Some(color) = frontmatter::parse_note(&raw).color {
+                    out.insert(rel_str, color);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// Write binary data to a file (used for PDF export).

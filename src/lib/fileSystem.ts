@@ -465,14 +465,41 @@ export async function listNotes(): Promise<NoteFile[]> {
 }
 
 /**
- * Reads the content of a specific note file.
+ * Result shape returned by `read_note`. The body has had any leading YAML
+ * frontmatter stripped; structured fields (currently just `color`) are
+ * surfaced separately.
+ */
+export interface NoteReadResult {
+  content: string;
+  color: string | null;
+}
+
+/**
+ * Reads the content of a specific note file. Strips YAML frontmatter from the
+ * body and surfaces `color` separately.
  * @param filename - The note filename (e.g., "2025-01-01.md")
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
- * @returns The raw Markdown content
+ * @returns Parsed body plus any color from frontmatter
  */
-export async function readNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<string> {
-  return await invoke('read_note', { filename, isDaily, isWeekly });
+export async function readNote(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false,
+): Promise<string> {
+  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  return result.content;
+}
+
+/**
+ * Same as {@link readNote}, but returns the structured result with `color`.
+ */
+export async function readNoteWithMeta(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false,
+): Promise<NoteReadResult> {
+  return await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
 }
 
 /**
@@ -481,9 +508,17 @@ export async function readNote(filename: string, isDaily: boolean, isWeekly: boo
  * @param content - The Markdown content to write
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
+ * @param color - Optional color id to stamp into frontmatter. `null`/undefined
+ *   leaves the existing color in place; pass `"default"` to clear it.
  */
-export async function writeNote(filename: string, content: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
-  await invoke('write_note', { filename, content, isDaily, isWeekly });
+export async function writeNote(
+  filename: string,
+  content: string,
+  isDaily: boolean,
+  isWeekly: boolean = false,
+  color?: string | null,
+): Promise<void> {
+  await invoke('write_note', { filename, content, isDaily, isWeekly, color: color ?? null });
 }
 
 /**
@@ -724,6 +759,23 @@ export async function getNotesDirectory(): Promise<string> {
  */
 export async function setNotesDirectory(newPath: string): Promise<void> {
   await invoke('set_notes_directory', { newPath });
+}
+
+/**
+ * Re-scans the Forge directory: rebuilds the backlinks index from disk so any
+ * externally-added notes are picked up. Callers should refresh their notes
+ * list afterward.
+ */
+export async function rescanForge(): Promise<void> {
+  await invoke('rescan_forge');
+}
+
+/**
+ * Opens the Forge directory in the system file browser. macOS only — a no-op
+ * on other platforms.
+ */
+export async function openForgeInFinder(): Promise<void> {
+  await invoke('open_forge_in_finder');
 }
 
 // Export/Import Functions
