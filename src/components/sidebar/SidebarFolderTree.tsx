@@ -1,7 +1,8 @@
 import React from 'react';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Folder } from 'lucide-react';
 import { SidebarSection } from './SidebarSection';
 import { FolderTree } from './FolderTree';
+import { EmptyState } from '@/components/ui';
 import type { FolderInfo, NoteFile } from '@/types';
 
 interface SidebarFolderTreeProps {
@@ -105,9 +106,21 @@ export function SidebarFolderTree({
             getNoteTags={getNoteTags}
           />
         ) : (
-          <p className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-            No folders yet
-          </p>
+          <EmptyState
+            icon={Folder}
+            heading="No folders yet"
+            message="Create a folder to organize your notes."
+            actions={[
+              {
+                label: 'New Folder',
+                onClick: onNewFolder,
+                variant: 'secondary',
+                icon: FolderPlus,
+              },
+            ]}
+            variant="compact"
+            iconColor="text-gray-400 dark:text-gray-500"
+          />
         )}
       </div>
     </SidebarSection>

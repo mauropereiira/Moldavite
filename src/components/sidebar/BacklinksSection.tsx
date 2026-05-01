@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link2, FileText, Calendar } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { NoBacklinksEmptyState } from '@/components/ui';
 import { useNoteStore } from '@/stores';
 import { findBacklinks, readNote, type BacklinkInfo } from '@/lib';
 import type { NoteFile } from '@/types';
@@ -103,9 +104,7 @@ export function BacklinksSection({
             Scanning notes...
           </div>
         ) : backlinks.length === 0 ? (
-          <div className="py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-            No notes link to this note yet.
-          </div>
+          <NoBacklinksEmptyState />
         ) : (
           backlinks.map((backlink) => (
             <button
