@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Trash2, Undo2, FileText, Calendar, Folder, X, GripHorizontal } from 'lucide-react';
+import { EmptyTrashEmptyState } from '@/components/ui';
 import type { TrashedNote } from '@/types';
 
 const POPOVER_WIDTH = 380;
@@ -209,12 +210,7 @@ export function TrashPopover({
 
       <div className="flex-1 overflow-y-auto">
         {trashedNotes.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <Trash2 className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Trash is empty
-            </p>
-          </div>
+          <EmptyTrashEmptyState />
         ) : (
           <ul className="divide-y" style={{ borderColor: 'var(--border-muted)' }}>
             {trashedNotes.map((note) => (
