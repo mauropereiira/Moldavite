@@ -828,6 +828,130 @@ export async function importEncryptedBackup(backupPath: string, password: string
 }
 
 /**
+ * Strips Markdown formatting (and TipTap-style inline HTML we round-trip
+ * through) down to plain readable text. Designed for our own content shape,
+ * not arbitrary CommonMark — we keep the implementation regex-based to avoid
+ * pulling another parser into the bundle.
+ *
+ * Handles:
+ *  - ATX headings, blockquotes, list / task-list markers, horizontal rules
+ *  - Emphasis, strong, strikethrough, inline code
+ *  - Fenced and indented code blocks (preserves contents, drops fences)
+ *  - Links and images (`[text](url)` → `text`, `![alt](url)` → `alt`)
+ *  - Wiki links `[[Note|Display]]` → `Display`
+ *  - Inline HTML tags from turndown (`<u>`, `<mark>`, `<img>` etc.)
+ *  - HTML entities like `&amp;` / `&nbsp;`
+ */
+export function stripMarkdown(input: string): string {
+  if (!input) return '';
+
+  let out = input;
+
+  // 1. Remove fenced code blocks but keep the inner code, dropping the fences.
+  //    We do this first because subsequent passes would otherwise mangle the
+  //    code body (e.g. backticks, `*` inside code).
+  out = out.replace(/```[^\n]*\n([\s\S]*?)```/g, (_m, code) => code);
+  out = out.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, (_m, code) => code);
+
+  // 2. Wiki links: [[Display|target]] or [[Name]] → Display / Name.
+  out = out.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, a, b) => (b ? a : a));
+
+  // 3. Images: ![alt](url) → alt (drop URL entirely).
+  out = out.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+
+  // 4. Standard links: [text](url) → text.
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+
+  // 5. Strip inline HTML tags (we deliberately allow some, like <u>/<mark>,
+  //    in our markdown — for plaintext we want them gone).
+  out = out.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+
+  // 6. Decode the small handful of entities we actually emit.
+  out = out
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // 7. Headings: drop leading # markers (and any optional trailing #).
+  out = out.replace(/^[ \t]*#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm, '$1');
+
+  // 8. Blockquotes: drop the leading `>` markers.
+  out = out.replace(/^[ \t]*>[ \t]?/gm, '');
+
+  // 9. Horizontal rules → blank line.
+  out = out.replace(/^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*$/gm, '');
+
+  // 10. Task list markers: "- [x] foo" / "- [ ] foo" → "[x] foo" / "[ ] foo".
+  //     Keep the checkbox glyph so plaintext still conveys task status.
+  out = out.replace(/^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+/gm, '[$1] ');
+
+  // 11. Regular bullet markers: drop the marker, keep the indent.
+  out = out.replace(/^([ \t]*)[-*+][ \t]+/gm, '$1');
+
+  // 12. Ordered list markers: drop the "1." but keep the indent.
+  out = out.replace(/^([ \t]*)\d+\.[ \t]+/gm, '$1');
+
+  // 13. Inline code: `code` → code.
+  out = out.replace(/`([^`\n]+)`/g, '$1');
+
+  // 14. Strong (** / __) → text.
+  out = out.replace(/(\*\*|__)([^*_]+?)\1/g, '$2');
+
+  // 15. Emphasis (* / _) → text. Run after strong so the lookahead doesn't
+  //     eat the inner asterisks/underscores.
+  out = out.replace(/(?:\*|_)([^*_\n]+?)(?:\*|_)/g, '$1');
+
+  // 16. Strikethrough (~~text~~) → text.
+  out = out.replace(/~~([^~]+)~~/g, '$1');
+
+  // 17. Collapse 3+ blank lines into 2 (cleaner paragraph spacing).
+  out = out.replace(/\n{3,}/g, '\n\n');
+
+  return out.trimEnd() + (out.endsWith('\n') ? '' : '\n');
+}
+
+/**
+ * Reads a note, strips Markdown formatting, and writes the resulting plain
+ * text to `destination`. Designed to be paired with a `dialog.save` picker —
+ * callers do that step themselves so they can customize the suggested name.
+ *
+ * @param filename - The note filename within its sub-directory (e.g. "todo.md")
+ * @param destination - Absolute path where the .txt file will be written
+ * @param isDaily - Whether the note lives under daily/
+ * @param isWeekly - Whether the note lives under weekly/
+ * @returns The destination path (echoes input, mirrors export_single_note)
+ */
+export async function exportNoteAsPlaintext(
+  filename: string,
+  destination: string,
+  isDaily: boolean,
+  isWeekly: boolean = false,
+): Promise<string> {
+  const markdown = await readNote(filename, isDaily, isWeekly);
+  const plain = stripMarkdown(markdown);
+
+  // Reuse the existing write_binary_file IPC so we don't need a new backend
+  // command. UTF-8 bytes are safe to round-trip through Vec<u8>; we pass the
+  // explicit `txt` extension so the backend's path validator approves the
+  // destination (it defaults to PDF for the legacy caller).
+  // Encode the plaintext as UTF-8 bytes via the existing Blob -> arrayBuffer
+  // path so we don't depend on `TextEncoder` (which the project's eslint
+  // environment doesn't recognize as a global).
+  const arrayBuffer = await new Blob([plain], { type: 'text/plain' }).arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  await invoke('write_binary_file', {
+    path: destination,
+    contents: Array.from(bytes),
+    extension: 'txt',
+  });
+
+  return destination;
+}
+
+/**
  * Exports a single note to a specified destination as Markdown.
  * @param filename - The note filename (e.g., "my-note.md")
  * @param destination - The full path where the file will be exported

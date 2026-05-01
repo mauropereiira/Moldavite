@@ -316,17 +316,29 @@ pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String>
     out
 }
 
-/// Write binary data to a file (used for PDF export).
+/// Write binary data to a file (used for PDF / plaintext export).
 ///
-/// Hardened: the target must be a PDF, its parent directory must already exist
-/// (so we can canonicalize it), and that canonical parent must not live inside
-/// a sensitive dotfile directory like ~/.ssh, ~/.config, or ~/Library. This
-/// command is callable from any JS context, so the policy can't rely on the
-/// file-save dialog to pick a "sane" path.
+/// Hardened: the target's extension must match `extension` (defaulting to
+/// "pdf" for back-compat with existing callers), its parent directory must
+/// already exist (so we can canonicalize it), and that canonical parent must
+/// not live inside a sensitive dotfile directory like ~/.ssh, ~/.config, or
+/// ~/Library. This command is callable from any JS context, so the policy
+/// can't rely on the file-save dialog to pick a "sane" path.
 #[tauri::command]
-pub(crate) fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+pub(crate) fn write_binary_file(
+    path: String,
+    contents: Vec<u8>,
+    extension: Option<String>,
+) -> Result<(), String> {
     let file_path = Path::new(&path);
-    crate::validation::validate_user_export_path(file_path, "pdf")?;
+    // Allow only a small explicit list of export targets. Adding here is
+    // deliberate — `write_binary_file` is the only generic write helper, so
+    // each accepted extension is opt-in.
+    let ext = extension.as_deref().unwrap_or("pdf").to_lowercase();
+    if !matches!(ext.as_str(), "pdf" | "txt") {
+        return Err(format!("Unsupported export extension: {}", ext));
+    }
+    crate::validation::validate_user_export_path(file_path, &ext)?;
 
     // Write the binary contents.
     let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
