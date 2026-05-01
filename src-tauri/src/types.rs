@@ -116,12 +116,13 @@ pub(crate) struct ImportResult {
     pub(crate) images: u32,
 }
 
-// Note Metadata for colors and other per-note settings
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+/// Read result for a note: body content with frontmatter stripped, plus the
+/// color (if any) parsed from frontmatter.
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct NoteMetadata {
-    #[serde(default)]
-    pub(crate) colors: std::collections::HashMap<String, String>,
+pub(crate) struct NoteRead {
+    pub(crate) content: String,
+    pub(crate) color: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

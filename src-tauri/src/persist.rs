@@ -6,10 +6,8 @@ use std::path::Path;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::paths::{
-    ensure_trash_dir, get_config_path, get_metadata_path, get_trash_metadata_path,
-};
-use crate::types::{AppConfig, NoteMetadata, TrashMetadata};
+use crate::paths::{ensure_trash_dir, get_config_path, get_trash_metadata_path};
+use crate::types::{AppConfig, TrashMetadata};
 
 lazy_static! {
     /// Matches a trailing " (N)" counter on a name.
@@ -67,25 +65,6 @@ pub(crate) fn write_trash_metadata(metadata: &TrashMetadata) -> Result<(), Strin
     let metadata_path = get_trash_metadata_path();
     let json = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
     fs::write(&metadata_path, json).map_err(|e| format!("Failed to write trash metadata: {}", e))?;
-    Ok(())
-}
-
-pub(crate) fn read_note_metadata() -> NoteMetadata {
-    let path = get_metadata_path();
-    if path.exists() {
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(metadata) = serde_json::from_str(&content) {
-                return metadata;
-            }
-        }
-    }
-    NoteMetadata::default()
-}
-
-pub(crate) fn write_note_metadata(metadata: &NoteMetadata) -> Result<(), String> {
-    let path = get_metadata_path();
-    let content = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(())
 }
 

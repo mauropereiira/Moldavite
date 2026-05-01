@@ -32,6 +32,9 @@ chrono = "0.4"
 regex = "1"
 lazy_static = "1.4"
 walkdir = "2.5"
+serde_yaml = "0.9"
+notify = "6.1"
+notify-debouncer-mini = "0.4"
 
 # Encryption dependencies for note locking
 aes-gcm = "0.10"

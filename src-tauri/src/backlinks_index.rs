@@ -316,7 +316,10 @@ fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
             continue;
         };
         match fs::read_to_string(&path) {
-            Ok(content) => out.push((filename, content)),
+            Ok(content) => {
+                let body = crate::frontmatter::parse_note(&content).body;
+                out.push((filename, body));
+            }
             Err(err) => log::warn!("backlinks index: failed to read {:?}: {}", path, err),
         }
     }
@@ -354,7 +357,10 @@ fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
                 continue;
             };
             match fs::read_to_string(&path) {
-                Ok(content) => out.push((filename, content)),
+                Ok(content) => {
+                let body = crate::frontmatter::parse_note(&content).body;
+                out.push((filename, body));
+            }
                 Err(err) => log::warn!("backlinks index: failed to read {:?}: {}", path, err),
             }
         }
