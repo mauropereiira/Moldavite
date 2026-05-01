@@ -3,10 +3,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
-import { useUpdateStore } from '@/stores';
+import { useUpdateStore, useSettingsStore } from '@/stores';
 import { ShortcutRow } from '../common';
 
 function SoftwareUpdatesSection() {
@@ -109,11 +109,19 @@ function SoftwareUpdatesSection() {
 
 export function AboutSection() {
   const [appVersion, setAppVersion] = useState<string>('');
+  const setHasSeenAppOnboarding = useSettingsStore((s) => s.setHasSeenAppOnboarding);
+  const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
 
   // Fetch app version on mount
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
   }, []);
+
+  const handleReplayOnboarding = () => {
+    setHasSeenAppOnboarding(false);
+    // Close settings so the onboarding modal is visible.
+    setIsSettingsOpen(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -139,6 +147,36 @@ export function AboutSection() {
 
       {/* Update Status */}
       <SoftwareUpdatesSection />
+
+      {/* Onboarding Replay */}
+      <div
+        className="p-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
+        <h4
+          className="text-sm font-medium mb-1"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Onboarding
+        </h4>
+        <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+          Re-watch the welcome flow and quick tour.
+        </p>
+        <button
+          type="button"
+          onClick={handleReplayOnboarding}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <Sparkles aria-hidden="true" className="w-4 h-4" />
+          Show onboarding again
+        </button>
+      </div>
 
       {/* Keyboard Shortcuts */}
       <div className="p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
