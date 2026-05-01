@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { exportSingleNote, exportNoteToPdf, readNote } from '@/lib';
 import { useToast } from '@/hooks/useToast';
+import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
 interface NoteContextMenuProps {
@@ -86,7 +87,11 @@ export function NoteContextMenu({
           note.isDaily || false,
           note.isWeekly || false,
         );
-        await exportNoteToPdf(defaultName, content, destination);
+        // Use the last persisted PDF options. The editor's PDF menu offers a
+        // full picker; the sidebar context menu stays one-click for speed and
+        // simply respects the most recent choice.
+        const { pageSize, margin } = usePdfExportStore.getState();
+        await exportNoteToPdf(defaultName, content, destination, { pageSize, margin });
         toast.success('Note exported as PDF');
       }
     } catch (error) {

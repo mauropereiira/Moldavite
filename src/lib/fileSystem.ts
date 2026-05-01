@@ -1041,17 +1041,61 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
 // PDF Export Functions
 
 /**
+ * Page size options accepted by {@link exportNoteToPdf}. These map 1:1 to
+ * jsPDF's `format` strings.
+ */
+export type PdfExportPageSize = 'letter' | 'a4' | 'legal';
+
+/**
+ * Margin presets accepted by {@link exportNoteToPdf}. The numeric (mm)
+ * values used by jsPDF live in `pdfExportStore` so the UI and the export
+ * helper share one source of truth.
+ */
+export type PdfExportMargin = 'narrow' | 'normal' | 'wide';
+
+/**
+ * Optional layout overrides for PDF export. When omitted we fall back to
+ * Letter / Normal margins — matching the previous hardcoded behaviour
+ * closely enough that callers that haven't been updated keep working.
+ */
+export interface PdfExportOptions {
+  pageSize?: PdfExportPageSize;
+  margin?: PdfExportMargin;
+}
+
+const PDF_MARGIN_MM_INTERNAL: Record<PdfExportMargin, number> = {
+  narrow: 8,
+  normal: 16,
+  wide: 26,
+};
+
+// Map margin preset → CSS padding for the printable wrapper. Slightly
+// generous so headings have breathing room even at "narrow".
+const PDF_WRAPPER_PADDING_PX: Record<PdfExportMargin, number> = {
+  narrow: 24,
+  normal: 40,
+  wide: 56,
+};
+
+/**
  * Exports a note to PDF format.
  * @param title - The note title (for filename and header)
  * @param htmlContent - The HTML content to export
  * @param destination - The path where the PDF will be saved
+ * @param options - Optional page size / margin overrides
  * @returns The path to the created PDF file
  */
 export async function exportNoteToPdf(
   title: string,
   htmlContent: string,
-  destination: string
+  destination: string,
+  options: PdfExportOptions = {}
 ): Promise<string> {
+  const pageSize: PdfExportPageSize = options.pageSize ?? 'letter';
+  const margin: PdfExportMargin = options.margin ?? 'normal';
+  const marginMm = PDF_MARGIN_MM_INTERNAL[margin];
+  const wrapperPaddingPx = PDF_WRAPPER_PADDING_PX[margin];
+
   // Dynamically import html2pdf.js (it's a CJS module)
   const html2pdf = (await import('html2pdf.js')).default;
 
@@ -1060,7 +1104,7 @@ export async function exportNoteToPdf(
   // but we re-sanitize here as defense in depth.
   const container = document.createElement('div');
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto;";
+  wrapper.style.cssText = `font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: ${wrapperPaddingPx}px; max-width: 760px; margin: 0 auto;`;
 
   const heading = document.createElement('h1');
   heading.style.cssText = 'font-size: 24px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a;';
@@ -1109,18 +1153,18 @@ export async function exportNoteToPdf(
   });
 
   // Generate PDF
-  const options = {
-    margin: 10,
+  const html2pdfOptions = {
+    margin: marginMm,
     filename: destination,
     image: { type: 'jpeg' as const, quality: 0.98 },
     // useCORS and allowTaint disabled: remote images were already stripped above
     // to prevent the exporter from leaking image URLs to third-party servers.
     html2canvas: { scale: 2, useCORS: false, allowTaint: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+    jsPDF: { unit: 'mm', format: pageSize, orientation: 'portrait' as const },
   };
 
   // Generate and save PDF
-  const pdfBlob = await html2pdf().set(options).from(container).outputPdf('blob');
+  const pdfBlob = await html2pdf().set(html2pdfOptions).from(container).outputPdf('blob');
 
   // Convert blob to array buffer for Tauri
   const arrayBuffer = await pdfBlob.arrayBuffer();
