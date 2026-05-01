@@ -22,7 +22,8 @@
 
 // Core stores
 export { useNoteStore } from './noteStore';
-export { useThemeStore, applyTheme } from './themeStore';
+export { useThemeStore, applyTheme, PRESETS } from './themeStore';
+export type { BaseMode, ThemePreset, PresetCoverage, PresetMeta } from './themeStore';
 export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
