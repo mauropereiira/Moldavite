@@ -828,6 +828,130 @@ export async function importEncryptedBackup(backupPath: string, password: string
 }
 
 /**
+ * Strips Markdown formatting (and TipTap-style inline HTML we round-trip
+ * through) down to plain readable text. Designed for our own content shape,
+ * not arbitrary CommonMark — we keep the implementation regex-based to avoid
+ * pulling another parser into the bundle.
+ *
+ * Handles:
+ *  - ATX headings, blockquotes, list / task-list markers, horizontal rules
+ *  - Emphasis, strong, strikethrough, inline code
+ *  - Fenced and indented code blocks (preserves contents, drops fences)
+ *  - Links and images (`[text](url)` → `text`, `![alt](url)` → `alt`)
+ *  - Wiki links `[[Note|Display]]` → `Display`
+ *  - Inline HTML tags from turndown (`<u>`, `<mark>`, `<img>` etc.)
+ *  - HTML entities like `&amp;` / `&nbsp;`
+ */
+export function stripMarkdown(input: string): string {
+  if (!input) return '';
+
+  let out = input;
+
+  // 1. Remove fenced code blocks but keep the inner code, dropping the fences.
+  //    We do this first because subsequent passes would otherwise mangle the
+  //    code body (e.g. backticks, `*` inside code).
+  out = out.replace(/```[^\n]*\n([\s\S]*?)```/g, (_m, code) => code);
+  out = out.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, (_m, code) => code);
+
+  // 2. Wiki links: [[Display|target]] or [[Name]] → Display / Name.
+  out = out.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, a, b) => (b ? a : a));
+
+  // 3. Images: ![alt](url) → alt (drop URL entirely).
+  out = out.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+
+  // 4. Standard links: [text](url) → text.
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+
+  // 5. Strip inline HTML tags (we deliberately allow some, like <u>/<mark>,
+  //    in our markdown — for plaintext we want them gone).
+  out = out.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+
+  // 6. Decode the small handful of entities we actually emit.
+  out = out
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // 7. Headings: drop leading # markers (and any optional trailing #).
+  out = out.replace(/^[ \t]*#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm, '$1');
+
+  // 8. Blockquotes: drop the leading `>` markers.
+  out = out.replace(/^[ \t]*>[ \t]?/gm, '');
+
+  // 9. Horizontal rules → blank line.
+  out = out.replace(/^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*$/gm, '');
+
+  // 10. Task list markers: "- [x] foo" / "- [ ] foo" → "[x] foo" / "[ ] foo".
+  //     Keep the checkbox glyph so plaintext still conveys task status.
+  out = out.replace(/^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+/gm, '[$1] ');
+
+  // 11. Regular bullet markers: drop the marker, keep the indent.
+  out = out.replace(/^([ \t]*)[-*+][ \t]+/gm, '$1');
+
+  // 12. Ordered list markers: drop the "1." but keep the indent.
+  out = out.replace(/^([ \t]*)\d+\.[ \t]+/gm, '$1');
+
+  // 13. Inline code: `code` → code.
+  out = out.replace(/`([^`\n]+)`/g, '$1');
+
+  // 14. Strong (** / __) → text.
+  out = out.replace(/(\*\*|__)([^*_]+?)\1/g, '$2');
+
+  // 15. Emphasis (* / _) → text. Run after strong so the lookahead doesn't
+  //     eat the inner asterisks/underscores.
+  out = out.replace(/(?:\*|_)([^*_\n]+?)(?:\*|_)/g, '$1');
+
+  // 16. Strikethrough (~~text~~) → text.
+  out = out.replace(/~~([^~]+)~~/g, '$1');
+
+  // 17. Collapse 3+ blank lines into 2 (cleaner paragraph spacing).
+  out = out.replace(/\n{3,}/g, '\n\n');
+
+  return out.trimEnd() + (out.endsWith('\n') ? '' : '\n');
+}
+
+/**
+ * Reads a note, strips Markdown formatting, and writes the resulting plain
+ * text to `destination`. Designed to be paired with a `dialog.save` picker —
+ * callers do that step themselves so they can customize the suggested name.
+ *
+ * @param filename - The note filename within its sub-directory (e.g. "todo.md")
+ * @param destination - Absolute path where the .txt file will be written
+ * @param isDaily - Whether the note lives under daily/
+ * @param isWeekly - Whether the note lives under weekly/
+ * @returns The destination path (echoes input, mirrors export_single_note)
+ */
+export async function exportNoteAsPlaintext(
+  filename: string,
+  destination: string,
+  isDaily: boolean,
+  isWeekly: boolean = false,
+): Promise<string> {
+  const markdown = await readNote(filename, isDaily, isWeekly);
+  const plain = stripMarkdown(markdown);
+
+  // Reuse the existing write_binary_file IPC so we don't need a new backend
+  // command. UTF-8 bytes are safe to round-trip through Vec<u8>; we pass the
+  // explicit `txt` extension so the backend's path validator approves the
+  // destination (it defaults to PDF for the legacy caller).
+  // Encode the plaintext as UTF-8 bytes via the existing Blob -> arrayBuffer
+  // path so we don't depend on `TextEncoder` (which the project's eslint
+  // environment doesn't recognize as a global).
+  const arrayBuffer = await new Blob([plain], { type: 'text/plain' }).arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  await invoke('write_binary_file', {
+    path: destination,
+    contents: Array.from(bytes),
+    extension: 'txt',
+  });
+
+  return destination;
+}
+
+/**
  * Exports a single note to a specified destination as Markdown.
  * @param filename - The note filename (e.g., "my-note.md")
  * @param destination - The full path where the file will be exported
@@ -1041,17 +1165,61 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
 // PDF Export Functions
 
 /**
+ * Page size options accepted by {@link exportNoteToPdf}. These map 1:1 to
+ * jsPDF's `format` strings.
+ */
+export type PdfExportPageSize = 'letter' | 'a4' | 'legal';
+
+/**
+ * Margin presets accepted by {@link exportNoteToPdf}. The numeric (mm)
+ * values used by jsPDF live in `pdfExportStore` so the UI and the export
+ * helper share one source of truth.
+ */
+export type PdfExportMargin = 'narrow' | 'normal' | 'wide';
+
+/**
+ * Optional layout overrides for PDF export. When omitted we fall back to
+ * Letter / Normal margins — matching the previous hardcoded behaviour
+ * closely enough that callers that haven't been updated keep working.
+ */
+export interface PdfExportOptions {
+  pageSize?: PdfExportPageSize;
+  margin?: PdfExportMargin;
+}
+
+const PDF_MARGIN_MM_INTERNAL: Record<PdfExportMargin, number> = {
+  narrow: 8,
+  normal: 16,
+  wide: 26,
+};
+
+// Map margin preset → CSS padding for the printable wrapper. Slightly
+// generous so headings have breathing room even at "narrow".
+const PDF_WRAPPER_PADDING_PX: Record<PdfExportMargin, number> = {
+  narrow: 24,
+  normal: 40,
+  wide: 56,
+};
+
+/**
  * Exports a note to PDF format.
  * @param title - The note title (for filename and header)
  * @param htmlContent - The HTML content to export
  * @param destination - The path where the PDF will be saved
+ * @param options - Optional page size / margin overrides
  * @returns The path to the created PDF file
  */
 export async function exportNoteToPdf(
   title: string,
   htmlContent: string,
-  destination: string
+  destination: string,
+  options: PdfExportOptions = {}
 ): Promise<string> {
+  const pageSize: PdfExportPageSize = options.pageSize ?? 'letter';
+  const margin: PdfExportMargin = options.margin ?? 'normal';
+  const marginMm = PDF_MARGIN_MM_INTERNAL[margin];
+  const wrapperPaddingPx = PDF_WRAPPER_PADDING_PX[margin];
+
   // Dynamically import html2pdf.js (it's a CJS module)
   const html2pdf = (await import('html2pdf.js')).default;
 
@@ -1060,7 +1228,7 @@ export async function exportNoteToPdf(
   // but we re-sanitize here as defense in depth.
   const container = document.createElement('div');
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto;";
+  wrapper.style.cssText = `font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: ${wrapperPaddingPx}px; max-width: 760px; margin: 0 auto;`;
 
   const heading = document.createElement('h1');
   heading.style.cssText = 'font-size: 24px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a;';
@@ -1109,18 +1277,18 @@ export async function exportNoteToPdf(
   });
 
   // Generate PDF
-  const options = {
-    margin: 10,
+  const html2pdfOptions = {
+    margin: marginMm,
     filename: destination,
     image: { type: 'jpeg' as const, quality: 0.98 },
     // useCORS and allowTaint disabled: remote images were already stripped above
     // to prevent the exporter from leaking image URLs to third-party servers.
     html2canvas: { scale: 2, useCORS: false, allowTaint: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+    jsPDF: { unit: 'mm', format: pageSize, orientation: 'portrait' as const },
   };
 
   // Generate and save PDF
-  const pdfBlob = await html2pdf().set(options).from(container).outputPdf('blob');
+  const pdfBlob = await html2pdf().set(html2pdfOptions).from(container).outputPdf('blob');
 
   // Convert blob to array buffer for Tauri
   const arrayBuffer = await pdfBlob.arrayBuffer();

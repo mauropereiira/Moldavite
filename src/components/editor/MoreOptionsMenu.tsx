@@ -6,15 +6,18 @@ import {
   Copy,
   Download,
   FileDown,
+  FileText,
   Trash2,
   Info,
   Star
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
-import { createNote, writeNote, htmlToMarkdown, exportSingleNote, exportNoteToPdf } from '@/lib';
+import { createNote, writeNote, htmlToMarkdown, exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext } from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
+import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
+import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 
 interface MoreOptionsMenuProps {
   onDelete: () => void;
@@ -28,6 +31,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showPdfOptions, setShowPdfOptions] = useState(false);
 
   const handleCopyUrl = async () => {
     if (!currentNote) return;
@@ -119,7 +123,20 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     }
   };
 
-  const handleExportPdf = async () => {
+  // Step 1: open the options modal. Step 2 (handlePdfExportConfirm) actually
+  // shows the save dialog and writes the PDF. Splitting these keeps the menu
+  // click responsive — the file picker only opens after the user confirms
+  // page size + margin choices.
+  const handleExportPdf = () => {
+    if (!currentNote) return;
+    setShowPdfOptions(true);
+  };
+
+  const handlePdfExportConfirm = async (opts: {
+    pageSize: PdfPageSize;
+    margin: PdfMarginPreset;
+  }) => {
+    setShowPdfOptions(false);
     if (!currentNote) return;
 
     try {
@@ -136,12 +153,44 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
       });
 
       if (destination) {
-        await exportNoteToPdf(baseName, currentNote.content, destination);
+        await exportNoteToPdf(baseName, currentNote.content, destination, opts);
         onShowToast?.('Exported as PDF');
       }
     } catch (error) {
       console.error('[MoreOptionsMenu] PDF export failed:', error);
       onShowToast?.('Failed to export PDF');
+    }
+  };
+
+  const handleExportPlaintext = async () => {
+    if (!currentNote) return;
+
+    try {
+      const filename = currentNote.isDaily && currentNote.date
+        ? `${currentNote.date}.md`
+        : currentNote.isWeekly && currentNote.week
+        ? `${currentNote.week}.md`
+        : `${currentNote.title}.md`;
+
+      const baseName = filename.replace(/\.md$/, '');
+      const destination = await save({
+        title: 'Export as Plaintext',
+        defaultPath: `${baseName}.txt`,
+        filters: [{ name: 'Plain Text', extensions: ['txt'] }],
+      });
+
+      if (destination) {
+        await exportNoteAsPlaintext(
+          filename,
+          destination,
+          currentNote.isDaily || false,
+          currentNote.isWeekly || false,
+        );
+        onShowToast?.('Exported as plaintext');
+      }
+    } catch (error) {
+      console.error('[MoreOptionsMenu] Plaintext export failed:', error);
+      onShowToast?.('Failed to export plaintext');
     }
   };
 
@@ -197,6 +246,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           icon={<FileDown className="w-4 h-4" />}
         >
           Export as PDF…
+        </DropdownItem>
+        <DropdownItem
+          onClick={handleExportPlaintext}
+          icon={<FileText className="w-4 h-4" />}
+        >
+          Export as Plaintext
         </DropdownItem>
         <DropdownItem
           onClick={() => setShowSaveTemplateModal(true)}
@@ -290,6 +345,13 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           initialContent={htmlToMarkdown(currentNote.content)}
         />
       )}
+
+      {/* PDF export options modal */}
+      <PdfExportOptionsModal
+        isOpen={showPdfOptions}
+        onClose={() => setShowPdfOptions(false)}
+        onConfirm={handlePdfExportConfirm}
+      />
     </>
   );
 }
