@@ -644,9 +644,6 @@ export function QuickSwitcher() {
             <kbd>↵</kbd> open
           </span>
           <span>
-            <kbd>⇥</kbd> ??
-          </span>
-          <span>
             <kbd>esc</kbd> close
           </span>
         </div>
