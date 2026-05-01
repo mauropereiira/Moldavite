@@ -2569,6 +2569,66 @@ body {
   border-color: var(--border-primary, #3a404c);
 }
 
+/* Section headers between groups (Pinned / Recent notes / Quick actions / etc.) */
+.quick-switcher-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #7c8494);
+}
+
+/* Pin (star) button on note rows. Hidden until hover/focus/active. */
+.quick-switcher-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-muted, #7c8494);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.quick-switcher-item:hover .quick-switcher-pin,
+.quick-switcher-item-selected .quick-switcher-pin,
+.quick-switcher-pin-active {
+  opacity: 1;
+}
+
+.quick-switcher-pin-active {
+  color: var(--accent-primary, #5a7aa8);
+}
+
+.quick-switcher-pin:hover {
+  background: var(--bg-tertiary, #f6f7f9);
+  color: var(--accent-primary, #5a7aa8);
+}
+
+.dark .quick-switcher-pin:hover {
+  background: var(--bg-tertiary, #1a1d23);
+  color: var(--accent-light, #7090bc);
+}
+
+/* Distinct icon tint for action commands */
+.quick-switcher-item-icon-command {
+  background: color-mix(in srgb, var(--accent-primary, #5a7aa8) 10%, transparent);
+  color: var(--accent-primary, #5a7aa8);
+}
+
+.dark .quick-switcher-item-icon-command {
+  background: color-mix(in srgb, var(--accent-light, #7090bc) 18%, transparent);
+  color: var(--accent-light, #7090bc);
+}
+
 /* ==========================================================================
    Visual Polish - Premium Micro-interactions
    ========================================================================== */
