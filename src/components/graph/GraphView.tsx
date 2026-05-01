@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { EmptyGraphEmptyState } from '@/components/ui';
 import { safeInvoke } from '@/lib/ipc';
 import { useGraphStore, useNoteStore } from '@/stores';
 import { useNotes } from '@/hooks';
@@ -411,11 +412,8 @@ export function GraphView() {
           style={{ display: 'block', cursor: hoveredId ? 'pointer' : 'grab' }}
         />
         {graph && graph.nodes.length === 0 && !loading && (
-          <div
-            className="absolute inset-0 flex items-center justify-center text-sm"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            No notes yet — create a note and add [[wiki-links]] to see the graph.
+          <div className="absolute inset-0 flex items-center justify-center">
+            <EmptyGraphEmptyState />
           </div>
         )}
       </div>
