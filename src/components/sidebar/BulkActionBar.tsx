@@ -1,9 +1,10 @@
-import { FolderInput, Trash2, X } from 'lucide-react';
+import { Download, FolderInput, Trash2, X } from 'lucide-react';
 import { useNoteSelectionStore } from '@/stores';
 
 interface BulkActionBarProps {
   onMoveToFolder: () => void;
   onTrash: () => void;
+  onExport: () => void;
 }
 
 /**
@@ -14,7 +15,7 @@ interface BulkActionBarProps {
  * owns the modal/confirmation state. That keeps this component easy to
  * style-iterate on without worrying about side effects.
  */
-export function BulkActionBar({ onMoveToFolder, onTrash }: BulkActionBarProps) {
+export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionBarProps) {
   const count = useNoteSelectionStore((s) => s.selectedIds.size);
   const clear = useNoteSelectionStore((s) => s.clear);
 
@@ -51,6 +52,17 @@ export function BulkActionBar({ onMoveToFolder, onTrash }: BulkActionBarProps) {
       >
         <FolderInput aria-hidden="true" className="w-3.5 h-3.5" />
         Move to folder
+      </button>
+      <button
+        type="button"
+        onClick={onExport}
+        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
+        style={{ color: 'var(--text-primary)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <Download aria-hidden="true" className="w-3.5 h-3.5" />
+        Export…
       </button>
       <button
         type="button"

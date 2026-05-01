@@ -26,6 +26,7 @@ import { FolderContextMenu } from './FolderContextMenu';
 import { SidebarModals } from './SidebarModals';
 import { TrashPopover } from './TrashPopover';
 import { BulkActionBar } from './BulkActionBar';
+import { BulkExportModal } from './BulkExportModal';
 
 // Modals that only mount on-demand — code-split to keep them out of the
 // main bundle. Tiptap + markdown-it + DOMPurify (~200 KB gz) in
@@ -155,6 +156,7 @@ export function Sidebar() {
   const selectionAnchorRef = useRef<string | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
   const [showBulkTrashConfirm, setShowBulkTrashConfirm] = useState(false);
+  const [showBulkExportModal, setShowBulkExportModal] = useState(false);
 
   // Sort function based on current sort option
   const sortNotes = (notesToSort: NoteFile[]) => {
@@ -784,6 +786,12 @@ export function Sidebar() {
       <BulkActionBar
         onMoveToFolder={() => setShowBulkMoveModal(true)}
         onTrash={() => setShowBulkTrashConfirm(true)}
+        onExport={() => setShowBulkExportModal(true)}
+      />
+
+      <BulkExportModal
+        isOpen={showBulkExportModal}
+        onClose={() => setShowBulkExportModal(false)}
       />
 
       {showBulkMoveModal && (

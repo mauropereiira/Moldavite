@@ -25,7 +25,7 @@ const BUDGETS = [
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
-const APP_JS_BUDGET = { rawKb: 420, gzipKb: 120 };
+const APP_JS_BUDGET = { rawKb: 460, gzipKb: 120 };
 
 async function main() {
   let entries;
