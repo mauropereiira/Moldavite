@@ -47,7 +47,7 @@ type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' 
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, preset, setPreset } = useThemeStore();
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
@@ -88,7 +88,12 @@ export function SettingsModal() {
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme);
-    applyTheme(newTheme);
+    applyTheme(newTheme, preset);
+  };
+
+  const handlePresetChange = (newPreset: import('@/stores').ThemePreset) => {
+    setPreset(newPreset);
+    applyTheme(theme, newPreset);
   };
 
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
@@ -178,6 +183,8 @@ export function SettingsModal() {
               <AppearanceSection
                 theme={theme}
                 onThemeChange={handleThemeChange}
+                preset={preset}
+                onPresetChange={handlePresetChange}
               />
             )}
             {activeTab === 'editor' && (

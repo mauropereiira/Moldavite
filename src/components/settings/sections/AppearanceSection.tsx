@@ -2,16 +2,18 @@
  * AppearanceSection — Theme, typography, and layout preferences.
  */
 
-import { useSettingsStore, applyFontFamily } from '@/stores';
-import type { FontFamily } from '@/stores';
+import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
+import type { FontFamily, ThemePreset } from '@/stores';
 import { InfoTooltip, Toggle } from '../common';
 
 export interface AppearanceSectionProps {
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+  preset: ThemePreset;
+  onPresetChange: (preset: ThemePreset) => void;
 }
 
-export function AppearanceSection({ theme, onThemeChange }: AppearanceSectionProps) {
+export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange }: AppearanceSectionProps) {
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
@@ -44,6 +46,89 @@ export function AppearanceSection({ theme, onThemeChange }: AppearanceSectionPro
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Color Preset Section */}
+      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+        <div>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Color preset
+            </h3>
+            <InfoTooltip text="Curated palettes layered on top of your light/dark choice. Some presets are designed for one mode only and fall back to Moldavite otherwise." />
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            Pick a palette for the editor and chrome
+          </p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="Color preset"
+          className="grid gap-2"
+          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
+        >
+          {PRESETS.map((p) => {
+            const selected = preset === p.id;
+            const badge =
+              p.coverage === 'dark'
+                ? 'Dark only'
+                : p.coverage === 'light'
+                ? 'Light only'
+                : null;
+            return (
+              <button
+                key={p.id}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => onPresetChange(p.id)}
+                className="text-left p-3 transition-colors flex flex-col gap-2"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: selected
+                    ? '2px solid var(--accent-primary)'
+                    : '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  // Compensate the 1px-vs-2px border difference so cards don't jump.
+                  padding: selected ? 'calc(0.75rem - 1px)' : '0.75rem',
+                }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {p.label}
+                  </span>
+                  {badge && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5"
+                      style={{
+                        backgroundColor: 'var(--bg-inset)',
+                        color: 'var(--text-tertiary)',
+                        borderRadius: 'var(--radius-sm)',
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  {(['bg', 'surface', 'accent', 'text', 'border'] as const).map((k) => (
+                    <span
+                      key={k}
+                      aria-hidden
+                      className="inline-block"
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        backgroundColor: p.swatches[k],
+                        border: '1px solid var(--border-muted)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
