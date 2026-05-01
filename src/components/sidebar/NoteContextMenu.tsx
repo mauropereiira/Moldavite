@@ -8,8 +8,9 @@ import {
   Copy,
   Download,
   FileDown,
+  FileText,
 } from 'lucide-react';
-import { exportSingleNote, exportNoteToPdf, readNote } from '@/lib';
+import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
@@ -97,6 +98,30 @@ export function NoteContextMenu({
     } catch (error) {
       console.error('[Sidebar] PDF export failed:', error);
       toast.error('Failed to export PDF');
+    }
+    onClose();
+  };
+
+  const handleExportPlaintext = async () => {
+    try {
+      const defaultName = note.name.replace(/\.md$/, '');
+      const destination = await save({
+        title: 'Export as Plaintext',
+        defaultPath: `${defaultName}.txt`,
+        filters: [{ name: 'Plain Text', extensions: ['txt'] }],
+      });
+      if (destination) {
+        await exportNoteAsPlaintext(
+          note.name,
+          destination,
+          note.isDaily || false,
+          note.isWeekly || false,
+        );
+        toast.success('Exported as plaintext');
+      }
+    } catch (error) {
+      console.error('[Sidebar] Plaintext export failed:', error);
+      toast.error('Failed to export plaintext');
     }
     onClose();
   };
@@ -208,6 +233,18 @@ export function NoteContextMenu({
         >
           <FileDown className="w-4 h-4" />
           Export as PDF
+        </button>
+      )}
+      {!note.isLocked && (
+        <button
+          onClick={handleExportPlaintext}
+          className={itemClass}
+          style={{ color: 'var(--text-primary)' }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <FileText className="w-4 h-4" />
+          Export as Plaintext
         </button>
       )}
       {!note.isDaily && (
