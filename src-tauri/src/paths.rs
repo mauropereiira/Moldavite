@@ -18,8 +18,68 @@ pub(crate) fn get_default_notes_dir() -> PathBuf {
         .join("Moldavite")
 }
 
+/// Default name for the Forge that legacy single-Forge users get migrated
+/// into on first launch after the multi-Forge update.
+pub(crate) const DEFAULT_FORGE_NAME: &str = "Default";
+
+/// Returns the parent directory that holds all Forges. Falls back to the
+/// legacy `notes_directory.parent()` if `forges_root` is unset.
+pub(crate) fn get_forges_root() -> PathBuf {
+    let config = read_config();
+    if let Some(root) = config.forges_root.as_deref() {
+        let p = PathBuf::from(root);
+        if !p.as_os_str().is_empty() {
+            return p;
+        }
+    }
+    // Fallback: derive from legacy notes_directory parent.
+    if let Some(legacy) = config.notes_directory.as_deref() {
+        let p = PathBuf::from(legacy);
+        if let Some(parent) = p.parent() {
+            return parent.to_path_buf();
+        }
+    }
+    dirs::document_dir()
+        .expect("Could not find Documents directory")
+        .join("Moldavite")
+}
+
+/// Returns the active Forge name (a directory under `forges_root`).
+pub(crate) fn get_active_forge_name() -> String {
+    let config = read_config();
+    if let Some(name) = config.active_forge.as_deref() {
+        if !name.is_empty() {
+            return name.to_string();
+        }
+    }
+    // Fallback: pull the leaf name off legacy notes_directory.
+    if let Some(legacy) = config.notes_directory.as_deref() {
+        if let Some(name) = PathBuf::from(legacy)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+        {
+            return name;
+        }
+    }
+    DEFAULT_FORGE_NAME.to_string()
+}
+
 pub(crate) fn get_notes_dir() -> PathBuf {
     let config = read_config();
+    // Preferred: forges_root + active_forge.
+    if let (Some(root), Some(name)) = (
+        config.forges_root.as_deref(),
+        config.active_forge.as_deref(),
+    ) {
+        if !root.is_empty() && !name.is_empty() {
+            let path = PathBuf::from(root).join(name);
+            if path.exists() {
+                return path;
+            }
+        }
+    }
+    // Back-compat: legacy `notes_directory` field.
     if let Some(custom_dir) = config.notes_directory {
         let path = PathBuf::from(&custom_dir);
         if path.exists() {
