@@ -11,7 +11,91 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::frontmatter;
-use crate::paths::{get_metadata_path, get_notes_dir};
+use crate::paths::{get_metadata_path, get_notes_dir, DEFAULT_FORGE_NAME};
+use crate::persist::{read_config, write_config};
+
+/// Wrap a legacy single-Forge directory into the new multi-Forge layout.
+///
+/// On first launch after the multi-Forge update, users have a config that
+/// lacks `forges_root`/`active_forge`. If their notes_directory points at a
+/// dir that already contains a notes tree (`daily/`, `notes/`, etc.), we
+/// move that tree into a `Default` subdirectory and write the new config:
+///
+///   forges_root  = <old notes_directory>
+///   active_forge = "Default"
+///
+/// Idempotent. Safe to call on every launch.
+pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
+    let mut cfg = read_config();
+    if cfg.forges_root.is_some() && cfg.active_forge.is_some() {
+        return Ok(false);
+    }
+
+    let legacy_dir = match cfg.notes_directory.as_deref() {
+        Some(s) if !s.is_empty() => PathBuf::from(s),
+        _ => crate::paths::get_default_notes_dir(),
+    };
+
+    if !legacy_dir.is_dir() {
+        cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
+        cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
+        cfg.notes_directory = None;
+        write_config(&cfg)?;
+        return Ok(false);
+    }
+
+    let has_forge_layout = ["daily", "notes", "weekly", "templates"]
+        .iter()
+        .any(|s| legacy_dir.join(s).is_dir());
+
+    if !has_forge_layout {
+        cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
+        cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
+        cfg.notes_directory = None;
+        write_config(&cfg)?;
+        return Ok(false);
+    }
+
+    let default_forge = legacy_dir.join(DEFAULT_FORGE_NAME);
+    if default_forge.exists() {
+        cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
+        cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
+        cfg.notes_directory = None;
+        write_config(&cfg)?;
+        return Ok(true);
+    }
+    fs::create_dir_all(&default_forge)
+        .map_err(|e| format!("Failed to create Default Forge: {}", e))?;
+
+    let entries =
+        fs::read_dir(&legacy_dir).map_err(|e| format!("Failed to read legacy dir: {}", e))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name() else { continue };
+        if name == std::ffi::OsStr::new(DEFAULT_FORGE_NAME) {
+            continue;
+        }
+        let dest = default_forge.join(name);
+        if let Err(e) = fs::rename(&path, &dest) {
+            log::warn!(
+                "[forge migration] failed to move {:?} → {:?}: {}",
+                path,
+                dest,
+                e
+            );
+        }
+    }
+
+    cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
+    cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
+    cfg.notes_directory = None;
+    write_config(&cfg)?;
+    log::info!(
+        "[forge migration] wrapped legacy Forge into {:?}",
+        default_forge
+    );
+    Ok(true)
+}
 
 #[derive(Debug, Default, Deserialize)]
 struct MetadataFile {
