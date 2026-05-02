@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { namespacedKey } from '@/lib/forgeStorage';
 
 const MAX_RECENT_SEARCHES = 5;
 
@@ -63,7 +64,7 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
       isPinned: (noteId) => get().pinnedNoteIds.includes(noteId),
     }),
     {
-      name: 'moldavite-quick-switcher',
+      name: namespacedKey('moldavite-quick-switcher'),
       storage: createJSONStorage(() => localStorage),
       // Don't persist transient UI state.
       partialize: (state) => ({

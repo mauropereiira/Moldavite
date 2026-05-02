@@ -467,6 +467,10 @@ export function QuickSwitcher() {
         case 'shortcut-help':
           dispatchModKey('/');
           return;
+        case 'switch-forge':
+          // Sidebar listens for this event and opens the Forge dropdown.
+          window.dispatchEvent(new Event('moldavite:open-forge-switcher'));
+          return;
         case 'open-graph':
           openGraph();
           return;

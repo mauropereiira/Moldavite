@@ -8,7 +8,7 @@ describe('quickSwitcherStore', () => {
   beforeEach(() => {
     // Reset to a known clean slate. localStorage is jsdom-backed in tests,
     // so we wipe the persisted slice too for hermetic runs.
-    localStorage.removeItem('moldavite-quick-switcher');
+    localStorage.removeItem('moldavite-quick-switcher:default');
     useQuickSwitcherStore.setState({
       isOpen: false,
       recentSearches: [],
@@ -41,7 +41,7 @@ describe('quickSwitcherStore', () => {
 
     it('persists recent searches to localStorage', () => {
       useQuickSwitcherStore.getState().addRecentSearch('persisted');
-      const raw = localStorage.getItem('moldavite-quick-switcher');
+      const raw = localStorage.getItem('moldavite-quick-switcher:default');
       expect(raw).toBeTruthy();
       const parsed = JSON.parse(raw ?? '{}');
       expect(parsed.state.recentSearches).toContain('persisted');
