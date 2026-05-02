@@ -6,10 +6,13 @@ export function RightPanel() {
   const { showCalendarWidget, showTimelineWidget } = useSettingsStore();
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-w-0 overflow-hidden">
       {/* Calendar */}
       {showCalendarWidget && (
-        <div className="p-4" style={{ borderBottom: '1px solid var(--border-default)' }}>
+        <div
+          className="p-4 min-w-0 overflow-hidden"
+          style={{ borderBottom: '1px solid var(--border-default)' }}
+        >
           <Calendar />
         </div>
       )}
