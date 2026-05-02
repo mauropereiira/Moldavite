@@ -99,7 +99,7 @@ pub(crate) fn list_forges() -> Result<Vec<ForgeInfo>, String> {
             is_active: name == active,
         });
     }
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|f| f.name.to_lowercase());
     Ok(out)
 }
 
