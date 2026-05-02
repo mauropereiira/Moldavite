@@ -10,12 +10,14 @@ import {
 } from '@/lib';
 import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
+import { namespacedKey } from '@/lib/forgeStorage';
 
 const SETTINGS_LS_KEYS = [
   'moldavite-calendar',
   'moldavite-folders',
   'moldavite-pinned-tabs',
-  'moldavite-recent-notes',
+  // Per-Forge keys are namespaced (`<key>:<forge>`); export the active Forge's slot.
+  namespacedKey('moldavite-recent-notes'),
   'moldavite-settings',
   'moldavite-theme',
 ] as const;

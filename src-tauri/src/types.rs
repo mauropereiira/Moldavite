@@ -99,11 +99,31 @@ pub(crate) struct BacklinkInfo {
     pub(crate) context: String,
 }
 
-// App Configuration for custom notes directory
+// App Configuration for custom notes directory + multi-Forge support.
+//
+// `forges_root` is the parent directory that holds one or more Forge
+// directories. `active_forge` is the directory name (immediate child of
+// `forges_root`) that should be treated as the live Forge.
+//
+// `notes_directory` is deprecated and retained for one release as a
+// fallback for users upgrading from single-Forge layouts. New code reads
+// `forges_root` + `active_forge`; the migration on startup wraps the
+// legacy directory into a Forge and clears the deprecated field.
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppConfig {
     pub(crate) notes_directory: Option<String>,
+    pub(crate) forges_root: Option<String>,
+    pub(crate) active_forge: Option<String>,
+}
+
+// Public-facing struct returned by the `list_forges` command.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ForgeInfo {
+    pub(crate) name: String,
+    pub(crate) path: String,
+    pub(crate) is_active: bool,
 }
 
 // Export/Import Result structures
