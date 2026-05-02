@@ -1,8 +1,25 @@
 # The Forge
 
 Your Forge is the folder where Moldavite stores every note as a plain Markdown
-file. It defaults to `~/Documents/Moldavite/`, but you can move it anywhere
-under your home folder via **Settings → General → Forge → Change**.
+file. Multiple Forges can live side-by-side under a parent directory (the
+**Forges root**, defaulting to `~/Documents/Moldavite/`). You can switch
+between them from the dropdown at the top of the sidebar, create new ones
+with **+ New Forge**, or rename / delete them in **Manage Forges…**.
+
+```
+~/Documents/Moldavite/        # Forges root
+├── Personal/                 # Forge
+├── Work/                     # Forge
+└── Archive/                  # Forge
+```
+
+Switching the active Forge reloads the window so every cache and watcher
+rebinds to the new root. Per-Forge state (recent notes, quick switcher
+history) is namespaced in `localStorage` so each Forge keeps its own.
+
+The previous single-folder layout (everything stored directly under
+`~/Documents/Moldavite/`) is migrated automatically on first launch into
+a `Default` Forge — no manual steps required.
 
 Because it's plain `.md`, you can:
 
