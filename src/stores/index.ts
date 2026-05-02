@@ -48,3 +48,5 @@ export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
 export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
+export { useForgeStore } from './forgeStore';
+export type { Forge } from './forgeStore';
