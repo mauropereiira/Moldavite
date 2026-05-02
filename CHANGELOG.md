@@ -2,6 +2,21 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.3.0] - 2026-05-02
+
+### Added
+- **Multiple Forges** — sibling vault directories you can switch between (Obsidian-style). New sidebar dropdown above the search bar lists all Forges; "Manage Forges…" lets you create/rename/delete. Each Forge has its own pinned/recent state (localStorage namespaced per-Forge). Existing single-Forge users auto-migrate on first launch — content wraps into a `Default/` Forge in place. New IPC: `list_forges`, `create_forge`, `set_active_forge`, `rename_forge`, `delete_forge`, `set_forges_root`, `get_forges_root_path`. QuickSwitcher gains a "Switch Forge…" action.
+- **Settings tab navigation** — the modal now has a left tab list instead of a long vertical scroll. Up/Down/Home/End keyboard nav, full ARIA tablist semantics.
+- **Plugins design doc** — `docs/PLUGINS_DESIGN.md` records the intended shape for an Obsidian-style plugin system (no implementation yet — design only).
+
+### Fixed
+- **Right sidebar resizing** — calendar grid now shrinks gracefully instead of clipping when the sidebar narrows; timeline + month-switch buttons remain visible at minimum width.
+- **Theme preset / dark base mode mismatch** — picking a light-only preset (Sepia) while in dark mode no longer leaves the editor with a black background and Sepia chrome. The applied preset auto-falls back to default when the picked preset doesn't cover the active base mode; the user's preference stays stored.
+- **Settings → Templates** — section was rendering see-through under non-default presets due to hardcoded Tailwind grays. Now uses theme tokens (`var(--bg-*)`, `var(--text-*)`).
+
+### Changed
+- File watcher restarts cleanly on Forge switch (drops old watcher, spawns a new one rooted at the new active Forge, clears the self-write ignore-list).
+
 ## [1.2.0] - 2026-05-01
 
 ### Added
