@@ -2,8 +2,8 @@
  * Settings Modal Component
  *
  * A tabbed settings interface for Moldavite configuration. This file is the
- * tab shell — header, tab bar, and content routing. Each tab's UI lives in
- * its own file under `./sections/`.
+ * tab shell — header, tab sidebar, and content routing. Each tab's UI lives
+ * in its own file under `./sections/`.
  *
  * ## Tabs
  *
@@ -28,7 +28,7 @@
  * @module components/settings/SettingsModal
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
 import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database } from 'lucide-react';
 import { SettingsData } from './SettingsData';
@@ -50,6 +50,17 @@ export function SettingsModal() {
   const { theme, setTheme, preset, setPreset } = useThemeStore();
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
+    general: null,
+    appearance: null,
+    editor: null,
+    features: null,
+    sidebar: null,
+    calendar: null,
+    templates: null,
+    data: null,
+    about: null,
+  });
 
   // Template handlers for SettingsTemplates
   const handleDeleteTemplate = async (id: string) => {
@@ -78,6 +89,21 @@ export function SettingsModal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [settingsStore]);
 
+  const tabs = useMemo<{ id: SettingsTab; label: string; icon: React.ReactNode }[]>(
+    () => [
+      { id: 'general', label: 'General', icon: <Settings className="w-4 h-4" /> },
+      { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
+      { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" /> },
+      { id: 'features', label: 'Features', icon: <Zap className="w-4 h-4" /> },
+      { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
+      { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
+      { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
+      { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+      { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
+    ],
+    []
+  );
+
   if (!settingsStore.isSettingsOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -96,17 +122,34 @@ export function SettingsModal() {
     applyTheme(theme, newPreset);
   };
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'general', label: 'General', icon: <Settings className="w-4 h-4" /> },
-    { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
-    { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" /> },
-    { id: 'features', label: 'Features', icon: <Zap className="w-4 h-4" /> },
-    { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
-    { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
-    { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
-    { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
-    { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
-  ];
+  const focusTab = (tabId: SettingsTab) => {
+    setActiveTab(tabId);
+    // Defer focus until after re-render to ensure the ref is current.
+    requestAnimationFrame(() => {
+      tabRefs.current[tabId]?.focus();
+    });
+  };
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = tabs[(index + 1) % tabs.length];
+      focusTab(next.id);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = tabs[(index - 1 + tabs.length) % tabs.length];
+      focusTab(prev.id);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      focusTab(tabs[0].id);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      focusTab(tabs[tabs.length - 1].id);
+    }
+  };
+
+  const tabButtonId = (id: SettingsTab) => `settings-tab-${id}`;
+  const tabPanelId = (id: SettingsTab) => `settings-panel-${id}`;
 
   return (
     <div
@@ -116,13 +159,16 @@ export function SettingsModal() {
       <div
         className="w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter"
         style={{ borderRadius: 'var(--radius-md)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4"
+          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2 id="settings-modal-title" className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             Settings
           </h2>
           <button
@@ -131,6 +177,7 @@ export function SettingsModal() {
             style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
             onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+            aria-label="Close settings"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -138,79 +185,105 @@ export function SettingsModal() {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div
-          className="flex px-6 overflow-x-auto flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border-default)', minHeight: '48px' }}
-        >
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all mx-0.5 focus-ring whitespace-nowrap"
-              style={{
-                borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
-                color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                backgroundColor: activeTab === tab.id ? 'var(--accent-subtle)' : 'transparent',
-                borderBottom: activeTab === tab.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (activeTab !== tab.id) {
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                  e.currentTarget.style.backgroundColor = 'var(--bg-inset)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== tab.id) {
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Body: tab sidebar + content */}
+        <div className="flex flex-1 min-h-0">
+          {/* Tab sidebar */}
+          <div
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="Settings sections"
+            className="flex flex-col py-3 px-2 gap-0.5 overflow-y-auto flex-shrink-0"
+            style={{
+              width: '180px',
+              borderRight: '1px solid var(--border-default)',
+              backgroundColor: 'var(--bg-inset)',
+            }}
+          >
+            {tabs.map((tab, index) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => { tabRefs.current[tab.id] = el; }}
+                  id={tabButtonId(tab.id)}
+                  role="tab"
+                  type="button"
+                  aria-selected={isActive}
+                  aria-controls={tabPanelId(tab.id)}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  onKeyDown={(e) => handleTabKeyDown(e, index)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all text-left focus-ring"
+                  style={{
+                    borderRadius: 'var(--radius-sm)',
+                    color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    backgroundColor: isActive ? 'var(--accent-subtle)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                      e.currentTarget.style.backgroundColor = 'var(--bg-default)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div key={activeTab} className="tab-content-enter">
-            {activeTab === 'general' && (
-              <GeneralSection />
-            )}
-            {activeTab === 'appearance' && (
-              <AppearanceSection
-                theme={theme}
-                onThemeChange={handleThemeChange}
-                preset={preset}
-                onPresetChange={handlePresetChange}
-              />
-            )}
-            {activeTab === 'editor' && (
-              <EditorSection />
-            )}
-            {activeTab === 'features' && (
-              <FeaturesSection />
-            )}
-            {activeTab === 'sidebar' && (
-              <SidebarSection />
-            )}
-            {activeTab === 'calendar' && (
-              <CalendarSection />
-            )}
-            {activeTab === 'templates' && (
-              <SettingsTemplates
-                onDeleteTemplate={handleDeleteTemplate}
-                onUpdateTemplate={handleUpdateTemplate}
-              />
-            )}
-            {activeTab === 'data' && (
-              <SettingsData />
-            )}
-            {activeTab === 'about' && (
-              <AboutSection />
-            )}
+          {/* Content */}
+          <div
+            id={tabPanelId(activeTab)}
+            role="tabpanel"
+            aria-labelledby={tabButtonId(activeTab)}
+            tabIndex={0}
+            className="flex-1 overflow-y-auto p-6 min-w-0"
+          >
+            <div key={activeTab} className="tab-content-enter">
+              {activeTab === 'general' && (
+                <GeneralSection />
+              )}
+              {activeTab === 'appearance' && (
+                <AppearanceSection
+                  theme={theme}
+                  onThemeChange={handleThemeChange}
+                  preset={preset}
+                  onPresetChange={handlePresetChange}
+                />
+              )}
+              {activeTab === 'editor' && (
+                <EditorSection />
+              )}
+              {activeTab === 'features' && (
+                <FeaturesSection />
+              )}
+              {activeTab === 'sidebar' && (
+                <SidebarSection />
+              )}
+              {activeTab === 'calendar' && (
+                <CalendarSection />
+              )}
+              {activeTab === 'templates' && (
+                <SettingsTemplates
+                  onDeleteTemplate={handleDeleteTemplate}
+                  onUpdateTemplate={handleUpdateTemplate}
+                />
+              )}
+              {activeTab === 'data' && (
+                <SettingsData />
+              )}
+              {activeTab === 'about' && (
+                <AboutSection />
+              )}
+            </div>
           </div>
         </div>
       </div>
