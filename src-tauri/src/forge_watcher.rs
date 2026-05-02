@@ -43,6 +43,15 @@ impl RecentWrites {
         }
     }
 
+    /// Drop all recorded recent-writes. Called when swapping the watcher
+    /// root so stale entries from the previous Forge can't suppress real
+    /// events in the new one.
+    pub fn clear(&self) {
+        if let Ok(mut map) = self.inner.lock() {
+            map.clear();
+        }
+    }
+
     /// Returns true if `path` was written by us very recently.
     pub fn is_recent(&self, path: &Path) -> bool {
         if let Ok(map) = self.inner.lock() {
@@ -123,13 +132,30 @@ pub fn spawn(
             .map_err(|e| format!("failed to watch {:?}: {}", root, e))?;
     }
 
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
+
     let join = std::thread::Builder::new()
         .name("forge-watcher".into())
         .spawn(move || {
             // Hold the debouncer for the lifetime of this thread so it keeps
             // running. When the thread exits (on shutdown) it drops.
             let _debouncer = debouncer;
-            while let Ok(events) = rx.recv() {
+            loop {
+                // Wake up periodically so the stop signal can break the loop
+                // even when no fs events arrive.
+                let events = match rx.recv_timeout(Duration::from_millis(500)) {
+                    Ok(ev) => ev,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        if stop_rx.try_recv().is_ok() {
+                            break;
+                        }
+                        continue;
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                };
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
                 let events = match events {
                     Ok(ev) => ev,
                     Err(err) => {
@@ -162,14 +188,30 @@ pub fn spawn(
 
     Ok(WatcherHandle {
         _join: Some(join),
+        stop: Some(stop_tx),
     })
 }
 
-/// Owned handle. Currently the thread runs for the life of the app; this
-/// struct exists so future code can replace the watcher when the user picks
-/// a new Forge directory.
+/// Owned handle. Calling `shutdown` (or dropping it) stops the watcher
+/// thread so a new one can be spawned for a different Forge.
 pub struct WatcherHandle {
     _join: Option<std::thread::JoinHandle<()>>,
+    stop: Option<std::sync::mpsc::Sender<()>>,
+}
+
+impl WatcherHandle {
+    /// Tell the watcher thread to stop. Idempotent.
+    pub fn shutdown(&self) {
+        if let Some(tx) = &self.stop {
+            let _ = tx.send(());
+        }
+    }
+}
+
+impl Drop for WatcherHandle {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }
 
 #[cfg(test)]
