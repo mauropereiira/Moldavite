@@ -173,8 +173,13 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
-      if (inNewTab || state.openTabs.length === 0) {
-        // Open in new tab
+      const activeTab = state.openTabs.find((t) => t.id === state.activeTabId);
+      const activeTabIsPinned = !!activeTab?.isPinned;
+
+      if (inNewTab || state.openTabs.length === 0 || activeTabIsPinned) {
+        // Open in a new tab when explicitly requested, when no tabs exist,
+        // or when the active tab is pinned (pinned tabs must not be replaced
+        // by sidebar navigation / preview-mode reuse).
         const newTabs = [...state.openTabs, note];
         return {
           openTabs: newTabs,
@@ -182,7 +187,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           currentNote: note,
         };
       } else {
-        // Replace active tab's content (single-click behavior)
+        // Replace active tab's content (single-click "preview" behavior).
+        // Only applies when the active tab is unpinned.
         const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
         if (activeIndex >= 0) {
           const newTabs = state.openTabs.map((t, i) =>
