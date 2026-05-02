@@ -38,6 +38,8 @@ const SettingsModal = lazy(() =>
 const TrashPreviewModal = lazy(() =>
   import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal })),
 );
+import { ForgeSwitcher } from './ForgeSwitcher';
+import { ManageForgesModal } from './ManageForgesModal';
 import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
@@ -155,6 +157,7 @@ export function Sidebar() {
   const selectionClear = useNoteSelectionStore((s) => s.clear);
   const selectionAnchorRef = useRef<string | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+  const [showManageForges, setShowManageForges] = useState(false);
   const [showBulkTrashConfirm, setShowBulkTrashConfirm] = useState(false);
   const [showBulkExportModal, setShowBulkExportModal] = useState(false);
 
@@ -662,6 +665,14 @@ export function Sidebar() {
           onDelete={handleDeleteFolder}
         />
       )}
+
+      {/* Forge switcher (above search) */}
+      <ForgeSwitcher onManage={() => setShowManageForges(true)} />
+
+      <ManageForgesModal
+        isOpen={showManageForges}
+        onClose={() => setShowManageForges(false)}
+      />
 
       {/* Search Bar */}
       <SidebarSearch

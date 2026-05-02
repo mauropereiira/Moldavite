@@ -57,6 +57,10 @@ use commands::export_import::{
     import_notes, import_settings_json,
 };
 use commands::folders::{create_folder, delete_folder, list_folders, move_folder, rename_folder};
+use commands::forges::{
+    create_forge, delete_forge, get_forges_root_path, list_forges, rename_forge,
+    set_active_forge, set_forges_root,
+};
 use commands::graph::get_note_graph;
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
 use commands::misc::{
@@ -140,6 +144,12 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // Wrap legacy single-Forge layout into Default Forge if needed.
+            // Idempotent — runs on every launch and exits early once
+            // forges_root + active_forge are set.
+            if let Err(e) = migration::migrate_legacy_single_forge_to_multi() {
+                log::warn!("[forge] multi-Forge migration error: {}", e);
+            }
             // Run sidecar-metadata → frontmatter migration once. Idempotent,
             // safe to call on every launch.
             match migration::migrate_metadata_to_frontmatter() {
@@ -218,6 +228,14 @@ pub fn run() {
             set_notes_directory,
             rescan_forge,
             open_forge_in_finder,
+            // Multi-Forge management commands
+            list_forges,
+            create_forge,
+            set_active_forge,
+            rename_forge,
+            delete_forge,
+            set_forges_root,
+            get_forges_root_path,
             // Export/Import commands
             export_notes,
             import_notes,

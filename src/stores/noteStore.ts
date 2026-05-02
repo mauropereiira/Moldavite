@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Note, NoteFile } from '@/types';
+import { namespacedKey } from '@/lib/forgeStorage';
 
 interface NoteState {
   notes: NoteFile[];
@@ -50,7 +51,7 @@ interface NoteState {
 // Load recent notes from localStorage
 const loadRecentNotes = (): string[] => {
   try {
-    const stored = localStorage.getItem('moldavite-recent-notes');
+    const stored = localStorage.getItem(namespacedKey('moldavite-recent-notes'));
     if (stored) {
       return JSON.parse(stored);
     }
@@ -445,7 +446,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
       // Persist to localStorage
       try {
-        localStorage.setItem('moldavite-recent-notes', JSON.stringify(updated));
+        localStorage.setItem(namespacedKey('moldavite-recent-notes'), JSON.stringify(updated));
       } catch (error) {
         console.error('[noteStore] Failed to save recent notes:', error);
       }

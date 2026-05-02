@@ -74,6 +74,12 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     keywords: ['settings', 'preferences', 'config'],
   },
   {
+    id: 'switch-forge',
+    title: 'Switch Forge…',
+    category: 'navigation',
+    keywords: ['forge', 'switch', 'workspace', 'vault'],
+  },
+  {
     id: 'shortcut-help',
     title: 'Show Keyboard Shortcuts',
     category: 'help',
