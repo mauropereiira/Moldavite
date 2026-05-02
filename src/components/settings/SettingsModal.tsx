@@ -30,7 +30,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
-import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database } from 'lucide-react';
+import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database, Puzzle } from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
 import { AppearanceSection } from './sections/AppearanceSection';
@@ -39,11 +39,12 @@ import { FeaturesSection } from './sections/FeaturesSection';
 import { SidebarSection } from './sections/SidebarSection';
 import { CalendarSection } from './sections/CalendarSection';
 import { GeneralSection } from './sections/GeneralSection';
+import { PluginsSection } from './sections/PluginsSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
 /** Available settings tabs */
-type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'data' | 'about';
+type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'plugins' | 'data' | 'about';
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
@@ -58,6 +59,7 @@ export function SettingsModal() {
     sidebar: null,
     calendar: null,
     templates: null,
+    plugins: null,
     data: null,
     about: null,
   });
@@ -98,6 +100,7 @@ export function SettingsModal() {
       { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
       { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
       { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
+      { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" /> },
       { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
       { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
     ],
@@ -276,6 +279,9 @@ export function SettingsModal() {
                   onDeleteTemplate={handleDeleteTemplate}
                   onUpdateTemplate={handleUpdateTemplate}
                 />
+              )}
+              {activeTab === 'plugins' && (
+                <PluginsSection />
               )}
               {activeTab === 'data' && (
                 <SettingsData />
