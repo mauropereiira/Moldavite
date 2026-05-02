@@ -2,6 +2,14 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.3.1] - 2026-05-02
+
+### Fixed
+- **Pinned tabs survive sidebar navigation** — clicking another note in the sidebar while a pinned tab is active now opens the new note in a fresh tab instead of replacing the pinned one.
+
+### Added
+- **Settings → Plugins tab** — informational surface promoting community-built integrations. Status banner ("design phase"), starter ideas (Zoom / Meet / Web Clipper / custom exports), and CTAs linking to `docs/PLUGINS_DESIGN.md` + the issues tracker. No loader yet — sets expectations and invites contributions.
+
 ## [1.3.0] - 2026-05-02
 
 ### Added
