@@ -188,6 +188,36 @@ export const useThemeStore = create<ThemeState>()(
   )
 );
 
+/**
+ * Resolve the preset that should actually be applied for the given base mode.
+ *
+ * If the user picked a preset that doesn't have a token block for the current
+ * base mode (e.g. Sepia in dark, Dracula in light), fall back to `default`.
+ * Without this, the `dark` class stays on `<html>` while the `data-theme`
+ * attribute points at a preset that only defined light tokens — so half the
+ * CSS variables come from the preset's light block and half from the default
+ * dark block, producing unreadable mixed-mode chrome (most visibly: editor
+ * stays dark while the rest of the UI uses Sepia's cream palette).
+ *
+ * The user's stored preference is preserved; only the *applied* attribute
+ * changes for the duration of the mismatch.
+ */
+export const resolveAppliedPreset = (mode: BaseMode, preset: ThemePreset): ThemePreset => {
+  const meta = PRESETS.find((p) => p.id === preset);
+  if (!meta || meta.coverage === 'both') return preset;
+
+  let effectiveDark: boolean;
+  if (mode === 'system') {
+    effectiveDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } else {
+    effectiveDark = mode === 'dark';
+  }
+
+  if (meta.coverage === 'dark' && !effectiveDark) return 'default';
+  if (meta.coverage === 'light' && effectiveDark) return 'default';
+  return preset;
+};
+
 /** Apply the current theme (base mode + preset) to <html>. */
 export const applyTheme = (mode: BaseMode, preset: ThemePreset = 'default') => {
   const root = document.documentElement;
@@ -197,5 +227,5 @@ export const applyTheme = (mode: BaseMode, preset: ThemePreset = 'default') => {
   } else {
     root.classList.toggle('dark', mode === 'dark');
   }
-  root.setAttribute('data-theme', preset);
+  root.setAttribute('data-theme', resolveAppliedPreset(mode, preset));
 };

@@ -77,11 +77,14 @@ export function SettingsTemplates({
   return (
     <div className="space-y-6">
       {/* Default Daily Template Selection */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+      <div
+        className="p-4 space-y-2"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Default Daily Template
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
           Template used when creating daily notes
         </p>
         <select
@@ -89,7 +92,12 @@ export function SettingsTemplates({
           onChange={(e) =>
             setDefaultDailyTemplate(e.target.value || null)
           }
-          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 text-sm rounded focus:outline-none focus:ring-2"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-default)',
+          }}
           aria-label="Select default daily template"
         >
           <option value="">Blank (no template)</option>
@@ -102,11 +110,14 @@ export function SettingsTemplates({
       </div>
 
       {/* Pinned Templates for Quick Picker */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+      <div
+        className="p-4 space-y-2"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
+        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Quick Access Templates
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
           Select templates to show in &quot;Start with a template&quot; picker (max 6)
         </p>
         <div className="space-y-1.5">
@@ -119,30 +130,34 @@ export function SettingsTemplates({
                 onClick={() => canPin && togglePinnedTemplate(template.id)}
                 disabled={!canPin}
                 className={`w-full flex items-center gap-3 p-2 rounded transition-colors text-left ${
-                  isPinned
-                    ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-                    : 'bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-                } ${!canPin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  !canPin ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                style={{
+                  backgroundColor: isPinned ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+                  border: `1px solid ${isPinned ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+                  color: 'var(--text-primary)',
+                }}
               >
-                <div className={isPinned ? 'text-blue-500' : 'text-gray-400'}>
+                <div style={{ color: isPinned ? 'var(--accent-primary)' : 'var(--text-tertiary)' }}>
                   <TemplateIcon icon={template.icon} size={16} />
                 </div>
-                <span className={`flex-1 text-sm truncate ${
-                  isPinned ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
-                }`}>
+                <span
+                  className="flex-1 text-sm truncate"
+                  style={{ color: isPinned ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
+                >
                   {template.name}
                 </span>
                 {isPinned ? (
-                  <Pin className="w-4 h-4 text-blue-500" />
+                  <Pin className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
                 ) : (
-                  <PinOff className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                  <PinOff className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 )}
               </button>
             );
           })}
         </div>
         {pinnedTemplateIds.length === 0 && templates.length > 0 && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
             No templates pinned. First 3 templates will be shown by default.
           </p>
         )}
@@ -150,30 +165,40 @@ export function SettingsTemplates({
 
       {/* Default Templates (read-only list) */}
       {defaultTemplates.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+        <div
+          className="p-4 space-y-3"
+          style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        >
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Default Templates ({defaultTemplates.length})
           </h3>
           <div className="space-y-2">
             {defaultTemplates.map((template) => (
               <div
                 key={template.id}
-                className="flex items-center gap-3 p-3 rounded bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700"
+                className="flex items-center gap-3 p-3 rounded"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                }}
               >
-                <div className="text-gray-400 dark:text-gray-500">
+                <div style={{ color: 'var(--text-tertiary)' }}>
                   <TemplateIcon icon={template.icon} size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <p
+                    className="text-sm font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {template.name}
                   </p>
                   {template.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>
                       {template.description}
                     </p>
                   )}
                 </div>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   Built-in
                 </span>
               </div>
@@ -183,14 +208,21 @@ export function SettingsTemplates({
       )}
 
       {/* Custom Templates */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+      <div
+        className="p-4 space-y-3"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Custom Templates ({customTemplates.length})
           </h3>
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors focus-ring"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors focus-ring"
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              color: 'var(--text-on-accent, #ffffff)',
+            }}
           >
             <Plus className="w-3.5 h-3.5" />
             New template
@@ -198,16 +230,23 @@ export function SettingsTemplates({
         </div>
 
         {customTemplates.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
-            <TemplateIcon
-              icon="file"
-              size={32}
-              className="mx-auto text-gray-300 dark:text-gray-600 mb-2"
-            />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div
+            className="text-center py-8 rounded"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px dashed var(--border-default)',
+            }}
+          >
+            <div
+              className="flex justify-center mb-2"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <TemplateIcon icon="file" size={32} />
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               No custom templates yet
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
               Save a note as template to create one
             </p>
           </div>
@@ -216,17 +255,24 @@ export function SettingsTemplates({
             {customTemplates.map((template) => (
               <div
                 key={template.id}
-                className="flex items-center gap-3 p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-system-xs"
+                className="flex items-center gap-3 p-3 rounded shadow-system-xs"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                }}
               >
-                <div className="text-blue-500 dark:text-blue-400">
+                <div style={{ color: 'var(--accent-primary)' }}>
                   <TemplateIcon icon={template.icon} size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <p
+                    className="text-sm font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {template.name}
                   </p>
                   {template.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>
                       {template.description}
                     </p>
                   )}
@@ -234,7 +280,8 @@ export function SettingsTemplates({
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setEditingTemplate(template)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="p-1.5 rounded transition-colors"
+                    style={{ color: 'var(--text-tertiary)' }}
                     title="Edit template"
                     aria-label={`Edit ${template.name}`}
                   >
@@ -242,7 +289,8 @@ export function SettingsTemplates({
                   </button>
                   <button
                     onClick={() => setDeletingTemplate(template)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="p-1.5 rounded transition-colors"
+                    style={{ color: 'var(--text-tertiary)' }}
                     title="Delete template"
                     aria-label={`Delete ${template.name}`}
                   >
@@ -278,20 +326,36 @@ export function SettingsTemplates({
           aria-modal="true"
           aria-labelledby="delete-template-title"
         >
-          <div className="bg-white dark:bg-gray-800 rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter">
+          <div
+            className="rounded-md p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
+            style={{ backgroundColor: 'var(--bg-elevated)' }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <div
+                className="p-2 rounded-full"
+                style={{ backgroundColor: 'rgba(212, 101, 26, 0.15)' }}
+              >
+                <AlertCircle className="w-5 h-5" style={{ color: 'var(--error)' }} />
               </div>
-              <h3 id="delete-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3
+                id="delete-template-title"
+                className="text-lg font-semibold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Delete Template
               </h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete &quot;{deletingTemplate.name}&quot;? This cannot be undone.
             </p>
             {defaultDailyTemplate === deletingTemplate.id && (
-              <p className="text-sm text-amber-600 dark:text-amber-400 mb-4 p-2 bg-amber-50 dark:bg-amber-900/20 rounded">
+              <p
+                className="text-sm mb-4 p-2 rounded"
+                style={{
+                  color: 'var(--warning)',
+                  backgroundColor: 'var(--warning-muted)',
+                }}
+              >
                 This template is set as your default daily template. It will be unset.
               </p>
             )}
@@ -299,7 +363,12 @@ export function SettingsTemplates({
               <button
                 onClick={() => setDeletingTemplate(null)}
                 disabled={isDeleting}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
+                className="px-3 py-1.5 text-sm font-medium rounded transition-colors focus-ring disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-default)',
+                }}
               >
                 Cancel
               </button>
