@@ -84,13 +84,13 @@ export function Calendar() {
   };
 
   return (
-    <div className="select-none">
+    <div className="select-none min-w-0 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 min-w-0 gap-1">
         <button
           onClick={handlePrevMonth}
           aria-label="Previous month"
-          className="p-1 transition-colors"
+          className="p-1 transition-colors flex-shrink-0"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -99,13 +99,16 @@ export function Calendar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+        <span
+          className="text-sm font-medium truncate min-w-0 text-center"
+          style={{ color: 'var(--text-primary)' }}
+        >
           {format(viewDate, 'MMMM yyyy')}
         </span>
         <button
           onClick={handleNextMonth}
           aria-label="Next month"
-          className="p-1 transition-colors"
+          className="p-1 transition-colors flex-shrink-0"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -117,7 +120,7 @@ export function Calendar() {
       </div>
 
       {/* Day headers with week column */}
-      <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: '24px repeat(7, 1fr)' }}>
+      <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: '20px repeat(7, minmax(0, 1fr))' }}>
         {/* Week header */}
         <div
           className="text-center text-xs font-medium py-1"
@@ -148,7 +151,7 @@ export function Calendar() {
             <div
               key={weekIndex}
               className="grid gap-0.5"
-              style={{ gridTemplateColumns: '24px repeat(7, 1fr)' }}
+              style={{ gridTemplateColumns: '20px repeat(7, minmax(0, 1fr))' }}
             >
               {/* Week number */}
               <button
