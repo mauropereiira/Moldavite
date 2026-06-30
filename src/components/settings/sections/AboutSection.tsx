@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react';
 import { Download, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
-import { useUpdateStore, useSettingsStore } from '@/stores';
+import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
+import { getReleaseNotes } from '@/lib/releaseNotes';
 import { ShortcutRow } from '../common';
 
 function SoftwareUpdatesSection() {
@@ -112,10 +113,20 @@ export function AboutSection() {
   const setHasSeenAppOnboarding = useSettingsStore((s) => s.setHasSeenAppOnboarding);
   const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
 
+  const openWhatsNew = useWhatsNewStore((s) => s.open);
+
   // Fetch app version on mount
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
   }, []);
+
+  const handleShowWhatsNew = () => {
+    const entry = getReleaseNotes(appVersion);
+    if (entry) {
+      setIsSettingsOpen(false); // close settings so the popup is visible
+      openWhatsNew(entry);
+    }
+  };
 
   const handleReplayOnboarding = () => {
     setHasSeenAppOnboarding(false);
@@ -142,6 +153,14 @@ export function AboutSection() {
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
           </p>
+          <button
+            type="button"
+            onClick={handleShowWhatsNew}
+            className="mt-1 text-xs underline-offset-2 hover:underline transition-colors"
+            style={{ color: 'var(--accent-primary)', background: 'transparent' }}
+          >
+            What&apos;s new in this version
+          </button>
         </div>
       </div>
 
