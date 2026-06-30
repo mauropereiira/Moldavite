@@ -247,7 +247,6 @@ export function SettingsModal() {
             id={tabPanelId(activeTab)}
             role="tabpanel"
             aria-labelledby={tabButtonId(activeTab)}
-            tabIndex={0}
             className="flex-1 overflow-y-auto p-6 min-w-0"
           >
             <div key={activeTab} className="tab-content-enter">
