@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -30,7 +30,10 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' https://github.com https://objects.githubusercontent.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$DOCUMENT/Moldavite/**", "$DOCUMENT/Moldavite/images/**"]
+        "scope": [
+          "$DOCUMENT/Moldavite/**",
+          "$DOCUMENT/Moldavite/images/**"
+        ]
       }
     }
   },
@@ -44,7 +47,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app", "msi", "nsis"],
+    "targets": [
+      "dmg",
+      "app",
+      "msi",
+      "nsis"
+    ],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
