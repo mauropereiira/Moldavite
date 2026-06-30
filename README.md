@@ -53,6 +53,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Encrypted backups** — Export your entire vault as a password-protected AES-256 archive. Settings can be exported as JSON for cross-device sync.
 
+**Automatic updates** — Moldavite checks for new versions and updates in place. After updating, a "What's New" popup summarizes the changes.
+
 **Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
 ---

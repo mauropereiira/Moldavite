@@ -1,6 +1,6 @@
 # Moldavite v2 - Project Status
 
-**Last Updated:** November 18, 2025
+**Last Updated:** June 30, 2026
 **Status:** Early Beta - Core MVP Functional
 
 ---
@@ -106,8 +106,18 @@ Moldavite v2 is a Tauri + React note-taking app for macOS. The core note-taking 
    - No actual functionality
    - Consider removing or implementing
 
+### Deferred Follow-ups (low priority)
+
+1. **Segmented-button a11y sweep** — only some mutually-exclusive button groups use `role="radiogroup"`/`aria-checked`. Theme, Font Size, and Sort are covered; Editor (Line Height, Default Note Type) and General (Auto-Lock, Encrypted Import mode) still render as plain buttons.
+2. **General ↔ Data tab duplication** — both tabs expose backup / import-export / encrypted-backup UIs. Decide which tab owns what and consolidate.
+3. **Duplicated sidebar-width slider** — the same `sidebarWidth` control appears in both the Appearance and Sidebar tabs. Consolidate to one.
+
 ### Recently Fixed
 
+- ✅ **Info tooltips** - portaled with viewport-aware positioning; no longer clipped, narrow-columned, or scroll-snapping (v1.4.0)
+- ✅ **Undefined `--accent-color`** - Install Update button + update banner/progress + selected template cards now use `--accent-primary` (v1.4.0)
+- ✅ **What's New popup** - release notes shown after an update, sourced from CHANGELOG.md (v1.4.0)
+- ✅ **Settings modal focus trap** - initial focus + Tab cycling + restore (v1.4.0)
 - ✅ **Input validation** - Note titles now validated (letters, numbers, spaces, hyphens only)
 - ✅ **Path traversal protection** - `..` blocked in note titles
 - ✅ **Delete notes UI** - Trash system with 7-day recovery (v0.4.0)
