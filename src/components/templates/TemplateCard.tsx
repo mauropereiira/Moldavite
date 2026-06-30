@@ -26,13 +26,13 @@ export function TemplateCard({
       `}
       style={{
         backgroundColor: selected ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
-        borderColor: selected ? 'var(--accent-color)' : 'var(--border-primary)',
+        borderColor: selected ? 'var(--accent-primary)' : 'var(--border-primary)',
       }}
     >
       {/* Icon */}
       <div
         className={compact ? 'mb-2' : 'mb-3'}
-        style={{ color: selected ? 'var(--accent-color)' : 'var(--text-muted)' }}
+        style={{ color: selected ? 'var(--accent-primary)' : 'var(--text-muted)' }}
       >
         <TemplateIcon
           icon={template.icon}

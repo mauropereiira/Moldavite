@@ -21,8 +21,8 @@ function SoftwareUpdatesSection() {
       <div className="space-y-3">
         {/* Update status */}
         {available ? (
-          <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-color)' }}>
-            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-color)' }} />
+          <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-primary)' }}>
+            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-primary)' }} />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 Update Available: v{version}
@@ -59,7 +59,7 @@ function SoftwareUpdatesSection() {
             <div className="h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--bg-inset)' }}>
               <div
                 className="h-full transition-all duration-300"
-                style={{ width: `${progress}%`, backgroundColor: 'var(--accent-color)' }}
+                style={{ width: `${progress}%`, backgroundColor: 'var(--accent-primary)' }}
               />
             </div>
             <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-tertiary)' }}>
@@ -75,7 +75,7 @@ function SoftwareUpdatesSection() {
               onClick={installUpdate}
               disabled={downloading}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors text-white"
-              style={{ backgroundColor: 'var(--accent-color)', borderRadius: 'var(--radius-sm)', opacity: downloading ? 0.7 : 1 }}
+              style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', opacity: downloading ? 0.7 : 1 }}
             >
               <Download aria-hidden="true" className="w-4 h-4" />
               {downloading ? 'Installing...' : 'Install Update'}
