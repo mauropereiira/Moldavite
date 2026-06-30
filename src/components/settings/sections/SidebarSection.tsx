@@ -96,7 +96,7 @@ export function SidebarSection() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1">
-              <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              <label htmlFor="sidebar-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 Sidebar Width
               </label>
               <InfoTooltip text="Width of the left sidebar in pixels. Range: 200px (compact) to 400px (spacious)." />
@@ -106,6 +106,7 @@ export function SidebarSection() {
             </span>
           </div>
           <input
+            id="sidebar-width-range"
             type="range"
             min="200"
             max="400"
@@ -121,7 +122,7 @@ export function SidebarSection() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1">
-                <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                <label htmlFor="right-panel-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   Right Panel Width
                 </label>
                 <InfoTooltip text="Width of the right panel (calendar/timeline) in pixels. Range: 250px to 500px." />
@@ -131,6 +132,7 @@ export function SidebarSection() {
               </span>
             </div>
             <input
+              id="right-panel-width-range"
               type="range"
               min="250"
               max="500"
