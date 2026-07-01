@@ -31,4 +31,11 @@ describe('pluginStore', () => {
     expect(s.isEnabledAndGranted('p', '1.0.0')).toBe(false);
     expect(s.needsGrant('p', '1.0.0')).toBe(true);
   });
+
+  it('revoke forgets the grant entirely', () => {
+    usePluginStore.getState().grant('p', '1.0.0');
+    usePluginStore.getState().revoke('p');
+    expect(usePluginStore.getState().grants.p).toBeUndefined();
+    expect(usePluginStore.getState().needsGrant('p', '1.0.0')).toBe(true);
+  });
 });
