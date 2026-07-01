@@ -1,7 +1,9 @@
 # Moldavite v2 - Project Status
 
-**Last Updated:** June 30, 2026
+**Last Updated:** July 1, 2026
 **Status:** Early Beta - Core MVP Functional
+
+**Recent:** Plugin system v1 shipped — third-party command plugins loaded from the active Forge over a `plugin://` scheme, behind a per-plugin permission sheet, managed in Settings → Plugins. See `docs/PLUGINS.md`. v2 roadmap (fetch/allowlist, context menus, right-panel widgets, forge R/W, stricter isolation) tracked in `docs/PLUGINS_DESIGN.md`.
 
 ---
 

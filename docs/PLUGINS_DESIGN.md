@@ -1,6 +1,6 @@
 # Plugins — Design Sketch (v0)
 
-Status: **design only** — not implemented. This doc records the shape we're aiming for so future work can converge.
+Status: **v1 implemented** — the commands-first subset is shipped; see [PLUGINS.md](PLUGINS.md) for the author guide. This doc remains the rationale / decision log and the v2 roadmap.
 
 ## Goal
 
