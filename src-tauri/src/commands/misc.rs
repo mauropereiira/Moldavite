@@ -246,14 +246,8 @@ pub(crate) fn set_note_color(
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::write(&abs, new_content).map_err(|e| e.to_string())?;
+    crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600))?;
     recent.record(&abs);
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&abs, fs::Permissions::from_mode(0o600));
-    }
 
     Ok(())
 }

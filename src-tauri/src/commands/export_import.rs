@@ -201,16 +201,8 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
             ));
         }
 
-        fs::write(&dest_path, content)
+        crate::persist::write_atomic(&dest_path, &content, Some(0o600))
             .map_err(|e| format!("Failed to write file: {}", e))?;
-
-        // Set restrictive permissions
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let permissions = fs::Permissions::from_mode(0o600);
-            let _ = fs::set_permissions(&dest_path, permissions);
-        }
 
         // Update counts
         match subdir {
@@ -284,16 +276,8 @@ pub(crate) fn export_encrypted_backup(destination: String, password: String) -> 
 
     // Write to destination
     let backup_path = PathBuf::from(&destination);
-    fs::write(&backup_path, backup_content)
+    crate::persist::write_atomic(&backup_path, backup_content.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write backup file: {}", e))?;
-
-    // Set restrictive permissions
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        let _ = fs::set_permissions(&backup_path, permissions);
-    }
 
     Ok(backup_path.to_string_lossy().to_string())
 }
@@ -436,16 +420,8 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
             ));
         }
 
-        fs::write(&dest_path, content)
+        crate::persist::write_atomic(&dest_path, &content, Some(0o600))
             .map_err(|e| format!("Failed to write file: {}", e))?;
-
-        // Set restrictive permissions
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let permissions = fs::Permissions::from_mode(0o600);
-            let _ = fs::set_permissions(&dest_path, permissions);
-        }
 
         // Update counts
         match subdir {
