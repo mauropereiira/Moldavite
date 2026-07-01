@@ -2,9 +2,10 @@
 
 All notable changes to Moldavite are documented here.
 
-## [1.4.0] - 2026-06-30
+## [1.4.0] - 2026-07-01
 
 ### Added
+- **Plugin system (v1)** — third-party plugins can add commands to the command palette and editor slash menu. Plugins live in your Forge under `.plugins/<id>/` (`manifest.json` + `plugin.js`), load over a dedicated `plugin://` scheme (no `eval`), and run behind a per-plugin, per-Forge permission sheet. A curated, permission-enforced `PluginAPI` exposes commands + minimal editor + toasts. Manage them in **Settings → Plugins** (enable/disable, view permissions, uninstall, install the bundled example). Author guide in `docs/PLUGINS.md`. Permissioned-open by design: a granted plugin runs with real access to the Forge — enable only trusted plugins.
 - **"What's New" popup** — after the app updates, a dialog shows the release notes for the new version (sourced from this changelog). Re-openable any time from Settings → About → "What's new in this version". Never shown on a first install.
 - **Release runbook** — `docs/RELEASING.md` documents the full signed/notarized release + self-update process, required secrets, and updater-key rotation.
 - **Version-sync tooling** — `npm run release:version -- X.Y.Z` keeps the version aligned across `package.json`, `tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`.

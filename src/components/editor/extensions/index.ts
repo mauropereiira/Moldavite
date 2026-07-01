@@ -9,7 +9,7 @@ export { TagSuggestion } from './TagSuggestion';
 export { TagSuggestionList } from './TagSuggestionList';
 export type { TagSuggestionListProps, TagSuggestionListRef, TagItem } from './TagSuggestionList';
 export { SlashCommands } from './SlashCommands';
-export { SlashCommandList, slashCommands, filterCommands } from './SlashCommandList';
+export { SlashCommandList, slashCommands, filterCommands, pluginSlashItem } from './SlashCommandList';
 export type { SlashCommandItem, SlashCommandListProps, SlashCommandListRef } from './SlashCommandList';
 export { ResizableImage } from './ResizableImage';
 export type { ImageAlignment } from './ResizableImage';

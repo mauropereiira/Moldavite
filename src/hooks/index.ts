@@ -34,3 +34,4 @@ export { useSidebarTags } from './useSidebarTags';
 export { useSidebarDnd } from './useSidebarDnd';
 export { useForgeWatcher } from './useForgeWatcher';
 export { useFocusTrap } from './useFocusTrap';
+export { usePluginHost } from './usePluginHost';
