@@ -2,6 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+- **Plugin system (v1)** — third-party plugins can add commands to the command palette and editor slash menu. Plugins live in your Forge under `.plugins/<id>/` (`manifest.json` + `plugin.js`), load over a dedicated `plugin://` scheme (no `eval`), and run behind a per-plugin, per-Forge permission sheet. A curated, permission-enforced `PluginAPI` exposes commands + minimal editor + toasts. Manage them in **Settings → Plugins** (enable/disable, view permissions, uninstall, install the bundled example). Author guide in `docs/PLUGINS.md`. Permissioned-open by design: a granted plugin runs with real access to the Forge — enable only trusted plugins.
+
 ## [1.3.1] - 2026-05-02
 
 ### Fixed

@@ -53,6 +53,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Encrypted backups** — Export your entire vault as a password-protected AES-256 archive. Settings can be exported as JSON for cross-device sync.
 
+**Plugins** — add your own commands to the palette and slash menu. Plugins live in your Forge and run behind a per-plugin permission prompt; see [docs/PLUGINS.md](docs/PLUGINS.md).
+
 **Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
 ---
