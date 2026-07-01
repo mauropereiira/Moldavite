@@ -15,6 +15,8 @@ interface PluginState {
   needsGrant: (id: string, version: string) => boolean;
   grant: (id: string, version: string) => void;
   disable: (id: string) => void;
+  /** Forget a plugin's grant entirely (on uninstall) so a re-dropped id must re-consent. */
+  revoke: (id: string) => void;
 }
 
 export const usePluginStore = create<PluginState>()(
@@ -40,6 +42,12 @@ export const usePluginStore = create<PluginState>()(
             [id]: { enabled: false, grantedVersion: s.grants[id]?.grantedVersion ?? '' },
           },
         })),
+      revoke: (id) =>
+        set((s) => {
+          const next = { ...s.grants };
+          delete next[id];
+          return { grants: next };
+        }),
     }),
     {
       name: namespacedKey('moldavite-plugins'),
