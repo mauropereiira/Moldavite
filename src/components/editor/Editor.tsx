@@ -34,6 +34,7 @@ import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
+import { ConfirmDialog } from '@/components/ui';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
 import './extensions/tags.css';
@@ -73,6 +74,11 @@ export function Editor() {
   const noteColorId = getColor(notePath);
   const noteBackgroundColor = getNoteBackgroundColor(noteColorId, isDark);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingLinkCreate, setPendingLinkCreate] = useState<{
+    target: string;
+    noteName: string;
+    isDailyNote: boolean;
+  } | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [showInlineTemplatePicker, setShowInlineTemplatePicker] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -123,33 +129,40 @@ export function Editor() {
       // Load the existing note
       await loadNote(actualNote);
     } else {
-      // Note doesn't exist - ask to create it
+      // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
       const noteName = target.replace('.md', '').replace(/-/g, ' ');
-      const confirmCreate = window.confirm(`Note "${noteName}" doesn't exist. Create it?`);
-
-      if (confirmCreate) {
-        try {
-          // Create the note
-          await invoke('create_note_from_link', { noteName: target.replace('.md', '') });
-
-          // Load the newly created note
-          await loadNote({
-            name: target,
-            path: target,
-            isDaily: isDailyNote,
-            isWeekly: false,
-            date: isDailyNote ? target.replace('.md', '') : undefined,
-            isLocked: false,
-          });
-
-          toast.success(`Created "${noteName}"`);
-        } catch (error) {
-          console.error('[Editor] Failed to create note from wiki link:', error);
-          toast.error('Failed to create note');
-        }
-      }
+      setPendingLinkCreate({ target, noteName, isDailyNote });
     }
-  }, [loadNote, toast]);
+  }, [loadNote]);
+
+  const handleConfirmLinkCreate = useCallback(async () => {
+    const pending = pendingLinkCreate;
+    setPendingLinkCreate(null);
+    if (!pending) return;
+    const { target, noteName, isDailyNote } = pending;
+    try {
+      // Create the note; the backend returns the actual slugged filename.
+      const createdFilename = await invoke<string>('create_note_from_link', {
+        noteName: target.replace('.md', ''),
+      });
+      const filename = createdFilename || target;
+
+      // Load the newly created note
+      await loadNote({
+        name: filename,
+        path: `notes/${filename}`,
+        isDaily: isDailyNote,
+        isWeekly: false,
+        date: isDailyNote ? filename.replace('.md', '') : undefined,
+        isLocked: false,
+      });
+
+      toast.success(`Created "${noteName}"`);
+    } catch (error) {
+      console.error('[Editor] Failed to create note from wiki link:', error);
+      toast.error('Failed to create note');
+    }
+  }, [pendingLinkCreate, loadNote, toast]);
 
   const handleCreateToday = () => {
     const today = new Date();
@@ -876,30 +889,25 @@ export function Editor() {
     <div className="flex flex-col h-full">
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
-          <div className="modal-elevated modal-content-enter p-6 max-w-sm mx-4" style={{ borderRadius: 'var(--radius-md)' }}>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Delete Note
-            </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              Delete this note? This cannot be undone.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleDeleteCancel}
-                className="btn focus-ring"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="btn btn-danger focus-ring"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Delete Note"
+          message="Delete this note? This cannot be undone."
+          confirmLabel="Delete"
+          danger
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
+
+      {/* Wiki-link note creation */}
+      {pendingLinkCreate && (
+        <ConfirmDialog
+          title="Create Note"
+          message={`Note "${pendingLinkCreate.noteName}" doesn't exist. Create it?`}
+          confirmLabel="Create"
+          onConfirm={handleConfirmLinkCreate}
+          onCancel={() => setPendingLinkCreate(null)}
+        />
       )}
 
       {/* Tab bar - only show when there are open tabs */}
