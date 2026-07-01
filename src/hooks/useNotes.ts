@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { useNoteStore, useTemplateStore, useTaskStatusStore } from '@/stores';
+import { useNoteStore, useTemplateStore, useTaskStatusStore, useToastStore } from '@/stores';
 import {
   ensureDirectories,
   listNotes,
@@ -146,9 +146,14 @@ export function useNotes() {
       const dailyNotes = noteFiles.filter(n => n.isDaily && n.date);
       const { setTaskStatus } = useTaskStatusStore.getState();
 
-      // Process daily notes in the background
-      Promise.all(
-        dailyNotes.map(async (noteFile) => {
+      // Process daily notes in the background with capped concurrency —
+      // an uncapped Promise.all fires one IPC read per daily note at once,
+      // which makes cold start degrade linearly with vault age.
+      const queue = [...dailyNotes];
+      const scanNext = async () => {
+        for (;;) {
+          const noteFile = queue.shift();
+          if (!noteFile) return;
           try {
             const rawContent = await readNote(noteFile.name, true, false);
             const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
@@ -159,10 +164,12 @@ export function useNotes() {
           } catch {
             // Silently skip notes that can't be parsed
           }
-        })
-      );
+        }
+      };
+      Promise.all(Array.from({ length: Math.min(8, queue.length) }, scanNext));
     } catch (error) {
       console.error('[useNotes] Failed to initialize:', error);
+      useToastStore.getState().addToast('error', 'Failed to load notes. Check the console for details.');
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +208,8 @@ export function useNotes() {
       openTab(note, inNewTab);
     } catch (error) {
       console.error('[useNotes] Failed to load note:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
     } finally {
       setIsLoading(false);
     }
@@ -393,6 +402,8 @@ export function useNotes() {
       setCurrentNote(note);
     } catch (error) {
       console.error('[useNotes] Failed to create note:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      useToastStore.getState().addToast('error', `Failed to create note: ${msg}`);
     } finally {
       setIsLoading(false);
     }
