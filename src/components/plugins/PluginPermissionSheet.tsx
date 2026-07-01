@@ -135,12 +135,12 @@ export function PluginPermissionSheet({
                   ))}
                 </ul>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Run these from the command palette (⌘K) or by typing / in a note.
+                  Run these from the command palette (⌘P) or by typing / in a note.
                 </p>
               </>
             ) : (
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Enable this plugin to use its commands — they appear in the command palette (⌘K)
+                Enable this plugin to use its commands — they appear in the command palette (⌘P)
                 and the / slash menu.
               </p>
             )}

@@ -1,7 +1,7 @@
 # Building Moldavite Plugins
 
 Moldavite plugins let you add **commands** to the app — they show up in the
-command palette (⌘/Ctrl + K) and the editor slash menu (type `/`). This is the
+command palette (⌘/Ctrl + P) and the editor slash menu (type `/`). This is the
 v1 plugin API; see [the roadmap](#v2-roadmap) for what's coming.
 
 > **Trust model — read this first.** Plugins are **permissioned-open**: a plugin
@@ -18,7 +18,7 @@ v1 plugin API; see [the roadmap](#v2-roadmap) for what's coming.
 2. Add `manifest.json` and `plugin.js` (below).
 3. Open **Settings → Plugins**, find your plugin, and toggle it on (accept the
    permission sheet).
-4. Run your command from the palette (⌘/Ctrl + K) or slash menu (`/`).
+4. Run your command from the palette (⌘/Ctrl + P) or slash menu (`/`).
 
 Or click **Settings → Plugins → Install example plugin** to drop a working
 example (`moldavite-example`) into your Forge and read its source.
@@ -112,7 +112,7 @@ crashes the app.
 ## How commands surface
 
 Every command you register appears in:
-- the **command palette** (⌘/Ctrl + K), under a "Plugins" group, and
+- the **command palette** (⌘/Ctrl + P), under a "Plugins" group, and
 - the **editor slash menu** (type `/`), with a puzzle-piece icon.
 
 Selecting one runs your `handler`.
