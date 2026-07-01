@@ -5,7 +5,7 @@ import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
-import { useAutoLock, useForgeWatcher } from './hooks';
+import { useAutoLock, useForgeWatcher, usePluginHost } from './hooks';
 
 function App() {
   const { theme, preset } = useThemeStore();
@@ -17,6 +17,9 @@ function App() {
 
   // Forge watcher: refresh notes list when files change on disk
   useForgeWatcher();
+
+  // Plugin host: load enabled plugins for the active Forge on startup
+  usePluginHost();
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {
