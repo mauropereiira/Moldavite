@@ -4,6 +4,7 @@
  *
  * Presentational only: the parent owns open state and the grant/disable calls.
  */
+import { createPortal } from 'react-dom';
 import { ShieldAlert, X } from 'lucide-react';
 
 export interface PluginPermissionSheetProps {
@@ -27,9 +28,11 @@ export function PluginPermissionSheet({
   onEnable,
   onClose,
 }: PluginPermissionSheetProps) {
-  return (
+  // Portal to <body> so `position: fixed` centers on the viewport rather than
+  // being contained (and clipped) by the Settings modal's transformed content.
+  return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -147,6 +150,7 @@ export function PluginPermissionSheet({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
