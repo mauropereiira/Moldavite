@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Puzzle, ExternalLink, Trash2, Download, FileCode } from 'lucide-react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
-import { usePluginStore } from '@/stores';
+import { usePluginStore, usePluginCommandStore } from '@/stores';
 import { useToastStore } from '@/stores/toastStore';
 import { safeInvoke } from '@/lib/ipc';
 import { loadEnabledPlugins } from '@/lib/plugins/host';
@@ -24,6 +24,7 @@ export function PluginsSection() {
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
   const { isEnabledAndGranted, needsGrant, grant, disable, revoke } = usePluginStore();
+  const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
 
   const refresh = useCallback(async () => {
@@ -247,6 +248,9 @@ export function PluginsSection() {
         <PluginPermissionSheet
           manifest={sheet.info.manifest}
           permissions={sheet.info.manifest.permissions ?? []}
+          commands={registeredCommands
+            .filter((c) => c.pluginId === sheet.info.manifest.id)
+            .map((c) => ({ id: c.id, label: c.label }))}
           mode={sheet.mode}
           onEnable={confirmGrant}
           onClose={() => setSheet(null)}

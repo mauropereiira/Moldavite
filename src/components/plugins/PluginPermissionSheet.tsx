@@ -10,6 +10,8 @@ import { ShieldAlert, X } from 'lucide-react';
 export interface PluginPermissionSheetProps {
   manifest: { name: string; version: string; author?: string; description?: string };
   permissions: string[];
+  /** Commands this plugin has registered (only known once it's enabled/loaded). */
+  commands?: { id: string; label: string }[];
   mode: 'grant' | 'view';
   onEnable: () => void;
   onClose: () => void;
@@ -24,6 +26,7 @@ const PERMISSION_LABEL: Record<string, string> = {
 export function PluginPermissionSheet({
   manifest,
   permissions,
+  commands = [],
   mode,
   onEnable,
   onClose,
@@ -113,6 +116,35 @@ export function PluginPermissionSheet({
               </ul>
             </div>
           )}
+
+          {/* Commands — how to actually use the plugin. */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+              Commands
+            </p>
+            {commands.length > 0 ? (
+              <>
+                <ul className="space-y-1">
+                  {commands.map((c) => (
+                    <li key={c.id} className="text-sm flex gap-2" style={{ color: 'var(--text-secondary)' }}>
+                      <span aria-hidden="true" style={{ color: 'var(--accent-primary)' }}>
+                        &bull;
+                      </span>
+                      <span>{c.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Run these from the command palette (⌘K) or by typing / in a note.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Enable this plugin to use its commands — they appear in the command palette (⌘K)
+                and the / slash menu.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
