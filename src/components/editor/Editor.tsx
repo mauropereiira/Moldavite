@@ -36,6 +36,7 @@ import './extensions/wiki-links.css';
 import './extensions/tags.css';
 import type { NoteFile } from '@/types';
 import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buildNotePath, useTagStore } from '@/stores';
+import { editorHandle } from '@/stores/editorHandleStore';
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
@@ -704,6 +705,12 @@ export function Editor() {
   // Use a ref to access the latest currentNote without adding it to deps
   const currentNoteRef = React.useRef(currentNote);
   currentNoteRef.current = currentNote;
+
+  // Publish the live editor instance so plugins can insert at the cursor.
+  React.useEffect(() => {
+    editorHandle.setEditor(editor);
+    return () => editorHandle.setEditor(null);
+  }, [editor]);
 
   React.useEffect(() => {
     const note = currentNoteRef.current;
