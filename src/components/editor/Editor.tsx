@@ -9,6 +9,7 @@ import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { safeInvoke as invoke } from '@/lib/ipc';
+import { slugifyNoteName } from '@/lib/fileSystem';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
@@ -111,18 +112,8 @@ export function Editor() {
 
     // If no direct match, try slugified match (for targets like "test-1.md")
     if (!actualNote) {
-      actualNote = currentNotes.find(n => {
-        const slugified = n.name
-          .toLowerCase()
-          .replace(/\.md$/, '')
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '');
-        const targetSlug = target
-          .toLowerCase()
-          .replace(/\.md$/, '');
-
-        return slugified === targetSlug;
-      });
+      const targetSlug = slugifyNoteName(target);
+      actualNote = currentNotes.find(n => slugifyNoteName(n.name) === targetSlug);
     }
 
     const noteExists = !!actualNote;
@@ -780,17 +771,15 @@ export function Editor() {
       if (!isMountedRef.current || !editor || editor.isDestroyed) return;
 
       const currentNotes = notesRef.current;
-      const slugify = (s: string) =>
-        s.toLowerCase().replace(/\.md$/, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
       const updates: Array<{ pos: number; exists: string }> = [];
       editor.state.doc.descendants((node, pos) => {
         if (node.type.name !== 'wikiLink') return;
         const target = (node.attrs['data-target'] || '') as string;
         if (!target) return;
-        const targetSlug = slugify(target);
+        const targetSlug = slugifyNoteName(target);
         const found = currentNotes.some(
-          (n) => n.name === target || slugify(n.name) === targetSlug,
+          (n) => n.name === target || slugifyNoteName(n.name) === targetSlug,
         );
         const nextExists = found ? 'true' : 'false';
         if (node.attrs['data-exists'] !== nextExists) {
