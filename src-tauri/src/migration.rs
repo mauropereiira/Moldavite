@@ -176,7 +176,7 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
             continue;
         }
         let new_content = frontmatter::write_with_color(&existing, Some(color), &parsed.body);
-        if let Err(e) = fs::write(&abs, new_content) {
+        if let Err(e) = crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600)) {
             log::warn!("[forge migration] write failed for {}: {}", note_path, e);
             continue;
         }

@@ -82,7 +82,7 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
     };
 
     let json = serde_json::to_string_pretty(&template).map_err(|e| e.to_string())?;
-    fs::write(&template_path, json).map_err(|e| e.to_string())?;
+    crate::persist::write_atomic(&template_path, json.as_bytes(), Some(0o600))?;
 
     Ok(template)
 }
@@ -112,7 +112,7 @@ pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Te
     };
 
     let json = serde_json::to_string_pretty(&template).map_err(|e| e.to_string())?;
-    fs::write(&template_path, json).map_err(|e| e.to_string())?;
+    crate::persist::write_atomic(&template_path, json.as_bytes(), Some(0o600))?;
 
     Ok(template)
 }
@@ -163,15 +163,7 @@ pub(crate) fn create_note_from_template(
     let template = get_template(template_id)?;
     let content = replace_template_variables(template.content);
 
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
+    crate::persist::write_atomic(&path, content.as_bytes(), Some(0o600))?;
 
     Ok(())
 }

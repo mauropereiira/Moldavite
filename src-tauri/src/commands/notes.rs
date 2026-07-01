@@ -12,7 +12,7 @@ use crate::frontmatter;
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
 };
-use crate::persist::generate_unique_filename;
+use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead};
 use crate::validation::is_safe_filename;
 
@@ -272,16 +272,8 @@ pub(crate) fn write_note(
         &content,
     );
 
-    fs::write(&path, &serialized).map_err(|e| e.to_string())?;
+    write_atomic(&path, serialized.as_bytes(), Some(0o600))?;
     recent.record(&path);
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
 
     // The backlinks index only cares about the body, not frontmatter.
     index.update_note(&filename, &content);
@@ -349,15 +341,7 @@ pub(crate) fn create_note(
     let filename = generate_unique_filename(&dir, &title, "md");
     let path = dir.join(&filename);
 
-    fs::write(&path, "").map_err(|e| e.to_string())?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
+    write_atomic(&path, b"", Some(0o600))?;
 
     index.update_note(&filename, "");
 
@@ -403,15 +387,7 @@ pub(crate) fn duplicate_note(
     let new_path = dir.join(&new_filename);
 
     // Write content to new file
-    fs::write(&new_path, &content).map_err(|e| e.to_string())?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&new_path, permissions).map_err(|e| e.to_string())?;
-    }
+    write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
     index.update_note(&new_filename, &content);
 
@@ -464,7 +440,7 @@ pub(crate) fn export_single_note(
     if !ext_ok {
         return Err("Destination must have a .md, .markdown, or .txt extension".to_string());
     }
-    fs::write(dest_path, &content).map_err(|e| e.to_string())?;
+    write_atomic(dest_path, content.as_bytes(), None)?;
 
     Ok(destination)
 }
