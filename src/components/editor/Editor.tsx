@@ -27,7 +27,8 @@ import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
 import { ImageToolbar } from './ImageToolbar';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
-import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList, SlashCommands, SlashCommandList, filterCommands } from './extensions';
+import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList, SlashCommands, SlashCommandList, filterCommands, pluginSlashItem } from './extensions';
+import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
@@ -509,7 +510,12 @@ export function Editor() {
           allowSpaces: false,
           startOfLine: true,
           items: ({ query }: { query: string }) => {
-            return filterCommands(query);
+            const q = query.toLowerCase();
+            const pluginItems = usePluginCommandStore
+              .getState()
+              .commands.map(pluginSlashItem)
+              .filter((i) => !q || i.title.toLowerCase().includes(q));
+            return [...filterCommands(query), ...pluginItems];
           },
           render: () => {
             let component: ReactRenderer | null = null;

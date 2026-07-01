@@ -25,8 +25,10 @@ import { useNotes } from '@/hooks/useNotes';
 import {
   filterCommands,
   commandCategoryLabel,
+  QUICK_SWITCHER_COMMANDS,
   type QuickSwitcherCommand,
 } from './commands';
+import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import type { NoteFile } from '@/types';
 
 /**
@@ -295,10 +297,23 @@ export function QuickSwitcher() {
    * headers between groups. Rows are kept flat so up/down navigation is a
    * trivial index walk.
    */
+  const pluginCommands = usePluginCommandStore((s) => s.commands);
+
   const { rows, headers } = useMemo(() => {
     const rows: Row[] = [];
     /** Map from row index → header to render BEFORE that row. */
     const headers = new Map<number, { label: string; icon?: React.ReactNode }>();
+
+    // Built-in actions + live plugin commands, matched by the same filter.
+    const commandCatalog: QuickSwitcherCommand[] = [
+      ...QUICK_SWITCHER_COMMANDS,
+      ...pluginCommands.map((c) => ({
+        id: c.id,
+        title: c.label,
+        category: 'plugins' as const,
+        keywords: ['plugin'],
+      })),
+    ];
 
     const noteByPath = new Map(notes.map((n) => [n.path, n] as const));
     const trimmed = query.trim();
@@ -359,7 +374,7 @@ export function QuickSwitcher() {
       }
 
       // Quick actions catalog (full list, in canonical order).
-      const allCommands = filterCommands('');
+      const allCommands = filterCommands('', commandCatalog);
       if (allCommands.length > 0) {
         headers.set(rows.length, {
           label: 'Quick actions',
@@ -398,7 +413,7 @@ export function QuickSwitcher() {
         });
       }
 
-      const commandMatches = filterCommands(trimmed);
+      const commandMatches = filterCommands(trimmed, commandCatalog);
       if (commandMatches.length > 0) {
         headers.set(rows.length, {
           label: 'Actions',
@@ -415,7 +430,7 @@ export function QuickSwitcher() {
     }
 
     return { rows, headers };
-  }, [query, notes, recentNoteIds, recentSearches, pinnedNoteIds]);
+  }, [query, notes, recentNoteIds, recentSearches, pinnedNoteIds, pluginCommands]);
 
   // Reset selection when the visible result set changes.
   useEffect(() => {
@@ -475,7 +490,8 @@ export function QuickSwitcher() {
           openGraph();
           return;
         default:
-          console.warn('[QuickSwitcher] unknown command', id);
+          // Plugin-registered commands (namespaced `pluginId:localId`).
+          void usePluginCommandStore.getState().execute(id);
       }
     },
     [

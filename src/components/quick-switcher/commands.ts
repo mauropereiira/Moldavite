@@ -12,7 +12,8 @@ export type QuickSwitcherCommandCategory =
   | 'view'
   | 'preferences'
   | 'help'
-  | 'system';
+  | 'system'
+  | 'plugins';
 
 export interface QuickSwitcherCommand {
   id: string;
@@ -94,6 +95,7 @@ const CATEGORY_LABEL: Record<QuickSwitcherCommandCategory, string> = {
   preferences: 'Preferences',
   help: 'Help',
   system: 'System',
+  plugins: 'Plugins',
 };
 
 export function commandCategoryLabel(
