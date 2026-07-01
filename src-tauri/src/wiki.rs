@@ -66,6 +66,42 @@ pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
     Ok((false, filename))
 }
 
+/// Rewrite wiki-link targets that resolve to `old_stem` (a filename without
+/// the `.md` extension) so they point at `new_stem` instead. Display text in
+/// `[[Display|target]]` links is left untouched. Returns `Some(rewritten)`
+/// when at least one link changed, `None` when the content is untouched.
+pub(crate) fn rewrite_links_for_rename(
+    content: &str,
+    old_stem: &str,
+    new_stem: &str,
+) -> Option<String> {
+    let old_slug = note_name_to_filename(old_stem);
+    let mut changed = false;
+    let result = WIKI_LINK_REGEX.replace_all(content, |caps: &regex::Captures| {
+        let display = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        let target = caps.get(2).map(|m| m.as_str());
+        let effective = target.unwrap_or(display).trim();
+        // A link matches if it names the old file directly or slugifies to it,
+        // mirroring how links are resolved when clicked.
+        let matches = !effective.is_empty()
+            && (effective == old_stem || note_name_to_filename(effective) == old_slug);
+        if matches {
+            changed = true;
+            match target {
+                Some(_) => format!("[[{}|{}]]", display, new_stem),
+                None => format!("[[{}]]", new_stem),
+            }
+        } else {
+            caps.get(0).map(|m| m.as_str().to_string()).unwrap_or_default()
+        }
+    });
+    if changed {
+        Some(result.into_owned())
+    } else {
+        None
+    }
+}
+
 pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
     // Try both with and without pipe syntax
     let search_patterns = vec![
@@ -150,6 +186,39 @@ mod tests {
         assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
         // Special chars stripped; spaces become hyphens.
         assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+    }
+
+    #[test]
+    fn rewrite_links_updates_plain_links_matching_by_slug() {
+        let content = "See [[Meeting Notes]] and [[Other]].";
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        assert_eq!(out, "See [[q3-planning]] and [[Other]].");
+    }
+
+    #[test]
+    fn rewrite_links_updates_exact_stem_matches() {
+        let content = "Daily ref [[2026-07-01]] here.";
+        let out = rewrite_links_for_rename(content, "2026-07-01", "2026-07-02").unwrap();
+        assert_eq!(out, "Daily ref [[2026-07-02]] here.");
+    }
+
+    #[test]
+    fn rewrite_links_preserves_display_text_in_piped_links() {
+        let content = "Check [[the plan|meeting-notes]] now.";
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        assert_eq!(out, "Check [[the plan|q3-planning]] now.");
+    }
+
+    #[test]
+    fn rewrite_links_returns_none_when_nothing_matches() {
+        assert!(rewrite_links_for_rename("See [[Unrelated]].", "meeting-notes", "x").is_none());
+        assert!(rewrite_links_for_rename("no links", "meeting-notes", "x").is_none());
+    }
+
+    #[test]
+    fn rewrite_links_does_not_touch_other_slugs_sharing_a_prefix() {
+        let content = "See [[meeting-notes-archive]].";
+        assert!(rewrite_links_for_rename(content, "meeting-notes", "x").is_none());
     }
 
     #[test]
