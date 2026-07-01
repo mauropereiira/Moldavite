@@ -41,7 +41,7 @@ async function loadOne(info: PluginInfo): Promise<void> {
     if (typeof register !== 'function') {
       throw new Error('plugin.js has no default export function');
     }
-    await register(buildPluginAPI(id));
+    await register(buildPluginAPI(id, info.manifest.permissions ?? []));
   } catch (err) {
     console.error(`[plugin:${id}] failed to load:`, err);
   }
