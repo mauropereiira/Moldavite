@@ -31,13 +31,22 @@ pub(crate) fn parse_wiki_links(content: &str) -> Vec<String> {
 }
 
 pub(crate) fn note_name_to_filename(note_name: &str) -> String {
-    // Convert "Meeting Notes" -> "meeting-notes.md"
-    let slug = note_name
+    // Convert "Meeting Notes" -> "meeting-notes.md". Unicode-aware and NFC-
+    // normalized so "Café" keeps its accent and resolves identically in the
+    // frontend (which applies the same rule in slugifyNoteName).
+    use unicode_normalization::UnicodeNormalization;
+    let normalized: String = note_name.nfc().collect();
+    let slug = normalized
         .to_lowercase()
         .trim()
-        .replace(' ', "-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
         .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
 
+    if slug.is_empty() {
+        return "untitled.md".to_string();
+    }
     format!("{}.md", slug)
 }
 
@@ -186,6 +195,21 @@ mod tests {
         assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
         // Special chars stripped; spaces become hyphens.
         assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+    }
+
+    #[test]
+    fn note_name_to_filename_preserves_unicode() {
+        // Accents survive (no more Café/Cafe collision) and NFC-normalization
+        // makes decomposed input equal to precomposed.
+        assert_eq!(note_name_to_filename("Café"), "café.md");
+        assert_eq!(note_name_to_filename("Cafe\u{0301}"), "café.md");
+        assert_eq!(note_name_to_filename("日本語ノート"), "日本語ノート.md");
+    }
+
+    #[test]
+    fn note_name_to_filename_falls_back_when_slug_is_empty() {
+        assert_eq!(note_name_to_filename("!!!"), "untitled.md");
+        assert_eq!(note_name_to_filename("   "), "untitled.md");
     }
 
     #[test]

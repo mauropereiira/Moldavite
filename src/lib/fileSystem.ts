@@ -260,16 +260,30 @@ export function parseWikiLinks(markdown: string): Array<{text: string, target: s
 }
 
 /**
+ * Slugifies a note name (or filename) for wiki-link resolution. Unicode-aware
+ * and NFC-normalized so "Café" keeps its accent — this MUST stay in sync with
+ * note_name_to_filename in src-tauri/src/wiki.rs, which applies the same rule.
+ * @param name - The human-readable note name, with or without .md extension
+ * @returns The slug without extension (e.g. "meeting-notes")
+ */
+export function slugifyNoteName(name: string): string {
+  const slug = name
+    .normalize('NFC')
+    .replace(/\.md$/, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{Alphabetic}\p{N}-]/gu, '');
+  return slug === '' ? 'untitled' : slug;
+}
+
+/**
  * Converts a note name to a valid filename with lowercase and hyphens.
  * @param noteName - The human-readable note name
  * @returns Sanitized filename with .md extension
  */
 export function noteNameToFilename(noteName: string): string {
-  return noteName
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '') + '.md';
+  return slugifyNoteName(noteName) + '.md';
 }
 
 /**
