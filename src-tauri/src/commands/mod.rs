@@ -8,6 +8,7 @@ pub mod graph;
 pub mod locking;
 pub mod misc;
 pub mod notes;
+pub mod plugins;
 pub mod search;
 pub mod templates;
 pub mod trash;

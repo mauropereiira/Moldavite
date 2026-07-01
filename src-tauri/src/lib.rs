@@ -72,6 +72,7 @@ use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
     fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
 };
+use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
 use commands::search::search_notes_content;
 use commands::templates::{
     apply_template, create_note_from_template, delete_template, get_template, list_templates,
@@ -134,6 +135,41 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
+        .register_uri_scheme_protocol("plugin", |_ctx, request| {
+            use tauri::http::{header, Response, StatusCode};
+            // URI shape: plugin://localhost/<id>/<relative-path>
+            let trimmed = request.uri().path().trim_start_matches('/');
+            let mut parts = trimmed.splitn(2, '/');
+            let id = parts.next().unwrap_or("");
+            let rel = parts.next().unwrap_or("");
+            let not_found = || {
+                Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                    .body(Vec::new())
+                    .unwrap()
+            };
+            match crate::commands::plugins::resolve_plugin_file(id, rel) {
+                Some(path) => match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                        let content_type = match ext {
+                            "js" | "mjs" => "text/javascript",
+                            "json" => "application/json",
+                            "css" => "text/css",
+                            _ => "application/octet-stream",
+                        };
+                        Response::builder()
+                            .header(header::CONTENT_TYPE, content_type)
+                            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                            .body(bytes)
+                            .unwrap()
+                    }
+                    Err(_) => not_found(),
+                },
+                None => not_found(),
+            }
+        })
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .setup(move |app| {
@@ -185,6 +221,10 @@ pub fn run() {
             export_single_note,
             rename_note,
             clear_all_notes,
+            // Plugin system commands
+            list_plugins,
+            uninstall_plugin,
+            install_example_plugin,
             // Folder system commands
             list_folders,
             create_folder,
