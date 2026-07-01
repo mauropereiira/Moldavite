@@ -37,6 +37,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Keep the bundled CHANGELOG.md (?raw) out of the main app chunk —
+          // it's release-notes content, not app code, and grows every release.
+          if (id.includes('CHANGELOG.md')) return 'changelog';
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('@tiptap') || id.includes('prosemirror')) return 'tiptap-vendor';
           if (

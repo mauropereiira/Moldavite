@@ -2,6 +2,21 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.4.0] - 2026-06-30
+
+### Added
+- **"What's New" popup** — after the app updates, a dialog shows the release notes for the new version (sourced from this changelog). Re-openable any time from Settings → About → "What's new in this version". Never shown on a first install.
+- **Release runbook** — `docs/RELEASING.md` documents the full signed/notarized release + self-update process, required secrets, and updater-key rotation.
+- **Version-sync tooling** — `npm run release:version -- X.Y.Z` keeps the version aligned across `package.json`, `tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`.
+
+### Fixed
+- **Settings info tooltips** — the (i) popovers are now rendered through a portal with viewport-aware positioning, so they no longer get clipped off-screen, collapse into a narrow column, or snap the settings panel back to the top of the section when you scroll.
+- **Update UI accent color** — the "Install Update" button, update banner, download progress bar, and selected template cards referenced an undefined CSS variable (`--accent-color`) and rendered without their accent color. They now use the real `--accent-primary` token.
+
+### Changed
+- **Settings modal accessibility** — focus is trapped inside the modal while open (initial focus, Tab cycling, focus restore on close), and the sidebar-width range sliders are now associated with their labels.
+- **Release notes in GitHub Releases** — the release body is now the matching `CHANGELOG.md` section instead of a generic link, matching the in-app "What's New" content.
+
 ## [1.3.1] - 2026-05-02
 
 ### Fixed

@@ -30,6 +30,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database, Puzzle } from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
@@ -63,6 +64,8 @@ export function SettingsModal() {
     data: null,
     about: null,
   });
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(dialogRef, settingsStore.isSettingsOpen);
 
   // Template handlers for SettingsTemplates
   const handleDeleteTemplate = async (id: string) => {
@@ -160,6 +163,8 @@ export function SettingsModal() {
       onClick={handleBackdropClick}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter"
         style={{ borderRadius: 'var(--radius-md)' }}
         role="dialog"
@@ -247,7 +252,6 @@ export function SettingsModal() {
             id={tabPanelId(activeTab)}
             role="tabpanel"
             aria-labelledby={tabButtonId(activeTab)}
-            tabIndex={0}
             className="flex-1 overflow-y-auto p-6 min-w-0"
           >
             <div key={activeTab} className="tab-content-enter">

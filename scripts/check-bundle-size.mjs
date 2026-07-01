@@ -21,6 +21,9 @@ const BUDGETS = [
   { pattern: /^markdown-vendor-.*\.js$/, rawKb: 180, gzipKb: 75 },
   { pattern: /^date-vendor-.*\.js$/, rawKb: 60, gzipKb: 15 },
   { pattern: /^html2pdf-.*\.js$/, rawKb: 1100, gzipKb: 320 },
+  // The bundled CHANGELOG.md (?raw) lives in its own chunk so release-notes
+  // content doesn't count against the app-code budget and can grow per release.
+  { pattern: /^changelog-.*\.js$/, rawKb: 32, gzipKb: 10 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
 ];
 

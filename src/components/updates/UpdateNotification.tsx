@@ -40,11 +40,11 @@ export function UpdateNotification() {
           className="flex items-center justify-between px-4 py-3"
           style={{
             backgroundColor: 'var(--accent-subtle)',
-            borderBottom: '1px solid var(--accent-color)',
+            borderBottom: '1px solid var(--accent-primary)',
           }}
         >
           <div className="flex items-center gap-2">
-            <Download className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
+            <Download className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Update Available
             </span>
@@ -78,7 +78,7 @@ export function UpdateNotification() {
               >
                 <div
                   className="h-full transition-all duration-300"
-                  style={{ width: `${progress}%`, backgroundColor: 'var(--accent-color)' }}
+                  style={{ width: `${progress}%`, backgroundColor: 'var(--accent-primary)' }}
                 />
               </div>
               <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-tertiary)' }}>
@@ -94,7 +94,7 @@ export function UpdateNotification() {
               disabled={downloading}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded transition-colors text-white"
               style={{
-                backgroundColor: 'var(--accent-color)',
+                backgroundColor: 'var(--accent-primary)',
                 opacity: downloading ? 0.7 : 1,
               }}
             >

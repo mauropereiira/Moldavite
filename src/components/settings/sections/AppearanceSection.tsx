@@ -206,7 +206,7 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            <label htmlFor="appearance-sidebar-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               Sidebar Width
             </label>
             <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
@@ -214,6 +214,7 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
             </span>
           </div>
           <input
+            id="appearance-sidebar-width-range"
             type="range"
             min="200"
             max="400"
