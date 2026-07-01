@@ -480,7 +480,51 @@ pub(crate) fn rename_note(
     let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
     index.rename_note(&old_filename, &new_filename, &content_after_rename);
 
+    // A rename must not break inbound [[links]]: rewrite targets that
+    // resolved to the old name in every other note.
+    let old_stem = old_filename.trim_end_matches(".md");
+    let new_stem = new_filename.trim_end_matches(".md");
+    rewrite_inbound_links(old_stem, new_stem, &index);
+
     Ok(())
+}
+
+/// Rewrite `[[old]]` links across the whole vault after a note rename.
+/// Failures on individual files are logged and skipped so one unreadable
+/// note doesn't abort the rename that already happened.
+fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIndex>) {
+    for root in [get_daily_dir(), get_weekly_dir(), get_standalone_dir()] {
+        if !root.exists() {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(&root)
+            .into_iter()
+            .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+            .flatten()
+        {
+            let path = entry.path();
+            if !entry.file_type().is_file()
+                || path.extension().and_then(|s| s.to_str()) != Some("md")
+            {
+                continue;
+            }
+            let Ok(raw) = fs::read_to_string(path) else {
+                continue;
+            };
+            let Some(rewritten) = crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem)
+            else {
+                continue;
+            };
+            if let Err(e) = write_atomic(path, rewritten.as_bytes(), Some(0o600)) {
+                log::warn!("rename: failed to rewrite links in {:?}: {}", path, e);
+                continue;
+            }
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                let body = crate::frontmatter::parse_note(&rewritten).body;
+                index.update_note(name, &body);
+            }
+        }
+    }
 }
 
 #[tauri::command]
