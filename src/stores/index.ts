@@ -13,6 +13,7 @@
  * - `useTemplateStore` - Template management
  * - `useNoteColorsStore` - Note color assignments
  * - `useUpdateStore` - App update state
+ * - `useWhatsNewStore` - "What's New" release-notes popup state
  * - `useFolderStore` - Folder navigation state
  * - `useTrashStore` - Trash/recycle bin state
  * - `useTagStore` - Tag management state
@@ -36,6 +37,7 @@ export { useCalendarStore } from './calendarStore';
 export { useTemplateStore } from './templateStore';
 export { useNoteColorsStore, buildNotePath } from './noteColorsStore';
 export { useUpdateStore } from './updateStore';
+export { useWhatsNewStore } from './whatsNewStore';
 export { useFolderStore } from './folderStore';
 export { useTrashStore } from './trashStore';
 export { useTagStore } from './tagStore';
