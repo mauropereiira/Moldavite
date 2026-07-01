@@ -8,7 +8,7 @@ plugin API. Use it as a starting point for your own plugin.
 - **Insert timestamp** — inserts the current date/time (ISO 8601) at the cursor.
 - **Word count** — shows a toast with the number of words in the active note.
 
-Both commands appear in the command palette (⌘/Ctrl+K) and the editor slash
+Both commands appear in the command palette (⌘/Ctrl+P) and the editor slash
 menu (type `/`) once the plugin is enabled.
 
 ## How it works
