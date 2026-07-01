@@ -3,7 +3,7 @@ import { Link2, FileText, Calendar } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { NoBacklinksEmptyState } from '@/components/ui';
 import { useNoteStore } from '@/stores';
-import { findBacklinks, readNote, type BacklinkInfo } from '@/lib';
+import { findBacklinks, readNote, noteFileBackendPath, type BacklinkInfo } from '@/lib';
 import type { NoteFile } from '@/types';
 
 interface BacklinksSectionProps {
@@ -45,7 +45,7 @@ export function BacklinksSection({
         if (note.isLocked) continue;
 
         try {
-          const content = await readNote(note.name, note.isDaily || false);
+          const content = await readNote(noteFileBackendPath(note), note.isDaily || false);
           contents.set(note.path, content);
         } catch {
           // Skip notes we can't read

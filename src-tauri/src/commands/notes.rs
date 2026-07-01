@@ -14,7 +14,26 @@ use crate::paths::{
 };
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead};
-use crate::validation::is_safe_filename;
+use crate::validation::{is_safe_filename, is_safe_note_path};
+
+/// Standalone notes may live in folders and are addressed by a notes/-relative
+/// path; daily and weekly notes are always addressed by a bare filename.
+fn is_valid_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
+    if is_daily || is_weekly {
+        is_safe_filename(filename)
+    } else {
+        is_safe_note_path(filename)
+    }
+}
+
+/// The backlinks index is keyed by bare filename, so folder-relative refs
+/// must be reduced to their final component before touching the index.
+fn index_key(filename: &str) -> String {
+    Path::new(filename)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| filename.to_string())
+}
 
 // Helper function to recursively scan notes in a directory
 pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut Vec<NoteFile>) {
@@ -197,8 +216,8 @@ pub(crate) fn read_note(
     is_daily: bool,
     is_weekly: bool,
 ) -> Result<NoteRead, String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -237,8 +256,8 @@ pub(crate) fn write_note(
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<(), String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -276,7 +295,7 @@ pub(crate) fn write_note(
     recent.record(&path);
 
     // The backlinks index only cares about the body, not frontmatter.
-    index.update_note(&filename, &content);
+    index.update_note(&index_key(&filename), &content);
 
     Ok(())
 }
@@ -288,8 +307,8 @@ pub(crate) fn delete_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -306,7 +325,7 @@ pub(crate) fn delete_note(
     if path.exists() {
         fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
-    index.remove_note(&filename);
+    index.remove_note(&index_key(&filename));
     Ok(())
 }
 
@@ -359,7 +378,7 @@ pub(crate) fn duplicate_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    if !is_safe_filename(&filename) {
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
     // Determine source directory
@@ -389,7 +408,7 @@ pub(crate) fn duplicate_note(
     // Write content to new file
     write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
-    index.update_note(&new_filename, &content);
+    index.update_note(&index_key(&new_filename), &content);
 
     Ok(new_filename)
 }

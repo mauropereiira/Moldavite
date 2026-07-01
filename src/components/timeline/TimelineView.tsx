@@ -4,7 +4,7 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useNoteStore, useTimelineStore } from '@/stores';
 import { useNotes } from '@/hooks';
-import { readNote } from '@/lib';
+import { readNote, noteFileBackendPath } from '@/lib';
 import type { CalendarEvent, CalendarPermission, NoteFile } from '@/types';
 
 type BucketId = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'earlier';
@@ -100,7 +100,7 @@ export function TimelineView() {
       const next = new Map<string, string>();
       for (const note of visible) {
         try {
-          const raw = await readNote(note.name, note.isDaily, note.isWeekly);
+          const raw = await readNote(noteFileBackendPath(note), note.isDaily, note.isWeekly);
           next.set(note.path, stripForPreview(raw));
         } catch {
           // skip unreadable notes
