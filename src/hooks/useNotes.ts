@@ -16,6 +16,7 @@ import {
   isHtmlContent,
   isContentEmpty,
   parseTaskStatus,
+  noteFileBackendPath,
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
@@ -54,7 +55,9 @@ export function useNotes() {
     } else if (note.isWeekly && note.week) {
       filename = `${note.week}.md`;
     } else {
-      filename = `${note.title}.md`;
+      // Address the note by its on-disk path (folder included); the display
+      // title can diverge from the filename and must never decide where we save.
+      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
     }
 
     const isEmpty = isContentEmpty(note.content);
@@ -177,7 +180,7 @@ export function useNotes() {
       await flushCurrentNote();
 
       setIsLoading(true);
-      const rawContent = await readNote(noteFile.name, noteFile.isDaily, noteFile.isWeekly || false);
+      const rawContent = await readNote(noteFileBackendPath(noteFile), noteFile.isDaily, noteFile.isWeekly || false);
 
       // Convert Markdown to HTML for the editor
       // Check if content is already HTML (backwards compatibility with old format)
@@ -459,21 +462,22 @@ export function useNotes() {
       setIsLoading(true);
       // Flush current note first to ensure all content is saved to disk
       await flushCurrentNote();
+      // Backend addresses standalone notes by folder-relative path and echoes
+      // the same shape back (e.g. "Projects/foo (copy).md").
       const newFilename = await invoke<string>('duplicate_note', {
-        filename: sourceNote.name,
+        filename: noteFileBackendPath(sourceNote),
         isDaily: sourceNote.isDaily || false,
         isWeekly: sourceNote.isWeekly || false,
       });
+      const bareName = newFilename.split('/').pop() || newFilename;
 
       // Create note file object for the duplicate
       const noteFile: NoteFile = {
-        name: newFilename,
+        name: bareName,
         path: sourceNote.isDaily
           ? `daily/${newFilename}`
           : sourceNote.isWeekly
           ? `weekly/${newFilename}`
-          : sourceNote.folderPath
-          ? `notes/${sourceNote.folderPath}/${newFilename}`
           : `notes/${newFilename}`,
         isDaily: sourceNote.isDaily || false,
         isWeekly: sourceNote.isWeekly || false,
@@ -513,7 +517,9 @@ export function useNotes() {
     } else if (note.isWeekly && note.week) {
       filename = `${note.week}.md`;
     } else {
-      filename = `${note.title}.md`;
+      // Delete by on-disk path, never by display title — a diverged title
+      // would delete the wrong file.
+      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
     }
 
     try {

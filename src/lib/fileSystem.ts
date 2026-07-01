@@ -496,6 +496,15 @@ export interface NoteReadResult {
  * @param isWeekly - Whether this is a weekly note
  * @returns Parsed body plus any color from frontmatter
  */
+/**
+ * Backend note commands address standalone notes by their path relative to
+ * the notes/ directory (folder included); daily and weekly notes use a bare
+ * filename. Passing `note.name` alone breaks for notes inside folders.
+ */
+export function noteFileBackendPath(note: Pick<NoteFile, 'name' | 'folderPath'>): string {
+  return note.folderPath ? `${note.folderPath}/${note.name}` : note.name;
+}
+
 export async function readNote(
   filename: string,
   isDaily: boolean,

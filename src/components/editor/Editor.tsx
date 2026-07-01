@@ -10,6 +10,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { slugifyNoteName } from '@/lib/fileSystem';
+import { isContentEmpty } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
@@ -174,15 +175,8 @@ export function Editor() {
   // Check if note is empty and show template picker
   useEffect(() => {
     if (currentNote) {
-      const content = currentNote.content || '';
-      // Check if content is empty (handle TipTap's empty HTML)
-      // Also check for images - if there's an img tag, the note has content
-      const hasImages = /<img\s/i.test(content);
-      const textOnly = content
-        .replace(/<[^>]*>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .trim();
-      setShowInlineTemplatePicker(textOnly === '' && !hasImages);
+      // Shared emptiness rule: media-only notes count as content.
+      setShowInlineTemplatePicker(isContentEmpty(currentNote.content || ''));
     } else {
       setShowInlineTemplatePicker(false);
     }
