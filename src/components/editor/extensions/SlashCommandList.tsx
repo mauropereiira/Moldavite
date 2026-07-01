@@ -10,6 +10,7 @@ import {
   Code,
   Minus,
   Image,
+  Puzzle,
   type LucideIcon,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -156,6 +157,27 @@ export function filterCommands(query: string): SlashCommandItem[] {
     const keywordMatch = item.keywords?.some((k) => k.includes(lowerQuery));
     return titleMatch || descMatch || keywordMatch;
   });
+}
+
+/**
+ * Adapt a registered plugin command into a slash-menu item. Runs the plugin
+ * handler (which manages its own editor access via the PluginAPI); the editor
+ * arg is ignored so plugin commands stay decoupled from the editor instance.
+ */
+export function pluginSlashItem(entry: {
+  id: string;
+  label: string;
+  handler: () => void | Promise<void>;
+}): SlashCommandItem {
+  return {
+    title: entry.label,
+    description: 'Plugin command',
+    icon: Puzzle,
+    command: () => {
+      void entry.handler();
+    },
+    keywords: ['plugin'],
+  };
 }
 
 export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
