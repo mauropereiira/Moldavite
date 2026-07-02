@@ -51,7 +51,11 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Trash with previews** — Deleted notes sit in a sidebar popover for 7 days with read-only previews before permanent delete.
 
+**Note locking** — Encrypt individual notes with a password (AES-256-GCM + Argon2). Locked notes stay encrypted on disk and auto-relock.
+
 **Encrypted backups** — Export your entire vault as a password-protected AES-256 archive. Settings can be exported as JSON for cross-device sync.
+
+**Crash-safe by design** — Every save is atomic (write + flush + rename), so a crash or full disk can never truncate a note. Files are owner-readable only.
 
 **Automatic updates** — Moldavite checks for new versions and updates in place. After updating, a "What's New" popup summarizes the changes.
 

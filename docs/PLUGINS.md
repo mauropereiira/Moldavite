@@ -5,11 +5,15 @@ command palette (⌘/Ctrl + P) and the editor slash menu (type `/`). This is the
 v1 plugin API; see [the roadmap](#v2-roadmap) for what's coming.
 
 > **Trust model — read this first.** Plugins are **permissioned-open**: a plugin
-> you enable runs real JavaScript inside Moldavite with the same access the app
-> has. The manifest's `permissions` gate the *curated* `PluginAPI`, but a plugin
-> is **not sandboxed** — it can reach app internals directly. **Only install and
-> enable plugins you trust.** Moldavite shows a permission sheet before enabling
-> any plugin and re-asks when a plugin's version changes.
+> you enable runs real JavaScript inside Moldavite. The manifest's `permissions`
+> gate the *curated* `PluginAPI`, but a plugin is **not fully sandboxed** — it
+> runs in the app's webview and can reach the DOM and app internals. **Only
+> install and enable plugins you trust.** Moldavite shows a permission sheet
+> before enabling any plugin, and your consent is **pinned to the plugin's
+> content**: a SHA-256 hash of `manifest.json` + `plugin.js` is recorded at
+> grant time, so *any* change to the plugin's code — not just a version bump —
+> re-triggers the permission sheet before it runs again. The raw Tauri IPC
+> bridge (`window.__TAURI__`) is not exposed to the webview.
 
 ## Quick start
 
@@ -51,7 +55,7 @@ example (`moldavite-example`) into your Forge and read its source.
 |-------|----------|-------|
 | `id` | yes | Must equal the folder name; `^[a-z0-9][a-z0-9-]*$`. |
 | `name` | yes | Display name. |
-| `version` | yes | Semver. Changing it re-triggers the permission sheet. |
+| `version` | yes | Semver. Consent is content-hash-pinned, so any change to `manifest.json` or `plugin.js` (version bump or not) re-triggers the permission sheet. |
 | `apiVersion` | yes | Must be `1`. Other values are shown as *incompatible* and not loaded. |
 | `author` | no | Shown in the manager + permission sheet. |
 | `description` | no | Shown in the manager + permission sheet. |
@@ -121,17 +125,23 @@ Selecting one runs your `handler`.
 
 - **Enable/disable** per plugin in Settings → Plugins. Enable state is
   **per-Forge** — a Work Forge and a Personal Forge can run different plugins.
-- **Version bumps** re-trigger the permission sheet, so users re-consent when a
-  plugin changes.
+- **Any change to a plugin's files** (`manifest.json` or `plugin.js`)
+  re-triggers the permission sheet — consent is pinned to a content hash, so
+  code silently swapped on disk never runs on stale consent.
 - **Uninstall** deletes the folder from your Forge and forgets the grant.
 - Plugins **load on app start** and after a Forge switch. There's no hot-reload
   in v1 — edit `plugin.js`, then reopen the app (or the Plugins tab re-scans).
 
 ## Security notes (please read)
 
-- A granted plugin runs in the app's webview with full access; the curated
-  `PluginAPI` is a *convenience*, not a security boundary. Treat installing a
-  plugin like installing any third-party program.
+- A granted plugin runs in the app's webview; the curated `PluginAPI` is a
+  *convenience*, not a security boundary. Treat installing a plugin like
+  installing any third-party program.
+- The raw IPC bridge is not exposed (`withGlobalTauri` is off), and the page
+  CSP restricts where scripts load from and what hosts can be contacted — but
+  a plugin still shares the DOM with the app.
+- Consent is content-hash-pinned: Moldavite re-prompts before running any
+  plugin whose files changed since you granted it.
 - Plugins can only be *served* from inside the active Forge's `.plugins/`
   directory (the loader rejects path traversal), and load over a dedicated
   `plugin://` scheme rather than `eval`.
@@ -142,6 +152,7 @@ Selecting one runs your `handler`.
 Planned for future versions (already sketched in `PLUGINS_DESIGN.md`):
 network `fetch` with a per-host allowlist, editor/sidebar context-menu items,
 right-panel widgets, forge note read/write, plugin-owned frontmatter keys,
-`ui.prompt`, per-handler timeouts, content-hash-pinned grants, stricter
-isolation (so the curated API becomes a real boundary), and the Web Clipper
-receiver.
+`ui.prompt`, per-handler timeouts, and **Worker/iframe isolation** — running
+plugins outside the app realm behind a postMessage RPC bridge, so the curated
+API becomes a real security boundary. (Content-hash-pinned grants shipped in
+v1.5.) Plus the Web Clipper receiver.

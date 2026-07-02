@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -54,7 +54,9 @@
       "nsis"
     ],
     "createUpdaterArtifacts": true,
-    "resources": ["example-plugin/**/*"],
+    "resources": [
+      "example-plugin/**/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
