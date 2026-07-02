@@ -32,10 +32,12 @@ export interface PluginAPI {
   app: { version: string; apiVersion: number };
   commands: { add(cmd: PluginCommand): void };
   editor: {
-    getActiveNote(): { title: string; content: string } | null;
-    insertText(text: string): void;
+    // Async since plugins run in a Worker sandbox; every editor/ui method
+    // round-trips through postMessage to the host thread.
+    getActiveNote(): Promise<{ title: string; content: string } | null>;
+    insertText(text: string): Promise<void>;
   };
-  ui: { toast(message: string, kind?: 'info' | 'success' | 'error'): void };
+  ui: { toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void> };
 }
 
 export interface LoadedPlugin {
