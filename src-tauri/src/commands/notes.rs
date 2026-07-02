@@ -12,9 +12,28 @@ use crate::frontmatter;
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
 };
-use crate::persist::generate_unique_filename;
+use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead};
-use crate::validation::is_safe_filename;
+use crate::validation::{is_safe_filename, is_safe_note_path};
+
+/// Standalone notes may live in folders and are addressed by a notes/-relative
+/// path; daily and weekly notes are always addressed by a bare filename.
+fn is_valid_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
+    if is_daily || is_weekly {
+        is_safe_filename(filename)
+    } else {
+        is_safe_note_path(filename)
+    }
+}
+
+/// The backlinks index is keyed by bare filename, so folder-relative refs
+/// must be reduced to their final component before touching the index.
+fn index_key(filename: &str) -> String {
+    Path::new(filename)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| filename.to_string())
+}
 
 // Helper function to recursively scan notes in a directory
 pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut Vec<NoteFile>) {
@@ -197,8 +216,8 @@ pub(crate) fn read_note(
     is_daily: bool,
     is_weekly: bool,
 ) -> Result<NoteRead, String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -237,8 +256,8 @@ pub(crate) fn write_note(
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<(), String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -272,19 +291,11 @@ pub(crate) fn write_note(
         &content,
     );
 
-    fs::write(&path, &serialized).map_err(|e| e.to_string())?;
+    write_atomic(&path, serialized.as_bytes(), Some(0o600))?;
     recent.record(&path);
 
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
-
     // The backlinks index only cares about the body, not frontmatter.
-    index.update_note(&filename, &content);
+    index.update_note(&index_key(&filename), &content);
 
     Ok(())
 }
@@ -296,8 +307,8 @@ pub(crate) fn delete_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
+    // Prevent path traversal attacks; standalone notes may include a folder path.
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -314,7 +325,7 @@ pub(crate) fn delete_note(
     if path.exists() {
         fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
-    index.remove_note(&filename);
+    index.remove_note(&index_key(&filename));
     Ok(())
 }
 
@@ -349,15 +360,7 @@ pub(crate) fn create_note(
     let filename = generate_unique_filename(&dir, &title, "md");
     let path = dir.join(&filename);
 
-    fs::write(&path, "").map_err(|e| e.to_string())?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
+    write_atomic(&path, b"", Some(0o600))?;
 
     index.update_note(&filename, "");
 
@@ -375,7 +378,7 @@ pub(crate) fn duplicate_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    if !is_safe_filename(&filename) {
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
     // Determine source directory
@@ -403,17 +406,9 @@ pub(crate) fn duplicate_note(
     let new_path = dir.join(&new_filename);
 
     // Write content to new file
-    fs::write(&new_path, &content).map_err(|e| e.to_string())?;
+    write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&new_path, permissions).map_err(|e| e.to_string())?;
-    }
-
-    index.update_note(&new_filename, &content);
+    index.update_note(&index_key(&new_filename), &content);
 
     Ok(new_filename)
 }
@@ -464,7 +459,7 @@ pub(crate) fn export_single_note(
     if !ext_ok {
         return Err("Destination must have a .md, .markdown, or .txt extension".to_string());
     }
-    fs::write(dest_path, &content).map_err(|e| e.to_string())?;
+    write_atomic(dest_path, content.as_bytes(), None)?;
 
     Ok(destination)
 }
@@ -504,7 +499,51 @@ pub(crate) fn rename_note(
     let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
     index.rename_note(&old_filename, &new_filename, &content_after_rename);
 
+    // A rename must not break inbound [[links]]: rewrite targets that
+    // resolved to the old name in every other note.
+    let old_stem = old_filename.trim_end_matches(".md");
+    let new_stem = new_filename.trim_end_matches(".md");
+    rewrite_inbound_links(old_stem, new_stem, &index);
+
     Ok(())
+}
+
+/// Rewrite `[[old]]` links across the whole vault after a note rename.
+/// Failures on individual files are logged and skipped so one unreadable
+/// note doesn't abort the rename that already happened.
+fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIndex>) {
+    for root in [get_daily_dir(), get_weekly_dir(), get_standalone_dir()] {
+        if !root.exists() {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(&root)
+            .into_iter()
+            .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+            .flatten()
+        {
+            let path = entry.path();
+            if !entry.file_type().is_file()
+                || path.extension().and_then(|s| s.to_str()) != Some("md")
+            {
+                continue;
+            }
+            let Ok(raw) = fs::read_to_string(path) else {
+                continue;
+            };
+            let Some(rewritten) = crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem)
+            else {
+                continue;
+            };
+            if let Err(e) = write_atomic(path, rewritten.as_bytes(), Some(0o600)) {
+                log::warn!("rename: failed to rewrite links in {:?}: {}", path, e);
+                continue;
+            }
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                let body = crate::frontmatter::parse_note(&rewritten).body;
+                index.update_note(name, &body);
+            }
+        }
+    }
 }
 
 #[tauri::command]

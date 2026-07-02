@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Using Moldavite — User Guide</title>
+  <meta name="description" content="How to use Moldavite: Forges, daily notes, wiki links, tags, templates, note locking, encrypted backups, and more.">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a href="index.html" class="brand">
+        <img src="icon.png" alt="" aria-hidden="true">
+        Moldavite
+      </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="var n=document.getElementById('nav');var o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">&#9776;</button>
+      <nav class="nav-links" id="nav">
+        <a href="index.html">Home</a>
+        <a href="guide.html" aria-current="page">User Guide</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="docs-hero">
+    <h1>Using Moldavite</h1>
+    <p>Everything you need to go from first launch to a connected, private knowledge base.</p>
+  </section>
+
+  <main class="docs-body">
+    <h2 id="getting-started">Getting started</h2>
+    <p>
+      On first launch, Moldavite creates your <strong>Forge</strong> — the folder where all your notes live —
+      at <code>~/Documents/Moldavite/</code>. A short onboarding tour lets you pick a custom location instead
+      if you prefer. Every note is a plain Markdown file, so your Forge works with backups, sync tools,
+      and any other editor.
+    </p>
+    <ul>
+      <li><strong>Multiple Forges</strong> — you can keep several vaults side by side (Work, Personal, …) and switch between them from the dropdown above the sidebar search bar, or via the quick switcher's <em>Switch Forge…</em> action. Each Forge keeps its own pinned notes, recents, and plugins.</li>
+      <li><strong>Daily notes</strong> — one click on <em>Today</em> opens the note for the current day, creating it automatically. Daily notes you leave empty are cleaned up automatically, so your Forge never fills with blank files.</li>
+      <li><strong>Weekly notes</strong> — click a week number in the calendar to create or open that week's note. Like daily notes, they stay virtual until you write something and are removed if emptied.</li>
+      <li><strong>Standalone notes</strong> — regular notes with any title, organized into folders you can create, rename, and drag notes into from the sidebar.</li>
+    </ul>
+
+    <div class="shot">
+      <div class="frame">
+        <img src="assets/screenshot-main.png" alt="Moldavite main window: sidebar, editor, and calendar panel"
+             loading="lazy"
+             onerror="this.closest('.shot').style.display='none'">
+      </div>
+    </div>
+
+    <h2 id="editor">The editor</h2>
+    <p>
+      Moldavite's editor is a rich-text (WYSIWYG) editor built on TipTap, with Markdown shortcuts —
+      type <code>#</code> + space for a heading, <code>-</code> for a list, and so on.
+    </p>
+    <h3>Formatting</h3>
+    <ul>
+      <li>Headings, bulleted and numbered lists, and <strong>task lists</strong> with checkboxes.</li>
+      <li>Bold, italic, underline, strikethrough, <strong>highlights</strong>, and text alignment.</li>
+      <li>Inline code, code blocks, blockquotes, links, and images.</li>
+      <li>A <strong>selection toolbar</strong> appears when you highlight text, for quick formatting.</li>
+      <li>Type <code>/</code> for the <strong>slash menu</strong> — insert blocks and run commands (including plugin commands) without leaving the keyboard.</li>
+    </ul>
+
+    <h3>Wiki links &amp; backlinks</h3>
+    <p>
+      Type <code>[[</code> to link to another note: <code>[[Note Name]]</code>, or
+      <code>[[Display text|target-note]]</code> to show different text. The
+      <strong>backlinks panel</strong> below the editor lists every note that links to the one you're
+      reading, and the <strong>graph view</strong> shows your whole web of notes at once.
+    </p>
+
+    <h3>Tags</h3>
+    <p>
+      Add <code>#tags</code> anywhere in a note. Tags get their own section in the sidebar, and you can
+      right-click a tag to <strong>rename it across all notes</strong> in one step.
+    </p>
+
+    <h3>Templates</h3>
+    <p>
+      Start notes from templates — built-in or your own, created under
+      <strong>Settings → Templates</strong>. Templates support variables that are filled in when applied:
+    </p>
+    <table>
+      <thead>
+        <tr><th>Variable</th><th>Expands to</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>{{date}}</code></td><td>Current date (YYYY-MM-DD)</td></tr>
+        <tr><td><code>{{time}}</code></td><td>Current time (HH:mm)</td></tr>
+        <tr><td><code>{{day_of_week}}</code></td><td>Day name (e.g. Tuesday)</td></tr>
+      </tbody>
+    </table>
+    <p>Pin up to six templates for quick access from the "Start with a template" screen on empty notes.</p>
+
+    <h2 id="organization">Staying organized</h2>
+    <ul>
+      <li><strong>Quick switcher / command palette</strong> — press <kbd>⌘</kbd> <kbd>P</kbd> to jump to any note, run actions (Open Settings, Toggle Timeline, Open Graph, Switch Forge…), rerun recent searches, or trigger plugin commands.</li>
+      <li><strong>Full-text search</strong> — ranked content search across every note, with snippets. Locked and trashed notes are excluded.</li>
+      <li><strong>Folders</strong> — a drag-and-drop folder tree in the sidebar for hierarchy when you want it.</li>
+      <li><strong>Note colors</strong> — assign a color per note to make it stand out in the sidebar.</li>
+      <li><strong>Tabs &amp; pinning</strong> — open multiple notes in tabs, drag to reorder, and pin up to five so they're always at hand.</li>
+      <li><strong>Timeline</strong> — a chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier.</li>
+      <li><strong>Shortcut help</strong> — press <kbd>⌘</kbd> <kbd>?</kbd> to see every keyboard shortcut.</li>
+    </ul>
+
+    <h2 id="safety">Safety &amp; privacy</h2>
+    <p>
+      Moldavite is local-only: no cloud, no accounts, no telemetry. On top of that, several layers
+      protect your notes from both accidents and prying eyes.
+    </p>
+    <ul>
+      <li><strong>Trash with 7-day retention</strong> — deleted notes sit in the trash popover with read-only previews. Restore with one click, or let them auto-clean after 7 days.</li>
+      <li><strong>Note locking</strong> — lock any note behind a password. Locked notes are encrypted with <strong>AES-GCM</strong> using <strong>Argon2</strong> key derivation, with brute-force rate limiting and a configurable auto-lock timeout.</li>
+      <li><strong>Encrypted backups</strong> — export your entire vault as a password-protected encrypted archive from Settings. App settings can also be exported/imported as JSON (notes are never included in the settings file).</li>
+      <li><strong>Import &amp; export</strong> — export notes as Markdown, PDF (with page-size and margin options), or plaintext — per note or in bulk.</li>
+      <li><strong>Atomic writes</strong> — since v1.5, note saves are written atomically, so a crash or power loss mid-save can't corrupt a note.</li>
+      <li><strong>Automatic signed updates</strong> — Moldavite checks GitHub for new releases and updates in place. Every update is cryptographically signed and verified before install, and a "What's New" popup summarizes the changes afterwards.</li>
+    </ul>
+
+    <h2 id="calendar">Apple Calendar integration</h2>
+    <p>
+      On macOS, the right panel shows a month calendar and a timeline of your Apple Calendar events
+      next to your notes. The integration is <strong>read-only</strong> and built on the native EventKit
+      framework: macOS asks for your permission before Moldavite can see any events, the app never
+      modifies your calendar, and nothing is sent anywhere.
+    </p>
+
+    <div class="callout">
+      <span class="callout-title">Your Forge is just files</span>
+      <p>
+        Everything above operates on plain Markdown files with YAML frontmatter in your Forge.
+        External edits show up live thanks to a file watcher — feel free to point scripts, sync tools,
+        or other editors at the same folder.
+      </p>
+    </div>
+
+    <div class="next-links">
+      <a href="plugins.html">
+        <span class="label">Next up</span>
+        <span class="title">Build a plugin →</span>
+      </a>
+      <a href="https://github.com/mauropereiira/Moldavite/releases/latest">
+        <span class="label">Ready?</span>
+        <span class="title">Download Moldavite for Mac →</span>
+      </a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <nav aria-label="Footer">
+        <a href="index.html">Home</a>
+        <a href="guide.html">User Guide</a>
+        <a href="plugins.html">Plugin Development</a>
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+      </nav>
+      <div class="footer-meta">
+        <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License · <a href="https://github.com/mauropereiira/Moldavite">GitHub</a></p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

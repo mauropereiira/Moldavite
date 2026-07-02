@@ -61,7 +61,11 @@ export function useAutoSave() {
         } else if (currentNote.isWeekly && currentNote.week) {
           filename = `${currentNote.week}.md`;
         } else {
-          filename = `${currentNote.title}.md`;
+          // Address the note by its on-disk path (folder included); the display
+          // title can diverge from the filename and must never decide where we save.
+          filename = currentNote.id.startsWith('notes/')
+            ? currentNote.id.slice('notes/'.length)
+            : `${currentNote.title}.md`;
         }
 
         const isEmpty = isContentEmpty(currentNote.content);

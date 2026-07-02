@@ -2,7 +2,10 @@
 
 use std::fs;
 
-use crate::paths::{ensure_templates_dir, get_daily_dir, get_standalone_dir, get_templates_dir};
+use crate::paths::{
+    ensure_templates_dir, get_daily_dir, get_standalone_dir, get_templates_dir, get_weekly_dir,
+};
+use crate::validation::{is_safe_filename, is_safe_note_path};
 use crate::templates_data::{
     generate_template_id, get_default_templates, replace_template_variables,
 };
@@ -82,7 +85,7 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
     };
 
     let json = serde_json::to_string_pretty(&template).map_err(|e| e.to_string())?;
-    fs::write(&template_path, json).map_err(|e| e.to_string())?;
+    crate::persist::write_atomic(&template_path, json.as_bytes(), Some(0o600))?;
 
     Ok(template)
 }
@@ -112,7 +115,7 @@ pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Te
     };
 
     let json = serde_json::to_string_pretty(&template).map_err(|e| e.to_string())?;
-    fs::write(&template_path, json).map_err(|e| e.to_string())?;
+    crate::persist::write_atomic(&template_path, json.as_bytes(), Some(0o600))?;
 
     Ok(template)
 }
@@ -147,12 +150,32 @@ pub(crate) fn create_note_from_template(
     filename: String,
     template_id: String,
     is_daily: bool,
+    is_weekly: Option<bool>,
 ) -> Result<(), String> {
+    let is_weekly = is_weekly.unwrap_or(false);
+    // Daily/weekly notes are bare filenames; standalone notes may include a
+    // folder path. Both forms must be traversal-safe.
+    let valid = if is_daily || is_weekly {
+        is_safe_filename(&filename)
+    } else {
+        is_safe_note_path(&filename)
+    };
+    if !valid {
+        return Err("Invalid filename".to_string());
+    }
+
     let dir = if is_daily {
         get_daily_dir()
+    } else if is_weekly {
+        get_weekly_dir()
     } else {
         get_standalone_dir()
     };
+
+    // Weekly notes are created lazily, so the directory may not exist yet.
+    if is_weekly && !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
 
     let path = dir.join(&filename);
 
@@ -163,15 +186,7 @@ pub(crate) fn create_note_from_template(
     let template = get_template(template_id)?;
     let content = replace_template_variables(template.content);
 
-    fs::write(&path, content).map_err(|e| e.to_string())?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&path, permissions).map_err(|e| e.to_string())?;
-    }
+    crate::persist::write_atomic(&path, content.as_bytes(), Some(0o600))?;
 
     Ok(())
 }

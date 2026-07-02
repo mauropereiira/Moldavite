@@ -1,6 +1,5 @@
 //! Wiki-link scanning, backlink lookup, create-from-link commands.
 
-use std::fs;
 use std::sync::Arc;
 
 use tauri::State;
@@ -67,16 +66,8 @@ pub(crate) fn create_note_from_link(
     // Create with a basic heading
     let initial_content = format!("# {}\n\n", note_name);
 
-    std::fs::write(&file_path, &initial_content)
+    crate::persist::write_atomic(&file_path, initial_content.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to create note: {}", e))?;
-
-    // Set restrictive file permissions (600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&file_path, permissions).map_err(|e| e.to_string())?;
-    }
 
     index.update_note(&filename, &initial_content);
 

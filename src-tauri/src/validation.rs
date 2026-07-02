@@ -33,6 +33,19 @@ pub(crate) fn is_safe_filename(filename: &str) -> bool {
     true
 }
 
+/// Validates a standalone-note path relative to the notes/ dir — either a
+/// bare filename ("foo.md") or a folder-relative path ("Projects/foo.md").
+/// Component-wise checks reject traversal ("..", absolute paths), backslashes,
+/// null bytes, and hidden components (so .trash and atomic-write temp files
+/// can never be addressed).
+pub(crate) fn is_safe_note_path(path: &str) -> bool {
+    if path.is_empty() || path.contains('\0') || path.contains('\\') || path.starts_with('/') {
+        return false;
+    }
+    path.split('/')
+        .all(|part| !part.is_empty() && !part.starts_with('.'))
+}
+
 /// Validates that a destination path is within the expected base directory.
 /// Also rejects any path component along the way that is itself a symlink,
 /// so pre-placed symlinks inside `base_dir` cannot be used to redirect writes
@@ -197,5 +210,27 @@ mod tests {
         let dest = dir.join("export.JSON");
         assert!(validate_user_export_path(&dest, "json").is_ok());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn safe_note_path_accepts_bare_and_folder_relative_names() {
+        assert!(is_safe_note_path("foo.md"));
+        assert!(is_safe_note_path("Projects/foo.md"));
+        assert!(is_safe_note_path("a/b/c.md"));
+        assert!(is_safe_note_path("café notes.md"));
+    }
+
+    #[test]
+    fn safe_note_path_rejects_traversal_and_hidden_components() {
+        assert!(!is_safe_note_path(""));
+        assert!(!is_safe_note_path("../evil.md"));
+        assert!(!is_safe_note_path("a/../evil.md"));
+        assert!(!is_safe_note_path("/abs.md"));
+        assert!(!is_safe_note_path("a//b.md"));
+        assert!(!is_safe_note_path("a/b.md/"));
+        assert!(!is_safe_note_path(".trash/x.md"));
+        assert!(!is_safe_note_path("a/.hidden.md"));
+        assert!(!is_safe_note_path("a\\b.md"));
+        assert!(!is_safe_note_path("a/b\0.md"));
     }
 }

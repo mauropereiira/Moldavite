@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { useNoteStore, useTemplateStore, useTaskStatusStore } from '@/stores';
+import { useNoteStore, useTemplateStore, useTaskStatusStore, useToastStore } from '@/stores';
 import {
   ensureDirectories,
   listNotes,
@@ -16,6 +16,7 @@ import {
   isHtmlContent,
   isContentEmpty,
   parseTaskStatus,
+  noteFileBackendPath,
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
@@ -54,7 +55,9 @@ export function useNotes() {
     } else if (note.isWeekly && note.week) {
       filename = `${note.week}.md`;
     } else {
-      filename = `${note.title}.md`;
+      // Address the note by its on-disk path (folder included); the display
+      // title can diverge from the filename and must never decide where we save.
+      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
     }
 
     const isEmpty = isContentEmpty(note.content);
@@ -143,9 +146,14 @@ export function useNotes() {
       const dailyNotes = noteFiles.filter(n => n.isDaily && n.date);
       const { setTaskStatus } = useTaskStatusStore.getState();
 
-      // Process daily notes in the background
-      Promise.all(
-        dailyNotes.map(async (noteFile) => {
+      // Process daily notes in the background with capped concurrency —
+      // an uncapped Promise.all fires one IPC read per daily note at once,
+      // which makes cold start degrade linearly with vault age.
+      const queue = [...dailyNotes];
+      const scanNext = async () => {
+        for (;;) {
+          const noteFile = queue.shift();
+          if (!noteFile) return;
           try {
             const rawContent = await readNote(noteFile.name, true, false);
             const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
@@ -156,10 +164,12 @@ export function useNotes() {
           } catch {
             // Silently skip notes that can't be parsed
           }
-        })
-      );
+        }
+      };
+      Promise.all(Array.from({ length: Math.min(8, queue.length) }, scanNext));
     } catch (error) {
       console.error('[useNotes] Failed to initialize:', error);
+      useToastStore.getState().addToast('error', 'Failed to load notes. Check the console for details.');
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +187,7 @@ export function useNotes() {
       await flushCurrentNote();
 
       setIsLoading(true);
-      const rawContent = await readNote(noteFile.name, noteFile.isDaily, noteFile.isWeekly || false);
+      const rawContent = await readNote(noteFileBackendPath(noteFile), noteFile.isDaily, noteFile.isWeekly || false);
 
       // Convert Markdown to HTML for the editor
       // Check if content is already HTML (backwards compatibility with old format)
@@ -198,6 +208,8 @@ export function useNotes() {
       openTab(note, inNewTab);
     } catch (error) {
       console.error('[useNotes] Failed to load note:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
     } finally {
       setIsLoading(false);
     }
@@ -390,6 +402,8 @@ export function useNotes() {
       setCurrentNote(note);
     } catch (error) {
       console.error('[useNotes] Failed to create note:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      useToastStore.getState().addToast('error', `Failed to create note: ${msg}`);
     } finally {
       setIsLoading(false);
     }
@@ -459,21 +473,22 @@ export function useNotes() {
       setIsLoading(true);
       // Flush current note first to ensure all content is saved to disk
       await flushCurrentNote();
+      // Backend addresses standalone notes by folder-relative path and echoes
+      // the same shape back (e.g. "Projects/foo (copy).md").
       const newFilename = await invoke<string>('duplicate_note', {
-        filename: sourceNote.name,
+        filename: noteFileBackendPath(sourceNote),
         isDaily: sourceNote.isDaily || false,
         isWeekly: sourceNote.isWeekly || false,
       });
+      const bareName = newFilename.split('/').pop() || newFilename;
 
       // Create note file object for the duplicate
       const noteFile: NoteFile = {
-        name: newFilename,
+        name: bareName,
         path: sourceNote.isDaily
           ? `daily/${newFilename}`
           : sourceNote.isWeekly
           ? `weekly/${newFilename}`
-          : sourceNote.folderPath
-          ? `notes/${sourceNote.folderPath}/${newFilename}`
           : `notes/${newFilename}`,
         isDaily: sourceNote.isDaily || false,
         isWeekly: sourceNote.isWeekly || false,
@@ -513,7 +528,9 @@ export function useNotes() {
     } else if (note.isWeekly && note.week) {
       filename = `${note.week}.md`;
     } else {
-      filename = `${note.title}.md`;
+      // Delete by on-disk path, never by display title — a diverged title
+      // would delete the wrong file.
+      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
     }
 
     try {

@@ -156,6 +156,10 @@ export function hasContent(html: string): boolean {
 export function isContentEmpty(content: string): boolean {
   if (!content) return true;
 
+  // Embedded media counts as content even though it has no text — an
+  // image-only daily note must never be treated as empty (and deleted).
+  if (/<(img|video|audio|iframe)[\s/>]/i.test(content)) return false;
+
   // Remove HTML tags and check if anything remains
   const textOnly = content
     .replace(/<[^>]*>/g, '') // Remove all HTML tags

@@ -31,13 +31,21 @@ pub(crate) fn parse_wiki_links(content: &str) -> Vec<String> {
 }
 
 pub(crate) fn note_name_to_filename(note_name: &str) -> String {
-    // Convert "Meeting Notes" -> "meeting-notes.md"
-    let slug = note_name
+    // Convert "Meeting Notes" -> "meeting-notes.md". Unicode-aware and NFC-
+    // normalized so "Café" keeps its accent and resolves identically in the
+    // frontend (which applies the same rule in slugifyNoteName).
+    use unicode_normalization::UnicodeNormalization;
+    let normalized: String = note_name.nfc().collect();
+    let slug = normalized
         .to_lowercase()
-        .trim()
-        .replace(' ', "-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
         .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
 
+    if slug.is_empty() {
+        return "untitled.md".to_string();
+    }
     format!("{}.md", slug)
 }
 
@@ -64,6 +72,42 @@ pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
     }
 
     Ok((false, filename))
+}
+
+/// Rewrite wiki-link targets that resolve to `old_stem` (a filename without
+/// the `.md` extension) so they point at `new_stem` instead. Display text in
+/// `[[Display|target]]` links is left untouched. Returns `Some(rewritten)`
+/// when at least one link changed, `None` when the content is untouched.
+pub(crate) fn rewrite_links_for_rename(
+    content: &str,
+    old_stem: &str,
+    new_stem: &str,
+) -> Option<String> {
+    let old_slug = note_name_to_filename(old_stem);
+    let mut changed = false;
+    let result = WIKI_LINK_REGEX.replace_all(content, |caps: &regex::Captures| {
+        let display = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        let target = caps.get(2).map(|m| m.as_str());
+        let effective = target.unwrap_or(display).trim();
+        // A link matches if it names the old file directly or slugifies to it,
+        // mirroring how links are resolved when clicked.
+        let matches = !effective.is_empty()
+            && (effective == old_stem || note_name_to_filename(effective) == old_slug);
+        if matches {
+            changed = true;
+            match target {
+                Some(_) => format!("[[{}|{}]]", display, new_stem),
+                None => format!("[[{}]]", new_stem),
+            }
+        } else {
+            caps.get(0).map(|m| m.as_str().to_string()).unwrap_or_default()
+        }
+    });
+    if changed {
+        Some(result.into_owned())
+    } else {
+        None
+    }
 }
 
 pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
@@ -150,6 +194,54 @@ mod tests {
         assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
         // Special chars stripped; spaces become hyphens.
         assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+    }
+
+    #[test]
+    fn note_name_to_filename_preserves_unicode() {
+        // Accents survive (no more Café/Cafe collision) and NFC-normalization
+        // makes decomposed input equal to precomposed.
+        assert_eq!(note_name_to_filename("Café"), "café.md");
+        assert_eq!(note_name_to_filename("Cafe\u{0301}"), "café.md");
+        assert_eq!(note_name_to_filename("日本語ノート"), "日本語ノート.md");
+    }
+
+    #[test]
+    fn note_name_to_filename_falls_back_when_slug_is_empty() {
+        assert_eq!(note_name_to_filename("!!!"), "untitled.md");
+        assert_eq!(note_name_to_filename("   "), "untitled.md");
+    }
+
+    #[test]
+    fn rewrite_links_updates_plain_links_matching_by_slug() {
+        let content = "See [[Meeting Notes]] and [[Other]].";
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        assert_eq!(out, "See [[q3-planning]] and [[Other]].");
+    }
+
+    #[test]
+    fn rewrite_links_updates_exact_stem_matches() {
+        let content = "Daily ref [[2026-07-01]] here.";
+        let out = rewrite_links_for_rename(content, "2026-07-01", "2026-07-02").unwrap();
+        assert_eq!(out, "Daily ref [[2026-07-02]] here.");
+    }
+
+    #[test]
+    fn rewrite_links_preserves_display_text_in_piped_links() {
+        let content = "Check [[the plan|meeting-notes]] now.";
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        assert_eq!(out, "Check [[the plan|q3-planning]] now.");
+    }
+
+    #[test]
+    fn rewrite_links_returns_none_when_nothing_matches() {
+        assert!(rewrite_links_for_rename("See [[Unrelated]].", "meeting-notes", "x").is_none());
+        assert!(rewrite_links_for_rename("no links", "meeting-notes", "x").is_none());
+    }
+
+    #[test]
+    fn rewrite_links_does_not_touch_other_slugs_sharing_a_prefix() {
+        let content = "See [[meeting-notes-archive]].";
+        assert!(rewrite_links_for_rename(content, "meeting-notes", "x").is_none());
     }
 
     #[test]

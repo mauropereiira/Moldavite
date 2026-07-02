@@ -28,7 +28,8 @@ const BUDGETS = [
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
-const APP_JS_BUDGET = { rawKb: 460, gzipKb: 120 };
+// Bumped in 1.5.0 for the plugin sandbox rewrite (worker + RPC wiring).
+const APP_JS_BUDGET = { rawKb: 475, gzipKb: 125 };
 
 async function main() {
   let entries;

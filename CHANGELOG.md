@@ -2,6 +2,29 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.5.0] - 2026-07-02
+
+### Fixed
+- **Notes inside folders now load and save correctly.** Opening a note in a folder previously showed empty content, and typing created a duplicate at the vault root. All note commands now address standalone notes by their folder-relative path.
+- **Crash-safe saves** — every note, config, template, backup, and lock/unlock write is now atomic (temp file + flush + rename). A crash or full disk mid-save can no longer truncate a note. File permissions (owner-only) are applied before the file becomes visible.
+- **Image-only daily notes are no longer deleted.** The auto-save "empty note" check now counts embedded media as content.
+- **Renaming a note no longer breaks links to it** — inbound `[[wiki-links]]` across the whole vault are rewritten on rename (display text in `[[Display|target]]` links is preserved).
+- **Accented and non-Latin note names resolve correctly.** Wiki-link slugs are Unicode-aware and NFC-normalized on both frontend and backend: "Café" no longer collides with "Cafe", and a Japanese-titled note no longer slugs to an empty filename.
+- **Weekly notes created from templates** landed in the standalone notes folder; they now go to `weekly/`.
+- **Calendar events containing the word "error"** no longer fail the whole event fetch (the Swift bridge response is now parsed properly).
+- Failed note loads/creates now show an error toast instead of silently logging to the console.
+
+### Changed
+- **Plugins now run in a sandboxed Web Worker** with no DOM, no Zustand stores, no Tauri IPC, and no network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, etc. are removed from the worker's global scope). The curated `PluginAPI` is now a `postMessage` bridge to the main thread, and permissions are enforced *host-side* — a plugin can't reach a method its manifest didn't declare, even by trying to bypass the API object it was handed. Every `editor` and `ui` method is now async; command handlers should `await` them. Existing plugins need to add `await` — see docs/PLUGINS.md.
+- **Plugin consent is pinned to the plugin's code.** Enabling a plugin records a SHA-256 hash of its `manifest.json` + `plugin.js`; if the code on disk changes in any way, Moldavite asks for consent again before running it (previously only a version bump re-prompted).
+- **Plugins can no longer reach the raw Tauri IPC bridge** — the `window.__TAURI__` global has been removed (the app itself never needed it).
+- The system opener (`shell:open`) is now restricted to `https://` URLs.
+- The delete-note and uninstall-plugin confirmations (and the "create note from wiki-link" prompt) use accessible in-app dialogs (focus-trapped, Escape to cancel) instead of browser popups.
+- Startup scan of daily notes for task-status badges is now capped at 8 concurrent reads, improving cold start on large vaults.
+
+### Added
+- Backend stress-test suite: 1,000-note vault search, concurrent atomic-write contention (torn-file detection), and bulk link rewriting.
+
 ## [1.4.0] - 2026-07-01
 
 ### Added

@@ -14,6 +14,51 @@ lazy_static! {
     static ref COUNTER_SUFFIX_RE: Regex = Regex::new(r"^(.+) \((\d+)\)$").unwrap();
 }
 
+/// Write `contents` to `path` atomically: write to a temp file in the same
+/// directory, flush to disk, then rename over the destination. A crash or
+/// full disk mid-write can never leave a truncated file at `path`. On Unix,
+/// `mode` (e.g. 0o600) is applied to the temp file before the rename so the
+/// final file never exists with looser permissions.
+pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .ok_or_else(|| format!("No parent directory for {}", path.display()))?;
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .ok_or_else(|| format!("Invalid file name for {}", path.display()))?;
+    // Unique per process AND per call: concurrent writers to the same file
+    // must never share a temp path (a clock-resolution timestamp can collide).
+    static TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let tmp_path = parent.join(format!(
+        ".{}.{}.{}.tmp",
+        file_name,
+        std::process::id(),
+        TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+
+    let result = (|| -> std::io::Result<()> {
+        use std::io::Write;
+        let mut file = fs::File::create(&tmp_path)?;
+        #[cfg(unix)]
+        if let Some(mode) = mode {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(mode))?;
+        }
+        #[cfg(not(unix))]
+        let _ = mode;
+        file.write_all(contents)?;
+        file.sync_all()?;
+        fs::rename(&tmp_path, path)
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    result.map_err(|e| format!("Failed to write {}: {}", path.display(), e))
+}
+
 pub(crate) fn read_config() -> AppConfig {
     let config_path = get_config_path();
     if config_path.exists() {
@@ -35,15 +80,8 @@ pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
     }
 
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    fs::write(&config_path, &json).map_err(|e| format!("Failed to write config: {}", e))?;
-
-    // Set restrictive permissions on config file (0o600 = owner read/write only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        let _ = fs::set_permissions(&config_path, permissions);
-    }
+    write_atomic(&config_path, json.as_bytes(), Some(0o600))
+        .map_err(|e| format!("Failed to write config: {}", e))?;
 
     Ok(())
 }
@@ -64,7 +102,8 @@ pub(crate) fn write_trash_metadata(metadata: &TrashMetadata) -> Result<(), Strin
     ensure_trash_dir()?;
     let metadata_path = get_trash_metadata_path();
     let json = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
-    fs::write(&metadata_path, json).map_err(|e| format!("Failed to write trash metadata: {}", e))?;
+    write_atomic(&metadata_path, json.as_bytes(), Some(0o600))
+        .map_err(|e| format!("Failed to write trash metadata: {}", e))?;
     Ok(())
 }
 
@@ -159,6 +198,42 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn write_atomic_creates_file_with_content_and_mode() {
+        let tmp = TempDir::new("atomic-basic");
+        let path = tmp.path().join("note.md");
+        write_atomic(&path, b"hello world", Some(0o600)).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "hello world");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+    }
+
+    #[test]
+    fn write_atomic_replaces_existing_and_leaves_no_temp_files() {
+        let tmp = TempDir::new("atomic-replace");
+        let path = tmp.path().join("note.md");
+        write_atomic(&path, b"first", None).unwrap();
+        write_atomic(&path, b"second", None).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second");
+        let leftovers: Vec<_> = fs::read_dir(tmp.path())
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn write_atomic_fails_for_missing_parent() {
+        let tmp = TempDir::new("atomic-noparent");
+        let path = tmp.path().join("nope").join("note.md");
+        assert!(write_atomic(&path, b"x", None).is_err());
     }
 
     #[test]
