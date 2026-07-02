@@ -6,7 +6,10 @@
   "permissions": [
     "core:default",
     "core:window:default",
-    "shell:allow-open",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [{ "url": "https://**" }]
+    },
     "updater:default",
     "process:allow-restart",
     "dialog:default"

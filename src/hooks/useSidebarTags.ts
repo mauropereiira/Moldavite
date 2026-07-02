@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { aggregateTags, hasTag, extractTags, readNote } from '@/lib';
+import { aggregateTags, hasTag, extractTags, readNote, noteFileBackendPath } from '@/lib';
 import { useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
@@ -36,7 +36,7 @@ export function useSidebarTags(notes: NoteFile[]) {
         let content = noteContentCacheRef.current.get(note.path);
         if (content === undefined) {
           try {
-            content = await readNote(note.name, note.isDaily || false);
+            content = await readNote(noteFileBackendPath(note), note.isDaily || false);
             noteContentCacheRef.current.set(note.path, content);
           } catch (_error) {
             console.error('[Sidebar] Failed to read note for tags:', note.name);

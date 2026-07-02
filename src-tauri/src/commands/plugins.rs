@@ -52,6 +52,23 @@ pub(crate) struct RawPlugin {
     pub manifest_raw: Option<serde_json::Value>,
     #[serde(rename = "readError")]
     pub read_error: Option<String>,
+    /// SHA-256 over manifest.json + plugin.js bytes. The frontend pins the
+    /// user's consent to this hash so silently swapped plugin code always
+    /// triggers a fresh permission prompt.
+    #[serde(rename = "contentHash")]
+    pub content_hash: Option<String>,
+}
+
+/// Hash the files that define a plugin's behavior (manifest + code).
+fn plugin_content_hash(plugin_dir: &std::path::Path) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    let manifest = fs::read(plugin_dir.join("manifest.json")).ok()?;
+    let code = fs::read(plugin_dir.join("plugin.js")).unwrap_or_default();
+    let mut hasher = Sha256::new();
+    hasher.update(&manifest);
+    hasher.update([0u8]); // domain separator between the two files
+    hasher.update(&code);
+    Some(format!("{:x}", hasher.finalize()))
 }
 
 #[tauri::command]
@@ -71,23 +88,27 @@ pub(crate) fn list_plugins() -> Result<Vec<RawPlugin>, String> {
             continue;
         }
         let manifest_path = entry.path().join("manifest.json");
+        let content_hash = plugin_content_hash(&entry.path());
         match fs::read_to_string(&manifest_path) {
             Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
                 Ok(v) => out.push(RawPlugin {
                     id,
                     manifest_raw: Some(v),
                     read_error: None,
+                    content_hash,
                 }),
                 Err(e) => out.push(RawPlugin {
                     id,
                     manifest_raw: None,
                     read_error: Some(format!("invalid manifest.json: {e}")),
+                    content_hash,
                 }),
             },
             Err(e) => out.push(RawPlugin {
                 id,
                 manifest_raw: None,
                 read_error: Some(format!("no manifest.json: {e}")),
+                content_hash,
             }),
         }
     }

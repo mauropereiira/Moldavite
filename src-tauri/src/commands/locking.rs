@@ -45,16 +45,8 @@ pub(crate) fn lock_note(filename: String, password: String, is_daily: bool, is_w
     let encrypted = encryption::encrypt_content(&content, &password)?;
 
     // Write the encrypted content to the new file
-    fs::write(&locked_path, encrypted)
+    crate::persist::write_atomic(&locked_path, encrypted.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write locked note: {}", e))?;
-
-    // Set restrictive permissions on the locked file
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&locked_path, permissions).ok();
-    }
 
     // Delete the original unencrypted file
     fs::remove_file(&original_path)
@@ -180,16 +172,8 @@ pub(crate) fn permanently_unlock_note(filename: String, password: String, is_dai
     };
 
     // Write the decrypted content to the original path
-    fs::write(&original_path, &decrypted)
+    crate::persist::write_atomic(&original_path, decrypted.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write unlocked note: {}", e))?;
-
-    // Set restrictive permissions
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        fs::set_permissions(&original_path, permissions).ok();
-    }
 
     // Delete the locked file
     fs::remove_file(&locked_path)

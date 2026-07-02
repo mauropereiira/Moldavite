@@ -48,6 +48,9 @@ pub(crate) mod types;
 pub(crate) mod validation;
 pub(crate) mod wiki;
 
+#[cfg(test)]
+mod stress_test;
+
 #[cfg(target_os = "macos")]
 use calendar::{CalendarEvent, CalendarInfo, CalendarPermission};
 

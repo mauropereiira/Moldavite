@@ -10,7 +10,7 @@ import {
   FileDown,
   FileText,
 } from 'lucide-react';
-import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote } from '@/lib';
+import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote, noteFileBackendPath } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
@@ -84,7 +84,7 @@ export function NoteContextMenu({
       });
       if (destination) {
         const content = await readNote(
-          note.name,
+          noteFileBackendPath(note),
           note.isDaily || false,
           note.isWeekly || false,
         );

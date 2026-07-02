@@ -9,42 +9,11 @@
   <meta property="og:description" content="Your thoughts, forged from cosmic impact. A privacy-first note-taking app for macOS.">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="styles.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --bg-dark: #0c110e;
-      --bg-card: #131a16;
-      --accent: #2d5a3d;
-      --accent-light: #3d7a52;
-      --accent-glow: #7cb992;
-      --gold: #c9a227;
-      --text-primary: #e8f0ec;
-      --text-secondary: #8a9a8f;
-      --text-muted: #5a6a5f;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-primary);
-      line-height: 1.6;
-      min-height: 100vh;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
     /* Hero */
     .hero {
-      min-height: 100vh;
+      min-height: calc(100vh - 60px);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -78,30 +47,11 @@
       font-style: italic;
     }
 
-    .download-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--accent);
-      color: white;
-      padding: 16px 32px;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1.1rem;
-      transition: all 0.2s ease;
-      border: 1px solid var(--accent-light);
-    }
-
-    .download-btn:hover {
-      background: var(--accent-light);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(45, 90, 61, 0.4);
-    }
-
-    .download-btn svg {
-      width: 20px;
-      height: 20px;
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
     }
 
     .platform-note {
@@ -114,7 +64,7 @@
     .story {
       padding: 80px 24px;
       text-align: center;
-      border-top: 1px solid rgba(138, 154, 143, 0.1);
+      border-top: 1px solid var(--border);
     }
 
     .story p {
@@ -129,63 +79,60 @@
       color: var(--accent-glow);
     }
 
-    /* Features */
-    .features {
+    /* Sections */
+    .features,
+    .privacy {
       padding: 80px 24px;
+      border-top: 1px solid var(--border);
     }
 
-    .features-grid {
+    .shot {
+      padding-bottom: 80px;
+    }
+
+    /* Privacy */
+    .privacy-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 24px;
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
     }
 
-    .feature {
+    .privacy-item {
       background: var(--bg-card);
-      border: 1px solid rgba(138, 154, 143, 0.1);
+      border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 32px;
+      padding: 28px;
     }
 
-    .feature h3 {
-      font-size: 1.125rem;
+    .privacy-item h3 {
+      font-size: 1.05rem;
       margin-bottom: 8px;
-      color: var(--text-primary);
+      color: var(--accent-glow);
     }
 
-    .feature p {
+    .privacy-item p {
       color: var(--text-secondary);
       font-size: 0.95rem;
     }
 
-    /* Footer */
-    footer {
-      padding: 40px 24px;
+    .privacy-lede {
+      max-width: 640px;
+      margin: 0 auto 48px;
       text-align: center;
-      border-top: 1px solid rgba(138, 154, 143, 0.1);
+      color: var(--text-secondary);
+      font-size: 1.05rem;
     }
 
-    footer p {
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
-
-    footer a {
-      color: var(--accent-glow);
-      text-decoration: none;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
+    .privacy-lede strong {
+      color: var(--text-primary);
     }
 
     .github-link {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin-top: 16px;
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 0.875rem;
@@ -202,18 +149,38 @@
   </style>
 </head>
 <body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a href="index.html" class="brand">
+        <img src="icon.png" alt="" aria-hidden="true">
+        Moldavite
+      </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="var n=document.getElementById('nav');var o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">&#9776;</button>
+      <nav class="nav-links" id="nav">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="guide.html">User Guide</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta">Download</a>
+      </nav>
+    </div>
+  </header>
+
   <section class="hero">
     <img src="icon.png" alt="Moldavite" class="logo">
     <h1>Moldavite</h1>
     <p class="tagline">Your thoughts, forged from cosmic impact.</p>
 
-    <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="download-btn">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-      </svg>
-      Download for Mac
-    </a>
-    <p class="platform-note">macOS 10.15+ · Apple Silicon & Intel</p>
+    <div class="hero-actions">
+      <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="download-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Download for Mac
+      </a>
+      <a href="guide.html" class="btn-secondary">Read the guide</a>
+    </div>
+    <p class="platform-note">macOS 10.15+ · Apple Silicon &amp; Intel · Free &amp; open source</p>
   </section>
 
   <section class="story">
@@ -228,35 +195,109 @@
     </div>
   </section>
 
-  <section class="features">
+  <div class="shot">
+    <div class="frame">
+      <img src="assets/screenshot-main.png" alt="Moldavite main window: sidebar, editor, and calendar panel"
+           loading="lazy"
+           onerror="this.closest('.shot').style.display='none'">
+    </div>
+  </div>
+
+  <section class="features" id="features">
+    <h2 class="section-title">Everything a thinking tool needs</h2>
+    <p class="section-sub">A fast, native-feeling editor with the connective tissue of a knowledge base — and none of the lock-in.</p>
     <div class="features-grid">
       <div class="feature">
-        <h3>Local-first privacy</h3>
-        <p>Notes stored in ~/Documents/Moldavite/. Your data never leaves your device. Period.</p>
+        <h3>Local-first by design</h3>
+        <p>Notes are plain Markdown files in your Forge at <code>~/Documents/Moldavite/</code>. Sync it, back it up, or open it in any other tool.</p>
       </div>
       <div class="feature">
         <h3>Rich editing</h3>
-        <p>Markdown shortcuts, [[wiki links]], images, code blocks, and task lists.</p>
+        <p>Markdown shortcuts, headings, task lists, images, highlights, code blocks, and a slash menu for quick actions.</p>
       </div>
       <div class="feature">
-        <h3>Daily notes</h3>
-        <p>One click to today's note. Apple Calendar integration in the sidebar.</p>
+        <h3>Daily &amp; weekly notes</h3>
+        <p>One click to today's note, created automatically and cleaned up if left empty. Weekly notes straight from the calendar.</p>
       </div>
       <div class="feature">
         <h3>Connected thinking</h3>
-        <p>Backlinks show what connects to what. Folders when you need structure.</p>
+        <p><code>[[Wiki links]]</code> with a backlinks panel and a graph view. #tags with global rename. Folders when you need structure.</p>
+      </div>
+      <div class="feature">
+        <h3>Find anything fast</h3>
+        <p>Full-text search with ranked snippets, plus a command palette / quick switcher on <span class="kbd-hint">⌘P</span> for notes, actions, and plugin commands.</p>
+      </div>
+      <div class="feature">
+        <h3>Apple Calendar, read-only</h3>
+        <p>Today's events beside your notes via native EventKit — permission-gated by macOS, never written to, never uploaded.</p>
+      </div>
+      <div class="feature">
+        <h3>Templates</h3>
+        <p>Custom templates with <code>{{date}}</code>, <code>{{time}}</code>, and <code>{{day_of_week}}</code> variables, pinnable for one-click starts.</p>
+      </div>
+      <div class="feature">
+        <h3>Multiple Forges</h3>
+        <p>Keep separate vaults — Work, Personal, anything — and switch between them instantly. Each Forge has its own plugins and pinned notes.</p>
+      </div>
+      <div class="feature">
+        <h3>Plugins</h3>
+        <p>Add your own commands to the palette and slash menu with a small, permissioned JavaScript API. <a href="plugins.html">Build one →</a></p>
       </div>
     </div>
   </section>
 
-  <footer>
-    <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a></p>
-    <a href="https://github.com/mauropereiira/Moldavite" class="github-link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-      </svg>
-      View on GitHub
-    </a>
+  <section class="privacy" id="privacy">
+    <h2 class="section-title">Private by architecture, not by promise</h2>
+    <p class="privacy-lede">
+      Moldavite doesn't have a privacy <em>policy</em> so much as a privacy <em>design</em>:
+      there is <strong>no server, no account, and zero telemetry</strong>. Nothing to leak, because nothing leaves.
+    </p>
+    <div class="privacy-grid">
+      <div class="privacy-item">
+        <h3>Plain files you own</h3>
+        <p>Every note is a Markdown file on your disk with owner-only file permissions. Delete the app and your notes are still just files.</p>
+      </div>
+      <div class="privacy-item">
+        <h3>Zero telemetry</h3>
+        <p>No analytics, no crash reporters, no phone-home. The only network request the app makes is checking GitHub for signed updates.</p>
+      </div>
+      <div class="privacy-item">
+        <h3>Encrypted note locking</h3>
+        <p>Lock sensitive notes behind a password — encrypted with AES-GCM and Argon2 key derivation, with brute-force rate limiting and auto-lock.</p>
+      </div>
+      <div class="privacy-item">
+        <h3>Encrypted backups</h3>
+        <p>Export your entire vault as a password-protected encrypted archive. Restore it anywhere, on your terms.</p>
+      </div>
+      <div class="privacy-item">
+        <h3>Signed auto-updates</h3>
+        <p>Updates are code-signed and cryptographically verified before install, so what you run is exactly what was released.</p>
+      </div>
+      <div class="privacy-item">
+        <h3>Plugin consent, pinned</h3>
+        <p>Plugins run only after you approve their permissions — and consent is pinned to a SHA-256 hash of the plugin's code, so any change re-prompts you.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <nav aria-label="Footer">
+        <a href="index.html">Home</a>
+        <a href="guide.html">User Guide</a>
+        <a href="plugins.html">Plugin Development</a>
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+      </nav>
+      <div class="footer-meta">
+        <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License</p>
+        <a href="https://github.com/mauropereiira/Moldavite" class="github-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </div>
   </footer>
 </body>
 </html>

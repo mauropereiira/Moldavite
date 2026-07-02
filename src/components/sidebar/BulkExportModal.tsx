@@ -5,6 +5,7 @@ import {
   exportNoteToPdf,
   exportNoteAsPlaintext,
   readNote,
+  noteFileBackendPath,
 } from '@/lib';
 import { useNoteStore } from '@/stores';
 import { useNoteSelectionStore } from '@/stores';
@@ -116,7 +117,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           // in. (If a note uses heavy formatting that needs Tiptap parsing,
           // the per-note PDF path from the editor remains available.)
           const md = await readNote(
-            note.name,
+            noteFileBackendPath(note),
             note.isDaily || false,
             note.isWeekly || false,
           );

@@ -1,4 +1,5 @@
 // Moldavite example plugin — demonstrates the v1 command API.
+// Plugins run in a sandboxed Web Worker; every editor/ui call is async.
 // See docs/PLUGINS.md for the full authoring guide.
 
 export default function register(api) {
@@ -6,8 +7,8 @@ export default function register(api) {
   api.commands.add({
     id: 'insert-timestamp',
     label: 'Insert timestamp',
-    handler: () => {
-      api.editor.insertText(new Date().toISOString());
+    handler: async () => {
+      await api.editor.insertText(new Date().toISOString());
     },
   });
 
@@ -15,15 +16,15 @@ export default function register(api) {
   api.commands.add({
     id: 'word-count',
     label: 'Word count',
-    handler: () => {
-      const note = api.editor.getActiveNote();
+    handler: async () => {
+      const note = await api.editor.getActiveNote();
       if (!note) {
-        api.ui.toast('No active note', 'error');
+        await api.ui.toast('No active note', 'error');
         return;
       }
       const text = note.content.replace(/<[^>]+>/g, ' ');
       const words = text.trim().split(/\s+/).filter(Boolean).length;
-      api.ui.toast(`${words} word${words === 1 ? '' : 's'}`, 'info');
+      await api.ui.toast(`${words} word${words === 1 ? '' : 's'}`, 'info');
     },
   });
 }
