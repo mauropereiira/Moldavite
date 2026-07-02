@@ -88,6 +88,26 @@ pub fn is_authorized() -> bool {
     )
 }
 
+/// The Swift bridge returns either the expected JSON payload or an object
+/// shaped `{"error": "..."}`. Parse the payload first so an event or calendar
+/// whose text merely contains the substring `"error"` is never misclassified
+/// as a failure.
+fn parse_swift_json<T: serde::de::DeserializeOwned>(json_str: &str, what: &str) -> Result<T, String> {
+    match serde_json::from_str::<T>(json_str) {
+        Ok(v) => Ok(v),
+        Err(parse_err) => {
+            #[derive(Deserialize)]
+            struct SwiftError {
+                error: String,
+            }
+            match serde_json::from_str::<SwiftError>(json_str) {
+                Ok(e) => Err(e.error),
+                Err(_) => Err(format!("Failed to parse {}: {}", what, parse_err)),
+            }
+        }
+    }
+}
+
 /// Fetch all available calendars
 pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
     let json_ptr = unsafe { fetch_calendars() };
@@ -102,12 +122,7 @@ pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
         result
     };
 
-    // Check for error response
-    if json_str.contains("\"error\"") {
-        return Err(json_str);
-    }
-
-    serde_json::from_str(&json_str).map_err(|e| format!("Failed to parse calendars: {}", e))
+    parse_swift_json(&json_str, "calendars")
 }
 
 /// Fetch events for a date range
@@ -147,10 +162,5 @@ pub fn get_events(
         result
     };
 
-    // Check for error response
-    if json_str.contains("\"error\"") {
-        return Err(json_str);
-    }
-
-    serde_json::from_str(&json_str).map_err(|e| format!("Failed to parse events: {}", e))
+    parse_swift_json(&json_str, "events")
 }

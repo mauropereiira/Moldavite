@@ -17,6 +17,9 @@ export interface PluginInfo {
   manifest: PluginManifest;
   status: PluginStatus;
   reason?: string;
+  /** SHA-256 of manifest.json + plugin.js, computed by the backend. Consent
+   *  is pinned to this hash, so changed plugin code always re-prompts. */
+  contentHash?: string;
 }
 
 export interface PluginCommand {

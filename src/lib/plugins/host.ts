@@ -10,15 +10,18 @@ interface RawPlugin {
   id: string;
   manifestRaw: unknown | null;
   readError: string | null;
+  contentHash: string | null;
 }
 
 /** Turn a backend RawPlugin into a classified PluginInfo (validation lives here). */
 function classify(raw: RawPlugin): PluginInfo {
+  const contentHash = raw.contentHash ?? undefined;
   if (raw.readError || raw.manifestRaw === null || raw.manifestRaw === undefined) {
     return {
       manifest: { id: raw.id, name: raw.id, version: '?', apiVersion: 0 },
       status: 'invalid',
       reason: raw.readError ?? 'missing manifest',
+      contentHash,
     };
   }
   const v = validateManifest(raw.manifestRaw, raw.id);
@@ -28,9 +31,10 @@ function classify(raw: RawPlugin): PluginInfo {
       manifest: { id: raw.id, name: raw.id, version: '?', apiVersion: 0 },
       status: incompatible ? 'incompatible' : 'invalid',
       reason: v.reason,
+      contentHash,
     };
   }
-  return { manifest: v.manifest, status: 'ok' };
+  return { manifest: v.manifest, status: 'ok', contentHash };
 }
 
 async function loadOne(info: PluginInfo): Promise<void> {
@@ -70,7 +74,7 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   const store = usePluginStore.getState();
   for (const info of infos) {
     if (info.status !== 'ok') continue;
-    if (store.isEnabledAndGranted(info.manifest.id, info.manifest.version)) {
+    if (store.isEnabledAndGranted(info.manifest.id, info.manifest.version, info.contentHash)) {
       await loadOne(info);
     }
   }
