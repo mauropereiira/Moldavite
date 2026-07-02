@@ -80,6 +80,10 @@ export default [
         queueMicrotask: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
+        // Web Workers (plugin sandbox)
+        Worker: 'readonly',
+        MessageEvent: 'readonly',
+        self: 'readonly',
         // React types (for refs)
         React: 'readonly',
       },
