@@ -13,6 +13,7 @@ import { safeInvoke } from '@/lib/ipc';
 import { loadEnabledPlugins } from '@/lib/plugins/host';
 import type { PluginInfo } from '@/lib/plugins/types';
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
+import { ConfirmDialog } from '@/components/ui';
 import { Toggle } from '../common';
 
 const PLUGINS_DOC_URL = 'https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md';
@@ -23,6 +24,7 @@ export function PluginsSection() {
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
   const { isEnabledAndGranted, needsGrant, grant, disable, revoke } = usePluginStore();
   const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
@@ -42,11 +44,11 @@ export function PluginsSection() {
   const handleToggle = async (info: PluginInfo, next: boolean) => {
     const { id, version } = info.manifest;
     if (next) {
-      if (needsGrant(id, version)) {
+      if (needsGrant(id, version, info.contentHash)) {
         setSheet({ info, mode: 'grant' });
         return;
       }
-      grant(id, version);
+      grant(id, version, info.contentHash);
     } else {
       disable(id);
     }
@@ -55,14 +57,18 @@ export function PluginsSection() {
 
   const confirmGrant = async () => {
     if (!sheet) return;
-    grant(sheet.info.manifest.id, sheet.info.manifest.version);
+    grant(sheet.info.manifest.id, sheet.info.manifest.version, sheet.info.contentHash);
     setSheet(null);
     await refresh();
   };
 
-  const handleUninstall = async (info: PluginInfo) => {
+  const handleUninstall = (info: PluginInfo) => setPendingUninstall(info);
+
+  const confirmUninstall = async () => {
+    const info = pendingUninstall;
+    setPendingUninstall(null);
+    if (!info) return;
     const { id, name } = info.manifest;
-    if (!window.confirm(`Uninstall "${name}"? This deletes its folder from your Forge.`)) return;
     setBusy(true);
     try {
       await safeInvoke('uninstall_plugin', { id });
@@ -92,7 +98,9 @@ export function PluginsSection() {
   const statusText = (info: PluginInfo): string => {
     if (info.status === 'invalid') return 'Invalid';
     if (info.status === 'incompatible') return 'Incompatible';
-    return isEnabledAndGranted(info.manifest.id, info.manifest.version) ? 'Enabled' : 'Disabled';
+    return isEnabledAndGranted(info.manifest.id, info.manifest.version, info.contentHash)
+      ? 'Enabled'
+      : 'Disabled';
   };
 
   return (
@@ -132,7 +140,7 @@ export function PluginsSection() {
           {plugins.map((info) => {
             const { id, name, version, author, description } = info.manifest;
             const ok = info.status === 'ok';
-            const enabled = ok && isEnabledAndGranted(id, version);
+            const enabled = ok && isEnabledAndGranted(id, version, info.contentHash);
             return (
               <div
                 key={id}
@@ -243,6 +251,17 @@ export function PluginsSection() {
           in your Forge and reopen this tab.
         </p>
       </div>
+
+      {pendingUninstall && (
+        <ConfirmDialog
+          title="Uninstall Plugin"
+          message={`Uninstall "${pendingUninstall.manifest.name}"? This deletes its folder from your Forge.`}
+          confirmLabel="Uninstall"
+          danger
+          onConfirm={confirmUninstall}
+          onCancel={() => setPendingUninstall(null)}
+        />
+      )}
 
       {sheet && (
         <PluginPermissionSheet
