@@ -28,14 +28,14 @@ pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> R
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .ok_or_else(|| format!("Invalid file name for {}", path.display()))?;
+    // Unique per process AND per call: concurrent writers to the same file
+    // must never share a temp path (a clock-resolution timestamp can collide).
+    static TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let tmp_path = parent.join(format!(
         ".{}.{}.{}.tmp",
         file_name,
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
+        TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
 
     let result = (|| -> std::io::Result<()> {
