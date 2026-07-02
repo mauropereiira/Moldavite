@@ -4,16 +4,20 @@ Moldavite plugins let you add **commands** to the app — they show up in the
 command palette (⌘/Ctrl + P) and the editor slash menu (type `/`). This is the
 v1 plugin API; see [the roadmap](#v2-roadmap) for what's coming.
 
-> **Trust model — read this first.** Plugins are **permissioned-open**: a plugin
-> you enable runs real JavaScript inside Moldavite. The manifest's `permissions`
-> gate the *curated* `PluginAPI`, but a plugin is **not fully sandboxed** — it
-> runs in the app's webview and can reach the DOM and app internals. **Only
-> install and enable plugins you trust.** Moldavite shows a permission sheet
-> before enabling any plugin, and your consent is **pinned to the plugin's
-> content**: a SHA-256 hash of `manifest.json` + `plugin.js` is recorded at
-> grant time, so *any* change to the plugin's code — not just a version bump —
-> re-triggers the permission sheet before it runs again. The raw Tauri IPC
-> bridge (`window.__TAURI__`) is not exposed to the webview.
+> **Trust model — read this first.** Plugins run in a **sandboxed Web Worker**
+> — no DOM, no Zustand stores, no Tauri IPC, no `fetch`/`XMLHttpRequest`. The
+> only channel back into the app is a `postMessage` bridge, and every call it
+> can make maps to one method in the curated `PluginAPI` below. Method
+> permissions are enforced **on the host side** of the bridge — a plugin can't
+> reach a method its manifest didn't declare, even if it tries to bypass the
+> API object it was handed. Moldavite shows a permission sheet before enabling
+> any plugin, and your consent is **pinned to the plugin's content**: a
+> SHA-256 hash of `manifest.json` + `plugin.js` is recorded at grant time, so
+> *any* change to the plugin's code re-triggers the permission sheet before
+> it runs again.
+>
+> Still: enabling a plugin means running someone else's code. Only enable
+> plugins you trust.
 
 ## Quick start
 
@@ -72,10 +76,16 @@ export default function register(api) {
   api.commands.add({
     id: 'greet',
     label: 'Insert greeting',
-    handler: () => api.editor.insertText('Hello from my plugin!'),
+    handler: async () => {
+      await api.editor.insertText('Hello from my plugin!');
+    },
   });
 }
 ```
+
+All `editor` and `ui` calls are **async** — they cross a `postMessage` bridge
+to the main thread. Command handlers can be sync or async; the app awaits
+them either way.
 
 ## The v1 API
 
@@ -94,13 +104,13 @@ interface PluginAPI {
 
   // Requires "editor" in manifest permissions.
   editor: {
-    getActiveNote(): { title: string; content: string } | null;  // content is HTML
-    insertText(text: string): void;                              // at the cursor
+    getActiveNote(): Promise<{ title: string; content: string } | null>;  // content is HTML
+    insertText(text: string): Promise<void>;                              // at the cursor
   };
 
   // Requires "ui" in manifest permissions.
   ui: {
-    toast(message: string, kind?: 'info' | 'success' | 'error'): void;
+    toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void>;
   };
 }
 ```
@@ -132,27 +142,42 @@ Selecting one runs your `handler`.
 - Plugins **load on app start** and after a Forge switch. There's no hot-reload
   in v1 — edit `plugin.js`, then reopen the app (or the Plugins tab re-scans).
 
-## Security notes (please read)
+## The sandbox in detail
 
-- A granted plugin runs in the app's webview; the curated `PluginAPI` is a
-  *convenience*, not a security boundary. Treat installing a plugin like
-  installing any third-party program.
-- The raw IPC bridge is not exposed (`withGlobalTauri` is off), and the page
-  CSP restricts where scripts load from and what hosts can be contacted — but
-  a plugin still shares the DOM with the app.
-- Consent is content-hash-pinned: Moldavite re-prompts before running any
-  plugin whose files changed since you granted it.
-- Plugins can only be *served* from inside the active Forge's `.plugins/`
-  directory (the loader rejects path traversal), and load over a dedicated
-  `plugin://` scheme rather than `eval`.
-- Do not paste plugin code you don't understand. There is no marketplace review.
+When you enable a plugin, Moldavite:
+
+1. Reads `plugin.js` from the plugin's folder (path-traversal-checked; served
+   over the dedicated `plugin://` scheme, never `eval`).
+2. Computes SHA-256 of `manifest.json` + `plugin.js` and checks it against
+   your recorded grant. Mismatched? Re-prompt.
+3. Spawns a fresh **module Web Worker** for that plugin.
+4. Deletes network globals (`fetch`, `XMLHttpRequest`, `WebSocket`,
+   `EventSource`, `importScripts`, `Notification`, `BroadcastChannel`) inside
+   the worker before running any plugin code.
+5. Loads `plugin.js` into the worker via a Blob URL and calls its default
+   `register(api)`.
+6. The `api` object handed to `register` is a proxy: every editor/ui method
+   posts a message to the main thread. The host validates the plugin's
+   declared permissions on receipt and only then calls the real
+   implementation, then posts the result back.
+
+**Consequences for plugin authors:**
+
+- `getActiveNote()` and `insertText()` are now **async** — they return
+  Promises. `await` them (or ignore the promise for fire-and-forget calls).
+- You can't reach `window`, `document`, `localStorage`, or `fetch`. If your
+  plugin needs the network, that's a v2 feature (per-host allowlist).
+- You can `import` other files from *within* the worker via ES module syntax,
+  but only your own inlined code — the worker has no filesystem or `plugin://`
+  access.
+
+Disable a plugin (or switch Forges) and its worker is `terminate()`-d
+immediately, dropping every command and cancelling every in-flight call.
 
 ## v2 roadmap
 
 Planned for future versions (already sketched in `PLUGINS_DESIGN.md`):
 network `fetch` with a per-host allowlist, editor/sidebar context-menu items,
 right-panel widgets, forge note read/write, plugin-owned frontmatter keys,
-`ui.prompt`, per-handler timeouts, and **Worker/iframe isolation** — running
-plugins outside the app realm behind a postMessage RPC bridge, so the curated
-API becomes a real security boundary. (Content-hash-pinned grants shipped in
-v1.5.) Plus the Web Clipper receiver.
+`ui.prompt`, per-handler timeouts, and the Web Clipper receiver.
+(Worker isolation shipped in v1.5, alongside content-hash-pinned grants.)

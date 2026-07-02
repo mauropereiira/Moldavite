@@ -1,10 +1,10 @@
 {
   "id": "moldavite-example",
   "name": "Example Plugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Moldavite",
   "description": "Insert a timestamp and show the current note's word count.",
   "apiVersion": 1,
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.5.0",
   "permissions": ["commands", "editor", "ui"]
 }

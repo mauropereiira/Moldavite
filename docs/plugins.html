@@ -35,12 +35,18 @@
     <div class="callout warn">
       <span class="callout-title">Trust model — read this first</span>
       <p>
-        Plugins are powerful: a plugin you enable runs real JavaScript inside Moldavite. The
-        <code>permissions</code> in its manifest gate the curated <code>PluginAPI</code>, but full
-        sandboxing is still on the roadmap — treat enabling a plugin like installing any third-party
-        program, and <strong>only enable code you trust</strong>. Moldavite shows a permission sheet
-        before enabling any plugin, and your consent is pinned to a hash of the plugin's code, so any
-        change to it re-prompts you.
+        Plugins run in a <strong>sandboxed Web Worker</strong> with no DOM, no Zustand stores, no
+        Tauri IPC, and no network globals (<code>fetch</code>, <code>XMLHttpRequest</code>,
+        <code>WebSocket</code>, etc. are removed from the worker's global scope). The only channel
+        back into the app is a <code>postMessage</code> bridge to the curated
+        <code>PluginAPI</code>, and permissions are enforced <em>host-side</em> — a plugin can't
+        reach a method its manifest didn't declare, even if it tries to bypass the API object it
+        was handed. Consent is pinned to a SHA-256 hash of the plugin's code, so any change
+        re-prompts you.
+      </p>
+      <p style="margin-top:0.6em">
+        Still: enabling a plugin means running someone else's code.
+        <strong>Only enable plugins you trust.</strong>
       </p>
     </div>
 
@@ -100,9 +106,16 @@
   api.commands.<span class="f">add</span>({
     id: <span class="s">'greet'</span>,
     label: <span class="s">'Insert greeting'</span>,
-    handler: () =&gt; api.editor.<span class="f">insertText</span>(<span class="s">'Hello from my plugin!'</span>),
+    handler: <span class="k">async</span> () =&gt; {
+      <span class="k">await</span> api.editor.<span class="f">insertText</span>(<span class="s">'Hello from my plugin!'</span>);
+    },
   });
 }</code></pre>
+    <p>
+      Every <code>editor</code> and <code>ui</code> method is <strong>async</strong> — they cross a
+      <code>postMessage</code> bridge to the main thread. <code>await</code> them in your handlers
+      (or fire-and-forget for calls whose result you don't need).
+    </p>
     <p>
       Plugins load on app start and after a Forge switch; there's no hot-reload in v1 — edit
       <code>plugin.js</code>, then reopen the app (the Plugins tab also re-scans). Plugins load over
@@ -123,15 +136,15 @@
     }): <span class="k">void</span>;
   };
 
-  <span class="c">// Requires "editor" in manifest permissions.</span>
+  <span class="c">// Requires "editor" in manifest permissions. All calls are async.</span>
   editor: {
-    <span class="f">getActiveNote</span>(): { title: <span class="k">string</span>; content: <span class="k">string</span> } | <span class="k">null</span>;  <span class="c">// content is HTML</span>
-    <span class="f">insertText</span>(text: <span class="k">string</span>): <span class="k">void</span>;                              <span class="c">// at the cursor</span>
+    <span class="f">getActiveNote</span>(): <span class="k">Promise</span>&lt;{ title: <span class="k">string</span>; content: <span class="k">string</span> } | <span class="k">null</span>&gt;;  <span class="c">// content is HTML</span>
+    <span class="f">insertText</span>(text: <span class="k">string</span>): <span class="k">Promise</span>&lt;<span class="k">void</span>&gt;;                              <span class="c">// at the cursor</span>
   };
 
   <span class="c">// Requires "ui" in manifest permissions.</span>
   ui: {
-    <span class="f">toast</span>(message: <span class="k">string</span>, kind?: <span class="s">'info'</span> | <span class="s">'success'</span> | <span class="s">'error'</span>): <span class="k">void</span>;
+    <span class="f">toast</span>(message: <span class="k">string</span>, kind?: <span class="s">'info'</span> | <span class="s">'success'</span> | <span class="s">'error'</span>): <span class="k">Promise</span>&lt;<span class="k">void</span>&gt;;
   };
 }</code></pre>
     <ul>
@@ -179,8 +192,8 @@
   api.commands.<span class="f">add</span>({
     id: <span class="s">'insert-timestamp'</span>,
     label: <span class="s">'Insert timestamp'</span>,
-    handler: () =&gt; {
-      api.editor.<span class="f">insertText</span>(<span class="k">new</span> Date().<span class="f">toISOString</span>());
+    handler: <span class="k">async</span> () =&gt; {
+      <span class="k">await</span> api.editor.<span class="f">insertText</span>(<span class="k">new</span> Date().<span class="f">toISOString</span>());
     },
   });
 
@@ -188,15 +201,15 @@
   api.commands.<span class="f">add</span>({
     id: <span class="s">'word-count'</span>,
     label: <span class="s">'Word count'</span>,
-    handler: () =&gt; {
-      <span class="k">const</span> note = api.editor.<span class="f">getActiveNote</span>();
+    handler: <span class="k">async</span> () =&gt; {
+      <span class="k">const</span> note = <span class="k">await</span> api.editor.<span class="f">getActiveNote</span>();
       <span class="k">if</span> (!note) {
-        api.ui.<span class="f">toast</span>(<span class="s">'No active note'</span>, <span class="s">'error'</span>);
+        <span class="k">await</span> api.ui.<span class="f">toast</span>(<span class="s">'No active note'</span>, <span class="s">'error'</span>);
         <span class="k">return</span>;
       }
       <span class="k">const</span> text = note.content.<span class="f">replace</span>(<span class="s">/&lt;[^&gt;]+&gt;/g</span>, <span class="s">' '</span>);
       <span class="k">const</span> words = text.<span class="f">trim</span>().<span class="f">split</span>(<span class="s">/\s+/</span>).<span class="f">filter</span>(Boolean).length;
-      api.ui.<span class="f">toast</span>(<span class="s">`${words} word${words === 1 ? '' : 's'}`</span>, <span class="s">'info'</span>);
+      <span class="k">await</span> api.ui.<span class="f">toast</span>(<span class="s">`${words} word${words === 1 ? '' : 's'}`</span>, <span class="s">'info'</span>);
     },
   });
 }</code></pre>
