@@ -1,10 +1,22 @@
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
 import { validateManifest } from './manifest';
-import { buildPluginAPI, setPluginAppVersion } from './api';
+import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion, getPluginApiVersion } from './api';
 import type { PluginInfo } from './types';
+import type {
+  CallMessage,
+  CommandRegisteredMessage,
+  HostToWorker,
+  InvokeMessage,
+  InvokeResultMessage,
+  LoadErrorMessage,
+  LoadedMessage,
+  LogMessage,
+  WorkerToHost,
+} from './rpc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import PluginWorker from './pluginWorker.ts?worker';
 
 interface RawPlugin {
   id: string;
@@ -37,28 +49,160 @@ function classify(raw: RawPlugin): PluginInfo {
   return { manifest: v.manifest, status: 'ok', contentHash };
 }
 
-async function loadOne(info: PluginInfo): Promise<void> {
-  const { id } = info.manifest;
-  try {
-    const mod = await import(/* @vite-ignore */ `plugin://localhost/${id}/plugin.js`);
-    const register = mod?.default;
-    if (typeof register !== 'function') {
-      throw new Error('plugin.js has no default export function');
-    }
-    await register(buildPluginAPI(id, info.manifest.permissions ?? []));
-  } catch (err) {
-    console.error(`[plugin:${id}] failed to load:`, err);
+// -----------------------------------------------------------------------------
+// Per-plugin runtime state.
+// -----------------------------------------------------------------------------
+
+interface PluginRuntime {
+  worker: Worker;
+  permissions: readonly string[];
+  /** Fire-and-await from the host: match `invokeResult` back to a Promise. */
+  pendingInvocations: Map<number, { resolve: () => void; reject: (e: Error) => void }>;
+  nextInvocationId: number;
+}
+
+const runtimes = new Map<string, PluginRuntime>();
+
+async function fetchPluginSource(pluginId: string): Promise<string> {
+  const url = `plugin://localhost/${pluginId}/plugin.js`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`fetch ${url} failed with status ${resp.status}`);
+  return await resp.text();
+}
+
+function terminateRuntime(pluginId: string) {
+  const rt = runtimes.get(pluginId);
+  if (!rt) return;
+  rt.worker.terminate();
+  for (const pending of rt.pendingInvocations.values()) {
+    pending.reject(new Error('plugin was unloaded'));
   }
+  runtimes.delete(pluginId);
+}
+
+/** Invoke a plugin command via its worker; resolves when the command handler completes. */
+function invokeCommandInWorker(pluginId: string, commandLocalId: string): Promise<void> {
+  const rt = runtimes.get(pluginId);
+  if (!rt) return Promise.reject(new Error(`plugin ${pluginId} is not running`));
+  const invocationId = rt.nextInvocationId++;
+  return new Promise<void>((resolve, reject) => {
+    rt.pendingInvocations.set(invocationId, { resolve, reject });
+    const msg: InvokeMessage = { kind: 'invoke', invocationId, commandLocalId };
+    rt.worker.postMessage(msg);
+  });
+}
+
+async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerToHost>) {
+  const rt = runtimes.get(pluginId);
+  if (!rt) return;
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+
+  switch (msg.kind) {
+    case 'commandRegistered': {
+      const { localId, label } = msg as CommandRegisteredMessage;
+      usePluginCommandStore.getState().addCommand({
+        pluginId,
+        id: `${pluginId}:${localId}`,
+        label,
+        handler: () => invokeCommandInWorker(pluginId, localId),
+      });
+      return;
+    }
+    case 'call': {
+      const call = msg as CallMessage;
+      try {
+        const value = await dispatchPluginCall(pluginId, rt.permissions, call.method, call.args);
+        rt.worker.postMessage({ kind: 'callResult', requestId: call.requestId, ok: true, value });
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        rt.worker.postMessage({ kind: 'callResult', requestId: call.requestId, ok: false, error });
+      }
+      return;
+    }
+    case 'invokeResult': {
+      const result = msg as InvokeResultMessage;
+      const pending = rt.pendingInvocations.get(result.invocationId);
+      if (!pending) return;
+      rt.pendingInvocations.delete(result.invocationId);
+      if (result.ok) pending.resolve();
+      else pending.reject(new Error(result.error ?? 'command failed'));
+      return;
+    }
+    case 'loaded': {
+      // Nothing to do — commandRegistered messages already populated the store.
+      // Kept as a distinct message so future logic (e.g. "plugin is ready" UI) can hook in.
+      void (msg as LoadedMessage);
+      return;
+    }
+    case 'loadError': {
+      const err = msg as LoadErrorMessage;
+      console.error(`[plugin:${pluginId}] failed to load:`, err.error);
+      terminateRuntime(pluginId);
+      return;
+    }
+    case 'log': {
+      const log = msg as LogMessage;
+      const fn = log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
+      fn(`[plugin:${pluginId}]`, ...log.args);
+      return;
+    }
+  }
+}
+
+async function loadOne(info: PluginInfo): Promise<void> {
+  const { id, permissions = [] } = info.manifest;
+
+  let code: string;
+  try {
+    code = await fetchPluginSource(id);
+  } catch (err) {
+    console.error(`[plugin:${id}] failed to fetch source:`, err);
+    return;
+  }
+
+  const worker = new PluginWorker();
+  const rt: PluginRuntime = {
+    worker,
+    permissions,
+    pendingInvocations: new Map(),
+    nextInvocationId: 1,
+  };
+  runtimes.set(id, rt);
+
+  worker.addEventListener('message', (e) => {
+    void handleWorkerMessage(id, e as MessageEvent<WorkerToHost>);
+  });
+  worker.addEventListener('error', (e) => {
+    console.error(`[plugin:${id}] worker error:`, e.message);
+  });
+
+  const init: HostToWorker = {
+    kind: 'init',
+    pluginId: id,
+    code,
+    permissions,
+    apiVersion: getPluginApiVersion(),
+    appVersion: getPluginAppVersion(),
+  };
+  worker.postMessage(init);
 }
 
 /**
  * Scan the active Forge's plugins, (re)load every enabled + granted +
- * compatible one, and return the full classified list for the Settings UI.
- * Clears previously-registered commands first so it is safe to call on
+ * compatible one in an isolated Worker sandbox, and return the full
+ * classified list for the Settings UI. Clears previously-registered commands
+ * and terminates every prior worker first so it is safe to call on
  * enable/disable/refresh.
  */
 export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   setPluginAppVersion(await getVersion().catch(() => '0.0.0'));
+
+  // Tear down any running workers before reloading.
+  for (const id of Array.from(runtimes.keys())) {
+    terminateRuntime(id);
+  }
+  usePluginCommandStore.getState().clear();
 
   let raw: RawPlugin[];
   try {
@@ -69,8 +213,6 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   }
 
   const infos = raw.map(classify);
-  usePluginCommandStore.getState().clear();
-
   const store = usePluginStore.getState();
   for (const info of infos) {
     if (info.status !== 'ok') continue;
@@ -81,7 +223,8 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   return infos;
 }
 
-/** Remove a plugin's live commands (on disable/uninstall). */
+/** Terminate a plugin's worker and drop its commands (on disable/uninstall). */
 export function unloadPlugin(id: string): void {
+  terminateRuntime(id);
   usePluginCommandStore.getState().removeByPlugin(id);
 }
