@@ -1,7 +1,9 @@
 //! Stress tests: large-vault search, concurrent atomic writes, and bulk
 //! wiki-link rewriting. These use generous time bounds so they stay green on
 //! slow CI machines while still catching order-of-magnitude regressions.
-#![cfg(test)]
+//!
+//! The module itself is `#[cfg(test)]` at the lib.rs declaration site, so
+//! we don't repeat it here.
 
 use std::fs;
 use std::path::{Path, PathBuf};

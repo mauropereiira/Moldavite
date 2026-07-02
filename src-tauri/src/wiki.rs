@@ -38,7 +38,6 @@ pub(crate) fn note_name_to_filename(note_name: &str) -> String {
     let normalized: String = note_name.nfc().collect();
     let slug = normalized
         .to_lowercase()
-        .trim()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join("-")
