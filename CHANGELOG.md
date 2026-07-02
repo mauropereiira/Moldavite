@@ -15,6 +15,7 @@ All notable changes to Moldavite are documented here.
 - Failed note loads/creates now show an error toast instead of silently logging to the console.
 
 ### Changed
+- **Plugins now run in a sandboxed Web Worker** with no DOM, no Zustand stores, no Tauri IPC, and no network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, etc. are removed from the worker's global scope). The curated `PluginAPI` is now a `postMessage` bridge to the main thread, and permissions are enforced *host-side* — a plugin can't reach a method its manifest didn't declare, even by trying to bypass the API object it was handed. Every `editor` and `ui` method is now async; command handlers should `await` them. Existing plugins need to add `await` — see docs/PLUGINS.md.
 - **Plugin consent is pinned to the plugin's code.** Enabling a plugin records a SHA-256 hash of its `manifest.json` + `plugin.js`; if the code on disk changes in any way, Moldavite asks for consent again before running it (previously only a version bump re-prompted).
 - **Plugins can no longer reach the raw Tauri IPC bridge** — the `window.__TAURI__` global has been removed (the app itself never needed it).
 - The system opener (`shell:open`) is now restricted to `https://` URLs.
