@@ -281,6 +281,11 @@ a {
   padding: 0 24px;
 }
 
+.docs-body .shot {
+  padding: 0;
+  margin: 28px 0 8px;
+}
+
 .shot .frame {
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
