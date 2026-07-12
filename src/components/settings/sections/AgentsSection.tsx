@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, FileCheck2, FileX2, RefreshCw, Sparkles } from 'lucide-react';
+import { Bot, ChevronRight, FileCheck2, FileX2, RefreshCw, Sparkles } from 'lucide-react';
 import { useForgeStore } from '@/stores/forgeStore';
 import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
@@ -198,6 +198,7 @@ function McpServerBlock() {
   const [writesEnabled, setWritesEnabled] = useState(false);
   const [confirmWrites, setConfirmWrites] = useState(false);
   const [client, setClient] = useState<McpClient>('claude-code');
+  const [pathExpanded, setPathExpanded] = useState(false);
 
   useEffect(() => {
     Promise.all([getAppBinaryPath(), getMcpWritesEnabled()])
@@ -265,24 +266,52 @@ function McpServerBlock() {
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-          Path to your Moldavite install (resolved automatically)
-        </p>
-        <code
-          className="block text-xs p-3 overflow-x-auto break-all"
-          style={{
-            color: 'var(--text-secondary)',
-            backgroundColor: 'var(--bg-inset)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-          }}
+        <button
+          type="button"
+          onClick={() => setPathExpanded((expanded) => !expanded)}
+          aria-expanded={pathExpanded}
+          aria-controls="mcp-install-path"
+          className="flex items-center gap-1.5 text-xs font-medium focus-ring"
+          style={{ color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)' }}
         >
-          {binaryPath || 'Locating Moldavite binary…'}
-        </code>
-        {binaryPath.includes('target/debug') && (
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            development build path
-          </p>
+          <ChevronRight
+            aria-hidden="true"
+            className={`h-3.5 w-3.5 transition-transform ${pathExpanded ? 'rotate-90' : ''}`}
+            style={{ color: 'var(--text-tertiary)' }}
+          />
+          Path to your Moldavite install
+        </button>
+        {pathExpanded && (
+          <div id="mcp-install-path" className="mt-2 pl-5">
+            <div className="mb-1.5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => void copy(binaryPath)}
+                disabled={!binaryPath}
+                className="text-xs disabled:opacity-50"
+                style={{ color: 'var(--accent-primary)' }}
+                aria-label="Copy path to your Moldavite install"
+              >
+                Copy
+              </button>
+            </div>
+            <code
+              className="block overflow-x-auto break-all p-3 text-xs"
+              style={{
+                color: 'var(--text-secondary)',
+                backgroundColor: 'var(--bg-inset)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              {binaryPath || 'Locating Moldavite binary…'}
+            </code>
+            {binaryPath.includes('target/debug') && (
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                development build path
+              </p>
+            )}
+          </div>
         )}
       </div>
 
