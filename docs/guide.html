@@ -132,6 +132,26 @@
       modifies your calendar, and nothing is sent anywhere.
     </p>
 
+    <h2 id="agents">Use your Forge as agent memory</h2>
+    <p>
+      Because a Forge is plain Markdown on disk, AI agents that work with files — Claude Code,
+      for example — can read and write your notes directly. There's no export step, no plugin,
+      and no API in between: point the agent at your Forge folder and it sees the same files you do.
+      Edits made by an agent show up live in Moldavite thanks to the file watcher.
+    </p>
+    <p>
+      To make that hand-off explicit, open <strong>Settings → AI &amp; Agents</strong> and click
+      <em>Make this Forge agent-ready</em>. Moldavite writes two files to the root of your Forge:
+    </p>
+    <ul>
+      <li><strong><code>AGENTS.md</code></strong> — a generated guide to <em>your</em> vault: the directory layout, daily/weekly/standalone note naming, the YAML frontmatter schema, wiki-link and tag syntax, and ground rules for agents (plain Markdown only, leave <code>.trash/</code> and <code>.plugins/</code> alone, never edit encrypted <code>.md.locked</code> files).</li>
+      <li><strong><code>.gitignore</code></strong> — covers the app-managed folders (<code>.trash/</code>, <code>.plugins/</code>, <code>.index/</code>) and <code>.DS_Store</code>, so a Forge under version control stays clean.</li>
+    </ul>
+    <p>
+      If either file already exists, Moldavite asks before overwriting it, and the settings section
+      always shows whether an <code>AGENTS.md</code> is present in the current Forge.
+    </p>
+
     <div class="callout">
       <span class="callout-title">Your Forge is just files</span>
       <p>
