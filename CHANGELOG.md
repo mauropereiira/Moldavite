@@ -16,12 +16,14 @@ All notable changes to Moldavite are documented here.
 - **External-edit conflict safety.** If a note changes on disk (iCloud Drive, Dropbox, Syncthing, git, another editor…) while you have unsaved edits in Moldavite, saving no longer silently overwrites the external version: the disk version is preserved as a sibling `<name> (conflict YYYY-MM-DD HHMM).md` note, your edits are then saved, and a warning toast names the conflict copy.
 
 ### Fixed
+- **Graph view is stable, path-correct, and scalable.** Notes in folders, daily notes, and weekly notes now keep distinct path-based identities and open the right file; broken links remain visible without colliding with real notes. Deterministic bounded physics settles quickly without perpetual O(n²) work, label collisions are reduced, neighbor hover highlighting and node dragging work reliably, and zoom/pan can always be recovered with **Fit view**. The canvas also refits on resize and redraws with the active theme.
 - **Feature-update onboarding now waits for saved settings to load.** Existing users reliably see the new AI & Agents pages once instead of having the flow chosen from pre-hydration defaults.
 - **Password and template dialogs now follow the active theme.** Unlocking or locking a note and editing templates use Moldavite's background, text, border, focus, status, and accent tokens instead of fixed blue/gray palettes.
 - **Locking a note no longer creates a duplicate plaintext note.** Pending saves are drained or cancelled before encryption, locked-note hashes are invalidated, and the backend refuses stale writes while the encrypted `.locked` file exists.
 - **Temporarily unlocked notes display their decrypted content immediately.** Decrypted Markdown is converted to editor HTML before opening the note, without requiring a tab switch and return.
 
 ### Changed
+- **MCP install path is tucked into a disclosure.** Settings → AI & Agents now reveals the resolved Moldavite binary path, development-build hint, and copy action only when **Path to your Moldavite install** is expanded; client snippets still embed the path automatically.
 - **MCP setup is client-aware and machine-specific.** Settings now explains that the Moldavite binary path is resolved automatically, identifies development paths, and provides copy-ready setup for Claude Code, Claude Desktop, Cursor, or a generic MCP client.
 
 ## [1.5.1] - 2026-07-12
