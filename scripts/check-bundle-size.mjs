@@ -39,7 +39,8 @@ const BUDGETS = [
 // Bumped for the API v2 host-consent/prompt broker and WordPress install UI.
 // PluginDialogHost is lazy-loaded, but this combined budget deliberately also
 // counts lazy app chunks, so it includes the small split-chunk/gzip overhead.
-const APP_JS_BUDGET = { rawKb: 516, gzipKb: 138 };
+// Bumped for the graph-view overhaul (deterministic layout, LOD, fit-view).
+const APP_JS_BUDGET = { rawKb: 522, gzipKb: 140 };
 
 async function main() {
   let entries;
