@@ -3,7 +3,7 @@ import { Layout, ToastContainer, UpdateNotification, WhatsNewModal, CalendarOnbo
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
-import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
+import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore, useSemanticStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock, useForgeWatcher, usePluginHost } from './hooks';
 
@@ -30,6 +30,12 @@ function App() {
   useEffect(() => {
     loadColors();
   }, [loadColors]);
+
+  // Semantic search: fetch status + subscribe to progress events (idempotent)
+  const initializeSemantic = useSemanticStore((s) => s.initialize);
+  useEffect(() => {
+    void initializeSemantic();
+  }, [initializeSemantic]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {

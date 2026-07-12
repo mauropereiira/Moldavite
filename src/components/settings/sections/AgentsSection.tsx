@@ -8,12 +8,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bot, FileCheck2, FileX2, Sparkles } from 'lucide-react';
+import { Bot, FileCheck2, FileX2, RefreshCw, Sparkles } from 'lucide-react';
 import { useForgeStore } from '@/stores/forgeStore';
+import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
 import { buildAgentsMd, GITIGNORE_CONTENT, readForgeRootFile, writeForgeRootFile } from '@/lib';
-import { InfoTooltip } from '../common';
+import { InfoTooltip, Toggle } from '../common';
 
 export function AgentsSection() {
   const forgeName = useForgeStore((s) => s.active);
@@ -156,6 +157,9 @@ export function AgentsSection() {
         </div>
       </div>
 
+      {/* Semantic search */}
+      <SemanticSearchBlock />
+
       {/* Overwrite confirmation */}
       {confirmOverwrite && (
         <ConfirmDialog
@@ -171,4 +175,151 @@ export function AgentsSection() {
       )}
     </div>
   );
+}
+
+/**
+ * "Semantic search" block: consent-gated enable toggle, live download/index
+ * progress (streamed via `semantic:*` events into `semanticStore`), and a
+ * rebuild-index action.
+ */
+function SemanticSearchBlock() {
+  const semantic = useSemanticStore();
+  const refreshStatus = useSemanticStore((s) => s.refreshStatus);
+  const toast = useToast();
+  const [confirmEnable, setConfirmEnable] = useState(false);
+
+  // Settings can open long after startup; re-sync with the backend so the
+  // indexed count / state shown here is fresh. (Store actions are stable.)
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
+
+  const isBuilding = semantic.state === 'downloading' || semantic.state === 'indexing';
+
+  const handleToggle = (enabled: boolean) => {
+    if (enabled) {
+      // Consent BEFORE anything downloads.
+      setConfirmEnable(true);
+      return;
+    }
+    semantic.setEnabled(false).catch((error) => {
+      console.error('[Settings] Failed to disable semantic search:', error);
+      toast.error('Failed to disable semantic search');
+    });
+  };
+
+  const handleConfirmEnable = () => {
+    setConfirmEnable(false);
+    semantic.setEnabled(true).catch((error) => {
+      console.error('[Settings] Failed to enable semantic search:', error);
+      toast.error('Failed to enable semantic search');
+    });
+  };
+
+  const handleRebuild = () => {
+    semantic.rebuildIndex().catch((error) => {
+      console.error('[Settings] Failed to rebuild semantic index:', error);
+      toast.error('Failed to rebuild the semantic index');
+    });
+  };
+
+  return (
+    <div
+      className="p-4 space-y-4"
+      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Semantic search
+            </h3>
+            <InfoTooltip text="Adds a by-meaning search mode to the sidebar search and a 'Related' list under each note, powered by a small AI model that runs entirely on your Mac." />
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            Find notes by meaning, not just keywords. Downloads a ~97 MB AI model once from
+            HuggingFace; afterwards everything runs fully offline — your notes never leave your
+            Mac.
+          </p>
+        </div>
+        <Toggle
+          enabled={semantic.enabled}
+          onChange={handleToggle}
+          ariaLabel="Enable semantic search"
+        />
+      </div>
+
+      {/* Live status */}
+      {semantic.enabled && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <SemanticStatusLine />
+          <button
+            onClick={handleRebuild}
+            disabled={isBuilding}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={`w-4 h-4 ${isBuilding ? 'animate-spin' : ''}`}
+            />
+            {isBuilding ? 'Building…' : 'Rebuild index'}
+          </button>
+        </div>
+      )}
+
+      {/* Consent dialog — shown before anything is downloaded */}
+      {confirmEnable && (
+        <ConfirmDialog
+          title="Enable semantic search?"
+          message="Downloads a ~97 MB AI model once from HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac. Your notes are then indexed locally so you can search by meaning."
+          confirmLabel="Download & enable"
+          onConfirm={handleConfirmEnable}
+          onCancel={() => setConfirmEnable(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SemanticStatusLine() {
+  const { state, progress, indexedCount, error } = useSemanticStore();
+
+  if (state === 'downloading') {
+    return (
+      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        Downloading model (~97 MB)… one-time, cached for all Forges
+      </span>
+    );
+  }
+  if (state === 'indexing') {
+    const detail =
+      progress && progress.phase === 'indexing' && progress.total > 0
+        ? ` ${progress.done}/${progress.total}`
+        : '';
+    return (
+      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        Indexing notes…{detail}
+      </span>
+    );
+  }
+  if (state === 'error') {
+    return (
+      <span className="text-xs" style={{ color: 'var(--error)' }} role="alert">
+        {error ?? 'Semantic search hit an error'}
+      </span>
+    );
+  }
+  if (state === 'ready') {
+    return (
+      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        {indexedCount} {indexedCount === 1 ? 'note' : 'notes'} indexed — ready
+      </span>
+    );
+  }
+  return null;
 }
