@@ -17,6 +17,7 @@ import {
   isContentEmpty,
   parseTaskStatus,
   noteFileBackendPath,
+  notifyConflictCopy,
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
@@ -80,7 +81,7 @@ export function useNotes() {
       } else {
         // Convert HTML to Markdown before saving
         const markdownContent = htmlToMarkdown(note.content);
-        await writeNote(filename, markdownContent, true, false);
+        notifyConflictCopy(await writeNote(filename, markdownContent, true, false));
         if (!existsInList) {
           const noteFile: NoteFile = {
             name: filename,
@@ -110,7 +111,7 @@ export function useNotes() {
       } else {
         // Convert HTML to Markdown before saving
         const markdownContent = htmlToMarkdown(note.content);
-        await writeNote(filename, markdownContent, false, true);
+        notifyConflictCopy(await writeNote(filename, markdownContent, false, true));
         if (!existsInList) {
           const noteFile: NoteFile = {
             name: filename,
@@ -127,7 +128,7 @@ export function useNotes() {
       // Standalone note - just save
       // Convert HTML to Markdown before saving
       const markdownContent = htmlToMarkdown(note.content);
-      await writeNote(filename, markdownContent, false, false);
+      notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
     }
   }, [getState, setNotes]);
 

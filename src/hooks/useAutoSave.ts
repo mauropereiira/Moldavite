@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
-import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus } from '@/lib';
+import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus, notifyConflictCopy } from '@/lib';
 import type { NoteFile } from '@/types';
 
 /**
@@ -96,7 +96,7 @@ export function useAutoSave() {
             // Content is not empty - save and add to list if needed
             // Convert HTML to Markdown before saving
             const markdownContent = htmlToMarkdown(currentNote.content);
-            await writeNote(filename, markdownContent, true, false);
+            notifyConflictCopy(await writeNote(filename, markdownContent, true, false));
 
             if (!existsInList) {
               // Add to notes list
@@ -137,7 +137,7 @@ export function useAutoSave() {
             // Content is not empty - save and add to list if needed
             // Convert HTML to Markdown before saving
             const markdownContent = htmlToMarkdown(currentNote.content);
-            await writeNote(filename, markdownContent, false, true);
+            notifyConflictCopy(await writeNote(filename, markdownContent, false, true));
 
             if (!existsInList) {
               // Add to notes list
@@ -156,7 +156,7 @@ export function useAutoSave() {
           // Standalone note - just save normally
           // Convert HTML to Markdown before saving
           const markdownContent = htmlToMarkdown(currentNote.content);
-          await writeNote(filename, markdownContent, false, false);
+          notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
         }
 
         lastContentRef.current = currentNote.content;

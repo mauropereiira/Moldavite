@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 2, 2026 (v1.5.0)
+**Last Updated:** July 12, 2026 (v1.5.1 + unreleased)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -21,6 +21,8 @@
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable
 - **Atomic writes everywhere** (temp + fsync + rename; 0600 before visibility) — v1.5
 - Folder-relative note addressing (fixed folder-note round-trip data bug) — v1.5
+- **External-edit conflict safety** (unreleased): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
+- Forge file watcher: external changes refresh the note list live (self-writes suppressed)
 - Trash with 7-day retention, restore, previews; multiple Forges (vaults) with per-Forge state
 - Note locking (AES-256-GCM + Argon2, rate-limited unlock, auto-lock); encrypted vault backups; settings JSON export/import
 - Import/export: Markdown, PDF, plaintext, bulk export, encrypted archive
@@ -38,8 +40,8 @@
 - Author guide: docs/PLUGINS.md
 
 ## Test & Quality Status
-- Frontend: vitest — 118 tests across 21 files (stores, lib, hooks)
-- Backend: cargo test — 105 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus)
+- Frontend: vitest — TBD_FE tests across TBD_FILES files (stores, lib, hooks)
+- Backend: cargo test — TBD_BE tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
@@ -56,7 +58,7 @@
 2. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 3. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
 4. **Note rename UI** — backend now rewrites links safely; expose rename in the sidebar/editor.
-5. External-edit conflict handling beyond the file-watcher refresh.
+5. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (unreleased): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
 Staying a *note app*: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.
