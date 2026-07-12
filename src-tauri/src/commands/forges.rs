@@ -163,6 +163,9 @@ pub(crate) fn set_active_forge(
     tauri::async_runtime::spawn_blocking(move || {
         idx.rebuild_from_disk();
     });
+    // Swap the semantic index over to the new Forge (async, no-op if the
+    // feature is disabled).
+    crate::commands::semantic::on_forge_switched(app.clone());
 
     Ok(name)
 }

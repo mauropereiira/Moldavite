@@ -63,6 +63,9 @@ pub(crate) fn trash_note(
     write_trash_metadata(&metadata)?;
 
     index.remove_note(&filename);
+    crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
 
     Ok(())
 }
@@ -175,6 +178,12 @@ pub(crate) fn restore_note(
 
         // Re-index every contained .md file by walking the restored folder.
         reindex_folder(&dest_path, &index);
+        crate::semantic::notes_changed(
+            item.contained_files
+                .iter()
+                .map(|f| format!("notes/{}/{}", item.original_path, f))
+                .collect(),
+        );
     } else {
         // Ensure parent directory exists for notes in folders
         let dest_path = dest_dir.join(&item.original_path);
@@ -189,6 +198,11 @@ pub(crate) fn restore_note(
             let content = fs::read_to_string(&dest_path).unwrap_or_default();
             index.update_note(name, &content);
         }
+        crate::semantic::note_changed(&crate::semantic::note_rel_path(
+            &item.original_path,
+            item.is_daily,
+            false,
+        ));
     }
 
     // Update metadata
@@ -379,6 +393,12 @@ pub(crate) fn trash_folder(
     let trash_path = get_trash_dir().join(&trash_filename);
     fs::rename(&source_path, &trash_path).map_err(|e| format!("Failed to move folder to trash: {}", e))?;
 
+    // Forge-relative paths of every trashed note, for the semantic index.
+    let semantic_paths: Vec<String> = contained_files
+        .iter()
+        .map(|rel| format!("notes/{}/{}", path, rel))
+        .collect();
+
     // Update metadata
     let mut metadata = read_trash_metadata();
     metadata.items.push(TrashedNoteMetadata {
@@ -403,6 +423,7 @@ pub(crate) fn trash_folder(
             index.remove_note(name);
         }
     }
+    crate::semantic::notes_removed(semantic_paths);
 
     Ok(())
 }
@@ -456,6 +477,7 @@ pub(crate) fn restore_note_from_folder(
         let content = fs::read_to_string(&dest_path).unwrap_or_default();
         index.update_note(name, &content);
     }
+    crate::semantic::note_changed(&format!("notes/{}", note_filename));
 
     // Update the contained_files list in metadata
     let item = &mut metadata.items[item_index];
