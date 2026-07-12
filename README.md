@@ -61,6 +61,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Plugins** — add your own commands to the palette and slash menu. Plugins live in your Forge and run behind a per-plugin permission prompt; see [docs/PLUGINS.md](docs/PLUGINS.md).
 
+**Agent-ready** — your Forge is plain Markdown, so AI agents (Claude Code, etc.) can read and write it directly. Settings → AI & Agents generates an `AGENTS.md` describing your vault's conventions to agents, plus a `.gitignore` for app-managed folders.
+
 **Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
 ---

@@ -2,6 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+- **Agent-ready Forge** — new **Settings → AI & Agents** section. One click writes an `AGENTS.md` to your Forge root describing the vault to AI agents (directory layout, daily/weekly/standalone note naming, frontmatter schema, wiki-link and tag syntax, and rules like "don't touch `.trash/`"), plus a `.gitignore` covering app-managed folders. If either file already exists you're asked before it's overwritten, and the section shows whether `AGENTS.md` is present. Your notes are plain Markdown, so agents like Claude Code can read and write them directly — no export needed.
+
 ## [1.5.1] - 2026-07-12
 
 ### Fixed

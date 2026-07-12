@@ -76,6 +76,7 @@ use commands::notes::{
     fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
 };
 use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
+use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::search_notes_content;
 use commands::templates::{
     apply_template, create_note_from_template, delete_template, get_template, list_templates,
@@ -271,6 +272,9 @@ pub fn run() {
             set_notes_directory,
             rescan_forge,
             open_forge_in_finder,
+            // Forge-root whitelisted files (AGENTS.md, .gitignore)
+            write_forge_root_file,
+            read_forge_root_file,
             // Multi-Forge management commands
             list_forges,
             create_forge,

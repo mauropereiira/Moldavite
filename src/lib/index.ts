@@ -18,6 +18,7 @@
  * @module lib
  */
 
+export * from './agents';
 export * from './fileSystem';
 export * from './templates';
 export * from './validation';
