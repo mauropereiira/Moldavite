@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   MoreVertical,
@@ -9,7 +9,8 @@ import {
   FileText,
   Trash2,
   Info,
-  Star
+  Star,
+  Pencil,
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
@@ -19,19 +20,28 @@ import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 
+const RenameNoteModal = lazy(() =>
+  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal })),
+);
+
 interface MoreOptionsMenuProps {
   onDelete: () => void;
   onShowToast?: (message: string) => void;
   wordCount: number;
   characterCount: number;
   openDirection?: 'up' | 'down';
+  onRenameNote: (note: NoteFile, title: string) => Promise<void>;
 }
 
-export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount, openDirection = 'down' }: MoreOptionsMenuProps) {
+export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount, onRenameNote, openDirection = 'down' }: MoreOptionsMenuProps) {
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const currentNoteFile = currentNote
+    ? notes.find((note) => note.path === currentNote.id)
+    : undefined;
 
   const handleCopyUrl = async () => {
     if (!currentNote) return;
@@ -235,6 +245,14 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         >
           Duplicate note
         </DropdownItem>
+        {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
+          <DropdownItem
+            onClick={() => setShowRenameModal(true)}
+            icon={<Pencil className="w-4 h-4" />}
+          >
+            Rename note…
+          </DropdownItem>
+        )}
         <DropdownItem
           onClick={handleExport}
           icon={<Download className="w-4 h-4" />}
@@ -352,6 +370,16 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         onClose={() => setShowPdfOptions(false)}
         onConfirm={handlePdfExportConfirm}
       />
+
+      {showRenameModal && currentNoteFile && (
+        <Suspense fallback={null}>
+          <RenameNoteModal
+            note={currentNoteFile}
+            onRename={onRenameNote}
+            onClose={() => setShowRenameModal(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

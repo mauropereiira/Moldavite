@@ -41,6 +41,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Rich editing** — Markdown shortcuts, `[[wiki links]]`, images, code blocks, task lists.
 
+**Safe note renaming** — Rename standalone notes from the sidebar or editor while Moldavite updates inbound `[[wiki links]]` and keeps open tabs in place.
+
 **Daily notes** — One click to today's note. Apple Calendar in the sidebar.
 
 **Connected thinking** — Backlinks panel shows every note that links to the current one. Folders when you need them, tags when you don't.
