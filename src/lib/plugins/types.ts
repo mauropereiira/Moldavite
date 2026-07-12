@@ -37,22 +37,43 @@ export interface PluginAPI {
   editor: {
     // Async since plugins run in a Worker sandbox; every editor/ui method
     // round-trips through postMessage to the host thread.
-    getActiveNote(): Promise<{ title: string; content: string } | null>;
+    getActiveNote(): Promise<{ path: string; title: string; content: string } | null>;
     insertText(text: string): Promise<void>;
   };
-  ui: { toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void> };
+  ui: {
+    toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void>;
+    prompt(options: PluginPromptOptions): Promise<Record<string, string> | null>;
+  };
   notes: {
     list(): Promise<PluginNoteMetadata[]>;
     read(path: string): Promise<string>;
   };
   net: {
     fetch(url: string, options?: PluginFetchOptions): Promise<PluginFetchResponse>;
+    requestHostAccess(host: string): Promise<boolean>;
   };
   secrets: {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
     delete(key: string): Promise<void>;
   };
+}
+
+export type PluginPromptFieldType = 'text' | 'password' | 'url';
+
+export interface PluginPromptField {
+  name: string;
+  label: string;
+  type: PluginPromptFieldType;
+  placeholder?: string;
+  required?: boolean;
+}
+
+export interface PluginPromptOptions {
+  title: string;
+  message?: string;
+  fields: PluginPromptField[];
+  confirmLabel?: string;
 }
 
 export type PluginNoteKind = 'daily' | 'weekly' | 'standalone';

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateManifest } from './manifest';
+import wordpressManifest from '../../../src-tauri/example-plugin/moldavite-wordpress/manifest.json';
 
 const base = { id: 'demo', name: 'Demo', version: '1.0.0', apiVersion: 1 };
 
@@ -83,6 +84,16 @@ describe('validateManifest', () => {
         'demo'
       ).ok
     ).toBe(true);
+  });
+  it('validates the bundled Publish to WordPress manifest', () => {
+    expect(validateManifest(wordpressManifest, 'moldavite-wordpress')).toMatchObject({
+      ok: true,
+      manifest: {
+        apiVersion: 2,
+        permissions: expect.arrayContaining(['notes.read', 'net.fetch', 'secrets']),
+        allowedHosts: ['public-api.wordpress.com'],
+      },
+    });
   });
   it('rejects non-object input', () => {
     expect(validateManifest(null, 'demo').ok).toBe(false);

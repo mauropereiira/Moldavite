@@ -36,21 +36,22 @@
 - Themes/presets, keyboard shortcut overlay (⌘?), settings modal with focus trap
 
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 unreleased)
-- API v2: commands/editor/toasts plus permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind a mandatory exact-host allowlist, and per-plugin macOS Keychain secrets; API v1 remains compatible
-- Per-Forge enable state; permission sheet shows human-readable capabilities and exact network hosts; consent pinned to SHA-256 of raw manifest + code (any code, permission, or allowlist change re-prompts)
+- API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin macOS Keychain secrets; API v1 remains compatible
+- Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
 - Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
+- Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 173 tests across 26 files (stores, lib, hooks)
-- Backend: cargo test — 143 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
+- Frontend: vitest — 211 tests across 29 files (stores, lib, hooks, plugin RPC/manifest)
+- Backend: cargo test — 144 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
-- **Plugin API has no note writes or panels yet** — v2 adds note reads, allowlisted HTTPS, and Keychain secrets while keeping the Worker boundary narrow.
+- **Plugin API has no note writes or panels yet** — v2 adds note reads, trusted prompt forms, dynamically approved exact-host HTTPS, and Keychain secrets while keeping the Worker boundary narrow.
 - All note metadata held in memory (no pagination); startup daily-note scan capped at 8 concurrent reads but still O(vault age).
 - ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
 - No automatic scheduled backups (manual + encrypted export exist).

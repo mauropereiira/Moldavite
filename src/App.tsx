@@ -3,6 +3,7 @@ import { Layout, ToastContainer, UpdateNotification, WhatsNewModal, CalendarOnbo
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
+import { PluginDialogHostLoader } from './components/plugins/PluginDialogHostLoader';
 import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore, useSemanticStore } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock, useForgeWatcher, usePluginHost } from './hooks';
@@ -81,6 +82,7 @@ function App() {
       <QuickSwitcher />
       <GraphView />
       <ShortcutHelpHost />
+      <PluginDialogHostLoader />
     </>
   );
 }

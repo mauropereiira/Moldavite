@@ -6,6 +6,8 @@ import {
   getPluginAppVersion,
   getPluginApiVersion,
 } from './api';
+import { getPluginDialogSnapshot, resolvePluginDialog } from './dialogs';
+import { usePluginStore } from '@/stores/pluginStore';
 
 const addToast = vi.fn();
 const listNotes = vi.fn();
@@ -29,7 +31,11 @@ vi.mock('@/lib/fileSystem', () => ({
   readNote: (...args: unknown[]) => readNote(...args),
 }));
 vi.mock('@/stores/noteStore', () => ({
-  useNoteStore: { getState: () => ({ currentNote: { title: 'N', content: '<p>hi there</p>' } }) },
+  useNoteStore: {
+    getState: () => ({
+      currentNote: { id: 'notes/N.md', title: 'N', content: '<p>hi there</p>' },
+    }),
+  },
 }));
 const insertTextAtCursor = vi.fn((_t: string) => true);
 vi.mock('@/stores/editorHandleStore', () => ({
@@ -45,14 +51,16 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     readNote.mockReset();
     safeInvoke.mockClear();
     secretValues.clear();
+    usePluginStore.setState({ grants: {} });
+    if (getPluginDialogSnapshot()) resolvePluginDialog(null);
     vi.unstubAllGlobals();
   });
 
   const ALL = ['editor', 'ui', 'notes.read', 'net.fetch', 'secrets'];
 
-  it('editor.getActiveNote returns title + content when editor is permitted', async () => {
+  it('editor.getActiveNote returns path + title + content when editor is permitted', async () => {
     const v = await dispatchPluginCall('demo', ALL, 'editor.getActiveNote', []);
-    expect(v).toEqual({ title: 'N', content: '<p>hi there</p>' });
+    expect(v).toEqual({ path: 'notes/N.md', title: 'N', content: '<p>hi there</p>' });
   });
 
   it('editor.insertText routes to the editor handle when editor is permitted', async () => {
@@ -74,6 +82,32 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
   it('ui.toast preserves the error kind', async () => {
     await dispatchPluginCall('demo', ALL, 'ui.toast', ['boom', 'error']);
     expect(addToast).toHaveBeenCalledWith('error', 'boom');
+  });
+
+  it('ui.prompt returns host-rendered values without a manifest permission', async () => {
+    const pending = dispatchPluginCall(
+      'demo',
+      [],
+      'ui.prompt',
+      [{ title: 'Configure', fields: [{ name: 'site', label: 'Site', type: 'url' }] }],
+      [],
+      2,
+      'Demo Plugin'
+    );
+    expect(getPluginDialogSnapshot()).toMatchObject({
+      kind: 'prompt',
+      pluginName: 'Demo Plugin',
+    });
+    resolvePluginDialog({ site: 'https://example.com' });
+    await expect(pending).resolves.toEqual({ site: 'https://example.com' });
+  });
+
+  it('ui.prompt returns null on cancel and refuses to stack a second prompt', async () => {
+    const options = { title: 'First', fields: [{ name: 'value', label: 'Value', type: 'text' }] };
+    const first = dispatchPluginCall('demo', [], 'ui.prompt', [options]);
+    await expect(dispatchPluginCall('other', [], 'ui.prompt', [options])).resolves.toBeNull();
+    resolvePluginDialog(null);
+    await expect(first).resolves.toBeNull();
   });
 
   it('editor calls throw PermissionDeniedError without the permission', async () => {
@@ -174,6 +208,100 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
       )
     ).rejects.toThrow(/allowedHosts/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['127.0.0.1', 'intranet', 'api.localhost', '*.example.com', 'Example.com'])(
+    'net.requestHostAccess rejects invalid host %s',
+    async (host) => {
+      await expect(
+        dispatchPluginCall('demo', ALL, 'net.requestHostAccess', [host])
+      ).rejects.toThrow(/allowedHosts/);
+      expect(getPluginDialogSnapshot()).toBeNull();
+    }
+  );
+
+  it('net.requestHostAccess persists approval and returns false without error on denial', async () => {
+    usePluginStore.getState().grant('demo', '1.0.0', 'hash');
+    const approved = dispatchPluginCall(
+      'demo',
+      ALL,
+      'net.requestHostAccess',
+      ['site.example.com'],
+      ['api.example.com'],
+      2,
+      'Demo Plugin'
+    );
+    expect(getPluginDialogSnapshot()).toMatchObject({
+      kind: 'host-access',
+      pluginName: 'Demo Plugin',
+      host: 'site.example.com',
+    });
+    resolvePluginDialog(true);
+    await expect(approved).resolves.toBe(true);
+    expect(usePluginStore.getState().approvedHosts('demo')).toEqual(['site.example.com']);
+
+    const denied = dispatchPluginCall('demo', ALL, 'net.requestHostAccess', ['other.example.com']);
+    resolvePluginDialog(false);
+    await expect(denied).resolves.toBe(false);
+    expect(usePluginStore.getState().approvedHosts('demo')).toEqual(['site.example.com']);
+  });
+
+  it('net.fetch enforces manifest plus approved-host union and revoke immediately', async () => {
+    usePluginStore.getState().grant('demo', '1.0.0', 'hash');
+    usePluginStore.getState().approveHost('demo', 'site.example.com');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      dispatchPluginCall(
+        'demo',
+        ALL,
+        'net.fetch',
+        ['https://site.example.com/wp-json'],
+        ['api.example.com']
+      )
+    ).resolves.toMatchObject({ status: 200 });
+
+    usePluginStore.getState().revokeHost('demo', 'site.example.com');
+    await expect(
+      dispatchPluginCall(
+        'demo',
+        ALL,
+        'net.fetch',
+        ['https://site.example.com/wp-json'],
+        ['api.example.com']
+      )
+    ).rejects.toThrow(/allowedHosts/);
+  });
+
+  it('net.fetch re-reads approved hosts before following each redirect', async () => {
+    usePluginStore.getState().grant('demo', '1.0.0', 'hash');
+    usePluginStore.getState().approveHost('demo', 'site.example.com');
+    const fetchMock = vi.fn().mockImplementationOnce(() => {
+      usePluginStore.getState().revokeHost('demo', 'site.example.com');
+      return Promise.resolve(
+        new Response('', {
+          status: 302,
+          headers: { location: 'https://site.example.com/after-revoke' },
+        })
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      dispatchPluginCall(
+        'demo',
+        ALL,
+        'net.fetch',
+        ['https://site.example.com/start'],
+        ['api.example.com']
+      )
+    ).rejects.toThrow(/allowedHosts/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('net.fetch manually follows allowlisted redirects and rejects an off-list redirect', async () => {

@@ -54,8 +54,9 @@
         <p>
           Every plugin runs in its own sandboxed Web Worker with no DOM, Zustand, Tauri IPC, or
           network globals. Its only app channel is the curated <code>postMessage</code> API.
-          Moldavite enforces every permission on the host side and shows the exact approved network
-          hosts before enabling a plugin.
+          Moldavite enforces every permission on the host side and shows manifest hosts before
+          enabling a plugin. Runtime host requests use a separate app-rendered consent dialog and
+          remain visible with an individual revoke control.
         </p>
         <p style="margin-top: 0.6em">
           Consent is pinned to SHA-256 of <code>manifest.json</code> + <code>plugin.js</code>. Any
@@ -160,7 +161,14 @@
           <tr>
             <td><code>editor</code></td>
             <td><code>editor.getActiveNote</code>, <code>editor.insertText</code></td>
-            <td>Active-note HTML and cursor insertion.</td>
+            <td>Active-note path + HTML and cursor insertion.</td>
+          </tr>
+          <tr>
+            <td>always</td>
+            <td><code>ui.prompt</code></td>
+            <td>
+              One trusted app-rendered form at a time, with the plugin name fixed in the header.
+            </td>
           </tr>
           <tr>
             <td><code>ui</code></td>
@@ -174,8 +182,8 @@
           </tr>
           <tr>
             <td><code>net.fetch</code></td>
-            <td><code>net.fetch</code></td>
-            <td>Host-performed HTTPS to exact approved hosts.</td>
+            <td><code>net.requestHostAccess</code>, <code>net.fetch</code></td>
+            <td>Consent and host-performed HTTPS to exact approved hosts.</td>
           </tr>
           <tr>
             <td><code>secrets</code></td>
@@ -193,8 +201,41 @@
         placeholders may appear in the list, but <code>notes.read(path)</code> rejects them. Read
         content is Markdown, unlike the editor API's HTML.
       </p>
+      <p>
+        <code>editor.getActiveNote()</code> includes the Forge-relative <code>path</code> alongside
+        title and live HTML. Use that path as a stable key for per-note plugin state.
+      </p>
+
+      <h3>Host-rendered prompts</h3>
+      <pre><code><span class="k">const</span> values = <span class="k">await</span> api.ui.<span class="f">prompt</span>({
+  title: <span class="s">'Configure publishing'</span>,
+  fields: [
+    { name: <span class="s">'site'</span>, label: <span class="s">'Site URL'</span>, type: <span class="s">'url'</span>, required: <span class="k">true</span> },
+    { name: <span class="s">'password'</span>, label: <span class="s">'Application Password'</span>, type: <span class="s">'password'</span> },
+  ],
+  confirmLabel: <span class="s">'Save'</span>,
+});
+<span class="k">if</span> (!values) <span class="k">return</span>;</code></pre>
+      <p>
+        <code>ui.prompt</code> needs no manifest permission. Moldavite validates 1–12 text,
+        password, or URL fields, allows only one plugin dialog at a time, and always identifies the
+        requesting plugin in trusted chrome above the plugin-supplied title. Cancel and Escape
+        return <code>null</code>.
+      </p>
 
       <h3>Allowlisted network requests</h3>
+      <pre><code><span class="k">const</span> site = <span class="k">new</span> URL(<span class="s">'https://notes.example.com'</span>);
+<span class="k">if</span> (!(<span class="k">await</span> api.net.<span class="f">requestHostAccess</span>(site.hostname))) <span class="k">return</span>;
+<span class="k">const</span> me = <span class="k">await</span> api.net.<span class="f">fetch</span>(<span class="s">`${site.origin}/wp-json/wp/v2/users/me`</span>);</code></pre>
+      <p>
+        Dynamic host requests use the same validator as <code>allowedHosts</code>: no IP literals,
+        single-label or localhost names, schemes, ports, paths, or wildcards. Approval is saved in
+        the app-side per-Forge plugin grant rather than the manifest, so the consent hash does not
+        change. Denial returns <code>false</code>. The effective fetch allowlist is the union of
+        manifest and user-approved hosts; revoking one under
+        <strong>Settings → Plugins → View permissions</strong> affects the next request and every
+        redirect immediately.
+      </p>
       <pre><code><span class="k">const</span> token = <span class="k">await</span> api.secrets.<span class="f">get</span>(<span class="s">'wordpress-token'</span>);
 <span class="k">const</span> result = <span class="k">await</span> api.net.<span class="f">fetch</span>(
   <span class="s">'https://public-api.wordpress.com/rest/v1.1/sites/example.wordpress.com/posts/new'</span>,
@@ -234,6 +275,33 @@
         The consent hash covers the raw manifest and code. Editing permissions or any exact network
         host therefore invalidates the grant and reopens the permission sheet.
       </p>
+      <p>
+        User-approved runtime hosts are separate app-side consent: they survive a version/hash
+        re-grant, can be revoked one at a time, and are forgotten on uninstall.
+      </p>
+
+      <h2 id="wordpress">Publish to WordPress</h2>
+      <p>
+        Install Moldavite's first-party <strong>Publish to WordPress</strong> reference from
+        <strong>Settings → Plugins</strong>. Its configure command collects a site URL, username,
+        and Application Password in <code>ui.prompt</code>, asks for the derived exact host,
+        verifies <code>/wp-json/wp/v2/users/me</code>, then stores configuration through
+        <code>api.secrets</code>.
+      </p>
+      <p>
+        The publish command sends the active editor HTML to <code>/wp-json/wp/v2/posts</code> as a
+        draft. A Keychain-backed Forge-path → post-id map makes later publishes use
+        <code>PUT</code>, avoiding duplicates, and success includes the WordPress edit URL. The
+        dependency-free bundled source is also a practical API v2 example.
+      </p>
+      <div class="callout warn">
+        <span class="callout-title">WordPress.com limitation</span>
+        <p>
+          Self-hosted WordPress and WordPress.com Jetpack/Atomic sites work with Application
+          Passwords. WordPress.com Simple sites require OAuth and a registered client ID; this
+          plugin intentionally does not embed or fake one and therefore does not support them.
+        </p>
+      </div>
 
       <h2 id="v1">API v1 compatibility</h2>
       <p>

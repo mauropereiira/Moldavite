@@ -25,7 +25,7 @@ export function PluginsSection() {
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
-  const { isEnabledAndGranted, needsGrant, grant, disable, revoke } = usePluginStore();
+  const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } = usePluginStore();
   const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -88,6 +88,19 @@ export function PluginsSection() {
       await safeInvoke('install_example_plugin');
       await refresh();
       addToast('success', 'Example plugin installed — enable it below');
+    } catch (e) {
+      addToast('error', e instanceof Error ? e.message : 'Install failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleInstallWordPress = async () => {
+    setBusy(true);
+    try {
+      await safeInvoke('install_wordpress_plugin');
+      await refresh();
+      addToast('success', 'Publish to WordPress installed — enable it below');
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
     } finally {
@@ -216,6 +229,20 @@ export function PluginsSection() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={handleInstallWordPress}
+            disabled={busy}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'white',
+            }}
+          >
+            <Download aria-hidden="true" className="w-4 h-4" />
+            Install Publish to WordPress
+          </button>
+          <button
+            type="button"
             onClick={handleInstallExample}
             disabled={busy}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
@@ -267,11 +294,13 @@ export function PluginsSection() {
         <PluginPermissionSheet
           manifest={sheet.info.manifest}
           permissions={sheet.info.manifest.permissions ?? []}
+          approvedHosts={approvedHosts(sheet.info.manifest.id)}
           commands={registeredCommands
             .filter((c) => c.pluginId === sheet.info.manifest.id)
             .map((c) => ({ id: c.id, label: c.label }))}
           mode={sheet.mode}
           onEnable={confirmGrant}
+          onRevokeHost={(host) => revokeHost(sheet.info.manifest.id, host)}
           onClose={() => setSheet(null)}
         />
       )}

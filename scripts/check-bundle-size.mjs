@@ -36,7 +36,10 @@ const BUDGETS = [
 // Bumped for Plugin API v2 host enforcement (stream-capped fetch + redirect
 // validation, note-read mapping, Keychain RPC, and the expanded Worker proxy)
 // plus the note-rename UI + path-keyed state migration (lazy-loaded modal).
-const APP_JS_BUDGET = { rawKb: 508, gzipKb: 134 };
+// Bumped for the API v2 host-consent/prompt broker and WordPress install UI.
+// PluginDialogHost is lazy-loaded, but this combined budget deliberately also
+// counts lazy app chunks, so it includes the small split-chunk/gzip overhead.
+const APP_JS_BUDGET = { rawKb: 516, gzipKb: 138 };
 
 async function main() {
   let entries;
