@@ -43,6 +43,8 @@ pub(crate) mod backlinks_index;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
+/// Local semantic (vector) search: embeddings index + query engine.
+pub(crate) mod semantic;
 pub(crate) mod templates_data;
 pub(crate) mod types;
 pub(crate) mod validation;
@@ -77,6 +79,9 @@ use commands::notes::{
 };
 use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
 use commands::search::search_notes_content;
+use commands::semantic::{
+    semantic_reindex, semantic_related, semantic_search, semantic_set_enabled, semantic_status,
+};
 use commands::templates::{
     apply_template, create_note_from_template, delete_template, get_template, list_templates,
     save_template, update_template,
@@ -210,12 +215,25 @@ pub fn run() {
                 }
                 Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
             }
+            // If the user already enabled semantic search, load/reconcile the
+            // index in the background (the model was downloaded during the
+            // original explicit enable; this only re-downloads if the cache
+            // was wiped while the feature stayed enabled).
+            if persist::read_config().semantic_enabled.unwrap_or(false) {
+                commands::semantic::spawn_semantic_build(app.handle().clone(), false);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             ensure_directories,
             list_notes,
             search_notes_content,
+            // Semantic (vector) search commands
+            semantic_status,
+            semantic_set_enabled,
+            semantic_search,
+            semantic_related,
+            semantic_reindex,
             read_note,
             write_note,
             delete_note,
@@ -484,6 +502,10 @@ mod tests {
         fs::write(base.join("notes/secret.md.locked"), "fox fox fox fox").unwrap();
         // A trashed note that must never be scanned
         fs::write(base.join(".trash/old.md"), "fox fox fox").unwrap();
+        // Internal semantic-index state that must never be scanned
+        fs::create_dir_all(base.join(".index")).unwrap();
+        fs::write(base.join(".index/embeddings.v1.bin"), b"binary fox").unwrap();
+        fs::write(base.join(".index/sneaky.md"), "fox fox fox fox fox").unwrap();
     }
 
     #[test]
@@ -507,6 +529,38 @@ mod tests {
             assert!(!r.filename.ends_with(".locked"), "locked file surfaced: {}", r.filename);
             assert!(!r.path.starts_with(".trash"), "trash file surfaced: {}", r.path);
         }
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_excludes_index_dir() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
+        assert!(!results.is_empty());
+        for r in &results {
+            assert!(
+                !r.path.starts_with(".index"),
+                "semantic index dir surfaced in search: {}",
+                r.path
+            );
+            assert_ne!(r.filename, "sneaky.md");
+        }
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn scan_notes_recursive_skips_hidden_dirs() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        // Even if an .index dir somehow appears inside notes/, it must be
+        // invisible to note listing.
+        fs::create_dir_all(base.join("notes/.index")).unwrap();
+        fs::write(base.join("notes/.index/sneaky.md"), "hidden").unwrap();
+        let mut notes = Vec::new();
+        crate::commands::notes::scan_notes_recursive(&base.join("notes"), "", &mut notes);
+        assert!(notes.iter().all(|n| !n.path.contains(".index")));
+        assert!(notes.iter().any(|n| n.name == "alpha.md"));
         fs::remove_dir_all(&base).ok();
     }
 

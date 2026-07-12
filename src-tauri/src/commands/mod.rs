@@ -10,5 +10,6 @@ pub mod misc;
 pub mod notes;
 pub mod plugins;
 pub mod search;
+pub mod semantic;
 pub mod templates;
 pub mod trash;

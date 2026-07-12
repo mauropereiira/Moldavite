@@ -297,6 +297,11 @@ pub(crate) fn write_note(
     // The backlinks index only cares about the body, not frontmatter.
     index.update_note(&index_key(&filename), &content);
 
+    // Keep the semantic index fresh (debounced, async; no-op when disabled).
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
+
     Ok(())
 }
 
@@ -326,6 +331,9 @@ pub(crate) fn delete_note(
         fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
     index.remove_note(&index_key(&filename));
+    crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     Ok(())
 }
 
@@ -409,6 +417,12 @@ pub(crate) fn duplicate_note(
     write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
     index.update_note(&index_key(&new_filename), &content);
+
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &new_filename,
+        is_daily,
+        is_weekly,
+    ));
 
     Ok(new_filename)
 }
@@ -505,6 +519,17 @@ pub(crate) fn rename_note(
     let new_stem = new_filename.trim_end_matches(".md");
     rewrite_inbound_links(old_stem, new_stem, &index);
 
+    crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &old_filename,
+        is_daily,
+        is_weekly,
+    ));
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &new_filename,
+        is_daily,
+        is_weekly,
+    ));
+
     Ok(())
 }
 
@@ -575,6 +600,7 @@ pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(
     }
 
     index.remove_all();
+    crate::semantic::all_notes_removed();
 
     Ok(())
 }
@@ -641,6 +667,9 @@ pub(crate) fn move_note(
         Some(folder) => format!("{}/{}", folder, final_filename),
         None => final_filename,
     };
+
+    crate::semantic::note_removed(&format!("notes/{}", note_path));
+    crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
 
     Ok(format!("notes/{}", new_relative_path))
 }

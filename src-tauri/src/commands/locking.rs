@@ -52,6 +52,11 @@ pub(crate) fn lock_note(filename: String, password: String, is_daily: bool, is_w
     fs::remove_file(&original_path)
         .map_err(|e| format!("Failed to remove original note: {}", e))?;
 
+    // A locked note is ciphertext — it must leave the semantic index.
+    crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
+
     Ok(())
 }
 
@@ -178,6 +183,11 @@ pub(crate) fn permanently_unlock_note(filename: String, password: String, is_dai
     // Delete the locked file
     fs::remove_file(&locked_path)
         .map_err(|e| format!("Failed to remove locked note: {}", e))?;
+
+    // The note is plaintext again — let it re-enter the semantic index.
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
 
     Ok(())
 }
