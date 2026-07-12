@@ -24,6 +24,7 @@
 - Trash with 7-day retention, restore, previews; multiple Forges (vaults) with per-Forge state
 - Note locking (AES-256-GCM + Argon2, rate-limited unlock, auto-lock); encrypted vault backups; settings JSON export/import
 - Import/export: Markdown, PDF, plaintext, bulk export, encrypted archive
+- Agent-ready Forge (unreleased): Settings → AI & Agents writes `AGENTS.md` + `.gitignore` to the Forge root via a hard-whitelisted backend command (exactly those two filenames), with confirm-overwrite and existence indicator
 
 ### Platform
 - Apple Calendar (EventKit, read-only, permission-gated) in right panel + timeline
@@ -37,8 +38,8 @@
 - Author guide: docs/PLUGINS.md
 
 ## Test & Quality Status
-- Frontend: vitest — 105 tests across 20 files (stores, lib, hooks)
-- Backend: cargo test — 97 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus)
+- Frontend: vitest — 118 tests across 21 files (stores, lib, hooks)
+- Backend: cargo test — 105 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus)
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 

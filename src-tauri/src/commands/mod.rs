@@ -9,6 +9,7 @@ pub mod locking;
 pub mod misc;
 pub mod notes;
 pub mod plugins;
+pub mod root_files;
 pub mod search;
 pub mod semantic;
 pub mod templates;

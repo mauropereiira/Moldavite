@@ -15,6 +15,7 @@
  * - **Features** (`FeaturesSection`)     — editor / navigation / right-panel
  * - **Sidebar** (`SidebarSection`)       — visibility, sort, panel widths
  * - **Calendar** (`CalendarSection`)     — macOS Calendar.app integration
+ * - **AI & Agents** (`AgentsSection`)    — agent-ready Forge (AGENTS.md)
  * - **Templates** (`SettingsTemplates`)  — template management
  * - **Data** (`SettingsData`)            — bulk import / export actions
  * - **About** (`AboutSection`)           — version, updates, shortcuts
@@ -31,7 +32,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database, Puzzle } from 'lucide-react';
+import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database, Puzzle, Bot } from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
 import { AppearanceSection } from './sections/AppearanceSection';
@@ -41,11 +42,12 @@ import { SidebarSection } from './sections/SidebarSection';
 import { CalendarSection } from './sections/CalendarSection';
 import { GeneralSection } from './sections/GeneralSection';
 import { PluginsSection } from './sections/PluginsSection';
+import { AgentsSection } from './sections/AgentsSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
 /** Available settings tabs */
-type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'plugins' | 'data' | 'about';
+type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'plugins' | 'agents' | 'data' | 'about';
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
@@ -61,6 +63,7 @@ export function SettingsModal() {
     calendar: null,
     templates: null,
     plugins: null,
+    agents: null,
     data: null,
     about: null,
   });
@@ -104,6 +107,7 @@ export function SettingsModal() {
       { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
       { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
       { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" /> },
+      { id: 'agents', label: 'AI & Agents', icon: <Bot className="w-4 h-4" /> },
       { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
       { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
     ],
@@ -286,6 +290,9 @@ export function SettingsModal() {
               )}
               {activeTab === 'plugins' && (
                 <PluginsSection />
+              )}
+              {activeTab === 'agents' && (
+                <AgentsSection />
               )}
               {activeTab === 'data' && (
                 <SettingsData />
