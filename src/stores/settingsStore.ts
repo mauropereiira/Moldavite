@@ -58,6 +58,12 @@ interface SettingsState {
 
   // Onboarding
   hasSeenAppOnboarding: boolean;
+  /**
+   * Highest onboarding content version the user has seen. Bumped when new
+   * feature pages are added to `AppOnboardingModal` so existing users see
+   * just the new pages once (see `APP_ONBOARDING_VERSION` in the modal).
+   */
+  lastSeenOnboardingVersion: number;
 
   // UI State
   isSettingsOpen: boolean;
@@ -95,6 +101,7 @@ interface SettingsState {
   setQuickSwitcherEnabled: (enabled: boolean) => void;
   setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
   setHasSeenAppOnboarding: (seen: boolean) => void;
+  setLastSeenOnboardingVersion: (version: number) => void;
   setIsSettingsOpen: (open: boolean) => void;
   resetToDefaults: () => void;
 }
@@ -132,6 +139,7 @@ const defaultSettings = {
   quickSwitcherEnabled: true,
   autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
   hasSeenAppOnboarding: false,
+  lastSeenOnboardingVersion: 0,
   isSettingsOpen: false,
 };
 
@@ -172,6 +180,7 @@ export const useSettingsStore = create<SettingsState>()(
       setQuickSwitcherEnabled: (enabled) => set({ quickSwitcherEnabled: enabled }),
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
       setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
+      setLastSeenOnboardingVersion: (version) => set({ lastSeenOnboardingVersion: version }),
       setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
       resetToDefaults: () => set(defaultSettings),
     }),
@@ -211,6 +220,7 @@ export const useSettingsStore = create<SettingsState>()(
         quickSwitcherEnabled: state.quickSwitcherEnabled,
         autoLockTimeout: state.autoLockTimeout,
         hasSeenAppOnboarding: state.hasSeenAppOnboarding,
+        lastSeenOnboardingVersion: state.lastSeenOnboardingVersion,
       }),
     }
   )
