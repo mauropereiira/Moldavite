@@ -13,7 +13,15 @@ import { useForgeStore } from '@/stores/forgeStore';
 import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
-import { buildAgentsMd, GITIGNORE_CONTENT, readForgeRootFile, writeForgeRootFile } from '@/lib';
+import {
+  buildAgentsMd,
+  getAppBinaryPath,
+  getMcpWritesEnabled,
+  GITIGNORE_CONTENT,
+  readForgeRootFile,
+  setMcpWritesEnabled,
+  writeForgeRootFile,
+} from '@/lib';
 import { InfoTooltip, Toggle } from '../common';
 
 export function AgentsSection() {
@@ -160,6 +168,9 @@ export function AgentsSection() {
       {/* Semantic search */}
       <SemanticSearchBlock />
 
+      {/* Built-in MCP server */}
+      <McpServerBlock />
+
       {/* Overwrite confirmation */}
       {confirmOverwrite && (
         <ConfirmDialog
@@ -173,6 +184,167 @@ export function AgentsSection() {
           onCancel={() => setConfirmOverwrite(null)}
         />
       )}
+    </div>
+  );
+}
+
+function McpServerBlock() {
+  const toast = useToast();
+  const [binaryPath, setBinaryPath] = useState('');
+  const [writesEnabled, setWritesEnabled] = useState(false);
+  const [confirmWrites, setConfirmWrites] = useState(false);
+
+  useEffect(() => {
+    Promise.all([getAppBinaryPath(), getMcpWritesEnabled()])
+      .then(([path, enabled]) => {
+        setBinaryPath(path);
+        setWritesEnabled(enabled);
+      })
+      .catch((error) => {
+        console.error('[Settings] Failed to load MCP settings:', error);
+        toast.error('Failed to load MCP server settings');
+      });
+  }, [toast]);
+
+  const cliCommand = binaryPath
+    ? `claude mcp add moldavite -- "${binaryPath}" --mcp`
+    : 'Locating Moldavite binary…';
+  const desktopJson = binaryPath
+    ? JSON.stringify(
+        { mcpServers: { moldavite: { command: binaryPath, args: ['--mcp'] } } },
+        null,
+        2
+      )
+    : 'Locating Moldavite binary…';
+
+  const copy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (error) {
+      console.error('[Settings] Failed to copy MCP setup:', error);
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const persistWrites = (enabled: boolean) => {
+    setMcpWritesEnabled(enabled)
+      .then(() => setWritesEnabled(enabled))
+      .catch((error) => {
+        console.error('[Settings] Failed to update MCP write access:', error);
+        toast.error('Failed to update MCP write access');
+      });
+  };
+
+  const handleWritesToggle = (enabled: boolean) => {
+    if (enabled) {
+      setConfirmWrites(true);
+    } else {
+      persistWrites(false);
+    }
+  };
+
+  return (
+    <div
+      className="p-4 space-y-4"
+      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+    >
+      <div>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            MCP server
+          </h3>
+          <InfoTooltip text="Lets MCP-compatible agents search, read, list, and follow links across the selected Forge through Moldavite's own validated note tools." />
+        </div>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          Connect Claude or another MCP client to Moldavite. The app binary runs as a local stdio
+          server; no GUI or network service is started.
+        </p>
+      </div>
+
+      <SetupSnippet
+        label="Claude Code"
+        value={cliCommand}
+        disabled={!binaryPath}
+        onCopy={() => void copy(cliCommand)}
+      />
+      <SetupSnippet
+        label="Claude Desktop configuration"
+        value={desktopJson}
+        disabled={!binaryPath}
+        onCopy={() => void copy(desktopJson)}
+      />
+
+      <div className="flex items-center justify-between gap-4 pt-1">
+        <div>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Allow agents to write notes
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            Adds create, replace, and daily-note append tools. Read tools are always available.
+          </p>
+        </div>
+        <Toggle
+          enabled={writesEnabled}
+          onChange={handleWritesToggle}
+          ariaLabel="Allow agents to write notes"
+        />
+      </div>
+
+      {confirmWrites && (
+        <ConfirmDialog
+          title="Allow agents to write notes?"
+          message="Connected MCP agents will be able to create notes, fully replace existing unlocked notes, and append to daily notes in your Forges. Locked notes remain inaccessible."
+          confirmLabel="Allow writes"
+          onConfirm={() => {
+            setConfirmWrites(false);
+            persistWrites(true);
+          }}
+          onCancel={() => setConfirmWrites(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SetupSnippet({
+  label,
+  value,
+  disabled,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={onCopy}
+          disabled={disabled}
+          className="flex items-center gap-1 text-xs disabled:opacity-50"
+          style={{ color: 'var(--accent-primary)' }}
+          aria-label={`Copy ${label}`}
+        >
+          Copy
+        </button>
+      </div>
+      <pre
+        className="text-xs p-3 overflow-x-auto whitespace-pre-wrap break-all"
+        style={{
+          color: 'var(--text-secondary)',
+          backgroundColor: 'var(--bg-primary)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-sm)',
+        }}
+      >
+        {value}
+      </pre>
     </div>
   );
 }
@@ -238,8 +410,7 @@ function SemanticSearchBlock() {
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Find notes by meaning, not just keywords. Downloads a ~97 MB AI model once from
-            HuggingFace; afterwards everything runs fully offline — your notes never leave your
-            Mac.
+            HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac.
           </p>
         </div>
         <Toggle

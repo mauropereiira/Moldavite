@@ -1,5 +1,36 @@
-import { describe, it, expect } from 'vitest';
-import { buildAgentsMd, GITIGNORE_CONTENT } from './agents';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  buildAgentsMd,
+  getAppBinaryPath,
+  getMcpWritesEnabled,
+  GITIGNORE_CONTENT,
+  setMcpWritesEnabled,
+} from './agents';
+
+const mockInvoke = vi.mocked(invoke);
+
+describe('MCP settings IPC wrappers', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+    mockInvoke.mockResolvedValue(undefined);
+  });
+
+  it('loads the app binary path and write setting', async () => {
+    mockInvoke.mockResolvedValueOnce('/Applications/Moldavite.app/Contents/MacOS/moldavite');
+    await expect(getAppBinaryPath()).resolves.toContain('/Moldavite.app/');
+    expect(mockInvoke).toHaveBeenLastCalledWith('get_app_binary_path', undefined);
+
+    mockInvoke.mockResolvedValueOnce(false);
+    await expect(getMcpWritesEnabled()).resolves.toBe(false);
+    expect(mockInvoke).toHaveBeenLastCalledWith('get_mcp_writes_enabled', undefined);
+  });
+
+  it('persists MCP write permission', async () => {
+    await setMcpWritesEnabled(true);
+    expect(mockInvoke).toHaveBeenCalledWith('set_mcp_writes_enabled', { enabled: true });
+  });
+});
 
 describe('buildAgentsMd', () => {
   it('interpolates the Forge name into the heading', () => {

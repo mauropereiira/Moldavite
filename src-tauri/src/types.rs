@@ -120,6 +120,10 @@ pub(crate) struct AppConfig {
     /// this flips to `Some(true)` via the explicit enable flow.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) semantic_enabled: Option<bool>,
+    /// MCP note mutation is opt-in. Missing values preserve the secure
+    /// default for users upgrading from an older config.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mcp_writes_enabled: Option<bool>,
 }
 
 // Public-facing struct returned by the `list_forges` command.
