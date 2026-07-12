@@ -121,7 +121,7 @@ export function EditTemplateModal({
   if (template.isDefault) {
     return createPortal(
       <div
-        className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[70] modal-backdrop-enter"
+        className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
         onClick={(e) => e.target === e.currentTarget && handleClose()}
         onKeyDown={handleKeyDown}
         role="dialog"
@@ -164,7 +164,7 @@ export function EditTemplateModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[70] modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && !isSaving && handleClose()}
       onKeyDown={handleKeyDown}
       role="dialog"

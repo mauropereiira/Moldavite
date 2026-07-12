@@ -107,7 +107,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
 
   return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[70] modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && !isSaving && onClose()}
       role="dialog"
       aria-modal="true"
