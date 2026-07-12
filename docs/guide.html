@@ -118,9 +118,11 @@
     </p>
     <p>
       Enable it in <strong>Settings → AI &amp; Agents → Semantic search</strong>. Before anything
-      happens, Moldavite asks for your consent: enabling downloads a small AI embedding model
-      (all-MiniLM-L6-v2, ~97 MB) <strong>once</strong> from HuggingFace. That download is the only
-      network request the feature ever makes — the model is cached in the app's data directory
+      happens, choose between three local embedding models: all-MiniLM-L6-v2 (the fast,
+      English-focused default), BGE small English v1.5, or Multilingual E5 small for non-English
+      and mixed-language Forges. Moldavite asks for your consent and names the selected model and
+      its download size before downloading it <strong>once</strong> from HuggingFace. Model downloads
+      are the only network requests the feature makes — each model is cached in the app's data directory
       (never inside your Forge), and afterwards everything runs fully offline. Your notes never
       leave your Mac, and locked (encrypted) notes are never read or indexed.
     </p>
@@ -136,7 +138,8 @@
     <p>
       The index lives per Forge and keeps itself up to date as you write, rename, or delete notes.
       If it ever looks stale, the <em>Rebuild index</em> button in Settings re-embeds everything
-      from scratch. Turning the feature off frees the model from memory immediately.
+      from scratch. Changing models also performs a full re-index with live progress. Turning the
+      feature off frees the model from memory immediately.
     </p>
 
     <h2 id="safety">Safety &amp; privacy</h2>

@@ -1,54 +1,26 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-12 6:28pm GMT+1
+# [Moldavite] recent context, 2026-07-12 6:45pm GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (18,975t read) | 1,480,924t work | 99% savings
+Stats: 50 obs (25,454t read) | 982,844t work | 97% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
 S323 Moldavite — ESLint Warning Fixed in modalStacking.test.tsx (Jul 2 at 9:51 AM)
 ### Jul 12, 2026
-472 11:09a 🔵 Moldavite — Test Infrastructure: React Testing Library + jsdom
-473 " 🟣 Moldavite — New Failing Test: Template Modal Z-Index Stacking Guard
-475 11:10a 🔴 Moldavite — Template Modals Z-Index Fixed: z-[70] → z-[10000]
-476 " 🔴 Moldavite — EditTemplateModal Custom-Edit Branch Also Fixed: z-[70] → z-[10000]
-477 " 🔴 Moldavite — Template Modal Z-Index Fix Verified: All 109 Tests Pass
-478 " ✅ Moldavite — CHANGELOG Updated with [Unreleased] Template Modal Fix Entry
-479 " 🔵 Moldavite — Lint: One ESLint Warning in New Test File (Non-Fatal)
-480 11:11a 🔴 Moldavite — ESLint Warning Fixed in modalStacking.test.tsx
 S326 Moldavite full codebase audit → discovered and fixed template modal z-index stacking bug (template editor invisible behind Settings) (Jul 12 at 11:11 AM)
 S329 Moldavite — Dev Server Running: Vite + Tauri Both Healthy (Jul 12 at 11:11 AM)
-482 " ✅ Moldavite — Dev Server Launched for Visual Verification of Template Modal Fix
-483 " 🔵 Moldavite — Dev Server Running: Vite + Tauri Both Healthy
 S331 Moldavite codebase audit + template modal z-index bug fix — dev server launched for visual verification (Jul 12 at 11:11 AM)
 S336 Moldavite v1.5.1 — PR #23 Opened Against main (Jul 12 at 11:12 AM)
-484 11:13a 🔵 Moldavite Release Process — End-to-End Shipping Pipeline
-486 11:14a ✅ Moldavite v1.5.1 Release Branch Created and Version Bumped
-487 " 🔴 Moldavite v1.5.1 — Template Modal Z-Index Fix Committed and Pushed
-488 " ✅ Moldavite v1.5.1 — PR #23 Opened Against main
 S339 Moldavite v1.5.1 CI — Both Jobs Passed on PR #23 (Jul 12 at 11:14 AM)
-489 11:18a 🔵 Moldavite v1.5.1 PR #23 — CI Checks Passed
-491 " 🔵 Moldavite v1.5.1 CI — Both Jobs Passed on PR #23
 S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions Release Workflow (Jul 12 at 11:18 AM)
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
-492 11:25a ⚖️ Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion
-493 11:38a 🟣 Moldavite — Local Semantic Search Backend Launched as Parallel Subagent
-494 " 🟣 Moldavite — Agent-Ready Vault Feature Launched as Parallel Subagent
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
-497 11:42a 🔵 Three Wave 1 Agents Begin Codebase Reconnaissance — Understanding Integration Points
-498 " 🔵 Semantic Search Agent — fastembed v5.17.2 Validated for macOS ONNX Embedding Engine
-499 " 🔵 Agent-Ready Vault Agent — Settings Tab Pattern and Validation Framework Located
-500 " 🔵 Sync Conflict Safety Agent — Note Lifecycle and Hash Threading Points Identified
-501 11:43a 🟣 Agent-Ready Vault Backend — Forge-Root File Commands Implemented
-502 " 🔵 Semantic Search Agent — fastembed v5.17.2 Compilation Successful, API Surface Mapped
-503 11:44a 🟣 Agent-Ready Vault Backend — root_files Tests 8/8 Passing
-504 " 🔵 Semantic Search Agent — fastembed API Details: AllMiniLML6V2 = 384 dims, try_new() factory
-505 " 🔵 Conflict Safety Agent — All writeNote/readNote Call Sites Mapped Across Frontend
 506 11:45a 🟣 Agent-Ready Vault Frontend — agents.ts Library and buildAgentsMd() Implemented
 507 " 🟣 Conflict Safety Backend — NoteRead Extended with content_hash, NoteWriteResult Type Added
 510 11:47a 🟣 Conflict Safety — Core Detection Logic Implemented in notes.rs
@@ -71,6 +43,34 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 528 " 🔵 Moldavite Rust Backend — 107 Tests Passing Green During Codebase Audit
 529 11:57a 🟣 Moldavite v1.6 — Local Semantic Vector Search Backend Committed (2525 lines)
 530 " 🔵 Moldavite Frontend — Pre-Existing React Hook ESLint Warnings in useAutoSave and useNotes
+533 6:28p ⚖️ Moldavite v1.6 — MCP stdio Server Architecture Scoped for Implementation
+535 6:29p 🔵 Moldavite Codebase Audit — Key Architecture Details for MCP Implementation
+536 6:30p ⚖️ Moldavite MCP stdio Server — Full Implementation Scope Defined
+537 6:31p ⚖️ Moldavite MCP stdio Server — Full Implementation Scope Defined
+538 6:33p ⚖️ Moldavite MCP stdio Server — Full Implementation Spec Finalized
+539 6:34p ⚖️ Moldavite MCP stdio Server — Full Implementation Brief Issued
+540 " 🟣 Moldavite MCP Tool Set Defined — Four Read + Three Gated Write Tools
+541 6:35p ⚖️ Moldavite MCP stdio Server — Full Implementation Scope Defined
+542 6:36p 🔵 MCP Server Implementation — Two Rust Compile Errors Found During cargo check
+544 " 🔴 MCP Compile Errors Fixed — cargo check Now Passes Clean
+545 " 🟣 Moldavite MCP Server — Full Working Tree Diff Reveals Complete Implementation Scope
+546 " 🔵 24 Modified Non-MCP Rust Files Contain Only rustfmt Reformatting — No Logic Changes
+547 6:37p ⚖️ Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined
+548 6:38p 🟣 Moldavite v1.6 — MCP stdio Server Full Implementation Written
+549 " 🔴 Moldavite MCP — Two Compile Errors Identified in New MCP Code
+550 6:39p 🟣 Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined and Written
+551 " 🔴 Moldavite MCP Implementation — Two Compile Errors Identified with Fixes Ready
+552 " 🟣 Moldavite MCP — Cargo Tests Pass (137/137), Three New MCP Protocol Tests Green
+553 " 🔴 Moldavite MCP — Clippy question_mark Lint Fixed in mcp/server.rs
+557 6:40p 🔵 Moldavite Frontend — ESLint 0 Errors, 24 Pre-existing Warnings (None from MCP Work)
+558 " 🔵 Moldavite — Bundle Size Budget Exceeded by ~1 KB After MCP Frontend Additions
+559 6:41p ⚖️ Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined
+560 6:42p ⚖️ Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined
+561 " ✅ Bundle Size Budget Bumped 2 KB for MCP Settings UI
+562 " 🔵 MCP stdio Smoke Test — Binary Produces No Output After 10s
+563 6:43p 🔵 MCP Smoke Test Failure Root-Caused to macOS GUI System Errors
+567 " 🟣 Moldavite MCP stdio Server — Smoke Test Passes
+568 6:44p ⚖️ Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined
 
-Access 1481k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 983k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
