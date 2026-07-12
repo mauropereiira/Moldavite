@@ -122,3 +122,18 @@ export async function writeForgeRootFile(
 ): Promise<string> {
   return await safeInvoke<string>('write_forge_root_file', { filename, content, overwrite });
 }
+
+/** Absolute path to the currently running Moldavite app binary. */
+export async function getAppBinaryPath(): Promise<string> {
+  return await safeInvoke<string>('get_app_binary_path');
+}
+
+/** Whether MCP clients may mutate notes. Missing config values are false. */
+export async function getMcpWritesEnabled(): Promise<boolean> {
+  return await safeInvoke<boolean>('get_mcp_writes_enabled');
+}
+
+/** Persist the MCP write permission. */
+export async function setMcpWritesEnabled(enabled: boolean): Promise<void> {
+  return await safeInvoke<void>('set_mcp_writes_enabled', { enabled });
+}

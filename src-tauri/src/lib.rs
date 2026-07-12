@@ -35,6 +35,9 @@ pub(crate) mod frontmatter;
 /// One-shot migration: sidecar metadata JSON → per-file YAML frontmatter.
 pub(crate) mod migration;
 
+/// Stdio Model Context Protocol server, selected with the `--mcp` flag.
+pub mod mcp;
+
 /// Filesystem watcher (notify) that emits `forge:changed` events.
 pub(crate) mod forge_watcher;
 
@@ -68,6 +71,7 @@ use commands::forges::{
 };
 use commands::graph::get_note_graph;
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
+use commands::mcp_settings::{get_app_binary_path, get_mcp_writes_enabled, set_mcp_writes_enabled};
 use commands::misc::{
     ensure_directories, get_all_note_colors, get_note_color, get_notes_directory,
     open_forge_in_finder, rescan_forge, save_image, set_note_color, set_notes_directory,
@@ -227,6 +231,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ensure_directories,
+            get_app_binary_path,
+            get_mcp_writes_enabled,
+            set_mcp_writes_enabled,
             list_notes,
             search_notes_content,
             // Semantic (vector) search commands

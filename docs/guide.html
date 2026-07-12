@@ -191,6 +191,35 @@
       always shows whether an <code>AGENTS.md</code> is present in the current Forge.
     </p>
 
+    <h3>Connect an MCP client</h3>
+    <p>
+      Moldavite also includes a local <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>
+      server in the app itself. Open <strong>Settings → AI &amp; Agents → MCP server</strong> to copy
+      setup text containing the exact path of the Moldavite binary installed on your Mac. For a
+      standard installation, the Claude Code command is:
+    </p>
+    <pre><code>claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</code></pre>
+    <p>For Claude Desktop, add this to its MCP configuration:</p>
+    <pre><code>{
+  "mcpServers": {
+    "moldavite": {
+      "command": "/Applications/Moldavite.app/Contents/MacOS/moldavite",
+      "args": ["--mcp"]
+    }
+  }
+}</code></pre>
+    <p>
+      The server uses the active Forge by default. Add <code>--forge "Forge Name"</code> after
+      <code>--mcp</code> in either setup to select a specific Forge. It runs over stdio only: no GUI
+      window or network listener starts.
+    </p>
+    <p>The available tools are:</p>
+    <ul>
+      <li><code>search_notes</code> — semantic search when the enabled local index is ready, otherwise keyword full-text search; the result identifies the mode used.</li>
+      <li><code>read_note</code>, <code>list_notes</code>, and <code>get_backlinks</code> — read-only Forge navigation. Locked notes cannot be read.</li>
+      <li><code>create_note</code>, <code>append_to_daily_note</code>, and <code>write_note</code> — available only after enabling <strong>Allow agents to write notes</strong> in Settings. Writes are atomic, and locked notes cannot be replaced.</li>
+    </ul>
+
     <div class="callout">
       <span class="callout-title">Your Forge is just files</span>
       <p>

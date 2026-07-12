@@ -6,6 +6,7 @@ pub mod folders;
 pub mod forges;
 pub mod graph;
 pub mod locking;
+pub mod mcp_settings;
 pub mod misc;
 pub mod notes;
 pub mod plugins;

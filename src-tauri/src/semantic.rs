@@ -728,6 +728,13 @@ impl SemanticService {
 /// A note's content changed (save, restore, unlock, …). Debounced so rapid
 /// auto-saves collapse into one re-embed; never blocks the caller.
 pub(crate) fn note_changed(rel_path: &str) {
+    note_changed_in(rel_path, crate::paths::get_notes_dir());
+}
+
+/// MCP-mode variant of [`note_changed`] for an explicitly selected Forge.
+/// The MCP process has no GUI Forge switcher, so it must not resolve the
+/// active Forge again inside the background task.
+pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
     let svc = service();
     if !svc.is_ready() || !is_valid_note_index_path(rel_path) {
         return;
@@ -743,7 +750,6 @@ pub(crate) fn note_changed(rel_path: &str) {
         let Some(embedder) = svc.embedder() else {
             return;
         };
-        let forge_root = crate::paths::get_notes_dir();
         let changed = {
             let Ok(mut entries) = svc.entries.write() else {
                 return;
@@ -759,6 +765,30 @@ pub(crate) fn note_changed(rel_path: &str) {
             svc.persist_entries(&forge_root);
         }
     });
+}
+
+/// Load an already-built semantic index for MCP mode without rebuilding it.
+/// Returns false when semantic search is not immediately usable, allowing
+/// MCP search to fall back to keyword mode without downloading or indexing.
+pub(crate) fn prepare_mcp_search(forge_root: &Path) -> bool {
+    let svc = service();
+    if !model_files_cached() {
+        return false;
+    }
+    let Some(entries) = load_index(forge_root) else {
+        return false;
+    };
+    if entries.is_empty() {
+        return false;
+    }
+    let embedder: Arc<dyn Embedder> = match init_fastembed_embedder() {
+        Ok(embedder) => Arc::new(embedder),
+        Err(_) => return false,
+    };
+    svc.set_embedder(embedder);
+    svc.replace_entries(entries);
+    svc.set_phase(Phase::Ready);
+    true
 }
 
 /// Several notes changed at once (folder restore). One background thread,

@@ -67,6 +67,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Agent-ready** — your Forge is plain Markdown, so AI agents (Claude Code, etc.) can read and write it directly. Settings → AI & Agents generates an `AGENTS.md` describing your vault's conventions to agents, plus a `.gitignore` for app-managed folders.
 
+**Built-in MCP server** — connect Claude Code, Claude Desktop, or another MCP client directly to the Moldavite app binary with `--mcp`. Search, reading, note listing, and backlinks are always available; note writes are an explicit opt-in in Settings → AI & Agents.
+
 **Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
 ---
