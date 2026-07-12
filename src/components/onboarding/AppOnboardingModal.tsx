@@ -15,7 +15,7 @@
  * UX — onboarding requires explicit dismissal). The final step closes on Esc.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   Sparkles,
   FolderOpen,
@@ -50,6 +50,19 @@ const FULL_FLOW: StepKey[] = ['welcome', 'forge', 'tour', 'ai-agents', 'ai-searc
 /** Shown to users who completed onboarding before `APP_ONBOARDING_VERSION`. */
 const FEATURE_UPDATE_FLOW: StepKey[] = ['ai-agents', 'ai-search'];
 
+function subscribeToSettingsHydration(onStoreChange: () => void) {
+  const stopWaiting = useSettingsStore.persist.onHydrate(onStoreChange);
+  const finishWaiting = useSettingsStore.persist.onFinishHydration(onStoreChange);
+  return () => {
+    stopWaiting();
+    finishWaiting();
+  };
+}
+
+function getSettingsHydrationSnapshot() {
+  return useSettingsStore.persist.hasHydrated();
+}
+
 export function AppOnboardingModal() {
   const {
     hasSeenAppOnboarding,
@@ -62,6 +75,11 @@ export function AppOnboardingModal() {
   const [forgePath, setForgePath] = useState<string>('');
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
+  const settingsHydrated = useSyncExternalStore(
+    subscribeToSettingsHydration,
+    getSettingsHydrationSnapshot,
+    getSettingsHydrationSnapshot
+  );
 
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -70,7 +88,7 @@ export function AppOnboardingModal() {
   const isFirstRun = !hasSeenAppOnboarding;
   const isFeatureUpdate =
     hasSeenAppOnboarding && lastSeenOnboardingVersion < APP_ONBOARDING_VERSION;
-  const isOpen = isFirstRun || isFeatureUpdate;
+  const isOpen = settingsHydrated && (isFirstRun || isFeatureUpdate);
 
   const steps = isFirstRun ? FULL_FLOW : FEATURE_UPDATE_FLOW;
   const step = steps[Math.min(stepIndex, steps.length - 1)];
@@ -153,7 +171,7 @@ export function AppOnboardingModal() {
       }
       if (e.key === 'Tab' && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
         if (focusable.length === 0) return;
         const first = focusable[0];
@@ -214,7 +232,7 @@ export function AppOnboardingModal() {
         body: 'Jump to any note instantly (⌘P).',
       },
     ],
-    [],
+    []
   );
 
   if (!isOpen) return null;
@@ -253,9 +271,7 @@ export function AppOnboardingModal() {
             ))}
           </div>
 
-          {step === 'welcome' && (
-            <WelcomeStep titleId="app-onboarding-title" />
-          )}
+          {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" />}
 
           {step === 'forge' && (
             <ForgeStep
@@ -267,20 +283,13 @@ export function AppOnboardingModal() {
             />
           )}
 
-          {step === 'tour' && (
-            <TourStep titleId="app-onboarding-title" tiles={tourTiles} />
-          )}
+          {step === 'tour' && <TourStep titleId="app-onboarding-title" tiles={tourTiles} />}
 
           {step === 'ai-agents' && (
-            <AiAgentsStep
-              titleId="app-onboarding-title"
-              isFeatureUpdate={isFeatureUpdate}
-            />
+            <AiAgentsStep titleId="app-onboarding-title" isFeatureUpdate={isFeatureUpdate} />
           )}
 
-          {step === 'ai-search' && (
-            <AiSearchStep titleId="app-onboarding-title" />
-          )}
+          {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
 
           {/* Actions */}
           <div className="flex items-center justify-between mt-8">
@@ -365,15 +374,12 @@ function WelcomeStep({ titleId }: { titleId: string }) {
       >
         Welcome to Moldavite
       </h2>
-      <p
-        className="text-sm leading-relaxed mb-3"
-        style={{ color: 'var(--text-secondary)' }}
-      >
+      <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
         A local-first Markdown notebook for daily notes, ideas, and links between them.
       </p>
       <p className="text-sm leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-        Your notes live in your Forge — a folder of plain .md files you can sync, back
-        up, or open in any other tool.
+        Your notes live in your Forge — a folder of plain .md files you can sync, back up, or open
+        in any other tool.
       </p>
     </div>
   );
@@ -412,14 +418,11 @@ function ForgeStep({
         className="text-sm leading-relaxed mb-4 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Your Forge is the folder where every note is stored as a plain .md file. You can
-        keep the default or pick anywhere you like.
+        Your Forge is the folder where every note is stored as a plain .md file. You can keep the
+        default or pick anywhere you like.
       </p>
 
-      <label
-        className="text-xs mb-1.5 block"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
+      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
         Forge location
       </label>
       <div
@@ -473,12 +476,12 @@ function ForgeStep({
       >
         <p style={{ color: 'var(--text-secondary)' }}>What lives in your Forge:</p>
         <p>
-          <span className="font-mono">daily/</span> — daily notes
-          (<span className="font-mono">YYYY-MM-DD.md</span>)
+          <span className="font-mono">daily/</span> — daily notes (
+          <span className="font-mono">YYYY-MM-DD.md</span>)
         </p>
         <p>
-          <span className="font-mono">weekly/</span> — weekly notes
-          (<span className="font-mono">YYYY-Www.md</span>)
+          <span className="font-mono">weekly/</span> — weekly notes (
+          <span className="font-mono">YYYY-Www.md</span>)
         </p>
         <p>
           <span className="font-mono">notes/</span> — standalone notes and folders
@@ -529,10 +532,7 @@ function TourStep({
               style={{ color: 'var(--accent-primary)' }}
             >
               {tile.icon}
-              <span
-                className="text-sm font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 {tile.title}
               </span>
             </div>
@@ -546,13 +546,7 @@ function TourStep({
   );
 }
 
-function AiAgentsStep({
-  titleId,
-  isFeatureUpdate,
-}: {
-  titleId: string;
-  isFeatureUpdate: boolean;
-}) {
+function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeatureUpdate: boolean }) {
   return (
     <div>
       <div
@@ -573,8 +567,8 @@ function AiAgentsStep({
         className="text-sm leading-relaxed mb-5 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Your notes are plain Markdown on your Mac, so AI tools can work with them
-        directly — nothing is uploaded, and you choose what AI can touch.
+        Your notes are plain Markdown on your Mac, so AI tools can work with them directly — nothing
+        is uploaded, and you choose what AI can touch.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div
@@ -585,20 +579,14 @@ function AiAgentsStep({
             border: '1px solid var(--border-default)',
           }}
         >
-          <div
-            className="flex items-center gap-2 mb-1"
-            style={{ color: 'var(--accent-primary)' }}
-          >
+          <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--accent-primary)' }}>
             <FileText className="w-5 h-5" aria-hidden="true" />
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Agent-ready Forge
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            One click writes an AGENTS.md (plus a .gitignore) so agents like Claude Code
+            One click writes an AGENTS.md (plus a .gitignore) so AI tools like Claude Code
             understand your vault.
           </p>
         </div>
@@ -610,21 +598,15 @@ function AiAgentsStep({
             border: '1px solid var(--border-default)',
           }}
         >
-          <div
-            className="flex items-center gap-2 mb-1"
-            style={{ color: 'var(--accent-primary)' }}
-          >
+          <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--accent-primary)' }}>
             <Plug className="w-5 h-5" aria-hidden="true" />
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               MCP server
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Run Moldavite with <span className="font-mono">--mcp</span> to give Claude
-            Code or Claude Desktop structured tools to search and read your notes.
+            Run Moldavite with <span className="font-mono">--mcp</span> to give AI tools like Claude
+            Code structured tools to search and read your notes.
           </p>
         </div>
       </div>
@@ -661,8 +643,8 @@ function AiSearchStep({ titleId }: { titleId: string }) {
         style={{ color: 'var(--text-secondary)' }}
       >
         Find notes by meaning, not just keywords. Choose from three local models (with
-        all-MiniLM-L6-v2 as the default), then opt in to download your selection once — after
-        that everything runs offline, and your notes never leave your Mac.
+        all-MiniLM-L6-v2 as the default), then opt in to download your selection once — after that
+        everything runs offline, and your notes never leave your Mac.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div
@@ -673,15 +655,9 @@ function AiSearchStep({ titleId }: { titleId: string }) {
             border: '1px solid var(--border-default)',
           }}
         >
-          <div
-            className="flex items-center gap-2 mb-1"
-            style={{ color: 'var(--accent-primary)' }}
-          >
+          <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--accent-primary)' }}>
             <Search className="w-5 h-5" aria-hidden="true" />
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Semantic mode
             </span>
           </div>
@@ -697,15 +673,9 @@ function AiSearchStep({ titleId }: { titleId: string }) {
             border: '1px solid var(--border-default)',
           }}
         >
-          <div
-            className="flex items-center gap-2 mb-1"
-            style={{ color: 'var(--accent-primary)' }}
-          >
+          <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--accent-primary)' }}>
             <Link2 className="w-5 h-5" aria-hidden="true" />
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Related notes
             </span>
           </div>

@@ -1,7 +1,7 @@
 //! Note CRUD operations.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tauri::State;
@@ -117,6 +117,15 @@ fn preserve_conflict_copy_at(
     // Preserve the disk version byte-for-byte (frontmatter included).
     write_atomic(&dir.join(&conflict_name), raw.as_bytes(), Some(0o600))?;
     Ok(Some((conflict_name, disk_body)))
+}
+
+fn ensure_note_is_writable(path: &Path) -> Result<(), String> {
+    let mut locked_name = path.as_os_str().to_os_string();
+    locked_name.push(".locked");
+    if PathBuf::from(locked_name).exists() {
+        return Err("Note is locked".to_string());
+    }
+    Ok(())
 }
 
 // Helper function to recursively scan notes in a directory
@@ -372,6 +381,9 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
+    // A delayed frontend save must never recreate plaintext beside the
+    // encrypted note after `lock_note` removed the original `.md` file.
+    ensure_note_is_writable(&path)?;
 
     // External-edit conflict safety: if the disk copy changed since the
     // frontend last read it (and differs from what we're about to write),
@@ -951,6 +963,16 @@ mod tests {
 
         let result = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn locked_sibling_prevents_plaintext_recreation() {
+        let tmp = TempDir::new("locked");
+        let path = tmp.path().join("secret.md");
+        fs::write(tmp.path().join("secret.md.locked"), "ciphertext").unwrap();
+
+        assert_eq!(ensure_note_is_writable(&path), Err("Note is locked".to_string()));
+        assert!(!path.exists());
     }
 
     #[test]

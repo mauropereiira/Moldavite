@@ -5,16 +5,22 @@ All notable changes to Moldavite are documented here.
 ## [Unreleased]
 
 ### Added
-<<<<<<< HEAD
 - **Plugin API v2.** Sandboxed plugins can request `notes.read` to list note metadata and read unlocked Markdown, `net.fetch` to make host-performed HTTPS requests only to exact manifest `allowedHosts` (manual redirect re-validation, 30-second timeout, 10 MiB cap), and `secrets` for plugin-namespaced credentials in macOS Keychain. The permission sheet explains each capability and shows every approved host. API v1 plugins remain compatible, and the existing manifest+code SHA-256 consent pin means permission or allowlist edits always re-prompt.
-=======
 - **Note rename UI.** Rename standalone notes from the sidebar context menu or the editor's More menu. Open tabs, recents, colors, selection, and backlinks stay in sync while inbound `[[wiki-links]]` are updated automatically.
->>>>>>> feat/rename-ui
 - **Built-in MCP server.** Run the normal Moldavite app binary with `--mcp` to expose the active Forge to MCP clients over stdio, or add `--forge <name>` to select another Forge. Agents can search (semantic when the local index is ready, keyword otherwise), read and list notes, and inspect backlinks. Note creation, full replacement, and daily-note appends are omitted unless explicitly enabled under **Settings → AI & Agents → Allow agents to write**; locked notes remain inaccessible and every client path is validated.
 - **Local semantic search.** Opt-in, fully-local "search by meaning" for your notes. Enable it in **Settings → AI & Agents** and choose between three transparent local embedding models: all-MiniLM-L6-v2 (the fast, English-focused default), BGE small English v1.5, or Multilingual E5 small. The consent dialog names the selected model and download size before HuggingFace is contacted; models are cached in the app data dir, never inside a vault. Changing models re-indexes the Forge with live progress. From then on everything runs fully offline; your notes never leave your Mac (locked notes are never read or indexed). Once the index is ready: the sidebar search gains a **Keyword / Semantic** mode chip that finds notes by meaning rather than exact words, and a **Related** section below the editor (next to Linked mentions) lists the 5 most similar notes to the one you're reading. Notes are re-embedded incrementally on save/delete/rename/trash/restore, and a "Rebuild index" button in Settings re-embeds everything from scratch.
 - **Agent-ready Forge** — new **Settings → AI & Agents** section. One click writes an `AGENTS.md` to your Forge root describing the vault to AI agents (directory layout, daily/weekly/standalone note naming, frontmatter schema, wiki-link and tag syntax, and rules like "don't touch `.trash/`"), plus a `.gitignore` covering app-managed folders. If either file already exists you're asked before it's overwritten, and the section shows whether `AGENTS.md` is present. Your notes are plain Markdown, so agents like Claude Code can read and write them directly — no export needed.
 - **AI & Agents onboarding.** First-run onboarding gains two pages introducing the agent-ready Forge, the MCP server, and local semantic search — including the privacy model (everything stays on your Mac; writes are opt-in). Users who already completed onboarding see just the new pages once on their next launch.
 - **External-edit conflict safety.** If a note changes on disk (iCloud Drive, Dropbox, Syncthing, git, another editor…) while you have unsaved edits in Moldavite, saving no longer silently overwrites the external version: the disk version is preserved as a sibling `<name> (conflict YYYY-MM-DD HHMM).md` note, your edits are then saved, and a warning toast names the conflict copy.
+
+### Fixed
+- **Feature-update onboarding now waits for saved settings to load.** Existing users reliably see the new AI & Agents pages once instead of having the flow chosen from pre-hydration defaults.
+- **Password and template dialogs now follow the active theme.** Unlocking or locking a note and editing templates use Moldavite's background, text, border, focus, status, and accent tokens instead of fixed blue/gray palettes.
+- **Locking a note no longer creates a duplicate plaintext note.** Pending saves are drained or cancelled before encryption, locked-note hashes are invalidated, and the backend refuses stale writes while the encrypted `.locked` file exists.
+- **Temporarily unlocked notes display their decrypted content immediately.** Decrypted Markdown is converted to editor HTML before opening the note, without requiring a tab switch and return.
+
+### Changed
+- **MCP setup is client-aware and machine-specific.** Settings now explains that the Moldavite binary path is resolved automatically, identifies development paths, and provides copy-ready setup for Claude Code, Claude Desktop, Cursor, or a generic MCP client.
 
 ## [1.5.1] - 2026-07-12
 

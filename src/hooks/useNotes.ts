@@ -59,6 +59,9 @@ export function useNotes() {
     const state = getState();
     const note = state.currentNote;
     if (!note) return;
+    // A temporary unlock exposes plaintext only in memory. Never recreate a
+    // plaintext file beside its encrypted `.locked` file while navigating.
+    if (state.unlockedNotes.has(note.id)) return;
 
     let filename: string;
     if (note.isDaily && note.date) {
