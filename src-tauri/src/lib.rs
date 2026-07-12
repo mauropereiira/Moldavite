@@ -81,7 +81,10 @@ use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
     fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
 };
-use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
+use commands::plugins::{
+    install_example_plugin, list_plugins, plugin_secret_delete, plugin_secret_get,
+    plugin_secret_set, uninstall_plugin,
+};
 use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::search_notes_content;
 use commands::semantic::{
@@ -257,6 +260,9 @@ pub fn run() {
             list_plugins,
             uninstall_plugin,
             install_example_plugin,
+            plugin_secret_get,
+            plugin_secret_set,
+            plugin_secret_delete,
             // Folder system commands
             list_folders,
             create_folder,

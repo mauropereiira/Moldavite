@@ -6,7 +6,13 @@
 export type HostMethod =
   | 'editor.getActiveNote'
   | 'editor.insertText'
-  | 'ui.toast';
+  | 'ui.toast'
+  | 'notes.list'
+  | 'notes.read'
+  | 'net.fetch'
+  | 'secrets.get'
+  | 'secrets.set'
+  | 'secrets.delete';
 
 // -----------------------------------------------------------------------------
 // Host → Worker

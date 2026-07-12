@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-12 6:45pm GMT+1
+# [Moldavite] recent context, 2026-07-12 10:27pm GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (25,454t read) | 982,844t work | 97% savings
+Stats: 50 obs (26,745t read) | 931,881t work | 97% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
@@ -21,11 +21,7 @@ S339 Moldavite v1.5.1 CI — Both Jobs Passed on PR #23 (Jul 12 at 11:14 AM)
 S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions Release Workflow (Jul 12 at 11:18 AM)
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
-506 11:45a 🟣 Agent-Ready Vault Frontend — agents.ts Library and buildAgentsMd() Implemented
-507 " 🟣 Conflict Safety Backend — NoteRead Extended with content_hash, NoteWriteResult Type Added
 510 11:47a 🟣 Conflict Safety — Core Detection Logic Implemented in notes.rs
-511 " 🟣 Agent-Ready Vault — AgentsSection.tsx Settings UI Implemented
-512 " 🟣 SettingsModal.tsx — "AI &amp; Agents" Tab Wired In
 513 11:48a 🟣 Semantic Search Dependencies Added to Cargo.toml
 514 " 🟣 AppConfig Extended with semantic_enabled Field
 515 " ✅ Conflict Safety — Cargo Test Suite Passes with 107 Tests
@@ -71,6 +67,10 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 563 6:43p 🔵 MCP Smoke Test Failure Root-Caused to macOS GUI System Errors
 567 " 🟣 Moldavite MCP stdio Server — Smoke Test Passes
 568 6:44p ⚖️ Moldavite v1.6 — MCP stdio Server Full Implementation Scope Defined
+569 6:46p ⚖️ Moldavite v1.6 — Embedding Model Transparency and Curated Picker Scope Defined
+570 " 🔵 fastembed 5.17.2 — Confirmed Enum Variants and Dims for Three Curated Models
+572 6:47p 🔵 Moldavite Semantic Backend — Architecture Constraints for Model Registry Implementation
+573 6:48p ⚖️ Moldavite v1.6 — Embedding Model Picker Full Implementation Scope Handed Off
 
-Access 983k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 932k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

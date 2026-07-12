@@ -63,7 +63,7 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Automatic updates** — Moldavite checks for new versions and updates in place. After updating, a "What's New" popup summarizes the changes.
 
-**Plugins** — add your own commands to the palette and slash menu. Plugins live in your Forge and run behind a per-plugin permission prompt; see [docs/PLUGINS.md](docs/PLUGINS.md).
+**Plugins** — build sandboxed command integrations with permissioned unlocked-note reads, exact-host HTTPS requests, and plugin-owned macOS Keychain secrets. Plugins live in your Forge, every capability is host-enforced, and manifest/code changes re-prompt for consent; see [docs/PLUGINS.md](docs/PLUGINS.md).
 
 **Agent-ready** — your Forge is plain Markdown, so AI agents (Claude Code, etc.) can read and write it directly. Settings → AI & Agents generates an `AGENTS.md` describing your vault's conventions to agents, plus a `.gitignore` for app-managed folders.
 
