@@ -74,7 +74,19 @@ pub(crate) fn search_notes_content_in(
         .into_iter()
         .filter_entry(|entry| {
             // Skip the trash directory entirely
-            entry.path() != trash_dir
+            if entry.path() == trash_dir {
+                return false;
+            }
+            // Skip every hidden directory below the root (`.trash`,
+            // `.index`, `.plugins`, …) — internal state must never
+            // surface in search results.
+            if entry.depth() > 0
+                && entry.file_type().is_dir()
+                && entry.file_name().to_string_lossy().starts_with('.')
+            {
+                return false;
+            }
+            true
         });
 
     for entry in walker.flatten() {

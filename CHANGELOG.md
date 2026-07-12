@@ -2,6 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+- **Local semantic search (backend).** New opt-in, fully-local embeddings index per Forge: enabling the feature downloads the all-MiniLM-L6-v2 model once (cached in the app data dir, never inside a vault) and builds a vector index at `<forge>/.index/embeddings.v1.bin`. New commands: `semantic_status`, `semantic_set_enabled`, `semantic_search`, `semantic_related`, `semantic_reindex`, with `semantic:progress` / `semantic:ready` / `semantic:error` events. Notes are re-embedded incrementally on save/delete/rename/trash/restore; locked notes are never read or indexed. No note content ever leaves the machine.
+
 ## [1.5.1] - 2026-07-12
 
 ### Fixed
