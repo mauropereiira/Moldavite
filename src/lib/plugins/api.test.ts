@@ -198,6 +198,90 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     );
   });
 
+  it('net.fetch keeps only minimal headers on a cross-origin redirect', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('', { status: 307, headers: { location: 'https://uploads.example.com/post' } })
+      )
+      .mockResolvedValueOnce(
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await dispatchPluginCall(
+      'demo',
+      ALL,
+      'net.fetch',
+      [
+        'https://api.example.com/start',
+        {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'accept-language': 'en-US',
+            'content-type': 'application/json',
+            authorization: 'Bearer secret',
+            cookie: 'session=secret',
+            'x-api-key': 'secret',
+            'x-custom': 'drop-me',
+          },
+          body: '{}',
+        },
+      ],
+      ['api.example.com', 'uploads.example.com']
+    );
+
+    const secondOptions = fetchMock.mock.calls[1][1] as {
+      headers: Headers;
+      body?: unknown;
+    };
+    expect(Object.fromEntries(secondOptions.headers.entries())).toEqual({
+      accept: 'application/json',
+      'accept-language': 'en-US',
+      'content-type': 'application/json',
+    });
+    expect(secondOptions.body).toBe('{}');
+  });
+
+  it('net.fetch drops content-type when a cross-origin redirect drops the body', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('', { status: 302, headers: { location: 'https://other.example.com/get' } })
+      )
+      .mockResolvedValueOnce(
+        new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await dispatchPluginCall(
+      'demo',
+      ALL,
+      'net.fetch',
+      [
+        'https://api.example.com/start',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'text/plain' },
+          body: '{}',
+        },
+      ],
+      ['api.example.com', 'other.example.com']
+    );
+
+    const secondOptions = fetchMock.mock.calls[1][1] as {
+      headers: Headers;
+      method?: string;
+      body?: unknown;
+    };
+    expect(Object.fromEntries(secondOptions.headers.entries())).toEqual({
+      accept: 'text/plain',
+    });
+    expect(secondOptions.method).toBe('GET');
+    expect(secondOptions.body).toBeUndefined();
+  });
+
   it('net.fetch returns a capped response with only safe headers', async () => {
     vi.stubGlobal(
       'fetch',

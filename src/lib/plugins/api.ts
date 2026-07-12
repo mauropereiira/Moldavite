@@ -245,12 +245,6 @@ async function pluginFetch(
         throw new Error('net.fetch: redirect response did not expose a Location header');
       const nextUrl = validateFetchUrl(new URL(location, url).href, allowedHosts);
 
-      // Never forward credentials automatically between distinct allowlisted hosts.
-      if (nextUrl.origin !== url.origin) {
-        headers = new Headers(headers);
-        headers.delete('authorization');
-        headers.delete('cookie');
-      }
       if (
         response.status === 303 ||
         ((response.status === 301 || response.status === 302) && method === 'POST')
@@ -260,6 +254,18 @@ async function pluginFetch(
         headers = new Headers(headers);
         headers.delete('content-type');
         headers.delete('content-length');
+      }
+      if (nextUrl.origin !== url.origin) {
+        const safeHeaders = new Headers();
+        for (const name of ['accept', 'accept-language']) {
+          const value = headers.get(name);
+          if (value !== null) safeHeaders.set(name, value);
+        }
+        if (body !== undefined) {
+          const contentType = headers.get('content-type');
+          if (contentType !== null) safeHeaders.set('content-type', contentType);
+        }
+        headers = safeHeaders;
       }
       url = nextUrl;
     }

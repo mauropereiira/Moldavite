@@ -54,6 +54,36 @@ describe('validateManifest', () => {
       ).toBe(false);
     }
   });
+  it.each([
+    '127.0.0.1',
+    '192.168.1.10',
+    '[::1]',
+    '::1',
+    'localhost',
+    'intranet',
+    'api.localhost',
+    'localhost.localdomain',
+  ])('rejects local or literal allowed host %s', (host) => {
+    expect(
+      validateManifest(
+        { ...base, apiVersion: 2, permissions: ['net.fetch'], allowedHosts: [host] },
+        'demo'
+      ).ok
+    ).toBe(false);
+  });
+  it('accepts a valid dotted public host', () => {
+    expect(
+      validateManifest(
+        {
+          ...base,
+          apiVersion: 2,
+          permissions: ['net.fetch'],
+          allowedHosts: ['api.example.com'],
+        },
+        'demo'
+      ).ok
+    ).toBe(true);
+  });
   it('rejects non-object input', () => {
     expect(validateManifest(null, 'demo').ok).toBe(false);
     expect(validateManifest('x', 'demo').ok).toBe(false);
