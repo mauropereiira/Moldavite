@@ -75,11 +75,21 @@ export function validateManifest(raw: unknown, folderId: string): Result {
 }
 
 function isValidAllowedHost(host: string): boolean {
-  if (host.length > 253 || host !== host.toLowerCase() || host.includes('*')) return false;
-  return host
-    .split('.')
-    .every(
-      (label) =>
-        label.length > 0 && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
-    );
+  if (
+    host.length > 253 ||
+    host !== host.toLowerCase() ||
+    host.includes('*') ||
+    host.includes(':') ||
+    host.includes('[') ||
+    host.includes(']')
+  ) {
+    return false;
+  }
+  const labels = host.split('.');
+  if (labels.length < 2 || labels.every((label) => /^\d+$/.test(label))) return false;
+  if (labels.includes('localhost')) return false;
+  return labels.every(
+    (label) =>
+      label.length > 0 && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+  );
 }

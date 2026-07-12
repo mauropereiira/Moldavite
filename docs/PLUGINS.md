@@ -156,6 +156,12 @@ host to make the request after checking the permission and allowlist. Only
 absolute HTTPS URLs without embedded credentials are accepted. Request bodies
 are strings.
 
+**Security model:** every host is explicitly consented to; IP literals,
+single-label hosts, and localhost names are rejected. HTTPS means DNS rebinding
+to an internal service still fails TLS certificate validation. Cross-origin
+redirects carry only `Accept`, `Accept-Language`, and, when the request body is
+preserved, `Content-Type`.
+
 Redirects use `redirect: "manual"`. Each `Location` is resolved and validated
 before the next request, with at most five redirects. A missing/hidden
 `Location` is rejected; this safely rejects WebKit `opaqueredirect` responses
