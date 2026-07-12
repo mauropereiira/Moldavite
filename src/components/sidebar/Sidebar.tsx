@@ -40,6 +40,9 @@ const SettingsModal = lazy(() =>
 const TrashPreviewModal = lazy(() =>
   import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal })),
 );
+const RenameNoteModal = lazy(() =>
+  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal })),
+);
 import { ForgeSwitcher } from './ForgeSwitcher';
 import { ManageForgesModal } from './ManageForgesModal';
 import { SidebarTagList } from './SidebarTagList';
@@ -58,7 +61,7 @@ import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
 export function Sidebar() {
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, refresh: refreshNotes } = useNotes();
+  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, renameNote, refresh: refreshNotes } = useNotes();
   const { currentNote, setSelectedDate, setCurrentNote } = useNoteStore();
   const lock = useSidebarLock();
   const {
@@ -125,6 +128,7 @@ export function Sidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [pendingNoteTitle, setPendingNoteTitle] = useState('');
+  const [noteToRename, setNoteToRename] = useState<NoteFile | null>(null);
 
   // Folder state
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
@@ -652,6 +656,7 @@ export function Sidebar() {
           position={noteMenu.position}
           onOpenInNewTab={(note) => loadNote(note, true)}
           onDuplicate={duplicateNote}
+          onRename={setNoteToRename}
           onLock={handleLockNote}
           onUnlock={handleUnlockNote}
           onPermanentUnlock={handlePermanentUnlock}
@@ -659,6 +664,16 @@ export function Sidebar() {
           onDelete={handleDeleteClick}
           onClose={closeContextMenu}
         />
+      )}
+
+      {noteToRename && (
+        <Suspense fallback={null}>
+          <RenameNoteModal
+            note={noteToRename}
+            onRename={renameNote}
+            onClose={() => setNoteToRename(null)}
+          />
+        </Suspense>
       )}
 
       {/* Template Picker Modal */}

@@ -7,15 +7,17 @@ import { NoteColorPicker } from '@/components/ui';
 import type { NoteColorId } from '@/components/ui/NoteColorPicker';
 import { useNoteStore, useThemeStore, useNoteColorsStore, useSettingsStore, buildNotePath } from '@/stores';
 import { useToast } from '@/hooks/useToast';
+import type { NoteFile } from '@/types';
 
 interface EditorFooterProps {
   editor: Editor | null;
   onDelete: () => void;
   isSaving: boolean;
   showSaveSuccess: boolean;
+  onRenameNote: (note: NoteFile, title: string) => Promise<void>;
 }
 
-export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: EditorFooterProps) {
+export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess, onRenameNote }: EditorFooterProps) {
   const { currentNote } = useNoteStore();
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
@@ -93,6 +95,7 @@ export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: Ed
           onShowToast={showToast}
           wordCount={wordCount}
           characterCount={characterCount}
+          onRenameNote={onRenameNote}
           openDirection="up"
         />
       </div>

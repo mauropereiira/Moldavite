@@ -34,6 +34,7 @@ interface NoteState {
   closeTab: (noteId: string) => void;
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
+  renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
   removeTabByPath: (notePath: string) => void;
   pinTab: (noteId: string) => { success: boolean; message?: string };
   reorderTabs: (fromIndex: number, toIndex: number) => void;
@@ -275,6 +276,47 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       return {
         openTabs: updatedTabs,
         currentNote: activeTab,
+      };
+    }),
+
+  /** Moves every persisted/in-memory reference from a note's old path to its new path. */
+  renameNoteReferences: (oldPath, newPath, newTitle) =>
+    set((state) => {
+      const newName = newPath.split('/').pop() || `${newTitle}.md`;
+      const openTabs = state.openTabs.map((tab) =>
+        tab.id === oldPath ? { ...tab, id: newPath, title: newTitle } : tab
+      );
+      const recentNoteIds = state.recentNoteIds.map((id) =>
+        id === oldPath ? newPath : id
+      );
+      const unlockedNotes = new Set(
+        [...state.unlockedNotes].map((id) => (id === oldPath ? newPath : id)),
+      );
+      const activeTabId = state.activeTabId === oldPath ? newPath : state.activeTabId;
+      const currentNote = activeTabId
+        ? openTabs.find((tab) => tab.id === activeTabId) || null
+        : null;
+
+      try {
+        localStorage.setItem(
+          namespacedKey('moldavite-recent-notes'),
+          JSON.stringify(recentNoteIds),
+        );
+        const pinnedIds = openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id);
+        localStorage.setItem('moldavite-pinned-tabs', JSON.stringify(pinnedIds));
+      } catch (error) {
+        console.error('[noteStore] Failed to persist renamed note references:', error);
+      }
+
+      return {
+        notes: state.notes.map((note) =>
+          note.path === oldPath ? { ...note, name: newName, path: newPath } : note
+        ),
+        openTabs,
+        activeTabId,
+        currentNote,
+        recentNoteIds,
+        unlockedNotes,
       };
     }),
 

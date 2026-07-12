@@ -12,7 +12,7 @@ vi.mock('./ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...(args as [string, unknown])),
 }));
 
-import { readNote, readNoteWithMeta, writeNote } from './fileSystem';
+import { readNote, readNoteWithMeta, renameNote, writeNote } from './fileSystem';
 
 function lastCallArgs(command: string): Record<string, unknown> {
   const call = [...invokeMock.mock.calls].reverse().find((c) => c[0] === command);
@@ -106,5 +106,28 @@ describe('external-edit conflict hash threading', () => {
     const result = await writeNote('Projects/note.md', 'mine', false, false);
     expect(result.conflictCopy).toBe('Projects/note (conflict 2026-07-12 1015).md');
     expect(result.contentHash).toBe('hash-w1');
+  });
+});
+
+describe('renameNote IPC', () => {
+  it('passes the exact rename_note argument shape to Tauri', async () => {
+    invokeMock.mockResolvedValue(undefined);
+
+    await renameNote('Old title.md', 'New title.md', false, false);
+
+    expect(invokeMock).toHaveBeenCalledWith('rename_note', {
+      oldFilename: 'Old title.md',
+      newFilename: 'New title.md',
+      isDaily: false,
+      isWeekly: false,
+    });
+  });
+
+  it('propagates rename errors from the backend', async () => {
+    invokeMock.mockRejectedValue(new Error('A note with this name already exists'));
+
+    await expect(renameNote('Old title.md', 'Existing title.md', false, false)).rejects.toThrow(
+      'A note with this name already exists'
+    );
   });
 });
