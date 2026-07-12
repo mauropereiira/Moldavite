@@ -124,6 +124,16 @@
       <li><strong>Automatic signed updates</strong> — Moldavite checks GitHub for new releases and updates in place. Every update is cryptographically signed and verified before install, and a "What's New" popup summarizes the changes afterwards.</li>
     </ul>
 
+    <h3>Syncing your Forge</h3>
+    <p>
+      Your Forge is a plain folder of Markdown files, so it syncs with any file-sync tool —
+      iCloud Drive, Dropbox, Syncthing, or a git repository. External edits show up live thanks
+      to the built-in file watcher. And if a note changes on disk while you have unsaved edits in
+      Moldavite, neither version is lost: the disk version is preserved as a
+      "<em>(conflict)</em>" copy next to the note, your edits are saved, and a toast tells you a
+      conflict copy was created so you can merge at your leisure.
+    </p>
+
     <h2 id="calendar">Apple Calendar integration</h2>
     <p>
       On macOS, the right panel shows a month calendar and a timeline of your Apple Calendar events
