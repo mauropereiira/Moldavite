@@ -115,6 +115,11 @@ pub(crate) struct AppConfig {
     pub(crate) notes_directory: Option<String>,
     pub(crate) forges_root: Option<String>,
     pub(crate) active_forge: Option<String>,
+    /// Whether local semantic (vector) search is enabled. `None` means the
+    /// user never enabled it — the embedding model is only downloaded once
+    /// this flips to `Some(true)` via the explicit enable flow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) semantic_enabled: Option<bool>,
 }
 
 // Public-facing struct returned by the `list_forges` command.
