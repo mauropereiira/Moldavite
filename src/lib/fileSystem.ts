@@ -481,11 +481,42 @@ export async function listNotes(): Promise<NoteFile[]> {
 /**
  * Result shape returned by `read_note`. The body has had any leading YAML
  * frontmatter stripped; structured fields (currently just `color`) are
- * surfaced separately.
+ * surfaced separately. `contentHash` is the SHA-256 hex of `content`, used
+ * as the base for external-edit conflict detection on the next save.
  */
 export interface NoteReadResult {
   content: string;
   color: string | null;
+  contentHash: string;
+}
+
+/**
+ * Result shape returned by `write_note`. `contentHash` is the hash of the
+ * body just written (stored as the new conflict-detection base).
+ * `conflictCopy` is the relative path of the conflict copy created when the
+ * on-disk note had changed externally since it was last read, else null.
+ */
+export interface NoteWriteResult {
+  contentHash: string;
+  conflictCopy: string | null;
+}
+
+/**
+ * Per-note base hashes for external-edit conflict detection, keyed by the
+ * note's backend address (kind + filename). Recorded on every read, sent to
+ * the backend on every write, and replaced with the hash of what was just
+ * written after a successful save. The registry is module-level state: it
+ * resets on window reload, which matches Forge switching (a full reload).
+ */
+const noteBaseHashes = new Map<string, string>();
+
+function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): string {
+  return `${isDaily ? 'daily' : isWeekly ? 'weekly' : 'notes'}:${filename}`;
+}
+
+/** Drop the recorded base hash for a note (after delete/rename/move). */
+function forgetNoteBaseHash(filename: string, isDaily: boolean, isWeekly: boolean): void {
+  noteBaseHashes.delete(noteHashKey(filename, isDaily, isWeekly));
 }
 
 /**
@@ -510,29 +541,41 @@ export async function readNote(
   isDaily: boolean,
   isWeekly: boolean = false,
 ): Promise<string> {
-  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  const result = await readNoteWithMeta(filename, isDaily, isWeekly);
   return result.content;
 }
 
 /**
- * Same as {@link readNote}, but returns the structured result with `color`.
+ * Same as {@link readNote}, but returns the structured result with `color`
+ * and `contentHash`.
  */
 export async function readNoteWithMeta(
   filename: string,
   isDaily: boolean,
   isWeekly: boolean = false,
 ): Promise<NoteReadResult> {
-  return await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  // Remember what we read so the next save can detect external edits.
+  noteBaseHashes.set(noteHashKey(filename, isDaily, isWeekly), result.contentHash);
+  return result;
 }
 
 /**
  * Writes content to a note file, creating it if it doesn't exist.
+ *
+ * External-edit conflict safety: the hash recorded by the last read of this
+ * note is sent along as `baseHash`. If the on-disk content changed since
+ * then (sync tool, other editor…) and differs from `content`, the backend
+ * preserves the disk version as a sibling conflict copy before writing —
+ * check `conflictCopy` on the result to surface that to the user.
+ *
  * @param filename - The note filename
  * @param content - The Markdown content to write
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  * @param color - Optional color id to stamp into frontmatter. `null`/undefined
  *   leaves the existing color in place; pass `"default"` to clear it.
+ * @returns The write result with the new content hash and any conflict copy
  */
 export async function writeNote(
   filename: string,
@@ -540,8 +583,19 @@ export async function writeNote(
   isDaily: boolean,
   isWeekly: boolean = false,
   color?: string | null,
-): Promise<void> {
-  await invoke('write_note', { filename, content, isDaily, isWeekly, color: color ?? null });
+): Promise<NoteWriteResult> {
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  const result = await invoke<NoteWriteResult>('write_note', {
+    filename,
+    content,
+    isDaily,
+    isWeekly,
+    color: color ?? null,
+    baseHash: noteBaseHashes.get(key) ?? null,
+  });
+  // What we just wrote is the new base for the next conflict check.
+  noteBaseHashes.set(key, result.contentHash);
+  return result;
 }
 
 /**
@@ -552,6 +606,7 @@ export async function writeNote(
  */
 export async function deleteNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
   await invoke('delete_note', { filename, isDaily, isWeekly });
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**
@@ -573,6 +628,7 @@ export async function createNote(title: string, folderPath?: string): Promise<st
  */
 export async function renameNote(oldFilename: string, newFilename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
   await invoke('rename_note', { oldFilename, newFilename, isDaily, isWeekly });
+  forgetNoteBaseHash(oldFilename, isDaily, isWeekly);
 }
 
 /**
@@ -1063,7 +1119,9 @@ export async function deleteFolder(path: string, force?: boolean): Promise<void>
  * @returns The new note path
  */
 export async function moveNote(notePath: string, toFolder?: string): Promise<string> {
-  return await invoke('move_note', { notePath, toFolder });
+  const newPath = await invoke<string>('move_note', { notePath, toFolder });
+  forgetNoteBaseHash(notePath, false, false);
+  return newPath;
 }
 
 /**
@@ -1087,6 +1145,7 @@ export async function moveFolder(folderPath: string, toFolder?: string): Promise
  */
 export async function trashNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
   await invoke('trash_note', { filename, isDaily, isWeekly });
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**

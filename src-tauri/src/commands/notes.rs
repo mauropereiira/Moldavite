@@ -13,7 +13,7 @@ use crate::paths::{
     file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
 };
 use crate::persist::{generate_unique_filename, write_atomic};
-use crate::types::{NoteFile, NoteRead};
+use crate::types::{NoteFile, NoteRead, NoteWriteResult};
 use crate::validation::{is_safe_filename, is_safe_note_path};
 
 /// Standalone notes may live in folders and are addressed by a notes/-relative
@@ -33,6 +33,90 @@ fn index_key(filename: &str) -> String {
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| filename.to_string())
+}
+
+/// SHA-256 hex digest of a note body. The frontend keeps the hash from its
+/// last read and sends it back on save so we can tell whether the disk copy
+/// changed underneath it (external editor, sync tool, git…).
+fn sha256_hex(content: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// True when a daily-note stem is an actual date ("2025-01-01"). Files in
+/// daily/ with other names (e.g. conflict copies) are listed without a
+/// `date` so the frontend never tries to parse them as calendar days.
+fn is_date_stem(stem: &str) -> bool {
+    let b = stem.as_bytes();
+    b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| match i {
+            4 | 7 => *c == b'-',
+            _ => c.is_ascii_digit(),
+        })
+}
+
+/// True when a weekly-note stem is an actual ISO week ("2024-W52").
+fn is_week_stem(stem: &str) -> bool {
+    let b = stem.as_bytes();
+    b.len() == 8
+        && b[..4].iter().all(u8::is_ascii_digit)
+        && &b[4..6] == b"-W"
+        && b[6..].iter().all(u8::is_ascii_digit)
+}
+
+/// External-edit conflict safety: when the on-disk note diverged from what
+/// the frontend last read (`base_hash`) AND from what it is about to write,
+/// copy the disk version to a sibling `<stem> (conflict YYYY-MM-DD HHMM).md`
+/// before the save overwrites it, so neither version is lost.
+///
+/// Returns `Some((conflict_filename, disk_body))` when a copy was created —
+/// the body is handed back so the caller can index it — or `None` when no
+/// conflict exists (no base hash, missing file, hash matches, or the incoming
+/// content is identical to the disk anyway).
+fn preserve_conflict_copy(
+    path: &Path,
+    base_hash: Option<&str>,
+    new_content: &str,
+) -> Result<Option<(String, String)>, String> {
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+    preserve_conflict_copy_at(path, base_hash, new_content, &stamp)
+}
+
+/// Testable core of [`preserve_conflict_copy`] with an injectable timestamp.
+fn preserve_conflict_copy_at(
+    path: &Path,
+    base_hash: Option<&str>,
+    new_content: &str,
+    stamp: &str,
+) -> Result<Option<(String, String)>, String> {
+    let Some(base) = base_hash else {
+        // Caller didn't opt in to conflict detection — legacy behavior.
+        return Ok(None);
+    };
+    // A missing file can't conflict — the save simply creates it.
+    let Ok(raw) = fs::read_to_string(path) else {
+        return Ok(None);
+    };
+    let disk_body = frontmatter::parse_note(&raw).body;
+    // No conflict when the disk still matches what the frontend last read,
+    // or when the incoming save is identical to the disk content anyway.
+    if sha256_hex(&disk_body) == base || disk_body == new_content {
+        return Ok(None);
+    }
+    let dir = path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let conflict_name =
+        generate_unique_filename(dir, &format!("{} (conflict {})", stem, stamp), "md");
+    // Preserve the disk version byte-for-byte (frontmatter included).
+    write_atomic(&dir.join(&conflict_name), raw.as_bytes(), Some(0o600))?;
+    Ok(Some((conflict_name, disk_body)))
 }
 
 // Helper function to recursively scan notes in a directory
@@ -129,7 +213,10 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
                     let base_name = filename.strip_suffix(".locked").unwrap().to_string();
-                    let date = base_name.strip_suffix(".md").map(|s| s.to_string());
+                    let date = base_name
+                        .strip_suffix(".md")
+                        .filter(|s| is_date_stem(s))
+                        .map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: base_name.clone(),
                         path: format!("daily/{}", base_name),
@@ -142,7 +229,10 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         modified_at,
                     });
                 } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let date = filename.strip_suffix(".md").map(|s| s.to_string());
+                    let date = filename
+                        .strip_suffix(".md")
+                        .filter(|s| is_date_stem(s))
+                        .map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: filename.clone(),
                         path: format!("daily/{}", filename),
@@ -171,7 +261,10 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                 // Check for locked files (.md.locked)
                 if filename.ends_with(".md.locked") {
                     let base_name = filename.strip_suffix(".locked").unwrap().to_string();
-                    let week = base_name.strip_suffix(".md").map(|s| s.to_string());
+                    let week = base_name
+                        .strip_suffix(".md")
+                        .filter(|s| is_week_stem(s))
+                        .map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: base_name.clone(),
                         path: format!("weekly/{}", base_name),
@@ -184,7 +277,10 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         modified_at,
                     });
                 } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let week = filename.strip_suffix(".md").map(|s| s.to_string());
+                    let week = filename
+                        .strip_suffix(".md")
+                        .filter(|s| is_week_stem(s))
+                        .map(|s| s.to_string());
                     notes.push(NoteFile {
                         name: filename.clone(),
                         path: format!("weekly/{}", filename),
@@ -235,17 +331,22 @@ pub(crate) fn read_note(
         return Ok(NoteRead {
             content: String::new(),
             color: None,
+            content_hash: sha256_hex(""),
         });
     }
 
     let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     let parsed = frontmatter::parse_note(&raw);
     Ok(NoteRead {
+        content_hash: sha256_hex(&parsed.body),
         content: parsed.body,
         color: parsed.color,
     })
 }
 
+// Tauri command parameters map 1:1 to the IPC payload; grouping them into a
+// struct would change the wire shape for every existing caller.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub(crate) fn write_note(
     filename: String,
@@ -253,9 +354,10 @@ pub(crate) fn write_note(
     is_daily: bool,
     is_weekly: bool,
     color: Option<String>,
+    base_hash: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
-) -> Result<(), String> {
+) -> Result<NoteWriteResult, String> {
     // Prevent path traversal attacks; standalone notes may include a folder path.
     if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
@@ -270,6 +372,27 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
+
+    // External-edit conflict safety: if the disk copy changed since the
+    // frontend last read it (and differs from what we're about to write),
+    // preserve the disk version as a sibling conflict copy first so the
+    // save below can never silently destroy it.
+    let conflict_copy = match preserve_conflict_copy(&path, base_hash.as_deref(), &content)? {
+        Some((conflict_name, disk_body)) => {
+            if let Some(parent) = path.parent() {
+                // The copy is our own write — suppress the watcher echo.
+                recent.record(&parent.join(&conflict_name));
+            }
+            index.update_note(&conflict_name, &disk_body);
+            // Echo back the same folder-relative shape we were addressed with.
+            let rel = match filename.rsplit_once('/') {
+                Some((folder, _)) => format!("{}/{}", folder, conflict_name),
+                None => conflict_name,
+            };
+            Some(rel)
+        }
+        None => None,
+    };
 
     // Preserve any extra frontmatter keys from the existing file so external
     // tools that add their own metadata don't lose it on save. If the caller
@@ -297,7 +420,10 @@ pub(crate) fn write_note(
     // The backlinks index only cares about the body, not frontmatter.
     index.update_note(&index_key(&filename), &content);
 
-    Ok(())
+    Ok(NoteWriteResult {
+        content_hash: sha256_hex(&content),
+        conflict_copy,
+    })
 }
 
 #[tauri::command]
@@ -676,4 +802,189 @@ pub(crate) fn fix_note_permissions() -> Result<u32, String> {
 
     #[cfg(not(unix))]
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            let base = std::env::temp_dir().join(format!(
+                "moldavite-conflict-{}-{}",
+                tag,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir_all(&base).unwrap();
+            Self(base)
+        }
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    const STAMP: &str = "2026-07-12 1015";
+
+    #[test]
+    fn conflict_creates_copy_and_both_versions_survive() {
+        let tmp = TempDir::new("basic");
+        let path = tmp.path().join("note.md");
+        // Frontend last read "original"; an external tool wrote "external".
+        fs::write(&path, "external").unwrap();
+        let base = sha256_hex("original");
+
+        let result = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+            .unwrap()
+            .expect("conflict copy should be created");
+        assert_eq!(result.0, format!("note (conflict {}).md", STAMP));
+        assert_eq!(result.1, "external");
+
+        // Simulate the main write that follows the copy.
+        write_atomic(&path, b"mine", Some(0o600)).unwrap();
+
+        // Both versions are intact on disk.
+        assert_eq!(fs::read_to_string(&path).unwrap(), "mine");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(&result.0)).unwrap(),
+            "external"
+        );
+    }
+
+    #[test]
+    fn conflict_copy_preserves_frontmatter_byte_for_byte() {
+        let tmp = TempDir::new("frontmatter");
+        let path = tmp.path().join("note.md");
+        let raw = "---\ncolor: blue\ncustom: kept\n---\nexternal body";
+        fs::write(&path, raw).unwrap();
+        let base = sha256_hex("original body");
+
+        let (name, body) = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+            .unwrap()
+            .expect("conflict copy should be created");
+        assert_eq!(body, "external body");
+        assert_eq!(fs::read_to_string(tmp.path().join(&name)).unwrap(), raw);
+    }
+
+    #[test]
+    fn no_conflict_when_base_hash_matches_disk() {
+        let tmp = TempDir::new("match");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "same content").unwrap();
+        let base = sha256_hex("same content");
+
+        let result = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP).unwrap();
+        assert!(result.is_none());
+        // No stray conflict files.
+        assert_eq!(fs::read_dir(tmp.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn no_conflict_when_base_hash_is_none() {
+        let tmp = TempDir::new("none");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external").unwrap();
+
+        let result = preserve_conflict_copy_at(&path, None, "mine", STAMP).unwrap();
+        assert!(result.is_none());
+        assert_eq!(fs::read_dir(tmp.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn no_conflict_when_incoming_content_equals_disk() {
+        let tmp = TempDir::new("identical");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external").unwrap();
+        // Base is stale, but we're writing the exact disk content anyway.
+        let base = sha256_hex("original");
+
+        let result = preserve_conflict_copy_at(&path, Some(&base), "external", STAMP).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn no_conflict_when_file_is_missing() {
+        let tmp = TempDir::new("missing");
+        let path = tmp.path().join("nope.md");
+        let base = sha256_hex("anything");
+
+        let result = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn conflict_filename_is_uniquified_with_counter() {
+        let tmp = TempDir::new("unique");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external one").unwrap();
+        let base = sha256_hex("original");
+
+        let (first, _) = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+            .unwrap()
+            .unwrap();
+        assert_eq!(first, format!("note (conflict {}).md", STAMP));
+
+        // Same minute, still-diverged disk: the second copy must not clobber
+        // the first.
+        fs::write(&path, "external two").unwrap();
+        let (second, _) = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+            .unwrap()
+            .unwrap();
+        assert_eq!(second, format!("note (conflict {}) (2).md", STAMP));
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(&first)).unwrap(),
+            "external one"
+        );
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(&second)).unwrap(),
+            "external two"
+        );
+    }
+
+    #[test]
+    fn conflict_filename_passes_path_validation() {
+        let tmp = TempDir::new("valid-name");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external").unwrap();
+        let base = sha256_hex("original");
+
+        let (name, _) = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+            .unwrap()
+            .unwrap();
+        assert!(is_safe_filename(&name));
+        assert!(is_safe_note_path(&name));
+    }
+
+    #[test]
+    fn sha256_hex_matches_known_vector() {
+        assert_eq!(
+            sha256_hex(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn date_and_week_stems_are_strictly_validated() {
+        assert!(is_date_stem("2025-01-01"));
+        assert!(!is_date_stem("2025-01-01 (conflict 2026-07-12 1015)"));
+        assert!(!is_date_stem("2025-1-1"));
+        assert!(!is_date_stem("notes"));
+
+        assert!(is_week_stem("2024-W52"));
+        assert!(!is_week_stem("2024-W52 (conflict 2026-07-12 1015)"));
+        assert!(!is_week_stem("2024-52"));
+    }
 }
