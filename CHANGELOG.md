@@ -2,6 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.5.1] - 2026-07-12
+
+### Fixed
+- **Editing or creating a template from Settings → Templates works again.** The template editor opened behind the Settings window (only the backdrop darkened); it now stacks above Settings.
+
 ## [1.5.0] - 2026-07-02
 
 ### Fixed
