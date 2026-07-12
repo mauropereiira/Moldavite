@@ -9,6 +9,7 @@ import {
   Download,
   FileDown,
   FileText,
+  Pencil,
 } from 'lucide-react';
 import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote, noteFileBackendPath } from '@/lib';
 import { useToast } from '@/hooks/useToast';
@@ -20,6 +21,7 @@ interface NoteContextMenuProps {
   position: { x: number; y: number };
   onOpenInNewTab: (note: NoteFile) => void;
   onDuplicate: (note: NoteFile) => Promise<void>;
+  onRename: (note: NoteFile) => void;
   onLock: (note: NoteFile) => void;
   onUnlock: (note: NoteFile) => void;
   onPermanentUnlock: (note: NoteFile) => void;
@@ -42,6 +44,7 @@ export function NoteContextMenu({
   position,
   onOpenInNewTab,
   onDuplicate,
+  onRename,
   onLock,
   onUnlock,
   onPermanentUnlock,
@@ -209,6 +212,21 @@ export function NoteContextMenu({
         >
           <Copy className="w-4 h-4" />
           Duplicate
+        </button>
+      )}
+      {!note.isLocked && !note.isDaily && !note.isWeekly && (
+        <button
+          onClick={() => {
+            onRename(note);
+            onClose();
+          }}
+          className={itemClass}
+          style={{ color: 'var(--text-primary)' }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <Pencil className="w-4 h-4" />
+          Rename…
         </button>
       )}
       {!note.isLocked && (

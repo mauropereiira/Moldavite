@@ -55,7 +55,7 @@ export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
   const { spellCheck, tagsEnabled } = useSettingsStore();
   const { theme } = useThemeStore();
-  const { deleteCurrentNote, loadDailyNote, createNote, loadNote } = useNotes();
+  const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
   const { allTags, setSelectedTag } = useTagStore();
@@ -964,6 +964,7 @@ export function Editor() {
         onDelete={handleDeleteClick}
         isSaving={isSaving}
         showSaveSuccess={showSaveSuccess}
+        onRenameNote={renameNote}
       />
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}

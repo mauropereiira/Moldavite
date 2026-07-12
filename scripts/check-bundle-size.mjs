@@ -33,8 +33,9 @@ const BUDGETS = [
 // related-notes panel, lifecycle store) — ~10 KB raw, no new dependencies.
 // Bumped another 2 KB for the built-in MCP setup and write-consent controls.
 // Bumped for Plugin API v2 host enforcement (stream-capped fetch + redirect
-// validation, note-read mapping, Keychain RPC, and the expanded Worker proxy).
-const APP_JS_BUDGET = { rawKb: 502, gzipKb: 133 };
+// validation, note-read mapping, Keychain RPC, and the expanded Worker proxy)
+// plus the note-rename UI + path-keyed state migration (lazy-loaded modal).
+const APP_JS_BUDGET = { rawKb: 508, gzipKb: 134 };
 
 async function main() {
   let entries;

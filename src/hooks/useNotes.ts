@@ -1,6 +1,14 @@
 import { useCallback, useEffect } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { useNoteStore, useTemplateStore, useTaskStatusStore, useToastStore } from '@/stores';
+import {
+  useNoteColorsStore,
+  useNoteSelectionStore,
+  useNoteStore,
+  useQuickSwitcherStore,
+  useTemplateStore,
+  useTaskStatusStore,
+  useToastStore,
+} from '@/stores';
 import {
   ensureDirectories,
   listNotes,
@@ -18,6 +26,8 @@ import {
   parseTaskStatus,
   noteFileBackendPath,
   notifyConflictCopy,
+  renameNote as renameNoteFile,
+  getNoteTitleError,
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
@@ -465,6 +475,51 @@ export function useNotes() {
   }, [getState, setNotes, loadNote, setIsLoading]);
 
   /**
+   * Renames a standalone note and migrates every frontend reference to its new path.
+   * The backend also rewrites inbound wiki-links across the Forge.
+   */
+  const renameNote = useCallback(async (sourceNote: NoteFile, title: string) => {
+    const newTitle = title.trim();
+    const validationError = getNoteTitleError(newTitle);
+    if (validationError) {
+      useToastStore.getState().addToast('error', validationError);
+      throw new Error(validationError);
+    }
+    if (sourceNote.isDaily || sourceNote.isWeekly) {
+      const message = 'Daily and weekly notes are named by date and cannot be renamed';
+      useToastStore.getState().addToast('error', message);
+      throw new Error(message);
+    }
+
+    const oldPath = sourceNote.path;
+    const oldFilename = noteFileBackendPath(sourceNote);
+    const newName = `${newTitle}.md`;
+    const newFilename = sourceNote.folderPath
+      ? `${sourceNote.folderPath}/${newName}`
+      : newName;
+    const newPath = `notes/${newFilename}`;
+
+    if (newPath === oldPath) return;
+
+    try {
+      if (getState().currentNote?.id === oldPath) {
+        await flushCurrentNote();
+      }
+      await renameNoteFile(oldFilename, newFilename, false, false);
+
+      useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+      useNoteColorsStore.getState().renameColor(oldPath, newPath);
+      useNoteSelectionStore.getState().rename(oldPath, newPath);
+      useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+      useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      useToastStore.getState().addToast('error', message);
+      throw error;
+    }
+  }, [flushCurrentNote, getState]);
+
+  /**
    * Duplicates an existing note with " (copy)" suffix.
    * @param sourceNote - The note to duplicate
    * @throws {Error} If note duplication fails
@@ -512,7 +567,7 @@ export function useNotes() {
     } finally {
       setIsLoading(false);
     }
-  }, [getState, setNotes, loadNote, setIsLoading]);
+  }, [flushCurrentNote, getState, setNotes, loadNote, setIsLoading]);
 
   /**
    * Deletes the currently loaded note from disk and removes it from the note list.
@@ -574,6 +629,7 @@ export function useNotes() {
     createNote,
     createFromTemplate,
     duplicateNote,
+    renameNote,
     deleteCurrentNote,
     refresh: initialize,
   };
