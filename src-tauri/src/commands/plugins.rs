@@ -51,10 +51,8 @@ trait PluginSecretStore {
     fn delete(&self, account: &str) -> Result<(), String>;
 }
 
-#[cfg(target_os = "macos")]
 struct KeychainSecretStore;
 
-#[cfg(target_os = "macos")]
 impl KeychainSecretStore {
     fn entry(account: &str) -> Result<keyring::Entry, String> {
         keyring::Entry::new(KEYRING_SERVICE, account)
@@ -62,7 +60,6 @@ impl KeychainSecretStore {
     }
 }
 
-#[cfg(target_os = "macos")]
 impl PluginSecretStore for KeychainSecretStore {
     fn get(&self, account: &str) -> Result<Option<String>, String> {
         match Self::entry(account)?.get_password() {
@@ -111,13 +108,11 @@ fn secret_delete_with(
     store.delete(&secret_account(plugin_id, key)?)
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
 pub(crate) fn plugin_secret_get(plugin_id: String, key: String) -> Result<Option<String>, String> {
     secret_get_with(&KeychainSecretStore, &plugin_id, &key)
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
 pub(crate) fn plugin_secret_set(
     plugin_id: String,
@@ -127,7 +122,6 @@ pub(crate) fn plugin_secret_set(
     secret_set_with(&KeychainSecretStore, &plugin_id, &key, &value)
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
 pub(crate) fn plugin_secret_delete(plugin_id: String, key: String) -> Result<(), String> {
     secret_delete_with(&KeychainSecretStore, &plugin_id, &key)

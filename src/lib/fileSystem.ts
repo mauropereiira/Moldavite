@@ -509,6 +509,15 @@ export interface NoteWriteResult {
  * resets on window reload, which matches Forge switching (a full reload).
  */
 const noteBaseHashes = new Map<string, string>();
+const lockedNoteWrites = new Set<string>();
+const noteWritesInFlight = new Map<string, Set<Promise<NoteWriteResult>>>();
+
+export class LockedNoteWriteError extends Error {
+  constructor() {
+    super('Note is locked');
+    this.name = 'LockedNoteWriteError';
+  }
+}
 
 function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): string {
   return `${isDaily ? 'daily' : isWeekly ? 'weekly' : 'notes'}:${filename}`;
@@ -585,7 +594,11 @@ export async function writeNote(
   color?: string | null,
 ): Promise<NoteWriteResult> {
   const key = noteHashKey(filename, isDaily, isWeekly);
-  const result = await invoke<NoteWriteResult>('write_note', {
+  if (lockedNoteWrites.has(key)) {
+    throw new LockedNoteWriteError();
+  }
+
+  const write = invoke<NoteWriteResult>('write_note', {
     filename,
     content,
     isDaily,
@@ -593,9 +606,19 @@ export async function writeNote(
     color: color ?? null,
     baseHash: noteBaseHashes.get(key) ?? null,
   });
-  // What we just wrote is the new base for the next conflict check.
-  noteBaseHashes.set(key, result.contentHash);
-  return result;
+  const writes = noteWritesInFlight.get(key) ?? new Set<Promise<NoteWriteResult>>();
+  writes.add(write);
+  noteWritesInFlight.set(key, writes);
+
+  try {
+    const result = await write;
+    // What we just wrote is the new base for the next conflict check.
+    noteBaseHashes.set(key, result.contentHash);
+    return result;
+  } finally {
+    writes.delete(write);
+    if (writes.size === 0) noteWritesInFlight.delete(key);
+  }
 }
 
 /**
@@ -784,7 +807,17 @@ export async function checkNoteExists(noteName: string): Promise<boolean> {
  * @param isWeekly - Whether this is a weekly note
  */
 export async function lockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
-  await invoke('lock_note', { filename, password, isDaily, isWeekly });
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  lockedNoteWrites.add(key);
+  try {
+    const pending = noteWritesInFlight.get(key);
+    if (pending) await Promise.all(pending);
+    await invoke('lock_note', { filename, password, isDaily, isWeekly });
+    forgetNoteBaseHash(filename, isDaily, isWeekly);
+  } catch (error) {
+    lockedNoteWrites.delete(key);
+    throw error;
+  }
 }
 
 /**
@@ -797,7 +830,10 @@ export async function lockNote(filename: string, password: string, isDaily: bool
  * @returns The decrypted content
  */
 export async function unlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<string> {
-  return await invoke('unlock_note', { filename, password, isDaily, isWeekly });
+  const content = await invoke<string>('unlock_note', { filename, password, isDaily, isWeekly });
+  lockedNoteWrites.add(noteHashKey(filename, isDaily, isWeekly));
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
+  return content;
 }
 
 /**
@@ -809,6 +845,8 @@ export async function unlockNote(filename: string, password: string, isDaily: bo
  */
 export async function permanentlyUnlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
   await invoke('permanently_unlock_note', { filename, password, isDaily, isWeekly });
+  lockedNoteWrites.delete(noteHashKey(filename, isDaily, isWeekly));
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**

@@ -19,6 +19,29 @@ export const ROOT_FILE_EXISTS_ERROR = 'EXISTS';
 /** Files the backend allows at the Forge root (mirror of the Rust whitelist). */
 export type ForgeRootFile = 'AGENTS.md' | '.gitignore';
 
+export type McpClient = 'claude-code' | 'claude-desktop' | 'cursor' | 'generic';
+
+export const MCP_CLIENT_OPTIONS: ReadonlyArray<{ id: McpClient; label: string }> = [
+  { id: 'claude-code', label: 'Claude Code' },
+  { id: 'claude-desktop', label: 'Claude Desktop' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'generic', label: 'Other (generic MCP)' },
+];
+
+/** Build the copy-pasteable stdio configuration for a supported MCP client. */
+export function buildMcpSetupSnippet(client: McpClient, binaryPath: string): string {
+  if (!binaryPath) return 'Locating Moldavite binary…';
+
+  const server = { command: binaryPath, args: ['--mcp'] };
+  if (client === 'claude-code') {
+    return `claude mcp add moldavite -- "${binaryPath}" --mcp`;
+  }
+  if (client === 'generic') {
+    return JSON.stringify({ moldavite: server }, null, 2);
+  }
+  return JSON.stringify({ mcpServers: { moldavite: server } }, null, 2);
+}
+
 /** `.gitignore` content for a Forge: app-managed dirs + macOS noise. */
 export const GITIGNORE_CONTENT = `.trash/
 .plugins/

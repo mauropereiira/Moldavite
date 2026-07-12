@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import {
+  buildMcpSetupSnippet,
   buildAgentsMd,
   getAppBinaryPath,
   getMcpWritesEnabled,
@@ -29,6 +30,30 @@ describe('MCP settings IPC wrappers', () => {
   it('persists MCP write permission', async () => {
     await setMcpWritesEnabled(true);
     expect(mockInvoke).toHaveBeenCalledWith('set_mcp_writes_enabled', { enabled: true });
+  });
+});
+
+describe('buildMcpSetupSnippet', () => {
+  const path = '/Applications/Moldavite.app/Contents/MacOS/moldavite';
+
+  it('builds the Claude Code CLI command', () => {
+    expect(buildMcpSetupSnippet('claude-code', path)).toBe(
+      `claude mcp add moldavite -- "${path}" --mcp`
+    );
+  });
+
+  it('builds the Claude Desktop and Cursor mcpServers document', () => {
+    for (const client of ['claude-desktop', 'cursor'] as const) {
+      expect(JSON.parse(buildMcpSetupSnippet(client, path))).toEqual({
+        mcpServers: { moldavite: { command: path, args: ['--mcp'] } },
+      });
+    }
+  });
+
+  it('builds a generic server entry without a client-specific wrapper', () => {
+    expect(JSON.parse(buildMcpSetupSnippet('generic', path))).toEqual({
+      moldavite: { command: path, args: ['--mcp'] },
+    });
   });
 });
 

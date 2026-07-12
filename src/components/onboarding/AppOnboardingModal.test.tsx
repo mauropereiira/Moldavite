@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { AppOnboardingModal, APP_ONBOARDING_VERSION } from './AppOnboardingModal';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -53,14 +53,12 @@ describe('AppOnboardingModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     expect(
-      screen.getByRole('heading', { name: /semantic search, fully offline/i }),
+      screen.getByRole('heading', { name: /semantic search, fully offline/i })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /get started/i }));
     expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(
-      APP_ONBOARDING_VERSION,
-    );
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -76,24 +74,65 @@ describe('AppOnboardingModal', () => {
     it('shows only the new AI pages, starting on the agents page', () => {
       render(<AppOnboardingModal />);
       expect(
-        screen.getByRole('heading', { name: /new: built for ai agents/i }),
+        screen.getByRole('heading', { name: /new: built for ai agents/i })
       ).toBeInTheDocument();
       // No welcome step and no Back button — the flow starts at the new pages.
       expect(screen.queryByRole('heading', { name: /welcome to moldavite/i })).toBeNull();
       expect(screen.queryByRole('button', { name: /back/i })).toBeNull();
     });
 
+    it('waits for persisted settings before choosing the flow for an existing user', async () => {
+      const storage = useSettingsStore.persist.getOptions().storage;
+      if (!storage) throw new Error('Expected settings persistence storage');
+
+      let finishHydration: (() => void) | undefined;
+      // This is the exact persisted shape from before the version key shipped.
+      const persistedState = { hasSeenAppOnboarding: true };
+
+      const delayedRead = new Promise<{ state: Record<string, unknown>; version: number }>(
+        (resolve) => {
+          finishHydration = () => resolve({ state: persistedState, version: 0 });
+        }
+      );
+      const getItem = vi
+        .spyOn(storage, 'getItem')
+        .mockReturnValueOnce(delayedRead as ReturnType<typeof storage.getItem>);
+
+      act(() => {
+        useSettingsStore.setState({
+          hasSeenAppOnboarding: false,
+          lastSeenOnboardingVersion: 0,
+        });
+        void useSettingsStore.persist.rehydrate();
+      });
+      render(<AppOnboardingModal />);
+
+      // The pre-hydration defaults describe a new user and must not select the
+      // full Welcome flow while the existing user's settings are still loading.
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      await act(async () => {
+        finishHydration?.();
+        await delayedRead;
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('heading', { name: /new: built for ai agents/i })
+        ).toBeInTheDocument()
+      );
+      getItem.mockRestore();
+    });
+
     it('finishes with Done and records the seen version without re-running onboarding', () => {
       render(<AppOnboardingModal />);
       fireEvent.click(screen.getByRole('button', { name: /next/i }));
       expect(
-        screen.getByRole('heading', { name: /semantic search, fully offline/i }),
+        screen.getByRole('heading', { name: /semantic search, fully offline/i })
       ).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: /done/i }));
-      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(
-        APP_ONBOARDING_VERSION,
-      );
+      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
       expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
       expect(screen.queryByRole('dialog')).toBeNull();
     });
@@ -112,9 +151,7 @@ describe('AppOnboardingModal', () => {
       fireEvent.click(screen.getByRole('button', { name: /open settings/i }));
 
       expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
-      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(
-        APP_ONBOARDING_VERSION,
-      );
+      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
       expect(screen.queryByRole('dialog')).toBeNull();
     });
   });

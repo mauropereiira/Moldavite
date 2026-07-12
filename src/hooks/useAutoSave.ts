@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
-import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus, notifyConflictCopy } from '@/lib';
+import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus, notifyConflictCopy, LockedNoteWriteError } from '@/lib';
 import type { NoteFile } from '@/types';
 
 /**
@@ -20,6 +20,11 @@ export function useAutoSave() {
     if (!currentNote) {
       lastNoteIdRef.current = null;
       lastContentRef.current = '';
+      return;
+    }
+
+    // Temporarily decrypted notes remain encrypted on disk and are view-only.
+    if (getState().unlockedNotes.has(currentNote.id)) {
       return;
     }
 
@@ -161,6 +166,7 @@ export function useAutoSave() {
 
         lastContentRef.current = currentNote.content;
       } catch (error) {
+        if (error instanceof LockedNoteWriteError) return;
         console.error('[useAutoSave] Auto-save failed:', error);
         const msg = error instanceof Error ? error.message : String(error);
         useToastStore.getState().addToast('error', `Auto-save failed: ${msg}`);
@@ -174,5 +180,5 @@ export function useAutoSave() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentNote?.content, currentNote?.id, currentNote?.isDaily, currentNote?.isWeekly, currentNote?.date, currentNote?.week, currentNote?.title, setIsSaving, setNotes, getState, autoSaveDelay]);
+  }, [currentNote, setIsSaving, setNotes, getState, autoSaveDelay]);
 }

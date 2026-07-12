@@ -1,7 +1,7 @@
 /**
  * AgentsSection — "AI & Agents": make the active Forge agent-ready.
  *
- * A Forge is already plain Markdown on disk, so AI agents (Claude Code, etc.)
+ * A Forge is already plain Markdown on disk, so AI tools
  * can work with it directly. This section writes an `AGENTS.md` describing
  * the vault's conventions plus a `.gitignore` for app-managed directories,
  * via the whitelisted `write_forge_root_file` backend command.
@@ -14,11 +14,14 @@ import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
 import type { SemanticModelInfo } from '@/lib/semantic';
+import type { McpClient } from '@/lib';
 import {
+  buildMcpSetupSnippet,
   buildAgentsMd,
   getAppBinaryPath,
   getMcpWritesEnabled,
   GITIGNORE_CONTENT,
+  MCP_CLIENT_OPTIONS,
   readForgeRootFile,
   setMcpWritesEnabled,
   writeForgeRootFile,
@@ -105,8 +108,8 @@ export function AgentsSection() {
               <InfoTooltip text="Notes are plain Markdown files with YAML frontmatter — no export, plugin, or API needed for an agent to read them." />
             </div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Point an AI agent (Claude Code, or any tool that reads files) at your Forge folder and
-              it can read and write your notes directly — they&apos;re plain Markdown on disk.
+              Point your AI tool at your Forge folder and it can read and write your notes directly
+              — they&apos;re plain Markdown on disk.
             </p>
           </div>
         </div>
@@ -194,6 +197,7 @@ function McpServerBlock() {
   const [binaryPath, setBinaryPath] = useState('');
   const [writesEnabled, setWritesEnabled] = useState(false);
   const [confirmWrites, setConfirmWrites] = useState(false);
+  const [client, setClient] = useState<McpClient>('claude-code');
 
   useEffect(() => {
     Promise.all([getAppBinaryPath(), getMcpWritesEnabled()])
@@ -207,16 +211,14 @@ function McpServerBlock() {
       });
   }, [toast]);
 
-  const cliCommand = binaryPath
-    ? `claude mcp add moldavite -- "${binaryPath}" --mcp`
-    : 'Locating Moldavite binary…';
-  const desktopJson = binaryPath
-    ? JSON.stringify(
-        { mcpServers: { moldavite: { command: binaryPath, args: ['--mcp'] } } },
-        null,
-        2
-      )
-    : 'Locating Moldavite binary…';
+  const setupSnippet = buildMcpSetupSnippet(client, binaryPath);
+  const selectedClient = MCP_CLIENT_OPTIONS.find((option) => option.id === client);
+  const setupLabels: Record<McpClient, string> = {
+    'claude-code': 'Run in your terminal',
+    'claude-desktop': 'Add to claude_desktop_config.json',
+    cursor: 'Save as .cursor/mcp.json',
+    generic: 'Generic MCP server entry',
+  };
 
   const copy = async (value: string) => {
     try {
@@ -257,22 +259,74 @@ function McpServerBlock() {
           <InfoTooltip text="Lets MCP-compatible agents search, read, list, and follow links across the selected Forge through Moldavite's own validated note tools." />
         </div>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-          Connect Claude or another MCP client to Moldavite. The app binary runs as a local stdio
-          server; no GUI or network service is started.
+          Connect your AI tool to Moldavite. The app binary runs as a local stdio server; no GUI or
+          network service is started.
         </p>
       </div>
 
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+          Path to your Moldavite install (resolved automatically)
+        </p>
+        <code
+          className="block text-xs p-3 overflow-x-auto break-all"
+          style={{
+            color: 'var(--text-secondary)',
+            backgroundColor: 'var(--bg-inset)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        >
+          {binaryPath || 'Locating Moldavite binary…'}
+        </code>
+        {binaryPath.includes('target/debug') && (
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            development build path
+          </p>
+        )}
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+          MCP client
+        </p>
+        <div
+          className="flex flex-wrap gap-1 p-1"
+          role="group"
+          aria-label="MCP client"
+          style={{
+            backgroundColor: 'var(--bg-inset)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        >
+          {MCP_CLIENT_OPTIONS.map((option) => {
+            const selected = option.id === client;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setClient(option.id)}
+                aria-pressed={selected}
+                className="px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring"
+                style={{
+                  color: selected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  backgroundColor: selected ? 'var(--accent-subtle)' : 'transparent',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <SetupSnippet
-        label="Claude Code"
-        value={cliCommand}
+        label={`${selectedClient?.label ?? 'MCP client'} — ${setupLabels[client]}`}
+        value={setupSnippet}
         disabled={!binaryPath}
-        onCopy={() => void copy(cliCommand)}
-      />
-      <SetupSnippet
-        label="Claude Desktop configuration"
-        value={desktopJson}
-        disabled={!binaryPath}
-        onCopy={() => void copy(desktopJson)}
+        onCopy={() => void copy(setupSnippet)}
       />
 
       <div className="flex items-center justify-between gap-4 pt-1">
@@ -339,7 +393,7 @@ function SetupSnippet({
         className="text-xs p-3 overflow-x-auto whitespace-pre-wrap break-all"
         style={{
           color: 'var(--text-secondary)',
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: 'var(--bg-inset)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-sm)',
         }}
