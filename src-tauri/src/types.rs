@@ -109,7 +109,7 @@ pub(crate) struct BacklinkInfo {
 // fallback for users upgrading from single-Forge layouts. New code reads
 // `forges_root` + `active_forge`; the migration on startup wraps the
 // legacy directory into a Forge and clears the deprecated field.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppConfig {
     pub(crate) notes_directory: Option<String>,
@@ -120,10 +120,34 @@ pub(crate) struct AppConfig {
     /// this flips to `Some(true)` via the explicit enable flow.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) semantic_enabled: Option<bool>,
+    /// Curated local embedding model id. Older configs deserialize to the
+    /// default so model selection is transparent without a migration pass.
+    #[serde(
+        default = "default_semantic_model",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) semantic_model: Option<String>,
     /// MCP note mutation is opt-in. Missing values preserve the secure
     /// default for users upgrading from an older config.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) mcp_writes_enabled: Option<bool>,
+}
+
+fn default_semantic_model() -> Option<String> {
+    Some(crate::semantic::DEFAULT_MODEL_ID.to_string())
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            notes_directory: None,
+            forges_root: None,
+            active_forge: None,
+            semantic_enabled: None,
+            semantic_model: default_semantic_model(),
+            mcp_writes_enabled: None,
+        }
+    }
 }
 
 // Public-facing struct returned by the `list_forges` command.
@@ -179,4 +203,29 @@ pub(crate) struct ContentMatch {
     pub(crate) is_daily: bool,
     pub(crate) is_weekly: bool,
     pub(crate) folder_path: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_config_semantic_model_defaults_and_round_trips() {
+        let upgraded: AppConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            upgraded.semantic_model.as_deref(),
+            Some(crate::semantic::DEFAULT_MODEL_ID)
+        );
+
+        let config = AppConfig {
+            semantic_model: Some("multilingual-e5-small".to_string()),
+            ..AppConfig::default()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: AppConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            restored.semantic_model.as_deref(),
+            Some("multilingual-e5-small")
+        );
+    }
 }

@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
+  getSemanticModels,
   getSemanticStatus,
   setSemanticEnabled,
+  setSemanticModel,
   semanticReindex,
+  type SemanticModelInfo,
   type SemanticProgress,
   type SemanticState,
 } from '@/lib/semantic';
@@ -22,6 +25,8 @@ interface SemanticStoreState {
   /** "disabled" | "downloading" | "indexing" | "ready" | "error" */
   state: SemanticState;
   modelReady: boolean;
+  /** Curated model registry; exactly one entry is active. */
+  models: SemanticModelInfo[];
   /** Number of notes in the vector index (meaningful when ready). */
   indexedCount: number;
   /** Live progress while downloading/indexing; null otherwise. */
@@ -34,6 +39,8 @@ interface SemanticStoreState {
   refreshStatus: () => Promise<void>;
   /** Enable (consent point — triggers model download + index build) or disable. */
   setEnabled: (enabled: boolean) => Promise<void>;
+  /** Select a model; an enabled feature downloads/reindexes backend-side. */
+  setModel: (id: string) => Promise<void>;
   /** Re-embed every note from scratch. */
   rebuildIndex: () => Promise<void>;
 }
@@ -46,6 +53,7 @@ export const useSemanticStore = create<SemanticStoreState>((set, get) => ({
   enabled: false,
   state: 'disabled',
   modelReady: false,
+  models: [],
   indexedCount: 0,
   progress: null,
   error: null,
@@ -80,19 +88,18 @@ export const useSemanticStore = create<SemanticStoreState>((set, get) => ({
 
   refreshStatus: async () => {
     try {
-      const status = await getSemanticStatus();
+      const [status, models] = await Promise.all([getSemanticStatus(), getSemanticModels()]);
       set({
         enabled: status.enabled,
         state: status.state,
         modelReady: status.modelReady,
+        models,
         indexedCount: status.indexedCount,
         error: status.error,
         // A build in flight keeps streaming progress events; anything else
         // has no meaningful progress to show.
         progress:
-          status.state === 'downloading' || status.state === 'indexing'
-            ? get().progress
-            : null,
+          status.state === 'downloading' || status.state === 'indexing' ? get().progress : null,
       });
     } catch (error) {
       console.error('[semanticStore] semantic_status failed:', error);
@@ -115,6 +122,24 @@ export const useSemanticStore = create<SemanticStoreState>((set, get) => ({
     }
   },
 
+  setModel: async (id) => {
+    const current = get().models.find((model) => model.active);
+    if (current?.id === id) return;
+    await setSemanticModel(id);
+    set({
+      models: get().models.map((model) => ({ ...model, active: model.id === id })),
+      modelReady: false,
+      ...(get().enabled
+        ? {
+            state: 'downloading' as const,
+            indexedCount: 0,
+            progress: null,
+            error: null,
+          }
+        : {}),
+    });
+  },
+
   rebuildIndex: async () => {
     await semanticReindex();
     set({ state: 'indexing', progress: null, error: null });
@@ -129,6 +154,7 @@ export function __resetSemanticStoreForTests(): void {
     enabled: false,
     state: 'disabled',
     modelReady: false,
+    models: [],
     indexedCount: 0,
     progress: null,
     error: null,

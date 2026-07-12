@@ -2,7 +2,7 @@
  * IPC wrappers for the local semantic (vector) search backend.
  *
  * Semantic search is opt-in: `setSemanticEnabled(true)` is the single consent
- * point — the first enable downloads the embedding model (~97 MB, one-time,
+ * point — the first enable downloads the selected embedding model (one-time,
  * from HuggingFace, cached in the app data dir) and then builds a per-Forge
  * vector index. Everything afterwards runs fully offline; note content never
  * leaves the machine.
@@ -27,6 +27,16 @@ export interface SemanticStatus {
   indexedCount: number;
   state: SemanticState;
   error: string | null;
+}
+
+/** One curated local embedding model returned by `semantic_models`. */
+export interface SemanticModelInfo {
+  id: string;
+  label: string;
+  downloadSizeMb: number;
+  dims: number;
+  description: string;
+  active: boolean;
 }
 
 /** One hit from `semantic_search` / `semantic_related`. */
@@ -55,6 +65,16 @@ export function getSemanticStatus(): Promise<SemanticStatus> {
   return invoke<SemanticStatus>('semantic_status');
 }
 
+/** Curated embedding models, with the configured selection marked active. */
+export function getSemanticModels(): Promise<SemanticModelInfo[]> {
+  return invoke<SemanticModelInfo[]>('semantic_models');
+}
+
+/** Persist a model selection and rebuild immediately when the feature is on. */
+export function setSemanticModel(id: string): Promise<void> {
+  return invoke<void>('semantic_set_model', { id });
+}
+
 /**
  * Toggle the feature. Enabling for the first time triggers the one-time
  * model download followed by a full index build (both async — watch the
@@ -68,7 +88,7 @@ export function setSemanticEnabled(enabled: boolean): Promise<void> {
 /** Embed `query` locally and return the most similar notes. */
 export function semanticSearch(
   query: string,
-  limit: number = SEMANTIC_SEARCH_LIMIT,
+  limit: number = SEMANTIC_SEARCH_LIMIT
 ): Promise<SemanticHit[]> {
   return invoke<SemanticHit[]>('semantic_search', { query, limit });
 }
@@ -79,7 +99,7 @@ export function semanticSearch(
  */
 export function semanticRelated(
   path: string,
-  limit: number = SEMANTIC_RELATED_LIMIT,
+  limit: number = SEMANTIC_RELATED_LIMIT
 ): Promise<SemanticHit[]> {
   return invoke<SemanticHit[]>('semantic_related', { path, limit });
 }

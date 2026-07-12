@@ -85,7 +85,8 @@ use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
 use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::search_notes_content;
 use commands::semantic::{
-    semantic_reindex, semantic_related, semantic_search, semantic_set_enabled, semantic_status,
+    semantic_models, semantic_reindex, semantic_related, semantic_search, semantic_set_enabled,
+    semantic_set_model, semantic_status,
 };
 use commands::templates::{
     apply_template, create_note_from_template, delete_template, get_template, list_templates,
@@ -238,7 +239,9 @@ pub fn run() {
             search_notes_content,
             // Semantic (vector) search commands
             semantic_status,
+            semantic_models,
             semantic_set_enabled,
+            semantic_set_model,
             semantic_search,
             semantic_related,
             semantic_reindex,

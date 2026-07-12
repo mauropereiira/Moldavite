@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import {
   getSemanticStatus,
+  getSemanticModels,
+  setSemanticModel,
   setSemanticEnabled,
   semanticSearch,
   semanticRelated,
@@ -36,6 +38,29 @@ describe('semantic IPC wrappers', () => {
     expect(mockInvoke).toHaveBeenCalledWith('semantic_set_enabled', { enabled: true });
     await setSemanticEnabled(false);
     expect(mockInvoke).toHaveBeenCalledWith('semantic_set_enabled', { enabled: false });
+  });
+
+  it('getSemanticModels returns the curated registry', async () => {
+    const models = [
+      {
+        id: 'all-minilm-l6-v2',
+        label: 'all-MiniLM-L6-v2',
+        downloadSizeMb: 97,
+        dims: 384,
+        description: 'fastest, English-focused',
+        active: true,
+      },
+    ];
+    mockInvoke.mockResolvedValueOnce(models);
+    await expect(getSemanticModels()).resolves.toEqual(models);
+    expect(mockInvoke).toHaveBeenCalledWith('semantic_models', undefined);
+  });
+
+  it('setSemanticModel passes the curated model id', async () => {
+    await setSemanticModel('bge-small-en-v1.5');
+    expect(mockInvoke).toHaveBeenCalledWith('semantic_set_model', {
+      id: 'bge-small-en-v1.5',
+    });
   });
 
   it('semanticSearch passes query and the default limit', async () => {

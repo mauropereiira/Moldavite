@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::paths::get_notes_dir;
 use crate::persist::{read_config, write_config};
-use crate::semantic::{self, Embedder, Phase, SemanticHit, CANCELLED};
+use crate::semantic::{self, Embedder, ModelInfo, Phase, SemanticHit, CANCELLED};
 
 /// Snapshot of the semantic-search lifecycle for the frontend.
 #[derive(Debug, Serialize)]
@@ -44,9 +44,10 @@ fn semantic_enabled_in_config() -> bool {
 pub(crate) fn semantic_status() -> SemanticStatus {
     let svc = semantic::service();
     let phase = svc.phase();
+    let model_id = semantic::configured_model_id();
     SemanticStatus {
         enabled: semantic_enabled_in_config(),
-        model_ready: svc.embedder().is_some() || semantic::model_files_cached(),
+        model_ready: svc.embedder().is_some() || semantic::model_files_cached(&model_id),
         indexed_count: svc.indexed_count(),
         state: phase.as_str().to_string(),
         error: match phase {
@@ -54,6 +55,40 @@ pub(crate) fn semantic_status() -> SemanticStatus {
             _ => None,
         },
     }
+}
+
+/// Curated local embedding models, including which configured id is active.
+#[tauri::command]
+pub(crate) fn semantic_models() -> Vec<ModelInfo> {
+    semantic::models()
+}
+
+/// Persist a curated model selection. When semantic search is enabled, a
+/// genuine change unloads the old model and starts a full rebuild with the
+/// new one (including a one-time download when it is not cached yet).
+#[tauri::command]
+pub(crate) fn semantic_set_model(id: String, app: AppHandle) -> Result<(), String> {
+    semantic::model_info(&id)?;
+    let mut cfg = read_config();
+    let previous = cfg
+        .semantic_model
+        .clone()
+        .unwrap_or_else(|| semantic::DEFAULT_MODEL_ID.to_string());
+    if previous == id {
+        return Ok(());
+    }
+    if cfg.semantic_enabled.unwrap_or(false) && semantic::service().is_building() {
+        return Err("Wait for the current semantic index build to finish before changing models"
+            .to_string());
+    }
+    cfg.semantic_model = Some(id);
+    let enabled = cfg.semantic_enabled.unwrap_or(false);
+    write_config(&cfg)?;
+    if enabled {
+        semantic::service().disable();
+        spawn_semantic_build(app, true);
+    }
+    Ok(())
 }
 
 /// Toggle semantic search. First enable triggers the one-time model
@@ -144,6 +179,8 @@ fn emit_progress(app: &AppHandle, phase: &'static str, done: usize, total: usize
 
 fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
     let svc = semantic::service();
+    let model_id = semantic::configured_model_id();
+    semantic::model_info(&model_id)?;
 
     // Phase 1: model. Only reachable through the explicit enable flow (or a
     // restart with the feature already enabled), so downloading here is
@@ -154,7 +191,8 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
         None => {
             svc.set_phase(Phase::Downloading);
             emit_progress(app, "downloading", 0, 0);
-            let e: Arc<dyn Embedder> = Arc::new(semantic::init_fastembed_embedder()?);
+            let e: Arc<dyn Embedder> =
+                Arc::new(semantic::init_fastembed_embedder(&model_id)?);
             svc.set_embedder(e.clone());
             emit_progress(app, "downloading", 1, 1);
             e
@@ -170,7 +208,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
     let existing = if force {
         Vec::new()
     } else {
-        semantic::load_index(&forge_root).unwrap_or_default()
+        semantic::load_index(&forge_root, &model_id).unwrap_or_default()
     };
     let entries = semantic::reconcile_index(
         &forge_root,
@@ -191,7 +229,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
     if get_notes_dir() != forge_root {
         return Err(CANCELLED.to_string());
     }
-    semantic::save_index(&forge_root, &entries)?;
+    semantic::save_index(&forge_root, &entries, &model_id)?;
     let indexed_count = entries.len();
     semantic::service().replace_entries(entries);
     Ok(indexed_count)

@@ -2,9 +2,9 @@
 //!
 //! # Privacy model
 //!
-//! Everything runs on-device. The embedding model (all-MiniLM-L6-v2,
-//! 384 dims, ONNX via `fastembed`) is downloaded from Hugging Face exactly
-//! once, and only after the user explicitly enables the feature
+//! Everything runs on-device. The user chooses from a small curated set of
+//! 384-dimensional ONNX embedding models powered by `fastembed`. The selected
+//! model is downloaded from Hugging Face exactly once, and only after the user explicitly enables the feature
 //! (`semantic_set_enabled`). Model files are cached in the app data dir
 //! (`~/Library/Application Support/Moldavite/models`), never inside a vault.
 //! At query time no data ever leaves the machine.
@@ -49,11 +49,10 @@ use crate::persist::write_atomic;
 
 /// On-disk index format version. Bump on breaking changes to force rebuilds.
 pub(crate) const INDEX_VERSION: u32 = 1;
-/// Embedding dimensionality of the model.
+/// Default embedding model for new and upgraded installations.
+pub(crate) const DEFAULT_MODEL_ID: &str = "all-minilm-l6-v2";
+/// All curated models currently produce 384-dimensional vectors.
 pub(crate) const EMBED_DIM: u32 = 384;
-/// Identifier of the embedding model baked into the index file. An index
-/// built with a different model is discarded and rebuilt.
-pub(crate) const MODEL_ID: &str = "all-MiniLM-L6-v2";
 /// Directory (relative to the Forge root) holding internal index state.
 pub(crate) const INDEX_DIR: &str = ".index";
 /// Index file name inside [`INDEX_DIR`].
@@ -70,6 +69,92 @@ pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
 // EMBEDDER
 // =============================================================================
 
+/// User-facing metadata for one curated local embedding model.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelInfo {
+    pub(crate) id: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) download_size_mb: u32,
+    pub(crate) dims: u32,
+    pub(crate) description: &'static str,
+    pub(crate) active: bool,
+}
+
+const MODEL_REGISTRY: [ModelInfo; 3] = [
+    ModelInfo {
+        id: DEFAULT_MODEL_ID,
+        label: "all-MiniLM-L6-v2",
+        download_size_mb: 97,
+        dims: EMBED_DIM,
+        description: "fastest, English-focused",
+        active: false,
+    },
+    ModelInfo {
+        id: "bge-small-en-v1.5",
+        label: "BGE small English v1.5",
+        download_size_mb: 130,
+        dims: EMBED_DIM,
+        description: "better quality, English",
+        active: false,
+    },
+    ModelInfo {
+        id: "multilingual-e5-small",
+        label: "Multilingual E5 small",
+        download_size_mb: 450,
+        dims: EMBED_DIM,
+        description: "for non-English or mixed-language vaults",
+        active: false,
+    },
+];
+
+/// The configured model id, with the default applied to older configs.
+pub(crate) fn configured_model_id() -> String {
+    crate::persist::read_config()
+        .semantic_model
+        .unwrap_or_else(|| DEFAULT_MODEL_ID.to_string())
+}
+
+/// Return the curated registry and mark the configured model active.
+pub(crate) fn models() -> Vec<ModelInfo> {
+    let active_id = configured_model_id();
+    MODEL_REGISTRY
+        .iter()
+        .cloned()
+        .map(|mut info| {
+            info.active = info.id == active_id;
+            info
+        })
+        .collect()
+}
+
+/// Validate a model id and return its registry metadata.
+pub(crate) fn model_info(id: &str) -> Result<ModelInfo, String> {
+    MODEL_REGISTRY
+        .iter()
+        .find(|info| info.id == id)
+        .cloned()
+        .ok_or_else(|| {
+            format!(
+                "Unknown semantic model id '{id}'. Choose one of: {}",
+                MODEL_REGISTRY
+                    .iter()
+                    .map(|info| info.id)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+}
+
+fn fastembed_model(id: &str) -> Result<fastembed::EmbeddingModel, String> {
+    match id {
+        DEFAULT_MODEL_ID => Ok(fastembed::EmbeddingModel::AllMiniLML6V2),
+        "bge-small-en-v1.5" => Ok(fastembed::EmbeddingModel::BGESmallENV15),
+        "multilingual-e5-small" => Ok(fastembed::EmbeddingModel::MultilingualE5Small),
+        _ => Err(model_info(id).unwrap_err()),
+    }
+}
+
 /// Anything that can turn text into vectors. The production implementation
 /// is [`FastEmbedder`]; tests use a deterministic fake so `cargo test` never
 /// touches the network or the real model.
@@ -77,7 +162,7 @@ pub(crate) trait Embedder: Send + Sync {
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String>;
 }
 
-/// Real embedder backed by fastembed (ONNX Runtime, all-MiniLM-L6-v2).
+/// Real embedder backed by fastembed (ONNX Runtime).
 pub(crate) struct FastEmbedder {
     // fastembed's `embed` takes `&mut self`, so serialize access.
     inner: Mutex<fastembed::TextEmbedding>,
@@ -96,17 +181,21 @@ impl Embedder for FastEmbedder {
 }
 
 /// Directory where model files are cached: the app data dir, never a vault.
-pub(crate) fn model_cache_dir() -> PathBuf {
+pub(crate) fn model_cache_dir(model_id: &str) -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("Moldavite")
         .join("models")
+        .join(model_id)
 }
 
 /// Heuristic used for status reporting: the model has been downloaded if the
 /// cache dir contains anything.
-pub(crate) fn model_files_cached() -> bool {
-    fs::read_dir(model_cache_dir())
+pub(crate) fn model_files_cached(model_id: &str) -> bool {
+    if model_info(model_id).is_err() {
+        return false;
+    }
+    fs::read_dir(model_cache_dir(model_id))
         .map(|mut entries| entries.next().is_some())
         .unwrap_or(false)
 }
@@ -115,17 +204,18 @@ pub(crate) fn model_files_cached() -> bool {
 /// [`model_cache_dir`] if it is not cached yet — callers must only invoke
 /// this from the explicit enable flow (or on startup when the user already
 /// enabled the feature).
-pub(crate) fn init_fastembed_embedder() -> Result<FastEmbedder, String> {
-    use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
+pub(crate) fn init_fastembed_embedder(model_id: &str) -> Result<FastEmbedder, String> {
+    use fastembed::{InitOptions, TextEmbedding};
 
-    let cache = model_cache_dir();
+    let model = fastembed_model(model_id)?;
+    let cache = model_cache_dir(model_id);
     fs::create_dir_all(&cache).map_err(|e| format!("Failed to create model cache dir: {}", e))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = fs::set_permissions(&cache, fs::Permissions::from_mode(0o700));
     }
-    let options = InitOptions::new(EmbeddingModel::AllMiniLML6V2)
+    let options = InitOptions::new(model)
         .with_cache_dir(cache)
         .with_show_download_progress(false);
     let model = TextEmbedding::try_new(options)
@@ -174,7 +264,12 @@ pub(crate) fn index_path(forge_root: &Path) -> PathBuf {
 }
 
 /// Persist the index atomically (temp file + fsync + rename, 0600).
-pub(crate) fn save_index(forge_root: &Path, entries: &[IndexEntry]) -> Result<(), String> {
+pub(crate) fn save_index(
+    forge_root: &Path,
+    entries: &[IndexEntry],
+    model_id: &str,
+) -> Result<(), String> {
+    let model = model_info(model_id)?;
     let dir = forge_root.join(INDEX_DIR);
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create index dir: {}", e))?;
     #[cfg(unix)]
@@ -184,8 +279,8 @@ pub(crate) fn save_index(forge_root: &Path, entries: &[IndexEntry]) -> Result<()
     }
     let file = IndexFile {
         version: INDEX_VERSION,
-        model: MODEL_ID.to_string(),
-        dim: EMBED_DIM,
+        model: model.id.to_string(),
+        dim: model.dims,
         entries: entries.to_vec(),
     };
     let bytes =
@@ -196,10 +291,11 @@ pub(crate) fn save_index(forge_root: &Path, entries: &[IndexEntry]) -> Result<()
 /// Load the index for a Forge. Returns `None` if the file is missing,
 /// unreadable, or was built with an incompatible version/model — callers
 /// then fall back to a full rebuild.
-pub(crate) fn load_index(forge_root: &Path) -> Option<Vec<IndexEntry>> {
+pub(crate) fn load_index(forge_root: &Path, model_id: &str) -> Option<Vec<IndexEntry>> {
+    let model = model_info(model_id).ok()?;
     let bytes = fs::read(index_path(forge_root)).ok()?;
     let file: IndexFile = bincode::deserialize(&bytes).ok()?;
-    if file.version != INDEX_VERSION || file.model != MODEL_ID || file.dim != EMBED_DIM {
+    if file.version != INDEX_VERSION || file.model != model.id || file.dim != model.dims {
         return None;
     }
     Some(file.entries)
@@ -642,6 +738,10 @@ impl SemanticService {
         !self.building.swap(true, Ordering::SeqCst)
     }
 
+    pub(crate) fn is_building(&self) -> bool {
+        self.building.load(Ordering::SeqCst)
+    }
+
     pub(crate) fn end_build(&self) {
         self.building.store(false, Ordering::SeqCst);
     }
@@ -673,7 +773,7 @@ impl SemanticService {
             Err(_) => return,
         };
         let _guard = self.save_lock.lock();
-        if let Err(e) = save_index(forge_root, &snapshot) {
+        if let Err(e) = save_index(forge_root, &snapshot, &configured_model_id()) {
             log::warn!("[semantic] failed to persist index: {}", e);
         }
     }
@@ -770,18 +870,21 @@ pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
 /// Load an already-built semantic index for MCP mode without rebuilding it.
 /// Returns false when semantic search is not immediately usable, allowing
 /// MCP search to fall back to keyword mode without downloading or indexing.
-pub(crate) fn prepare_mcp_search(forge_root: &Path) -> bool {
+pub(crate) fn prepare_mcp_search(forge_root: &Path, model_id: &str) -> bool {
     let svc = service();
-    if !model_files_cached() {
+    if !model_files_cached(model_id) {
         return false;
     }
-    let Some(entries) = load_index(forge_root) else {
+    if model_info(model_id).is_err() {
+        return false;
+    }
+    let Some(entries) = load_index(forge_root, model_id) else {
         return false;
     };
     if entries.is_empty() {
         return false;
     }
-    let embedder: Arc<dyn Embedder> = match init_fastembed_embedder() {
+    let embedder: Arc<dyn Embedder> = match init_fastembed_embedder(model_id) {
         Ok(embedder) => Arc::new(embedder),
         Err(_) => return false,
     };
@@ -1061,15 +1164,44 @@ mod tests {
     // ---- index file round trip ----------------------------------------------
 
     #[test]
+    fn curated_model_registry_maps_exact_fastembed_variants() {
+        assert_eq!(MODEL_REGISTRY.len(), 3);
+        assert_eq!(
+            fastembed_model(DEFAULT_MODEL_ID).unwrap(),
+            fastembed::EmbeddingModel::AllMiniLML6V2
+        );
+        assert_eq!(
+            fastembed_model("bge-small-en-v1.5").unwrap(),
+            fastembed::EmbeddingModel::BGESmallENV15
+        );
+        assert_eq!(
+            fastembed_model("multilingual-e5-small").unwrap(),
+            fastembed::EmbeddingModel::MultilingualE5Small
+        );
+        assert!(MODEL_REGISTRY.iter().all(|model| model.dims == 384));
+    }
+
+    #[test]
+    fn curated_model_registry_rejects_unknown_ids() {
+        let error = model_info("download-anything").unwrap_err();
+        assert!(error.contains("Unknown semantic model id 'download-anything'"));
+        assert!(error.contains(DEFAULT_MODEL_ID));
+        assert!(!model_files_cached("../../outside-model-cache"));
+    }
+
+    #[test]
     fn index_round_trips_through_disk() {
         let forge = TempForge::new("roundtrip");
         let entries = vec![
             entry("notes/a.md", bag_of_words("alpha")),
             entry("daily/2026-07-12.md", bag_of_words("daily log")),
         ];
-        save_index(forge.path(), &entries).unwrap();
+        save_index(forge.path(), &entries, DEFAULT_MODEL_ID).unwrap();
         assert!(index_path(forge.path()).is_file());
-        let loaded = load_index(forge.path()).unwrap();
+        let bytes = fs::read(index_path(forge.path())).unwrap();
+        let header: IndexFile = bincode::deserialize(&bytes).unwrap();
+        assert_eq!(header.model, DEFAULT_MODEL_ID);
+        let loaded = load_index(forge.path(), DEFAULT_MODEL_ID).unwrap();
         assert_eq!(loaded, entries);
     }
 
@@ -1078,7 +1210,7 @@ mod tests {
         let forge = TempForge::new("badheader");
         let file = IndexFile {
             version: INDEX_VERSION,
-            model: "some-other-model".to_string(),
+            model: "bge-small-en-v1.5".to_string(),
             dim: EMBED_DIM,
             entries: vec![entry("notes/a.md", vec![0.0; 384])],
         };
@@ -1090,17 +1222,18 @@ mod tests {
             Some(0o600),
         )
         .unwrap();
-        assert!(load_index(forge.path()).is_none());
+        assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
+        assert!(load_index(forge.path(), "bge-small-en-v1.5").is_some());
     }
 
     #[test]
     fn load_index_missing_or_garbage_returns_none() {
         let forge = TempForge::new("missing");
-        assert!(load_index(forge.path()).is_none());
+        assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
         let dir = forge.path().join(INDEX_DIR);
         fs::create_dir_all(&dir).unwrap();
         fs::write(index_path(forge.path()), b"not bincode").unwrap();
-        assert!(load_index(forge.path()).is_none());
+        assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
     }
 
     // ---- reconcile -----------------------------------------------------------

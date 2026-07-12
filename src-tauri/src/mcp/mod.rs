@@ -30,8 +30,12 @@ pub fn run_from_env() -> Result<(), String> {
     let forge_root = resolve_forge(forge.as_deref())?;
     let config = crate::persist::read_config();
     let writes_enabled = config.mcp_writes_enabled.unwrap_or(false);
+    let semantic_model = config
+        .semantic_model
+        .as_deref()
+        .unwrap_or(crate::semantic::DEFAULT_MODEL_ID);
     let semantic_ready = config.semantic_enabled.unwrap_or(false)
-        && crate::semantic::prepare_mcp_search(&forge_root);
+        && crate::semantic::prepare_mcp_search(&forge_root, semantic_model);
     let context = tools::ToolContext::new(forge_root, writes_enabled, semantic_ready);
     server::serve(std::io::stdin().lock(), std::io::stdout().lock(), context)
 }

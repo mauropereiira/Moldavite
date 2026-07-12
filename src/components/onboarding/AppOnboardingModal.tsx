@@ -348,7 +348,6 @@ export function AppOnboardingModal() {
     </div>
   );
 }
-
 function WelcomeStep({ titleId }: { titleId: string }) {
   return (
     <div className="text-center">
@@ -661,9 +660,9 @@ function AiSearchStep({ titleId }: { titleId: string }) {
         className="text-sm leading-relaxed mb-5 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Find notes by meaning, not just keywords. Opt in and Moldavite downloads a small
-        AI model (~97 MB) once — after that everything runs offline, and your notes never
-        leave your Mac.
+        Find notes by meaning, not just keywords. Choose from three local models (with
+        all-MiniLM-L6-v2 as the default), then opt in to download your selection once — after
+        that everything runs offline, and your notes never leave your Mac.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div

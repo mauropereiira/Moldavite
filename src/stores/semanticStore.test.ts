@@ -26,6 +26,25 @@ const disabledStatus = {
   error: null,
 };
 
+const models = [
+  {
+    id: 'all-minilm-l6-v2',
+    label: 'all-MiniLM-L6-v2',
+    downloadSizeMb: 97,
+    dims: 384,
+    description: 'fastest, English-focused',
+    active: true,
+  },
+  {
+    id: 'bge-small-en-v1.5',
+    label: 'BGE small English v1.5',
+    downloadSizeMb: 130,
+    dims: 384,
+    description: 'better quality, English',
+    active: false,
+  },
+];
+
 describe('semanticStore', () => {
   beforeEach(() => {
     __resetSemanticStoreForTests();
@@ -39,6 +58,7 @@ describe('semanticStore', () => {
     mockInvoke.mockReset();
     mockInvoke.mockImplementation(async (cmd) => {
       if (cmd === 'semantic_status') return disabledStatus;
+      if (cmd === 'semantic_models') return models;
       return undefined;
     });
   });
@@ -71,6 +91,7 @@ describe('semanticStore', () => {
           error: null,
         };
       }
+      if (cmd === 'semantic_models') return models;
       return undefined;
     });
     await useSemanticStore.getState().initialize();
@@ -144,5 +165,26 @@ describe('semanticStore', () => {
     await useSemanticStore.getState().rebuildIndex();
     expect(mockInvoke).toHaveBeenCalledWith('semantic_reindex', undefined);
     expect(useSemanticStore.getState().state).toBe('indexing');
+  });
+
+  it('setModel persists a disabled selection without starting a build', async () => {
+    await useSemanticStore.getState().initialize();
+    await useSemanticStore.getState().setModel('bge-small-en-v1.5');
+    expect(mockInvoke).toHaveBeenCalledWith('semantic_set_model', {
+      id: 'bge-small-en-v1.5',
+    });
+    const state = useSemanticStore.getState();
+    expect(state.models.find((model) => model.active)?.id).toBe('bge-small-en-v1.5');
+    expect(state.state).toBe('disabled');
+  });
+
+  it('setModel enters download progress when semantic search is enabled', async () => {
+    await useSemanticStore.getState().initialize();
+    useSemanticStore.setState({ enabled: true, state: 'ready', modelReady: true });
+    await useSemanticStore.getState().setModel('bge-small-en-v1.5');
+    const state = useSemanticStore.getState();
+    expect(state.state).toBe('downloading');
+    expect(state.modelReady).toBe(false);
+    expect(state.indexedCount).toBe(0);
   });
 });

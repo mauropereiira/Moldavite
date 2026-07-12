@@ -13,6 +13,7 @@ import { useForgeStore } from '@/stores/forgeStore';
 import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
+import type { SemanticModelInfo } from '@/lib/semantic';
 import {
   buildAgentsMd,
   getAppBinaryPath,
@@ -359,6 +360,7 @@ function SemanticSearchBlock() {
   const refreshStatus = useSemanticStore((s) => s.refreshStatus);
   const toast = useToast();
   const [confirmEnable, setConfirmEnable] = useState(false);
+  const [pendingModel, setPendingModel] = useState<SemanticModelInfo | null>(null);
 
   // Settings can open long after startup; re-sync with the backend so the
   // indexed count / state shown here is fresh. (Store actions are stable.)
@@ -367,6 +369,7 @@ function SemanticSearchBlock() {
   }, [refreshStatus]);
 
   const isBuilding = semantic.state === 'downloading' || semantic.state === 'indexing';
+  const activeModel = semantic.models.find((model) => model.active);
 
   const handleToggle = (enabled: boolean) => {
     if (enabled) {
@@ -395,6 +398,22 @@ function SemanticSearchBlock() {
     });
   };
 
+  const applyModel = (id: string) => {
+    semantic.setModel(id).catch(() => {
+      toast.error('Failed to change the semantic search model');
+    });
+  };
+
+  const handleModelChange = (id: string) => {
+    const model = semantic.models.find((candidate) => candidate.id === id);
+    if (!model || model.active) return;
+    if (semantic.enabled) {
+      setPendingModel(model);
+    } else {
+      applyModel(model.id);
+    }
+  };
+
   return (
     <div
       className="p-4 space-y-4"
@@ -408,16 +427,32 @@ function SemanticSearchBlock() {
             </h3>
             <InfoTooltip text="Adds a by-meaning search mode to the sidebar search and a 'Related' list under each note, powered by a small AI model that runs entirely on your Mac." />
           </div>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Find notes by meaning, not just keywords. Downloads a ~97 MB AI model once from
-            HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac.
-          </p>
         </div>
         <Toggle
           enabled={semantic.enabled}
           onChange={handleToggle}
           ariaLabel="Enable semantic search"
         />
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <label htmlFor="semantic-model" className="text-sm font-medium">
+          Model
+        </label>
+        <select
+          id="semantic-model"
+          aria-label="Semantic search model"
+          value={activeModel?.id ?? ''}
+          onChange={(event) => handleModelChange(event.target.value)}
+          disabled={isBuilding}
+          className="input max-w-[19rem] disabled:opacity-50"
+        >
+          {semantic.models.map((model) => (
+            <option key={model.id} value={model.id}>
+              {model.label} — ~{model.downloadSizeMb} MB · {model.description}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Live status */}
@@ -447,10 +482,24 @@ function SemanticSearchBlock() {
       {confirmEnable && (
         <ConfirmDialog
           title="Enable semantic search?"
-          message="Downloads a ~97 MB AI model once from HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac. Your notes are then indexed locally so you can search by meaning."
+          message={`Downloads ${activeModel?.label ?? 'the selected model'}${activeModel ? ` (~${activeModel.downloadSizeMb} MB)` : ''} once from HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac. Your notes are then indexed locally so you can search by meaning.`}
           confirmLabel="Download & enable"
           onConfirm={handleConfirmEnable}
           onCancel={() => setConfirmEnable(false)}
+        />
+      )}
+
+      {pendingModel && (
+        <ConfirmDialog
+          title={`Switch to ${pendingModel.label}?`}
+          message={`Downloads ${pendingModel.label} (~${pendingModel.downloadSizeMb} MB) once and re-indexes your notes.`}
+          confirmLabel="Download & re-index"
+          onConfirm={() => {
+            const id = pendingModel.id;
+            setPendingModel(null);
+            applyModel(id);
+          }}
+          onCancel={() => setPendingModel(null)}
         />
       )}
     </div>
@@ -463,7 +512,7 @@ function SemanticStatusLine() {
   if (state === 'downloading') {
     return (
       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-        Downloading model (~97 MB)… one-time, cached for all Forges
+        Downloading model…
       </span>
     );
   }

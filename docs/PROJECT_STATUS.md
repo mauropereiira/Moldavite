@@ -16,7 +16,7 @@
 - `#tags` with sidebar aggregation and global tag rename
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
 - Quick switcher / command palette (⌘P), backend full-text search with snippets, timeline view
-- Local semantic search (unreleased): opt-in per-Forge embeddings index (all-MiniLM-L6-v2; one-time ~97 MB HuggingFace download after explicit consent, fully offline afterwards, locked notes never indexed). Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle with live download/index progress + rebuild-index button
+- Local semantic search (unreleased): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Storage & Data Safety
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable
@@ -42,8 +42,8 @@
 - Author guide: docs/PLUGINS.md
 
 ## Test & Quality Status
-- Frontend: vitest — 124 tests across 22 files (stores, lib, hooks)
-- Backend: cargo test — 134 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
+- Frontend: vitest — 160 tests across 26 files (stores, lib, hooks)
+- Backend: cargo test — 140 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
