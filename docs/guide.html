@@ -110,6 +110,35 @@
       <li><strong>Shortcut help</strong> — press <kbd>⌘</kbd> <kbd>?</kbd> to see every keyboard shortcut.</li>
     </ul>
 
+    <h2 id="semantic-search">Semantic search</h2>
+    <p>
+      Keyword search finds exact words; semantic search finds <em>meaning</em>. Search for
+      "quarterly planning" and surface the note where you only wrote "Q3 roadmap discussion".
+      It's optional, off by default, and runs entirely on your Mac.
+    </p>
+    <p>
+      Enable it in <strong>Settings → AI &amp; Agents → Semantic search</strong>. Before anything
+      happens, Moldavite asks for your consent: enabling downloads a small AI embedding model
+      (all-MiniLM-L6-v2, ~97 MB) <strong>once</strong> from HuggingFace. That download is the only
+      network request the feature ever makes — the model is cached in the app's data directory
+      (never inside your Forge), and afterwards everything runs fully offline. Your notes never
+      leave your Mac, and locked (encrypted) notes are never read or indexed.
+    </p>
+    <p>Once your notes are indexed (progress is shown live in Settings), two things light up:</p>
+    <ul>
+      <li><strong>Semantic mode in search</strong> — the sidebar search grows a
+        <em>Keyword / Semantic</em> chip. Flip to Semantic to rank notes by how close their meaning
+        is to your query, with a similarity percentage on each hit.</li>
+      <li><strong>Related notes</strong> — a <em>Related</em> section appears next to Linked mentions
+        below the editor, listing the five notes most similar to the one you're reading. It's the
+        serendipity engine: connections you never made explicit with a wiki-link.</li>
+    </ul>
+    <p>
+      The index lives per Forge and keeps itself up to date as you write, rename, or delete notes.
+      If it ever looks stale, the <em>Rebuild index</em> button in Settings re-embeds everything
+      from scratch. Turning the feature off frees the model from memory immediately.
+    </p>
+
     <h2 id="safety">Safety &amp; privacy</h2>
     <p>
       Moldavite is local-only: no cloud, no accounts, no telemetry. On top of that, several layers

@@ -20,6 +20,7 @@
 
 export * from './agents';
 export * from './fileSystem';
+export * from './semantic';
 export * from './noteConflicts';
 export * from './templates';
 export * from './validation';

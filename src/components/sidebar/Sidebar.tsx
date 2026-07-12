@@ -13,9 +13,11 @@ import {
   useSettingsStore,
   useTagStore,
   useSearchStore,
+  useSemanticStore,
   useNoteSelectionStore,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
+import type { SemanticHit } from '@/lib/semantic';
 import { getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -44,6 +46,11 @@ import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
 import { SidebarSearchResults } from './SidebarSearchResults';
+import {
+  SearchModeChips,
+  SemanticIndexingHint,
+  SidebarSemanticResults,
+} from './SidebarSemanticSearch';
 import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
@@ -68,7 +75,12 @@ export function Sidebar() {
   const searchResults = searchStore.results;
   const searchLoading = searchStore.loading;
   const searchSelectedIndex = searchStore.selectedIndex;
+  const searchMode = searchStore.mode;
+  const semanticResults = searchStore.semanticResults;
   const isSearchActive = searchQuery.trim().length > 0;
+  const semanticState = useSemanticStore((s) => s.state);
+  const semanticEnabled = useSemanticStore((s) => s.enabled);
+  const semanticReady = semanticState === 'ready';
   const toast = useToast();
   const {
     folders,
@@ -206,12 +218,19 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  /** Map a full-text search ContentMatch back to a loadable NoteFile. */
-  const openSearchMatch = (match: ContentMatch) => {
-    // The backend returns paths relative to the notes root, e.g.
-    // "notes/foo/bar.md" or "daily/2026-04-23.md". The in-memory
-    // note store stores paths in the same form.
-    const note = notes.find((n) => n.path === match.path);
+  // If the semantic index becomes unavailable (feature disabled, Forge
+  // switch, rebuild) while the user is in semantic mode, fall back to
+  // keyword search — the chips disappear along with it.
+  useEffect(() => {
+    if (searchMode === 'semantic' && !semanticReady) {
+      searchStore.setMode('keyword');
+    }
+  }, [searchMode, semanticReady, searchStore]);
+
+  /** Open a note by its forge-relative path ("notes/foo/bar.md", "daily/…"). */
+  const openNoteByPath = (path: string) => {
+    // The in-memory note store keeps paths in the same forge-relative form.
+    const note = notes.find((n) => n.path === path);
     if (note) {
       if (note.isLocked) {
         handleUnlockNote(note);
@@ -219,17 +238,30 @@ export function Sidebar() {
         loadNote(note);
       }
     } else {
-      console.error('[Sidebar] search match had no matching note in store:', match.path);
+      console.error('[Sidebar] search match had no matching note in store:', path);
     }
   };
+
+  /** Map a full-text search ContentMatch back to a loadable NoteFile. */
+  const openSearchMatch = (match: ContentMatch) => openNoteByPath(match.path);
+
+  /** Open a semantic search hit (same forge-relative path addressing). */
+  const openSemanticHit = (hit: SemanticHit) => openNoteByPath(hit.path);
+
+  const activeSearchResultsCount =
+    searchMode === 'semantic' ? semanticResults.length : searchResults.length;
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       searchStore.clear();
       searchInputRef.current?.blur();
-    } else if (e.key === 'Enter' && searchResults.length > 0) {
-      const idx = Math.max(0, Math.min(searchResults.length - 1, searchSelectedIndex));
-      openSearchMatch(searchResults[idx]);
+    } else if (e.key === 'Enter' && activeSearchResultsCount > 0) {
+      const idx = Math.max(0, Math.min(activeSearchResultsCount - 1, searchSelectedIndex));
+      if (searchMode === 'semantic') {
+        openSemanticHit(semanticResults[idx]);
+      } else {
+        openSearchMatch(searchResults[idx]);
+      }
       searchInputRef.current?.blur();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -684,18 +716,40 @@ export function Sidebar() {
         isSearching={searchLoading}
       />
 
+      {/* Search mode chips (only once the semantic index is ready) */}
+      {isSearchActive && semanticReady && (
+        <SearchModeChips mode={searchMode} onModeChange={searchStore.setMode} />
+      )}
+      {isSearchActive &&
+        semanticEnabled &&
+        (semanticState === 'indexing' || semanticState === 'downloading') && (
+          <SemanticIndexingHint />
+        )}
+
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {isSearchActive ? (
-          <SidebarSearchResults
-            query={searchQuery}
-            results={searchResults}
-            loading={searchLoading}
-            selectedIndex={searchSelectedIndex}
-            onSelect={searchStore.setSelectedIndex}
-            onOpen={openSearchMatch}
-            onClear={searchStore.clear}
-          />
+          searchMode === 'semantic' && semanticReady ? (
+            <SidebarSemanticResults
+              query={searchQuery}
+              hits={semanticResults}
+              loading={searchLoading}
+              selectedIndex={searchSelectedIndex}
+              onSelect={searchStore.setSelectedIndex}
+              onOpen={openSemanticHit}
+              onClear={searchStore.clear}
+            />
+          ) : (
+            <SidebarSearchResults
+              query={searchQuery}
+              results={searchResults}
+              loading={searchLoading}
+              selectedIndex={searchSelectedIndex}
+              onSelect={searchStore.setSelectedIndex}
+              onOpen={openSearchMatch}
+              onClear={searchStore.clear}
+            />
+          )
         ) : (
           <div className="py-2">
             <SidebarNotesList

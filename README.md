@@ -47,6 +47,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Full-text search** — Ranked content search across every note, with snippets.
 
+**Semantic search (optional)** — Find notes by meaning, not just keywords, plus a "Related" list for the note you're reading. Downloads a small AI model (~97 MB) once after you opt in; afterwards everything runs fully offline — your notes never leave your Mac.
+
 **Timeline** — Chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier, with calendar events inline on macOS.
 
 **Trash with previews** — Deleted notes sit in a sidebar popover for 7 days with read-only previews before permanent delete.

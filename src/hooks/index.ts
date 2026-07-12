@@ -33,5 +33,6 @@ export { useSidebarLock } from './useSidebarLock';
 export { useSidebarTags } from './useSidebarTags';
 export { useSidebarDnd } from './useSidebarDnd';
 export { useForgeWatcher } from './useForgeWatcher';
+export { useRelatedNotes } from './useRelatedNotes';
 export { useFocusTrap } from './useFocusTrap';
 export { usePluginHost } from './usePluginHost';
