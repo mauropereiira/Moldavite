@@ -40,14 +40,14 @@
 - Author guide: docs/PLUGINS.md
 
 ## Test & Quality Status
-- Frontend: vitest — TBD_FE tests across TBD_FILES files (stores, lib, hooks)
-- Backend: cargo test — TBD_BE tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
+- Frontend: vitest — 124 tests across 22 files (stores, lib, hooks)
+- Backend: cargo test — 134 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
-- **Plugins share the app realm** — permission system gates the curated API only. Planned: Worker/iframe sandbox with postMessage RPC (v2 plugin milestone).
+- **Plugin API surface is still v1 (commands-only)** — the Worker sandbox + postMessage RPC shipped in v1.5.0; next is growing the API (note read/write, fetch allowlist, panels).
 - All note metadata held in memory (no pagination); startup daily-note scan capped at 8 concurrent reads but still O(vault age).
 - ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
 - No automatic scheduled backups (manual + encrypted export exist).
