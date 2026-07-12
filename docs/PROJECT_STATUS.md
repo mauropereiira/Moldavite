@@ -12,7 +12,7 @@
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
 - TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; slash commands; tabs with pinning
 - Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, graph view (intentionally minimal)
-- Rename rewrites inbound wiki-links vault-wide (v1.5); unicode-safe NFC slugs shared by frontend + backend (v1.5)
+- Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (unreleased). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
 - Quick switcher / command palette (⌘P), backend full-text search with snippets, timeline view
@@ -59,7 +59,7 @@
 1. **Plugin sandbox v2** — Worker isolation + RPC so permissions become a real boundary; then grow the API surface (note read/write, fetch allowlist, panels).
 2. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 3. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-4. **Note rename UI** — backend now rewrites links safely; expose rename in the sidebar/editor.
+4. ~~**Note rename UI**~~ — Done (unreleased): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
 5. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (unreleased): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals

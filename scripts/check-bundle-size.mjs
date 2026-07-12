@@ -32,7 +32,8 @@ const BUDGETS = [
 // Bumped in 1.6.0 for the semantic-search UI (search mode chips + results,
 // related-notes panel, lifecycle store) — ~10 KB raw, no new dependencies.
 // Bumped another 2 KB for the built-in MCP setup and write-consent controls.
-const APP_JS_BUDGET = { rawKb: 492, gzipKb: 130 };
+// Bumped 7 KB raw / 2 KB gzip for note-rename UI + path-keyed state migration.
+const APP_JS_BUDGET = { rawKb: 499, gzipKb: 132 };
 
 async function main() {
   let entries;

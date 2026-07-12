@@ -23,6 +23,7 @@ interface QuickSwitcherState {
   /** Add or remove a note id from the pinned list. */
   togglePinned: (noteId: string) => void;
   isPinned: (noteId: string) => boolean;
+  renamePinnedNote: (oldId: string, newId: string) => void;
 }
 
 export const useQuickSwitcherStore = create<QuickSwitcherState>()(
@@ -62,6 +63,12 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         }),
 
       isPinned: (noteId) => get().pinnedNoteIds.includes(noteId),
+      renamePinnedNote: (oldId, newId) =>
+        set((state) => ({
+          pinnedNoteIds: state.pinnedNoteIds.map((id) =>
+            id === oldId ? newId : id,
+          ),
+        })),
     }),
     {
       name: namespacedKey('moldavite-quick-switcher'),
