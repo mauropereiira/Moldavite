@@ -1,4 +1,5 @@
-export const PLUGIN_API_VERSION = 1;
+export const PLUGIN_API_VERSION = 2;
+export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2] as const;
 
 export interface PluginManifest {
   id: string;
@@ -9,6 +10,8 @@ export interface PluginManifest {
   apiVersion: number;
   minAppVersion?: string;
   permissions?: string[];
+  /** Exact HTTPS hostnames the plugin may contact through api.net.fetch. */
+  allowedHosts?: string[];
 }
 
 export type PluginStatus = 'ok' | 'invalid' | 'incompatible';
@@ -38,6 +41,40 @@ export interface PluginAPI {
     insertText(text: string): Promise<void>;
   };
   ui: { toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void> };
+  notes: {
+    list(): Promise<PluginNoteMetadata[]>;
+    read(path: string): Promise<string>;
+  };
+  net: {
+    fetch(url: string, options?: PluginFetchOptions): Promise<PluginFetchResponse>;
+  };
+  secrets: {
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+}
+
+export type PluginNoteKind = 'daily' | 'weekly' | 'standalone';
+
+export interface PluginNoteMetadata {
+  path: string;
+  title: string;
+  kind: PluginNoteKind;
+  folder: string | null;
+}
+
+export interface PluginFetchOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface PluginFetchResponse {
+  status: number;
+  headers: Record<string, string>;
+  bodyText: string;
+  bodyBase64?: string;
 }
 
 export interface LoadedPlugin {

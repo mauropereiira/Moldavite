@@ -35,28 +35,29 @@
 - Signed + notarized releases, minisign-verified auto-updates, "What's New" popup from CHANGELOG (see docs/RELEASING.md)
 - Themes/presets, keyboard shortcut overlay (⌘?), settings modal with focus trap
 
-### Plugins (v1 — shipped 1.4.0, hardened 1.5.0)
-- Commands-only API (`api.commands.add`, `api.editor.getActiveNote/insertText`, `api.ui.toast`)
-- Per-Forge enable state; permission sheet; consent pinned to SHA-256 content hash (any code change re-prompts)
+### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 unreleased)
+- API v2: commands/editor/toasts plus permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind a mandatory exact-host allowlist, and per-plugin macOS Keychain secrets; API v1 remains compatible
+- Per-Forge enable state; permission sheet shows human-readable capabilities and exact network hosts; consent pinned to SHA-256 of raw manifest + code (any code, permission, or allowlist change re-prompts)
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
+- Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
 
 ## Test & Quality Status
-- Frontend: vitest — 160 tests across 26 files (stores, lib, hooks)
-- Backend: cargo test — 140 tests incl. stress suite (1k-note search, concurrent atomic writes, link-rewrite corpus), conflict-copy and semantic-index suites
+- Frontend: vitest — 173 tests across 26 files (stores, lib, hooks)
+- Backend: cargo test — 143 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
-- **Plugin API surface is still v1 (commands-only)** — the Worker sandbox + postMessage RPC shipped in v1.5.0; next is growing the API (note read/write, fetch allowlist, panels).
+- **Plugin API has no note writes or panels yet** — v2 adds note reads, allowlisted HTTPS, and Keychain secrets while keeping the Worker boundary narrow.
 - All note metadata held in memory (no pagination); startup daily-note scan capped at 8 concurrent reads but still O(vault age).
 - ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
 - No automatic scheduled backups (manual + encrypted export exist).
 - No multi-window support.
 
 ## Roadmap (in priority order)
-1. **Plugin sandbox v2** — Worker isolation + RPC so permissions become a real boundary; then grow the API surface (note read/write, fetch allowlist, panels).
+1. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 2. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 3. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
 4. **Note rename UI** — backend now rewrites links safely; expose rename in the sidebar/editor.

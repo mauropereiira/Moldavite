@@ -53,7 +53,10 @@ function send(msg: WorkerToHost): void {
 // -----------------------------------------------------------------------------
 
 let nextRequestId = 1;
-const pendingCalls = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+const pendingCalls = new Map<
+  number,
+  { resolve: (v: unknown) => void; reject: (e: Error) => void }
+>();
 
 function callHost(method: HostMethod, args: unknown[]): Promise<unknown> {
   const requestId = nextRequestId++;
@@ -78,7 +81,12 @@ interface PluginCommand {
   handler: () => void | Promise<void>;
 }
 
-function buildPluginAPI(pluginId: string, permissions: string[], appVersion: string, apiVersion: number) {
+function buildPluginAPI(
+  pluginId: string,
+  permissions: string[],
+  appVersion: string,
+  apiVersion: number
+) {
   const has = (perm: string) => permissions.includes(perm);
   const require = (perm: string) => {
     if (!has(perm)) {
@@ -87,22 +95,33 @@ function buildPluginAPI(pluginId: string, permissions: string[], appVersion: str
       );
     }
   };
-  return {
+  const api = {
     app: { version: appVersion, apiVersion },
     commands: {
       add(cmd: PluginCommand) {
-        if (typeof cmd?.id !== 'string' || typeof cmd?.label !== 'string' || typeof cmd?.handler !== 'function') {
+        if (
+          typeof cmd?.id !== 'string' ||
+          typeof cmd?.label !== 'string' ||
+          typeof cmd?.handler !== 'function'
+        ) {
           throw new Error('commands.add expects { id, label, handler }');
         }
         commandHandlers.set(cmd.id, cmd.handler);
-        const msg: CommandRegisteredMessage = { kind: 'commandRegistered', localId: cmd.id, label: cmd.label };
+        const msg: CommandRegisteredMessage = {
+          kind: 'commandRegistered',
+          localId: cmd.id,
+          label: cmd.label,
+        };
         send(msg);
       },
     },
     editor: {
       async getActiveNote() {
         require('editor');
-        return callHost('editor.getActiveNote', []) as Promise<{ title: string; content: string } | null>;
+        return callHost('editor.getActiveNote', []) as Promise<{
+          title: string;
+          content: string;
+        } | null>;
       },
       async insertText(text: string) {
         require('editor');
@@ -116,6 +135,39 @@ function buildPluginAPI(pluginId: string, permissions: string[], appVersion: str
       },
     },
   };
+  if (apiVersion < 2) return api;
+  return Object.assign(api, {
+    notes: {
+      async list() {
+        require('notes.read');
+        return callHost('notes.list', []);
+      },
+      async read(path: string) {
+        require('notes.read');
+        return callHost('notes.read', [path]);
+      },
+    },
+    net: {
+      async fetch(url: string, options?: unknown) {
+        require('net.fetch');
+        return callHost('net.fetch', [url, options]);
+      },
+    },
+    secrets: {
+      async get(key: string) {
+        require('secrets');
+        return callHost('secrets.get', [key]);
+      },
+      async set(key: string, value: string) {
+        require('secrets');
+        await callHost('secrets.set', [key, value]);
+      },
+      async delete(key: string) {
+        require('secrets');
+        await callHost('secrets.delete', [key]);
+      },
+    },
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -167,11 +219,20 @@ self.addEventListener('message', async (event: MessageEvent<HostToWorker>) => {
     }
     try {
       await handler();
-      const result: InvokeResultMessage = { kind: 'invokeResult', invocationId: msg.invocationId, ok: true };
+      const result: InvokeResultMessage = {
+        kind: 'invokeResult',
+        invocationId: msg.invocationId,
+        ok: true,
+      };
       send(result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      const result: InvokeResultMessage = { kind: 'invokeResult', invocationId: msg.invocationId, ok: false, error };
+      const result: InvokeResultMessage = {
+        kind: 'invokeResult',
+        invocationId: msg.invocationId,
+        ok: false,
+        error,
+      };
       send(result);
     }
     return;

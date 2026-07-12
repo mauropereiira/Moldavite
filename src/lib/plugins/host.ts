@@ -1,7 +1,7 @@
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
 import { validateManifest } from './manifest';
-import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion, getPluginApiVersion } from './api';
+import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion } from './api';
 import type { PluginInfo } from './types';
 import type {
   CallMessage,
@@ -56,6 +56,8 @@ function classify(raw: RawPlugin): PluginInfo {
 interface PluginRuntime {
   worker: Worker;
   permissions: readonly string[];
+  allowedHosts: readonly string[];
+  apiVersion: number;
   /** Fire-and-await from the host: match `invokeResult` back to a Promise. */
   pendingInvocations: Map<number, { resolve: () => void; reject: (e: Error) => void }>;
   nextInvocationId: number;
@@ -112,7 +114,14 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     case 'call': {
       const call = msg as CallMessage;
       try {
-        const value = await dispatchPluginCall(pluginId, rt.permissions, call.method, call.args);
+        const value = await dispatchPluginCall(
+          pluginId,
+          rt.permissions,
+          call.method,
+          call.args,
+          rt.allowedHosts,
+          rt.apiVersion
+        );
         rt.worker.postMessage({ kind: 'callResult', requestId: call.requestId, ok: true, value });
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -143,7 +152,8 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     }
     case 'log': {
       const log = msg as LogMessage;
-      const fn = log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
+      const fn =
+        log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
       fn(`[plugin:${pluginId}]`, ...log.args);
       return;
     }
@@ -151,7 +161,7 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
 }
 
 async function loadOne(info: PluginInfo): Promise<void> {
-  const { id, permissions = [] } = info.manifest;
+  const { id, permissions = [], allowedHosts = [] } = info.manifest;
 
   let code: string;
   try {
@@ -165,6 +175,8 @@ async function loadOne(info: PluginInfo): Promise<void> {
   const rt: PluginRuntime = {
     worker,
     permissions,
+    allowedHosts,
+    apiVersion: info.manifest.apiVersion,
     pendingInvocations: new Map(),
     nextInvocationId: 1,
   };
@@ -182,7 +194,7 @@ async function loadOne(info: PluginInfo): Promise<void> {
     pluginId: id,
     code,
     permissions,
-    apiVersion: getPluginApiVersion(),
+    apiVersion: info.manifest.apiVersion,
     appVersion: getPluginAppVersion(),
   };
   worker.postMessage(init);

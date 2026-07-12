@@ -32,7 +32,9 @@ const BUDGETS = [
 // Bumped in 1.6.0 for the semantic-search UI (search mode chips + results,
 // related-notes panel, lifecycle store) — ~10 KB raw, no new dependencies.
 // Bumped another 2 KB for the built-in MCP setup and write-consent controls.
-const APP_JS_BUDGET = { rawKb: 492, gzipKb: 130 };
+// Bumped for Plugin API v2 host enforcement (stream-capped fetch + redirect
+// validation, note-read mapping, Keychain RPC, and the expanded Worker proxy).
+const APP_JS_BUDGET = { rawKb: 502, gzipKb: 133 };
 
 async function main() {
   let entries;
