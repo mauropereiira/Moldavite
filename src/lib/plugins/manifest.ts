@@ -74,7 +74,8 @@ export function validateManifest(raw: unknown, folderId: string): Result {
   };
 }
 
-function isValidAllowedHost(host: string): boolean {
+/** Shared validator for manifest-declared and user-approved network hosts. */
+export function isValidAllowedHost(host: string): boolean {
   if (
     host.length > 253 ||
     host !== host.toLowerCase() ||

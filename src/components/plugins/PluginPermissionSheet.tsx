@@ -16,10 +16,12 @@ export interface PluginPermissionSheetProps {
     allowedHosts?: string[];
   };
   permissions: string[];
+  approvedHosts?: string[];
   /** Commands this plugin has registered (only known once it's enabled/loaded). */
   commands?: { id: string; label: string }[];
   mode: 'grant' | 'view';
   onEnable: () => void;
+  onRevokeHost?: (host: string) => void;
   onClose: () => void;
 }
 
@@ -35,9 +37,11 @@ const PERMISSION_LABEL: Record<string, string> = {
 export function PluginPermissionSheet({
   manifest,
   permissions,
+  approvedHosts = [],
   commands = [],
   mode,
   onEnable,
+  onRevokeHost,
   onClose,
 }: PluginPermissionSheetProps) {
   // Portal to <body> so `position: fixed` centers on the viewport rather than
@@ -144,6 +148,40 @@ export function PluginPermissionSheet({
                         ))}
                       </ul>
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {approvedHosts.length > 0 && (
+            <div className="space-y-1.5">
+              <p
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                User-approved network hosts
+              </p>
+              <ul className="space-y-1">
+                {approvedHosts.map((host) => (
+                  <li
+                    key={host}
+                    className="flex items-center justify-between gap-2 text-sm px-2 py-1"
+                    style={{ backgroundColor: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    <code>{host}</code>
+                    {onRevokeHost && (
+                      <button
+                        type="button"
+                        onClick={() => onRevokeHost(host)}
+                        className="p-0.5 focus-ring"
+                        style={{ color: 'var(--text-muted)' }}
+                        aria-label={`Revoke access to ${host}`}
+                        title={`Revoke ${host}`}
+                      >
+                        <X aria-hidden="true" className="w-4 h-4" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

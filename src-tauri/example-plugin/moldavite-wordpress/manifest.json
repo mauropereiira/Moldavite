@@ -1,0 +1,11 @@
+{
+  "id": "moldavite-wordpress",
+  "name": "Publish to WordPress",
+  "version": "1.0.0",
+  "author": "Moldavite",
+  "description": "Publish the active note as a WordPress draft, with safe updates on re-publish. WordPress.com Simple sites require OAuth and are not supported.",
+  "apiVersion": 2,
+  "minAppVersion": "1.6.0",
+  "permissions": ["editor", "ui", "notes.read", "net.fetch", "secrets"],
+  "allowedHosts": ["public-api.wordpress.com"]
+}

@@ -119,6 +119,7 @@ function buildPluginAPI(
       async getActiveNote() {
         require('editor');
         return callHost('editor.getActiveNote', []) as Promise<{
+          path: string;
           title: string;
           content: string;
         } | null>;
@@ -137,6 +138,12 @@ function buildPluginAPI(
   };
   if (apiVersion < 2) return api;
   return Object.assign(api, {
+    ui: {
+      ...api.ui,
+      async prompt(options: unknown) {
+        return callHost('ui.prompt', [options]);
+      },
+    },
     notes: {
       async list() {
         require('notes.read');
@@ -151,6 +158,10 @@ function buildPluginAPI(
       async fetch(url: string, options?: unknown) {
         require('net.fetch');
         return callHost('net.fetch', [url, options]);
+      },
+      async requestHostAccess(host: string) {
+        require('net.fetch');
+        return callHost('net.requestHostAccess', [host]);
       },
     },
     secrets: {

@@ -9,8 +9,12 @@ import { useToastStore } from '@/stores/toastStore';
 import { editorHandle } from '@/stores/editorHandleStore';
 import { listNotes, noteFileBackendPath, readNote } from '@/lib/fileSystem';
 import { safeInvoke } from '@/lib/ipc';
+import { usePluginStore } from '@/stores/pluginStore';
 import { PLUGIN_API_VERSION } from './types';
+import type { PluginPromptField, PluginPromptOptions } from './types';
 import type { HostMethod } from './rpc';
+import { isValidAllowedHost } from './manifest';
+import { requestPluginHostAccess, requestPluginPrompt } from './dialogs';
 
 const FETCH_TIMEOUT_MS = 30_000;
 const FETCH_MAX_BYTES = 10 * 1024 * 1024;
@@ -48,13 +52,14 @@ export class PermissionDeniedError extends Error {
   }
 }
 
-const METHOD_PERMISSIONS: Record<HostMethod, string> = {
+const METHOD_PERMISSIONS: Partial<Record<HostMethod, string>> = {
   'editor.getActiveNote': 'editor',
   'editor.insertText': 'editor',
   'ui.toast': 'ui',
   'notes.list': 'notes.read',
   'notes.read': 'notes.read',
   'net.fetch': 'net.fetch',
+  'net.requestHostAccess': 'net.fetch',
   'secrets.get': 'secrets',
   'secrets.set': 'secrets',
   'secrets.delete': 'secrets',
@@ -71,7 +76,8 @@ export async function dispatchPluginCall(
   method: HostMethod,
   args: unknown[],
   allowedHosts: readonly string[] = [],
-  apiVersion = PLUGIN_API_VERSION
+  apiVersion = PLUGIN_API_VERSION,
+  pluginName = pluginId
 ): Promise<unknown> {
   if (apiVersion < 2 && !method.startsWith('editor.') && method !== 'ui.toast') {
     throw new Error(`Plugin API v${apiVersion} does not support ${method}`);
@@ -84,7 +90,7 @@ export async function dispatchPluginCall(
   switch (method) {
     case 'editor.getActiveNote': {
       const note = useNoteStore.getState().currentNote;
-      return note ? { title: note.title, content: note.content } : null;
+      return note ? { path: note.id, title: note.title, content: note.content } : null;
     }
     case 'editor.insertText': {
       const text = args[0];
@@ -101,6 +107,8 @@ export async function dispatchPluginCall(
       useToastStore.getState().addToast(normalizedKind, message);
       return null;
     }
+    case 'ui.prompt':
+      return await requestPluginPrompt(pluginId, pluginName, normalizePromptOptions(args[0]));
     case 'notes.list': {
       const notes = await listNotes();
       return notes.map((note) => ({
@@ -118,8 +126,24 @@ export async function dispatchPluginCall(
       if (note.isLocked) throw new Error(`notes.read: locked notes cannot be read: ${path}`);
       return await readNote(noteFileBackendPath(note), note.isDaily, note.isWeekly);
     }
-    case 'net.fetch':
-      return await pluginFetch(args[0], args[1], allowedHosts);
+    case 'net.fetch': {
+      return await pluginFetch(args[0], args[1], allowedHosts, pluginId);
+    }
+    case 'net.requestHostAccess': {
+      const host = args[0];
+      if (typeof host !== 'string' || !isValidAllowedHost(host)) {
+        throw new Error('net.requestHostAccess: host must follow allowedHosts hostname rules');
+      }
+      if (
+        allowedHosts.includes(host) ||
+        usePluginStore.getState().approvedHosts(pluginId).includes(host)
+      ) {
+        return true;
+      }
+      const approved = await requestPluginHostAccess(pluginId, pluginName, host);
+      if (approved) usePluginStore.getState().approveHost(pluginId, host);
+      return approved;
+    }
     case 'secrets.get': {
       const key = requireSecretKey(args[0], 'secrets.get');
       return await safeInvoke<string | null>('plugin_secret_get', { pluginId, key });
@@ -143,6 +167,59 @@ export async function dispatchPluginCall(
       throw new Error(`Unknown plugin API method: ${_exhaustive}`);
     }
   }
+}
+
+function normalizePromptOptions(value: unknown): PluginPromptOptions {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('ui.prompt: options must be an object');
+  }
+  const options = value as Record<string, unknown>;
+  const title = requirePromptText(options.title, 'title', 200, false);
+  const message =
+    options.message === undefined
+      ? undefined
+      : requirePromptText(options.message, 'message', 2_000, true);
+  const confirmLabel =
+    options.confirmLabel === undefined
+      ? undefined
+      : requirePromptText(options.confirmLabel, 'confirmLabel', 80, false);
+  if (!Array.isArray(options.fields) || options.fields.length < 1 || options.fields.length > 12) {
+    throw new Error('ui.prompt: fields must contain 1-12 fields');
+  }
+  const names = new Set<string>();
+  const fields = options.fields.map((raw, index): PluginPromptField => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error(`ui.prompt: field ${index + 1} must be an object`);
+    }
+    const field = raw as Record<string, unknown>;
+    const name = requirePromptText(field.name, 'field name', 64, false);
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(name) || names.has(name)) {
+      throw new Error('ui.prompt: field names must be unique identifiers');
+    }
+    names.add(name);
+    const label = requirePromptText(field.label, 'field label', 160, false);
+    if (field.type !== 'text' && field.type !== 'password' && field.type !== 'url') {
+      throw new Error('ui.prompt: field type must be text, password, or url');
+    }
+    const placeholder =
+      field.placeholder === undefined
+        ? undefined
+        : requirePromptText(field.placeholder, 'field placeholder', 300, true);
+    if (field.required !== undefined && typeof field.required !== 'boolean') {
+      throw new Error('ui.prompt: field required must be a boolean');
+    }
+    return { name, label, type: field.type, placeholder, required: field.required as boolean };
+  });
+  return { title, message, fields, confirmLabel };
+}
+
+function requirePromptText(value: unknown, name: string, max: number, allowEmpty: boolean): string {
+  if (typeof value !== 'string' || value.length > max || (!allowEmpty && value.trim() === '')) {
+    throw new Error(
+      `ui.prompt: ${name} must be ${allowEmpty ? '' : 'a non-empty '}string up to ${max} characters`
+    );
+  }
+  return value;
 }
 
 function requireSecretKey(value: unknown, method: string): string {
@@ -212,14 +289,19 @@ function validateFetchUrl(value: unknown, allowedHosts: readonly string[]): URL 
 async function pluginFetch(
   urlValue: unknown,
   optionsValue: unknown,
-  allowedHosts: readonly string[]
+  manifestHosts: readonly string[],
+  pluginId: string
 ): Promise<{
   status: number;
   headers: Record<string, string>;
   bodyText: string;
   bodyBase64?: string;
 }> {
-  let url = validateFetchUrl(urlValue, allowedHosts);
+  const effectiveHosts = () => [
+    ...manifestHosts,
+    ...usePluginStore.getState().approvedHosts(pluginId),
+  ];
+  let url = validateFetchUrl(urlValue, effectiveHosts());
   let { method, headers, body } = normalizeFetchOptions(optionsValue);
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -243,7 +325,8 @@ async function pluginFetch(
       const location = response.headers.get('location');
       if (!location)
         throw new Error('net.fetch: redirect response did not expose a Location header');
-      const nextUrl = validateFetchUrl(new URL(location, url).href, allowedHosts);
+      // Re-read user grants at every hop so revocation affects in-flight redirects.
+      const nextUrl = validateFetchUrl(new URL(location, url).href, effectiveHosts());
 
       if (
         response.status === 303 ||

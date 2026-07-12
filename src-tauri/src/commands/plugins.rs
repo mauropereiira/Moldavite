@@ -233,19 +233,19 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub(crate) fn install_example_plugin(app: tauri::AppHandle) -> Result<(), String> {
+fn install_bundled_plugin(
+    app: &tauri::AppHandle,
+    resource_name: &str,
+    plugin_id: &str,
+) -> Result<(), String> {
     use tauri::Manager;
     let src = app
         .path()
-        .resolve(
-            "example-plugin/moldavite-example",
-            tauri::path::BaseDirectory::Resource,
-        )
-        .map_err(|e| format!("cannot locate bundled example: {e}"))?;
-    let dest = plugins_dir().join("moldavite-example");
+        .resolve(resource_name, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("cannot locate bundled plugin: {e}"))?;
+    let dest = plugins_dir().join(plugin_id);
     if dest.exists() {
-        return Err("moldavite-example is already installed".into());
+        return Err(format!("{plugin_id} is already installed"));
     }
     fs::create_dir_all(&dest).map_err(|e| format!("cannot create plugin dir: {e}"))?;
     for name in ["manifest.json", "plugin.js", "README.md"] {
@@ -255,6 +255,24 @@ pub(crate) fn install_example_plugin(app: tauri::AppHandle) -> Result<(), String
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn install_example_plugin(app: tauri::AppHandle) -> Result<(), String> {
+    install_bundled_plugin(
+        &app,
+        "example-plugin/moldavite-example",
+        "moldavite-example",
+    )
+}
+
+#[tauri::command]
+pub(crate) fn install_wordpress_plugin(app: tauri::AppHandle) -> Result<(), String> {
+    install_bundled_plugin(
+        &app,
+        "example-plugin/moldavite-wordpress",
+        "moldavite-wordpress",
+    )
 }
 
 #[cfg(test)]

@@ -7,9 +7,11 @@ export type HostMethod =
   | 'editor.getActiveNote'
   | 'editor.insertText'
   | 'ui.toast'
+  | 'ui.prompt'
   | 'notes.list'
   | 'notes.read'
   | 'net.fetch'
+  | 'net.requestHostAccess'
   | 'secrets.get'
   | 'secrets.set'
   | 'secrets.delete';

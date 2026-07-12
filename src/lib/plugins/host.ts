@@ -17,6 +17,7 @@ import type {
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import PluginWorker from './pluginWorker.ts?worker';
+import { cancelPluginDialog } from './dialogs';
 
 interface RawPlugin {
   id: string;
@@ -56,7 +57,8 @@ function classify(raw: RawPlugin): PluginInfo {
 interface PluginRuntime {
   worker: Worker;
   permissions: readonly string[];
-  allowedHosts: readonly string[];
+  manifestHosts: readonly string[];
+  pluginName: string;
   apiVersion: number;
   /** Fire-and-await from the host: match `invokeResult` back to a Promise. */
   pendingInvocations: Map<number, { resolve: () => void; reject: (e: Error) => void }>;
@@ -76,6 +78,7 @@ function terminateRuntime(pluginId: string) {
   const rt = runtimes.get(pluginId);
   if (!rt) return;
   rt.worker.terminate();
+  cancelPluginDialog(pluginId);
   for (const pending of rt.pendingInvocations.values()) {
     pending.reject(new Error('plugin was unloaded'));
   }
@@ -119,8 +122,9 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
           rt.permissions,
           call.method,
           call.args,
-          rt.allowedHosts,
-          rt.apiVersion
+          rt.manifestHosts,
+          rt.apiVersion,
+          rt.pluginName
         );
         rt.worker.postMessage({ kind: 'callResult', requestId: call.requestId, ok: true, value });
       } catch (err) {
@@ -152,8 +156,11 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     }
     case 'log': {
       const log = msg as LogMessage;
+      // Plugin console forwarding intentionally preserves log severity.
+      /* eslint-disable no-console */
       const fn =
         log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
+      /* eslint-enable no-console */
       fn(`[plugin:${pluginId}]`, ...log.args);
       return;
     }
@@ -175,7 +182,8 @@ async function loadOne(info: PluginInfo): Promise<void> {
   const rt: PluginRuntime = {
     worker,
     permissions,
-    allowedHosts,
+    manifestHosts: allowedHosts,
+    pluginName: info.manifest.name,
     apiVersion: info.manifest.apiVersion,
     pendingInvocations: new Map(),
     nextInvocationId: 1,
