@@ -19,6 +19,7 @@
  */
 
 export * from './fileSystem';
+export * from './noteConflicts';
 export * from './templates';
 export * from './validation';
 export * from './constants';

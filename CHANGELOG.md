@@ -2,6 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+- **External-edit conflict safety.** If a note changes on disk (iCloud Drive, Dropbox, Syncthing, git, another editor…) while you have unsaved edits in Moldavite, saving no longer silently overwrites the external version: the disk version is preserved as a sibling `<name> (conflict YYYY-MM-DD HHMM).md` note, your edits are then saved, and a warning toast names the conflict copy.
+
 ## [1.5.1] - 2026-07-12
 
 ### Fixed

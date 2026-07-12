@@ -143,6 +143,20 @@ pub(crate) struct ImportResult {
 pub(crate) struct NoteRead {
     pub(crate) content: String,
     pub(crate) color: Option<String>,
+    /// SHA-256 hex of `content`. The frontend keeps this and sends it back
+    /// as `base_hash` on save so external-edit conflicts can be detected.
+    pub(crate) content_hash: String,
+}
+
+/// Result of `write_note`: the hash of the body just written (the frontend
+/// stores it as the new base for conflict detection) and, if the on-disk
+/// note had diverged from that base, the relative path of the conflict copy
+/// that preserved the external version.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct NoteWriteResult {
+    pub(crate) content_hash: String,
+    pub(crate) conflict_copy: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
