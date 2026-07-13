@@ -7,11 +7,12 @@
 //! the manifest and code bytes. Secrets are namespaced by plugin id in the macOS
 //! Keychain and are never returned across a different plugin identity.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::paths::get_notes_dir;
+use crate::persist::write_atomic;
 use crate::validation::validate_path_within_base;
 
 const KEYRING_SERVICE: &str = "Moldavite";
@@ -238,46 +239,182 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
     Ok(())
 }
 
-fn copy_plugin_files(src: &Path, dest: &Path, plugin_id: &str) -> Result<(), String> {
-    for required in ["manifest.json", "plugin.js"] {
-        let path = src.join(required);
-        if !path.is_file() {
-            return Err(format!(
-                "bundled plugin source is missing {required}: {}",
-                path.display()
-            ));
-        }
+#[derive(Deserialize)]
+struct InstallManifestIdentity {
+    id: String,
+}
+
+struct PluginFiles<'a> {
+    manifest_json: &'a [u8],
+    plugin_js: &'a [u8],
+    readme: Option<&'a [u8]>,
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn verify_registry_hash(file_name: &str, bytes: &[u8], expected: &str) -> Result<(), String> {
+    let valid_expected =
+        expected.len() == 64 && expected.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if !valid_expected || !sha256_hex(bytes).eq_ignore_ascii_case(expected) {
+        return Err(format!(
+            "Security check failed: {file_name} didn't match the registry — not installed"
+        ));
     }
-    if dest.exists() {
-        return Err(format!("{plugin_id} is already installed"));
+    Ok(())
+}
+
+fn validate_install_files(plugin_id: &str, files: &PluginFiles<'_>) -> Result<(), String> {
+    if !is_valid_plugin_id(plugin_id) {
+        return Err("invalid plugin id".into());
     }
+    let manifest: InstallManifestIdentity = serde_json::from_slice(files.manifest_json)
+        .map_err(|e| format!("invalid plugin manifest: {e}"))?;
+    if manifest.id != plugin_id {
+        return Err(format!(
+            "plugin manifest id {} does not match requested id {plugin_id}",
+            manifest.id
+        ));
+    }
+    Ok(())
+}
+
+fn plugin_install_paths(parent: &Path, plugin_id: &str) -> (PathBuf, PathBuf) {
+    (
+        parent.join(format!(".{plugin_id}.installing")),
+        parent.join(format!(".{plugin_id}.previous")),
+    )
+}
+
+fn remove_install_artifact(path: &Path) -> Result<(), String> {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return Ok(());
+    };
+    if metadata.is_dir() && !metadata.file_type().is_symlink() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    }
+    .map_err(|e| format!("cannot clean plugin install artifact: {e}"))
+}
+
+/// Validate and stage the complete file set before one same-parent rename makes
+/// it visible. Bundled and community installs both pass through this helper.
+fn install_plugin_files(
+    dest: &Path,
+    plugin_id: &str,
+    files: PluginFiles<'_>,
+    confirm_update: bool,
+) -> Result<(), String> {
+    validate_install_files(plugin_id, &files)?;
 
     let parent = dest
         .parent()
         .ok_or_else(|| "plugin destination has no parent directory".to_string())?;
+    if dest != parent.join(plugin_id) {
+        return Err("plugin destination does not match plugin id".into());
+    }
     fs::create_dir_all(parent).map_err(|e| format!("cannot create plugins directory: {e}"))?;
-    let staging = parent.join(format!(".{plugin_id}.installing"));
-    if staging.exists() {
-        fs::remove_dir_all(&staging)
-            .map_err(|e| format!("cannot clean previous plugin staging directory: {e}"))?;
+    validate_path_within_base(dest, parent)
+        .map_err(|_| "refusing to install outside the plugins directory".to_string())?;
+
+    let installed = match fs::symlink_metadata(dest) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => true,
+        Ok(_) => return Err("plugin destination is not a safe directory".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(error) => return Err(format!("cannot inspect plugin destination: {error}")),
+    };
+    if installed && !confirm_update {
+        return Err(format!(
+            "{plugin_id} is already installed; confirm the update before replacing it"
+        ));
+    }
+
+    let (staging, previous) = plugin_install_paths(parent, plugin_id);
+    remove_install_artifact(&staging)?;
+    if fs::symlink_metadata(&previous).is_ok() {
+        if installed {
+            remove_install_artifact(&previous)?;
+        } else {
+            fs::rename(&previous, dest)
+                .map_err(|e| format!("cannot restore previous plugin install: {e}"))?;
+            return Err(format!(
+                "recovered a previous {plugin_id} install; confirm the update again"
+            ));
+        }
     }
 
     let install_result = (|| {
         fs::create_dir(&staging).map_err(|e| format!("cannot create plugin staging dir: {e}"))?;
-        for name in ["manifest.json", "plugin.js", "README.md"] {
-            let from = src.join(name);
-            if from.is_file() {
-                fs::copy(&from, staging.join(name))
-                    .map_err(|e| format!("copy {name} failed: {e}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&staging, fs::Permissions::from_mode(0o700))
+                .map_err(|e| format!("cannot secure plugin staging dir: {e}"))?;
+        }
+        write_atomic(
+            &staging.join("manifest.json"),
+            files.manifest_json,
+            Some(0o600),
+        )
+        .map_err(|e| format!("write manifest.json failed: {e}"))?;
+        write_atomic(&staging.join("plugin.js"), files.plugin_js, Some(0o600))
+            .map_err(|e| format!("write plugin.js failed: {e}"))?;
+        if let Some(readme) = files.readme {
+            write_atomic(&staging.join("README.md"), readme, Some(0o600))
+                .map_err(|e| format!("write README.md failed: {e}"))?;
+        }
+
+        if installed {
+            fs::rename(dest, &previous)
+                .map_err(|e| format!("cannot stage previous plugin version: {e}"))?;
+        }
+        if let Err(error) = fs::rename(&staging, dest) {
+            if installed {
+                let _ = fs::rename(&previous, dest);
+            }
+            return Err(format!("cannot finish plugin install: {error}"));
+        }
+        if installed {
+            if let Err(error) = remove_install_artifact(&previous) {
+                log::warn!("could not remove previous plugin version: {error}");
             }
         }
-        fs::rename(&staging, dest).map_err(|e| format!("cannot finish plugin install: {e}"))
+        Ok(())
     })();
 
     if install_result.is_err() {
-        fs::remove_dir_all(&staging).ok();
+        remove_install_artifact(&staging).ok();
     }
     install_result
+}
+
+fn copy_plugin_files(src: &Path, dest: &Path, plugin_id: &str) -> Result<(), String> {
+    let manifest_json = fs::read(src.join("manifest.json")).map_err(|e| {
+        format!(
+            "bundled plugin source is missing manifest.json: {} ({e})",
+            src.join("manifest.json").display()
+        )
+    })?;
+    let plugin_js = fs::read(src.join("plugin.js")).map_err(|e| {
+        format!(
+            "bundled plugin source is missing plugin.js: {} ({e})",
+            src.join("plugin.js").display()
+        )
+    })?;
+    let readme = fs::read(src.join("README.md")).ok();
+    install_plugin_files(
+        dest,
+        plugin_id,
+        PluginFiles {
+            manifest_json: &manifest_json,
+            plugin_js: &plugin_js,
+            readme: readme.as_deref(),
+        },
+        false,
+    )
 }
 
 fn bundled_plugin_source(app: &tauri::AppHandle, resource_name: &str) -> Result<PathBuf, String> {
@@ -333,6 +470,43 @@ pub(crate) fn install_wordpress_plugin(app: tauri::AppHandle) -> Result<(), Stri
     )
 }
 
+/// Install bytes fetched by an explicit frontend registry action. Network URLs
+/// never cross this boundary; both files must match the registry's digests
+/// before the shared staged installer performs any filesystem mutation.
+#[tauri::command]
+pub(crate) fn install_plugin_from_data(
+    id: String,
+    manifest_json: String,
+    plugin_js: String,
+    expected_manifest_sha256: String,
+    expected_plugin_sha256: String,
+    confirm_update: bool,
+) -> Result<(), String> {
+    if !is_valid_plugin_id(&id) {
+        return Err("invalid plugin id".into());
+    }
+    if manifest_json.len() > 1024 * 1024 || plugin_js.len() > 10 * 1024 * 1024 {
+        return Err("plugin files exceed the safe install size limit".into());
+    }
+    verify_registry_hash(
+        "manifest.json",
+        manifest_json.as_bytes(),
+        &expected_manifest_sha256,
+    )?;
+    verify_registry_hash("plugin.js", plugin_js.as_bytes(), &expected_plugin_sha256)?;
+
+    install_plugin_files(
+        &plugins_dir().join(&id),
+        &id,
+        PluginFiles {
+            manifest_json: manifest_json.as_bytes(),
+            plugin_js: plugin_js.as_bytes(),
+            readme: None,
+        },
+        confirm_update,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,6 +548,57 @@ mod tests {
         assert!(!is_valid_plugin_id("../etc"));
         assert!(!is_valid_plugin_id("under_score"));
         assert!(!is_valid_plugin_id(&"a".repeat(65)));
+    }
+
+    #[test]
+    fn registry_hash_verification_accepts_exact_bytes_and_rejects_mismatches() {
+        let bytes = b"registry payload";
+        let expected = sha256_hex(bytes);
+        assert!(verify_registry_hash("plugin.js", bytes, &expected).is_ok());
+
+        let error = verify_registry_hash("plugin.js", b"changed payload", &expected).unwrap_err();
+        assert_eq!(
+            error,
+            "Security check failed: plugin.js didn't match the registry — not installed"
+        );
+        assert!(verify_registry_hash("plugin.js", bytes, "not-a-sha256").is_err());
+    }
+
+    #[test]
+    fn data_install_validation_rejects_invalid_and_mismatched_ids_before_staging() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-id-validation-test-{}",
+            std::process::id()
+        ));
+        fs::remove_dir_all(&root).ok();
+        let files = PluginFiles {
+            manifest_json: br#"{"id":"safe-plugin"}"#,
+            plugin_js: b"export default () => {};",
+            readme: None,
+        };
+
+        let invalid_dest = root.join("plugins/../escape");
+        assert!(install_plugin_files(&invalid_dest, "../escape", files, false).is_err());
+        assert!(
+            !root.exists(),
+            "invalid ids must fail before creating staging paths"
+        );
+
+        let mismatched = PluginFiles {
+            manifest_json: br#"{"id":"other-plugin"}"#,
+            plugin_js: b"export default () => {};",
+            readme: None,
+        };
+        let error = validate_install_files("safe-plugin", &mismatched).unwrap_err();
+        assert!(error.contains("does not match requested id"));
+    }
+
+    #[test]
+    fn staging_and_recovery_paths_are_hidden_siblings_of_the_destination() {
+        let parent = Path::new("/forge/.plugins");
+        let (staging, previous) = plugin_install_paths(parent, "safe-plugin");
+        assert_eq!(staging, parent.join(".safe-plugin.installing"));
+        assert_eq!(previous, parent.join(".safe-plugin.previous"));
     }
 
     #[test]
@@ -484,6 +709,69 @@ mod tests {
         fs::remove_dir_all(&dest).unwrap();
         copy_plugin_files(&src, &dest, "moldavite-wordpress").unwrap();
         assert!(dest.join("manifest.json").is_file());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn installed_plugin_requires_confirmation_before_atomic_update() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-update-test-{}",
+            std::process::id()
+        ));
+        let dest = root.join("plugins/community-plugin");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+
+        let original_manifest = br#"{"id":"community-plugin","version":"1.0.0"}"#;
+        install_plugin_files(
+            &dest,
+            "community-plugin",
+            PluginFiles {
+                manifest_json: original_manifest,
+                plugin_js: b"export default () => 'old';",
+                readme: None,
+            },
+            false,
+        )
+        .unwrap();
+
+        let updated_manifest = br#"{"id":"community-plugin","version":"2.0.0"}"#;
+        let unconfirmed = install_plugin_files(
+            &dest,
+            "community-plugin",
+            PluginFiles {
+                manifest_json: updated_manifest,
+                plugin_js: b"export default () => 'new';",
+                readme: None,
+            },
+            false,
+        )
+        .unwrap_err();
+        assert!(unconfirmed.contains("confirm the update"));
+        assert_eq!(
+            fs::read(dest.join("manifest.json")).unwrap(),
+            original_manifest
+        );
+
+        install_plugin_files(
+            &dest,
+            "community-plugin",
+            PluginFiles {
+                manifest_json: updated_manifest,
+                plugin_js: b"export default () => 'new';",
+                readme: None,
+            },
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read(dest.join("manifest.json")).unwrap(),
+            updated_manifest
+        );
+        let (staging, previous) = plugin_install_paths(dest.parent().unwrap(), "community-plugin");
+        assert!(!staging.exists());
+        assert!(!previous.exists());
 
         fs::remove_dir_all(root).ok();
     }

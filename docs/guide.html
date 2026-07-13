@@ -10,6 +10,10 @@
     />
     <link rel="icon" type="image/png" href="icon.png" />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+    </script>
+    <script src="site.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -74,9 +78,9 @@
       </p>
       <ul>
         <li>
-          <strong>Multiple Forges</strong> — keep Work, Personal, or other vaults separate and switch
-          from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher action.
-          Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
+          <strong>Multiple Forges</strong> — keep Work, Personal, or other vaults separate and
+          switch from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher
+          action. Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
         </li>
         <li>
           <strong>Daily notes</strong> — <em>Today</em> opens the current date and creates its file
@@ -87,8 +91,9 @@
           weekly notes are also cleaned up.
         </li>
         <li>
-          <strong>Standalone notes</strong> — create regular notes under <code>notes/</code>, including
-          nested folders. Folders can be created, renamed, and reorganized from the sidebar.
+          <strong>Standalone notes</strong> — create regular notes under <code>notes/</code>,
+          including nested folders. Folders can be created, renamed, and reorganized from the
+          sidebar.
         </li>
       </ul>
       <div class="callout">
@@ -129,25 +134,26 @@
       <h3>Rename a note without breaking its context</h3>
       <p>
         Rename a standalone note from its sidebar context menu or the editor's <em>More</em> menu.
-        Moldavite updates the open note, tabs, recents, pinned state, colors, selection, and backlinks
-        to the new path, then rewrites inbound wiki-links across the Forge. Daily and weekly notes
-        stay date-named and cannot be renamed through this action.
+        Moldavite updates the open note, tabs, recents, pinned state, colors, selection, and
+        backlinks to the new path, then rewrites inbound wiki-links across the Forge. Daily and
+        weekly notes stay date-named and cannot be renamed through this action.
       </p>
 
       <h3>Graph view</h3>
       <p>
         Open the graph from the quick switcher to explore connections. In v1.6, nodes use complete
-        Forge-relative paths, so folder notes, daily notes, and weekly notes with similar names remain
-        distinct and open the correct file. Broken-link nodes stay visible without colliding with
-        real notes.
+        Forge-relative paths, so folder notes, daily notes, and weekly notes with similar names
+        remain distinct and open the correct file. Broken-link nodes stay visible without colliding
+        with real notes.
       </p>
       <ul>
         <li>Hover a node to highlight its neighbors and connecting edges.</li>
         <li>Drag nodes, drag empty space to pan, and use the wheel or trackpad to zoom.</li>
         <li>Use <strong>Fit view</strong> whenever you want to recover a useful framing.</li>
         <li>
-          The bounded deterministic layout settles instead of running perpetual all-pairs physics;
-          the canvas refits on resize and redraws when the theme changes.
+          Short springs and per-component gravity pull connected notes into visible clusters while
+          isolated notes settle into peripheral rings. The bounded deterministic layout cools to a
+          stop, refits on resize, and redraws when the theme changes.
         </li>
       </ul>
 
@@ -221,8 +227,8 @@
       <h3>Choose a transparent local model</h3>
       <p>
         Before the first download, Moldavite's consent dialog names the selected model and its
-        approximate size. The model is cached in the app data directory, never in a Forge. Notes
-        are embedded on your Mac; locked notes are never read or indexed.
+        approximate size. The model is cached in the app data directory, never in a Forge. Notes are
+        embedded on your Mac; locked notes are never read or indexed.
       </p>
       <div class="table-scroll">
         <table>
@@ -279,7 +285,8 @@
       <p>
         Moldavite has no hosted note service, accounts, analytics, or telemetry. Notes stay in the
         directory you choose. The app still has explicit network paths: signed update checks,
-        consented semantic-model downloads, and HTTPS calls made for a plugin to a host you approved.
+        consented semantic-model downloads, and HTTPS calls made for a plugin to a host you
+        approved.
       </p>
       <ul>
         <li>
@@ -317,7 +324,9 @@
           <code>&lt;name&gt; (conflict YYYY-MM-DD HHMM).md</code>.
         </li>
         <li>Your Moldavite edits are saved to the original path.</li>
-        <li>A warning toast names the conflict note and the sidebar refreshes so you can merge it.</li>
+        <li>
+          A warning toast names the conflict note and the sidebar refreshes so you can merge it.
+        </li>
       </ol>
       <p>
         Simultaneous conflict copies in the same minute receive a numeric suffix instead of
@@ -345,6 +354,31 @@
         <a href="plugins.html">complete author guide</a> for the exact API and security model.
       </p>
 
+      <h3>Browse the community directory</h3>
+      <ol>
+        <li>Open <strong>Settings → Plugins</strong>.</li>
+        <li>
+          Select <strong>Browse community plugins</strong>. This is the explicit action that
+          contacts GitHub; Moldavite never fetches the registry during startup or in the background.
+        </li>
+        <li>
+          Review the author, requested permissions, and exact network hosts, then select Install.
+        </li>
+        <li>
+          Moldavite downloads only from its pinned community repository and verifies both files in
+          Rust against the registry SHA-256 hashes before installing them atomically.
+        </li>
+        <li>
+          Read the <strong>About this plugin</strong> setup dialog, then enable the plugin and grant
+          its permissions separately. The ⓘ action reopens those instructions at any time.
+        </li>
+      </ol>
+      <p>
+        Installed registry versions are labeled clearly. Updating requires confirmation, and any
+        manifest or code change invalidates the old consent hash so the plugin remains disabled
+        until you review it again.
+      </p>
+
       <h3>Install the first-party WordPress reference</h3>
       <ol>
         <li>Open <strong>Settings → Plugins</strong>.</li>
@@ -353,13 +387,15 @@
           Run <strong>Configure WordPress publishing</strong> and enter an HTTPS site URL, username,
           and WordPress Application Password in the Moldavite-rendered prompt.
         </li>
-        <li>Approve the exact site host. The plugin verifies the credentials before saving them.</li>
+        <li>
+          Approve the exact site host. The plugin verifies the credentials before saving them.
+        </li>
         <li>Open a note and run <strong>Publish note to WordPress…</strong>.</li>
       </ol>
       <p>
-        The first publish creates a draft. Publishing the same Forge-relative note path again updates
-        the mapped post instead of creating a duplicate. Configuration and the path-to-post map live
-        in the plugin's Keychain namespace, not in the Forge.
+        The first publish creates a draft. Publishing the same Forge-relative note path again
+        updates the mapped post instead of creating a duplicate. Configuration and the path-to-post
+        map live in the plugin's Keychain namespace, not in the Forge.
       </p>
       <div class="callout warn">
         <span class="callout-title">WordPress.com support boundary</span>
@@ -467,8 +503,8 @@
             <tr>
               <td><code>search_notes</code></td>
               <td>
-                Uses the ready local semantic index when enabled; otherwise keyword full-text search.
-                The response identifies the mode used.
+                Uses the ready local semantic index when enabled; otherwise keyword full-text
+                search. The response identifies the mode used.
               </td>
               <td>Available</td>
             </tr>
@@ -508,8 +544,9 @@
       <p>
         Enable the three write tools only through
         <strong>Settings → AI &amp; Agents → Allow agents to write notes</strong>. The setting is
-        re-read for every request, so turning it off removes and blocks write tools in already-running
-        sessions. Locked notes remain inaccessible, and every client-supplied path is validated.
+        re-read for every request, so turning it off removes and blocks write tools in
+        already-running sessions. Locked notes remain inaccessible, and every client-supplied path
+        is validated.
       </p>
 
       <div class="next-links">
@@ -539,17 +576,5 @@
         </p>
       </div>
     </footer>
-
-    <script>
-      (function () {
-        var toggle = document.querySelector('.nav-toggle');
-        var nav = document.getElementById('nav');
-        if (!toggle || !nav) return;
-        toggle.addEventListener('click', function () {
-          var open = nav.classList.toggle('open');
-          toggle.setAttribute('aria-expanded', String(open));
-        });
-      })();
-    </script>
   </body>
 </html>

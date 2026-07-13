@@ -80,8 +80,8 @@ use commands::notes::{
     fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
 };
 use commands::plugins::{
-    install_example_plugin, install_wordpress_plugin, list_plugins, plugin_secret_delete,
-    plugin_secret_get, plugin_secret_set, uninstall_plugin,
+    install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
+    plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
 };
 use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::search_notes_content;
@@ -259,6 +259,7 @@ pub fn run() {
             uninstall_plugin,
             install_example_plugin,
             install_wordpress_plugin,
+            install_plugin_from_data,
             plugin_secret_get,
             plugin_secret_set,
             plugin_secret_delete,

@@ -96,7 +96,7 @@ API v2 requires at least one manifest `allowedHosts` entry whenever
 hosts at runtime. Runtime grants extend the manifest list; they do not replace
 this validation requirement.
 
-Every successful bundled-plugin install opens a themed **About this plugin**
+Every successful in-app install opens a themed **About this plugin**
 dialog sourced from this validated metadata. The same dialog is always
 available from the ⓘ button on the installed plugin card. If `instructions` is
 omitted, Moldavite generates a short enable-and-open-the-palette flow from the
@@ -507,19 +507,30 @@ expose the standard REST API and Application Passwords. **WordPress.com Simple
 sites are not supported**: they require OAuth with a separately registered
 client ID, and the reference plugin intentionally does not embed or fake one.
 
-## Distribution, updates, and cleanup
+## Distributing your plugin
 
 - Distribute one folder whose name equals the manifest id and which contains
-  `manifest.json`, the final self-contained `plugin.js`, and a README. There is
-  no public plugin registry or remote third-party installer in v1.6.
+  `manifest.json`, the final self-contained `plugin.js`, and a README.
+- To list it publicly, fork
+  [moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins), add
+  the folder under `plugins/<id>/`, add its metadata and the exact SHA-256 of
+  both distributed files to the root `registry.json`, and open a pull request.
+  Registry review is the distribution gate; keep the submitted source and
+  hashes synchronized in the same PR.
 - Document every external service, exact manifest host, runtime-host reason,
   credential key, destructive action, and publishing action. Keep permissions
   minimal.
-- Users install manually by copying the folder to `<Forge>/.plugins/` and
-  reopening **Settings → Plugins**. Enable state and consent are per Forge.
-- To update, replace the plugin files and increment `version` for human
-  clarity. Any byte change already invalidates the content-hash grant and
-  requires fresh consent.
+- Users select **Settings → Plugins → Browse community plugins** to fetch the
+  directory explicitly; Moldavite never checks it at startup. The app constructs
+  file URLs only inside the pinned registry repository, and Rust verifies the
+  registry hashes before the shared staged/atomic installer writes either file.
+  Manual folder copies under `<Forge>/.plugins/` remain supported.
+- To update, submit the new files, hashes, metadata, and incremented `version`
+  together. Installed users see an Update action and must confirm replacement.
+  Any byte change invalidates the content-hash grant and requires fresh consent.
+- Successful community and bundled installs open **About this plugin** with the
+  manifest instructions. Installation never enables a plugin; enable state and
+  consent remain per Forge.
 - Uninstalling in Settings deletes the plugin folder and forgets its
   consent/runtime-host grant. It does **not** automatically delete macOS
   Keychain secrets because plugin keys are intentionally not enumerable.
