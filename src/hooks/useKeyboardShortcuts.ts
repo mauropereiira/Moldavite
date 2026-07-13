@@ -1,3 +1,9 @@
+/**
+ * Global keyboard event dispatch for the canonical shortcut registry.
+ * Registry ids in `lib/shortcuts.ts` are the coordination contract with help UI;
+ * modal/editor context checks must run before a shortcut mutates application state.
+ */
+
 import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
@@ -35,7 +41,8 @@ export function useKeyboardShortcuts({
   onInsertLink,
 }: ShortcutOptions) {
   const { setIsSettingsOpen } = useSettingsStore();
-  const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } = useNoteStore();
+  const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } =
+    useNoteStore();
   const { open: openQuickSwitcher } = useQuickSwitcherStore();
   const { toggle: toggleGraph } = useGraphStore();
   const toast = useToast();
@@ -45,58 +52,61 @@ export function useKeyboardShortcuts({
    * Applies a template to the current note, or creates a new note if none is open.
    * @param templateId - The template to use, or null to cancel
    */
-  const handleTemplateSelect = useCallback(async (templateId: string | null) => {
-    setShowTemplatePicker(false);
+  const handleTemplateSelect = useCallback(
+    async (templateId: string | null) => {
+      setShowTemplatePicker(false);
 
-    if (!templateId) return;
+      if (!templateId) return;
 
-    // Get current note from store
-    const { currentNote } = useNoteStore.getState();
+      // Get current note from store
+      const { currentNote } = useNoteStore.getState();
 
-    try {
-      if (currentNote && editor) {
-        // Apply template to current note - update editor directly
-        const markdownContent = await applyTemplate(templateId);
-        const htmlContent = markdownToHtml(markdownContent);
-        editor.commands.setContent(htmlContent);
-        toast.success('Template applied');
-      } else {
-        // No note open - create a new note from template
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-        const filename = `Note ${timestamp}.md`;
+      try {
+        if (currentNote && editor) {
+          // Apply template to current note - update editor directly
+          const markdownContent = await applyTemplate(templateId);
+          const htmlContent = markdownToHtml(markdownContent);
+          editor.commands.setContent(htmlContent);
+          toast.success('Template applied');
+        } else {
+          // No note open - create a new note from template
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+          const filename = `Note ${timestamp}.md`;
 
-        await invoke('create_note_from_template', {
-          filename,
-          templateId,
-          isDaily: false
-        });
+          await invoke('create_note_from_template', {
+            filename,
+            templateId,
+            isDaily: false,
+          });
 
-        const noteFile: NoteFile = {
-          name: filename,
-          path: filename,
-          isDaily: false,
-          isWeekly: false,
-          isLocked: false,
-        };
+          const noteFile: NoteFile = {
+            name: filename,
+            path: filename,
+            isDaily: false,
+            isWeekly: false,
+            isLocked: false,
+          };
 
-        setNotes([...notes, noteFile]);
+          setNotes([...notes, noteFile]);
 
-        const readContent = await invoke<string>('read_note', {
-          filename,
-          isDaily: false
-        });
+          const readContent = await invoke<string>('read_note', {
+            filename,
+            isDaily: false,
+          });
 
-        const htmlContent = markdownToHtml(readContent);
-        const note = filenameToNote(noteFile, htmlContent);
-        setCurrentNote(note);
+          const htmlContent = markdownToHtml(readContent);
+          const note = filenameToNote(noteFile, htmlContent);
+          setCurrentNote(note);
 
-        toast.success('Note created from template');
+          toast.success('Note created from template');
+        }
+      } catch (error) {
+        console.error('[useKeyboardShortcuts] Failed to apply template:', error);
+        toast.error('Failed to apply template');
       }
-    } catch (error) {
-      console.error('[useKeyboardShortcuts] Failed to apply template:', error);
-      toast.error('Failed to apply template');
-    }
-  }, [editor, notes, setNotes, setCurrentNote, toast]);
+    },
+    [editor, notes, setNotes, setCurrentNote, toast]
+  );
 
   // Close template picker
   const handleTemplatePickerClose = useCallback(() => {
@@ -121,7 +131,7 @@ export function useKeyboardShortcuts({
       // Cmd+/ (help modal) is intentionally NOT handled here — it's owned by
       // `ShortcutHelpHost`, which mounts at the app root so the help modal
       // is reachable even when no editor is mounted.
-      if (isMod && (key === 'p')) return 'quickSwitcher';
+      if (isMod && key === 'p') return 'quickSwitcher';
       if (isMod && key === ',') return 'settings';
       if (isMod && key === 'n') return 'newNote';
       if (isMod && e.shiftKey && key === 'l') return 'toggleTheme';

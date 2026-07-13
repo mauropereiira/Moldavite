@@ -15,9 +15,7 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
     if (!currentNote) return;
 
     // Create partial wiki link for easy paste - user can confirm via autocomplete
-    const noteName = currentNote.isDaily && currentNote.date
-      ? currentNote.date
-      : currentNote.title;
+    const noteName = currentNote.isDaily && currentNote.date ? currentNote.date : currentNote.title;
 
     const wikiLink = `[${noteName}`;
 
@@ -64,25 +62,16 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
       position="right"
       openDirection={openDirection}
       trigger={
-        <button
-          className="toolbar-button"
-          title="Share"
-        >
+        <button className="toolbar-button" title="Share">
           <Share2 className="w-4 h-4" />
         </button>
       }
     >
-      <DropdownItem
-        onClick={handleCopyLink}
-        icon={<Link2 className="w-4 h-4" />}
-      >
+      <DropdownItem onClick={handleCopyLink} icon={<Link2 className="w-4 h-4" />}>
         Copy wiki link
       </DropdownItem>
       <DropdownDivider />
-      <DropdownItem
-        onClick={handleExportText}
-        icon={<FileText className="w-4 h-4" />}
-      >
+      <DropdownItem onClick={handleExportText} icon={<FileText className="w-4 h-4" />}>
         Export as plain text
       </DropdownItem>
     </Dropdown>

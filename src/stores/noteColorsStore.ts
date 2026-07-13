@@ -1,3 +1,9 @@
+/**
+ * Frontend cache and mutations for note colors stored in YAML frontmatter.
+ * Keys use the same daily/standalone note addresses as backend color commands;
+ * successful mutations update the cache only after persistence succeeds.
+ */
+
 import { create } from 'zustand';
 import { getAllNoteColors, setNoteColor } from '@/lib';
 import type { NoteColorId } from '@/components/ui/NoteColorPicker';
@@ -8,6 +14,7 @@ interface NoteColorsState {
   loadColors: () => Promise<void>;
   getColor: (notePath: string) => NoteColorId;
   setColor: (notePath: string, colorId: NoteColorId) => Promise<void>;
+  renameColor: (oldPath: string, newPath: string) => void;
 }
 
 export const useNoteColorsStore = create<NoteColorsState>((set, get) => ({
@@ -46,6 +53,13 @@ export const useNoteColorsStore = create<NoteColorsState>((set, get) => ({
       const freshColors = await getAllNoteColors();
       set({ colors: freshColors });
     }
+  },
+
+  renameColor: (oldPath: string, newPath: string) => {
+    const colors = get().colors;
+    if (!(oldPath in colors)) return;
+    const { [oldPath]: color, ...rest } = colors;
+    set({ colors: { ...rest, [newPath]: color } });
   },
 }));
 

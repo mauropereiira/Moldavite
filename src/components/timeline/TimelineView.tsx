@@ -218,16 +218,10 @@ function NoteRow({ note, preview, onClick }: NoteRowProps) {
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <FileText
-        className="w-4 h-4 mt-0.5 flex-shrink-0"
-        style={{ color: 'var(--text-muted)' }}
-      />
+      <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
       <span className="flex-1 min-w-0">
         <span className="flex items-baseline gap-2">
-          <span
-            className="text-sm font-medium truncate"
-            style={{ color: 'var(--text-primary)' }}
-          >
+          <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
             {title}
           </span>
           {folder && (
@@ -358,9 +352,7 @@ function stripForPreview(raw: string): string {
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return text.length > MAX_PREVIEW_CHARS
-    ? `${text.slice(0, MAX_PREVIEW_CHARS).trimEnd()}…`
-    : text;
+  return text.length > MAX_PREVIEW_CHARS ? `${text.slice(0, MAX_PREVIEW_CHARS).trimEnd()}…` : text;
 }
 
 function formatEventTime(event: CalendarEvent): string {

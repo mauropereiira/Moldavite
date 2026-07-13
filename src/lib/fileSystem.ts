@@ -1,6 +1,26 @@
+/**
+ * Frontend filesystem boundary: note conversion, addressing, conflict tracking,
+ * and typed Tauri IPC wrappers.
+ *
+ * Editor state is trusted HTML, disk state is Markdown, and every Markdown-to-HTML
+ * conversion is sanitized before it reaches TipTap. Daily and weekly commands use
+ * bare filenames; standalone commands use paths relative to `notes/` and must never
+ * derive those paths from display titles. The module-level hash registry records the
+ * last observed body for optimistic external-edit conflict safety; reads and successful
+ * writes are the only operations that advance a note's base hash.
+ */
+
 import { safeInvoke as invoke } from './ipc';
 import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
-import { format, parse, isValid, getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek } from 'date-fns';
+import {
+  format,
+  parse,
+  isValid,
+  getISOWeek,
+  getISOWeekYear,
+  startOfISOWeek,
+  endOfISOWeek,
+} from 'date-fns';
 import { hasTag, renameTagInContent } from './tags';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
@@ -22,14 +42,14 @@ turndownService.addRule('underline', {
   filter: ['u'],
   replacement: function (content) {
     return `<u>${content}</u>`;
-  }
+  },
 });
 
 turndownService.addRule('highlight', {
   filter: ['mark'],
   replacement: function (content) {
     return `<mark>${content}</mark>`;
-  }
+  },
 });
 
 turndownService.addRule('textAlign', {
@@ -44,7 +64,7 @@ turndownService.addRule('textAlign', {
       return `<p style="text-align: ${align}">${content}</p>\n\n`;
     }
     return content + '\n\n';
-  }
+  },
 });
 
 // Add rule for wiki links (must be before we use turndownService)
@@ -68,13 +88,13 @@ turndownService.addRule('wikiLink', {
 // Add rule to ignore checkbox inputs inside task items (we handle them via data-checked attribute)
 turndownService.addRule('taskItemCheckbox', {
   filter: function (node) {
-    return node.nodeName === 'INPUT' &&
-           node.getAttribute &&
-           node.getAttribute('type') === 'checkbox';
+    return (
+      node.nodeName === 'INPUT' && node.getAttribute && node.getAttribute('type') === 'checkbox'
+    );
   },
   replacement: function () {
     return ''; // Don't output anything for checkboxes
-  }
+  },
 });
 
 // Add rule to ignore labels inside task items (they just wrap the checkbox)
@@ -82,14 +102,16 @@ turndownService.addRule('taskItemLabel', {
   filter: function (node) {
     // Only match labels that are direct children of task items
     const parent = node.parentNode as HTMLElement | null;
-    return !!(node.nodeName === 'LABEL' &&
-           parent &&
-           parent.getAttribute &&
-           parent.getAttribute('data-type') === 'taskItem');
+    return !!(
+      node.nodeName === 'LABEL' &&
+      parent &&
+      parent.getAttribute &&
+      parent.getAttribute('data-type') === 'taskItem'
+    );
   },
   replacement: function () {
     return ''; // Don't output anything for task item labels
-  }
+  },
 });
 
 // Add rule for divs inside task items - strip block formatting
@@ -98,22 +120,24 @@ turndownService.addRule('taskItemLabel', {
 turndownService.addRule('taskItemDiv', {
   filter: function (node) {
     const parent = node.parentNode as HTMLElement | null;
-    return !!(node.nodeName === 'DIV' &&
-           parent &&
-           parent.getAttribute &&
-           parent.getAttribute('data-type') === 'taskItem');
+    return !!(
+      node.nodeName === 'DIV' &&
+      parent &&
+      parent.getAttribute &&
+      parent.getAttribute('data-type') === 'taskItem'
+    );
   },
   replacement: function (content) {
     return content.replace(/^\n+/, '').replace(/\n+$/, '');
-  }
+  },
 });
 
 // Add rule for TipTap task list items - converts to GFM checkbox syntax
 turndownService.addRule('taskItem', {
   filter: function (node) {
-    return node.nodeName === 'LI' &&
-           node.getAttribute &&
-           node.getAttribute('data-type') === 'taskItem';
+    return (
+      node.nodeName === 'LI' && node.getAttribute && node.getAttribute('data-type') === 'taskItem'
+    );
   },
   replacement: function (content, node) {
     const element = node as HTMLElement;
@@ -121,25 +145,25 @@ turndownService.addRule('taskItem', {
     const checkbox = isChecked ? '[x]' : '[ ]';
     // Clean up the content - remove any whitespace artifacts
     const cleanContent = content
-      .replace(/^\s+/, '')              // Strip ALL leading whitespace
-      .replace(/\s+$/, '')              // Strip ALL trailing whitespace
-      .replace(/\\\[[\sx]?\\\]/g, '')   // Remove any escaped checkbox remnants
+      .replace(/^\s+/, '') // Strip ALL leading whitespace
+      .replace(/\s+$/, '') // Strip ALL trailing whitespace
+      .replace(/\\\[[\sx]?\\\]/g, '') // Remove any escaped checkbox remnants
       .trim();
     return `- ${checkbox} ${cleanContent}\n`;
-  }
+  },
 });
 
 // Add rule for TipTap task list container
 turndownService.addRule('taskList', {
   filter: function (node) {
-    return node.nodeName === 'UL' &&
-           node.getAttribute &&
-           node.getAttribute('data-type') === 'taskList';
+    return (
+      node.nodeName === 'UL' && node.getAttribute && node.getAttribute('data-type') === 'taskList'
+    );
   },
   replacement: function (content) {
     // Content is already processed by taskItem rule
     return '\n' + content + '\n';
-  }
+  },
 });
 
 // Add rule to preserve images as HTML with all attributes (width, alignment)
@@ -158,7 +182,7 @@ turndownService.addRule('image', {
     if (alignment) attrs += ` data-alignment="${alignment}"`;
 
     return `<img ${attrs}>`;
-  }
+  },
 });
 
 const md = new MarkdownIt({
@@ -180,34 +204,80 @@ md.use(markdownItTaskLists, {
 const DOMPURIFY_CONFIG = {
   ALLOWED_TAGS: [
     // Text formatting
-    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark', 'code', 'pre',
+    'p',
+    'br',
+    'strong',
+    'b',
+    'em',
+    'i',
+    'u',
+    's',
+    'del',
+    'mark',
+    'code',
+    'pre',
     // Headings
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
     // Lists
-    'ul', 'ol', 'li',
+    'ul',
+    'ol',
+    'li',
     // Blocks
-    'blockquote', 'hr', 'div', 'span',
+    'blockquote',
+    'hr',
+    'div',
+    'span',
     // Links and media
-    'a', 'img',
+    'a',
+    'img',
     // Tables
-    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    'table',
+    'thead',
+    'tbody',
+    'tfoot',
+    'tr',
+    'th',
+    'td',
     // Form elements for task lists
-    'input', 'label',
+    'input',
+    'label',
     // Custom elements
     'wiki-link',
   ],
   ALLOWED_ATTR: [
     // Global
-    'class', 'id', 'style',
+    'class',
+    'id',
+    'style',
     // Links
-    'href', 'target', 'rel',
+    'href',
+    'target',
+    'rel',
     // Images
-    'src', 'alt', 'title', 'width', 'height',
+    'src',
+    'alt',
+    'title',
+    'width',
+    'height',
     // Data attributes (only specific ones needed for TipTap - no wildcards)
-    'data-type', 'data-checked', 'data-target', 'data-label', 'data-wiki-link',
-    'data-text-align', 'data-indent', 'data-node-type', 'data-alignment',
+    'data-type',
+    'data-checked',
+    'data-target',
+    'data-label',
+    'data-wiki-link',
+    'data-text-align',
+    'data-indent',
+    'data-node-type',
+    'data-alignment',
     // Form elements
-    'type', 'checked', 'disabled',
+    'type',
+    'checked',
+    'disabled',
   ],
   // Only allow explicitly listed data-* attributes above (not all data-* attributes)
   ALLOW_DATA_ATTR: false,
@@ -223,9 +293,11 @@ const DOMPURIFY_CONFIG = {
 DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
   if (data.attrName === 'src' && data.attrValue) {
     // Allow asset.localhost URLs (Tauri's convertFileSrc output)
-    if (data.attrValue.startsWith('http://asset.localhost/') ||
-        data.attrValue.startsWith('https://asset.localhost/') ||
-        data.attrValue.startsWith('asset://')) {
+    if (
+      data.attrValue.startsWith('http://asset.localhost/') ||
+      data.attrValue.startsWith('https://asset.localhost/') ||
+      data.attrValue.startsWith('asset://')
+    ) {
       data.forceKeepAttr = true;
     }
   }
@@ -245,9 +317,9 @@ export function hasWikiLinks(text: string): boolean {
  * @param markdown - The Markdown content to parse
  * @returns Array of wiki links with text and target
  */
-export function parseWikiLinks(markdown: string): Array<{text: string, target: string}> {
+export function parseWikiLinks(markdown: string): Array<{ text: string; target: string }> {
   const regex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
-  const links: Array<{text: string, target: string}> = [];
+  const links: Array<{ text: string; target: string }> = [];
   let match;
 
   while ((match = regex.exec(markdown)) !== null) {
@@ -262,7 +334,9 @@ export function parseWikiLinks(markdown: string): Array<{text: string, target: s
 /**
  * Slugifies a note name (or filename) for wiki-link resolution. Unicode-aware
  * and NFC-normalized so "Café" keeps its accent — this MUST stay in sync with
- * note_name_to_filename in src-tauri/src/wiki.rs, which applies the same rule.
+ * `note_name_to_filename` in `src-tauri/src/wiki.rs`, which applies the same rule.
+ * The mirrored cases are `src/lib/slugify.test.ts` and the tests in `wiki.rs`;
+ * update both implementations and both test suites together.
  * @param name - The human-readable note name, with or without .md extension
  * @returns The slug without extension (e.g. "meeting-notes")
  */
@@ -314,13 +388,13 @@ function splitMixedTaskLists(html: string): string {
   // Find all contains-task-list ULs
   const taskLists = doc.querySelectorAll('ul.contains-task-list');
 
-  taskLists.forEach(ul => {
+  taskLists.forEach((ul) => {
     const items = Array.from(ul.children);
     const taskItems: Element[] = [];
     const regularItems: Element[] = [];
 
     // Separate task items from regular items
-    items.forEach(li => {
+    items.forEach((li) => {
       if (li.classList.contains('task-list-item')) {
         taskItems.push(li);
       } else {
@@ -332,7 +406,7 @@ function splitMixedTaskLists(html: string): string {
     if (taskItems.length > 0 && regularItems.length > 0) {
       // Create new regular <ul> for non-task items
       const regularUl = doc.createElement('ul');
-      regularItems.forEach(item => {
+      regularItems.forEach((item) => {
         regularUl.appendChild(item);
       });
 
@@ -360,17 +434,14 @@ export function markdownToHtml(markdown: string): string {
   let processed = markdown;
 
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
-  processed = processed.replace(
-    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (_match, text, target) => {
-      const displayText = text.trim();
-      const targetNote = (target || text).trim();
-      // Convert to filename format
-      const filename = noteNameToFilename(targetNote);
+  processed = processed.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, text, target) => {
+    const displayText = text.trim();
+    const targetNote = (target || text).trim();
+    // Convert to filename format
+    const filename = noteNameToFilename(targetNote);
 
-      return `<wiki-link data-target="${filename}">${displayText}</wiki-link>`;
-    }
-  );
+    return `<wiki-link data-target="${filename}">${displayText}</wiki-link>`;
+  });
 
   // Render markdown to HTML
   let html = md.render(processed);
@@ -384,10 +455,7 @@ export function markdownToHtml(markdown: string): string {
   // TipTap expects: <ul data-type="taskList"><li data-type="taskItem" data-checked="true/false"><label><input.../></label><div><p>text</p></div></li></ul>
 
   // Replace task list containers
-  html = html.replace(
-    /<ul class="contains-task-list">/g,
-    '<ul data-type="taskList">'
-  );
+  html = html.replace(/<ul class="contains-task-list">/g, '<ul data-type="taskList">');
 
   // Replace task list items - handle both checked and unchecked
   // markdown-it-task-lists produces: <li class="task-list-item enabled"><input class="task-list-item-checkbox" type="checkbox">text</li>
@@ -448,17 +516,18 @@ export function isHtmlContent(content: string): boolean {
   if (!content) return false;
   // Check if content starts with HTML tags or contains typical HTML patterns
   const trimmed = content.trim();
-  return trimmed.startsWith('<') && (
-    trimmed.startsWith('<p>') ||
-    trimmed.startsWith('<h1>') ||
-    trimmed.startsWith('<h2>') ||
-    trimmed.startsWith('<h3>') ||
-    trimmed.startsWith('<ul>') ||
-    trimmed.startsWith('<ol>') ||
-    trimmed.startsWith('<blockquote>') ||
-    trimmed.startsWith('<pre>') ||
-    trimmed.startsWith('<div>') ||
-    trimmed.startsWith('<img')
+  return (
+    trimmed.startsWith('<') &&
+    (trimmed.startsWith('<p>') ||
+      trimmed.startsWith('<h1>') ||
+      trimmed.startsWith('<h2>') ||
+      trimmed.startsWith('<h3>') ||
+      trimmed.startsWith('<ul>') ||
+      trimmed.startsWith('<ol>') ||
+      trimmed.startsWith('<blockquote>') ||
+      trimmed.startsWith('<pre>') ||
+      trimmed.startsWith('<div>') ||
+      trimmed.startsWith('<img'))
   );
 }
 
@@ -481,11 +550,53 @@ export async function listNotes(): Promise<NoteFile[]> {
 /**
  * Result shape returned by `read_note`. The body has had any leading YAML
  * frontmatter stripped; structured fields (currently just `color`) are
- * surfaced separately.
+ * surfaced separately. `contentHash` is the SHA-256 hex of `content`, used
+ * as the base for external-edit conflict detection on the next save.
  */
 export interface NoteReadResult {
   content: string;
   color: string | null;
+  contentHash: string;
+}
+
+/**
+ * Result shape returned by `write_note`. `contentHash` is the hash of the
+ * body just written (stored as the new conflict-detection base).
+ * `conflictCopy` is the relative path of the conflict copy created when the
+ * on-disk note had changed externally since it was last read, else null.
+ */
+export interface NoteWriteResult {
+  contentHash: string;
+  conflictCopy: string | null;
+}
+
+/**
+ * Per-note base hashes for external-edit conflict detection, keyed by the
+ * note's backend address (kind + filename). Recorded on every read, sent to
+ * the backend on every write, and replaced with the hash of what was just
+ * written after a successful save. The registry is module-level state: it
+ * resets on window reload, which matches Forge switching (a full reload).
+ * `lockedNoteWrites` prevents new saves during a lock transition, while
+ * `noteWritesInFlight` lets that transition drain already-started writes.
+ */
+const noteBaseHashes = new Map<string, string>();
+const lockedNoteWrites = new Set<string>();
+const noteWritesInFlight = new Map<string, Set<Promise<NoteWriteResult>>>();
+
+export class LockedNoteWriteError extends Error {
+  constructor() {
+    super('Note is locked');
+    this.name = 'LockedNoteWriteError';
+  }
+}
+
+function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): string {
+  return `${isDaily ? 'daily' : isWeekly ? 'weekly' : 'notes'}:${filename}`;
+}
+
+/** Drop the recorded base hash for a note (after delete/rename/move). */
+function forgetNoteBaseHash(filename: string, isDaily: boolean, isWeekly: boolean): void {
+  noteBaseHashes.delete(noteHashKey(filename, isDaily, isWeekly));
 }
 
 /**
@@ -508,40 +619,77 @@ export function noteFileBackendPath(note: Pick<NoteFile, 'name' | 'folderPath'>)
 export async function readNote(
   filename: string,
   isDaily: boolean,
-  isWeekly: boolean = false,
+  isWeekly: boolean = false
 ): Promise<string> {
-  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  const result = await readNoteWithMeta(filename, isDaily, isWeekly);
   return result.content;
 }
 
 /**
- * Same as {@link readNote}, but returns the structured result with `color`.
+ * Same as {@link readNote}, but returns the structured result with `color`
+ * and `contentHash`.
  */
 export async function readNoteWithMeta(
   filename: string,
   isDaily: boolean,
-  isWeekly: boolean = false,
+  isWeekly: boolean = false
 ): Promise<NoteReadResult> {
-  return await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  // Remember what we read so the next save can detect external edits.
+  noteBaseHashes.set(noteHashKey(filename, isDaily, isWeekly), result.contentHash);
+  return result;
 }
 
 /**
  * Writes content to a note file, creating it if it doesn't exist.
+ *
+ * External-edit conflict safety: the hash recorded by the last read of this
+ * note is sent along as `baseHash`. If the on-disk content changed since
+ * then (sync tool, other editor…) and differs from `content`, the backend
+ * preserves the disk version as a sibling conflict copy before writing —
+ * check `conflictCopy` on the result to surface that to the user.
+ *
  * @param filename - The note filename
  * @param content - The Markdown content to write
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  * @param color - Optional color id to stamp into frontmatter. `null`/undefined
  *   leaves the existing color in place; pass `"default"` to clear it.
+ * @returns The write result with the new content hash and any conflict copy
  */
 export async function writeNote(
   filename: string,
   content: string,
   isDaily: boolean,
   isWeekly: boolean = false,
-  color?: string | null,
-): Promise<void> {
-  await invoke('write_note', { filename, content, isDaily, isWeekly, color: color ?? null });
+  color?: string | null
+): Promise<NoteWriteResult> {
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  if (lockedNoteWrites.has(key)) {
+    throw new LockedNoteWriteError();
+  }
+
+  const write = invoke<NoteWriteResult>('write_note', {
+    filename,
+    content,
+    isDaily,
+    isWeekly,
+    color: color ?? null,
+    baseHash: noteBaseHashes.get(key) ?? null,
+  });
+  const writes = noteWritesInFlight.get(key) ?? new Set<Promise<NoteWriteResult>>();
+  writes.add(write);
+  noteWritesInFlight.set(key, writes);
+
+  try {
+    const result = await write;
+    // What we just wrote is the new base for the next conflict check.
+    noteBaseHashes.set(key, result.contentHash);
+    return result;
+  } finally {
+    writes.delete(write);
+    if (writes.size === 0) noteWritesInFlight.delete(key);
+  }
 }
 
 /**
@@ -550,8 +698,13 @@ export async function writeNote(
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  */
-export async function deleteNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+export async function deleteNote(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
   await invoke('delete_note', { filename, isDaily, isWeekly });
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**
@@ -571,8 +724,14 @@ export async function createNote(title: string, folderPath?: string): Promise<st
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  */
-export async function renameNote(oldFilename: string, newFilename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+export async function renameNote(
+  oldFilename: string,
+  newFilename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
   await invoke('rename_note', { oldFilename, newFilename, isDaily, isWeekly });
+  forgetNoteBaseHash(oldFilename, isDaily, isWeekly);
 }
 
 /**
@@ -631,7 +790,9 @@ export function getWeeklyNoteFilename(date: Date): string {
  * @param filename - The filename to parse (e.g., "2024-W52.md")
  * @returns Object with year, week number, and start/end dates, or null if invalid
  */
-export function parseWeeklyNoteFilename(filename: string): { year: number; week: number; start: Date; end: Date } | null {
+export function parseWeeklyNoteFilename(
+  filename: string
+): { year: number; week: number; start: Date; end: Date } | null {
   const match = filename.match(/^(\d{4})-W(\d{2})\.md$/);
   if (!match) return null;
 
@@ -727,8 +888,23 @@ export async function checkNoteExists(noteName: string): Promise<boolean> {
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  */
-export async function lockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
-  await invoke('lock_note', { filename, password, isDaily, isWeekly });
+export async function lockNote(
+  filename: string,
+  password: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  lockedNoteWrites.add(key);
+  try {
+    const pending = noteWritesInFlight.get(key);
+    if (pending) await Promise.all(pending);
+    await invoke('lock_note', { filename, password, isDaily, isWeekly });
+    forgetNoteBaseHash(filename, isDaily, isWeekly);
+  } catch (error) {
+    lockedNoteWrites.delete(key);
+    throw error;
+  }
 }
 
 /**
@@ -740,8 +916,16 @@ export async function lockNote(filename: string, password: string, isDaily: bool
  * @param isWeekly - Whether this is a weekly note
  * @returns The decrypted content
  */
-export async function unlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<string> {
-  return await invoke('unlock_note', { filename, password, isDaily, isWeekly });
+export async function unlockNote(
+  filename: string,
+  password: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<string> {
+  const content = await invoke<string>('unlock_note', { filename, password, isDaily, isWeekly });
+  lockedNoteWrites.add(noteHashKey(filename, isDaily, isWeekly));
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
+  return content;
 }
 
 /**
@@ -751,8 +935,15 @@ export async function unlockNote(filename: string, password: string, isDaily: bo
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  */
-export async function permanentlyUnlockNote(filename: string, password: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+export async function permanentlyUnlockNote(
+  filename: string,
+  password: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
   await invoke('permanently_unlock_note', { filename, password, isDaily, isWeekly });
+  lockedNoteWrites.delete(noteHashKey(filename, isDaily, isWeekly));
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**
@@ -762,7 +953,11 @@ export async function permanentlyUnlockNote(filename: string, password: string, 
  * @param isWeekly - Whether this is a weekly note
  * @returns True if the note is locked
  */
-export async function isNoteLocked(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<boolean> {
+export async function isNoteLocked(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<boolean> {
   return await invoke('is_note_locked', { filename, isDaily, isWeekly });
 }
 
@@ -835,7 +1030,10 @@ export async function importNotes(zipPath: string, merge: boolean): Promise<Impo
  * @param password - The password to encrypt the backup with
  * @returns The path to the created backup file
  */
-export async function exportEncryptedBackup(destination: string, password: string): Promise<string> {
+export async function exportEncryptedBackup(
+  destination: string,
+  password: string
+): Promise<string> {
   return await invoke('export_encrypted_backup', { destination, password });
 }
 
@@ -846,7 +1044,11 @@ export async function exportEncryptedBackup(destination: string, password: strin
  * @param merge - If true, merge with existing notes; if false, replace all notes
  * @returns Import statistics (counts of imported items)
  */
-export async function importEncryptedBackup(backupPath: string, password: string, merge: boolean): Promise<ImportResult> {
+export async function importEncryptedBackup(
+  backupPath: string,
+  password: string,
+  merge: boolean
+): Promise<ImportResult> {
   return await invoke('import_encrypted_backup', { backupPath, password, merge });
 }
 
@@ -951,7 +1153,7 @@ export async function exportNoteAsPlaintext(
   filename: string,
   destination: string,
   isDaily: boolean,
-  isWeekly: boolean = false,
+  isWeekly: boolean = false
 ): Promise<string> {
   const markdown = await readNote(filename, isDaily, isWeekly);
   const plain = stripMarkdown(markdown);
@@ -1063,7 +1265,9 @@ export async function deleteFolder(path: string, force?: boolean): Promise<void>
  * @returns The new note path
  */
 export async function moveNote(notePath: string, toFolder?: string): Promise<string> {
-  return await invoke('move_note', { notePath, toFolder });
+  const newPath = await invoke<string>('move_note', { notePath, toFolder });
+  forgetNoteBaseHash(notePath, false, false);
+  return newPath;
 }
 
 /**
@@ -1085,8 +1289,13 @@ export async function moveFolder(folderPath: string, toFolder?: string): Promise
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
  */
-export async function trashNote(filename: string, isDaily: boolean, isWeekly: boolean = false): Promise<void> {
+export async function trashNote(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
   await invoke('trash_note', { filename, isDaily, isWeekly });
+  forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
 /**
@@ -1272,12 +1481,12 @@ export async function exportNoteToPdf(
   container.appendChild(wrapper);
 
   // Apply some styling fixes for PDF
-  container.querySelectorAll('a').forEach(link => {
+  container.querySelectorAll('a').forEach((link) => {
     link.style.color = '#2563eb';
     link.style.textDecoration = 'underline';
   });
 
-  container.querySelectorAll('code').forEach(code => {
+  container.querySelectorAll('code').forEach((code) => {
     code.style.backgroundColor = '#f3f4f6';
     code.style.padding = '2px 4px';
     code.style.borderRadius = '4px';
@@ -1285,14 +1494,14 @@ export async function exportNoteToPdf(
     code.style.fontSize = '13px';
   });
 
-  container.querySelectorAll('pre').forEach(pre => {
+  container.querySelectorAll('pre').forEach((pre) => {
     pre.style.backgroundColor = '#f3f4f6';
     pre.style.padding = '12px';
     pre.style.borderRadius = '8px';
     pre.style.overflow = 'auto';
   });
 
-  container.querySelectorAll('blockquote').forEach(bq => {
+  container.querySelectorAll('blockquote').forEach((bq) => {
     bq.style.borderLeft = '3px solid #d1d5db';
     bq.style.paddingLeft = '16px';
     bq.style.marginLeft = '0';
@@ -1378,12 +1587,7 @@ export async function resizeImage(
   file: File,
   options: ResizeOptions = {}
 ): Promise<{ dataUrl: string; filename: string }> {
-  const {
-    maxWidth = 1200,
-    maxHeight = 1200,
-    quality = 0.85,
-    format = 'auto',
-  } = options;
+  const { maxWidth = 1200, maxHeight = 1200, quality = 0.85, format = 'auto' } = options;
 
   return new Promise((resolve, reject) => {
     const img = new Image();

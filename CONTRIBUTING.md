@@ -1,153 +1,122 @@
 # Contributing to Moldavite
 
-Thank you for your interest in contributing to Moldavite! This document provides guidelines and instructions for contributing.
+Thanks for helping improve Moldavite. The project is a local-first macOS app, so
+changes that touch notes, paths, encryption, plugins, or agent access should be
+reviewed as changes to user data or a trust boundary.
 
-## Table of Contents
+## Development setup
 
-- [Development Setup](#development-setup)
-- [Project Structure](#project-structure)
-- [Code Style](#code-style)
-- [Making Changes](#making-changes)
-- [Pull Request Process](#pull-request-process)
-- [Reporting Issues](#reporting-issues)
+Prerequisites:
 
-## Development Setup
+- Node.js 18 or newer
+- Rust 1.77 or newer
+- Xcode Command Line Tools on macOS
 
-### Prerequisites
+Clone the repository, install dependencies, and start Tauri with frontend hot
+reload:
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [Rust](https://rustup.rs/) (latest stable)
-- [pnpm](https://pnpm.io/) (v8 or higher)
-
-### Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/mauropereira/moldavite.git
-   cd moldavite
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-3. **Run in development mode**
-   ```bash
-   pnpm tauri dev
-   ```
-
-4. **Build for production**
-   ```bash
-   pnpm tauri build
-   ```
-
-## Project Structure
-
-```
-moldavite/
-├── src/                    # React/TypeScript frontend
-│   ├── components/         # React components
-│   ├── hooks/              # Custom React hooks
-│   ├── stores/             # Zustand state stores
-│   ├── lib/                # Utility functions
-│   └── types/              # TypeScript type definitions
-├── src-tauri/              # Rust/Tauri backend
-│   ├── src/
-│   │   ├── commands/       # Tauri command modules
-│   │   ├── lib.rs          # Main library entry
-│   │   ├── encryption.rs   # Encryption utilities
-│   │   └── security.rs     # Security utilities
-│   └── Cargo.toml          # Rust dependencies
-├── public/                 # Static assets
-└── docs/                   # Documentation
+```bash
+git clone https://github.com/mauropereiira/Moldavite.git
+cd Moldavite
+npm install
+npm run tauri dev
 ```
 
-## Code Style
+Useful commands:
 
-### TypeScript/React
+```bash
+npm test                                  # Frontend tests (Vitest)
+(cd src-tauri && cargo test)              # Rust tests, including stress tests
+npm run lint                              # TypeScript/React ESLint checks
+npm run format:check                      # Prettier check
+(cd src-tauri && cargo clippy --all-targets -- -D warnings)
+npm run build                             # Frontend production build
+npm run tauri build                       # Packaged macOS application
+```
 
-- Use functional components with hooks
-- Prefer named exports over default exports
-- Add JSDoc comments to all exported functions and components
-- Use TypeScript strict mode
-- Follow existing patterns in the codebase
+Run the checks relevant to your change while iterating. Before requesting review,
+run both test suites and the lint/format checks. Changes to Rust should also pass
+Clippy with warnings denied.
 
-### Rust
+## Where things live
 
-- Follow standard Rust conventions
-- Add documentation comments (`///`) to public functions
-- Use `#[tauri::command]` for all Tauri commands
-- Handle errors gracefully with proper error messages
+The current architecture, file-storage model, command map, and feature-specific
+patterns are documented in [CLAUDE.md](CLAUDE.md). Keep that document accurate
+when architecture or commands change.
 
-### General
+- `src/components/` contains React UI grouped by feature.
+- `src/hooks/` owns component-facing effects and workflow orchestration.
+- `src/stores/` contains Zustand state; persistent state is Forge-namespaced where
+  appropriate.
+- `src/lib/fileSystem.ts` is the frontend HTML/Markdown and Tauri IPC boundary.
+- `src/lib/plugins/` contains the sandboxed Worker host, wire protocol, validation,
+  and permission-enforced plugin API.
+- `src-tauri/src/commands/` contains backend commands grouped by domain.
+- `src-tauri/src/persist.rs`, `validation.rs`, and `paths.rs` contain shared
+  filesystem invariants.
+- `src-tauri/src/mcp/` contains the headless, stdio MCP server.
+- `docs/` contains design, plugin, release, project-status, and website docs.
 
-- Keep files under 500 lines when possible
-- Extract reusable logic into separate modules
-- Use meaningful variable and function names
-- Write self-documenting code with comments for complex logic
+## Code conventions
 
-## Making Changes
+Follow the patterns already present in the file you are changing. In particular:
 
-1. **Create a branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+- Treat note display titles and disk addresses as different values. Daily and
+  weekly notes use bare filenames; standalone notes use paths relative to `notes/`.
+- Use the safe IPC wrapper on the frontend and validate every path-shaped argument
+  again in Rust.
+- Write user data through `persist::write_atomic`; do not use a bare file write.
+- Preserve unknown YAML frontmatter when editing a note.
+- Keep `slugifyNoteName` in `src/lib/fileSystem.ts` synchronized with
+  `note_name_to_filename` in `src-tauri/src/wiki.rs`, including both mirror suites.
+- Treat plugin source, manifests, Worker messages, network data, and MCP requests as
+  untrusted. Do not expose raw Tauri IPC to plugins.
+- Add factual module/file headers that state ownership and important invariants.
+  Add contract comments where a function's safety, lifecycle, or addressing rules
+  are not evident from its signature; avoid comments that merely narrate code.
+- Use `rustfmt` and Prettier rather than hand-formatting around their output.
 
-2. **Make your changes**
-   - Follow the code style guidelines
-   - Add tests if applicable
-   - Update documentation if needed
+## Tests and documentation
 
-3. **Test your changes**
-   ```bash
-   pnpm tauri dev
-   ```
+Add or update regression coverage with behavior changes. Preserve mirrored tests
+when a contract exists in both Rust and TypeScript.
 
-4. **Commit your changes**
-   ```bash
-   git commit -m "feat: add your feature description"
-   ```
+Follow the documentation-maintenance rules in [CLAUDE.md](CLAUDE.md):
 
-   Follow [Conventional Commits](https://www.conventionalcommits.org/):
-   - `feat:` - New features
-   - `fix:` - Bug fixes
-   - `docs:` - Documentation changes
-   - `refactor:` - Code refactoring
-   - `chore:` - Maintenance tasks
+- User-visible changes need an entry under the upcoming version in `CHANGELOG.md`.
+- Feature changes need corresponding updates in `README.md` and
+  `docs/PROJECT_STATUS.md`.
+- Plugin API or permission changes must update both `docs/PLUGINS.md` and
+  `docs/plugins.html`.
+- Architecture or command changes must update `CLAUDE.md`.
+- Website claims must stay aligned with shipped behavior.
 
-## Pull Request Process
+Before opening a pull request, ask whether any documentation now describes behavior
+that is no longer true. Fix it in the same pull request.
 
-1. **Push your branch**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+## Pull requests
 
-2. **Open a Pull Request**
-   - Provide a clear description of your changes
-   - Reference any related issues
-   - Include screenshots for UI changes
+Keep each pull request focused and explain the user impact, implementation, and
+verification. Include:
 
-3. **Review Process**
-   - Address any feedback from reviewers
-   - Keep your branch up to date with main
-   - Ensure all checks pass
+- A clear problem statement and summary of the approach
+- Linked issues where applicable
+- Tests for new or corrected behavior
+- Documentation updates required by the maintenance rules above
+- Screenshots or a short recording for visible UI changes
+- Any security, migration, compatibility, or user-data implications
 
-## Reporting Issues
+Do not include unrelated formatting or refactors. Make sure tests, lint, formatting,
+and relevant Rust checks are green before requesting review.
 
-When reporting issues, please include:
+## Good first areas
 
-- **Description**: Clear description of the problem
-- **Steps to Reproduce**: How to reproduce the issue
-- **Expected Behavior**: What you expected to happen
-- **Actual Behavior**: What actually happened
-- **Environment**: OS, app version, etc.
-- **Screenshots**: If applicable
+- Improve focused documentation or examples where an invariant is already tested.
+- Add regression tests for pure helpers in `src/lib/` or small Zustand stores.
+- Improve accessibility labels, keyboard behavior, or focus tests in existing UI.
+- Reproduce and document a well-scoped issue before proposing a behavioral fix.
+- Keep website or contributor documentation synchronized with existing features.
 
-## Questions?
-
-If you have questions, feel free to open an issue or discussion on GitHub.
-
----
-
-Thank you for contributing to Moldavite!
+For larger features, plugin permissions, migrations, encryption, or filesystem
+changes, open an issue first so the design and compatibility constraints can be
+agreed before implementation.

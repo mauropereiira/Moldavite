@@ -47,29 +47,17 @@ export function TrashPopover({
       if (prev) {
         // Clamp previous position in case the viewport shrank since.
         return {
-          left: Math.max(
-            GAP,
-            Math.min(window.innerWidth - POPOVER_WIDTH - GAP, prev.left),
-          ),
-          top: Math.max(
-            GAP,
-            Math.min(window.innerHeight - 80 - GAP, prev.top),
-          ),
+          left: Math.max(GAP, Math.min(window.innerWidth - POPOVER_WIDTH - GAP, prev.left)),
+          top: Math.max(GAP, Math.min(window.innerHeight - 80 - GAP, prev.top)),
         };
       }
       const rect = anchor.getBoundingClientRect();
       // Anchor sits at the bottom of the sidebar — place popover just to
       // the right of the sidebar, with its bottom aligned to the button.
-      const left = Math.min(
-        window.innerWidth - POPOVER_WIDTH - GAP,
-        rect.right + GAP,
-      );
+      const left = Math.min(window.innerWidth - POPOVER_WIDTH - GAP, rect.right + GAP);
       const top = Math.max(
         GAP,
-        Math.min(
-          window.innerHeight - POPOVER_MAX_HEIGHT - GAP,
-          rect.bottom - POPOVER_MAX_HEIGHT,
-        ),
+        Math.min(window.innerHeight - POPOVER_MAX_HEIGHT - GAP, rect.bottom - POPOVER_MAX_HEIGHT)
       );
       return { left, top };
     });
@@ -89,7 +77,7 @@ export function TrashPopover({
       };
       setIsDragging(true);
     },
-    [position],
+    [position]
   );
 
   useEffect(() => {
@@ -99,12 +87,9 @@ export function TrashPopover({
       if (!drag) return;
       const left = Math.max(
         GAP,
-        Math.min(window.innerWidth - POPOVER_WIDTH - GAP, e.clientX - drag.offsetX),
+        Math.min(window.innerWidth - POPOVER_WIDTH - GAP, e.clientX - drag.offsetX)
       );
-      const top = Math.max(
-        GAP,
-        Math.min(window.innerHeight - 80 - GAP, e.clientY - drag.offsetY),
-      );
+      const top = Math.max(GAP, Math.min(window.innerHeight - 80 - GAP, e.clientY - drag.offsetY));
       setPosition({ left, top });
     };
     const handleUp = () => {
@@ -217,7 +202,9 @@ export function TrashPopover({
               <li
                 key={note.id}
                 className="px-3 py-2 cursor-pointer transition-colors"
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')
+                }
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 onClick={() => onPreview(note)}
               >
@@ -286,10 +273,7 @@ export function TrashPopover({
       </div>
 
       {trashedNotes.length > 0 && (
-        <div
-          className="px-3 py-2"
-          style={{ borderTop: '1px solid var(--border-default)' }}
-        >
+        <div className="px-3 py-2" style={{ borderTop: '1px solid var(--border-default)' }}>
           <button
             onClick={onEmptyTrash}
             className="w-full text-sm font-medium py-1.5 rounded transition-colors"

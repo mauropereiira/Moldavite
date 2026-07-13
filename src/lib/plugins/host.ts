@@ -1,7 +1,17 @@
+/**
+ * Main-thread lifecycle manager for sandboxed plugin workers.
+ *
+ * Backend manifest/code records and every worker `postMessage` are untrusted. This
+ * module validates manifests, pins grants to content hashes, routes only declared
+ * RPC message kinds through `api.ts`, and terminates timed-out or unloaded workers.
+ * Plugin source must never execute on the main thread or receive a direct store,
+ * editor, DOM, network, Keychain, filesystem, or Tauri handle.
+ */
+
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
 import { validateManifest } from './manifest';
-import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion, getPluginApiVersion } from './api';
+import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion } from './api';
 import type { PluginInfo } from './types';
 import type {
   CallMessage,
@@ -17,6 +27,7 @@ import type {
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import PluginWorker from './pluginWorker.ts?worker';
+import { cancelPluginDialog } from './dialogs';
 
 interface RawPlugin {
   id: string;
@@ -25,7 +36,7 @@ interface RawPlugin {
   contentHash: string | null;
 }
 
-/** Turn a backend RawPlugin into a classified PluginInfo (validation lives here). */
+/** Classify one raw backend record; only validated manifests become loadable. */
 function classify(raw: RawPlugin): PluginInfo {
   const contentHash = raw.contentHash ?? undefined;
   if (raw.readError || raw.manifestRaw === null || raw.manifestRaw === undefined) {
@@ -56,12 +67,19 @@ function classify(raw: RawPlugin): PluginInfo {
 interface PluginRuntime {
   worker: Worker;
   permissions: readonly string[];
+  manifestHosts: readonly string[];
+  pluginName: string;
+  apiVersion: number;
   /** Fire-and-await from the host: match `invokeResult` back to a Promise. */
-  pendingInvocations: Map<number, { resolve: () => void; reject: (e: Error) => void }>;
+  pendingInvocations: Map<
+    number,
+    { resolve: () => void; reject: (e: Error) => void; timeout: ReturnType<typeof setTimeout> }
+  >;
   nextInvocationId: number;
 }
 
 const runtimes = new Map<string, PluginRuntime>();
+const INVOCATION_TIMEOUT_MS = 30_000;
 
 async function fetchPluginSource(pluginId: string): Promise<string> {
   const url = `plugin://localhost/${pluginId}/plugin.js`;
@@ -70,14 +88,18 @@ async function fetchPluginSource(pluginId: string): Promise<string> {
   return await resp.text();
 }
 
-function terminateRuntime(pluginId: string) {
+function terminateRuntime(pluginId: string, reason = 'plugin was unloaded') {
   const rt = runtimes.get(pluginId);
   if (!rt) return;
   rt.worker.terminate();
+  cancelPluginDialog(pluginId);
   for (const pending of rt.pendingInvocations.values()) {
-    pending.reject(new Error('plugin was unloaded'));
+    clearTimeout(pending.timeout);
+    pending.reject(new Error(reason));
   }
+  rt.pendingInvocations.clear();
   runtimes.delete(pluginId);
+  usePluginCommandStore.getState().removeByPlugin(pluginId);
 }
 
 /** Invoke a plugin command via its worker; resolves when the command handler completes. */
@@ -86,12 +108,20 @@ function invokeCommandInWorker(pluginId: string, commandLocalId: string): Promis
   if (!rt) return Promise.reject(new Error(`plugin ${pluginId} is not running`));
   const invocationId = rt.nextInvocationId++;
   return new Promise<void>((resolve, reject) => {
-    rt.pendingInvocations.set(invocationId, { resolve, reject });
+    const timeout = setTimeout(() => {
+      const current = runtimes.get(pluginId);
+      const pending = current?.pendingInvocations.get(invocationId);
+      if (!pending) return;
+      current?.pendingInvocations.delete(invocationId);
+      pending.reject(new Error('plugin command timed out'));
+    }, INVOCATION_TIMEOUT_MS);
+    rt.pendingInvocations.set(invocationId, { resolve, reject, timeout });
     const msg: InvokeMessage = { kind: 'invoke', invocationId, commandLocalId };
     rt.worker.postMessage(msg);
   });
 }
 
+/** Route one untrusted worker message without exposing host capabilities directly. */
 async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerToHost>) {
   const rt = runtimes.get(pluginId);
   if (!rt) return;
@@ -112,7 +142,15 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     case 'call': {
       const call = msg as CallMessage;
       try {
-        const value = await dispatchPluginCall(pluginId, rt.permissions, call.method, call.args);
+        const value = await dispatchPluginCall(
+          pluginId,
+          rt.permissions,
+          call.method,
+          call.args,
+          rt.manifestHosts,
+          rt.apiVersion,
+          rt.pluginName
+        );
         rt.worker.postMessage({ kind: 'callResult', requestId: call.requestId, ok: true, value });
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -125,6 +163,7 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
       const pending = rt.pendingInvocations.get(result.invocationId);
       if (!pending) return;
       rt.pendingInvocations.delete(result.invocationId);
+      clearTimeout(pending.timeout);
       if (result.ok) pending.resolve();
       else pending.reject(new Error(result.error ?? 'command failed'));
       return;
@@ -138,12 +177,16 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     case 'loadError': {
       const err = msg as LoadErrorMessage;
       console.error(`[plugin:${pluginId}] failed to load:`, err.error);
-      terminateRuntime(pluginId);
+      terminateRuntime(pluginId, `plugin failed to load: ${err.error}`);
       return;
     }
     case 'log': {
       const log = msg as LogMessage;
-      const fn = log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
+      // Plugin console forwarding intentionally preserves log severity.
+      /* eslint-disable no-console */
+      const fn =
+        log.level === 'error' ? console.error : log.level === 'warn' ? console.warn : console.log;
+      /* eslint-enable no-console */
       fn(`[plugin:${pluginId}]`, ...log.args);
       return;
     }
@@ -151,7 +194,7 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
 }
 
 async function loadOne(info: PluginInfo): Promise<void> {
-  const { id, permissions = [] } = info.manifest;
+  const { id, permissions = [], allowedHosts = [] } = info.manifest;
 
   let code: string;
   try {
@@ -165,6 +208,9 @@ async function loadOne(info: PluginInfo): Promise<void> {
   const rt: PluginRuntime = {
     worker,
     permissions,
+    manifestHosts: allowedHosts,
+    pluginName: info.manifest.name,
+    apiVersion: info.manifest.apiVersion,
     pendingInvocations: new Map(),
     nextInvocationId: 1,
   };
@@ -175,6 +221,11 @@ async function loadOne(info: PluginInfo): Promise<void> {
   });
   worker.addEventListener('error', (e) => {
     console.error(`[plugin:${id}] worker error:`, e.message);
+    terminateRuntime(id, `plugin worker crashed: ${e.message || 'unknown error'}`);
+  });
+  worker.addEventListener('messageerror', () => {
+    console.error(`[plugin:${id}] worker sent an unreadable message`);
+    terminateRuntime(id, 'plugin worker message could not be decoded');
   });
 
   const init: HostToWorker = {
@@ -182,7 +233,7 @@ async function loadOne(info: PluginInfo): Promise<void> {
     pluginId: id,
     code,
     permissions,
-    apiVersion: getPluginApiVersion(),
+    apiVersion: info.manifest.apiVersion,
     appVersion: getPluginAppVersion(),
   };
   worker.postMessage(init);

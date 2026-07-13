@@ -1,3 +1,9 @@
+/**
+ * Transient bulk-selection state for stable note ids/paths.
+ * Set updates always allocate a new `Set` for Zustand change detection; callers
+ * must clear or migrate ids after structural note operations.
+ */
+
 import { create } from 'zustand';
 
 /**
@@ -20,6 +26,8 @@ export interface NoteSelectionState {
   selectRange: (ids: string[]) => void;
   /** Replace the selection wholesale with a specific list. */
   replace: (ids: string[]) => void;
+  /** Move a selected note id after its path changes. */
+  rename: (oldId: string, newId: string) => void;
   /** Drop everything. */
   clear: () => void;
 }
@@ -35,13 +43,17 @@ export const useNoteSelectionStore = create<NoteSelectionState>((set) => ({
     }),
   selectRange: (ids) => set({ selectedIds: new Set(ids) }),
   replace: (ids) => set({ selectedIds: new Set(ids) }),
+  rename: (oldId, newId) =>
+    set((state) => {
+      if (!state.selectedIds.has(oldId)) return state;
+      const next = new Set(state.selectedIds);
+      next.delete(oldId);
+      next.add(newId);
+      return { selectedIds: next };
+    }),
   clear: () => {
     // Avoid re-allocating an empty Set if already empty — keeps referential
     // equality so memoized selectors don't fire needlessly.
-    set((state) =>
-      state.selectedIds.size === 0
-        ? state
-        : { selectedIds: new Set<string>() },
-    );
+    set((state) => (state.selectedIds.size === 0 ? state : { selectedIds: new Set<string>() }));
   },
 }));

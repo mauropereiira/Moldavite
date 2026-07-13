@@ -5,17 +5,31 @@ import { FormattingMenu } from './FormattingMenu';
 import { MoreOptionsMenu } from './MoreOptionsMenu';
 import { NoteColorPicker } from '@/components/ui';
 import type { NoteColorId } from '@/components/ui/NoteColorPicker';
-import { useNoteStore, useThemeStore, useNoteColorsStore, useSettingsStore, buildNotePath } from '@/stores';
+import {
+  useNoteStore,
+  useThemeStore,
+  useNoteColorsStore,
+  useSettingsStore,
+  buildNotePath,
+} from '@/stores';
 import { useToast } from '@/hooks/useToast';
+import type { NoteFile } from '@/types';
 
 interface EditorFooterProps {
   editor: Editor | null;
   onDelete: () => void;
   isSaving: boolean;
   showSaveSuccess: boolean;
+  onRenameNote: (note: NoteFile, title: string) => Promise<void>;
 }
 
-export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: EditorFooterProps) {
+export function EditorFooter({
+  editor,
+  onDelete,
+  isSaving,
+  showSaveSuccess,
+  onRenameNote,
+}: EditorFooterProps) {
   const { currentNote } = useNoteStore();
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
@@ -23,15 +37,22 @@ export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: Ed
   const toast = useToast();
 
   // Determine if dark mode
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   // Get current note's color
-  const notePath = currentNote ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily) : '';
+  const notePath = currentNote
+    ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
+    : '';
   const currentColorId = getColor(notePath);
 
   // Get word and character counts
   const wordCount = editor
-    ? editor.getText().split(/\s+/).filter(word => word.length > 0).length
+    ? editor
+        .getText()
+        .split(/\s+/)
+        .filter((word) => word.length > 0).length
     : 0;
   const characterCount = editor ? editor.getText().length : 0;
 
@@ -55,11 +76,29 @@ export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: Ed
           <div className="flex items-center gap-1.5 text-xs ml-4">
             {isSaving ? (
               <>
-                <svg className="w-3 h-3 spinner" style={{ color: 'var(--text-muted)' }} viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <svg
+                  className="w-3 h-3 spinner"
+                  style={{ color: 'var(--text-muted)' }}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
-                <span className="saving-indicator" style={{ color: 'var(--text-muted)' }}>Saving...</span>
+                <span className="saving-indicator" style={{ color: 'var(--text-muted)' }}>
+                  Saving...
+                </span>
               </>
             ) : showSaveSuccess ? (
               <>
@@ -93,6 +132,7 @@ export function EditorFooter({ editor, onDelete, isSaving, showSaveSuccess }: Ed
           onShowToast={showToast}
           wordCount={wordCount}
           characterCount={characterCount}
+          onRenameNote={onRenameNote}
           openDirection="up"
         />
       </div>

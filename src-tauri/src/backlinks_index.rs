@@ -4,6 +4,11 @@
 //! that link to it, plus an outbound map from source filename -> set of
 //! targets it currently references. This replaces O(n) full-disk scans
 //! on every `get_backlinks` call.
+//!
+//! Both maps are updated under one write lock so they cannot disagree. Rebuilds
+//! scan only visible Markdown files, never follow symlinks, and publish the new
+//! state only after the scan completes. Source keys retain their note address;
+//! targets pass through the shared wiki slug resolver.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -212,28 +217,6 @@ impl BacklinksIndex {
         };
         state.by_target.clear();
         state.outbound.clear();
-    }
-
-    /// Snapshot of the outbound link graph as (source, target) filename
-    /// pairs. Only edges where the target resolved to a concrete filename
-    /// (not a `__stem__:…` placeholder) are returned. The result is used
-    /// to drive the graph-view overlay.
-    pub(crate) fn outbound_edges(&self) -> Vec<(String, String)> {
-        let state = match self.inner.read() {
-            Ok(g) => g,
-            Err(poisoned) => {
-                log::warn!("backlinks index lock poisoned during edges read; recovering");
-                poisoned.into_inner()
-            }
-        };
-
-        let mut edges: Vec<(String, String)> = Vec::new();
-        for (source, targets) in state.outbound.iter() {
-            for target in targets {
-                edges.push((source.clone(), target.clone()));
-            }
-        }
-        edges
     }
 
     /// Get deduplicated backlinks for a target. `note_stem` is the raw

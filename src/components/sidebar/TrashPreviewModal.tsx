@@ -49,9 +49,7 @@ export function TrashPreviewModal({
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setHtml(
-          `<p><em>Could not read this note: ${escapeHtml(String(err))}.</em></p>`
-        );
+        setHtml(`<p><em>Could not read this note: ${escapeHtml(String(err))}.</em></p>`);
       });
     return () => {
       cancelled = true;

@@ -4,6 +4,8 @@
 //! A "Forge" is a directory under `forges_root` that contains a notes tree
 //! (`daily/`, `notes/`, etc.). Switching the active Forge swaps the entire
 //! root path that the rest of the backend resolves through `paths::get_notes_dir`.
+//! Forge names are single safe directory components; successful switches also
+//! rebuild Forge-scoped indexes and restart the watcher before consumers proceed.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -163,6 +165,9 @@ pub(crate) fn set_active_forge(
     tauri::async_runtime::spawn_blocking(move || {
         idx.rebuild_from_disk();
     });
+    // Swap the semantic index over to the new Forge (async, no-op if the
+    // feature is disabled).
+    crate::commands::semantic::on_forge_switched(app.clone());
 
     Ok(name)
 }

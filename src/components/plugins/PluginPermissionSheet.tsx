@@ -6,29 +6,34 @@
  */
 import { createPortal } from 'react-dom';
 import { ShieldAlert, X } from 'lucide-react';
+import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 
 export interface PluginPermissionSheetProps {
-  manifest: { name: string; version: string; author?: string; description?: string };
+  manifest: {
+    name: string;
+    version: string;
+    author?: string;
+    description?: string;
+    allowedHosts?: string[];
+  };
   permissions: string[];
+  approvedHosts?: string[];
   /** Commands this plugin has registered (only known once it's enabled/loaded). */
   commands?: { id: string; label: string }[];
   mode: 'grant' | 'view';
   onEnable: () => void;
+  onRevokeHost?: (host: string) => void;
   onClose: () => void;
 }
-
-const PERMISSION_LABEL: Record<string, string> = {
-  commands: 'Add commands to the palette and slash menu',
-  editor: 'Read and modify the active note',
-  ui: 'Show toasts / notifications',
-};
 
 export function PluginPermissionSheet({
   manifest,
   permissions,
+  approvedHosts = [],
   commands = [],
   mode,
   onEnable,
+  onRevokeHost,
   onClose,
 }: PluginPermissionSheetProps) {
   // Portal to <body> so `position: fixed` centers on the viewport rather than
@@ -53,8 +58,16 @@ export function PluginPermissionSheet({
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
           <div className="flex items-center gap-2">
-            <ShieldAlert aria-hidden="true" className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-            <h2 id="plugin-permission-title" className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <ShieldAlert
+              aria-hidden="true"
+              className="w-5 h-5"
+              style={{ color: 'var(--accent-primary)' }}
+            />
+            <h2
+              id="plugin-permission-title"
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {mode === 'grant' ? 'Enable plugin?' : 'Plugin permissions'}
             </h2>
           </div>
@@ -72,7 +85,8 @@ export function PluginPermissionSheet({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <div>
             <p className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>
-              {manifest.name} <span style={{ color: 'var(--text-tertiary)' }}>v{manifest.version}</span>
+              {manifest.name}{' '}
+              <span style={{ color: 'var(--text-tertiary)' }}>v{manifest.version}</span>
             </p>
             {manifest.author && (
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -94,23 +108,72 @@ export function PluginPermissionSheet({
               color: 'var(--text-secondary)',
             }}
           >
-            This plugin runs code that can read and modify notes in this Forge and add
-            commands. Only enable plugins you trust &mdash; a plugin has the same access as
-            the app itself.
+            This plugin runs in an isolated worker and can only use the capabilities listed below.
+            Moldavite enforces them outside the plugin. Only enable plugins you trust.
           </div>
 
           {permissions.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+              <p
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 Declared capabilities
               </p>
               <ul className="space-y-1">
                 {permissions.map((p) => (
-                  <li key={p} className="text-sm flex gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <li
+                    key={p}
+                    className="text-sm flex gap-2"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
                     <span aria-hidden="true" style={{ color: 'var(--accent-primary)' }}>
                       &bull;
                     </span>
-                    <span>{PERMISSION_LABEL[p] ?? p}</span>
+                    <span>{pluginPermissionLabel(p)}</span>
+                    {p === 'net.fetch' && manifest.allowedHosts?.length ? (
+                      <ul className="mt-1 space-y-0.5">
+                        {manifest.allowedHosts.map((host) => (
+                          <li key={host}>
+                            <code>{host}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {approvedHosts.length > 0 && (
+            <div className="space-y-1.5">
+              <p
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                User-approved network hosts
+              </p>
+              <ul className="space-y-1">
+                {approvedHosts.map((host) => (
+                  <li
+                    key={host}
+                    className="flex items-center justify-between gap-2 text-sm px-2 py-1"
+                    style={{ backgroundColor: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    <code>{host}</code>
+                    {onRevokeHost && (
+                      <button
+                        type="button"
+                        onClick={() => onRevokeHost(host)}
+                        className="p-0.5 focus-ring"
+                        style={{ color: 'var(--text-muted)' }}
+                        aria-label={`Revoke access to ${host}`}
+                        title={`Revoke ${host}`}
+                      >
+                        <X aria-hidden="true" className="w-4 h-4" />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -119,14 +182,21 @@ export function PluginPermissionSheet({
 
           {/* Commands — how to actually use the plugin. */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+            <p
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Commands
             </p>
             {commands.length > 0 ? (
               <>
                 <ul className="space-y-1">
                   {commands.map((c) => (
-                    <li key={c.id} className="text-sm flex gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <li
+                      key={c.id}
+                      className="text-sm flex gap-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       <span aria-hidden="true" style={{ color: 'var(--accent-primary)' }}>
                         &bull;
                       </span>
@@ -140,15 +210,18 @@ export function PluginPermissionSheet({
               </>
             ) : (
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Enable this plugin to use its commands — they appear in the command palette (⌘P)
-                and the / slash menu.
+                Enable this plugin to use its commands — they appear in the command palette (⌘P) and
+                the / slash menu.
               </p>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-default)' }}>
+        <div
+          className="flex justify-end gap-2 px-6 py-4 flex-shrink-0"
+          style={{ borderTop: '1px solid var(--border-default)' }}
+        >
           {mode === 'grant' ? (
             <>
               <button
@@ -166,7 +239,10 @@ export function PluginPermissionSheet({
               <button
                 onClick={onEnable}
                 className="px-4 py-2 text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+                style={{
+                  backgroundColor: 'var(--accent-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
               >
                 Enable
               </button>

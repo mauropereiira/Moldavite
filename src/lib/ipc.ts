@@ -1,3 +1,10 @@
+/**
+ * Safe frontend wrapper around Tauri IPC.
+ * Backend failures are untrusted display text: absolute paths are redacted before
+ * errors can reach toasts, logs, or callers, while the original command contract
+ * and typed return value remain unchanged.
+ */
+
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -41,17 +48,12 @@ export interface SafeInvokeOptions {
 export async function safeInvoke<T = void>(
   cmd: string,
   args?: InvokeArgs,
-  opts: SafeInvokeOptions = {},
+  opts: SafeInvokeOptions = {}
 ): Promise<T> {
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
-    const raw =
-      typeof e === 'string'
-        ? e
-        : e instanceof Error
-          ? e.message
-          : String(e);
+    const raw = typeof e === 'string' ? e : e instanceof Error ? e.message : String(e);
     const safe = sanitizeIpcError(raw);
     if (opts.toastOnError) {
       const msg = opts.toastPrefix ? `${opts.toastPrefix}: ${safe}` : safe;

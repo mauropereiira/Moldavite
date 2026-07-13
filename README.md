@@ -41,11 +41,15 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Rich editing** — Markdown shortcuts, `[[wiki links]]`, images, code blocks, task lists.
 
+**Safe note renaming** — Rename standalone notes from the sidebar or editor while Moldavite updates inbound `[[wiki links]]` and keeps open tabs in place.
+
 **Daily notes** — One click to today's note. Apple Calendar in the sidebar.
 
-**Connected thinking** — Backlinks panel shows every note that links to the current one. Folders when you need them, tags when you don't.
+**Connected thinking** — Backlinks panel shows every note that links to the current one. The force-directed graph pulls linked notes into visible clusters and keeps unlinked notes at the periphery. Folders when you need them, tags when you don't.
 
 **Full-text search** — Ranked content search across every note, with snippets.
+
+**Semantic search (optional)** — Find notes by meaning, not just keywords, plus a "Related" list for the note you're reading. Choose between three local embedding models (all-MiniLM-L6-v2 is the default); the selected model downloads once after you opt in, then everything runs fully offline — your notes never leave your Mac.
 
 **Timeline** — Chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier, with calendar events inline on macOS.
 
@@ -57,9 +61,15 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Crash-safe by design** — Every save is atomic (write + flush + rename), so a crash or full disk can never truncate a note. Files are owner-readable only.
 
+**Sync-friendly** — Point iCloud Drive, Dropbox, Syncthing, or git at your Forge. If a note changes on disk while you're editing it in Moldavite, the external version is preserved as a conflict copy instead of being overwritten.
+
 **Automatic updates** — Moldavite checks for new versions and updates in place. After updating, a "What's New" popup summarizes the changes.
 
-**Plugins** — add your own commands to the palette and slash menu. Plugins live in your Forge and run behind a per-plugin permission prompt; see [docs/PLUGINS.md](docs/PLUGINS.md).
+**Plugins** — build sandboxed command integrations with permissioned unlocked-note reads, exact-host HTTPS requests (including individually revocable runtime host grants), trusted app-rendered forms, and plugin-owned macOS Keychain secrets. Browse in Settings or search the website directory and use its `moldavite://plugin/<id>` install links; Moldavite opens the chosen registry entry and shows its permissions before any install. Downloads stay pinned to the registry repository and Rust verifies both SHA-256 hashes before an atomic install. Every install shows a reopenable setup guide, while enablement and consent remain separate. Install the **Publish to WordPress** reference to publish/update drafts with Application Passwords. Plugins live in your Forge, every capability is host-enforced, and manifest/code changes re-prompt for consent; see [docs/PLUGINS.md](docs/PLUGINS.md).
+
+**Agent-ready** — your Forge is plain Markdown, so AI agents (Claude Code, etc.) can read and write it directly. Settings → AI & Agents generates an `AGENTS.md` describing your vault's conventions to agents, plus a `.gitignore` for app-managed folders.
+
+**Built-in MCP server** — connect Claude Code, Claude Desktop, or another MCP client directly to the Moldavite app binary with `--mcp`. Search, reading, note listing, and backlinks are always available; note writes are an explicit opt-in in Settings → AI & Agents.
 
 **Keyboard-first** — `⌘/Ctrl + ?` reveals every shortcut.
 
@@ -82,7 +92,9 @@ npm install
 npm run tauri dev
 ```
 
-Requires Node.js 18+, Rust 1.70+, and Xcode CLI tools.
+Requires Node.js 18+, Rust 1.77+, and Xcode CLI tools. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the project map, test commands, conventions,
+and pull request expectations.
 
 ---
 

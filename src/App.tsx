@@ -1,11 +1,29 @@
 import { useEffect } from 'react';
-import { Layout, ToastContainer, UpdateNotification, WhatsNewModal, CalendarOnboardingModal, AppOnboardingModal } from './components';
+import {
+  Layout,
+  ToastContainer,
+  UpdateNotification,
+  WhatsNewModal,
+  CalendarOnboardingModal,
+  AppOnboardingModal,
+} from './components';
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
 import { GraphView } from './components/graph';
-import { useThemeStore, applyTheme, useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily, useNoteColorsStore } from './stores';
+import { PluginDialogHostLoader } from './components/plugins/PluginDialogHostLoader';
+import {
+  useThemeStore,
+  applyTheme,
+  useSettingsStore,
+  applyFontSize,
+  applyLineHeight,
+  applyCompactMode,
+  applyFontFamily,
+  useNoteColorsStore,
+  useSemanticStore,
+} from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
-import { useAutoLock, useForgeWatcher, usePluginHost } from './hooks';
+import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
 
 function App() {
   const { theme, preset } = useThemeStore();
@@ -21,6 +39,9 @@ function App() {
   // Plugin host: load enabled plugins for the active Forge on startup
   usePluginHost();
 
+  // Website install links: subscribe first, then drain cold-start requests.
+  usePluginDeepLinks();
+
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {
     fixNotePermissions().catch(console.error);
@@ -30,6 +51,12 @@ function App() {
   useEffect(() => {
     loadColors();
   }, [loadColors]);
+
+  // Semantic search: fetch status + subscribe to progress events (idempotent)
+  const initializeSemantic = useSemanticStore((s) => s.initialize);
+  useEffect(() => {
+    void initializeSemantic();
+  }, [initializeSemantic]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
@@ -75,6 +102,7 @@ function App() {
       <QuickSwitcher />
       <GraphView />
       <ShortcutHelpHost />
+      <PluginDialogHostLoader />
     </>
   );
 }

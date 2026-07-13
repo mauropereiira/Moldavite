@@ -4,6 +4,9 @@
 //!
 //! The module itself is `#[cfg(test)]` at the lib.rs declaration site, so
 //! we don't repeat it here.
+//! Each test uses an isolated temporary Forge and asserts safety invariants in
+//! addition to generous upper bounds; timing thresholds are regression alarms,
+//! not performance benchmarks.
 
 use std::fs;
 use std::path::{Path, PathBuf};

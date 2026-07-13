@@ -1,4 +1,9 @@
-//! Serializable data structures shared across domains.
+//! Serializable DTOs shared by Tauri commands, persistence, and the frontend.
+//!
+//! Serde's camel-case field names are part of the IPC contract. Note paths obey
+//! the common addressing model (bare daily/weekly filename, Forge-relative
+//! standalone path), while persisted configuration fields remain backward
+//! compatible through defaults for options introduced after initial releases.
 
 use serde::{Deserialize, Serialize};
 
@@ -109,12 +114,45 @@ pub(crate) struct BacklinkInfo {
 // fallback for users upgrading from single-Forge layouts. New code reads
 // `forges_root` + `active_forge`; the migration on startup wraps the
 // legacy directory into a Forge and clears the deprecated field.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppConfig {
     pub(crate) notes_directory: Option<String>,
     pub(crate) forges_root: Option<String>,
     pub(crate) active_forge: Option<String>,
+    /// Whether local semantic (vector) search is enabled. `None` means the
+    /// user never enabled it — the embedding model is only downloaded once
+    /// this flips to `Some(true)` via the explicit enable flow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) semantic_enabled: Option<bool>,
+    /// Curated local embedding model id. Older configs deserialize to the
+    /// default so model selection is transparent without a migration pass.
+    #[serde(
+        default = "default_semantic_model",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) semantic_model: Option<String>,
+    /// MCP note mutation is opt-in. Missing values preserve the secure
+    /// default for users upgrading from an older config.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mcp_writes_enabled: Option<bool>,
+}
+
+fn default_semantic_model() -> Option<String> {
+    Some(crate::semantic::DEFAULT_MODEL_ID.to_string())
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            notes_directory: None,
+            forges_root: None,
+            active_forge: None,
+            semantic_enabled: None,
+            semantic_model: default_semantic_model(),
+            mcp_writes_enabled: None,
+        }
+    }
 }
 
 // Public-facing struct returned by the `list_forges` command.
@@ -143,6 +181,20 @@ pub(crate) struct ImportResult {
 pub(crate) struct NoteRead {
     pub(crate) content: String,
     pub(crate) color: Option<String>,
+    /// SHA-256 hex of `content`. The frontend keeps this and sends it back
+    /// as `base_hash` on save so external-edit conflicts can be detected.
+    pub(crate) content_hash: String,
+}
+
+/// Result of `write_note`: the hash of the body just written (the frontend
+/// stores it as the new base for conflict detection) and, if the on-disk
+/// note had diverged from that base, the relative path of the conflict copy
+/// that preserved the external version.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct NoteWriteResult {
+    pub(crate) content_hash: String,
+    pub(crate) conflict_copy: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -156,4 +208,29 @@ pub(crate) struct ContentMatch {
     pub(crate) is_daily: bool,
     pub(crate) is_weekly: bool,
     pub(crate) folder_path: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_config_semantic_model_defaults_and_round_trips() {
+        let upgraded: AppConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            upgraded.semantic_model.as_deref(),
+            Some(crate::semantic::DEFAULT_MODEL_ID)
+        );
+
+        let config = AppConfig {
+            semantic_model: Some("multilingual-e5-small".to_string()),
+            ..AppConfig::default()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let restored: AppConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            restored.semantic_model.as_deref(),
+            Some("multilingual-e5-small")
+        );
+    }
 }

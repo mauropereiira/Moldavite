@@ -1,9 +1,15 @@
-//! Filename and path validation helpers.
+//! Trust-boundary validation for every user- or client-supplied filesystem path.
+//!
+//! Bare note names, Forge-relative note paths, in-Forge destinations, and
+//! user-selected absolute export paths have distinct threat models and must use
+//! the matching validator. Checks reject traversal, hidden/internal paths,
+//! symlink redirection, and writes into sensitive system or home directories;
+//! validation must happen before any filesystem mutation.
 
 use std::fs;
 use std::path::Path;
 
-/// Validates that a filename is safe (no path traversal, no absolute paths)
+/// Accept only one non-empty filename component with no traversal or NUL bytes.
 pub(crate) fn is_safe_filename(filename: &str) -> bool {
     // Reject empty filenames
     if filename.is_empty() {
@@ -33,11 +39,11 @@ pub(crate) fn is_safe_filename(filename: &str) -> bool {
     true
 }
 
-/// Validates a standalone-note path relative to the notes/ dir — either a
-/// bare filename ("foo.md") or a folder-relative path ("Projects/foo.md").
-/// Component-wise checks reject traversal ("..", absolute paths), backslashes,
-/// null bytes, and hidden components (so .trash and atomic-write temp files
-/// can never be addressed).
+/// Accept a visible slash-separated path relative to the standalone notes root.
+///
+/// Each component must be non-empty and non-hidden; backslashes, absolute paths,
+/// NUL bytes, and `..` components are rejected so internal trees and atomic
+/// temporary files cannot be addressed.
 pub(crate) fn is_safe_note_path(path: &str) -> bool {
     if path.is_empty() || path.contains('\0') || path.contains('\\') || path.starts_with('/') {
         return false;
@@ -46,10 +52,11 @@ pub(crate) fn is_safe_note_path(path: &str) -> bool {
         .all(|part| !part.is_empty() && !part.starts_with('.'))
 }
 
-/// Validates that a destination path is within the expected base directory.
-/// Also rejects any path component along the way that is itself a symlink,
-/// so pre-placed symlinks inside `base_dir` cannot be used to redirect writes
-/// outside the canonicalized base.
+/// Require an existing destination parent inside `base_dir` with no symlink hop.
+///
+/// Canonical containment blocks lexical traversal, while the component walk
+/// rejects pre-positioned symlinks even when their current target resolves back
+/// inside the base.
 pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), String> {
     let canonical_base = base_dir
         .canonicalize()
@@ -86,8 +93,10 @@ pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Re
     Ok(())
 }
 
-/// Validate that `path` is a safe absolute destination for a user-chosen
-/// export file with the given extension. Shared by settings JSON export.
+/// Accept an absolute export file path with the required extension outside protected locations.
+///
+/// The parent must already exist; system trees, security-sensitive home
+/// subdirectories, and dotfiles are denied even though the user chose the path.
 pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Result<(), String> {
     if !path.is_absolute() {
         return Err("Path must be absolute".to_string());
@@ -97,7 +106,10 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
         .and_then(|s| s.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case(required_ext));
     if !ext_ok {
-        return Err(format!("Only .{} files may be written via this command", required_ext));
+        return Err(format!(
+            "Only .{} files may be written via this command",
+            required_ext
+        ));
     }
     let parent = path
         .parent()
@@ -107,7 +119,14 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
         .map_err(|_| "Destination directory does not exist".to_string())?;
     let canonical_str = canonical_parent.to_string_lossy().to_lowercase();
     let forbidden_prefixes = [
-        "/system", "/usr", "/bin", "/sbin", "/etc", "/var", "/private/var", "/library",
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/library",
     ];
     for prefix in &forbidden_prefixes {
         if canonical_str.starts_with(prefix) {
@@ -117,9 +136,17 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
     if let Some(home) = dirs::home_dir() {
         if let Ok(home_canon) = home.canonicalize() {
             let forbidden_subpaths = [
-                ".ssh", ".gnupg", ".aws", ".config", ".docker", ".kube",
-                "Library/LaunchAgents", "Library/LaunchDaemons",
-                "Library/Preferences", "Library/Application Support", "Library/Keychains",
+                ".ssh",
+                ".gnupg",
+                ".aws",
+                ".config",
+                ".docker",
+                ".kube",
+                "Library/LaunchAgents",
+                "Library/LaunchDaemons",
+                "Library/Preferences",
+                "Library/Application Support",
+                "Library/Keychains",
             ];
             for sub in &forbidden_subpaths {
                 let denied = home_canon.join(sub);
@@ -142,23 +169,20 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// Build a throwaway directory under the user's home dir.
-    ///
-    /// We can't use `std::env::temp_dir()` here because on macOS that
-    /// lives under `/private/var/...`, which `validate_user_export_path`
-    /// correctly rejects as a system path. Home-relative dirs aren't on
-    /// the forbidden list (as long as they don't live in `.ssh`, `.config`,
-    /// `Library/LaunchAgents`, etc.), so they exercise the happy path.
+    /// Build a throwaway directory under Cargo's writable target directory.
+    /// `temp_dir()` is intentionally rejected by export validation on macOS,
+    /// while sandboxed test runners may not allow writes directly under HOME.
     fn tmp_dir(tag: &str) -> PathBuf {
-        let home = dirs::home_dir().expect("home dir required for these tests");
-        let base = home.join(format!(
-            ".moldavite-validation-test-{}-{}",
-            tag,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join(format!(
+                "moldavite-validation-test-{}-{}",
+                tag,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
         fs::create_dir_all(&base).unwrap();
         base
     }

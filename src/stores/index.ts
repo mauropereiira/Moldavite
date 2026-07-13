@@ -1,7 +1,8 @@
 /**
- * Zustand state stores for Moldavite
+ * Public barrel for Zustand stores and their shared types/helpers.
  *
- * All stores use Zustand with persistence where appropriate.
+ * Persistence is store-specific and generally Forge-namespaced; importing concrete
+ * modules is preferred where this barrel would create a library/store cycle.
  *
  * ## Available Stores
  *
@@ -29,8 +30,21 @@ export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
 // Settings with helper functions
-export { useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily } from './settingsStore';
-export type { FontSize, LineHeight, DefaultNoteType, FontFamily, AutoLockTimeout } from './settingsStore';
+export {
+  useSettingsStore,
+  applyFontSize,
+  applyLineHeight,
+  applyCompactMode,
+  applyFontFamily,
+} from './settingsStore';
+export type {
+  FontSize,
+  LineHeight,
+  DefaultNoteType,
+  FontFamily,
+  AutoLockTimeout,
+  SettingsTab,
+} from './settingsStore';
 
 // Feature stores
 export { useCalendarStore } from './calendarStore';
@@ -40,17 +54,21 @@ export { useUpdateStore } from './updateStore';
 export { useWhatsNewStore } from './whatsNewStore';
 export { usePluginCommandStore } from './pluginCommandStore';
 export { usePluginStore } from './pluginStore';
+export { usePluginInstallStore } from './pluginInstallStore';
+export type { PluginInstallRequest } from './pluginInstallStore';
 export { editorHandle } from './editorHandleStore';
 export { useFolderStore } from './folderStore';
 export { useTrashStore } from './trashStore';
 export { useTagStore } from './tagStore';
 export { useTaskStatusStore } from './taskStatusStore';
 export { useSearchStore } from './searchStore';
-export type { ContentMatch } from './searchStore';
+export type { ContentMatch, SearchMode } from './searchStore';
+export { useSemanticStore } from './semanticStore';
 export { useTimelineStore } from './timelineStore';
 export { useGraphStore } from './graphStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
+export { useQuickSwitcherStore } from './quickSwitcherStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
 export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
 export { useForgeStore } from './forgeStore';

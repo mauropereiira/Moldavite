@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Google Fonts - Inter and Merriweather for editor options */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -94,13 +94,13 @@
   --accent-subtle: rgba(45, 90, 61, 0.12);
 
   /* ===== SYNTAX COLORS - Moldavite harmonious palette ===== */
-  --syntax-bold: #2d5a3d;      /* Moldavite core */
-  --syntax-italic: #5a9970;    /* Moldavite light */
-  --syntax-h1: #1a3d2e;        /* Moldavite deep */
-  --syntax-h2: #3d7a52;        /* Moldavite mid */
-  --syntax-h3: #c9a227;        /* Cosmic gold */
-  --syntax-code: #7cb992;      /* Moldavite glow */
-  --syntax-link: #7cb992;      /* Moldavite glow */
+  --syntax-bold: #2d5a3d; /* Moldavite core */
+  --syntax-italic: #5a9970; /* Moldavite light */
+  --syntax-h1: #1a3d2e; /* Moldavite deep */
+  --syntax-h2: #3d7a52; /* Moldavite mid */
+  --syntax-h3: #c9a227; /* Cosmic gold */
+  --syntax-code: #7cb992; /* Moldavite glow */
+  --syntax-link: #7cb992; /* Moldavite glow */
   --syntax-highlight: rgba(201, 162, 39, 0.2); /* Cosmic gold highlight */
 
   /* ===== SEMANTIC ===== */
@@ -157,12 +157,12 @@
 /* ===== DARK MODE - Space Black with Moldavite Accents ===== */
 .dark {
   /* Space backgrounds - cosmic darkness with forest undertone */
-  --bg-base: #0c110e;           /* Space black with green undertone */
-  --bg-sidebar: #131a16;        /* Forest dark - sidebar */
-  --bg-editor: #0f1512;         /* Deep forest green - editor wrapper */
-  --bg-panel: #0e1310;          /* Cosmic forest - panel backgrounds */
-  --bg-elevated: #1a2420;       /* Elevated forest - cards, dropdowns */
-  --bg-inset: #0a0e0c;          /* Deepest forest - inset areas */
+  --bg-base: #0c110e; /* Space black with green undertone */
+  --bg-sidebar: #131a16; /* Forest dark - sidebar */
+  --bg-editor: #0f1512; /* Deep forest green - editor wrapper */
+  --bg-panel: #0e1310; /* Cosmic forest - panel backgrounds */
+  --bg-elevated: #1a2420; /* Elevated forest - cards, dropdowns */
+  --bg-inset: #0a0e0c; /* Deepest forest - inset areas */
 
   /* Forest borders - green tinted */
   --border-default: #263530;
@@ -183,13 +183,13 @@
   --accent-muted: rgba(124, 185, 146, 0.25);
 
   /* ===== SYNTAX COLORS - Glowing for dark mode ===== */
-  --syntax-bold: #7cb992;      /* Moldavite glow */
-  --syntax-italic: #8cc9a2;    /* Lighter glow */
-  --syntax-h1: #5a9970;        /* Moldavite light */
-  --syntax-h2: #7cb992;        /* Moldavite glow */
-  --syntax-h3: #e8b923;        /* Cosmic amber */
-  --syntax-code: #5a9970;      /* Moldavite light */
-  --syntax-link: #7cb992;      /* Moldavite glow */
+  --syntax-bold: #7cb992; /* Moldavite glow */
+  --syntax-italic: #8cc9a2; /* Lighter glow */
+  --syntax-h1: #5a9970; /* Moldavite light */
+  --syntax-h2: #7cb992; /* Moldavite glow */
+  --syntax-h3: #e8b923; /* Cosmic amber */
+  --syntax-code: #5a9970; /* Moldavite light */
+  --syntax-link: #7cb992; /* Moldavite glow */
   --syntax-highlight: rgba(201, 162, 39, 0.15); /* Cosmic gold bg */
 
   /* Semantic */
@@ -753,9 +753,10 @@ body {
   background: transparent;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: background var(--duration-normal) ease,
-              color var(--duration-normal) ease,
-              transform var(--duration-fast) var(--ease-snap);
+  transition:
+    background var(--duration-normal) ease,
+    color var(--duration-normal) ease,
+    transform var(--duration-fast) var(--ease-snap);
 }
 
 .sidebar-item:hover {
@@ -781,9 +782,10 @@ body {
 
 /* Animated sidebar item */
 .sidebar-item-animated {
-  transition: background var(--duration-normal) ease,
-              color var(--duration-normal) ease,
-              transform var(--duration-fast) var(--ease-snap);
+  transition:
+    background var(--duration-normal) ease,
+    color var(--duration-normal) ease,
+    transform var(--duration-fast) var(--ease-snap);
 }
 
 .sidebar-item-animated:hover {
@@ -909,7 +911,7 @@ body {
   border-color: var(--border-strong);
 }
 
-.toggle[data-state="checked"],
+.toggle[data-state='checked'],
 .toggle.toggle-checked {
   background: var(--accent-primary);
   border-color: var(--accent-primary);
@@ -927,7 +929,7 @@ body {
   transition: transform var(--duration-normal) var(--ease-bounce);
 }
 
-.toggle[data-state="checked"] .toggle-knob,
+.toggle[data-state='checked'] .toggle-knob,
 .toggle.toggle-checked .toggle-knob {
   transform: translateX(18px);
 }
@@ -1290,7 +1292,9 @@ body {
 
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--focus-ring);
+  box-shadow:
+    0 0 0 2px var(--bg-elevated),
+    0 0 0 4px var(--focus-ring);
 }
 
 /* ===========================================
@@ -1355,10 +1359,18 @@ body {
    SHADOW UTILITIES
    =========================================== */
 
-.shadow-system-xs { box-shadow: var(--shadow-xs); }
-.shadow-system-sm { box-shadow: var(--shadow-sm); }
-.shadow-system-md { box-shadow: var(--shadow-md); }
-.shadow-system-lg { box-shadow: var(--shadow-lg); }
+.shadow-system-xs {
+  box-shadow: var(--shadow-xs);
+}
+.shadow-system-sm {
+  box-shadow: var(--shadow-sm);
+}
+.shadow-system-md {
+  box-shadow: var(--shadow-md);
+}
+.shadow-system-lg {
+  box-shadow: var(--shadow-lg);
+}
 
 /* ===========================================
    TIPTAP EDITOR STYLES
@@ -1483,15 +1495,15 @@ body {
 }
 
 /* Task List / Checklists */
-.tiptap ul[data-type="taskList"] {
+.tiptap ul[data-type='taskList'] {
   list-style: none !important;
   padding: 0 !important;
   margin: 0 !important;
 }
 
 /* Prevent pseudo-elements from affecting layout */
-.tiptap ul[data-type="taskList"]::before,
-.tiptap ul[data-type="taskList"]::after {
+.tiptap ul[data-type='taskList']::before,
+.tiptap ul[data-type='taskList']::after {
   display: none !important;
   content: none !important;
 }
@@ -1505,7 +1517,7 @@ body {
   display: none !important;
 }
 
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] {
   display: flex;
   align-items: center;
   gap: 0.5em;
@@ -1515,7 +1527,7 @@ body {
 }
 
 /* Label wrapper - align checkbox with text */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1526,10 +1538,10 @@ body {
 }
 
 /* Style the actual checkbox input - aggressive reset */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"],
-.tiptap ul[data-type="taskList"] input[type="checkbox"],
-.tiptap .task-item input[type="checkbox"],
-.tiptap input[type="checkbox"] {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label input[type='checkbox'],
+.tiptap ul[data-type='taskList'] input[type='checkbox'],
+.tiptap .task-item input[type='checkbox'],
+.tiptap input[type='checkbox'] {
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   appearance: none !important;
@@ -1552,29 +1564,33 @@ body {
 }
 
 /* Hover state */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:hover,
-.tiptap ul[data-type="taskList"] input[type="checkbox"]:hover,
-.tiptap .task-item input[type="checkbox"]:hover,
-.tiptap input[type="checkbox"]:hover {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label input[type='checkbox']:hover,
+.tiptap ul[data-type='taskList'] input[type='checkbox']:hover,
+.tiptap .task-item input[type='checkbox']:hover,
+.tiptap input[type='checkbox']:hover {
   border-color: var(--accent-primary, #4a7c9b) !important;
   transform: scale(1.05);
 }
 
 /* Checked state - blue fill */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked,
-.tiptap ul[data-type="taskList"] input[type="checkbox"]:checked,
-.tiptap .task-item input[type="checkbox"]:checked,
-.tiptap input[type="checkbox"]:checked {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label input[type='checkbox']:checked,
+.tiptap ul[data-type='taskList'] input[type='checkbox']:checked,
+.tiptap .task-item input[type='checkbox']:checked,
+.tiptap input[type='checkbox']:checked {
   border-color: var(--accent-primary, #4a7c9b) !important;
   background: var(--accent-primary, #4a7c9b) !important;
   background-color: var(--accent-primary, #4a7c9b) !important;
 }
 
 /* Checkmark via ::after on checked input */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked::after,
-.tiptap ul[data-type="taskList"] input[type="checkbox"]:checked::after,
-.tiptap .task-item input[type="checkbox"]:checked::after,
-.tiptap input[type="checkbox"]:checked::after {
+.tiptap
+  ul[data-type='taskList']
+  li[data-type='taskItem']
+  > label
+  input[type='checkbox']:checked::after,
+.tiptap ul[data-type='taskList'] input[type='checkbox']:checked::after,
+.tiptap .task-item input[type='checkbox']:checked::after,
+.tiptap input[type='checkbox']:checked::after {
   content: '' !important;
   position: absolute !important;
   left: 50% !important;
@@ -1587,21 +1603,21 @@ body {
 }
 
 /* Checked item text - strikethrough */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div,
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div p,
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div span,
-.tiptap ul[data-type="taskList"] li.task-item[data-checked="true"] > div,
-.tiptap ul[data-type="taskList"] li.task-item[data-checked="true"] > div p,
-.tiptap li[data-checked="true"] > div,
-.tiptap li[data-checked="true"] > div p,
-.tiptap li[data-checked="true"] > div span {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div,
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div p,
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div span,
+.tiptap ul[data-type='taskList'] li.task-item[data-checked='true'] > div,
+.tiptap ul[data-type='taskList'] li.task-item[data-checked='true'] > div p,
+.tiptap li[data-checked='true'] > div,
+.tiptap li[data-checked='true'] > div p,
+.tiptap li[data-checked='true'] > div span {
   opacity: 0.5 !important;
   text-decoration: line-through !important;
   text-decoration-color: var(--text-secondary) !important;
 }
 
 /* Content wrapper - ensure selection works */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > div {
   flex: 1;
   min-width: 0;
   line-height: 1.5;
@@ -1610,7 +1626,7 @@ body {
 }
 
 /* Inner paragraph - ensure selection works */
-.tiptap ul[data-type="taskList"] li[data-type="taskItem"] > div p {
+.tiptap ul[data-type='taskList'] li[data-type='taskItem'] > div p {
   margin: 0 !important;
   padding: 0 !important;
   -webkit-user-select: text !important;
@@ -1618,27 +1634,27 @@ body {
 }
 
 /* Selection styles for task lists - ensure visibility */
-.tiptap ul[data-type="taskList"]::selection,
-.tiptap ul[data-type="taskList"] *::selection,
-.tiptap li[data-type="taskItem"]::selection,
-.tiptap li[data-type="taskItem"] *::selection,
-.tiptap li[data-type="taskItem"] div::selection,
-.tiptap li[data-type="taskItem"] div *::selection,
-.tiptap li[data-type="taskItem"] p::selection {
+.tiptap ul[data-type='taskList']::selection,
+.tiptap ul[data-type='taskList'] *::selection,
+.tiptap li[data-type='taskItem']::selection,
+.tiptap li[data-type='taskItem'] *::selection,
+.tiptap li[data-type='taskItem'] div::selection,
+.tiptap li[data-type='taskItem'] div *::selection,
+.tiptap li[data-type='taskItem'] p::selection {
   background-color: rgba(74, 124, 155, 0.4) !important;
   color: inherit !important;
   -webkit-text-fill-color: inherit !important;
 }
 
-.dark .tiptap ul[data-type="taskList"]::selection,
-.dark .tiptap ul[data-type="taskList"] *::selection,
-.dark .tiptap li[data-type="taskItem"]::selection,
-.dark .tiptap li[data-type="taskItem"] *::selection {
+.dark .tiptap ul[data-type='taskList']::selection,
+.dark .tiptap ul[data-type='taskList'] *::selection,
+.dark .tiptap li[data-type='taskItem']::selection,
+.dark .tiptap li[data-type='taskItem'] *::selection {
   background-color: rgba(74, 124, 155, 0.5) !important;
 }
 
 /* Nested task lists */
-.tiptap ul[data-type="taskList"] ul[data-type="taskList"] {
+.tiptap ul[data-type='taskList'] ul[data-type='taskList'] {
   margin-left: 1.5em;
 }
 
@@ -1741,25 +1757,25 @@ body {
 }
 
 /* Task lists */
-.tiptap ul[data-type="taskList"] {
+.tiptap ul[data-type='taskList'] {
   list-style: none;
   padding-left: 0;
 }
 
-.tiptap ul[data-type="taskList"] li {
+.tiptap ul[data-type='taskList'] li {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.tiptap ul[data-type="taskList"] li > label {
+.tiptap ul[data-type='taskList'] li > label {
   flex-shrink: 0;
   margin: 0;
   display: flex;
   align-items: center;
 }
 
-.tiptap ul[data-type="taskList"] li > div {
+.tiptap ul[data-type='taskList'] li > div {
   flex: 1;
 }
 
@@ -1777,8 +1793,8 @@ body {
   outline: 2px solid var(--accent-primary) !important;
 }
 
-.tiptap [data-type="taskItem"].ProseMirror-selectednode,
-.tiptap [data-type="taskItem"]:has(.ProseMirror-selectednode) {
+.tiptap [data-type='taskItem'].ProseMirror-selectednode,
+.tiptap [data-type='taskItem']:has(.ProseMirror-selectednode) {
   background-color: rgba(74, 124, 155, 0.2) !important;
 }
 
@@ -1797,13 +1813,21 @@ body {
 
 /* Modal animations */
 @keyframes modal-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modal-backdrop-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes modal-content-in {
@@ -1904,9 +1928,16 @@ body {
 
 /* Gentle shake - for drag feedback */
 @keyframes gentle-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  75% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
 }
 
 /* Expand with bounce - for folder content */
@@ -1927,7 +1958,8 @@ body {
 
 /* Subtle glow pulse - for focus states */
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 2px var(--accent-subtle);
   }
   50% {
@@ -1957,12 +1989,24 @@ body {
 }
 
 /* Staggered children - for list entrance */
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 25ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 75ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(n+6) { animation-delay: 125ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 25ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 50ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 75ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 100ms;
+}
+.stagger-children > *:nth-child(n + 6) {
+  animation-delay: 125ms;
+}
 
 .content-exit {
   animation: content-fade-out var(--duration-fast) var(--ease-snap) forwards;
@@ -1992,8 +2036,12 @@ body {
 }
 
 @keyframes toast-progress {
-  from { transform: scaleX(1); }
-  to { transform: scaleX(0); }
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
 .toast-enter,
@@ -2013,18 +2061,30 @@ body {
 
 /* Dropdown animations */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-from-top-1 {
-  from { transform: translateY(-4px); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 @keyframes slide-in-from-top-2 {
-  from { transform: translateY(-8px); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .animate-in {
@@ -2049,9 +2109,10 @@ body {
 
 /* Button interactions */
 .btn-interactive {
-  transition: transform var(--duration-fast) var(--ease-snap),
-              box-shadow var(--duration-fast) var(--ease-snap),
-              background-color var(--duration-fast) ease;
+  transition:
+    transform var(--duration-fast) var(--ease-snap),
+    box-shadow var(--duration-fast) var(--ease-snap),
+    background-color var(--duration-fast) ease;
 }
 
 .btn-interactive:hover {
@@ -2074,13 +2135,22 @@ body {
 
 /* Skeleton loading */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .skeleton {
@@ -2101,8 +2171,13 @@ body {
 
 /* Save indicator */
 @keyframes saving-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @keyframes save-success {
@@ -2121,9 +2196,15 @@ body {
 }
 
 @keyframes save-success-fade {
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .saving-indicator {
@@ -2131,8 +2212,9 @@ body {
 }
 
 .save-success-icon {
-  animation: save-success 250ms var(--ease-bounce) forwards,
-             save-success-fade 2s ease-in-out forwards;
+  animation:
+    save-success 250ms var(--ease-bounce) forwards,
+    save-success-fade 2s ease-in-out forwards;
 }
 
 /* List stagger */
@@ -2172,8 +2254,9 @@ body {
 }
 
 .event-hover-lift {
-  transition: transform var(--duration-fast) var(--ease-snap),
-              box-shadow var(--duration-fast) var(--ease-snap);
+  transition:
+    transform var(--duration-fast) var(--ease-snap),
+    box-shadow var(--duration-fast) var(--ease-snap);
 }
 
 .event-hover-lift:hover {
@@ -2183,8 +2266,13 @@ body {
 
 /* Time indicator */
 @keyframes time-indicator-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .time-indicator-dot {
@@ -2193,8 +2281,12 @@ body {
 
 /* Search clear rotation */
 @keyframes search-clear-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(90deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(90deg);
+  }
 }
 
 .search-clear-btn:hover svg {
@@ -2244,9 +2336,23 @@ body {
 }
 
 @keyframes error-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
-  20%, 40%, 60%, 80% { transform: translateX(3px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-3px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(3px);
+  }
 }
 
 .success-bounce {
@@ -2259,8 +2365,12 @@ body {
 
 /* Checkmark animation */
 @keyframes checkmark-draw {
-  0% { stroke-dashoffset: 24; }
-  100% { stroke-dashoffset: 0; }
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
 }
 
 .checkmark-animate {
@@ -2272,8 +2382,12 @@ body {
 
 /* Spinner */
 @keyframes spinner-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
@@ -2917,7 +3031,12 @@ body {
    ========================================================================== */
 
 /* Global smooth transitions for interactive elements */
-button, a, input, textarea, select, [role="button"] {
+button,
+a,
+input,
+textarea,
+select,
+[role='button'] {
   transition:
     background-color 150ms ease,
     border-color 150ms ease,
@@ -2930,12 +3049,14 @@ button, a, input, textarea, select, [role="button"] {
 /* Premium focus ring */
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-primary);
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    0 0 0 4px var(--accent-primary);
 }
 
 /* Subtle press effect for all clickable elements */
 button:active:not(:disabled),
-[role="button"]:active {
+[role='button']:active {
   transform: scale(0.98);
 }
 
@@ -2952,7 +3073,9 @@ button:active:not(:disabled),
   background: linear-gradient(90deg, var(--accent-primary) 0%, transparent 100%);
   opacity: 0;
   transform: translateX(-100%);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 
 .sidebar-item:hover::before {
@@ -3005,7 +3128,9 @@ button:active:not(:disabled),
   background: radial-gradient(circle at center, var(--accent-primary) 0%, transparent 70%);
   opacity: 0;
   transform: scale(0);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 
 .toolbar-button:hover::after {
@@ -3024,28 +3149,30 @@ button:active:not(:disabled),
 }
 
 /* ===== Input Field Polish ===== */
-input[type="text"],
-input[type="search"],
-input[type="email"],
-input[type="password"],
+input[type='text'],
+input[type='search'],
+input[type='email'],
+input[type='password'],
 textarea {
   border: 1px solid var(--border-default);
   background: var(--bg-base);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
-input[type="text"]:hover,
-input[type="search"]:hover,
-input[type="email"]:hover,
-input[type="password"]:hover,
+input[type='text']:hover,
+input[type='search']:hover,
+input[type='email']:hover,
+input[type='password']:hover,
 textarea:hover {
   border-color: var(--border-strong);
 }
 
-input[type="text"]:focus,
-input[type="search"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
+input[type='text']:focus,
+input[type='search']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
 textarea:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-subtle);
@@ -3054,9 +3181,10 @@ textarea:focus {
 
 /* ===== Smooth Panel Transitions ===== */
 .panel-collapsible {
-  transition: width 250ms var(--ease-out-expo),
-              opacity 200ms ease,
-              transform 250ms var(--ease-out-expo);
+  transition:
+    width 250ms var(--ease-out-expo),
+    opacity 200ms ease,
+    transform 250ms var(--ease-out-expo);
 }
 
 .panel-collapsed {
@@ -3172,7 +3300,9 @@ textarea:focus {
 .fade-enter-active {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 
 .fade-exit {
@@ -3183,7 +3313,9 @@ textarea:focus {
 .fade-exit-active {
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 
 /* ===== Scale Transitions ===== */
@@ -3195,7 +3327,9 @@ textarea:focus {
 .scale-enter-active {
   opacity: 1;
   transform: scale(1);
-  transition: opacity 150ms ease, transform 150ms var(--ease-out-expo);
+  transition:
+    opacity 150ms ease,
+    transform 150ms var(--ease-out-expo);
 }
 
 .scale-exit {
@@ -3206,7 +3340,9 @@ textarea:focus {
 .scale-exit-active {
   opacity: 0;
   transform: scale(0.95);
-  transition: opacity 100ms ease, transform 100ms ease;
+  transition:
+    opacity 100ms ease,
+    transform 100ms ease;
 }
 
 /* ===== Tooltip Styles ===== */
@@ -3230,7 +3366,10 @@ textarea:focus {
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 150ms ease, transform 150ms ease, visibility 150ms;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms;
   pointer-events: none;
   z-index: 1000;
 }

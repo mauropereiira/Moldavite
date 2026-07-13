@@ -1,9 +1,16 @@
-//! Export / import commands (ZIP, encrypted backup, settings JSON).
+//! Archive, encrypted-backup, and settings import/export commands.
+//!
+//! Archive entries and user-selected destinations are untrusted: imports reject
+//! traversal and symlinks before extraction, exports exclude internal state,
+//! and all restored user files receive restrictive permissions. Encrypted
+//! backups wrap the archive as one authenticated payload and keep passwords and
+//! plaintext buffers in zeroizing containers where possible.
 
 use std::fs;
-use std::io::{Read as IoRead, Write as IoWrite};
+use std::io::{Read as IoRead, Seek, Write as IoWrite};
 use std::path::Path;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 use zeroize::Zeroizing;
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
@@ -11,7 +18,7 @@ use zip::ZipArchive;
 use crate::encryption;
 use crate::paths::get_notes_dir;
 use crate::types::ImportResult;
-use crate::validation::{is_safe_filename, validate_path_within_base, validate_user_export_path};
+use crate::validation::{validate_path_within_base, validate_user_export_path};
 
 // Zip-bomb / malicious archive guardrails. Chosen to comfortably cover a
 // very large real vault (tens of thousands of notes + images) while still
@@ -39,69 +46,177 @@ fn is_acceptable_entry_name(name: &str) -> bool {
     true
 }
 
+fn validated_archive_destination(notes_dir: &Path, name: &str) -> Option<(String, PathBuf)> {
+    if !is_acceptable_entry_name(name) || name.ends_with('/') {
+        return None;
+    }
+    let (subdir, rest) = name.split_once('/')?;
+    if !["daily", "notes", "templates", "weekly", "images"].contains(&subdir)
+        || !crate::validation::is_safe_note_path(rest)
+    {
+        return None;
+    }
+    let destination = notes_dir.join(subdir).join(rest);
+    Some((subdir.to_string(), destination))
+}
+
+fn ensure_import_parent(notes_dir: &Path, destination: &Path) -> Result<(), String> {
+    let parent = destination
+        .parent()
+        .ok_or_else(|| "Invalid archive destination".to_string())?;
+    let relative = parent
+        .strip_prefix(notes_dir)
+        .map_err(|_| "Archive destination escapes the Forge".to_string())?;
+    let mut current = notes_dir.to_path_buf();
+    for component in relative.components() {
+        current.push(component);
+        if current.exists() {
+            let metadata = fs::symlink_metadata(&current)
+                .map_err(|e| format!("Failed to inspect import directory: {e}"))?;
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err("Archive destination contains an unsafe directory".to_string());
+            }
+        } else {
+            fs::create_dir(&current)
+                .map_err(|e| format!("Failed to create import directory: {e}"))?;
+        }
+    }
+    validate_path_within_base(destination, notes_dir)
+}
+
+fn add_archive_tree<W: IoWrite + Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    notes_dir: &Path,
+    subdir: &str,
+    options: SimpleFileOptions,
+) -> Result<(), String> {
+    let root = notes_dir.join(subdir);
+    if !root.is_dir() {
+        return Ok(());
+    }
+    for entry in WalkDir::new(&root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
+        })
+        .flatten()
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(notes_dir)
+            .map_err(|_| "Failed to compute archive path".to_string())?;
+        let archive_path = relative.to_string_lossy().replace('\\', "/");
+        zip.start_file(&archive_path, options)
+            .map_err(|e| format!("Failed to add file to ZIP: {e}"))?;
+        let mut source = fs::File::open(entry.path())
+            .map_err(|e| format!("Failed to read archive source: {e}"))?;
+        std::io::copy(&mut source, zip)
+            .map_err(|e| format!("Failed to write file content: {e}"))?;
+    }
+    Ok(())
+}
+
+fn clear_import_subdirs(notes_dir: &Path, subdirs: &[&str]) -> Result<(), String> {
+    for subdir in subdirs {
+        let path = notes_dir.join(subdir);
+        if path.exists() {
+            fs::remove_dir_all(&path)
+                .map_err(|e| format!("Failed to clear {subdir} before import: {e}"))?;
+        }
+        fs::create_dir_all(&path)
+            .map_err(|e| format!("Failed to recreate {subdir} before import: {e}"))?;
+    }
+    Ok(())
+}
+
+fn preflight_archive<R: IoRead + Seek>(
+    archive: &mut ZipArchive<R>,
+    notes_dir: &Path,
+    label: &str,
+) -> Result<(), String> {
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(format!(
+            "{label} has too many entries ({}); maximum is {}",
+            archive.len(),
+            MAX_ARCHIVE_ENTRIES
+        ));
+    }
+    let mut total_uncompressed = 0_u64;
+    for index in 0..archive.len() {
+        let file = archive
+            .by_index(index)
+            .map_err(|e| format!("Failed to inspect {label} entry: {e}"))?;
+        let name = file.name();
+        if name.ends_with('/') {
+            continue;
+        }
+        if validated_archive_destination(notes_dir, name).is_none() {
+            return Err(format!("{label} contains unsafe entry path '{name}'"));
+        }
+        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "{label} entry '{name}' exceeds per-file size limit"
+            ));
+        }
+        total_uncompressed = total_uncompressed.saturating_add(file.size());
+        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
+            return Err(format!("{label} total uncompressed size exceeds limit"));
+        }
+    }
+    Ok(())
+}
+
 /// Export all notes and templates to a ZIP file
 #[tauri::command]
 pub(crate) fn export_notes(destination: String) -> Result<String, String> {
     let notes_dir = get_notes_dir();
     let zip_path = PathBuf::from(&destination);
 
-    let file = fs::File::create(&zip_path)
-        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
+    export_notes_from(&notes_dir, &zip_path)?;
+    Ok(zip_path.to_string_lossy().to_string())
+}
+
+fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
+    let file =
+        fs::File::create(zip_path).map_err(|e| format!("Failed to create ZIP file: {}", e))?;
     let mut zip = zip::ZipWriter::new(file);
 
     let options = SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o600);
 
-    // Add files from each subdirectory
-    for subdir in ["daily", "notes", "templates", "images"] {
-        let subdir_path = notes_dir.join(subdir);
-        if !subdir_path.exists() {
-            continue;
-        }
-
-        if let Ok(entries) = fs::read_dir(&subdir_path) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() {
-                    let filename = path.file_name().unwrap().to_string_lossy();
-                    let archive_path = format!("{}/{}", subdir, filename);
-
-                    let mut file_content = Vec::new();
-                    if let Ok(mut f) = fs::File::open(&path) {
-                        if f.read_to_end(&mut file_content).is_ok() {
-                            zip.start_file(&archive_path, options)
-                                .map_err(|e| format!("Failed to add file to ZIP: {}", e))?;
-                            zip.write_all(&file_content)
-                                .map_err(|e| format!("Failed to write file content: {}", e))?;
-                        }
-                    }
-                }
-            }
-        }
+    for subdir in ["daily", "weekly", "notes", "templates", "images"] {
+        add_archive_tree(&mut zip, notes_dir, subdir, options)?;
     }
 
-    zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+    zip.finish()
+        .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
 
-    Ok(zip_path.to_string_lossy().to_string())
+    Ok(())
 }
 
 /// Import notes and templates from a ZIP file
 #[tauri::command]
 pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
     let notes_dir = get_notes_dir();
-    let zip_file = fs::File::open(&zip_path)
-        .map_err(|e| format!("Failed to open ZIP file: {}", e))?;
-    let mut archive = ZipArchive::new(zip_file)
-        .map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
+    import_notes_into(&notes_dir, Path::new(&zip_path), merge)
+}
 
-    if archive.len() > MAX_ARCHIVE_ENTRIES {
-        return Err(format!(
-            "Archive has too many entries ({}); maximum is {}",
-            archive.len(),
-            MAX_ARCHIVE_ENTRIES
-        ));
-    }
+fn import_notes_into(
+    notes_dir: &Path,
+    zip_path: &Path,
+    merge: bool,
+) -> Result<ImportResult, String> {
+    let zip_file =
+        fs::File::open(zip_path).map_err(|e| format!("Failed to open ZIP file: {}", e))?;
+    let mut archive =
+        ZipArchive::new(zip_file).map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
+
+    preflight_archive(&mut archive, notes_dir, "Archive")?;
 
     let mut result = ImportResult {
         daily_notes: 0,
@@ -113,50 +228,24 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
-        for subdir in ["daily", "notes", "images"] {
-            let subdir_path = notes_dir.join(subdir);
-            if subdir_path.exists() {
-                if let Ok(entries) = fs::read_dir(&subdir_path) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_file() {
-                            let _ = fs::remove_file(&path);
-                        }
-                    }
-                }
-            }
-        }
+        clear_import_subdirs(notes_dir, &["daily", "weekly", "notes", "images"])?;
     }
 
     // Extract files from the ZIP
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| format!("Failed to read ZIP entry: {}", e))?;
 
         let name = file.name().to_string();
 
-        if !is_acceptable_entry_name(&name) {
+        if name.ends_with('/') {
             continue;
         }
 
-        // Parse the path (subdir/filename)
-        let parts: Vec<&str> = name.split('/').collect();
-        if parts.len() != 2 {
-            continue; // Skip invalid paths
-        }
-
-        let subdir = parts[0];
-        let filename = parts[1];
-
-        // Only process valid subdirectories
-        if !["daily", "notes", "templates", "images"].contains(&subdir) {
-            continue;
-        }
-
-        // Validate filename is safe (no path traversal)
-        if !is_safe_filename(filename) {
-            continue; // Skip unsafe filenames
-        }
+        let Some((subdir, dest_path)) = validated_archive_destination(notes_dir, &name) else {
+            return Err(format!("Archive contains unsafe entry path '{name}'"));
+        };
 
         // Reject entries whose reported uncompressed size is above the per-file
         // cap before we ever allocate for them.
@@ -171,16 +260,7 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
             return Err("Archive total uncompressed size exceeds limit".to_string());
         }
 
-        let dest_dir = notes_dir.join(subdir);
-        fs::create_dir_all(&dest_dir)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
-
-        let dest_path = dest_dir.join(filename);
-
-        // Validate the final path is within the notes directory
-        if validate_path_within_base(&dest_path, &notes_dir).is_err() {
-            continue; // Skip paths that escape the notes directory
-        }
+        ensure_import_parent(notes_dir, &dest_path)?;
 
         // If merging, skip existing files
         if merge && dest_path.exists() {
@@ -205,8 +285,9 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
             .map_err(|e| format!("Failed to write file: {}", e))?;
 
         // Update counts
-        match subdir {
+        match subdir.as_str() {
             "daily" => result.daily_notes += 1,
+            "weekly" => result.daily_notes += 1,
             "notes" => result.standalone_notes += 1,
             "templates" => result.templates += 1,
             "images" => result.images += 1,
@@ -219,11 +300,23 @@ pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult
 
 /// Export all notes and templates to an encrypted backup file
 #[tauri::command]
-pub(crate) fn export_encrypted_backup(destination: String, password: String) -> Result<String, String> {
+pub(crate) fn export_encrypted_backup(
+    destination: String,
+    password: String,
+) -> Result<String, String> {
     let password = Zeroizing::new(password);
-    use std::io::Cursor;
-
     let notes_dir = get_notes_dir();
+    let backup_path = PathBuf::from(&destination);
+    export_encrypted_backup_from(&notes_dir, &backup_path, &password)?;
+    Ok(backup_path.to_string_lossy().to_string())
+}
+
+fn export_encrypted_backup_from(
+    notes_dir: &Path,
+    backup_path: &Path,
+    password: &str,
+) -> Result<(), String> {
+    use std::io::Cursor;
 
     // Create ZIP in memory
     let mut zip_buffer = Cursor::new(Vec::new());
@@ -233,35 +326,12 @@ pub(crate) fn export_encrypted_backup(destination: String, password: String) -> 
             .compression_method(zip::CompressionMethod::Deflated)
             .unix_permissions(0o600);
 
-        // Add files from each subdirectory
         for subdir in ["daily", "notes", "templates", "weekly", "images"] {
-            let subdir_path = notes_dir.join(subdir);
-            if !subdir_path.exists() {
-                continue;
-            }
-
-            if let Ok(entries) = fs::read_dir(&subdir_path) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        let filename = path.file_name().unwrap().to_string_lossy();
-                        let archive_path = format!("{}/{}", subdir, filename);
-
-                        let mut file_content = Vec::new();
-                        if let Ok(mut f) = fs::File::open(&path) {
-                            if f.read_to_end(&mut file_content).is_ok() {
-                                zip.start_file(&archive_path, options)
-                                    .map_err(|e| format!("Failed to add file to ZIP: {}", e))?;
-                                zip.write_all(&file_content)
-                                    .map_err(|e| format!("Failed to write file content: {}", e))?;
-                            }
-                        }
-                    }
-                }
-            }
+            add_archive_tree(&mut zip, notes_dir, subdir, options)?;
         }
 
-        zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+        zip.finish()
+            .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     }
 
     // Get the ZIP data
@@ -269,29 +339,39 @@ pub(crate) fn export_encrypted_backup(destination: String, password: String) -> 
 
     // Encrypt the ZIP data using our encryption module
     let zip_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &zip_data);
-    let encrypted = encryption::encrypt_content(&zip_b64, &password)?;
+    let encrypted = encryption::encrypt_content(&zip_b64, password)?;
 
     // Add a header to identify encrypted backups
     let backup_content = format!("MOLDAVITE_ENCRYPTED_BACKUP_V1\n{}", encrypted);
 
     // Write to destination
-    let backup_path = PathBuf::from(&destination);
-    crate::persist::write_atomic(&backup_path, backup_content.as_bytes(), Some(0o600))
+    crate::persist::write_atomic(backup_path, backup_content.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write backup file: {}", e))?;
-
-    Ok(backup_path.to_string_lossy().to_string())
+    Ok(())
 }
 
 /// Import notes and templates from an encrypted backup file
 #[tauri::command]
-pub(crate) fn import_encrypted_backup(backup_path: String, password: String, merge: bool) -> Result<ImportResult, String> {
+pub(crate) fn import_encrypted_backup(
+    backup_path: String,
+    password: String,
+    merge: bool,
+) -> Result<ImportResult, String> {
     let password = Zeroizing::new(password);
+    let notes_dir = get_notes_dir();
+    import_encrypted_backup_into(&notes_dir, Path::new(&backup_path), &password, merge)
+}
+
+fn import_encrypted_backup_into(
+    notes_dir: &Path,
+    backup_path: &Path,
+    password: &str,
+    merge: bool,
+) -> Result<ImportResult, String> {
     use std::io::Cursor;
 
-    let notes_dir = get_notes_dir();
-
     // Read the backup file
-    let backup_content = fs::read_to_string(&backup_path)
+    let backup_content = fs::read_to_string(backup_path)
         .map_err(|e| format!("Failed to read backup file: {}", e))?;
 
     // Verify header and extract encrypted data
@@ -302,7 +382,7 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
     let encrypted = lines[1];
 
     // Decrypt the data
-    let zip_b64 = encryption::decrypt_content(encrypted, &password)?;
+    let zip_b64 = encryption::decrypt_content(encrypted, password)?;
 
     // Decode base64 to get ZIP data
     let zip_data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &zip_b64)
@@ -310,16 +390,10 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
 
     // Open the ZIP archive from memory
     let cursor = Cursor::new(zip_data);
-    let mut archive = ZipArchive::new(cursor)
-        .map_err(|e| format!("Failed to read backup archive: {}", e))?;
+    let mut archive =
+        ZipArchive::new(cursor).map_err(|e| format!("Failed to read backup archive: {}", e))?;
 
-    if archive.len() > MAX_ARCHIVE_ENTRIES {
-        return Err(format!(
-            "Archive has too many entries ({}); maximum is {}",
-            archive.len(),
-            MAX_ARCHIVE_ENTRIES
-        ));
-    }
+    preflight_archive(&mut archive, notes_dir, "Backup")?;
 
     let mut result = ImportResult {
         daily_notes: 0,
@@ -331,50 +405,24 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
 
     // If not merging, clear existing notes first (but not templates)
     if !merge {
-        for subdir in ["daily", "notes", "weekly", "images"] {
-            let subdir_path = notes_dir.join(subdir);
-            if subdir_path.exists() {
-                if let Ok(entries) = fs::read_dir(&subdir_path) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if path.is_file() {
-                            let _ = fs::remove_file(&path);
-                        }
-                    }
-                }
-            }
-        }
+        clear_import_subdirs(notes_dir, &["daily", "weekly", "notes", "images"])?;
     }
 
     // Extract files from the ZIP
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| format!("Failed to read archive entry: {}", e))?;
 
         let name = file.name().to_string();
 
-        if !is_acceptable_entry_name(&name) {
+        if name.ends_with('/') {
             continue;
         }
 
-        // Parse the path (subdir/filename)
-        let parts: Vec<&str> = name.split('/').collect();
-        if parts.len() != 2 {
-            continue;
-        }
-
-        let subdir = parts[0];
-        let filename = parts[1];
-
-        // Only process valid subdirectories
-        if !["daily", "notes", "templates", "weekly", "images"].contains(&subdir) {
-            continue;
-        }
-
-        // Validate filename is safe (no path traversal)
-        if !is_safe_filename(filename) {
-            continue; // Skip unsafe filenames
-        }
+        let Some((subdir, dest_path)) = validated_archive_destination(notes_dir, &name) else {
+            return Err(format!("Backup contains unsafe entry path '{name}'"));
+        };
 
         if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
             return Err(format!(
@@ -387,20 +435,7 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
             return Err("Backup total uncompressed size exceeds limit".to_string());
         }
 
-        // Ensure subdirectory exists
-        let subdir_path = notes_dir.join(subdir);
-        if !subdir_path.exists() {
-            fs::create_dir_all(&subdir_path)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
-        }
-
-        // Build destination path
-        let dest_path = subdir_path.join(filename);
-
-        // Validate the final path is within the notes directory
-        if validate_path_within_base(&dest_path, &notes_dir).is_err() {
-            continue; // Skip paths that escape the notes directory
-        }
+        ensure_import_parent(notes_dir, &dest_path)?;
 
         // Skip if file exists and merging
         if merge && dest_path.exists() {
@@ -424,7 +459,7 @@ pub(crate) fn import_encrypted_backup(backup_path: String, password: String, mer
             .map_err(|e| format!("Failed to write file: {}", e))?;
 
         // Update counts
-        match subdir {
+        match subdir.as_str() {
             "daily" | "weekly" => result.daily_notes += 1,
             "notes" => result.standalone_notes += 1,
             "templates" => result.templates += 1,
@@ -480,4 +515,163 @@ pub(crate) fn import_settings_json(path: String) -> Result<String, String> {
         return Err("Settings JSON too large".to_string());
     }
     fs::read_to_string(file_path).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::time::Instant;
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "moldavite-archive-{tag}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn scaffold(path: &Path) {
+        for subdir in ["daily", "weekly", "notes", "templates", "images"] {
+            fs::create_dir_all(path.join(subdir)).unwrap();
+        }
+    }
+
+    #[test]
+    fn stress_zip_round_trip_preserves_500_notes_nested_weekly_and_assets() {
+        let tmp = TempDir::new("roundtrip-500");
+        let source = tmp.0.join("source");
+        let restored = tmp.0.join("restored");
+        scaffold(&source);
+        scaffold(&restored);
+        for i in 0..500 {
+            let folder = source.join("notes").join(format!("group-{}", i % 10));
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(
+                folder.join(format!("note-{i}.md")),
+                format!("body {i} 日本語"),
+            )
+            .unwrap();
+        }
+        fs::write(source.join("weekly/2020-W53.md"), "week 53").unwrap();
+        fs::write(source.join("templates/large.json"), "template").unwrap();
+        fs::write(source.join("images/pixel.bin"), [0_u8, 1, 2, 3]).unwrap();
+        let archive = tmp.0.join("vault.zip");
+
+        let started = Instant::now();
+        export_notes_from(&source, &archive).unwrap();
+        let result = import_notes_into(&restored, &archive, false).unwrap();
+        let elapsed = started.elapsed();
+        assert_eq!(result.standalone_notes, 500);
+        assert_eq!(result.daily_notes, 1);
+        assert_eq!(result.templates, 1);
+        assert_eq!(result.images, 1);
+        for i in 0..500 {
+            assert_eq!(
+                fs::read_to_string(
+                    restored
+                        .join("notes")
+                        .join(format!("group-{}", i % 10))
+                        .join(format!("note-{i}.md"))
+                )
+                .unwrap(),
+                format!("body {i} 日本語")
+            );
+        }
+        assert_eq!(
+            fs::read_to_string(restored.join("weekly/2020-W53.md")).unwrap(),
+            "week 53"
+        );
+        eprintln!("[stress] 500-note ZIP round trip took {elapsed:?}");
+        assert!(elapsed.as_secs() < 15, "ZIP round trip took {elapsed:?}");
+    }
+
+    #[test]
+    fn encrypted_backup_round_trip_rejects_wrong_password() {
+        let tmp = TempDir::new("encrypted");
+        let source = tmp.0.join("source");
+        let restored = tmp.0.join("restored");
+        scaffold(&source);
+        scaffold(&restored);
+        fs::create_dir_all(source.join("notes/Nested")).unwrap();
+        fs::write(source.join("notes/Nested/secret.md"), "private body").unwrap();
+        let backup = tmp.0.join("vault.moldavite-backup");
+        export_encrypted_backup_from(&source, &backup, "correct horse battery staple").unwrap();
+        let wrong =
+            import_encrypted_backup_into(&restored, &backup, "wrong password", false).unwrap_err();
+        assert!(wrong.contains("wrong password or corrupted data"));
+        let result =
+            import_encrypted_backup_into(&restored, &backup, "correct horse battery staple", false)
+                .unwrap();
+        assert_eq!(result.standalone_notes, 1);
+        assert_eq!(
+            fs::read_to_string(restored.join("notes/Nested/secret.md")).unwrap(),
+            "private body"
+        );
+    }
+
+    fn write_zip(path: &Path, names: impl IntoIterator<Item = String>) {
+        let file = fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        for name in names {
+            zip.start_file(name, options).unwrap();
+            zip.write_all(b"x").unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn malicious_zip_traversal_is_rejected_with_actionable_error() {
+        let tmp = TempDir::new("traversal");
+        let destination = tmp.0.join("destination");
+        scaffold(&destination);
+        fs::write(
+            destination.join("notes/keep.md"),
+            "must survive failed import",
+        )
+        .unwrap();
+        let archive = tmp.0.join("malicious.zip");
+        write_zip(&archive, ["notes/../../escaped.md".to_string()]);
+        let error = import_notes_into(&destination, &archive, false).unwrap_err();
+        assert!(error.contains("unsafe entry path"));
+        assert!(error.contains("../../escaped.md"));
+        assert!(!tmp.0.join("escaped.md").exists());
+        assert_eq!(
+            fs::read_to_string(destination.join("notes/keep.md")).unwrap(),
+            "must survive failed import"
+        );
+    }
+
+    #[test]
+    fn malicious_zip_entry_count_limit_fails_before_extraction() {
+        let tmp = TempDir::new("entry-limit");
+        let destination = tmp.0.join("destination");
+        scaffold(&destination);
+        let archive = tmp.0.join("too-many.zip");
+        write_zip(
+            &archive,
+            (0..=MAX_ARCHIVE_ENTRIES).map(|i| format!("notes/entry-{i}.md")),
+        );
+        let error = import_notes_into(&destination, &archive, true).unwrap_err();
+        assert!(error.contains("too many entries"));
+        assert!(error.contains(&MAX_ARCHIVE_ENTRIES.to_string()));
+        assert_eq!(fs::read_dir(destination.join("notes")).unwrap().count(), 0);
+    }
 }

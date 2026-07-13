@@ -98,9 +98,7 @@ const CATEGORY_LABEL: Record<QuickSwitcherCommandCategory, string> = {
   plugins: 'Plugins',
 };
 
-export function commandCategoryLabel(
-  cat: QuickSwitcherCommandCategory,
-): string {
+export function commandCategoryLabel(cat: QuickSwitcherCommandCategory): string {
   return CATEGORY_LABEL[cat];
 }
 
@@ -113,7 +111,7 @@ export function commandCategoryLabel(
  */
 export function matchCommand(
   query: string,
-  command: QuickSwitcherCommand,
+  command: QuickSwitcherCommand
 ): { matches: boolean; titleIndices: number[] } {
   const trimmed = query.trim();
   if (!trimmed) return { matches: true, titleIndices: [] };
@@ -134,10 +132,7 @@ export function matchCommand(
   return { matches: false, titleIndices: [] };
 }
 
-function fuzzyChars(
-  query: string,
-  haystack: string,
-): { matches: boolean; indices: number[] } {
+function fuzzyChars(query: string, haystack: string): { matches: boolean; indices: number[] } {
   const indices: number[] = [];
   let qi = 0;
   for (let i = 0; i < haystack.length && qi < query.length; i++) {
@@ -158,7 +153,7 @@ function fuzzyChars(
  */
 export function filterCommands(
   query: string,
-  commands: readonly QuickSwitcherCommand[] = QUICK_SWITCHER_COMMANDS,
+  commands: readonly QuickSwitcherCommand[] = QUICK_SWITCHER_COMMANDS
 ): { command: QuickSwitcherCommand; titleIndices: number[] }[] {
   const out: { command: QuickSwitcherCommand; titleIndices: number[] }[] = [];
   for (const command of commands) {

@@ -1,3 +1,9 @@
+/**
+ * Root drop-zone state for moving notes and folders out of nested folders.
+ * MIME types keep note and folder zones disjoint; nested drag-enter counters avoid
+ * clearing highlights until the pointer leaves the entire zone.
+ */
+
 import { useRef, useState } from 'react';
 
 type MoveNote = (notePath: string, toFolder?: string) => Promise<unknown>;

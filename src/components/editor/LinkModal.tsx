@@ -40,7 +40,8 @@ export function LinkModal({
 
     // Basic URL validation - allow common formats
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-    const isValid = urlPattern.test(urlString) || urlString.startsWith('/') || urlString.startsWith('#');
+    const isValid =
+      urlPattern.test(urlString) || urlString.startsWith('/') || urlString.startsWith('#');
 
     if (!isValid) {
       setError('Please enter a valid URL');
@@ -56,7 +57,12 @@ export function LinkModal({
 
     // Auto-add https:// if no protocol is specified
     let finalUrl = url.trim();
-    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('/') && !finalUrl.startsWith('#')) {
+    if (
+      !finalUrl.startsWith('http://') &&
+      !finalUrl.startsWith('https://') &&
+      !finalUrl.startsWith('/') &&
+      !finalUrl.startsWith('#')
+    ) {
       finalUrl = 'https://' + finalUrl;
     }
 
@@ -98,7 +104,10 @@ export function LinkModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-            <h2 id="link-modal-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2
+              id="link-modal-title"
+              className="text-xl font-semibold text-gray-900 dark:text-white"
+            >
               {initialUrl ? 'Edit Link' : 'Insert Link'}
             </h2>
           </div>
@@ -190,8 +199,15 @@ export function LinkModal({
         {/* Keyboard hints */}
         <div className="px-6 pb-4">
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            Press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">Enter</kbd> to insert or{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">Esc</kbd> to cancel
+            Press{' '}
+            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+              Enter
+            </kbd>{' '}
+            to insert or{' '}
+            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+              Esc
+            </kbd>{' '}
+            to cancel
           </p>
         </div>
       </div>

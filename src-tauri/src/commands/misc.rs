@@ -1,4 +1,9 @@
-//! Miscellaneous commands: directory setup, note colors, binary write, image save.
+//! Cross-domain commands for directory setup, Forge rescans, note colors, and media writes.
+//!
+//! Color updates preserve unknown frontmatter, image and binary names are bare
+//! validated components, and all note-adjacent writes preserve restrictive
+//! permissions. Forge rescans coordinate the watcher and indexes rather than
+//! exposing raw filesystem refresh logic to the frontend.
 
 use chrono::Local;
 use std::fs;

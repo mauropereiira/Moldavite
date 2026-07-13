@@ -40,7 +40,9 @@ export function TagsSection({
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ tag: string; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ tag: string; x: number; y: number } | null>(
+    null
+  );
 
   // Sort and filter tags
   const sortedTags = useMemo(() => {
@@ -95,7 +97,9 @@ export function TagsSection({
     setIsRenaming(true);
     try {
       const count = await renameTagGlobally(renamingTag, trimmedNew);
-      toast.success(`Renamed #${renamingTag} to #${trimmedNew} in ${count} note${count !== 1 ? 's' : ''}`);
+      toast.success(
+        `Renamed #${renamingTag} to #${trimmedNew} in ${count} note${count !== 1 ? 's' : ''}`
+      );
       setRenamingTag(null);
       // If the renamed tag was selected, update selection
       if (selectedTag === renamingTag) {
@@ -191,8 +195,8 @@ export function TagsSection({
                 aria-label="Clear tag search"
                 className="p-0.5 rounded transition-colors"
                 style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -237,7 +241,9 @@ export function TagsSection({
                     className="text-xs px-1.5 py-0.5 font-medium"
                     style={{
                       color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
-                      backgroundColor: isSelected ? 'rgba(90, 122, 168, 0.15)' : 'var(--count-badge-bg)',
+                      backgroundColor: isSelected
+                        ? 'rgba(90, 122, 168, 0.15)'
+                        : 'var(--count-badge-bg)',
                       borderRadius: 'var(--radius-sm)',
                     }}
                   >
@@ -251,13 +257,10 @@ export function TagsSection({
 
         {/* Filter hint */}
         {hasActiveFilter && (
-          <div
-            className="px-3 pt-2 pb-1 text-xs"
-            style={{ color: 'var(--text-muted)' }}
-          >
+          <div className="px-3 pt-2 pb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
             Showing notes with {selectedTags.length === 1 ? 'tag' : 'all tags'}:{' '}
             <span style={{ color: 'var(--accent-primary)' }}>
-              {selectedTags.map(t => `#${t}`).join(', ')}
+              {selectedTags.map((t) => `#${t}`).join(', ')}
             </span>
           </div>
         )}
@@ -265,10 +268,7 @@ export function TagsSection({
 
       {/* Context Menu */}
       {contextMenu && (
-        <div
-          className="fixed inset-0 z-50"
-          onClick={() => setContextMenu(null)}
-        >
+        <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
           <div
             className="absolute py-1 min-w-[140px] modal-content-enter"
             style={{
@@ -285,8 +285,8 @@ export function TagsSection({
               onClick={() => handleRenameStart(contextMenu.tag)}
               className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors"
               style={{ color: 'var(--text-primary)' }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <Pencil className="w-4 h-4" />
               Rename tag
@@ -346,7 +346,11 @@ export function TagsSection({
               </button>
               <button
                 onClick={handleRenameSubmit}
-                disabled={isRenaming || !newTagName.trim() || newTagName.trim().toLowerCase() === renamingTag}
+                disabled={
+                  isRenaming ||
+                  !newTagName.trim() ||
+                  newTagName.trim().toLowerCase() === renamingTag
+                }
                 className="px-3 py-1.5 text-sm rounded transition-colors btn-primary-gradient text-white disabled:opacity-50"
               >
                 {isRenaming ? 'Renaming...' : 'Rename'}

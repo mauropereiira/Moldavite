@@ -1,3 +1,5 @@
+/** Trust-boundary tests for IPC path redaction and safe error propagation. */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sanitizeIpcError, safeInvoke } from './ipc';
 
@@ -32,7 +34,7 @@ describe('safeInvoke', () => {
   it('sanitizes thrown string errors', async () => {
     const { invoke } = await import('@tauri-apps/api/core');
     (invoke as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      'Failed to read /Users/eve/secret.md',
+      'Failed to read /Users/eve/secret.md'
     );
     await expect(safeInvoke('read_note')).rejects.toThrow(/read <path>/);
   });

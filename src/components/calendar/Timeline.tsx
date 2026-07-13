@@ -3,13 +3,7 @@ import { format, isToday } from 'date-fns';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useNoteStore } from '@/stores';
 import type { CalendarEvent } from '@/types';
-import {
-  Clock,
-  RefreshCw,
-  AlertCircle,
-  Lock,
-  ExternalLink,
-} from 'lucide-react';
+import { Clock, RefreshCw, AlertCircle, Lock, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
@@ -51,7 +45,7 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
 
     for (let i = 0; i < columns.length; i++) {
       const column = columns[i];
-      const canPlace = column.every(existing => {
+      const canPlace = column.every((existing) => {
         const existingStart = new Date(existing.start).getTime();
         const existingEnd = new Date(existing.end).getTime();
         // No overlap if event ends before existing starts or event starts after existing ends
@@ -82,14 +76,14 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
     const eventEnd = new Date(event.end).getTime();
 
     // Find all overlapping events
-    const overlapping = result.filter(other => {
+    const overlapping = result.filter((other) => {
       const otherStart = new Date(other.start).getTime();
       const otherEnd = new Date(other.end).getTime();
       return !(eventEnd <= otherStart || eventStart >= otherEnd);
     });
 
     // Find max column index among overlapping events
-    const maxColumn = Math.max(...overlapping.map(e => e.columnIndex));
+    const maxColumn = Math.max(...overlapping.map((e) => e.columnIndex));
     event.totalColumns = maxColumn + 1;
   }
 
@@ -98,14 +92,14 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
     const eventStart = new Date(event.start).getTime();
     const eventEnd = new Date(event.end).getTime();
 
-    const overlapping = result.filter(other => {
+    const overlapping = result.filter((other) => {
       const otherStart = new Date(other.start).getTime();
       const otherEnd = new Date(other.end).getTime();
       return !(eventEnd <= otherStart || eventStart >= otherEnd);
     });
 
-    const maxTotalColumns = Math.max(...overlapping.map(e => e.totalColumns));
-    overlapping.forEach(e => {
+    const maxTotalColumns = Math.max(...overlapping.map((e) => e.totalColumns));
+    overlapping.forEach((e) => {
       e.totalColumns = maxTotalColumns;
     });
   }
@@ -153,8 +147,8 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
         onClick={onRetry}
         className="text-xs flex items-center gap-1 transition-colors"
         style={{ color: 'var(--accent-primary)' }}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
         <RefreshCw className="w-3 h-3" />
         Retry
@@ -191,8 +185,8 @@ function PermissionDeniedState() {
           backgroundColor: 'var(--accent-subtle)',
           borderRadius: 'var(--radius-md)',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
         <ExternalLink className="w-3 h-3" />
         Open Settings
@@ -235,14 +229,11 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
   const isTodaySelected = isToday(selectedDate);
 
   // Separate all-day and timed events
-  const allDayEvents = events.filter(e => e.isAllDay);
-  const timedEvents = events.filter(e => !e.isAllDay);
+  const allDayEvents = events.filter((e) => e.isAllDay);
+  const timedEvents = events.filter((e) => !e.isAllDay);
 
   // Calculate columns for overlapping events
-  const eventsWithColumns = useMemo(
-    () => calculateEventColumns(timedEvents),
-    [timedEvents]
-  );
+  const eventsWithColumns = useMemo(() => calculateEventColumns(timedEvents), [timedEvents]);
 
   // Scroll to current time on mount if viewing today
   useEffect(() => {
@@ -265,23 +256,17 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           >
             All Day
           </div>
-          {allDayEvents.map(event => (
+          {allDayEvents.map((event) => (
             <AllDayEvent key={event.id} event={event} />
           ))}
         </div>
       )}
 
       {/* Scrollable time grid */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden"
-      >
-        <div
-          className="relative"
-          style={{ height: `${24 * HOUR_HEIGHT}px` }}
-        >
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Hour rows */}
-          {HOURS.map(hour => (
+          {HOURS.map((hour) => (
             <div
               key={hour}
               className="absolute left-0 right-0"
@@ -319,7 +304,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           <CurrentTimeLine isToday={isTodaySelected} />
 
           {/* Event blocks */}
-          {eventsWithColumns.map(event => (
+          {eventsWithColumns.map((event) => (
             <EventBlock
               key={event.id}
               event={event}
@@ -390,9 +375,7 @@ export function Timeline() {
   };
 
   // Format the header date
-  const headerDate = isToday(selectedDate)
-    ? 'Today'
-    : format(selectedDate, 'EEE, MMM d');
+  const headerDate = isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMM d');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -406,7 +389,10 @@ export function Timeline() {
             {headerDate}
           </h3>
           {lastSynced && !isLoadingEvents && (
-            <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            <div
+              className="flex items-center gap-1 text-[10px]"
+              style={{ color: 'var(--text-muted)' }}
+            >
               <Clock className="w-2.5 h-2.5" />
               <span>Synced {format(lastSynced, 'h:mm a')}</span>
             </div>
@@ -417,13 +403,11 @@ export function Timeline() {
           disabled={isLoadingEvents}
           className="p-1.5 transition-colors"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           title={lastSynced ? `Last synced: ${format(lastSynced, 'h:mm a')}` : 'Refresh'}
         >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isLoadingEvents ? 'animate-spin' : ''}`}
-          />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoadingEvents ? 'animate-spin' : ''}`} />
         </button>
       </div>
 

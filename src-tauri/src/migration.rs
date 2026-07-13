@@ -1,9 +1,10 @@
-//! One-shot migration from sidecar `.note-metadata.json` colors to per-file
-//! YAML frontmatter.
+//! Idempotent startup migrations for legacy Forge layout and note color metadata.
 //!
-//! Idempotent: after running, the JSON file is renamed to
-//! `.note-metadata.json.migrated` so subsequent runs are no-ops. Safe to call
-//! on every app start.
+//! The layout migration moves the former single-vault trees into the default
+//! Forge only when legacy content exists and the destination does not. The color
+//! migration preserves note bodies and unknown frontmatter, then renames
+//! `.note-metadata.json` to `.note-metadata.json.migrated`. Both are safe to call
+//! on every start and must never overwrite an already-migrated destination.
 
 use std::fs;
 use std::path::{Path, PathBuf};

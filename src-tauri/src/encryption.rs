@@ -1,3 +1,11 @@
+//! Password-based encryption and decryption for locked note bodies.
+//!
+//! New ciphertexts use Argon2id (19 MiB, three iterations, one lane) to derive
+//! an AES-256 key and AES-GCM for authenticated encryption. Each encryption
+//! gets a fresh random salt and 96-bit nonce; the serialized
+//! `salt$nonce$ciphertext` format is part of the on-disk compatibility
+//! contract. Temporary key material is zeroized as soon as the cipher exists.
+
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
@@ -12,9 +20,6 @@ use zeroize::Zeroize;
 
 // Constants
 const NONCE_LENGTH: usize = 12;
-
-#[allow(dead_code)]
-const SALT_LENGTH: usize = 22; // SaltString uses 22 characters
 
 /// Creates Argon2 with hardened parameters for password-based encryption.
 ///
@@ -39,7 +44,7 @@ fn create_hardened_argon2() -> Argon2<'static> {
 // [22 bytes salt (base64)][12 bytes nonce (base64)][encrypted content (base64)]
 // Stored as: salt$nonce$ciphertext
 
-/// Encrypts content using AES-256-GCM with Argon2 key derivation.
+/// Encrypt content into the stable `salt$nonce$ciphertext` storage format.
 ///
 /// # Arguments
 /// * `content` - The plaintext content to encrypt
@@ -107,7 +112,7 @@ pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> 
     Ok(format!("{}${}${}", salt.as_str(), nonce_b64, ciphertext_b64))
 }
 
-/// Decrypts content that was encrypted with `encrypt_content`.
+/// Decrypt the stable storage format, authenticating before returning plaintext.
 ///
 /// # Arguments
 /// * `encrypted` - The encrypted string (salt$nonce$ciphertext format)

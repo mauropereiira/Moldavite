@@ -41,7 +41,10 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
       <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
         {count} selected
       </span>
-      <span aria-hidden="true" style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
+      <span
+        aria-hidden="true"
+        style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }}
+      />
       <button
         type="button"
         onClick={onMoveToFolder}
@@ -75,7 +78,10 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
         <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
         Trash
       </button>
-      <span aria-hidden="true" style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }} />
+      <span
+        aria-hidden="true"
+        style={{ width: 1, height: 16, backgroundColor: 'var(--border-muted)' }}
+      />
       <button
         type="button"
         onClick={clear}

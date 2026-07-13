@@ -1,3 +1,9 @@
+/**
+ * Quick-switcher visibility, recent queries, and pinned note ids.
+ * History and pins are persisted per Forge, bounded, and keyed by stable note address;
+ * open/closed state is transient.
+ */
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { namespacedKey } from '@/lib/forgeStorage';
@@ -23,6 +29,7 @@ interface QuickSwitcherState {
   /** Add or remove a note id from the pinned list. */
   togglePinned: (noteId: string) => void;
   isPinned: (noteId: string) => boolean;
+  renamePinnedNote: (oldId: string, newId: string) => void;
 }
 
 export const useQuickSwitcherStore = create<QuickSwitcherState>()(
@@ -41,7 +48,7 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         if (!trimmed) return;
         set((state) => {
           const without = state.recentSearches.filter(
-            (q) => q.toLowerCase() !== trimmed.toLowerCase(),
+            (q) => q.toLowerCase() !== trimmed.toLowerCase()
           );
           return {
             recentSearches: [trimmed, ...without].slice(0, MAX_RECENT_SEARCHES),
@@ -62,6 +69,10 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         }),
 
       isPinned: (noteId) => get().pinnedNoteIds.includes(noteId),
+      renamePinnedNote: (oldId, newId) =>
+        set((state) => ({
+          pinnedNoteIds: state.pinnedNoteIds.map((id) => (id === oldId ? newId : id)),
+        })),
     }),
     {
       name: namespacedKey('moldavite-quick-switcher'),
@@ -71,8 +82,8 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         recentSearches: state.recentSearches,
         pinnedNoteIds: state.pinnedNoteIds,
       }),
-    },
-  ),
+    }
+  )
 );
 
 export const QUICK_SWITCHER_RECENT_SEARCH_LIMIT = MAX_RECENT_SEARCHES;

@@ -224,7 +224,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-            <h2 id="image-modal-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2
+              id="image-modal-title"
+              className="text-xl font-semibold text-gray-900 dark:text-white"
+            >
               Insert Image
             </h2>
           </div>
@@ -240,7 +243,11 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => { setActiveTab('file'); setError(''); setPreviewUrl(''); }}
+            onClick={() => {
+              setActiveTab('file');
+              setError('');
+              setPreviewUrl('');
+            }}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'file'
                 ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
@@ -251,7 +258,12 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
             Upload File
           </button>
           <button
-            onClick={() => { setActiveTab('url'); setError(''); setPreviewUrl(''); setSelectedFile(null); }}
+            onClick={() => {
+              setActiveTab('url');
+              setError('');
+              setPreviewUrl('');
+              setSelectedFile(null);
+            }}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'url'
                 ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
@@ -277,8 +289,8 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                   isDragging
                     ? 'border-[var(--accent-primary)] bg-[var(--accent-subtle)]'
                     : selectedFile
-                    ? 'border-[var(--accent-primary)] bg-[var(--accent-subtle)]'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-[var(--accent-primary)] hover:bg-gray-50 dark:hover:bg-gray-700'
+                      ? 'border-[var(--accent-primary)] bg-[var(--accent-subtle)]'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-[var(--accent-primary)] hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <input
@@ -291,7 +303,9 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                 {selectedFile ? (
                   <>
                     <ImageIcon className="w-8 h-8" style={{ color: 'var(--accent-primary)' }} />
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedFile.name}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {selectedFile.name}
+                    </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {(selectedFile.size / 1024).toFixed(1)} KB
                     </p>
@@ -300,7 +314,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                   <>
                     <Upload className="w-8 h-8 text-gray-400" />
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium" style={{ color: 'var(--accent-primary)' }}>Click to upload</span> or drag and drop
+                      <span className="font-medium" style={{ color: 'var(--accent-primary)' }}>
+                        Click to upload
+                      </span>{' '}
+                      or drag and drop
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       PNG, JPG, GIF, WebP, or SVG (max 10MB)
@@ -343,7 +360,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                 aria-describedby={error ? 'image-error' : undefined}
               />
               {error && (
-                <div id="image-error" className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <div
+                  id="image-error"
+                  className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400"
+                >
                   <AlertCircle className="w-4 h-4" />
                   <span>{error}</span>
                 </div>
@@ -420,8 +440,15 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         {/* Keyboard hints */}
         <div className="px-6 pb-4">
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            Press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">Enter</kbd> to insert or{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">Esc</kbd> to cancel
+            Press{' '}
+            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+              Enter
+            </kbd>{' '}
+            to insert or{' '}
+            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+              Esc
+            </kbd>{' '}
+            to cancel
           </p>
         </div>
       </div>

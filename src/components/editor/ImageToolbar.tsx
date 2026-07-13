@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import {
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Trash2,
-} from 'lucide-react';
+import { AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
 import type { ImageAlignment } from './extensions/ResizableImage';
 
 interface ImageToolbarProps {
@@ -42,7 +37,7 @@ export function ImageToolbar({ editor }: ImageToolbarProps) {
 
         // Position toolbar above the image, centered
         const toolbarWidth = 160; // approximate width
-        const left = rect.left + (rect.width / 2) - (toolbarWidth / 2) - editorRect.left;
+        const left = rect.left + rect.width / 2 - toolbarWidth / 2 - editorRect.left;
         const top = rect.top - editorRect.top - 48; // 48px above image
 
         setPosition({

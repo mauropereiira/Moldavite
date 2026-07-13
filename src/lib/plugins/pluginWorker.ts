@@ -1,7 +1,12 @@
-// Runs inside a per-plugin module Worker. Establishes the sandbox, loads the
-// plugin, and proxies its curated PluginAPI calls back to the host over
-// postMessage. The worker has no DOM, no Zustand access, and no Tauri IPC —
-// the only channel out is `postMessage`.
+/**
+ * Per-plugin module Worker bootstrap and curated API proxy.
+ *
+ * Untrusted plugin source and host messages meet only inside this Worker. Before
+ * source loads, network and cross-context globals are removed; the sole outbound
+ * channel is the discriminated RPC protocol over `postMessage`. Plugin code must
+ * never receive DOM or Zustand objects, Tauri IPC, host functions, raw filesystem
+ * paths, unrestricted network globals, or another plugin's pending call state.
+ */
 
 import type {
   CallMessage,
@@ -14,10 +19,7 @@ import type {
   WorkerToHost,
 } from './rpc';
 
-/** Delete network/DOM-ish globals that a Worker would otherwise expose to
- *  plugin code. This is defense in depth — the real boundary is that plugin
- *  code has no channel to the app except postMessage — but removing these
- *  makes accidental (or lazy) network access impossible. */
+/** Remove ambient capabilities before any untrusted plugin module is evaluated. */
 function hardenGlobalScope(): void {
   const scope = globalThis as Record<string, unknown>;
   const toRemove = [
@@ -53,7 +55,10 @@ function send(msg: WorkerToHost): void {
 // -----------------------------------------------------------------------------
 
 let nextRequestId = 1;
-const pendingCalls = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+const pendingCalls = new Map<
+  number,
+  { resolve: (v: unknown) => void; reject: (e: Error) => void }
+>();
 
 function callHost(method: HostMethod, args: unknown[]): Promise<unknown> {
   const requestId = nextRequestId++;
@@ -78,7 +83,12 @@ interface PluginCommand {
   handler: () => void | Promise<void>;
 }
 
-function buildPluginAPI(pluginId: string, permissions: string[], appVersion: string, apiVersion: number) {
+function buildPluginAPI(
+  pluginId: string,
+  permissions: string[],
+  appVersion: string,
+  apiVersion: number
+) {
   const has = (perm: string) => permissions.includes(perm);
   const require = (perm: string) => {
     if (!has(perm)) {
@@ -87,22 +97,34 @@ function buildPluginAPI(pluginId: string, permissions: string[], appVersion: str
       );
     }
   };
-  return {
+  const api = {
     app: { version: appVersion, apiVersion },
     commands: {
       add(cmd: PluginCommand) {
-        if (typeof cmd?.id !== 'string' || typeof cmd?.label !== 'string' || typeof cmd?.handler !== 'function') {
+        if (
+          typeof cmd?.id !== 'string' ||
+          typeof cmd?.label !== 'string' ||
+          typeof cmd?.handler !== 'function'
+        ) {
           throw new Error('commands.add expects { id, label, handler }');
         }
         commandHandlers.set(cmd.id, cmd.handler);
-        const msg: CommandRegisteredMessage = { kind: 'commandRegistered', localId: cmd.id, label: cmd.label };
+        const msg: CommandRegisteredMessage = {
+          kind: 'commandRegistered',
+          localId: cmd.id,
+          label: cmd.label,
+        };
         send(msg);
       },
     },
     editor: {
       async getActiveNote() {
         require('editor');
-        return callHost('editor.getActiveNote', []) as Promise<{ title: string; content: string } | null>;
+        return callHost('editor.getActiveNote', []) as Promise<{
+          path: string;
+          title: string;
+          content: string;
+        } | null>;
       },
       async insertText(text: string) {
         require('editor');
@@ -116,6 +138,49 @@ function buildPluginAPI(pluginId: string, permissions: string[], appVersion: str
       },
     },
   };
+  if (apiVersion < 2) return api;
+  return Object.assign(api, {
+    ui: {
+      ...api.ui,
+      async prompt(options: unknown) {
+        return callHost('ui.prompt', [options]);
+      },
+    },
+    notes: {
+      async list() {
+        require('notes.read');
+        return callHost('notes.list', []);
+      },
+      async read(path: string) {
+        require('notes.read');
+        return callHost('notes.read', [path]);
+      },
+    },
+    net: {
+      async fetch(url: string, options?: unknown) {
+        require('net.fetch');
+        return callHost('net.fetch', [url, options]);
+      },
+      async requestHostAccess(host: string) {
+        require('net.fetch');
+        return callHost('net.requestHostAccess', [host]);
+      },
+    },
+    secrets: {
+      async get(key: string) {
+        require('secrets');
+        return callHost('secrets.get', [key]);
+      },
+      async set(key: string, value: string) {
+        require('secrets');
+        await callHost('secrets.set', [key, value]);
+      },
+      async delete(key: string) {
+        require('secrets');
+        await callHost('secrets.delete', [key]);
+      },
+    },
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -167,11 +232,20 @@ self.addEventListener('message', async (event: MessageEvent<HostToWorker>) => {
     }
     try {
       await handler();
-      const result: InvokeResultMessage = { kind: 'invokeResult', invocationId: msg.invocationId, ok: true };
+      const result: InvokeResultMessage = {
+        kind: 'invokeResult',
+        invocationId: msg.invocationId,
+        ok: true,
+      };
       send(result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      const result: InvokeResultMessage = { kind: 'invokeResult', invocationId: msg.invocationId, ok: false, error };
+      const result: InvokeResultMessage = {
+        kind: 'invokeResult',
+        invocationId: msg.invocationId,
+        ok: false,
+        error,
+      };
       send(result);
     }
     return;

@@ -34,8 +34,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
       void loadForges().finally(() => setOpen(true));
     };
     window.addEventListener('moldavite:open-forge-switcher', onOpen);
-    return () =>
-      window.removeEventListener('moldavite:open-forge-switcher', onOpen);
+    return () => window.removeEventListener('moldavite:open-forge-switcher', onOpen);
   }, [loadForges]);
 
   useEffect(() => {
@@ -105,7 +104,14 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
           aria-hidden="true"
           style={{ flexShrink: 0, opacity: 0.6 }}
         >
-          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </button>
 
@@ -135,9 +141,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
             >
               <span className="truncate">{f.name}</span>
               {f.isActive && (
-                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                  active
-                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>active</span>
               )}
             </button>
           ))}

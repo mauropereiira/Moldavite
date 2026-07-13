@@ -6,9 +6,7 @@ import { useSettingsStore, useTimelineStore } from '@/stores';
 
 // TimelineView pulls in calendar/event aggregation + its own render
 // pipeline — only load it when the user actually toggles the timeline on.
-const TimelineView = lazy(() =>
-  import('../timeline').then((m) => ({ default: m.TimelineView })),
-);
+const TimelineView = lazy(() => import('../timeline').then((m) => ({ default: m.TimelineView })));
 
 // Sidebar constraints
 const LEFT_SIDEBAR_MIN = 200;
@@ -19,13 +17,8 @@ const RIGHT_PANEL_MAX = 500;
 type ResizeTarget = 'left' | 'right' | null;
 
 export function Layout() {
-  const {
-    sidebarWidth,
-    rightPanelWidth,
-    showRightPanel,
-    setSidebarWidth,
-    setRightPanelWidth
-  } = useSettingsStore();
+  const { sidebarWidth, rightPanelWidth, showRightPanel, setSidebarWidth, setRightPanelWidth } =
+    useSettingsStore();
   const isTimelineOpen = useTimelineStore((s) => s.isOpen);
 
   const [isResizing, setIsResizing] = useState<ResizeTarget>(null);
@@ -33,33 +26,39 @@ export function Layout() {
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
-  const handleMouseDown = useCallback((target: ResizeTarget) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(target);
-    startXRef.current = e.clientX;
-    startWidthRef.current = target === 'left' ? sidebarWidth : rightPanelWidth;
-  }, [sidebarWidth, rightPanelWidth]);
+  const handleMouseDown = useCallback(
+    (target: ResizeTarget) => (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(target);
+      startXRef.current = e.clientX;
+      startWidthRef.current = target === 'left' ? sidebarWidth : rightPanelWidth;
+    },
+    [sidebarWidth, rightPanelWidth]
+  );
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
 
-    const delta = e.clientX - startXRef.current;
+      const delta = e.clientX - startXRef.current;
 
-    if (isResizing === 'left') {
-      const newWidth = Math.min(
-        LEFT_SIDEBAR_MAX,
-        Math.max(LEFT_SIDEBAR_MIN, startWidthRef.current + delta)
-      );
-      setSidebarWidth(newWidth);
-    } else if (isResizing === 'right') {
-      // For right panel, dragging left increases width
-      const newWidth = Math.min(
-        RIGHT_PANEL_MAX,
-        Math.max(RIGHT_PANEL_MIN, startWidthRef.current - delta)
-      );
-      setRightPanelWidth(newWidth);
-    }
-  }, [isResizing, setSidebarWidth, setRightPanelWidth]);
+      if (isResizing === 'left') {
+        const newWidth = Math.min(
+          LEFT_SIDEBAR_MAX,
+          Math.max(LEFT_SIDEBAR_MIN, startWidthRef.current + delta)
+        );
+        setSidebarWidth(newWidth);
+      } else if (isResizing === 'right') {
+        // For right panel, dragging left increases width
+        const newWidth = Math.min(
+          RIGHT_PANEL_MAX,
+          Math.max(RIGHT_PANEL_MIN, startWidthRef.current - delta)
+        );
+        setRightPanelWidth(newWidth);
+      }
+    },
+    [isResizing, setSidebarWidth, setRightPanelWidth]
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsResizing(null);
@@ -94,7 +93,7 @@ export function Layout() {
         style={{
           width: `${sidebarWidth}px`,
           backgroundColor: 'var(--bg-sidebar)',
-          borderRight: '1px solid var(--border-default)'
+          borderRight: '1px solid var(--border-default)',
         }}
       >
         <Sidebar />
@@ -104,11 +103,12 @@ export function Layout() {
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
           style={{
             transitionDuration: 'var(--duration-fast)',
-            backgroundColor: isResizing === 'left'
-              ? 'var(--accent-primary)'
-              : isHovering === 'left'
-                ? 'var(--border-strong)'
-                : 'transparent'
+            backgroundColor:
+              isResizing === 'left'
+                ? 'var(--accent-primary)'
+                : isHovering === 'left'
+                  ? 'var(--border-strong)'
+                  : 'transparent',
           }}
           onMouseDown={handleMouseDown('left')}
           onMouseEnter={() => setIsHovering('left')}
@@ -126,10 +126,7 @@ export function Layout() {
       </div>
 
       {/* Center pane — Editor by default, Timeline when toggled on */}
-      <div
-        className="flex-1 flex flex-col min-w-0"
-        style={{ backgroundColor: 'var(--bg-editor)' }}
-      >
+      <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--bg-editor)' }}>
         {isTimelineOpen ? (
           <Suspense fallback={null}>
             <TimelineView />
@@ -146,7 +143,7 @@ export function Layout() {
           style={{
             width: `${rightPanelWidth}px`,
             backgroundColor: 'var(--bg-panel)',
-            borderLeft: '1px solid var(--border-default)'
+            borderLeft: '1px solid var(--border-default)',
           }}
         >
           {/* Right Resize Handle */}
@@ -154,11 +151,12 @@ export function Layout() {
             className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
             style={{
               transitionDuration: 'var(--duration-fast)',
-              backgroundColor: isResizing === 'right'
-                ? 'var(--accent-primary)'
-                : isHovering === 'right'
-                  ? 'var(--border-strong)'
-                  : 'transparent'
+              backgroundColor:
+                isResizing === 'right'
+                  ? 'var(--accent-primary)'
+                  : isHovering === 'right'
+                    ? 'var(--border-strong)'
+                    : 'transparent',
             }}
             onMouseDown={handleMouseDown('right')}
             onMouseEnter={() => setIsHovering('right')}

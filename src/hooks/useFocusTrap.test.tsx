@@ -1,3 +1,5 @@
+/** Regression coverage for focus activation, inactivity, cycling, and restoration. */
+
 import { describe, it, expect } from 'vitest';
 import { useRef } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';

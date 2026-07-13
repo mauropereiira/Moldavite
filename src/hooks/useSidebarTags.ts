@@ -1,3 +1,9 @@
+/**
+ * Sidebar tag aggregation and filtering over unlocked note content.
+ * Content is cached by stable note path, locked notes are never read, and selected-tag
+ * filtering uses AND semantics while the tag feature is enabled.
+ */
+
 import { useEffect, useRef } from 'react';
 import { aggregateTags, hasTag, extractTags, readNote, noteFileBackendPath } from '@/lib';
 import { useSettingsStore, useTagStore } from '@/stores';

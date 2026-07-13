@@ -10,7 +10,10 @@ export function EditorSection() {
   return (
     <div className="space-y-6">
       {/* Note Defaults Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Default Note Type
@@ -26,9 +29,13 @@ export function EditorSection() {
               onClick={() => settings.setDefaultNoteType(type)}
               className="px-3 py-1.5 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: settings.defaultNoteType === type ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                backgroundColor:
+                  settings.defaultNoteType === type
+                    ? 'var(--accent-primary)'
+                    : 'var(--bg-elevated)',
                 color: settings.defaultNoteType === type ? 'white' : 'var(--text-secondary)',
-                border: settings.defaultNoteType === type ? 'none' : '1px solid var(--border-default)',
+                border:
+                  settings.defaultNoteType === type ? 'none' : '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
               }}
             >
@@ -39,7 +46,10 @@ export function EditorSection() {
       </div>
 
       {/* Formatting Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Formatting
         </h3>
@@ -55,9 +65,11 @@ export function EditorSection() {
                 onClick={() => settings.setLineHeight(height)}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: settings.lineHeight === height ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  backgroundColor:
+                    settings.lineHeight === height ? 'var(--accent-primary)' : 'var(--bg-elevated)',
                   color: settings.lineHeight === height ? 'white' : 'var(--text-secondary)',
-                  border: settings.lineHeight === height ? 'none' : '1px solid var(--border-default)',
+                  border:
+                    settings.lineHeight === height ? 'none' : '1px solid var(--border-default)',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -69,7 +81,10 @@ export function EditorSection() {
       </div>
 
       {/* Writing Assistance Section */}
-      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Writing Assistance
         </h3>
@@ -83,13 +98,13 @@ export function EditorSection() {
               Underline spelling errors
             </p>
           </div>
-          <Toggle
-            enabled={settings.spellCheck}
-            onChange={settings.setSpellCheck}
-          />
+          <Toggle enabled={settings.spellCheck} onChange={settings.setSpellCheck} />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Auto-capitalize
@@ -98,13 +113,13 @@ export function EditorSection() {
               Capitalize first letter of sentences
             </p>
           </div>
-          <Toggle
-            enabled={settings.autoCapitalize}
-            onChange={settings.setAutoCapitalize}
-          />
+          <Toggle enabled={settings.autoCapitalize} onChange={settings.setAutoCapitalize} />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Show Word Count
@@ -113,13 +128,13 @@ export function EditorSection() {
               Display word count at bottom of editor
             </p>
           </div>
-          <Toggle
-            enabled={settings.showWordCount}
-            onChange={settings.setShowWordCount}
-          />
+          <Toggle enabled={settings.showWordCount} onChange={settings.setShowWordCount} />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Tags (#hashtags)
@@ -128,10 +143,7 @@ export function EditorSection() {
               Highlight #tags and show in sidebar
             </p>
           </div>
-          <Toggle
-            enabled={settings.tagsEnabled}
-            onChange={settings.setTagsEnabled}
-          />
+          <Toggle enabled={settings.tagsEnabled} onChange={settings.setTagsEnabled} />
         </div>
       </div>
     </div>

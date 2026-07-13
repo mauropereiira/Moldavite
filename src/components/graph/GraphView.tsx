@@ -1,49 +1,87 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 import { EmptyGraphEmptyState } from '@/components/ui';
 import { safeInvoke } from '@/lib/ipc';
-import { useGraphStore, useNoteStore } from '@/stores';
+import { useGraphStore, useNoteStore, useThemeStore } from '@/stores';
 import { useNotes } from '@/hooks';
+import { noteForGraphNode } from './addressing';
 import {
+  collisionRadius,
   initLayout,
   stepLayout,
   type GraphEdge,
   type GraphNode,
   type LayoutNode,
+  type LayoutOptions,
 } from './layout';
-import type { NoteFile } from '@/types';
 
 interface NoteGraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
 
-// Visual constants — tuned for readability at typical display sizes.
-const NODE_RADIUS = 5;
-const NODE_RADIUS_HOVER = 7;
-const EDGE_OPACITY = 0.35;
-const LABEL_FONT = '11px ui-sans-serif, system-ui, sans-serif';
-const LABEL_VISIBILITY_THRESHOLD = 0.6; // zoom level at which labels appear
-
-/**
- * Read a CSS custom property from `document.documentElement`. Falls back
- * to a provided default if the property is empty (e.g. early render).
- */
-function readCssVar(name: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name);
-  return v.trim() || fallback;
+interface PointerInteraction {
+  mode: 'pan' | 'node';
+  pointerId: number;
+  nodeId: string | null;
+  startX: number;
+  startY: number;
+  lastX: number;
+  lastY: number;
+  moved: boolean;
 }
 
-/**
- * Full-screen graph overlay. Canvas 2D only — no third-party graph
- * libraries. Runs a small force-directed simulation on the main thread
- * (fine for the scale of a personal notes vault).
- */
+const NODE_RADIUS = 5;
+const NODE_RADIUS_HOVER = 7;
+const LABEL_FONT = '11px ui-sans-serif, system-ui, sans-serif';
+const LABEL_VISIBILITY_THRESHOLD = 0.62;
+const LABEL_ALL_NODE_LIMIT = 180;
+const MAX_RENDERED_EDGES = 12_000;
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 3;
+const SETTLED_TEMPERATURE = 0.35;
+const PAN_VISIBLE_MARGIN = 48;
+
+function readCssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function optionsForNodeCount(count: number): Required<LayoutOptions> {
+  const side = Math.max(720, Math.ceil(Math.sqrt(Math.max(1, count))) * 104);
+  return {
+    width: side,
+    height: side,
+    optimalDistance: 72,
+    initialTemperature: 28,
+    cooling: 0.965,
+    seed: 1,
+  };
+}
+
+function layoutBounds(nodes: LayoutNode[]) {
+  if (nodes.length === 0) return { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    const margin = collisionRadius(node);
+    minX = Math.min(minX, node.x - margin);
+    maxX = Math.max(maxX, node.x + margin);
+    minY = Math.min(minY, node.y - 12);
+    maxY = Math.max(maxY, node.y + 12);
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+/** Full-screen, path-addressed note graph rendered on a Canvas 2D surface. */
 export function GraphView() {
-  const isOpen = useGraphStore((s) => s.isOpen);
-  const close = useGraphStore((s) => s.close);
-  const { notes } = useNoteStore();
+  const isOpen = useGraphStore((state) => state.isOpen);
+  const close = useGraphStore((state) => state.close);
+  const notes = useNoteStore((state) => state.notes);
+  const theme = useThemeStore((state) => state.theme);
+  const preset = useThemeStore((state) => state.preset);
   const { loadNote } = useNotes();
 
   const [graph, setGraph] = useState<NoteGraphResponse | null>(null);
@@ -53,49 +91,108 @@ export function GraphView() {
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const layoutRef = useRef<LayoutNode[]>([]);
-  const tempRef = useRef<number>(100);
-  const rafRef = useRef<number | null>(null);
-  const zoomRef = useRef<number>(1);
-  const panRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const dragRef = useRef<{ active: boolean; lastX: number; lastY: number }>({
-    active: false,
-    lastX: 0,
-    lastY: 0,
-  });
+  const layoutOptionsRef = useRef<Required<LayoutOptions>>(optionsForNodeCount(0));
+  const temperatureRef = useRef(0);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const interactionRef = useRef<PointerInteraction | null>(null);
+  const scheduleDrawRef = useRef<() => void>(() => undefined);
 
-  // Lookup helper: raw filename -> NoteFile (for click-to-open).
-  const notesByFilename = useMemo(() => {
-    const map = new Map<string, NoteFile>();
-    for (const n of notes) map.set(n.name, n);
-    return map;
-  }, [notes]);
+  const adjacency = useMemo(() => {
+    const result = new Map<string, Set<string>>();
+    if (!graph) return result;
+    for (const edge of graph.edges) {
+      if (!result.has(edge.source)) result.set(edge.source, new Set());
+      if (!result.has(edge.target)) result.set(edge.target, new Set());
+      result.get(edge.source)?.add(edge.target);
+      result.get(edge.target)?.add(edge.source);
+    }
+    return result;
+  }, [graph]);
 
-  // Fetch graph whenever the overlay opens.
+  const renderedEdges = useMemo(() => {
+    if (!graph || graph.edges.length <= MAX_RENDERED_EDGES) return graph?.edges ?? [];
+    const stride = Math.ceil(graph.edges.length / MAX_RENDERED_EDGES);
+    return graph.edges.filter((_, index) => index % stride === 0);
+  }, [graph]);
+
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }, []);
+
+  const clampPan = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || layoutRef.current.length === 0) return;
+    const rect = container.getBoundingClientRect();
+    const bounds = layoutBounds(layoutRef.current);
+    const zoom = zoomRef.current;
+    const minPanX = -rect.width / 2 - bounds.maxX * zoom + PAN_VISIBLE_MARGIN;
+    const maxPanX = rect.width / 2 - bounds.minX * zoom - PAN_VISIBLE_MARGIN;
+    const minPanY = -rect.height / 2 - bounds.maxY * zoom + PAN_VISIBLE_MARGIN;
+    const maxPanY = rect.height / 2 - bounds.minY * zoom - PAN_VISIBLE_MARGIN;
+    panRef.current = {
+      x: Math.max(minPanX, Math.min(maxPanX, panRef.current.x)),
+      y: Math.max(minPanY, Math.min(maxPanY, panRef.current.y)),
+    };
+  }, []);
+
+  const fitToView = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || layoutRef.current.length === 0) return;
+    const rect = container.getBoundingClientRect();
+    const bounds = layoutBounds(layoutRef.current);
+    const availableWidth = Math.max(1, rect.width - 80);
+    const availableHeight = Math.max(1, rect.height - 80);
+    zoomRef.current = Math.max(
+      MIN_ZOOM,
+      Math.min(
+        MAX_ZOOM,
+        availableWidth / Math.max(1, bounds.maxX - bounds.minX),
+        availableHeight / Math.max(1, bounds.maxY - bounds.minY)
+      )
+    );
+    panRef.current = {
+      x: -((bounds.minX + bounds.maxX) / 2) * zoomRef.current,
+      y: -((bounds.minY + bounds.maxY) / 2) * zoomRef.current,
+    };
+    scheduleDrawRef.current();
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setGraph(null);
+      setHoveredId(null);
+      setLoading(true);
+      setError(null);
+    });
     safeInvoke<NoteGraphResponse>('get_note_graph')
       .then((result) => {
         if (cancelled) return;
-        setGraph(result);
-        layoutRef.current = initLayout(result.nodes, {
-          width: 1200,
-          height: 1200,
-          optimalDistance: 60,
-        });
-        tempRef.current = 120;
+        const options = optionsForNodeCount(result.nodes.length);
+        layoutOptionsRef.current = options;
+        layoutRef.current = initLayout(result.nodes, options, result.edges);
+        temperatureRef.current = options.initialTemperature;
         zoomRef.current = 1;
         panRef.current = { x: 0, y: 0 };
+        setGraph(result);
       })
-      .catch((e: unknown) => {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
+      .catch((caught: unknown) => {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -105,253 +202,347 @@ export function GraphView() {
     };
   }, [isOpen]);
 
-  // Close on Escape. Local handler (not via the global shortcut system) so the
-  // graph always owns its own dismissal regardless of shortcut configuration.
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
         close();
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, close]);
 
-  // Focus management: when the overlay opens, remember the previously focused
-  // element and move focus into the dialog. When it closes, return focus to
-  // the trigger so keyboard users aren't dropped at the top of the page.
   useEffect(() => {
     if (!isOpen) return;
-    previousFocusRef.current =
-      (document.activeElement as HTMLElement | null) ?? null;
-    // Defer until the dialog is mounted and the close button ref has settled.
-    const raf = requestAnimationFrame(() => {
-      closeBtnRef.current?.focus();
-    });
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() => closeBtnRef.current?.focus());
     return () => {
-      cancelAnimationFrame(raf);
-      const prev = previousFocusRef.current;
-      if (prev && typeof prev.focus === 'function') {
-        prev.focus();
-      }
+      cancelAnimationFrame(frame);
+      previousFocusRef.current?.focus?.();
       previousFocusRef.current = null;
     };
   }, [isOpen]);
 
-  // Resize canvas to match its container (handles DPR).
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * dpr);
-    canvas.height = Math.floor(rect.height * dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }, []);
-
-  // Main render + simulation loop.
   useEffect(() => {
     if (!isOpen || !graph) return;
-    resizeCanvas();
+    let frameId: number | null = null;
+    let fitAfterSettling = temperatureRef.current > SETTLED_TEMPERATURE;
+    const byId = new Map(layoutRef.current.map((node) => [node.id, node]));
+    const neighbors = hoveredId ? adjacency.get(hoveredId) : undefined;
 
-    const onResize = () => resizeCanvas();
-    window.addEventListener('resize', onResize);
+    const colors = {
+      edge: readCssVar('--border-strong', '#78847d'),
+      node: readCssVar('--accent-primary', '#4f8060'),
+      nodeHover: readCssVar('--text-primary', '#f5f7f5'),
+      label: readCssVar('--text-secondary', '#8a9a8f'),
+      missing: readCssVar('--text-muted', '#718078'),
+    };
 
-    const edgeColor = readCssVar('--border-strong', '#888');
-    const nodeColor = readCssVar('--accent-primary', '#6aa0ff');
-    const nodeHoverColor = readCssVar('--text-primary', '#fff');
-    const labelColor = readCssVar('--text-secondary', '#ccc');
+    const schedule = () => {
+      if (frameId === null) frameId = requestAnimationFrame(draw);
+    };
+    scheduleDrawRef.current = schedule;
+
+    const drawEdge = (
+      context: CanvasRenderingContext2D,
+      edge: GraphEdge,
+      centerX: number,
+      centerY: number,
+      zoom: number
+    ) => {
+      const source = byId.get(edge.source);
+      const target = byId.get(edge.target);
+      if (!source || !target) return;
+      context.moveTo(centerX + source.x * zoom, centerY + source.y * zoom);
+      context.lineTo(centerX + target.x * zoom, centerY + target.y * zoom);
+    };
 
     const draw = () => {
+      frameId = null;
       const canvas = canvasRef.current;
       const container = containerRef.current;
-      if (!canvas || !container) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !container || !context) return;
 
-      // Step simulation while it hasn't cooled down.
-      if (tempRef.current > 0.5) {
-        stepLayout(layoutRef.current, graph.edges, tempRef.current, {
-          width: 1200,
-          height: 1200,
-          optimalDistance: 60,
-        });
-        tempRef.current *= 0.97;
+      const simulating = temperatureRef.current > SETTLED_TEMPERATURE;
+      if (simulating) {
+        stepLayout(
+          layoutRef.current,
+          graph.edges,
+          temperatureRef.current,
+          layoutOptionsRef.current,
+          {
+            pinnedNodeId:
+              interactionRef.current?.mode === 'node' ? interactionRef.current.nodeId : null,
+          }
+        );
+        temperatureRef.current *= layoutOptionsRef.current.cooling;
       }
 
       const rect = container.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
-
-      const cx = rect.width / 2 + panRef.current.x;
-      const cy = rect.height / 2 + panRef.current.y;
+      context.clearRect(0, 0, rect.width, rect.height);
+      const centerX = rect.width / 2 + panRef.current.x;
+      const centerY = rect.height / 2 + panRef.current.y;
       const zoom = zoomRef.current;
 
-      // Pre-compute screen positions for hit-testing and drawing.
-      const screenPos = new Map<string, { x: number; y: number }>();
-      for (const n of layoutRef.current) {
-        screenPos.set(n.id, { x: cx + n.x * zoom, y: cy + n.y * zoom });
-      }
+      context.strokeStyle = colors.edge;
+      context.lineWidth = 1;
+      context.globalAlpha = hoveredId ? 0.12 : 0.32;
+      context.beginPath();
+      for (const edge of renderedEdges) drawEdge(context, edge, centerX, centerY, zoom);
+      context.stroke();
 
-      // Draw edges.
-      ctx.strokeStyle = edgeColor;
-      ctx.globalAlpha = EDGE_OPACITY;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (const e of graph.edges) {
-        const a = screenPos.get(e.source);
-        const b = screenPos.get(e.target);
-        if (!a || !b) continue;
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      // Draw nodes.
-      for (const n of layoutRef.current) {
-        const pos = screenPos.get(n.id);
-        if (!pos) continue;
-        const isHover = n.id === hoveredId;
-        ctx.fillStyle = isHover ? nodeHoverColor : nodeColor;
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, isHover ? NODE_RADIUS_HOVER : NODE_RADIUS, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Labels — only at sufficient zoom or for hovered node, to avoid clutter.
-      if (zoom >= LABEL_VISIBILITY_THRESHOLD) {
-        ctx.font = LABEL_FONT;
-        ctx.fillStyle = labelColor;
-        ctx.textBaseline = 'middle';
-        for (const n of layoutRef.current) {
-          const pos = screenPos.get(n.id);
-          if (!pos) continue;
-          ctx.fillText(n.name, pos.x + NODE_RADIUS + 4, pos.y);
+      if (hoveredId) {
+        context.globalAlpha = 0.85;
+        context.lineWidth = 1.5;
+        context.beginPath();
+        for (const edge of graph.edges) {
+          if (edge.source === hoveredId || edge.target === hoveredId) {
+            drawEdge(context, edge, centerX, centerY, zoom);
+          }
         }
-      } else if (hoveredId) {
-        const hoveredNode = layoutRef.current.find((n) => n.id === hoveredId);
-        const pos = hoveredNode ? screenPos.get(hoveredNode.id) : null;
-        if (hoveredNode && pos) {
-          ctx.font = LABEL_FONT;
-          ctx.fillStyle = labelColor;
-          ctx.textBaseline = 'middle';
-          ctx.fillText(hoveredNode.name, pos.x + NODE_RADIUS_HOVER + 4, pos.y);
+        context.stroke();
+      }
+      context.globalAlpha = 1;
+
+      for (const node of layoutRef.current) {
+        const x = centerX + node.x * zoom;
+        const y = centerY + node.y * zoom;
+        if (x < -20 || y < -20 || x > rect.width + 20 || y > rect.height + 20) continue;
+        const isHovered = node.id === hoveredId;
+        const isNeighbor = neighbors?.has(node.id) ?? false;
+        context.globalAlpha = hoveredId && !isHovered && !isNeighbor ? 0.28 : 1;
+        context.beginPath();
+        context.arc(x, y, isHovered ? NODE_RADIUS_HOVER : NODE_RADIUS, 0, Math.PI * 2);
+        if (node.isMissing) {
+          context.strokeStyle = isHovered ? colors.nodeHover : colors.missing;
+          context.lineWidth = 1.5;
+          context.stroke();
+        } else {
+          context.fillStyle = isHovered || isNeighbor ? colors.nodeHover : colors.node;
+          context.fill();
         }
       }
+      context.globalAlpha = 1;
 
-      rafRef.current = requestAnimationFrame(draw);
+      const showAllLabels =
+        graph.nodes.length <= LABEL_ALL_NODE_LIMIT && zoom >= LABEL_VISIBILITY_THRESHOLD;
+      context.font = LABEL_FONT;
+      context.fillStyle = colors.label;
+      context.textBaseline = 'middle';
+      for (const node of layoutRef.current) {
+        const showLabel =
+          showAllLabels || node.id === hoveredId || (neighbors?.has(node.id) ?? false);
+        if (!showLabel) continue;
+        const x = centerX + node.x * zoom;
+        const y = centerY + node.y * zoom;
+        if (x < -100 || y < -20 || x > rect.width + 20 || y > rect.height + 20) continue;
+        context.fillText(node.name, x + NODE_RADIUS_HOVER + 4, y);
+      }
+
+      if (simulating) {
+        schedule();
+      } else if (fitAfterSettling && temperatureRef.current <= SETTLED_TEMPERATURE) {
+        fitAfterSettling = false;
+        fitToView();
+      }
     };
 
-    rafRef.current = requestAnimationFrame(draw);
+    resizeCanvas();
+    fitToView();
+    schedule();
+
+    const handleResize = () => {
+      resizeCanvas();
+      fitToView();
+      schedule();
+    };
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(handleResize);
+    if (observer) observer.observe(containerRef.current as Element);
+    else window.addEventListener('resize', handleResize);
+
+    const themeObserver = new MutationObserver(() => {
+      colors.edge = readCssVar('--border-strong', colors.edge);
+      colors.node = readCssVar('--accent-primary', colors.node);
+      colors.nodeHover = readCssVar('--text-primary', colors.nodeHover);
+      colors.label = readCssVar('--text-secondary', colors.label);
+      colors.missing = readCssVar('--text-muted', colors.missing);
+      schedule();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
 
     return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      window.removeEventListener('resize', onResize);
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      themeObserver.disconnect();
+      if (!observer) window.removeEventListener('resize', handleResize);
+      scheduleDrawRef.current = () => undefined;
     };
-  }, [isOpen, graph, hoveredId, resizeCanvas]);
+  }, [isOpen, graph, hoveredId, adjacency, renderedEdges, resizeCanvas, fitToView, theme, preset]);
 
-  // Convert a pointer event to simulation coordinates and find the closest
-  // node within NODE_RADIUS_HOVER.
   const pickNode = useCallback((clientX: number, clientY: number): LayoutNode | null => {
     const container = containerRef.current;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
-    const zoom = zoomRef.current;
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
-    const cx = rect.width / 2 + panRef.current.x;
-    const cy = rect.height / 2 + panRef.current.y;
-
-    let best: LayoutNode | null = null;
-    let bestDist = NODE_RADIUS_HOVER + 2;
-    for (const n of layoutRef.current) {
-      const sx = cx + n.x * zoom;
-      const sy = cy + n.y * zoom;
-      const dx = sx - px;
-      const dy = sy - py;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestDist) {
-        best = n;
-        bestDist = d;
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
+    const centerX = rect.width / 2 + panRef.current.x;
+    const centerY = rect.height / 2 + panRef.current.y;
+    let closest: LayoutNode | null = null;
+    let closestDistance = 12;
+    for (const node of layoutRef.current) {
+      const distance = Math.hypot(
+        centerX + node.x * zoomRef.current - pointerX,
+        centerY + node.y * zoomRef.current - pointerY
+      );
+      if (distance < closestDistance) {
+        closest = node;
+        closestDistance = distance;
       }
     }
-    return best;
+    return closest;
   }, []);
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (dragRef.current.active) {
-        const dx = e.clientX - dragRef.current.lastX;
-        const dy = e.clientY - dragRef.current.lastY;
-        panRef.current = {
-          x: panRef.current.x + dx,
-          y: panRef.current.y + dy,
-        };
-        dragRef.current.lastX = e.clientX;
-        dragRef.current.lastY = e.clientY;
-        return;
-      }
-      const n = pickNode(e.clientX, e.clientY);
-      setHoveredId(n?.id ?? null);
-    },
-    [pickNode],
-  );
-
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    dragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY };
-    e.currentTarget.style.cursor = 'grabbing';
-  }, []);
-
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    dragRef.current.active = false;
-    e.currentTarget.style.cursor = '';
-  }, []);
-
-  const handleClick = useCallback(
-    async (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Distinguish click from pan — if the mouse moved during drag we
-      // consumed it there and shouldn't treat as a click.
-      const n = pickNode(e.clientX, e.clientY);
-      if (!n) return;
-      const target = notesByFilename.get(n.id);
-      if (!target) {
-        // Broken link — filename isn't in the notes list yet.
-        return;
-      }
+  const openGraphNode = useCallback(
+    async (nodeId: string) => {
+      const target = noteForGraphNode(notes, nodeId);
+      if (!target) return;
       close();
       try {
         await loadNote(target);
-      } catch (err) {
-        console.error('[GraphView] Failed to open note:', err);
+      } catch (caught) {
+        console.error('[GraphView] Failed to open note:', caught);
       }
     },
-    [pickNode, notesByFilename, loadNote, close],
+    [notes, close, loadNote]
   );
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    const delta = -e.deltaY * 0.001;
-    const next = Math.max(0.2, Math.min(4, zoomRef.current * (1 + delta)));
-    zoomRef.current = next;
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (event.button !== 0) return;
+      const node = pickNode(event.clientX, event.clientY);
+      interactionRef.current = {
+        mode: node ? 'node' : 'pan',
+        pointerId: event.pointerId,
+        nodeId: node?.id ?? null,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        moved: false,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.style.cursor = 'grabbing';
+    },
+    [pickNode]
+  );
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      const interaction = interactionRef.current;
+      if (!interaction) {
+        const node = pickNode(event.clientX, event.clientY);
+        setHoveredId((current) => (current === node?.id ? current : (node?.id ?? null)));
+        return;
+      }
+      const deltaX = event.clientX - interaction.lastX;
+      const deltaY = event.clientY - interaction.lastY;
+      if (Math.hypot(event.clientX - interaction.startX, event.clientY - interaction.startY) > 3) {
+        interaction.moved = true;
+      }
+      if (interaction.mode === 'pan') {
+        panRef.current = { x: panRef.current.x + deltaX, y: panRef.current.y + deltaY };
+        clampPan();
+      } else if (interaction.nodeId) {
+        const node = layoutRef.current.find((candidate) => candidate.id === interaction.nodeId);
+        const container = containerRef.current;
+        if (node && container) {
+          const rect = container.getBoundingClientRect();
+          node.x =
+            (event.clientX - rect.left - rect.width / 2 - panRef.current.x) / zoomRef.current;
+          node.y =
+            (event.clientY - rect.top - rect.height / 2 - panRef.current.y) / zoomRef.current;
+          const options = layoutOptionsRef.current;
+          const margin = collisionRadius(node);
+          node.x = Math.max(
+            -options.width / 2 + margin,
+            Math.min(options.width / 2 - margin, node.x)
+          );
+          node.y = Math.max(
+            -options.height / 2 + margin,
+            Math.min(options.height / 2 - margin, node.y)
+          );
+          temperatureRef.current = Math.max(temperatureRef.current, 9);
+        }
+      }
+      interaction.lastX = event.clientX;
+      interaction.lastY = event.clientY;
+      scheduleDrawRef.current();
+    },
+    [pickNode, clampPan]
+  );
+
+  const finishPointer = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>, cancelled = false) => {
+      const interaction = interactionRef.current;
+      if (!interaction || interaction.pointerId !== event.pointerId) return;
+      interactionRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      event.currentTarget.style.cursor = hoveredId ? 'pointer' : 'grab';
+      if (interaction.mode === 'node' && interaction.moved) {
+        temperatureRef.current = Math.max(temperatureRef.current, 9);
+        scheduleDrawRef.current();
+      } else if (!cancelled && !interaction.moved && interaction.nodeId) {
+        void openGraphNode(interaction.nodeId);
+      }
+    },
+    [hoveredId, openGraphNode]
+  );
+
+  const handleWheel = useCallback(
+    (event: React.WheelEvent<HTMLCanvasElement>) => {
+      event.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const oldZoom = zoomRef.current;
+      const nextZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, oldZoom * Math.exp(-event.deltaY * 0.0015))
+      );
+      const pointerX = event.clientX - rect.left - rect.width / 2;
+      const pointerY = event.clientY - rect.top - rect.height / 2;
+      const logicalX = (pointerX - panRef.current.x) / oldZoom;
+      const logicalY = (pointerY - panRef.current.y) / oldZoom;
+      zoomRef.current = nextZoom;
+      panRef.current = {
+        x: pointerX - logicalX * nextZoom,
+        y: pointerY - logicalY * nextZoom,
+      };
+      clampPan();
+      scheduleDrawRef.current();
+    },
+    [clampPan]
+  );
 
   if (!isOpen) return null;
 
   return (
     <div
-      ref={dialogRef}
       className="fixed inset-0 z-[9998] flex flex-col"
       style={{ backgroundColor: 'var(--bg-base)' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="graph-view-title"
     >
-      {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-2"
         style={{ borderBottom: '1px solid var(--border-default)' }}
@@ -359,7 +550,7 @@ export function GraphView() {
         <div className="flex items-center gap-3">
           <h2
             id="graph-view-title"
-            className="text-sm font-semibold m-0"
+            className="m-0 text-sm font-semibold"
             style={{ color: 'var(--text-primary)' }}
           >
             Graph
@@ -375,61 +566,56 @@ export function GraphView() {
             </span>
           )}
           {error && (
-            <span className="text-xs" style={{ color: 'var(--accent-danger, #e66)' }}>
+            <span className="text-xs" style={{ color: 'var(--accent-danger)' }}>
               {error}
             </span>
           )}
         </div>
-        <button
-          ref={closeBtnRef}
-          type="button"
-          onClick={close}
-          className="p-1 focus-ring"
-          style={{
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-muted)',
-          }}
-          aria-label="Close graph view"
-          title="Close (Esc)"
-        >
-          <X aria-hidden="true" className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {graph && graph.nodes.length > 0 && (
+            <button
+              type="button"
+              onClick={fitToView}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs focus-ring"
+              style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+              title="Fit all notes in view"
+            >
+              <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
+              Fit view
+            </button>
+          )}
+          <button
+            ref={closeBtnRef}
+            type="button"
+            onClick={close}
+            className="p-1 focus-ring"
+            style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)' }}
+            aria-label="Close graph view"
+            title="Close (Esc)"
+          >
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Canvas container */}
-      <div
-        ref={containerRef}
-        className="flex-1 relative overflow-hidden"
-      >
+      <div ref={containerRef} className="relative flex-1 overflow-hidden">
         <canvas
           ref={canvasRef}
-          onMouseMove={handleMouseMove}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onClick={handleClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={(event) => finishPointer(event)}
+          onPointerCancel={(event) => finishPointer(event, true)}
+          onPointerLeave={() => {
+            if (!interactionRef.current) setHoveredId(null);
+          }}
           onWheel={handleWheel}
-          style={{ display: 'block', cursor: hoveredId ? 'pointer' : 'grab' }}
+          style={{ display: 'block', cursor: hoveredId ? 'pointer' : 'grab', touchAction: 'none' }}
         />
         {graph && graph.nodes.length === 0 && !loading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <EmptyGraphEmptyState />
           </div>
         )}
-      </div>
-
-      {/* Footer hint */}
-      <div
-        className="px-4 py-2 text-xs flex items-center gap-4"
-        style={{
-          borderTop: '1px solid var(--border-default)',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <span>Click a node to open the note</span>
-        <span>Drag to pan</span>
-        <span>Scroll to zoom</span>
-        <span className="ml-auto">Esc to close</span>
       </div>
     </div>
   );

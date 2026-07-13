@@ -1,4 +1,9 @@
-//! Full-text search over unlocked notes.
+//! Bounded full-text search over visible, unlocked Markdown notes.
+//!
+//! Scans never follow symlinks or enter trash/internal directories. Results keep
+//! the frontend addressing contract: daily and weekly notes use bare filenames,
+//! while standalone notes retain their `notes/`-relative folder path. Snippets
+//! are Unicode-boundary safe and result counts are capped by the caller's limit.
 
 use std::fs;
 use std::path::Path;
@@ -74,7 +79,19 @@ pub(crate) fn search_notes_content_in(
         .into_iter()
         .filter_entry(|entry| {
             // Skip the trash directory entirely
-            entry.path() != trash_dir
+            if entry.path() == trash_dir {
+                return false;
+            }
+            // Skip every hidden directory below the root (`.trash`,
+            // `.index`, `.plugins`, …) — internal state must never
+            // surface in search results.
+            if entry.depth() > 0
+                && entry.file_type().is_dir()
+                && entry.file_name().to_string_lossy().starts_with('.')
+            {
+                return false;
+            }
+            true
         });
 
     for entry in walker.flatten() {

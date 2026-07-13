@@ -15,6 +15,7 @@
  * - **Features** (`FeaturesSection`)     — editor / navigation / right-panel
  * - **Sidebar** (`SidebarSection`)       — visibility, sort, panel widths
  * - **Calendar** (`CalendarSection`)     — macOS Calendar.app integration
+ * - **AI & Agents** (`AgentsSection`)    — agent-ready Forge (AGENTS.md)
  * - **Templates** (`SettingsTemplates`)  — template management
  * - **Data** (`SettingsData`)            — bulk import / export actions
  * - **About** (`AboutSection`)           — version, updates, shortcuts
@@ -28,10 +29,22 @@
  * @module components/settings/SettingsModal
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
+import { useEffect, useRef, useMemo } from 'react';
+import { useSettingsStore, useThemeStore, applyTheme, type SettingsTab } from '@/stores';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { Calendar, Settings, Palette, Type, FileText, Info, Zap, PanelLeft, Database, Puzzle } from 'lucide-react';
+import {
+  Calendar,
+  Settings,
+  Palette,
+  Type,
+  FileText,
+  Info,
+  Zap,
+  PanelLeft,
+  Database,
+  Puzzle,
+  Bot,
+} from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
 import { AppearanceSection } from './sections/AppearanceSection';
@@ -41,17 +54,16 @@ import { SidebarSection } from './sections/SidebarSection';
 import { CalendarSection } from './sections/CalendarSection';
 import { GeneralSection } from './sections/GeneralSection';
 import { PluginsSection } from './sections/PluginsSection';
+import { AgentsSection } from './sections/AgentsSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
-
-/** Available settings tabs */
-type SettingsTab = 'general' | 'appearance' | 'editor' | 'features' | 'sidebar' | 'calendar' | 'templates' | 'plugins' | 'data' | 'about';
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
   const { theme, setTheme, preset, setPreset } = useThemeStore();
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const activeTab = settingsStore.activeSettingsTab;
+  const setActiveTab = settingsStore.setActiveSettingsTab;
   const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
     general: null,
     appearance: null,
@@ -61,6 +73,7 @@ export function SettingsModal() {
     calendar: null,
     templates: null,
     plugins: null,
+    agents: null,
     data: null,
     about: null,
   });
@@ -104,6 +117,7 @@ export function SettingsModal() {
       { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
       { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
       { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" /> },
+      { id: 'agents', label: 'AI & Agents', icon: <Bot className="w-4 h-4" /> },
       { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
       { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
     ],
@@ -176,19 +190,28 @@ export function SettingsModal() {
           className="flex items-center justify-between px-6 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
-          <h2 id="settings-modal-title" className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            id="settings-modal-title"
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Settings
           </h2>
           <button
             onClick={() => settingsStore.setIsSettingsOpen(false)}
             className="p-1 transition-colors"
             style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
             aria-label="Close settings"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -212,7 +235,9 @@ export function SettingsModal() {
               return (
                 <button
                   key={tab.id}
-                  ref={(el) => { tabRefs.current[tab.id] = el; }}
+                  ref={(el) => {
+                    tabRefs.current[tab.id] = el;
+                  }}
                   id={tabButtonId(tab.id)}
                   role="tab"
                   type="button"
@@ -255,9 +280,7 @@ export function SettingsModal() {
             className="flex-1 overflow-y-auto p-6 min-w-0"
           >
             <div key={activeTab} className="tab-content-enter">
-              {activeTab === 'general' && (
-                <GeneralSection />
-              )}
+              {activeTab === 'general' && <GeneralSection />}
               {activeTab === 'appearance' && (
                 <AppearanceSection
                   theme={theme}
@@ -266,33 +289,20 @@ export function SettingsModal() {
                   onPresetChange={handlePresetChange}
                 />
               )}
-              {activeTab === 'editor' && (
-                <EditorSection />
-              )}
-              {activeTab === 'features' && (
-                <FeaturesSection />
-              )}
-              {activeTab === 'sidebar' && (
-                <SidebarSection />
-              )}
-              {activeTab === 'calendar' && (
-                <CalendarSection />
-              )}
+              {activeTab === 'editor' && <EditorSection />}
+              {activeTab === 'features' && <FeaturesSection />}
+              {activeTab === 'sidebar' && <SidebarSection />}
+              {activeTab === 'calendar' && <CalendarSection />}
               {activeTab === 'templates' && (
                 <SettingsTemplates
                   onDeleteTemplate={handleDeleteTemplate}
                   onUpdateTemplate={handleUpdateTemplate}
                 />
               )}
-              {activeTab === 'plugins' && (
-                <PluginsSection />
-              )}
-              {activeTab === 'data' && (
-                <SettingsData />
-              )}
-              {activeTab === 'about' && (
-                <AboutSection />
-              )}
+              {activeTab === 'plugins' && <PluginsSection />}
+              {activeTab === 'agents' && <AgentsSection />}
+              {activeTab === 'data' && <SettingsData />}
+              {activeTab === 'about' && <AboutSection />}
             </div>
           </div>
         </div>

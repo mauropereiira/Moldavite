@@ -23,13 +23,26 @@ const BUDGETS = [
   { pattern: /^html2pdf-.*\.js$/, rawKb: 1100, gzipKb: 320 },
   // The bundled CHANGELOG.md (?raw) lives in its own chunk so release-notes
   // content doesn't count against the app-code budget and can grow per release.
-  { pattern: /^changelog-.*\.js$/, rawKb: 32, gzipKb: 10 },
+  // gzip bumped for the v1.6 release-notes section (What's New content ships in this chunk).
+  { pattern: /^changelog-.*\.js$/, rawKb: 48, gzipKb: 16 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
 // Bumped in 1.5.0 for the plugin sandbox rewrite (worker + RPC wiring).
-const APP_JS_BUDGET = { rawKb: 475, gzipKb: 125 };
+// Bumped in 1.6.0 for the semantic-search UI (search mode chips + results,
+// related-notes panel, lifecycle store) — ~10 KB raw, no new dependencies.
+// Bumped another 2 KB for the built-in MCP setup and write-consent controls.
+// Bumped for Plugin API v2 host enforcement (stream-capped fetch + redirect
+// validation, note-read mapping, Keychain RPC, and the expanded Worker proxy)
+// plus the note-rename UI + path-keyed state migration (lazy-loaded modal).
+// Bumped for the API v2 host-consent/prompt broker and WordPress install UI.
+// PluginDialogHost is lazy-loaded, but this combined budget deliberately also
+// counts lazy app chunks, so it includes the small split-chunk/gzip overhead.
+// Bumped for the graph-view overhaul (deterministic layout, LOD, fit-view).
+// Bumped for force-clustered graph physics + plugin About/instructions dialog.
+// Bumped for the community plugin browser (registry list + install states).
+const APP_JS_BUDGET = { rawKb: 544, gzipKb: 146 };
 
 async function main() {
   let entries;

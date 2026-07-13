@@ -1,7 +1,9 @@
-//! Security utilities for Moldavite
+//! In-memory brute-force throttling for password-protected note unlocks.
 //!
-//! This module provides brute-force protection through rate limiting
-//! for note unlock attempts.
+//! Failed attempts are tracked both per note and globally. Lockouts back off
+//! exponentially to a fixed cap; stale entries expire after inactivity, and a
+//! successful unlock clears only the relevant note state. The tracker is process
+//! local and supplements authenticated encryption rather than replacing it.
 
 use lazy_static::lazy_static;
 use std::collections::HashMap;

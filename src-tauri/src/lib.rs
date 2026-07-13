@@ -1,8 +1,9 @@
-//! Moldavite - A local-first note-taking app for connected thinking
+//! Tauri library entry point and composition root for Moldavite.
 //!
-//! The Tauri command surface is organized into per-domain modules under
-//! `commands/`. Shared building blocks (types, path helpers, validation,
-//! persistence, wiki/template helpers) live alongside it.
+//! This module owns command registration, application startup, managed shared
+//! state, and the `plugin://` scheme handler. Domain behavior stays in
+//! `commands/` and the sibling service modules; every filesystem-facing
+//! command must preserve their validation and atomic-persistence invariants.
 //!
 //! # Security
 //!
@@ -23,17 +24,20 @@ mod calendar;
 /// Core encryption logic (AES-256-GCM)
 mod encryption;
 
+/// Strict custom-scheme parsing and delivery for website plugin installs.
+mod deep_link;
+
 /// Security utilities (rate limiting)
 mod security;
-
-/// Shared utilities (paths, config, permissions)
-mod utils;
 
 /// YAML frontmatter parsing for note files.
 pub(crate) mod frontmatter;
 
 /// One-shot migration: sidecar metadata JSON → per-file YAML frontmatter.
 pub(crate) mod migration;
+
+/// Stdio Model Context Protocol server, selected with the `--mcp` flag.
+pub mod mcp;
 
 /// Filesystem watcher (notify) that emits `forge:changed` events.
 pub(crate) mod forge_watcher;
@@ -43,6 +47,8 @@ pub(crate) mod backlinks_index;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
+/// Local semantic (vector) search: embeddings index + query engine.
+pub(crate) mod semantic;
 pub(crate) mod templates_data;
 pub(crate) mod types;
 pub(crate) mod validation;
@@ -66,6 +72,7 @@ use commands::forges::{
 };
 use commands::graph::get_note_graph;
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
+use commands::mcp_settings::{get_app_binary_path, get_mcp_writes_enabled, set_mcp_writes_enabled};
 use commands::misc::{
     ensure_directories, get_all_note_colors, get_note_color, get_notes_directory,
     open_forge_in_finder, rescan_forge, save_image, set_note_color, set_notes_directory,
@@ -75,8 +82,16 @@ use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
     fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
 };
-use commands::plugins::{install_example_plugin, list_plugins, uninstall_plugin};
+use commands::plugins::{
+    install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
+    plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
+};
+use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::search_notes_content;
+use commands::semantic::{
+    semantic_models, semantic_reindex, semantic_related, semantic_search, semantic_set_enabled,
+    semantic_set_model, semantic_status,
+};
 use commands::templates::{
     apply_template, create_note_from_template, delete_template, get_template, list_templates,
     save_template, update_template,
@@ -127,6 +142,7 @@ pub fn run() {
     use std::sync::Arc;
 
     use tauri::Manager;
+    use tauri_plugin_deep_link::DeepLinkExt;
 
     use crate::backlinks_index::BacklinksIndex;
 
@@ -138,6 +154,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .register_uri_scheme_protocol("plugin", |_ctx, request| {
             use tauri::http::{header, Response, StatusCode};
             // URI shape: plugin://localhost/<id>/<relative-path>
@@ -175,7 +192,23 @@ pub fn run() {
         })
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
+        .manage(deep_link::PendingPluginInstallLinks::default())
         .setup(move |app| {
+            // Register before WebView hydration. Live URLs wake the frontend;
+            // cold-start URLs remain queued until React drains them.
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                deep_link::route_urls(&app_handle, event.urls().iter().map(|url| url.as_str()));
+            });
+            if let Some(urls) = app.deep_link().get_current()? {
+                deep_link::route_urls(app.handle(), urls.iter().map(|url| url.as_str()));
+            }
+            // macOS schemes are registered through the generated app bundle.
+            // Linux, and Windows development builds without an installer,
+            // register the configured schemes at runtime.
+            #[cfg(any(target_os = "linux", all(debug_assertions, target_os = "windows")))]
+            app.deep_link().register_all()?;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -210,12 +243,31 @@ pub fn run() {
                 }
                 Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
             }
+            // If the user already enabled semantic search, load/reconcile the
+            // index in the background (the model was downloaded during the
+            // original explicit enable; this only re-downloads if the cache
+            // was wiped while the feature stayed enabled).
+            if persist::read_config().semantic_enabled.unwrap_or(false) {
+                commands::semantic::spawn_semantic_build(app.handle().clone(), false);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            deep_link::take_pending_plugin_install_links,
             ensure_directories,
+            get_app_binary_path,
+            get_mcp_writes_enabled,
+            set_mcp_writes_enabled,
             list_notes,
             search_notes_content,
+            // Semantic (vector) search commands
+            semantic_status,
+            semantic_models,
+            semantic_set_enabled,
+            semantic_set_model,
+            semantic_search,
+            semantic_related,
+            semantic_reindex,
             read_note,
             write_note,
             delete_note,
@@ -228,6 +280,11 @@ pub fn run() {
             list_plugins,
             uninstall_plugin,
             install_example_plugin,
+            install_wordpress_plugin,
+            install_plugin_from_data,
+            plugin_secret_get,
+            plugin_secret_set,
+            plugin_secret_delete,
             // Folder system commands
             list_folders,
             create_folder,
@@ -271,6 +328,9 @@ pub fn run() {
             set_notes_directory,
             rescan_forge,
             open_forge_in_finder,
+            // Forge-root whitelisted files (AGENTS.md, .gitignore)
+            write_forge_root_file,
+            read_forge_root_file,
             // Multi-Forge management commands
             list_forges,
             create_forge,
@@ -484,6 +544,10 @@ mod tests {
         fs::write(base.join("notes/secret.md.locked"), "fox fox fox fox").unwrap();
         // A trashed note that must never be scanned
         fs::write(base.join(".trash/old.md"), "fox fox fox").unwrap();
+        // Internal semantic-index state that must never be scanned
+        fs::create_dir_all(base.join(".index")).unwrap();
+        fs::write(base.join(".index/embeddings.v1.bin"), b"binary fox").unwrap();
+        fs::write(base.join(".index/sneaky.md"), "fox fox fox fox fox").unwrap();
     }
 
     #[test]
@@ -507,6 +571,38 @@ mod tests {
             assert!(!r.filename.ends_with(".locked"), "locked file surfaced: {}", r.filename);
             assert!(!r.path.starts_with(".trash"), "trash file surfaced: {}", r.path);
         }
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn search_notes_content_excludes_index_dir() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
+        assert!(!results.is_empty());
+        for r in &results {
+            assert!(
+                !r.path.starts_with(".index"),
+                "semantic index dir surfaced in search: {}",
+                r.path
+            );
+            assert_ne!(r.filename, "sneaky.md");
+        }
+        fs::remove_dir_all(&base).ok();
+    }
+
+    #[test]
+    fn scan_notes_recursive_skips_hidden_dirs() {
+        let base = make_tmp_base();
+        seed_notes(&base);
+        // Even if an .index dir somehow appears inside notes/, it must be
+        // invisible to note listing.
+        fs::create_dir_all(base.join("notes/.index")).unwrap();
+        fs::write(base.join("notes/.index/sneaky.md"), "hidden").unwrap();
+        let mut notes = Vec::new();
+        crate::commands::notes::scan_notes_recursive(&base.join("notes"), "", &mut notes);
+        assert!(notes.iter().all(|n| !n.path.contains(".index")));
+        assert!(notes.iter().any(|n| n.name == "alpha.md"));
         fs::remove_dir_all(&base).ok();
     }
 
