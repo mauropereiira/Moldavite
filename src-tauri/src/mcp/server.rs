@@ -459,6 +459,7 @@ mod tests {
             .call("search_notes", &json!({"query":"unique-needle","limit":50}));
         let elapsed = started.elapsed();
         assert_eq!(response["isError"], false);
+        assert_eq!(response["structuredContent"]["mode"], "keyword");
         assert_eq!(
             response["structuredContent"]["results"]
                 .as_array()

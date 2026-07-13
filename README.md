@@ -49,7 +49,7 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Full-text search** — Ranked content search across every note, with snippets.
 
-**Semantic search (optional)** — Find notes by meaning, not just keywords, plus a "Related" list for the note you're reading. Choose between three local embedding models (all-MiniLM-L6-v2 is the default); the selected model downloads once after you opt in, then everything runs fully offline — your notes never leave your Mac.
+**Semantic search (optional)** — Find notes by meaning, not just keywords, plus a "Related" list for the note you're reading. Choose between three local embedding models (all-MiniLM-L6-v2 is the default); the selected model downloads once after you opt in, then everything runs fully offline — your notes never leave your Mac. Requires Apple Silicon on macOS; Intel Macs get keyword search.
 
 **Timeline** — Chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier, with calendar events inline on macOS.
 

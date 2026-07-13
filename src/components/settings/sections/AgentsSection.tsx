@@ -452,6 +452,7 @@ function SemanticSearchBlock() {
   }, [refreshStatus]);
 
   const isBuilding = semantic.state === 'downloading' || semantic.state === 'indexing';
+  const isUnsupported = semantic.state === 'unsupported';
   const activeModel = semantic.models.find((model) => model.active);
 
   const handleToggle = (enabled: boolean) => {
@@ -511,35 +512,52 @@ function SemanticSearchBlock() {
             <InfoTooltip text="Adds a by-meaning search mode to the sidebar search and a 'Related' list under each note, powered by a small AI model that runs entirely on your Mac." />
           </div>
         </div>
-        <Toggle
-          enabled={semantic.enabled}
-          onChange={handleToggle}
-          ariaLabel="Enable semantic search"
-        />
+        {isUnsupported ? (
+          <span
+            className="text-xs text-right"
+            style={{ color: 'var(--text-tertiary)' }}
+            role="status"
+          >
+            Apple Silicon required on macOS
+          </span>
+        ) : (
+          <Toggle
+            enabled={semantic.enabled}
+            onChange={handleToggle}
+            ariaLabel="Enable semantic search"
+          />
+        )}
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <label htmlFor="semantic-model" className="text-sm font-medium">
-          Model
-        </label>
-        <select
-          id="semantic-model"
-          aria-label="Semantic search model"
-          value={activeModel?.id ?? ''}
-          onChange={(event) => handleModelChange(event.target.value)}
-          disabled={isBuilding}
-          className="input max-w-[19rem] disabled:opacity-50"
-        >
-          {semantic.models.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.label} — ~{model.downloadSizeMb} MB · {model.description}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isUnsupported ? (
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {semantic.error ?? 'Semantic search requires Apple Silicon on macOS'}. Keyword search
+          remains available.
+        </p>
+      ) : (
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="semantic-model" className="text-sm font-medium">
+            Model
+          </label>
+          <select
+            id="semantic-model"
+            aria-label="Semantic search model"
+            value={activeModel?.id ?? ''}
+            onChange={(event) => handleModelChange(event.target.value)}
+            disabled={isBuilding}
+            className="input max-w-[19rem] disabled:opacity-50"
+          >
+            {semantic.models.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.label} — ~{model.downloadSizeMb} MB · {model.description}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Live status */}
-      {semantic.enabled && (
+      {!isUnsupported && semantic.enabled && (
         <div className="flex items-center gap-3 flex-wrap">
           <SemanticStatusLine />
           <button
@@ -562,7 +580,7 @@ function SemanticSearchBlock() {
       )}
 
       {/* Consent dialog — shown before anything is downloaded */}
-      {confirmEnable && (
+      {confirmEnable && !isUnsupported && (
         <ConfirmDialog
           title="Enable semantic search?"
           message={`Downloads ${activeModel?.label ?? 'the selected model'}${activeModel ? ` (~${activeModel.downloadSizeMb} MB)` : ''} once from HuggingFace; afterwards everything runs fully offline — your notes never leave your Mac. Your notes are then indexed locally so you can search by meaning.`}
@@ -572,7 +590,7 @@ function SemanticSearchBlock() {
         />
       )}
 
-      {pendingModel && (
+      {pendingModel && !isUnsupported && (
         <ConfirmDialog
           title={`Switch to ${pendingModel.label}?`}
           message={`Downloads ${pendingModel.label} (~${pendingModel.downloadSizeMb} MB) once and re-indexes your notes.`}
