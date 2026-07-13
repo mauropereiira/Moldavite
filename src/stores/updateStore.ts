@@ -1,3 +1,9 @@
+/**
+ * Application-update polling, download progress, and install lifecycle state.
+ * Only one check/download is active at a time, automatic checks are interval-gated,
+ * and the updater plugin's returned handle remains authoritative for installation.
+ */
+
 import { create } from 'zustand';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';

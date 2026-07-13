@@ -1,3 +1,12 @@
+/**
+ * Note-list initialization and component-facing note workflow orchestration.
+ *
+ * The hook coordinates IPC with tab, color, selection, recent-note, template, and
+ * task state. Before navigation it flushes editable HTML as Markdown; temporarily
+ * unlocked notes are excluded. Standalone paths come from note metadata and are
+ * never reconstructed from display titles.
+ */
+
 import { useCallback, useEffect } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import {
@@ -38,14 +47,7 @@ import { format, getISOWeek, getISOWeekYear } from 'date-fns';
  * @returns Note management functions and state
  */
 export function useNotes() {
-  const {
-    notes,
-    setNotes,
-    currentNote,
-    setCurrentNote,
-    setIsLoading,
-    openTab
-  } = useNoteStore();
+  const { notes, setNotes, currentNote, setCurrentNote, setIsLoading, openTab } = useNoteStore();
 
   // Get fresh state to avoid stale closures
   const getState = useNoteStore.getState;
@@ -79,13 +81,13 @@ export function useNotes() {
 
     if (note.isDaily) {
       const dateStr = note.date;
-      const existsInList = freshNotes.some(n => n.isDaily && n.date === dateStr);
+      const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
 
       if (isEmpty) {
         if (existsInList) {
           try {
             await deleteNote(filename, true, false);
-            const updatedNotes = freshNotes.filter(n => !(n.isDaily && n.date === dateStr));
+            const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
             setNotes(updatedNotes);
           } catch (error) {
             console.error('[useNotes] Flush: Delete failed:', error);
@@ -109,13 +111,13 @@ export function useNotes() {
       }
     } else if (note.isWeekly) {
       const weekStr = note.week;
-      const existsInList = freshNotes.some(n => n.isWeekly && n.week === weekStr);
+      const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
 
       if (isEmpty) {
         if (existsInList) {
           try {
             await deleteNote(filename, false, true);
-            const updatedNotes = freshNotes.filter(n => !(n.isWeekly && n.week === weekStr));
+            const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
             setNotes(updatedNotes);
           } catch (error) {
             console.error('[useNotes] Flush: Delete weekly note failed:', error);
@@ -157,7 +159,7 @@ export function useNotes() {
       setNotes(noteFiles);
 
       // Build task status cache for daily notes (non-blocking)
-      const dailyNotes = noteFiles.filter(n => n.isDaily && n.date);
+      const dailyNotes = noteFiles.filter((n) => n.isDaily && n.date);
       const { setTaskStatus } = useTaskStatusStore.getState();
 
       // Process daily notes in the background with capped concurrency —
@@ -183,7 +185,9 @@ export function useNotes() {
       Promise.all(Array.from({ length: Math.min(8, queue.length) }, scanNext));
     } catch (error) {
       console.error('[useNotes] Failed to initialize:', error);
-      useToastStore.getState().addToast('error', 'Failed to load notes. Check the console for details.');
+      useToastStore
+        .getState()
+        .addToast('error', 'Failed to load notes. Check the console for details.');
     } finally {
       setIsLoading(false);
     }
@@ -195,90 +199,112 @@ export function useNotes() {
    * @param noteFile - The note file to load
    * @param inNewTab - If true, opens in a new tab instead of replacing the current one
    */
-  const loadNote = useCallback(async (noteFile: NoteFile, inNewTab: boolean = false) => {
-    try {
-      // Flush current note before switching
-      await flushCurrentNote();
+  const loadNote = useCallback(
+    async (noteFile: NoteFile, inNewTab: boolean = false) => {
+      try {
+        // Flush current note before switching
+        await flushCurrentNote();
 
-      setIsLoading(true);
-      const rawContent = await readNote(noteFileBackendPath(noteFile), noteFile.isDaily, noteFile.isWeekly || false);
+        setIsLoading(true);
+        const rawContent = await readNote(
+          noteFileBackendPath(noteFile),
+          noteFile.isDaily,
+          noteFile.isWeekly || false
+        );
 
-      // Convert Markdown to HTML for the editor
-      // Check if content is already HTML (backwards compatibility with old format)
-      let htmlContent: string;
-      if (isHtmlContent(rawContent)) {
-        htmlContent = rawContent;
-      } else {
-        htmlContent = markdownToHtml(rawContent);
+        // Convert Markdown to HTML for the editor
+        // Check if content is already HTML (backwards compatibility with old format)
+        let htmlContent: string;
+        if (isHtmlContent(rawContent)) {
+          htmlContent = rawContent;
+        } else {
+          htmlContent = markdownToHtml(rawContent);
+        }
+
+        // Update task status cache for daily notes
+        if (noteFile.isDaily && noteFile.date) {
+          const taskStatus = parseTaskStatus(htmlContent);
+          useTaskStatusStore.getState().setTaskStatus(noteFile.date, taskStatus);
+        }
+
+        const note = filenameToNote(noteFile, htmlContent);
+        openTab(note, inNewTab);
+      } catch (error) {
+        console.error('[useNotes] Failed to load note:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
+      } finally {
+        setIsLoading(false);
       }
-
-      // Update task status cache for daily notes
-      if (noteFile.isDaily && noteFile.date) {
-        const taskStatus = parseTaskStatus(htmlContent);
-        useTaskStatusStore.getState().setTaskStatus(noteFile.date, taskStatus);
-      }
-
-      const note = filenameToNote(noteFile, htmlContent);
-      openTab(note, inNewTab);
-    } catch (error) {
-      console.error('[useNotes] Failed to load note:', error);
-      const msg = error instanceof Error ? error.message : String(error);
-      useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [flushCurrentNote, openTab, setIsLoading]);
+    },
+    [flushCurrentNote, openTab, setIsLoading]
+  );
 
   /**
    * Loads or creates a daily note for the specified date.
    * If a default daily template is set, applies it to new daily notes.
    * @param date - The date for the daily note
    */
-  const loadDailyNote = useCallback(async (date: Date) => {
-    const filename = getDailyNoteFilename(date);
-    const dateStr = format(date, 'yyyy-MM-dd');
+  const loadDailyNote = useCallback(
+    async (date: Date) => {
+      const filename = getDailyNoteFilename(date);
+      const dateStr = format(date, 'yyyy-MM-dd');
 
-    // Flush current note before switching
-    await flushCurrentNote();
+      // Flush current note before switching
+      await flushCurrentNote();
 
-    // Get fresh notes from store to avoid stale closure
-    const currentNotes = getState().notes;
+      // Get fresh notes from store to avoid stale closure
+      const currentNotes = getState().notes;
 
-    // Check if note exists
-    const existingNote = currentNotes.find(n => n.isDaily && n.date === dateStr);
+      // Check if note exists
+      const existingNote = currentNotes.find((n) => n.isDaily && n.date === dateStr);
 
-    if (existingNote) {
-      await loadNote(existingNote);
-    } else {
-      // Check for default daily template
-      const { defaultDailyTemplate } = useTemplateStore.getState();
+      if (existingNote) {
+        await loadNote(existingNote);
+      } else {
+        // Check for default daily template
+        const { defaultDailyTemplate } = useTemplateStore.getState();
 
-      if (defaultDailyTemplate) {
-        // Create note from default template
-        try {
-          await invoke('create_note_from_template', {
-            filename,
-            templateId: defaultDailyTemplate,
-            isDaily: true
-          });
+        if (defaultDailyTemplate) {
+          // Create note from default template
+          try {
+            await invoke('create_note_from_template', {
+              filename,
+              templateId: defaultDailyTemplate,
+              isDaily: true,
+            });
 
-          const noteFile: NoteFile = {
-            name: filename,
-            path: filename,
-            isDaily: true,
-            isWeekly: false,
-            date: dateStr,
-            isLocked: false,
-          };
+            const noteFile: NoteFile = {
+              name: filename,
+              path: filename,
+              isDaily: true,
+              isWeekly: false,
+              date: dateStr,
+              isLocked: false,
+            };
 
-          // Add to notes list
-          setNotes([...currentNotes, noteFile]);
+            // Add to notes list
+            setNotes([...currentNotes, noteFile]);
 
-          // Load the created note
-          await loadNote(noteFile);
-        } catch (error) {
-          console.error('[useNotes] Failed to create daily note from template:', error);
-          // Fall back to creating virtual note
+            // Load the created note
+            await loadNote(noteFile);
+          } catch (error) {
+            console.error('[useNotes] Failed to create daily note from template:', error);
+            // Fall back to creating virtual note
+            const noteFile: NoteFile = {
+              name: filename,
+              path: filename,
+              isDaily: true,
+              isWeekly: false,
+              date: dateStr,
+              isLocked: false,
+            };
+            const note = filenameToNote(noteFile, '');
+            setCurrentNote(note);
+          }
+        } else {
+          // Create virtual note in memory (don't create file yet)
+          // File will be created by auto-save when user types content
           const noteFile: NoteFile = {
             name: filename,
             path: filename,
@@ -290,76 +316,81 @@ export function useNotes() {
           const note = filenameToNote(noteFile, '');
           setCurrentNote(note);
         }
-      } else {
-        // Create virtual note in memory (don't create file yet)
-        // File will be created by auto-save when user types content
-        const noteFile: NoteFile = {
-          name: filename,
-          path: filename,
-          isDaily: true,
-          isWeekly: false,
-          date: dateStr,
-          isLocked: false,
-        };
-        const note = filenameToNote(noteFile, '');
-        setCurrentNote(note);
       }
-    }
-  }, [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]);
+    },
+    [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]
+  );
 
   /**
    * Loads or creates a weekly note for the specified week.
    * If a default weekly template is set, applies it to new weekly notes.
    * @param date - Any date within the target week (uses ISO week numbering)
    */
-  const loadWeeklyNote = useCallback(async (date: Date) => {
-    const filename = getWeeklyNoteFilename(date);
-    const weekYear = getISOWeekYear(date);
-    const weekNum = getISOWeek(date);
-    const weekStr = `${weekYear}-W${weekNum.toString().padStart(2, '0')}`;
+  const loadWeeklyNote = useCallback(
+    async (date: Date) => {
+      const filename = getWeeklyNoteFilename(date);
+      const weekYear = getISOWeekYear(date);
+      const weekNum = getISOWeek(date);
+      const weekStr = `${weekYear}-W${weekNum.toString().padStart(2, '0')}`;
 
-    // Flush current note before switching
-    await flushCurrentNote();
+      // Flush current note before switching
+      await flushCurrentNote();
 
-    // Get fresh notes from store to avoid stale closure
-    const currentNotes = getState().notes;
+      // Get fresh notes from store to avoid stale closure
+      const currentNotes = getState().notes;
 
-    // Check if note exists
-    const existingNote = currentNotes.find(n => n.isWeekly && n.week === weekStr);
+      // Check if note exists
+      const existingNote = currentNotes.find((n) => n.isWeekly && n.week === weekStr);
 
-    if (existingNote) {
-      await loadNote(existingNote);
-    } else {
-      // Check for default weekly template (future feature)
-      const { defaultWeeklyTemplate } = useTemplateStore.getState() as { defaultWeeklyTemplate?: string };
+      if (existingNote) {
+        await loadNote(existingNote);
+      } else {
+        // Check for default weekly template (future feature)
+        const { defaultWeeklyTemplate } = useTemplateStore.getState() as {
+          defaultWeeklyTemplate?: string;
+        };
 
-      if (defaultWeeklyTemplate) {
-        // Create note from default template
-        try {
-          await invoke('create_note_from_template', {
-            filename,
-            templateId: defaultWeeklyTemplate,
-            isDaily: false,
-            isWeekly: true
-          });
+        if (defaultWeeklyTemplate) {
+          // Create note from default template
+          try {
+            await invoke('create_note_from_template', {
+              filename,
+              templateId: defaultWeeklyTemplate,
+              isDaily: false,
+              isWeekly: true,
+            });
 
-          const noteFile: NoteFile = {
-            name: filename,
-            path: `weekly/${filename}`,
-            isDaily: false,
-            isWeekly: true,
-            week: weekStr,
-            isLocked: false,
-          };
+            const noteFile: NoteFile = {
+              name: filename,
+              path: `weekly/${filename}`,
+              isDaily: false,
+              isWeekly: true,
+              week: weekStr,
+              isLocked: false,
+            };
 
-          // Add to notes list
-          setNotes([...currentNotes, noteFile]);
+            // Add to notes list
+            setNotes([...currentNotes, noteFile]);
 
-          // Load the created note
-          await loadNote(noteFile);
-        } catch (error) {
-          console.error('[useNotes] Failed to create weekly note from template:', error);
-          // Fall back to creating virtual note
+            // Load the created note
+            await loadNote(noteFile);
+          } catch (error) {
+            console.error('[useNotes] Failed to create weekly note from template:', error);
+            // Fall back to creating virtual note
+            const noteFile: NoteFile = {
+              name: filename,
+              path: `weekly/${filename}`,
+              isDaily: false,
+              isWeekly: true,
+              week: weekStr,
+              isLocked: false,
+            };
+            const note = filenameToNote(noteFile, '');
+            setCurrentNote(note);
+          }
+        } else {
+          // Create virtual note in memory (don't create file yet)
+          // File will be created by auto-save when user types content
           const noteFile: NoteFile = {
             name: filename,
             path: `weekly/${filename}`,
@@ -371,22 +402,10 @@ export function useNotes() {
           const note = filenameToNote(noteFile, '');
           setCurrentNote(note);
         }
-      } else {
-        // Create virtual note in memory (don't create file yet)
-        // File will be created by auto-save when user types content
-        const noteFile: NoteFile = {
-          name: filename,
-          path: `weekly/${filename}`,
-          isDaily: false,
-          isWeekly: true,
-          week: weekStr,
-          isLocked: false,
-        };
-        const note = filenameToNote(noteFile, '');
-        setCurrentNote(note);
       }
-    }
-  }, [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]);
+    },
+    [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]
+  );
 
   /**
    * Creates a new standalone note with the specified title.
@@ -394,34 +413,37 @@ export function useNotes() {
    * @param folderPath - Optional folder path to create the note in
    * @throws {Error} If note creation fails
    */
-  const createNote = useCallback(async (title: string, folderPath?: string | null) => {
-    try {
-      setIsLoading(true);
-      const filename = await createNoteFile(title, folderPath || undefined);
-      const noteFile: NoteFile = {
-        name: filename.split('/').pop() || filename,
-        path: `notes/${filename}`,
-        isDaily: false,
-        isWeekly: false,
-        isLocked: false,
-        folderPath: folderPath || undefined,
-      };
-      // Get fresh notes to avoid stale closure
-      const freshNotes = getState().notes;
-      // Check if already exists (prevent duplicates)
-      if (!freshNotes.find(n => n.path === noteFile.path)) {
-        setNotes([...freshNotes, noteFile]);
+  const createNote = useCallback(
+    async (title: string, folderPath?: string | null) => {
+      try {
+        setIsLoading(true);
+        const filename = await createNoteFile(title, folderPath || undefined);
+        const noteFile: NoteFile = {
+          name: filename.split('/').pop() || filename,
+          path: `notes/${filename}`,
+          isDaily: false,
+          isWeekly: false,
+          isLocked: false,
+          folderPath: folderPath || undefined,
+        };
+        // Get fresh notes to avoid stale closure
+        const freshNotes = getState().notes;
+        // Check if already exists (prevent duplicates)
+        if (!freshNotes.find((n) => n.path === noteFile.path)) {
+          setNotes([...freshNotes, noteFile]);
+        }
+        const note = filenameToNote(noteFile, '');
+        setCurrentNote(note);
+      } catch (error) {
+        console.error('[useNotes] Failed to create note:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        useToastStore.getState().addToast('error', `Failed to create note: ${msg}`);
+      } finally {
+        setIsLoading(false);
       }
-      const note = filenameToNote(noteFile, '');
-      setCurrentNote(note);
-    } catch (error) {
-      console.error('[useNotes] Failed to create note:', error);
-      const msg = error instanceof Error ? error.message : String(error);
-      useToastStore.getState().addToast('error', `Failed to create note: ${msg}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getState, setNotes, setCurrentNote, setIsLoading]);
+    },
+    [getState, setNotes, setCurrentNote, setIsLoading]
+  );
 
   /**
    * Creates a new note from a template.
@@ -431,146 +453,153 @@ export function useNotes() {
    * @param folderPath - Optional folder path to create the note in
    * @throws {Error} If note creation or template application fails
    */
-  const createFromTemplate = useCallback(async (
-    title: string,
-    templateId: string,
-    isDaily: boolean = false,
-    folderPath?: string | null
-  ) => {
-    try {
-      setIsLoading(true);
-      const filename = isDaily ? `${title}.md` : `${title}.md`;
-      const fullPath = folderPath ? `${folderPath}/${filename}` : filename;
+  const createFromTemplate = useCallback(
+    async (
+      title: string,
+      templateId: string,
+      isDaily: boolean = false,
+      folderPath?: string | null
+    ) => {
+      try {
+        setIsLoading(true);
+        const filename = isDaily ? `${title}.md` : `${title}.md`;
+        const fullPath = folderPath ? `${folderPath}/${filename}` : filename;
 
-      // Call Tauri command to create note from template
-      await invoke('create_note_from_template', {
-        filename: fullPath,
-        templateId,
-        isDaily
-      });
+        // Call Tauri command to create note from template
+        await invoke('create_note_from_template', {
+          filename: fullPath,
+          templateId,
+          isDaily,
+        });
 
-      // Create note file object
-      const noteFile: NoteFile = {
-        name: filename,
-        path: isDaily ? `daily/${filename}` : `notes/${fullPath}`,
-        isDaily,
-        isWeekly: false,
-        date: isDaily ? title : undefined,
-        isLocked: false,
-        folderPath: folderPath || undefined,
-      };
+        // Create note file object
+        const noteFile: NoteFile = {
+          name: filename,
+          path: isDaily ? `daily/${filename}` : `notes/${fullPath}`,
+          isDaily,
+          isWeekly: false,
+          date: isDaily ? title : undefined,
+          isLocked: false,
+          folderPath: folderPath || undefined,
+        };
 
-      // Get fresh notes to avoid stale closure
-      const freshNotes = getState().notes;
-      // Check if already exists (prevent duplicates)
-      if (!freshNotes.find(n => n.path === noteFile.path)) {
-        setNotes([...freshNotes, noteFile]);
+        // Get fresh notes to avoid stale closure
+        const freshNotes = getState().notes;
+        // Check if already exists (prevent duplicates)
+        if (!freshNotes.find((n) => n.path === noteFile.path)) {
+          setNotes([...freshNotes, noteFile]);
+        }
+
+        // Load the created note
+        await loadNote(noteFile);
+      } catch (error) {
+        console.error('[useNotes] Failed to create note from template:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-
-      // Load the created note
-      await loadNote(noteFile);
-    } catch (error) {
-      console.error('[useNotes] Failed to create note from template:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getState, setNotes, loadNote, setIsLoading]);
+    },
+    [getState, setNotes, loadNote, setIsLoading]
+  );
 
   /**
    * Renames a standalone note and migrates every frontend reference to its new path.
    * The backend also rewrites inbound wiki-links across the Forge.
    */
-  const renameNote = useCallback(async (sourceNote: NoteFile, title: string) => {
-    const newTitle = title.trim();
-    const validationError = getNoteTitleError(newTitle);
-    if (validationError) {
-      useToastStore.getState().addToast('error', validationError);
-      throw new Error(validationError);
-    }
-    if (sourceNote.isDaily || sourceNote.isWeekly) {
-      const message = 'Daily and weekly notes are named by date and cannot be renamed';
-      useToastStore.getState().addToast('error', message);
-      throw new Error(message);
-    }
-
-    const oldPath = sourceNote.path;
-    const oldFilename = noteFileBackendPath(sourceNote);
-    const newName = `${newTitle}.md`;
-    const newFilename = sourceNote.folderPath
-      ? `${sourceNote.folderPath}/${newName}`
-      : newName;
-    const newPath = `notes/${newFilename}`;
-
-    if (newPath === oldPath) return;
-
-    try {
-      if (getState().currentNote?.id === oldPath) {
-        await flushCurrentNote();
+  const renameNote = useCallback(
+    async (sourceNote: NoteFile, title: string) => {
+      const newTitle = title.trim();
+      const validationError = getNoteTitleError(newTitle);
+      if (validationError) {
+        useToastStore.getState().addToast('error', validationError);
+        throw new Error(validationError);
       }
-      await renameNoteFile(oldFilename, newFilename, false, false);
+      if (sourceNote.isDaily || sourceNote.isWeekly) {
+        const message = 'Daily and weekly notes are named by date and cannot be renamed';
+        useToastStore.getState().addToast('error', message);
+        throw new Error(message);
+      }
 
-      useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
-      useNoteColorsStore.getState().renameColor(oldPath, newPath);
-      useNoteSelectionStore.getState().rename(oldPath, newPath);
-      useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
-      useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      useToastStore.getState().addToast('error', message);
-      throw error;
-    }
-  }, [flushCurrentNote, getState]);
+      const oldPath = sourceNote.path;
+      const oldFilename = noteFileBackendPath(sourceNote);
+      const newName = `${newTitle}.md`;
+      const newFilename = sourceNote.folderPath ? `${sourceNote.folderPath}/${newName}` : newName;
+      const newPath = `notes/${newFilename}`;
+
+      if (newPath === oldPath) return;
+
+      try {
+        if (getState().currentNote?.id === oldPath) {
+          await flushCurrentNote();
+        }
+        await renameNoteFile(oldFilename, newFilename, false, false);
+
+        useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+        useNoteColorsStore.getState().renameColor(oldPath, newPath);
+        useNoteSelectionStore.getState().rename(oldPath, newPath);
+        useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+        useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        useToastStore.getState().addToast('error', message);
+        throw error;
+      }
+    },
+    [flushCurrentNote, getState]
+  );
 
   /**
    * Duplicates an existing note with " (copy)" suffix.
    * @param sourceNote - The note to duplicate
    * @throws {Error} If note duplication fails
    */
-  const duplicateNote = useCallback(async (sourceNote: NoteFile) => {
-    try {
-      setIsLoading(true);
-      // Flush current note first to ensure all content is saved to disk
-      await flushCurrentNote();
-      // Backend addresses standalone notes by folder-relative path and echoes
-      // the same shape back (e.g. "Projects/foo (copy).md").
-      const newFilename = await invoke<string>('duplicate_note', {
-        filename: noteFileBackendPath(sourceNote),
-        isDaily: sourceNote.isDaily || false,
-        isWeekly: sourceNote.isWeekly || false,
-      });
-      const bareName = newFilename.split('/').pop() || newFilename;
+  const duplicateNote = useCallback(
+    async (sourceNote: NoteFile) => {
+      try {
+        setIsLoading(true);
+        // Flush current note first to ensure all content is saved to disk
+        await flushCurrentNote();
+        // Backend addresses standalone notes by folder-relative path and echoes
+        // the same shape back (e.g. "Projects/foo (copy).md").
+        const newFilename = await invoke<string>('duplicate_note', {
+          filename: noteFileBackendPath(sourceNote),
+          isDaily: sourceNote.isDaily || false,
+          isWeekly: sourceNote.isWeekly || false,
+        });
+        const bareName = newFilename.split('/').pop() || newFilename;
 
-      // Create note file object for the duplicate
-      const noteFile: NoteFile = {
-        name: bareName,
-        path: sourceNote.isDaily
-          ? `daily/${newFilename}`
-          : sourceNote.isWeekly
-          ? `weekly/${newFilename}`
-          : `notes/${newFilename}`,
-        isDaily: sourceNote.isDaily || false,
-        isWeekly: sourceNote.isWeekly || false,
-        isLocked: false,
-        folderPath: sourceNote.folderPath,
-      };
+        // Create note file object for the duplicate
+        const noteFile: NoteFile = {
+          name: bareName,
+          path: sourceNote.isDaily
+            ? `daily/${newFilename}`
+            : sourceNote.isWeekly
+              ? `weekly/${newFilename}`
+              : `notes/${newFilename}`,
+          isDaily: sourceNote.isDaily || false,
+          isWeekly: sourceNote.isWeekly || false,
+          isLocked: false,
+          folderPath: sourceNote.folderPath,
+        };
 
-      // Get fresh notes to avoid stale closure
-      const freshNotes = getState().notes;
-      // Add to notes list
-      if (!freshNotes.find(n => n.path === noteFile.path)) {
-        setNotes([...freshNotes, noteFile]);
+        // Get fresh notes to avoid stale closure
+        const freshNotes = getState().notes;
+        // Add to notes list
+        if (!freshNotes.find((n) => n.path === noteFile.path)) {
+          setNotes([...freshNotes, noteFile]);
+        }
+
+        // Load the duplicated note
+        await loadNote(noteFile);
+      } catch (error) {
+        console.error('[useNotes] Failed to duplicate note:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-
-      // Load the duplicated note
-      await loadNote(noteFile);
-    } catch (error) {
-      console.error('[useNotes] Failed to duplicate note:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [flushCurrentNote, getState, setNotes, loadNote, setIsLoading]);
+    },
+    [flushCurrentNote, getState, setNotes, loadNote, setIsLoading]
+  );
 
   /**
    * Deletes the currently loaded note from disk and removes it from the note list.
@@ -600,11 +629,11 @@ export function useNotes() {
       const freshNotes = state.notes;
       let updatedNotes: NoteFile[];
       if (note.isDaily && note.date) {
-        updatedNotes = freshNotes.filter(n => !(n.isDaily && n.date === note.date));
+        updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === note.date));
       } else if (note.isWeekly && note.week) {
-        updatedNotes = freshNotes.filter(n => !(n.isWeekly && n.week === note.week));
+        updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === note.week));
       } else {
-        updatedNotes = freshNotes.filter(n => n.path !== note.id);
+        updatedNotes = freshNotes.filter((n) => n.path !== note.id);
       }
       setNotes(updatedNotes);
 

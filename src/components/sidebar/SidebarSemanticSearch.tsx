@@ -43,7 +43,7 @@ export function SearchModeChips({
         <>
           <Sparkles aria-hidden="true" className="w-3 h-3" />
           Semantic
-        </>,
+        </>
       )}
     </div>
   );

@@ -43,7 +43,10 @@ export function CalendarSection() {
   return (
     <div className="space-y-6">
       {/* Permission Status Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Calendar Access
@@ -54,8 +57,19 @@ export function CalendarSection() {
         </div>
 
         {isAuthorized ? (
-          <div className="flex items-center gap-3 p-3" style={{ backgroundColor: 'rgba(90, 138, 110, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)' }}>
-            <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}>
+          <div
+            className="flex items-center gap-3 p-3"
+            style={{
+              backgroundColor: 'rgba(90, 138, 110, 0.15)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--success)',
+            }}
+          >
+            <div
+              aria-hidden="true"
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}
+            >
               <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
             </div>
             <div>
@@ -68,7 +82,14 @@ export function CalendarSection() {
             </div>
           </div>
         ) : permissionStatus === 'Denied' || permissionStatus === 'Restricted' ? (
-          <div className="p-3" style={{ backgroundColor: 'rgba(184, 92, 92, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--error)' }}>
+          <div
+            className="p-3"
+            style={{
+              backgroundColor: 'rgba(184, 92, 92, 0.15)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--error)',
+            }}
+          >
             <div className="flex items-center gap-2 mb-2">
               <Lock aria-hidden="true" className="w-4 h-4" style={{ color: 'var(--error)' }} />
               <p className="text-sm font-medium" style={{ color: 'var(--error)' }}>
@@ -78,7 +99,10 @@ export function CalendarSection() {
             <p className="text-xs mb-2" style={{ color: 'var(--error)', opacity: 0.9 }}>
               Calendar access was denied. To enable:
             </p>
-            <ol className="text-xs list-decimal list-inside space-y-1" style={{ color: 'var(--error)', opacity: 0.9 }}>
+            <ol
+              className="text-xs list-decimal list-inside space-y-1"
+              style={{ color: 'var(--error)', opacity: 0.9 }}
+            >
               <li>Open System Settings</li>
               <li>Go to Privacy & Security → Calendars</li>
               <li>Enable access for Moldavite</li>
@@ -110,7 +134,10 @@ export function CalendarSection() {
       {isAuthorized && (
         <>
           {/* Display Options Section */}
-          <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+          <div
+            className="p-4 space-y-1"
+            style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+          >
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
               Display Options
             </h3>
@@ -124,13 +151,13 @@ export function CalendarSection() {
                   Display events in the timeline
                 </p>
               </div>
-              <Toggle
-                enabled={calendarEnabled}
-                onChange={setCalendarEnabled}
-              />
+              <Toggle enabled={calendarEnabled} onChange={setCalendarEnabled} />
             </div>
 
-            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+            <div
+              className="flex items-center justify-between py-2"
+              style={{ borderTop: '1px solid var(--border-muted)' }}
+            >
               <div>
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Show All-Day Events
@@ -139,16 +166,16 @@ export function CalendarSection() {
                   Include events without specific times
                 </p>
               </div>
-              <Toggle
-                enabled={showAllDayEvents}
-                onChange={setShowAllDayEvents}
-              />
+              <Toggle enabled={showAllDayEvents} onChange={setShowAllDayEvents} />
             </div>
           </div>
 
           {/* Calendar Selection */}
           {calendars.length > 0 && (
-            <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+            <div
+              className="p-4 space-y-4"
+              style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+            >
               <div>
                 <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   Calendar Source

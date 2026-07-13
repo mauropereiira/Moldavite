@@ -1,8 +1,5 @@
 import { lazy, Suspense, useSyncExternalStore } from 'react';
-import {
-  getPluginDialogSnapshot,
-  subscribePluginDialogs,
-} from '@/lib/plugins/dialogs';
+import { getPluginDialogSnapshot, subscribePluginDialogs } from '@/lib/plugins/dialogs';
 
 const LazyPluginDialogHost = lazy(async () => {
   const module = await import('./PluginDialogHost');

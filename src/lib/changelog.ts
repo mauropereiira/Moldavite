@@ -2,6 +2,8 @@
  * Pure helpers for reading Keep-a-Changelog formatted release notes and
  * deciding when to show the in-app "What's New" popup. No I/O — the raw
  * changelog string is injected by the caller (see lib/releaseNotes.ts).
+ * Parsing is intentionally best-effort: malformed or missing version sections
+ * return `null` rather than preventing application startup.
  */
 
 export interface ChangelogGroup {

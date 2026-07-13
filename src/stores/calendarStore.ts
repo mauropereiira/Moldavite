@@ -1,3 +1,9 @@
+/**
+ * Calendar authorization, calendar selection, event cache, and loading state.
+ * Event results are keyed by the requested range and expire; permission state is
+ * authoritative over cached events, while selected calendar ids are user preference.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CalendarEvent, CalendarInfo, CalendarPermission } from '@/types';
@@ -137,9 +143,7 @@ export const useCalendarStore = create<CalendarState>()(
           );
 
           // Filter all-day events if disabled
-          const filteredEvents = showAllDayEvents
-            ? events
-            : events.filter((e) => !e.isAllDay);
+          const filteredEvents = showAllDayEvents ? events : events.filter((e) => !e.isAllDay);
 
           set({
             events: filteredEvents,

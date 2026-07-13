@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { Download, Upload, Lock, Loader2, Shield, Eye, EyeOff, Settings as SettingsIcon } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  Lock,
+  Loader2,
+  Shield,
+  Eye,
+  EyeOff,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import {
-  exportNotes,
-  importNotes,
-  exportEncryptedBackup,
-  importEncryptedBackup,
-} from '@/lib';
+import { exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
 import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
@@ -110,7 +114,7 @@ export function SettingsData() {
       const result: ImportResult = await importNotes(pendingZipPath, merge);
       const total = result.dailyNotes + result.standaloneNotes + result.templates;
       toast.success(
-        `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
+        `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
       );
       // Refresh so in-memory stores pick up new files.
       window.location.reload();
@@ -182,11 +186,11 @@ export function SettingsData() {
       const result: ImportResult = await importEncryptedBackup(
         pendingBackupPath,
         importPw,
-        importMerge,
+        importMerge
       );
       const total = result.dailyNotes + result.standaloneNotes + result.templates;
       toast.success(
-        `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
+        `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
       );
       setPendingBackupPath(null);
       window.location.reload();
@@ -298,10 +302,7 @@ export function SettingsData() {
         style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
       >
         <div>
-          <h3
-            className="text-sm font-medium"
-            style={{ color: 'var(--text-primary)' }}
-          >
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Notes
           </h3>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -364,10 +365,7 @@ export function SettingsData() {
             <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
-            <h3
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Encrypted Backup
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -431,15 +429,12 @@ export function SettingsData() {
             <SettingsIcon className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
-            <h3
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Settings
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Export your preferences, theme, folders and pinned tabs as JSON —
-              useful for syncing across devices. Notes are not included.
+              Export your preferences, theme, folders and pinned tabs as JSON — useful for syncing
+              across devices. Notes are not included.
             </p>
           </div>
         </div>
@@ -491,10 +486,7 @@ export function SettingsData() {
               borderRadius: 'var(--radius-md)',
             }}
           >
-            <h3
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Import Notes
             </h3>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -511,10 +503,7 @@ export function SettingsData() {
                 }}
               >
                 <span className="font-semibold">Merge with existing</span>
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                   Add new notes without overwriting existing ones
                 </p>
               </button>
@@ -528,10 +517,7 @@ export function SettingsData() {
                 }}
               >
                 <span className="font-semibold">Replace all</span>
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                   Clear existing notes and import from backup
                 </p>
               </button>
@@ -566,32 +552,20 @@ export function SettingsData() {
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: 'var(--accent-subtle)' }}
               >
-                <Shield
-                  className="w-5 h-5"
-                  style={{ color: 'var(--accent-primary)' }}
-                />
+                <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3
-                  className="text-lg font-semibold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Create Encrypted Backup
                 </h3>
-                <p
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   AES-256 encrypted archive
                 </p>
               </div>
             </div>
             <div className="space-y-3 mb-4">
               <div>
-                <label
-                  className="text-xs mb-1.5 block"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
                   Password (minimum 8 characters)
                 </label>
                 <div className="relative">
@@ -616,19 +590,12 @@ export function SettingsData() {
                     style={{ color: 'var(--text-muted)' }}
                     aria-label={showExportPw ? 'Hide password' : 'Show password'}
                   >
-                    {showExportPw ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    {showExportPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
               <div>
-                <label
-                  className="text-xs mb-1.5 block"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
                   Confirm Password
                 </label>
                 <input
@@ -655,8 +622,8 @@ export function SettingsData() {
               }}
             >
               <p className="text-xs" style={{ color: 'var(--warning)' }}>
-                <strong>Warning:</strong> If you forget this password, your backup
-                cannot be recovered.
+                <strong>Warning:</strong> If you forget this password, your backup cannot be
+                recovered.
               </p>
             </div>
             <div className="flex justify-end gap-3">
@@ -677,9 +644,7 @@ export function SettingsData() {
               </button>
               <button
                 onClick={handleEncryptedExport}
-                disabled={
-                  exportPw.length < 8 || exportPw !== exportPwConfirm
-                }
+                disabled={exportPw.length < 8 || exportPw !== exportPwConfirm}
                 className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--accent-primary)',
@@ -708,32 +673,20 @@ export function SettingsData() {
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: 'var(--accent-subtle)' }}
               >
-                <Lock
-                  className="w-5 h-5"
-                  style={{ color: 'var(--accent-primary)' }}
-                />
+                <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3
-                  className="text-lg font-semibold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Import Encrypted Backup
                 </h3>
-                <p
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   Enter the password to decrypt
                 </p>
               </div>
             </div>
             <div className="space-y-3 mb-4">
               <div>
-                <label
-                  className="text-xs mb-1.5 block"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
                   Password
                 </label>
                 <div className="relative">
@@ -758,11 +711,7 @@ export function SettingsData() {
                     style={{ color: 'var(--text-muted)' }}
                     aria-label={showImportPw ? 'Hide password' : 'Show password'}
                   >
-                    {showImportPw ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    {showImportPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>

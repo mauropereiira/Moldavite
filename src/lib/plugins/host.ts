@@ -1,3 +1,13 @@
+/**
+ * Main-thread lifecycle manager for sandboxed plugin workers.
+ *
+ * Backend manifest/code records and every worker `postMessage` are untrusted. This
+ * module validates manifests, pins grants to content hashes, routes only declared
+ * RPC message kinds through `api.ts`, and terminates timed-out or unloaded workers.
+ * Plugin source must never execute on the main thread or receive a direct store,
+ * editor, DOM, network, Keychain, filesystem, or Tauri handle.
+ */
+
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
 import { validateManifest } from './manifest';
@@ -26,7 +36,7 @@ interface RawPlugin {
   contentHash: string | null;
 }
 
-/** Turn a backend RawPlugin into a classified PluginInfo (validation lives here). */
+/** Classify one raw backend record; only validated manifests become loadable. */
 function classify(raw: RawPlugin): PluginInfo {
   const contentHash = raw.contentHash ?? undefined;
   if (raw.readError || raw.manifestRaw === null || raw.manifestRaw === undefined) {
@@ -111,6 +121,7 @@ function invokeCommandInWorker(pluginId: string, commandLocalId: string): Promis
   });
 }
 
+/** Route one untrusted worker message without exposing host capabilities directly. */
 async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerToHost>) {
   const rt = runtimes.get(pluginId);
   if (!rt) return;

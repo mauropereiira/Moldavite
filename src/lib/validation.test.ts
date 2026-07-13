@@ -1,3 +1,5 @@
+/** Regression coverage for editor-content emptiness and media-only content. */
+
 import { describe, it, expect } from 'vitest';
 import { isContentEmpty } from './validation';
 

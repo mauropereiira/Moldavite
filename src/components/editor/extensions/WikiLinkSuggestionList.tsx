@@ -64,9 +64,7 @@ export const WikiLinkSuggestionList = forwardRef<
   if (props.items.length === 0) {
     return (
       <div className="wiki-link-suggestions">
-        <div className="wiki-link-suggestion-empty">
-          No notes found
-        </div>
+        <div className="wiki-link-suggestion-empty">No notes found</div>
       </div>
     );
   }
@@ -76,27 +74,15 @@ export const WikiLinkSuggestionList = forwardRef<
       {props.items.map((item, index) => (
         <button
           key={item.name}
-          className={`wiki-link-suggestion-item ${
-            index === selectedIndex ? 'selected' : ''
-          }`}
+          className={`wiki-link-suggestion-item ${index === selectedIndex ? 'selected' : ''}`}
           onClick={() => selectItem(index)}
         >
           <div className="wiki-link-suggestion-icon">
-            {item.isDaily ? (
-              <Calendar className="w-4 h-4" />
-            ) : (
-              <FileText className="w-4 h-4" />
-            )}
+            {item.isDaily ? <Calendar className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
           </div>
           <div className="wiki-link-suggestion-text">
-            <div className="wiki-link-suggestion-title">
-              {item.name.replace('.md', '')}
-            </div>
-            {item.isDaily && (
-              <div className="wiki-link-suggestion-date">
-                Daily note
-              </div>
-            )}
+            <div className="wiki-link-suggestion-title">{item.name.replace('.md', '')}</div>
+            {item.isDaily && <div className="wiki-link-suggestion-date">Daily note</div>}
           </div>
         </button>
       ))}

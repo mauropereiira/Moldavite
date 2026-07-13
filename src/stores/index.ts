@@ -1,7 +1,8 @@
 /**
- * Zustand state stores for Moldavite
+ * Public barrel for Zustand stores and their shared types/helpers.
  *
- * All stores use Zustand with persistence where appropriate.
+ * Persistence is store-specific and generally Forge-namespaced; importing concrete
+ * modules is preferred where this barrel would create a library/store cycle.
  *
  * ## Available Stores
  *
@@ -29,8 +30,20 @@ export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
 // Settings with helper functions
-export { useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode, applyFontFamily } from './settingsStore';
-export type { FontSize, LineHeight, DefaultNoteType, FontFamily, AutoLockTimeout } from './settingsStore';
+export {
+  useSettingsStore,
+  applyFontSize,
+  applyLineHeight,
+  applyCompactMode,
+  applyFontFamily,
+} from './settingsStore';
+export type {
+  FontSize,
+  LineHeight,
+  DefaultNoteType,
+  FontFamily,
+  AutoLockTimeout,
+} from './settingsStore';
 
 // Feature stores
 export { useCalendarStore } from './calendarStore';

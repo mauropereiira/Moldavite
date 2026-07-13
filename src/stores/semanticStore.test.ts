@@ -1,3 +1,5 @@
+/** Semantic lifecycle, event-listener, model, and reset-state tests. */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';

@@ -1,3 +1,5 @@
+/** Keyword/semantic search mode, debounce, and stale-result regression tests. */
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { useSearchStore } from './searchStore';

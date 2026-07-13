@@ -38,7 +38,7 @@ export function Calendar() {
   // Check if a day has a note
   const hasNote = (date: Date): boolean => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return notes.some(n => n.isDaily && n.date === dateStr);
+    return notes.some((n) => n.isDaily && n.date === dateStr);
   };
 
   // Check if a week has a note
@@ -46,7 +46,7 @@ export function Calendar() {
     const weekYear = getISOWeekYear(date);
     const weekNum = getISOWeek(date);
     const weekStr = `${weekYear}-W${weekNum.toString().padStart(2, '0')}`;
-    return notes.some(n => n.isWeekly && n.week === weekStr);
+    return notes.some((n) => n.isWeekly && n.week === weekStr);
   };
 
   // Check if a day has incomplete tasks
@@ -59,8 +59,10 @@ export function Calendar() {
   // Check if a week is selected
   const isWeekSelected = (date: Date): boolean => {
     if (!selectedWeek) return false;
-    return getISOWeek(date) === getISOWeek(selectedWeek) &&
-           getISOWeekYear(date) === getISOWeekYear(selectedWeek);
+    return (
+      getISOWeek(date) === getISOWeek(selectedWeek) &&
+      getISOWeekYear(date) === getISOWeekYear(selectedWeek)
+    );
   };
 
   const handleDayClick = (date: Date) => {
@@ -92,11 +94,22 @@ export function Calendar() {
           aria-label="Previous month"
           className="p-1 transition-colors flex-shrink-0"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <span
@@ -110,17 +123,26 @@ export function Calendar() {
           aria-label="Next month"
           className="p-1 transition-colors flex-shrink-0"
           style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-overlay)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
       </div>
 
       {/* Day headers with week column */}
-      <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: '20px repeat(7, minmax(0, 1fr))' }}>
+      <div
+        className="grid gap-0.5 mb-1"
+        style={{ gridTemplateColumns: '20px repeat(7, minmax(0, 1fr))' }}
+      >
         {/* Week header */}
         <div
           className="text-center text-xs font-medium py-1"
@@ -129,7 +151,7 @@ export function Calendar() {
         >
           Wk
         </div>
-        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
           <div
             key={day}
             className="text-center text-xs font-medium py-1"
@@ -159,10 +181,10 @@ export function Calendar() {
                 className="flex items-center justify-center text-xs relative transition-colors"
                 style={{
                   borderRadius: 'var(--radius-sm)',
-                  color: weekSelected
-                    ? 'white'
-                    : 'var(--text-muted)',
-                  backgroundColor: weekSelected ? 'var(--accent-secondary, var(--accent-primary))' : 'transparent',
+                  color: weekSelected ? 'white' : 'var(--text-muted)',
+                  backgroundColor: weekSelected
+                    ? 'var(--accent-secondary, var(--accent-primary))'
+                    : 'transparent',
                   fontWeight: weekSelected ? 600 : 400,
                   fontSize: '10px',
                 }}
@@ -184,7 +206,7 @@ export function Calendar() {
               </button>
 
               {/* Days */}
-              {week.map(day => {
+              {week.map((day) => {
                 const isCurrentMonth = isSameMonth(day, viewDate);
                 const isSelected = isSameDay(day, selectedDate) && !selectedWeek;
                 const isToday = isSameDay(day, new Date());
@@ -208,7 +230,8 @@ export function Calendar() {
                       fontWeight: isToday && !isSelected ? 600 : 400,
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
+                      if (!isSelected)
+                        e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
                     }}
                     onMouseLeave={(e) => {
                       if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';

@@ -1,4 +1,10 @@
-//! Wiki link parsing and resolution helpers.
+//! Wiki-link parsing, filename resolution, context extraction, and rename rewriting.
+//!
+//! Link targets resolve through a Unicode-aware, NFC-normalized slug contract:
+//! lowercase, collapse whitespace to hyphens, retain alphanumerics and hyphens,
+//! and fall back to `untitled.md`. [`note_name_to_filename`] must stay byte-for-
+//! byte compatible with `slugifyNoteName` in `src/lib/fileSystem.ts`; the mirror
+//! cases live in this module's tests and `src/lib/slugify.test.ts`.
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -11,6 +17,7 @@ lazy_static! {
     static ref WIKI_LINK_REGEX: Regex = Regex::new(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]").unwrap();
 }
 
+/// Return link targets in source order, using the right side of piped links.
 pub(crate) fn parse_wiki_links(content: &str) -> Vec<String> {
     let mut links = Vec::new();
 
@@ -30,6 +37,10 @@ pub(crate) fn parse_wiki_links(content: &str) -> Vec<String> {
     links
 }
 
+/// Apply the shared Rust/TypeScript slug contract and append `.md`.
+///
+/// Keep this implementation and its tests synchronized with `slugifyNoteName`
+/// in `src/lib/fileSystem.ts` and `src/lib/slugify.test.ts`.
 pub(crate) fn note_name_to_filename(note_name: &str) -> String {
     // Convert "Meeting Notes" -> "meeting-notes.md". Unicode-aware and NFC-
     // normalized so "Café" keeps its accent and resolves identically in the
@@ -188,6 +199,7 @@ mod tests {
         assert!(parse_wiki_links("plain text with no links").is_empty());
     }
 
+    // Mirror `src/lib/slugify.test.ts`; update both suites with either slug implementation.
     #[test]
     fn note_name_to_filename_slugifies() {
         assert_eq!(note_name_to_filename("Meeting Notes"), "meeting-notes.md");

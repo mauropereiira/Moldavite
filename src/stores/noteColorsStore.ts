@@ -1,3 +1,9 @@
+/**
+ * Frontend cache and mutations for note colors stored in YAML frontmatter.
+ * Keys use the same daily/standalone note addresses as backend color commands;
+ * successful mutations update the cache only after persistence succeeds.
+ */
+
 import { create } from 'zustand';
 import { getAllNoteColors, setNoteColor } from '@/lib';
 import type { NoteColorId } from '@/components/ui/NoteColorPicker';

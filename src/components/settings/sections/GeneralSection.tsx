@@ -7,11 +7,33 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Lock, FolderOpen, Download, Upload, Shield, Eye, EyeOff, Timer, RefreshCw, ExternalLink } from 'lucide-react';
+import {
+  Lock,
+  FolderOpen,
+  Download,
+  Upload,
+  Shield,
+  Eye,
+  EyeOff,
+  Timer,
+  RefreshCw,
+  ExternalLink,
+} from 'lucide-react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import type { AutoLockTimeout } from '@/stores';
-import { clearAllNotes, getNotesDirectory, setNotesDirectory, exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup, rescanForge, openForgeInFinder, listNotes } from '@/lib';
+import {
+  clearAllNotes,
+  getNotesDirectory,
+  setNotesDirectory,
+  exportNotes,
+  importNotes,
+  exportEncryptedBackup,
+  importEncryptedBackup,
+  rescanForge,
+  openForgeInFinder,
+  listNotes,
+} from '@/lib';
 import type { ImportResult } from '@/lib';
 import { InfoTooltip, Toggle } from '../common';
 
@@ -28,7 +50,10 @@ export function GeneralSection() {
   const [isImporting, setIsImporting] = useState(false);
   const [showImportOptions, setShowImportOptions] = useState(false);
   const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Encrypted backup state
   const [showEncryptedExportModal, setShowEncryptedExportModal] = useState(false);
@@ -148,7 +173,7 @@ export function GeneralSection() {
       const total = result.dailyNotes + result.standaloneNotes + result.templates;
       setStatusMessage({
         type: 'success',
-        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
+        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
       });
       setPendingImportPath(null);
       // Refresh notes list
@@ -236,7 +261,7 @@ export function GeneralSection() {
       const total = result.dailyNotes + result.standaloneNotes + result.templates;
       setStatusMessage({
         type: 'success',
-        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`
+        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
       });
       setPendingEncryptedImportPath(null);
       // Refresh notes list
@@ -277,17 +302,22 @@ export function GeneralSection() {
     <div className="space-y-6">
       {/* Status Message */}
       {statusMessage && (
-        <div className={`p-3 rounded text-sm ${
-          statusMessage.type === 'success'
-            ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
-            : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
-        }`}>
+        <div
+          className={`p-3 rounded text-sm ${
+            statusMessage.type === 'success'
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+          }`}
+        >
           {statusMessage.text}
         </div>
       )}
 
       {/* Forge Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Forge
@@ -328,7 +358,8 @@ export function GeneralSection() {
             </button>
           </div>
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Plain .md files. Sync, back up, or open in any other tool. Existing notes will be moved if you change this.
+            Plain .md files. Sync, back up, or open in any other tool. Existing notes will be moved
+            if you change this.
           </p>
         </div>
 
@@ -357,14 +388,20 @@ export function GeneralSection() {
               color: 'var(--text-secondary)',
             }}
           >
-            <RefreshCw aria-hidden="true" className={`w-4 h-4 ${isRescanning ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              aria-hidden="true"
+              className={`w-4 h-4 ${isRescanning ? 'animate-spin' : ''}`}
+            />
             {isRescanning ? 'Rescanning...' : 'Rescan Forge'}
           </button>
         </div>
       </div>
 
       {/* Backup & Restore Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -404,9 +441,20 @@ export function GeneralSection() {
       </div>
 
       {/* Encrypted Backup Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{
+          backgroundColor: 'var(--bg-panel)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--accent-primary)',
+        }}
+      >
         <div className="flex items-start gap-3">
-          <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+          <div
+            aria-hidden="true"
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--accent-subtle)' }}
+          >
             <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
@@ -449,9 +497,16 @@ export function GeneralSection() {
       </div>
 
       {/* Security Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-start gap-3">
-          <div aria-hidden="true" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+          <div
+            aria-hidden="true"
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--accent-subtle)' }}
+          >
             <Timer className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div>
@@ -471,21 +526,30 @@ export function GeneralSection() {
             Lock after
           </label>
           <div className="flex gap-2 flex-wrap">
-            {([
-              { value: 5, label: '5 min' },
-              { value: 15, label: '15 min' },
-              { value: 30, label: '30 min' },
-              { value: 60, label: '1 hour' },
-              { value: 0, label: 'Never' },
-            ] as { value: AutoLockTimeout; label: string }[]).map((option) => (
+            {(
+              [
+                { value: 5, label: '5 min' },
+                { value: 15, label: '15 min' },
+                { value: 30, label: '30 min' },
+                { value: 60, label: '1 hour' },
+                { value: 0, label: 'Never' },
+              ] as { value: AutoLockTimeout; label: string }[]
+            ).map((option) => (
               <button
                 key={option.value}
                 onClick={() => settings.setAutoLockTimeout(option.value)}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: settings.autoLockTimeout === option.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
-                  color: settings.autoLockTimeout === option.value ? 'white' : 'var(--text-secondary)',
-                  border: settings.autoLockTimeout === option.value ? 'none' : '1px solid var(--border-default)',
+                  backgroundColor:
+                    settings.autoLockTimeout === option.value
+                      ? 'var(--accent-primary)'
+                      : 'var(--bg-elevated)',
+                  color:
+                    settings.autoLockTimeout === option.value ? 'white' : 'var(--text-secondary)',
+                  border:
+                    settings.autoLockTimeout === option.value
+                      ? 'none'
+                      : '1px solid var(--border-default)',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -500,7 +564,10 @@ export function GeneralSection() {
       </div>
 
       {/* Auto-save Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Auto-save
@@ -533,7 +600,10 @@ export function GeneralSection() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between pt-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Show save indicator
@@ -542,15 +612,19 @@ export function GeneralSection() {
               Display &quot;Saving...&quot; when auto-saving
             </p>
           </div>
-          <Toggle
-            enabled={settings.showAutoSaveStatus}
-            onChange={settings.setShowAutoSaveStatus}
-          />
+          <Toggle enabled={settings.showAutoSaveStatus} onChange={settings.setShowAutoSaveStatus} />
         </div>
       </div>
 
       {/* Danger Zone */}
-      <div className="p-4" style={{ borderRadius: 'var(--radius-md)', border: '2px solid var(--error)', backgroundColor: 'rgba(184, 92, 92, 0.1)' }}>
+      <div
+        className="p-4"
+        style={{
+          borderRadius: 'var(--radius-md)',
+          border: '2px solid var(--error)',
+          backgroundColor: 'rgba(184, 92, 92, 0.1)',
+        }}
+      >
         <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--error)' }}>
           Danger Zone
         </h3>
@@ -569,7 +643,10 @@ export function GeneralSection() {
       {/* Import Options Modal */}
       {showImportOptions && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+          <div
+            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}
+          >
             <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Import Notes
             </h3>
@@ -580,7 +657,11 @@ export function GeneralSection() {
               <button
                 onClick={() => handleImport(true)}
                 className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }}
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                }}
               >
                 <span className="font-semibold">Merge with existing</span>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -590,7 +671,11 @@ export function GeneralSection() {
               <button
                 onClick={() => handleImport(false)}
                 className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }}
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                }}
               >
                 <span className="font-semibold">Replace all</span>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -604,7 +689,11 @@ export function GeneralSection() {
                 setPendingImportPath(null);
               }}
               className="w-full px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+              style={{
+                backgroundColor: 'var(--bg-panel)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+              }}
             >
               Cancel
             </button>
@@ -615,7 +704,10 @@ export function GeneralSection() {
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+          <div
+            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}
+          >
             <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--error)' }}>
               Delete All Notes
             </h3>
@@ -623,7 +715,11 @@ export function GeneralSection() {
               This will permanently delete ALL notes. This cannot be undone.
             </p>
             <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>
-              Type <span className="font-mono font-bold" style={{ color: 'var(--error)' }}>DELETE</span> to confirm:
+              Type{' '}
+              <span className="font-mono font-bold" style={{ color: 'var(--error)' }}>
+                DELETE
+              </span>{' '}
+              to confirm:
             </p>
             <input
               type="text"
@@ -646,7 +742,11 @@ export function GeneralSection() {
                   setConfirmText('');
                 }}
                 className="px-3 py-1.5 text-sm font-medium transition-colors focus-ring"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-secondary)',
+                }}
               >
                 Cancel
               </button>
@@ -668,9 +768,16 @@ export function GeneralSection() {
       {/* Encrypted Export Modal */}
       {showEncryptedExportModal && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+          <div
+            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div aria-hidden="true" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+              <div
+                aria-hidden="true"
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'var(--accent-subtle)' }}
+              >
                 <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
@@ -711,7 +818,11 @@ export function GeneralSection() {
                     aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showEncryptedPassword}
                   >
-                    {showEncryptedPassword ? <EyeOff aria-hidden="true" className="w-4 h-4" /> : <Eye aria-hidden="true" className="w-4 h-4" />}
+                    {showEncryptedPassword ? (
+                      <EyeOff aria-hidden="true" className="w-4 h-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -736,9 +847,17 @@ export function GeneralSection() {
               </div>
             </div>
 
-            <div className="p-3 mb-4" style={{ backgroundColor: 'rgba(201, 163, 103, 0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--warning)' }}>
+            <div
+              className="p-3 mb-4"
+              style={{
+                backgroundColor: 'rgba(201, 163, 103, 0.15)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--warning)',
+              }}
+            >
               <p className="text-xs" style={{ color: 'var(--warning)' }}>
-                <strong>Warning:</strong> If you forget this password, your backup cannot be recovered.
+                <strong>Warning:</strong> If you forget this password, your backup cannot be
+                recovered.
               </p>
             </div>
 
@@ -750,15 +869,24 @@ export function GeneralSection() {
                   setEncryptedConfirmPassword('');
                 }}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-secondary)',
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleEncryptedExport}
-                disabled={encryptedPassword.length < 8 || encryptedPassword !== encryptedConfirmPassword}
+                disabled={
+                  encryptedPassword.length < 8 || encryptedPassword !== encryptedConfirmPassword
+                }
                 className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+                style={{
+                  backgroundColor: 'var(--accent-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
               >
                 Create Backup
               </button>
@@ -770,9 +898,16 @@ export function GeneralSection() {
       {/* Encrypted Import Modal */}
       {showEncryptedImportModal && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+          <div
+            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
+            style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div aria-hidden="true" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+              <div
+                aria-hidden="true"
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'var(--accent-subtle)' }}
+              >
                 <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
@@ -813,7 +948,11 @@ export function GeneralSection() {
                     aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showEncryptedPassword}
                   >
-                    {showEncryptedPassword ? <EyeOff aria-hidden="true" className="w-4 h-4" /> : <Eye aria-hidden="true" className="w-4 h-4" />}
+                    {showEncryptedPassword ? (
+                      <EyeOff aria-hidden="true" className="w-4 h-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -827,7 +966,9 @@ export function GeneralSection() {
                     onClick={() => setEncryptedImportMerge(true)}
                     className="flex-1 px-3 py-2 text-sm font-medium transition-colors"
                     style={{
-                      backgroundColor: encryptedImportMerge ? 'var(--accent-primary)' : 'var(--bg-panel)',
+                      backgroundColor: encryptedImportMerge
+                        ? 'var(--accent-primary)'
+                        : 'var(--bg-panel)',
                       color: encryptedImportMerge ? 'white' : 'var(--text-secondary)',
                       borderRadius: 'var(--radius-sm)',
                       border: encryptedImportMerge ? 'none' : '1px solid var(--border-default)',
@@ -839,7 +980,9 @@ export function GeneralSection() {
                     onClick={() => setEncryptedImportMerge(false)}
                     className="flex-1 px-3 py-2 text-sm font-medium transition-colors"
                     style={{
-                      backgroundColor: !encryptedImportMerge ? 'var(--accent-primary)' : 'var(--bg-panel)',
+                      backgroundColor: !encryptedImportMerge
+                        ? 'var(--accent-primary)'
+                        : 'var(--bg-panel)',
                       color: !encryptedImportMerge ? 'white' : 'var(--text-secondary)',
                       borderRadius: 'var(--radius-sm)',
                       border: !encryptedImportMerge ? 'none' : '1px solid var(--border-default)',
@@ -864,7 +1007,11 @@ export function GeneralSection() {
                   setPendingEncryptedImportPath(null);
                 }}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)' }}
+                style={{
+                  backgroundColor: 'var(--bg-panel)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-secondary)',
+                }}
               >
                 Cancel
               </button>
@@ -872,7 +1019,10 @@ export function GeneralSection() {
                 onClick={handleEncryptedImport}
                 disabled={!encryptedPassword}
                 className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+                style={{
+                  backgroundColor: 'var(--accent-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
               >
                 Import Backup
               </button>

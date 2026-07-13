@@ -1,3 +1,9 @@
+/**
+ * Template list/loading state and persisted default-daily-template selection.
+ * Backend template records are authoritative; the persisted default is an id reference
+ * and may be `null` when no automatic template is configured.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Template } from '@/types/template';
@@ -30,8 +36,7 @@ export const useTemplateStore = create<TemplateStore>()(
 
       setTemplates: (templates) => set({ templates }),
 
-      addTemplate: (template) =>
-        set((state) => ({ templates: [...state.templates, template] })),
+      addTemplate: (template) => set((state) => ({ templates: [...state.templates, template] })),
 
       updateTemplateInStore: (id, template) =>
         set((state) => ({
@@ -45,11 +50,9 @@ export const useTemplateStore = create<TemplateStore>()(
           pinnedTemplateIds: state.pinnedTemplateIds.filter((pid) => pid !== id),
         })),
 
-      setDefaultDailyTemplate: (templateId) =>
-        set({ defaultDailyTemplate: templateId }),
+      setDefaultDailyTemplate: (templateId) => set({ defaultDailyTemplate: templateId }),
 
-      setPinnedTemplateIds: (ids) =>
-        set({ pinnedTemplateIds: ids }),
+      setPinnedTemplateIds: (ids) => set({ pinnedTemplateIds: ids }),
 
       togglePinnedTemplate: (id) =>
         set((state) => ({

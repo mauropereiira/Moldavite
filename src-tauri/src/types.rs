@@ -1,4 +1,9 @@
-//! Serializable data structures shared across domains.
+//! Serializable DTOs shared by Tauri commands, persistence, and the frontend.
+//!
+//! Serde's camel-case field names are part of the IPC contract. Note paths obey
+//! the common addressing model (bare daily/weekly filename, Forge-relative
+//! standalone path), while persisted configuration fields remain backward
+//! compatible through defaults for options introduced after initial releases.
 
 use serde::{Deserialize, Serialize};
 

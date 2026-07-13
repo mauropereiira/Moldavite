@@ -35,13 +35,13 @@ import { BulkExportModal } from './BulkExportModal';
 // TrashPreviewModal and the entire settings tree (~150 KB) don't need
 // to ship with the first render.
 const SettingsModal = lazy(() =>
-  import('@/components/settings').then((m) => ({ default: m.SettingsModal })),
+  import('@/components/settings').then((m) => ({ default: m.SettingsModal }))
 );
 const TrashPreviewModal = lazy(() =>
-  import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal })),
+  import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal }))
 );
 const RenameNoteModal = lazy(() =>
-  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal })),
+  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal }))
 );
 import { ForgeSwitcher } from './ForgeSwitcher';
 import { ManageForgesModal } from './ManageForgesModal';
@@ -61,7 +61,16 @@ import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
 export function Sidebar() {
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, renameNote, refresh: refreshNotes } = useNotes();
+  const {
+    notes,
+    loadNote,
+    loadDailyNote,
+    createNote,
+    createFromTemplate,
+    duplicateNote,
+    renameNote,
+    refresh: refreshNotes,
+  } = useNotes();
   const { currentNote, setSelectedDate, setCurrentNote } = useNoteStore();
   const lock = useSidebarLock();
   const {
@@ -525,7 +534,7 @@ export function Sidebar() {
       selected.map((n) => {
         const relative = n.path.startsWith('notes/') ? n.path.slice(6) : n.path;
         return moveNoteToFolder(relative, folderPath ?? undefined);
-      }),
+      })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
     if (failed > 0) {
@@ -549,7 +558,7 @@ export function Sidebar() {
             ? n.path.slice(6)
             : n.name;
         return trashNote(relative, n.isDaily || false);
-      }),
+      })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
 
@@ -597,7 +606,6 @@ export function Sidebar() {
       selectionClear();
     };
   }, [selectionClear]);
-
 
   return (
     <div
@@ -716,10 +724,7 @@ export function Sidebar() {
       {/* Forge switcher (above search) */}
       <ForgeSwitcher onManage={() => setShowManageForges(true)} />
 
-      <ManageForgesModal
-        isOpen={showManageForges}
-        onClose={() => setShowManageForges(false)}
-      />
+      <ManageForgesModal isOpen={showManageForges} onClose={() => setShowManageForges(false)} />
 
       {/* Search Bar */}
       <SidebarSearch
@@ -869,10 +874,7 @@ export function Sidebar() {
         onExport={() => setShowBulkExportModal(true)}
       />
 
-      <BulkExportModal
-        isOpen={showBulkExportModal}
-        onClose={() => setShowBulkExportModal(false)}
-      />
+      <BulkExportModal isOpen={showBulkExportModal} onClose={() => setShowBulkExportModal(false)} />
 
       {showBulkMoveModal && (
         <MoveToFolderModal
@@ -899,10 +901,7 @@ export function Sidebar() {
               will be kept for 7 days.
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowBulkTrashConfirm(false)}
-                className="btn focus-ring"
-              >
+              <button onClick={() => setShowBulkTrashConfirm(false)} className="btn focus-ring">
                 Cancel
               </button>
               <button onClick={handleBulkTrashConfirm} className="btn btn-danger focus-ring">

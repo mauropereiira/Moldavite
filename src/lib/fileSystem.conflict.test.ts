@@ -1,3 +1,5 @@
+/** Conflict-registry tests for read bases, successful writes, and lock transitions. */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
@@ -156,10 +158,7 @@ describe('locked-note write safety', () => {
     finishWrite();
     await Promise.all([save, lock]);
 
-    expect(invokeMock.mock.calls.map(([command]) => command)).toEqual([
-      'write_note',
-      'lock_note',
-    ]);
+    expect(invokeMock.mock.calls.map(([command]) => command)).toEqual(['write_note', 'lock_note']);
   });
 });
 

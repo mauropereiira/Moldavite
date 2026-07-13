@@ -1,6 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { Calendar, Plus, Settings as SettingsIcon, Trash2, AlignJustify, Share2 } from 'lucide-react';
+import {
+  Calendar,
+  Plus,
+  Settings as SettingsIcon,
+  Trash2,
+  AlignJustify,
+  Share2,
+} from 'lucide-react';
 import { useTimelineStore, useGraphStore } from '@/stores';
 
 interface SidebarFooterProps {
@@ -17,19 +24,16 @@ interface SidebarFooterProps {
  *   [⚙ Settings] [🗑 Trash]
  * The Trash button acts as the anchor for a TrashPopover managed by the parent.
  */
-export function SidebarFooter({
-  onToday,
-  onNewNote,
-  onSettings,
-  onTrash,
-}: SidebarFooterProps) {
+export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: SidebarFooterProps) {
   const [appVersion, setAppVersion] = useState<string>('');
   const trashBtnRef = useRef<HTMLButtonElement>(null);
   const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
   const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion('0.0.0'));
   }, []);
 
   const iconBtnStyle = {

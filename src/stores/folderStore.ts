@@ -1,3 +1,9 @@
+/**
+ * Standalone-note folder metadata and sidebar expansion/collapse preferences.
+ * The backend owns folder existence; persisted UI state may reference missing paths
+ * and must remain harmless until the next folder-list refresh.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { FolderInfo } from '@/types';

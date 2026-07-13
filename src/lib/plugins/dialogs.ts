@@ -1,3 +1,10 @@
+/**
+ * Singleton queue boundary between permission-checked plugin API calls and host UI.
+ * Only normalized prompt fields or one exact hostname cross into this module; raw
+ * worker messages never do. At most one request is active, results return only to
+ * its plugin promise, and unloading a plugin must cancel its pending dialog.
+ */
+
 import type { PluginPromptOptions } from './types';
 
 type PluginDialogPayload =

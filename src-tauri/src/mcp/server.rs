@@ -1,3 +1,10 @@
+//! Bounded newline-delimited JSON-RPC transport for the built-in MCP server.
+//!
+//! The protocol surface is intentionally limited to `initialize`, `tools/list`,
+//! and `tools/call`; notifications receive no response. Input is untrusted and a
+//! request line may never retain more than 1 MiB. Oversized lines are drained so
+//! one hostile request cannot desynchronize the remainder of the session.
+
 use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
@@ -55,6 +62,7 @@ fn read_bounded_line<R: BufRead>(reader: &mut R) -> Result<Option<InputLine>, St
     }
 }
 
+/// Serve requests until EOF, emitting at most one newline-delimited response per request.
 pub(super) fn serve<R: BufRead, W: Write>(
     mut reader: R,
     mut writer: W,

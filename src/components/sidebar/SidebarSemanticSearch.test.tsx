@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  SearchModeChips,
-  SidebarSemanticResults,
-} from './SidebarSemanticSearch';
+import { SearchModeChips, SidebarSemanticResults } from './SidebarSemanticSearch';
 import type { SemanticHit } from '@/lib/semantic';
 
 const hits: SemanticHit[] = [

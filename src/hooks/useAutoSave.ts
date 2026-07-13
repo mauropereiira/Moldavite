@@ -1,6 +1,24 @@
+/**
+ * Debounced persistence lifecycle for the active editable note.
+ *
+ * A note switch seeds the baseline and cancels the prior timer; content changes
+ * replace one pending debounce; effect cleanup cancels stale callbacks. Navigation
+ * performs its immediate flush in `useNotes.flushCurrentNote`, while lock transitions
+ * reject new writes and drain in-flight writes in `lib/fileSystem.ts`. Temporarily
+ * unlocked notes are view-only and must never be written back as plaintext.
+ */
+
 import { useEffect, useRef } from 'react';
 import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
-import { writeNote, deleteNote, htmlToMarkdown, isContentEmpty, parseTaskStatus, notifyConflictCopy, LockedNoteWriteError } from '@/lib';
+import {
+  writeNote,
+  deleteNote,
+  htmlToMarkdown,
+  isContentEmpty,
+  parseTaskStatus,
+  notifyConflictCopy,
+  LockedNoteWriteError,
+} from '@/lib';
 import type { NoteFile } from '@/types';
 
 /**
@@ -78,7 +96,7 @@ export function useAutoSave() {
 
         if (currentNote.isDaily) {
           const dateStr = currentNote.date;
-          const existsInList = freshNotes.some(n => n.isDaily && n.date === dateStr);
+          const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
           const { setTaskStatus, removeTaskStatus } = useTaskStatusStore.getState();
 
           if (isEmpty) {
@@ -90,7 +108,7 @@ export function useAutoSave() {
                 console.error('[useAutoSave] Delete failed:', deleteError);
               }
               // Remove from notes list
-              const updatedNotes = freshNotes.filter(n => !(n.isDaily && n.date === dateStr));
+              const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
               setNotes(updatedNotes);
             }
             // Remove task status for this date
@@ -124,7 +142,7 @@ export function useAutoSave() {
           }
         } else if (currentNote.isWeekly) {
           const weekStr = currentNote.week;
-          const existsInList = freshNotes.some(n => n.isWeekly && n.week === weekStr);
+          const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
 
           if (isEmpty) {
             // Content is empty - delete the file if it exists
@@ -135,7 +153,7 @@ export function useAutoSave() {
                 console.error('[useAutoSave] Delete weekly note failed:', deleteError);
               }
               // Remove from notes list
-              const updatedNotes = freshNotes.filter(n => !(n.isWeekly && n.week === weekStr));
+              const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
               setNotes(updatedNotes);
             }
           } else {

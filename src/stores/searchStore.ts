@@ -1,3 +1,9 @@
+/**
+ * Debounced keyword/semantic search state and result reconciliation.
+ * Search mode selects one backend contract, stale async responses must not replace a
+ * newer query, and clearing the query clears results and pending presentation state.
+ */
+
 import { create } from 'zustand';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { SEMANTIC_SEARCH_LIMIT, type SemanticHit } from '@/lib/semantic';

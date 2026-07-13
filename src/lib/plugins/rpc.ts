@@ -1,6 +1,12 @@
-// Wire protocol between the main-thread host and each per-plugin Worker.
-// Every message uses a `kind` discriminator; requests carry an id so the
-// sender can match a reply to its Promise.
+/**
+ * Serializable wire protocol between the main-thread host and plugin Workers.
+ *
+ * Only discriminated data messages cross the boundary; request ids pair calls
+ * with replies. These types document shape but confer no trust or permission—both
+ * peers validate message kinds, and the host validates every method argument.
+ * Functions, host objects, Tauri handles, and raw exception objects must never be
+ * added to this protocol.
+ */
 
 /** API methods the plugin can call — the host validates permissions per method. */
 export type HostMethod =

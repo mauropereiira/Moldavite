@@ -6,6 +6,8 @@
  * from HuggingFace, cached in the app data dir) and then builds a per-Forge
  * vector index. Everything afterwards runs fully offline; note content never
  * leaves the machine.
+ * This module owns only typed IPC shapes and limits; lifecycle event subscription
+ * and UI state reconciliation belong to `stores/semanticStore.ts`.
  *
  * Progress streams via Tauri events (subscribed in `semanticStore`):
  * - `semantic:progress` — `{ phase: "downloading" | "indexing", done, total }`

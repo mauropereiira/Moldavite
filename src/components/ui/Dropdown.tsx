@@ -8,7 +8,13 @@ interface DropdownProps {
   className?: string;
 }
 
-export function Dropdown({ trigger, children, position = 'left', openDirection = 'down', className = '' }: DropdownProps) {
+export function Dropdown({
+  trigger,
+  children,
+  position = 'left',
+  openDirection = 'down',
+  className = '',
+}: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -53,17 +59,11 @@ export function Dropdown({ trigger, children, position = 'left', openDirection =
     center: 'left-1/2 -translate-x-1/2',
   };
 
-  const directionClasses = openDirection === 'up'
-    ? 'bottom-full mb-1'
-    : 'top-full mt-1';
+  const directionClasses = openDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1';
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-      >
+      <div onClick={() => setIsOpen(!isOpen)} aria-expanded={isOpen} aria-haspopup="menu">
         {trigger}
       </div>
 
@@ -107,7 +107,13 @@ interface DropdownItemProps {
   disabled?: boolean;
 }
 
-export function DropdownItem({ children, onClick, icon, variant = 'default', disabled = false }: DropdownItemProps) {
+export function DropdownItem({
+  children,
+  onClick,
+  icon,
+  variant = 'default',
+  disabled = false,
+}: DropdownItemProps) {
   return (
     <button
       onClick={disabled ? undefined : onClick}
@@ -140,9 +146,5 @@ export function DropdownDivider() {
 
 // Label/header component
 export function DropdownLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="section-header px-3 py-1.5">
-      {children}
-    </div>
-  );
+  return <div className="section-header px-3 py-1.5">{children}</div>;
 }

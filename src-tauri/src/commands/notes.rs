@@ -1,4 +1,11 @@
-//! Note CRUD operations.
+//! Note listing, reads, writes, creation, rename, move, duplication, and deletion.
+//!
+//! Daily and weekly notes are addressed by bare filename; standalone notes are
+//! addressed by their `notes/`-relative path, including folders. Display titles
+//! never select a disk path. Writes are atomic and compare the caller's base hash
+//! with current disk content; a mismatch preserves both versions via a conflict
+//! copy. Disk mutations update backlinks, semantic search, and watcher suppression
+//! only after the filesystem operation succeeds.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -355,6 +362,10 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     Ok(notes)
 }
 
+/// Read one addressed note body plus the hash used for optimistic conflict checks.
+///
+/// A missing file is represented as empty content and its empty-content hash;
+/// callers use that stable base when creating a note through the write path.
 #[tauri::command]
 pub(crate) fn read_note(
     filename: String,
@@ -395,6 +406,10 @@ pub(crate) fn read_note(
 
 // Tauri command parameters map 1:1 to the IPC payload; grouping them into a
 // struct would change the wire shape for every existing caller.
+/// Atomically save a note, preserving an externally changed disk copy on hash mismatch.
+///
+/// `base_hash` must be the hash returned by the caller's latest read or save.
+/// Successful writes return the new base hash and any conflict-copy address.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub(crate) fn write_note(
@@ -635,6 +650,7 @@ pub(crate) fn export_single_note(
     Ok(destination)
 }
 
+/// Rename a note and rewrite inbound wiki-link targets after the disk rename succeeds.
 #[tauri::command]
 pub(crate) fn rename_note(
     old_filename: String,
@@ -776,6 +792,7 @@ pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(
     Ok(())
 }
 
+/// Move a standalone note within `notes/` and return its new relative address.
 #[tauri::command]
 pub(crate) fn move_note(
     note_path: String,

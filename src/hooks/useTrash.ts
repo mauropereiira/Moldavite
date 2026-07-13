@@ -1,3 +1,9 @@
+/**
+ * Component-facing trash, restore, permanent-delete, and cleanup workflows.
+ * Backend trash metadata is authoritative; successful operations refresh every
+ * affected notes/folders/trash store before reporting completion.
+ */
+
 import { useCallback } from 'react';
 import { useTrashStore, useNoteStore } from '@/stores';
 import {

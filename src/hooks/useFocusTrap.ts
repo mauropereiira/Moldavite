@@ -1,3 +1,9 @@
+/**
+ * Modal focus containment and restoration.
+ * While active, Tab navigation stays inside the supplied element; cleanup always
+ * removes the capture listener and restores the element focused before activation.
+ */
+
 import { useEffect } from 'react';
 
 const FOCUSABLE =
@@ -9,10 +15,7 @@ const FOCUSABLE =
  * within the container. On deactivation/unmount, focus returns to whatever was
  * focused before.
  */
-export function useFocusTrap(
-  ref: React.RefObject<HTMLElement | null>,
-  active: boolean
-): void {
+export function useFocusTrap(ref: React.RefObject<HTMLElement | null>, active: boolean): void {
   useEffect(() => {
     if (!active) return;
     const container = ref.current;
@@ -28,9 +31,7 @@ export function useFocusTrap(
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
-      const focusables = Array.from(
-        container.querySelectorAll<HTMLElement>(FOCUSABLE)
-      );
+      const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];

@@ -1,4 +1,10 @@
-//! Export / import commands (ZIP, encrypted backup, settings JSON).
+//! Archive, encrypted-backup, and settings import/export commands.
+//!
+//! Archive entries and user-selected destinations are untrusted: imports reject
+//! traversal and symlinks before extraction, exports exclude internal state,
+//! and all restored user files receive restrictive permissions. Encrypted
+//! backups wrap the archive as one authenticated payload and keep passwords and
+//! plaintext buffers in zeroizing containers where possible.
 
 use std::fs;
 use std::io::{Read as IoRead, Seek, Write as IoWrite};

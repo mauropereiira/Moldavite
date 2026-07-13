@@ -1,4 +1,10 @@
-//! Trash (recycle bin) commands.
+//! Recycle-bin moves, restores, permanent deletion, and expiry cleanup.
+//!
+//! A metadata record is the authoritative map from opaque trash id to original
+//! note path and type. Moves persist the file and metadata together as closely as
+//! possible; restores validate the recorded destination, choose a collision-free
+//! name when needed, and then repair backlinks and semantic-index state. Trash
+//! ids, not caller-supplied paths, address items after deletion.
 
 use std::fs;
 use std::sync::atomic::{AtomicI64, Ordering};

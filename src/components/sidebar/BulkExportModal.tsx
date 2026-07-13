@@ -100,14 +100,14 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
             note.name,
             join(folder, `${stem}.md`),
             note.isDaily || false,
-            note.isWeekly || false,
+            note.isWeekly || false
           );
         } else if (format === 'plaintext') {
           await exportNoteAsPlaintext(
             note.name,
             join(folder, `${stem}.txt`),
             note.isDaily || false,
-            note.isWeekly || false,
+            note.isWeekly || false
           );
         } else {
           // PDF — read the note (markdown), the exporter expects sanitized
@@ -119,7 +119,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           const md = await readNote(
             noteFileBackendPath(note),
             note.isDaily || false,
-            note.isWeekly || false,
+            note.isWeekly || false
           );
           await exportNoteToPdf(stem, md, join(folder, `${stem}.pdf`), {
             pageSize,
@@ -141,9 +141,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
     } else if (succeeded === 0) {
       toast.error(`Failed to export ${failures.length} note${failures.length === 1 ? '' : 's'}`);
     } else {
-      toast.error(
-        `Exported ${succeeded}, failed ${failures.length}`,
-      );
+      toast.error(`Exported ${succeeded}, failed ${failures.length}`);
     }
   };
 
@@ -160,18 +158,11 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        <h3
-          className="text-base font-semibold mb-1"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
           Export {count} note{count === 1 ? '' : 's'}
         </h3>
-        <p
-          className="text-xs mb-4"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          You&apos;ll be asked for a destination folder next. One file is written per
-          note.
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+          You&apos;ll be asked for a destination folder next. One file is written per note.
         </p>
 
         <div className="space-y-2 mb-6">
@@ -186,8 +177,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
               key={opt.value}
               className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer"
               style={{
-                backgroundColor:
-                  format === opt.value ? 'var(--hover-overlay)' : 'transparent',
+                backgroundColor: format === opt.value ? 'var(--hover-overlay)' : 'transparent',
               }}
             >
               <input
@@ -198,10 +188,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
                 onChange={() => setFormat(opt.value)}
                 disabled={busy}
               />
-              <span
-                className="text-sm"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {opt.label}
               </span>
             </label>
@@ -212,11 +199,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           <button onClick={onClose} className="btn focus-ring" disabled={busy}>
             Cancel
           </button>
-          <button
-            onClick={handleExport}
-            className="btn btn-primary focus-ring"
-            disabled={busy}
-          >
+          <button onClick={handleExport} className="btn btn-primary focus-ring" disabled={busy}>
             {busy ? 'Exporting…' : 'Choose folder'}
           </button>
         </div>

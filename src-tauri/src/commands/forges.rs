@@ -4,6 +4,8 @@
 //! A "Forge" is a directory under `forges_root` that contains a notes tree
 //! (`daily/`, `notes/`, etc.). Switching the active Forge swaps the entire
 //! root path that the rest of the backend resolves through `paths::get_notes_dir`.
+//! Forge names are single safe directory components; successful switches also
+//! rebuild Forge-scoped indexes and restart the watcher before consumers proceed.
 
 use std::fs;
 use std::path::{Path, PathBuf};

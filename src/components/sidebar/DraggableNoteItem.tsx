@@ -53,9 +53,7 @@ function DraggableNoteItemImpl({
   const handleDragStart = (e: React.DragEvent) => {
     // Store the note path for drag-and-drop
     // Strip "notes/" prefix for the relative path within notes folder
-    const relativePath = note.path.startsWith('notes/')
-      ? note.path.slice(6)
-      : note.path;
+    const relativePath = note.path.startsWith('notes/') ? note.path.slice(6) : note.path;
     e.dataTransfer.setData('text/plain', relativePath);
     e.dataTransfer.setData('application/x-note-path', relativePath);
     e.dataTransfer.effectAllowed = 'move';
@@ -171,5 +169,5 @@ export const DraggableNoteItem = React.memo(
     prev.onClick === next.onClick &&
     prev.onContextMenu === next.onContextMenu &&
     prev.onSelectionClick === next.onSelectionClick &&
-    arraysEqual(prev.tags, next.tags),
+    arraysEqual(prev.tags, next.tags)
 );

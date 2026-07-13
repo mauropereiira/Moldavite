@@ -1,3 +1,9 @@
+/**
+ * Persisted editor, appearance, behavior, and privacy preferences.
+ * Store values are the single frontend source of truth; exported apply helpers mirror
+ * visual settings onto document attributes and must remain deterministic/idempotent.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -6,7 +12,13 @@ export type LineHeight = 'comfortable' | 'compact';
 export type DefaultNoteType = 'daily' | 'standalone';
 export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
 export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60; // 0 = never, values in minutes
-export type SortOption = 'name-asc' | 'name-desc' | 'modified-desc' | 'modified-asc' | 'created-desc' | 'created-asc';
+export type SortOption =
+  | 'name-asc'
+  | 'name-desc'
+  | 'modified-desc'
+  | 'modified-asc'
+  | 'created-desc'
+  | 'created-asc';
 export type EditorWidth = 'narrow' | 'medium' | 'wide' | 'full';
 export type StartupView = 'last-note' | 'daily-note' | 'empty';
 
@@ -229,9 +241,9 @@ export const useSettingsStore = create<SettingsState>()(
 // Helper to apply font size CSS variable
 export function applyFontSize(size: FontSize) {
   const sizes = {
-    'small': '14px',
-    'medium': '16px',
-    'large': '18px',
+    small: '14px',
+    medium: '16px',
+    large: '18px',
     'extra-large': '20px',
   };
   document.documentElement.style.setProperty('--editor-font-size', sizes[size]);
@@ -240,8 +252,8 @@ export function applyFontSize(size: FontSize) {
 // Helper to apply line height CSS variable
 export function applyLineHeight(height: LineHeight) {
   const heights = {
-    'comfortable': '1.75',
-    'compact': '1.4',
+    comfortable: '1.75',
+    compact: '1.4',
   };
   document.documentElement.style.setProperty('--editor-line-height', heights[height]);
 }
@@ -258,11 +270,12 @@ export function applyCompactMode(compact: boolean) {
 // Helper to apply font family CSS variable
 export function applyFontFamily(family: FontFamily) {
   const fonts: Record<FontFamily, string> = {
-    'system-sans': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+    'system-sans':
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
     'system-serif': 'Georgia, "Times New Roman", Times, serif',
     'system-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
-    'inter': '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-    'merriweather': '"Merriweather", Georgia, serif',
+    inter: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    merriweather: '"Merriweather", Georgia, serif',
   };
   document.documentElement.style.setProperty('--editor-font-family', fonts[family]);
 }
@@ -270,10 +283,10 @@ export function applyFontFamily(family: FontFamily) {
 // Helper to apply editor width CSS variable
 export function applyEditorWidth(width: EditorWidth) {
   const widths = {
-    'narrow': '600px',
-    'medium': '720px',
-    'wide': '900px',
-    'full': '100%',
+    narrow: '600px',
+    medium: '720px',
+    wide: '900px',
+    full: '100%',
   };
   document.documentElement.style.setProperty('--editor-max-width', widths[width]);
 }

@@ -25,7 +25,7 @@ describe('DraggableNoteItem', () => {
         isActive={false}
         onClick={vi.fn()}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe('DraggableNoteItem', () => {
         isActive={false}
         onClick={onClick}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     await user.click(screen.getByRole('button', { name: /Hello/i }));
     expect(onClick).toHaveBeenCalledTimes(1);
@@ -56,7 +56,7 @@ describe('DraggableNoteItem', () => {
         onClick={onClick}
         onSelectionClick={onSelectionClick}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     fireEvent.click(screen.getByRole('button', { name: /Hello/i }), { shiftKey: true });
     expect(onSelectionClick).toHaveBeenCalledTimes(1);
@@ -73,7 +73,7 @@ describe('DraggableNoteItem', () => {
         onClick={onClick}
         onSelectionClick={onSelectionClick}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     fireEvent.click(screen.getByRole('button', { name: /Hello/i }), { metaKey: true });
     expect(onClick).toHaveBeenCalledTimes(1);
@@ -91,7 +91,7 @@ describe('DraggableNoteItem', () => {
         onClick={onClick}
         onSelectionClick={onSelectionClick}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     fireEvent.click(screen.getByRole('button', { name: /Hello/i }), { metaKey: true });
     expect(onSelectionClick).toHaveBeenCalledTimes(1);
@@ -105,7 +105,7 @@ describe('DraggableNoteItem', () => {
         isActive={false}
         onClick={vi.fn()}
         onContextMenu={vi.fn()}
-      />,
+      />
     );
     // The draggable container is the group wrapping the row.
     const row = screen.getByRole('button', { name: /Hello/i });

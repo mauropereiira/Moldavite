@@ -1,4 +1,8 @@
-//! Built-in templates and helpers for template variable expansion.
+//! Immutable built-in template definitions, variable expansion, and id generation.
+//!
+//! Variable replacement uses one captured local timestamp so `date`, `time`, and
+//! `day_of_week` cannot straddle clock ticks. Generated ids are lowercase ASCII
+//! slugs and serve as filenames only after command-layer validation.
 
 use chrono::{Local, NaiveDateTime};
 

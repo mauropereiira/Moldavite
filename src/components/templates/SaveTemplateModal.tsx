@@ -118,7 +118,10 @@ export function SaveTemplateModal({
       <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 modal-elevated modal-content-enter">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 id="save-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2
+            id="save-template-title"
+            className="text-lg font-semibold text-gray-900 dark:text-white"
+          >
             Save as Template
           </h2>
           <button
@@ -159,7 +162,9 @@ export function SaveTemplateModal({
             />
             <div className="flex justify-between mt-1">
               {error ? (
-                <p id="template-name-error" className="text-xs text-red-500">{error}</p>
+                <p id="template-name-error" className="text-xs text-red-500">
+                  {error}
+                </p>
               ) : (
                 <span />
               )}

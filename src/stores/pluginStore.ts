@@ -1,3 +1,10 @@
+/**
+ * Per-Forge persisted plugin enablement and permission grants.
+ * A grant is valid only for the approved plugin version and content hash; changed code
+ * must re-prompt. This store records consent but never enforces capabilities—the host
+ * validates every worker call independently.
+ */
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { namespacedKey } from '@/lib/forgeStorage';

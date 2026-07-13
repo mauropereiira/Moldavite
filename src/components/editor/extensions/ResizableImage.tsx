@@ -7,7 +7,13 @@ export type ImageAlignment = 'left' | 'center' | 'right';
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     image: {
-      setImage: (options: { src: string; alt?: string; title?: string; width?: number; alignment?: ImageAlignment }) => ReturnType;
+      setImage: (options: {
+        src: string;
+        alt?: string;
+        title?: string;
+        width?: number;
+        alignment?: ImageAlignment;
+      }) => ReturnType;
       setImageAlignment: (alignment: ImageAlignment) => ReturnType;
     };
   }
@@ -24,7 +30,11 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const { src, alt, width, alignment = 'center' } = node.attrs;
 
   // Get current width (use stored width or natural width)
-  const currentWidth = width ? (typeof width === 'number' ? width : parseInt(width, 10)) : undefined;
+  const currentWidth = width
+    ? typeof width === 'number'
+      ? width
+      : parseInt(width, 10)
+    : undefined;
 
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: 'left' | 'right') => {
     e.preventDefault();
@@ -46,7 +56,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
 
       const deltaX = e.clientX - initialX;
       const multiplier = resizeDirection === 'left' ? -1 : 1;
-      let newWidth = initialWidth + (deltaX * multiplier);
+      let newWidth = initialWidth + deltaX * multiplier;
 
       // Minimum and maximum width constraints
       newWidth = Math.max(100, Math.min(newWidth, 1200));
@@ -152,8 +162,8 @@ export const ResizableImage = Node.create({
       },
       alignment: {
         default: 'center',
-        parseHTML: element => element.getAttribute('data-alignment') || 'center',
-        renderHTML: attributes => {
+        parseHTML: (element) => element.getAttribute('data-alignment') || 'center',
+        renderHTML: (attributes) => {
           if (!attributes.alignment) {
             return {};
           }
@@ -182,7 +192,13 @@ export const ResizableImage = Node.create({
   addCommands() {
     return {
       setImage:
-        (options: { src: string; alt?: string; title?: string; width?: number; alignment?: ImageAlignment }) =>
+        (options: {
+          src: string;
+          alt?: string;
+          title?: string;
+          width?: number;
+          alignment?: ImageAlignment;
+        }) =>
         ({ commands }) => {
           return commands.insertContent({
             type: this.name,

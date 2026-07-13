@@ -35,10 +35,7 @@ import type { NoteFile } from '@/types';
  * Fuzzy match: checks if query characters appear in order within the title.
  * "mtg" matches "Meeting Notes"
  */
-function fuzzyMatch(
-  query: string,
-  title: string,
-): { matches: boolean; indices: number[] } {
+function fuzzyMatch(query: string, title: string): { matches: boolean; indices: number[] } {
   const indices: number[] = [];
   let queryIndex = 0;
   const lowerQuery = query.toLowerCase();
@@ -67,22 +64,13 @@ function getNoteTypeLabel(noteFile: NoteFile): string {
   return 'Note';
 }
 
-function HighlightedTitle({
-  title,
-  indices,
-}: {
-  title: string;
-  indices: number[];
-}) {
+function HighlightedTitle({ title, indices }: { title: string; indices: number[] }) {
   const chars = title.split('');
   const indexSet = new Set(indices);
   return (
     <span>
       {chars.map((char, i) => (
-        <span
-          key={i}
-          className={indexSet.has(i) ? 'quick-switcher-match' : ''}
-        >
+        <span key={i} className={indexSet.has(i) ? 'quick-switcher-match' : ''}>
           {char}
         </span>
       ))}
@@ -198,13 +186,7 @@ function commandIcon(id: string) {
   }
 }
 
-function CommandRow({
-  command,
-  isSelected,
-  titleIndices,
-  onClick,
-  onMouseEnter,
-}: CommandRowProps) {
+function CommandRow({ command, isSelected, titleIndices, onClick, onMouseEnter }: CommandRowProps) {
   return (
     <button
       className={`quick-switcher-item quick-switcher-item-command ${isSelected ? 'quick-switcher-item-selected' : ''}`}
@@ -218,9 +200,7 @@ function CommandRow({
         <div className="quick-switcher-item-title">
           <HighlightedTitle title={command.title} indices={titleIndices} />
         </div>
-        <div className="quick-switcher-item-meta">
-          {commandCategoryLabel(command.category)}
-        </div>
+        <div className="quick-switcher-item-meta">{commandCategoryLabel(command.category)}</div>
       </div>
     </button>
   );
@@ -233,12 +213,7 @@ interface RecentSearchRowProps {
   onMouseEnter: () => void;
 }
 
-function RecentSearchRow({
-  query,
-  isSelected,
-  onClick,
-  onMouseEnter,
-}: RecentSearchRowProps) {
+function RecentSearchRow({ query, isSelected, onClick, onMouseEnter }: RecentSearchRowProps) {
   return (
     <button
       className={`quick-switcher-item ${isSelected ? 'quick-switcher-item-selected' : ''}`}
@@ -256,13 +231,7 @@ function RecentSearchRow({
   );
 }
 
-function SectionHeader({
-  label,
-  icon,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-}) {
+function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode }) {
   return (
     <div className="quick-switcher-section-header">
       {icon}
@@ -272,14 +241,8 @@ function SectionHeader({
 }
 
 export function QuickSwitcher() {
-  const {
-    isOpen,
-    close,
-    recentSearches,
-    pinnedNoteIds,
-    addRecentSearch,
-    togglePinned,
-  } = useQuickSwitcherStore();
+  const { isOpen, close, recentSearches, pinnedNoteIds, addRecentSearch, togglePinned } =
+    useQuickSwitcherStore();
   const { recentNoteIds } = useNoteStore();
   const { notes, loadNote, loadDailyNote, createNote } = useNotes();
   const { theme, setTheme } = useThemeStore();
@@ -342,10 +305,7 @@ export function QuickSwitcher() {
         if (note) recents.push(note);
       }
       // Pad up to 7 with "other" notes (excluding pinned + recents already shown).
-      const shown = new Set([
-        ...pinnedNoteIds,
-        ...recents.map((n) => n.path),
-      ]);
+      const shown = new Set([...pinnedNoteIds, ...recents.map((n) => n.path)]);
       const padding = notes
         .filter((n) => !shown.has(n.path))
         .slice(0, Math.max(0, 7 - recents.length));
@@ -456,13 +416,13 @@ export function QuickSwitcher() {
           const today = new Date();
           useNoteStore.getState().setSelectedDate(today);
           loadDailyNote(today).catch((e) =>
-            console.error('[QuickSwitcher] loadDailyNote failed', e),
+            console.error('[QuickSwitcher] loadDailyNote failed', e)
           );
           return;
         }
         case 'new-note':
           createNote('Untitled').catch((e) =>
-            console.error('[QuickSwitcher] createNote failed', e),
+            console.error('[QuickSwitcher] createNote failed', e)
           );
           return;
         case 'new-note-from-template':
@@ -474,8 +434,7 @@ export function QuickSwitcher() {
           toggleTimeline();
           return;
         case 'toggle-theme': {
-          const next =
-            theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
+          const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
           setTheme(next);
           return;
         }
@@ -494,15 +453,7 @@ export function QuickSwitcher() {
           void usePluginCommandStore.getState().execute(id);
       }
     },
-    [
-      setIsSettingsOpen,
-      loadDailyNote,
-      createNote,
-      toggleTimeline,
-      theme,
-      setTheme,
-      openGraph,
-    ],
+    [setIsSettingsOpen, loadDailyNote, createNote, toggleTimeline, theme, setTheme, openGraph]
   );
 
   const selectNote = useCallback(
@@ -514,7 +465,7 @@ export function QuickSwitcher() {
         console.error('[QuickSwitcher] Failed to load note:', error);
       }
     },
-    [close, loadNote],
+    [close, loadNote]
   );
 
   const activate = useCallback(
@@ -537,7 +488,7 @@ export function QuickSwitcher() {
           return;
       }
     },
-    [query, addRecentSearch, selectNote, close, runCommand],
+    [query, addRecentSearch, selectNote, close, runCommand]
   );
 
   // Keyboard navigation.
@@ -571,10 +522,7 @@ export function QuickSwitcher() {
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         close();
       }
     };
@@ -615,9 +563,7 @@ export function QuickSwitcher() {
                     : `recent:${row.query}`;
               return (
                 <div key={key}>
-                  {header && (
-                    <SectionHeader label={header.label} icon={header.icon} />
-                  )}
+                  {header && <SectionHeader label={header.label} icon={header.icon} />}
                   {row.kind === 'note' && (
                     <NoteRow
                       note={row.note}

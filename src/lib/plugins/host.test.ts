@@ -1,3 +1,5 @@
+/** Worker-host lifecycle and untrusted-message routing regression coverage. */
+
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
@@ -102,7 +104,9 @@ describe('plugin worker invocation lifecycle', () => {
     await timedOut;
 
     const second = command.handler() as Promise<void>;
-    const invoke = worker.postMessage.mock.calls[worker.postMessage.mock.calls.length - 1]?.[0] as { invocationId: number };
+    const invoke = worker.postMessage.mock.calls[worker.postMessage.mock.calls.length - 1]?.[0] as {
+      invocationId: number;
+    };
     worker.emit(
       'message',
       new MessageEvent('message', {

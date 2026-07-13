@@ -1,3 +1,5 @@
+/** Selection-set transition tests, including allocation and clear semantics. */
+
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useNoteSelectionStore } from './noteSelectionStore';
 

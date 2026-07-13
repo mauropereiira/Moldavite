@@ -1,3 +1,9 @@
+/**
+ * Component-facing template loading and mutation orchestration.
+ * Backend results are applied to the template store only after successful IPC;
+ * built-in/default semantics remain backend-owned.
+ */
+
 import { useEffect, useState } from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
 import * as templatesApi from '@/lib/templates';
@@ -26,6 +32,8 @@ export function useTemplates() {
   // Load templates on mount
   useEffect(() => {
     loadTemplates();
+    // Mount-only initialization; template actions update the store directly afterward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

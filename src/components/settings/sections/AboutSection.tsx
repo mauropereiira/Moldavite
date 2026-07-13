@@ -11,10 +11,23 @@ import { getReleaseNotes } from '@/lib/releaseNotes';
 import { ShortcutRow } from '../common';
 
 function SoftwareUpdatesSection() {
-  const { available, version, isChecking, lastChecked, error, checkForUpdate, installUpdate, downloading, progress } = useUpdateStore();
+  const {
+    available,
+    version,
+    isChecking,
+    lastChecked,
+    error,
+    checkForUpdate,
+    installUpdate,
+    downloading,
+    progress,
+  } = useUpdateStore();
 
   return (
-    <div className="p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+    <div
+      className="p-4"
+      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+    >
       <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
         Software Updates
       </h4>
@@ -22,8 +35,19 @@ function SoftwareUpdatesSection() {
       <div className="space-y-3">
         {/* Update status */}
         {available ? (
-          <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-primary)' }}>
-            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-primary)' }} />
+          <div
+            className="flex items-center gap-2 p-3"
+            style={{
+              backgroundColor: 'var(--accent-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--accent-primary)',
+            }}
+          >
+            <Download
+              aria-hidden="true"
+              className="w-5 h-5 flex-shrink-0"
+              style={{ color: 'var(--accent-primary)' }}
+            />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 Update Available: v{version}
@@ -34,11 +58,22 @@ function SoftwareUpdatesSection() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 p-3" style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
-            <Download aria-hidden="true" className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+          <div
+            className="flex items-center gap-2 p-3"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <Download
+              aria-hidden="true"
+              className="w-5 h-5 flex-shrink-0"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {isChecking ? 'Checking for updates...' : 'You\'re up to date'}
+                {isChecking ? 'Checking for updates...' : "You're up to date"}
               </p>
               {lastChecked && (
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -51,13 +86,18 @@ function SoftwareUpdatesSection() {
 
         {/* Error message */}
         {error && (
-          <p className="text-xs px-3" style={{ color: 'var(--text-error, #ef4444)' }}>{error}</p>
+          <p className="text-xs px-3" style={{ color: 'var(--text-error, #ef4444)' }}>
+            {error}
+          </p>
         )}
 
         {/* Progress bar when downloading */}
         {downloading && (
           <div className="px-3">
-            <div className="h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--bg-inset)' }}>
+            <div
+              className="h-1.5 rounded overflow-hidden"
+              style={{ backgroundColor: 'var(--bg-inset)' }}
+            >
               <div
                 className="h-full transition-all duration-300"
                 style={{ width: `${progress}%`, backgroundColor: 'var(--accent-primary)' }}
@@ -76,7 +116,11 @@ function SoftwareUpdatesSection() {
               onClick={installUpdate}
               disabled={downloading}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors text-white"
-              style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', opacity: downloading ? 0.7 : 1 }}
+              style={{
+                backgroundColor: 'var(--accent-primary)',
+                borderRadius: 'var(--radius-sm)',
+                opacity: downloading ? 0.7 : 1,
+              }}
             >
               <Download aria-hidden="true" className="w-4 h-4" />
               {downloading ? 'Installing...' : 'Install Update'}
@@ -86,9 +130,17 @@ function SoftwareUpdatesSection() {
               onClick={checkForUpdate}
               disabled={isChecking}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
-              style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', opacity: isChecking ? 0.7 : 1 }}
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+                opacity: isChecking ? 0.7 : 1,
+              }}
             >
-              <RefreshCw aria-hidden="true" className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                aria-hidden="true"
+                className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`}
+              />
               {isChecking ? 'Checking...' : 'Check for Updates'}
             </button>
           )}
@@ -117,7 +169,9 @@ export function AboutSection() {
 
   // Fetch app version on mount
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('0.0.0'));
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion('0.0.0'));
   }, []);
 
   const handleShowWhatsNew = () => {
@@ -137,7 +191,10 @@ export function AboutSection() {
   return (
     <div className="space-y-6">
       {/* App Info + Update Section */}
-      <div className="flex items-start gap-4 p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="flex items-start gap-4 p-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         {/* Logo */}
         <img
           src="/logo.png"
@@ -172,10 +229,7 @@ export function AboutSection() {
         className="p-4"
         style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
       >
-        <h4
-          className="text-sm font-medium mb-1"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
           Onboarding
         </h4>
         <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
@@ -198,7 +252,10 @@ export function AboutSection() {
       </div>
 
       {/* Keyboard Shortcuts */}
-      <div className="p-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Keyboard Shortcuts
         </h4>
@@ -213,7 +270,6 @@ export function AboutSection() {
           <ShortcutRow keys={['⌘', '⇧', 'Z']} description="Redo" />
         </div>
       </div>
-
     </div>
   );
 }

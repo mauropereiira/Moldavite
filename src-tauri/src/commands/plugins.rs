@@ -1,6 +1,11 @@
 //! Plugin system backend: enumerate, uninstall, and install-example plugins
 //! living under the active Forge's `.plugins/` directory, plus the path
 //! resolver used by the `plugin://` URI scheme handler in `lib.rs`.
+//!
+//! Plugin ids and relative asset paths are untrusted. Resolution remains inside
+//! one plugin directory with symlinks rejected; content hashes bind consent to
+//! the manifest and code bytes. Secrets are namespaced by plugin id in the macOS
+//! Keychain and are never returned across a different plugin identity.
 
 use serde::Serialize;
 use std::fs;

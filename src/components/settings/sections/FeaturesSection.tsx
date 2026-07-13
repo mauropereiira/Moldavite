@@ -10,7 +10,10 @@ export function FeaturesSection() {
   return (
     <div className="space-y-6">
       {/* Editor Features */}
-      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1 mb-3">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Editor Features
@@ -31,35 +34,38 @@ export function FeaturesSection() {
           />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div className="flex items-center gap-1">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Wiki Links [[...]]
             </span>
             <InfoTooltip text="Create links between notes using [[Note Name]] syntax. Clicking the link opens the referenced note." />
           </div>
-          <Toggle
-            enabled={settings.wikiLinksEnabled}
-            onChange={settings.setWikiLinksEnabled}
-          />
+          <Toggle enabled={settings.wikiLinksEnabled} onChange={settings.setWikiLinksEnabled} />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div className="flex items-center gap-1">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Tags (#hashtags)
             </span>
             <InfoTooltip text="Type #tagname to create tags. Tags are highlighted and can be filtered in the sidebar." />
           </div>
-          <Toggle
-            enabled={settings.tagsEnabled}
-            onChange={settings.setTagsEnabled}
-          />
+          <Toggle enabled={settings.tagsEnabled} onChange={settings.setTagsEnabled} />
         </div>
       </div>
 
       {/* Navigation Features */}
-      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1 mb-3">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Navigation
@@ -80,22 +86,25 @@ export function FeaturesSection() {
           />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div className="flex items-center gap-1">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Backlinks
             </span>
             <InfoTooltip text="Shows a list of all notes that link to the current note. Helps you see connections between ideas." />
           </div>
-          <Toggle
-            enabled={settings.backlinksEnabled}
-            onChange={settings.setBacklinksEnabled}
-          />
+          <Toggle enabled={settings.backlinksEnabled} onChange={settings.setBacklinksEnabled} />
         </div>
       </div>
 
       {/* Right Panel */}
-      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1 mb-3">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Right Panel
@@ -110,15 +119,15 @@ export function FeaturesSection() {
             </span>
             <InfoTooltip text="Toggle the entire right sidebar on or off. Hiding it gives more space to the editor." />
           </div>
-          <Toggle
-            enabled={settings.showRightPanel}
-            onChange={settings.setShowRightPanel}
-          />
+          <Toggle enabled={settings.showRightPanel} onChange={settings.setShowRightPanel} />
         </div>
 
         {settings.showRightPanel && (
           <>
-            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+            <div
+              className="flex items-center justify-between py-2"
+              style={{ borderTop: '1px solid var(--border-muted)' }}
+            >
               <div className="flex items-center gap-1">
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Calendar Widget
@@ -131,7 +140,10 @@ export function FeaturesSection() {
               />
             </div>
 
-            <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+            <div
+              className="flex items-center justify-between py-2"
+              style={{ borderTop: '1px solid var(--border-muted)' }}
+            >
               <div className="flex items-center gap-1">
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Timeline Widget

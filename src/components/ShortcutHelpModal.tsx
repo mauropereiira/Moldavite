@@ -118,14 +118,8 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
                 </h3>
                 <ul className="space-y-2">
                   {items.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center justify-between gap-4 py-1.5"
-                    >
-                      <span
-                        className="text-sm"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                    <li key={s.id} className="flex items-center justify-between gap-4 py-1.5">
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         {s.description}
                       </span>
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -145,10 +139,7 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
                               {k}
                             </kbd>
                             {idx < s.keys.length - 1 && (
-                              <span
-                                className="text-xs"
-                                style={{ color: 'var(--text-muted)' }}
-                              >
+                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                                 +
                               </span>
                             )}
@@ -171,17 +162,21 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
             color: 'var(--text-muted)',
           }}
         >
-          Press <kbd
+          Press{' '}
+          <kbd
             className="px-1.5 py-0.5 font-mono"
             style={{
               backgroundColor: 'var(--bg-elevated)',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
             }}
-          >Esc</kbd> to close
+          >
+            Esc
+          </kbd>{' '}
+          to close
         </div>
       </div>
     </div>,
-    document.body,
+    document.body
   );
 }

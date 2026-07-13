@@ -1,4 +1,8 @@
-//! Settings and discovery commands for the built-in MCP server.
+//! GUI-facing discovery and write-consent settings for the built-in MCP server.
+//!
+//! Write access is persisted as an explicit opt-in and defaults to false. The
+//! running MCP tool context re-reads this value per request, so changing it takes
+//! effect without restarting an existing client session.
 
 use crate::persist::{read_config, write_config};
 

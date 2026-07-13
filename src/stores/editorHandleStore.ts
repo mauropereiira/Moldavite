@@ -1,3 +1,9 @@
+/**
+ * Imperative handle to the currently mounted TipTap editor.
+ * Exactly one editor instance may be published; consumers must tolerate `null`
+ * during mount transitions and must not retain an old handle after it is cleared.
+ */
+
 import type { Editor } from '@tiptap/react';
 
 /**

@@ -55,7 +55,7 @@ export function BacklinksPanel() {
   const { related, loading: relatedLoading } = useRelatedNotes(
     relPath,
     semanticReady,
-    `${refreshKey}:${indexedCount}`,
+    `${refreshKey}:${indexedCount}`
   );
 
   const handleRowClick = (bl: Backlink) => {
@@ -119,7 +119,11 @@ export function BacklinksPanel() {
             </div>
           ) : (
             backlinks.map((bl) => (
-              <BacklinkRow key={`${bl.fromNote}:${bl.context}`} backlink={bl} onClick={() => handleRowClick(bl)} />
+              <BacklinkRow
+                key={`${bl.fromNote}:${bl.context}`}
+                backlink={bl}
+                onClick={() => handleRowClick(bl)}
+              />
             ))
           )}
         </div>
@@ -149,7 +153,11 @@ export function BacklinksPanel() {
                 }}
               />
               <span className="flex items-center gap-1">
-                <Sparkles aria-hidden="true" className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
+                <Sparkles
+                  aria-hidden="true"
+                  className="w-3 h-3"
+                  style={{ color: 'var(--text-muted)' }}
+                />
                 {'Related '}
                 <span style={{ color: 'var(--text-muted)' }}>
                   ({relatedLoading ? '…' : related.length})
@@ -196,10 +204,7 @@ function RelatedRow({ hit, onClick }: RelatedRowProps) {
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <FileText
-        className="w-3.5 h-3.5 flex-shrink-0"
-        style={{ color: 'var(--text-muted)' }}
-      />
+      <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
       <span
         className="flex-1 min-w-0 text-sm font-medium truncate"
         style={{ color: 'var(--text-primary)' }}
@@ -246,10 +251,7 @@ function BacklinkRow({ backlink, onClick }: BacklinkRowProps) {
         >
           {title}
         </span>
-        <span
-          className="block text-xs mt-0.5 line-clamp-2"
-          style={{ color: 'var(--text-muted)' }}
-        >
+        <span className="block text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-muted)' }}>
           {snippet}
         </span>
       </span>
@@ -273,10 +275,7 @@ function renderSnippet(context: string): React.ReactNode {
       parts.push(context.slice(lastIndex, match.index));
     }
     parts.push(
-      <span
-        key={`link-${key++}`}
-        style={{ color: 'var(--accent-primary)', fontWeight: 500 }}
-      >
+      <span key={`link-${key++}`} style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
         [[{match[1]}]]
       </span>
     );

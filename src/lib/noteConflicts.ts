@@ -1,3 +1,10 @@
+/**
+ * Presentation-side handling for conflict copies created by atomic note writes.
+ * This module never decides whether a conflict exists; it consumes the backend's
+ * `conflictCopy`, warns the user, and refreshes note metadata so the preserved copy
+ * becomes visible without replacing editor state.
+ */
+
 import { listNotes } from './fileSystem';
 import type { NoteWriteResult } from './fileSystem';
 // Import the concrete store modules (not the '@/stores' index) to avoid a
@@ -23,7 +30,7 @@ export function notifyConflictCopy(result: NoteWriteResult): void {
     .addToast(
       'warning',
       `Edits conflicted with an external change — saved a conflict copy: ${name}`,
-      8000,
+      8000
     );
 
   listNotes()

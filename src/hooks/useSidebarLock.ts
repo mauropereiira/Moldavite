@@ -1,3 +1,9 @@
+/**
+ * Sidebar password-modal orchestration for lock, temporary unlock, and permanent unlock.
+ * Editable content is flushed before encryption, temporary plaintext remains view-only
+ * in memory, and path-keyed tabs/unlock state are cleared when the disk form changes.
+ */
+
 import { useState } from 'react';
 import {
   filenameToNote,
@@ -23,7 +29,12 @@ type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
  * needed to render the PasswordModal.
  */
 export function useSidebarLock() {
-  const { setNotes, setCurrentNote, removeTabByPath, unlockNote: trackUnlockedNote } = useNoteStore();
+  const {
+    setNotes,
+    setCurrentNote,
+    removeTabByPath,
+    unlockNote: trackUnlockedNote,
+  } = useNoteStore();
   const toast = useToast();
 
   const [mode, setMode] = useState<LockModalMode>(null);
@@ -63,15 +74,10 @@ export function useSidebarLock() {
           noteFileBackendPath(noteToLock),
           htmlToMarkdown(current.content),
           noteToLock.isDaily,
-          noteToLock.isWeekly || false,
+          noteToLock.isWeekly || false
         );
       }
-      await lockNote(
-        noteToLock.name,
-        password,
-        noteToLock.isDaily,
-        noteToLock.isWeekly || false,
-      );
+      await lockNote(noteToLock.name, password, noteToLock.isDaily, noteToLock.isWeekly || false);
       toast.success('Note locked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: true } : n)));
       removeTabByPath(noteToLock.path);
@@ -80,7 +86,7 @@ export function useSidebarLock() {
         noteToLock.name,
         password,
         noteToLock.isDaily,
-        noteToLock.isWeekly || false,
+        noteToLock.isWeekly || false
       );
       const htmlContent = isHtmlContent(content) ? content : markdownToHtml(content);
       const note = filenameToNote(noteToLock, htmlContent);
@@ -92,7 +98,7 @@ export function useSidebarLock() {
         noteToLock.name,
         password,
         noteToLock.isDaily,
-        noteToLock.isWeekly || false,
+        noteToLock.isWeekly || false
       );
       toast.success('Note permanently unlocked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: false } : n)));

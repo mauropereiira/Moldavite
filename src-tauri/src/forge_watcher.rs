@@ -5,6 +5,8 @@
 //!
 //! Writes performed by Moldavite itself are short-circuited via a recent-write
 //! ignore list so the UI doesn't double-refresh after its own saves.
+//! Ignore entries are short-lived hints, not durable state; paths are normalized
+//! relative to the watched Forge and hidden/internal files never emit events.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

@@ -11,6 +11,10 @@
 //! ---
 //! Note body starts here.
 //! ```
+//!
+//! Parsing is deliberately loss-aware: missing or malformed frontmatter remains
+//! body text, UTF-8 BOMs are tolerated, and unknown YAML keys round-trip through
+//! serialization. Callers changing color must preserve `extra` and the body.
 
 use std::collections::BTreeMap;
 

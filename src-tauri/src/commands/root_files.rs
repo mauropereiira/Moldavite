@@ -5,6 +5,9 @@
 //! feature (Settings → AI & Agents). The whitelist is deliberately exact
 //! (no globs, no user-supplied paths): anything not on it is rejected
 //! before any filesystem access happens.
+//! Writes are create-only when requested and always use atomic persistence with
+//! owner-only permissions; this surface must never grow into an arbitrary Forge
+//! root file API.
 
 use std::fs;
 use std::path::Path;

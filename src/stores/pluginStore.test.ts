@@ -1,3 +1,5 @@
+/** Per-Forge plugin consent tests for version and content-hash pinning. */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { usePluginStore } from './pluginStore';
 

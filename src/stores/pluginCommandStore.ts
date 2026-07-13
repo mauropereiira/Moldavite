@@ -1,3 +1,9 @@
+/**
+ * Runtime registry for commands contributed by loaded plugin workers.
+ * Command ids are namespaced by plugin, registrations are process-only, and unloading
+ * a plugin must remove all its handlers so stale UI cannot invoke a terminated worker.
+ */
+
 import { create } from 'zustand';
 import { useToastStore } from './toastStore';
 

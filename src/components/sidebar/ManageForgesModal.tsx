@@ -39,7 +39,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
 
   const handleDelete = async (name: string) => {
     const ok = window.confirm(
-      `Delete the Forge "${name}"? All notes inside it will be removed permanently.`,
+      `Delete the Forge "${name}"? All notes inside it will be removed permanently.`
     );
     if (!ok) return;
     try {

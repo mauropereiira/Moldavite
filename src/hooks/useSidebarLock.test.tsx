@@ -1,3 +1,5 @@
+/** Verifies that temporary unlock exposes decrypted Markdown as view-only editor HTML. */
+
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore } from '@/stores/noteStore';

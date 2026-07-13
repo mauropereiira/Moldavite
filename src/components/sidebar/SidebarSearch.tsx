@@ -15,10 +15,7 @@ interface SidebarSearchProps {
  * title/content matcher or the full-text `searchStore`) backs it.
  */
 export const SidebarSearch = forwardRef<HTMLInputElement, SidebarSearchProps>(
-  function SidebarSearch(
-    { query, onChange, onKeyDown, onClear, isSearching, placeholder },
-    ref
-  ) {
+  function SidebarSearch({ query, onChange, onKeyDown, onClear, isSearching, placeholder }, ref) {
     return (
       <div className="px-3 py-3">
         <div className="relative">

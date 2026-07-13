@@ -124,7 +124,7 @@ export const TagMark = Mark.create<TagMarkOptions>({
               if (!node.isText || !node.text) return;
 
               // Skip if node has a link mark (it's inside a hyperlink)
-              if (node.marks.some(mark => mark.type.name === 'link')) return;
+              if (node.marks.some((mark) => mark.type.name === 'link')) return;
 
               const text = node.text;
 
