@@ -41,7 +41,8 @@ const BUDGETS = [
 // counts lazy app chunks, so it includes the small split-chunk/gzip overhead.
 // Bumped for the graph-view overhaul (deterministic layout, LOD, fit-view).
 // Bumped for force-clustered graph physics + plugin About/instructions dialog.
-const APP_JS_BUDGET = { rawKb: 536, gzipKb: 143 };
+// Bumped for the community plugin browser (registry list + install states).
+const APP_JS_BUDGET = { rawKb: 544, gzipKb: 146 };
 
 async function main() {
   let entries;
