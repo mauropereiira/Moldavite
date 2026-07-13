@@ -61,11 +61,15 @@ interface PluginRuntime {
   pluginName: string;
   apiVersion: number;
   /** Fire-and-await from the host: match `invokeResult` back to a Promise. */
-  pendingInvocations: Map<number, { resolve: () => void; reject: (e: Error) => void }>;
+  pendingInvocations: Map<
+    number,
+    { resolve: () => void; reject: (e: Error) => void; timeout: ReturnType<typeof setTimeout> }
+  >;
   nextInvocationId: number;
 }
 
 const runtimes = new Map<string, PluginRuntime>();
+const INVOCATION_TIMEOUT_MS = 30_000;
 
 async function fetchPluginSource(pluginId: string): Promise<string> {
   const url = `plugin://localhost/${pluginId}/plugin.js`;
@@ -74,15 +78,18 @@ async function fetchPluginSource(pluginId: string): Promise<string> {
   return await resp.text();
 }
 
-function terminateRuntime(pluginId: string) {
+function terminateRuntime(pluginId: string, reason = 'plugin was unloaded') {
   const rt = runtimes.get(pluginId);
   if (!rt) return;
   rt.worker.terminate();
   cancelPluginDialog(pluginId);
   for (const pending of rt.pendingInvocations.values()) {
-    pending.reject(new Error('plugin was unloaded'));
+    clearTimeout(pending.timeout);
+    pending.reject(new Error(reason));
   }
+  rt.pendingInvocations.clear();
   runtimes.delete(pluginId);
+  usePluginCommandStore.getState().removeByPlugin(pluginId);
 }
 
 /** Invoke a plugin command via its worker; resolves when the command handler completes. */
@@ -91,7 +98,14 @@ function invokeCommandInWorker(pluginId: string, commandLocalId: string): Promis
   if (!rt) return Promise.reject(new Error(`plugin ${pluginId} is not running`));
   const invocationId = rt.nextInvocationId++;
   return new Promise<void>((resolve, reject) => {
-    rt.pendingInvocations.set(invocationId, { resolve, reject });
+    const timeout = setTimeout(() => {
+      const current = runtimes.get(pluginId);
+      const pending = current?.pendingInvocations.get(invocationId);
+      if (!pending) return;
+      current?.pendingInvocations.delete(invocationId);
+      pending.reject(new Error('plugin command timed out'));
+    }, INVOCATION_TIMEOUT_MS);
+    rt.pendingInvocations.set(invocationId, { resolve, reject, timeout });
     const msg: InvokeMessage = { kind: 'invoke', invocationId, commandLocalId };
     rt.worker.postMessage(msg);
   });
@@ -138,6 +152,7 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
       const pending = rt.pendingInvocations.get(result.invocationId);
       if (!pending) return;
       rt.pendingInvocations.delete(result.invocationId);
+      clearTimeout(pending.timeout);
       if (result.ok) pending.resolve();
       else pending.reject(new Error(result.error ?? 'command failed'));
       return;
@@ -151,7 +166,7 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     case 'loadError': {
       const err = msg as LoadErrorMessage;
       console.error(`[plugin:${pluginId}] failed to load:`, err.error);
-      terminateRuntime(pluginId);
+      terminateRuntime(pluginId, `plugin failed to load: ${err.error}`);
       return;
     }
     case 'log': {
@@ -195,6 +210,11 @@ async function loadOne(info: PluginInfo): Promise<void> {
   });
   worker.addEventListener('error', (e) => {
     console.error(`[plugin:${id}] worker error:`, e.message);
+    terminateRuntime(id, `plugin worker crashed: ${e.message || 'unknown error'}`);
+  });
+  worker.addEventListener('messageerror', () => {
+    console.error(`[plugin:${id}] worker sent an unreadable message`);
+    terminateRuntime(id, 'plugin worker message could not be decoded');
   });
 
   const init: HostToWorker = {

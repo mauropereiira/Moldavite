@@ -1,6 +1,6 @@
 //! Built-in templates and helpers for template variable expansion.
 
-use chrono::Local;
+use chrono::{Local, NaiveDateTime};
 
 use crate::types::Template;
 
@@ -34,7 +34,10 @@ pub(crate) fn get_default_templates() -> Vec<Template> {
 }
 
 pub(crate) fn replace_template_variables(content: String) -> String {
-    let now = Local::now();
+    replace_template_variables_at(content, Local::now().naive_local())
+}
+
+fn replace_template_variables_at(content: String, now: NaiveDateTime) -> String {
     let date = now.format("%Y-%m-%d").to_string();
     let time = now.format("%H:%M").to_string();
     let day_of_week = now.format("%A").to_string();
@@ -59,6 +62,7 @@ pub(crate) fn generate_template_id(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Datelike;
 
     #[test]
     fn template_id_slugifies_name() {
@@ -78,9 +82,8 @@ mod tests {
 
     #[test]
     fn template_variable_substitution_replaces_placeholders() {
-        let out = replace_template_variables(
-            "Today is {{date}} ({{day_of_week}}) at {{time}}.".into(),
-        );
+        let out =
+            replace_template_variables("Today is {{date}} ({{day_of_week}}) at {{time}}.".into());
         assert!(!out.contains("{{date}}"));
         assert!(!out.contains("{{day_of_week}}"));
         assert!(!out.contains("{{time}}"));
@@ -93,11 +96,29 @@ mod tests {
     }
 
     #[test]
+    fn template_variables_are_correct_at_iso_week_53_year_boundary() {
+        let boundary =
+            NaiveDateTime::parse_from_str("2020-12-31 23:59:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let out =
+            replace_template_variables_at("{{date}}|{{time}}|{{day_of_week}}".into(), boundary);
+        assert_eq!(out, "2020-12-31|23:59|Thursday");
+        assert_eq!(boundary.date().iso_week().week(), 53);
+    }
+
+    #[test]
+    fn one_megabyte_template_expands_without_truncation() {
+        let boundary =
+            NaiveDateTime::parse_from_str("2021-01-01 00:01:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let content = format!("{}{{{{date}}}}", "x".repeat(1024 * 1024));
+        let out = replace_template_variables_at(content, boundary);
+        assert_eq!(out.len(), 1024 * 1024 + 10);
+        assert!(out.ends_with("2021-01-01"));
+        assert_eq!(boundary.date().iso_week().week(), 53);
+    }
+
+    #[test]
     fn default_templates_have_expected_ids() {
-        let ids: Vec<String> = get_default_templates()
-            .into_iter()
-            .map(|t| t.id)
-            .collect();
+        let ids: Vec<String> = get_default_templates().into_iter().map(|t| t.id).collect();
         assert!(ids.contains(&"meeting-notes".to_string()));
         assert!(ids.contains(&"daily-log".to_string()));
         assert!(ids.contains(&"project-plan".to_string()));

@@ -97,7 +97,10 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
         .and_then(|s| s.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case(required_ext));
     if !ext_ok {
-        return Err(format!("Only .{} files may be written via this command", required_ext));
+        return Err(format!(
+            "Only .{} files may be written via this command",
+            required_ext
+        ));
     }
     let parent = path
         .parent()
@@ -107,7 +110,14 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
         .map_err(|_| "Destination directory does not exist".to_string())?;
     let canonical_str = canonical_parent.to_string_lossy().to_lowercase();
     let forbidden_prefixes = [
-        "/system", "/usr", "/bin", "/sbin", "/etc", "/var", "/private/var", "/library",
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/library",
     ];
     for prefix in &forbidden_prefixes {
         if canonical_str.starts_with(prefix) {
@@ -117,9 +127,17 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
     if let Some(home) = dirs::home_dir() {
         if let Ok(home_canon) = home.canonicalize() {
             let forbidden_subpaths = [
-                ".ssh", ".gnupg", ".aws", ".config", ".docker", ".kube",
-                "Library/LaunchAgents", "Library/LaunchDaemons",
-                "Library/Preferences", "Library/Application Support", "Library/Keychains",
+                ".ssh",
+                ".gnupg",
+                ".aws",
+                ".config",
+                ".docker",
+                ".kube",
+                "Library/LaunchAgents",
+                "Library/LaunchDaemons",
+                "Library/Preferences",
+                "Library/Application Support",
+                "Library/Keychains",
             ];
             for sub in &forbidden_subpaths {
                 let denied = home_canon.join(sub);
@@ -142,23 +160,20 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// Build a throwaway directory under the user's home dir.
-    ///
-    /// We can't use `std::env::temp_dir()` here because on macOS that
-    /// lives under `/private/var/...`, which `validate_user_export_path`
-    /// correctly rejects as a system path. Home-relative dirs aren't on
-    /// the forbidden list (as long as they don't live in `.ssh`, `.config`,
-    /// `Library/LaunchAgents`, etc.), so they exercise the happy path.
+    /// Build a throwaway directory under Cargo's writable target directory.
+    /// `temp_dir()` is intentionally rejected by export validation on macOS,
+    /// while sandboxed test runners may not allow writes directly under HOME.
     fn tmp_dir(tag: &str) -> PathBuf {
-        let home = dirs::home_dir().expect("home dir required for these tests");
-        let base = home.join(format!(
-            ".moldavite-validation-test-{}-{}",
-            tag,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join(format!(
+                "moldavite-validation-test-{}-{}",
+                tag,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
         fs::create_dir_all(&base).unwrap();
         base
     }

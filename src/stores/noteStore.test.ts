@@ -103,4 +103,25 @@ describe('noteStore - pinned tabs', () => {
     expect(state.openTabs).toHaveLength(2);
     expect(state.activeTabId).toBe('a');
   });
+
+  it('keeps tab identity and active/current invariants through rapid churn', () => {
+    const store = useNoteStore.getState();
+    for (let i = 0; i < 200; i += 1) store.openTab(makeNote(`note-${i}`), true);
+    for (let i = 199; i >= 0; i -= 1) {
+      if (i % 3 === 0) store.switchTab(`note-${i}`);
+      if (i % 2 === 0) store.closeTab(`note-${i}`);
+      const state = useNoteStore.getState();
+      expect(new Set(state.openTabs.map((tab) => tab.id)).size).toBe(state.openTabs.length);
+      expect(state.currentNote?.id ?? null).toBe(state.activeTabId);
+      if (state.activeTabId) {
+        expect(state.openTabs.some((tab) => tab.id === state.activeTabId)).toBe(true);
+      }
+    }
+    for (const tab of [...useNoteStore.getState().openTabs]) store.closeTab(tab.id);
+    expect(useNoteStore.getState()).toMatchObject({
+      openTabs: [],
+      activeTabId: null,
+      currentNote: null,
+    });
+  });
 });

@@ -45,7 +45,7 @@ describe('searchStore semantic mode', () => {
     await flushDebounce();
     expect(mockInvoke).toHaveBeenCalledWith(
       'search_notes_content',
-      expect.objectContaining({ query: 'foo' }),
+      expect.objectContaining({ query: 'foo' })
     );
     expect(useSearchStore.getState().results).toEqual([keywordHit]);
   });
@@ -57,7 +57,7 @@ describe('searchStore semantic mode', () => {
     await flushDebounce();
     expect(mockInvoke).toHaveBeenCalledWith(
       'semantic_search',
-      expect.objectContaining({ query: 'meaning' }),
+      expect.objectContaining({ query: 'meaning' })
     );
     const s = useSearchStore.getState();
     expect(s.semanticResults).toEqual([semanticHit]);
@@ -75,7 +75,7 @@ describe('searchStore semantic mode', () => {
 
     expect(mockInvoke).toHaveBeenLastCalledWith(
       'semantic_search',
-      expect.objectContaining({ query: 'foo' }),
+      expect.objectContaining({ query: 'foo' })
     );
     expect(useSearchStore.getState().semanticResults).toEqual([semanticHit]);
   });
@@ -110,5 +110,45 @@ describe('searchStore semantic mode', () => {
     useSearchStore.getState().moveSelection(1);
     // Only one semantic hit → stays clamped at 0 despite 3 keyword results.
     expect(useSearchStore.getState().selectedIndex).toBe(0);
+  });
+
+  it('collapses rapid query spam to the final query', async () => {
+    mockInvoke.mockResolvedValue([keywordHit]);
+    for (let i = 0; i < 250; i += 1) {
+      useSearchStore.getState().setQuery(`query-${i}`);
+    }
+    await flushDebounce();
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'search_notes_content',
+      expect.objectContaining({ query: 'query-249' })
+    );
+    expect(useSearchStore.getState()).toMatchObject({
+      query: 'query-249',
+      results: [keywordHit],
+      loading: false,
+    });
+  });
+
+  it('ignores stale responses while modes switch rapidly', async () => {
+    let resolveKeyword!: (value: (typeof keywordHit)[]) => void;
+    const keyword = new Promise<(typeof keywordHit)[]>((resolve) => {
+      resolveKeyword = resolve;
+    });
+    mockInvoke.mockReturnValueOnce(keyword).mockResolvedValueOnce([semanticHit]);
+
+    useSearchStore.getState().setQuery('same query');
+    await flushDebounce();
+    useSearchStore.getState().setMode('semantic');
+    await flushDebounce();
+    resolveKeyword([keywordHit]);
+    await Promise.resolve();
+
+    expect(useSearchStore.getState()).toMatchObject({
+      mode: 'semantic',
+      results: [],
+      semanticResults: [semanticHit],
+      loading: false,
+    });
   });
 });
