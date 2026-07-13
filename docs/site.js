@@ -14,6 +14,75 @@
     });
   }
 
+  function splitWords(element) {
+    var label = (element.textContent || '').replace(/\s+/g, ' ').trim();
+    var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    var textNodes = [];
+    var current = walker.nextNode();
+    var wordIndex = 0;
+
+    while (current) {
+      textNodes.push(current);
+      current = walker.nextNode();
+    }
+
+    textNodes.forEach(function (node) {
+      if (!node.nodeValue || !/\S/.test(node.nodeValue)) return;
+      var fragment = document.createDocumentFragment();
+      node.nodeValue.split(/(\s+)/).forEach(function (part) {
+        if (!part) return;
+        if (/^\s+$/.test(part)) {
+          fragment.appendChild(document.createTextNode(part));
+          return;
+        }
+        var word = document.createElement('span');
+        word.className = 'blur-word';
+        word.style.setProperty('--word-delay', wordIndex * 100 + 'ms');
+        word.setAttribute('aria-hidden', 'true');
+        word.textContent = part;
+        fragment.appendChild(word);
+        wordIndex += 1;
+      });
+      node.parentNode.replaceChild(fragment, node);
+    });
+
+    if (label) element.setAttribute('aria-label', label);
+    element.classList.add('blur-text-ready');
+  }
+
+  function setupBlurText() {
+    if (!motion.matches) return;
+
+    var heroTitle = document.getElementById('hero-title');
+    if (heroTitle) splitWords(heroTitle);
+
+    var sectionTitles = document.querySelectorAll('.landing-section .section-title');
+    sectionTitles.forEach(function (title) {
+      splitWords(title);
+    });
+
+    if (!('IntersectionObserver' in window)) {
+      sectionTitles.forEach(function (title) {
+        title.classList.add('is-blur-visible');
+      });
+      return;
+    }
+
+    var titleObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-blur-visible');
+          titleObserver.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.1 }
+    );
+    sectionTitles.forEach(function (title) {
+      titleObserver.observe(title);
+    });
+  }
+
   function setupReveals() {
     if (!motion.matches) return;
     var sections = document.querySelectorAll(
@@ -338,6 +407,7 @@
   }
 
   setupNavigation();
+  setupBlurText();
   setupReveals();
   setupCopyButtons();
   setupMineralField();

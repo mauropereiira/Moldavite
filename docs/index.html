@@ -24,7 +24,7 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
-      <div class="nav-inner">
+      <div class="nav-inner liquid-glass">
         <div class="brand-wrap">
           <a href="index.html" class="brand">
             <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
@@ -46,7 +46,9 @@
           <a href="guide.html">User Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+          <a
+            href="https://github.com/mauropereiira/Moldavite/releases/latest"
+            class="nav-cta liquid-glass"
             >Download</a
           >
         </nav>
@@ -56,8 +58,10 @@
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <span class="eyebrow">Private notes · agent-native</span>
-          <h1 id="hero-title">Your thoughts, <span>forged locally.</span></h1>
+          <span class="eyebrow liquid-glass"
+            ><span class="eyebrow-rule" aria-hidden="true"></span>Private notes · agent-native</span
+          >
+          <h1 id="hero-title">Your thoughts, <span class="hero-gradient">forged locally.</span></h1>
           <p class="hero-lede">
             Moldavite is a macOS notes app where your knowledge stays as plain Markdown on your
             Mac—and becomes useful, permissioned memory for the AI tools you choose.
@@ -65,7 +69,7 @@
           <div class="hero-actions">
             <a
               href="https://github.com/mauropereiira/Moldavite/releases/latest"
-              class="download-btn"
+              class="download-btn liquid-glass liquid-glass-strong"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -83,7 +87,9 @@
               </svg>
               Download for Mac
             </a>
-            <a href="guide.html#agents" class="btn-secondary">Explore AI &amp; Agents</a>
+            <a href="guide.html#agents" class="btn-secondary liquid-glass"
+              >Explore AI &amp; Agents</a
+            >
           </div>
           <p class="platform-note">
             macOS 10.15+ · Apple Silicon &amp; Intel · Free and open source
@@ -91,7 +97,7 @@
         </div>
 
         <div class="mineral-stage" aria-hidden="true">
-          <div class="mineral-fragment"></div>
+          <div class="mineral-fragment"><span class="mineral-specular"></span></div>
           <div class="mineral-caption">
             <strong>Impact, made useful.</strong>
             Local Markdown meets tools that can reason across it.
@@ -100,16 +106,16 @@
       </section>
 
       <div class="trust-strip" aria-label="Core principles">
-        <div class="trust-strip-inner">
-          <div class="trust-item">
+        <div class="trust-strip-inner reveal-group">
+          <div class="trust-item liquid-glass">
             <strong>No account</strong>
             Your Forge lives on disk, not on a service.
           </div>
-          <div class="trust-item">
+          <div class="trust-item liquid-glass">
             <strong>Search stays local</strong>
             Embeddings run offline after an explicit model download.
           </div>
-          <div class="trust-item">
+          <div class="trust-item liquid-glass">
             <strong>Agent writes are off</strong>
             MCP clients start with read tools only.
           </div>
@@ -118,7 +124,7 @@
 
       <section class="landing-section" aria-labelledby="origin-title">
         <div class="container-wide origin-grid">
-          <div class="origin-fact reveal">
+          <div class="origin-fact reveal liquid-glass">
             <span class="number">15m</span>
             <p>
               years ago, a meteorite impact fused Earth and sky into the green glass called
@@ -217,7 +223,7 @@
           </div>
 
           <div class="feature-grid reveal-group">
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">MD</span>
               <h3>Plain files, rich editor</h3>
               <p>
@@ -225,7 +231,7 @@
                 templates, folders, tabs, and multiple Forges.
               </p>
             </article>
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">≈</span>
               <h3>Semantic search, fully local</h3>
               <p>
@@ -235,7 +241,7 @@
               </p>
               <a href="guide.html#semantic-search">How local search works →</a>
             </article>
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">[[</span>
               <h3>Links that survive change</h3>
               <p>
@@ -243,7 +249,7 @@
                 while inbound wiki-links are rewritten across the Forge.
               </p>
             </article>
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">◎</span>
               <h3>A graph you can navigate</h3>
               <p>
@@ -252,7 +258,7 @@
                 into visible clusters while orphan notes stay at the periphery.
               </p>
             </article>
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">±</span>
               <h3>Sync-conflict safety</h3>
               <p>
@@ -261,7 +267,7 @@
               </p>
               <a href="guide.html#conflicts">Understand conflict copies →</a>
             </article>
-            <article class="feature-card">
+            <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">API</span>
               <h3>Sandboxed Plugin API v2</h3>
               <p>
@@ -291,14 +297,14 @@
           </div>
 
           <div class="privacy-grid reveal-group">
-            <article class="privacy-card">
+            <article class="privacy-card liquid-glass">
               <h3>Owner-controlled files</h3>
               <p>
                 Notes are real Markdown with atomic saves and owner-only permissions. Encrypted
                 locking uses AES-GCM with Argon2 key derivation.
               </p>
             </article>
-            <article class="privacy-card">
+            <article class="privacy-card liquid-glass">
               <h3>Local AI index</h3>
               <p>
                 The selected model downloads only after consent. Embeddings and queries then run on
@@ -306,7 +312,7 @@
                 Forge.
               </p>
             </article>
-            <article class="privacy-card">
+            <article class="privacy-card liquid-glass">
               <h3>Narrow plugin powers</h3>
               <p>
                 Workers have no direct network or app access. The host enforces permissions, exact
@@ -338,10 +344,10 @@
           <div class="hero-actions">
             <a
               href="https://github.com/mauropereiira/Moldavite/releases/latest"
-              class="button-primary"
+              class="button-primary liquid-glass liquid-glass-strong"
               >Download the latest release</a
             >
-            <a href="guide.html" class="button-secondary">Read the v1.6 guide</a>
+            <a href="guide.html" class="button-secondary liquid-glass">Read the v1.6 guide</a>
           </div>
         </div>
       </section>
