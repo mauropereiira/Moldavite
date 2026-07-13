@@ -357,6 +357,10 @@ a {
 
 .hero h1 span {
   display: block;
+  /* background-clip:text paints only the line box; at line-height 0.96 the
+     descender of "y" gets amputated without this extra paint room. */
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
   background: linear-gradient(
     110deg,
     var(--text) 8%,
