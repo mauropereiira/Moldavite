@@ -123,7 +123,16 @@
     <span class="s">"net.fetch"</span>,
     <span class="s">"secrets"</span>
   ],
-  <span class="f">"allowedHosts"</span>: [<span class="s">"api.example.com"</span>]
+  <span class="f">"allowedHosts"</span>: [<span class="s">"api.example.com"</span>],
+  <span class="f">"commands"</span>: [
+    { <span class="f">"id"</span>: <span class="s">"configure-publisher"</span>, <span class="f">"label"</span>: <span class="s">"Configure publisher"</span> },
+    { <span class="f">"id"</span>: <span class="s">"publish-note"</span>, <span class="f">"label"</span>: <span class="s">"Publish active note…"</span> }
+  ],
+  <span class="f">"instructions"</span>: [
+    <span class="s">"Enable the plugin and approve its permissions."</span>,
+    <span class="s">"Press `Cmd+P` and run **Configure publisher** first."</span>,
+    <span class="s">"Open a note, then run **Publish active note…**."</span>
+  ]
 }</code></pre>
 
       <div class="table-scroll">
@@ -193,6 +202,23 @@
                 path, IP, single-label name, localhost label, or wildcard.
               </td>
             </tr>
+            <tr>
+              <td><code>commands</code></td>
+              <td>No</td>
+              <td>
+                Up to 50 <code>{ "id", "label" }</code> entries shown before enable. Each id
+                must match <code>api.commands.add</code>; ids are limited to 128 characters,
+                labels to 200, and duplicate ids are invalid.
+              </td>
+            </tr>
+            <tr>
+              <td><code>instructions</code></td>
+              <td>No</td>
+              <td>
+                Up to 20 setup/use step strings, 500 characters each. The post-install dialog
+                renders inline <code>**bold**</code> and backtick code; other text remains literal.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -210,6 +236,13 @@
           requirement.
         </p>
       </div>
+      <p>
+        Every successful bundled-plugin install opens a themed <strong>About this plugin</strong>
+        dialog from this validated metadata, and the installed card's ⓘ button reopens it at any
+        time. Without <code>instructions</code>, Moldavite generates a short enable-and-palette flow
+        from the description and command list. Legacy manifests remain compatible and use
+        runtime-registered commands as a display fallback after enable.
+      </p>
 
       <h2 id="entry-point">Entry point and command lifecycle</h2>
       <p>

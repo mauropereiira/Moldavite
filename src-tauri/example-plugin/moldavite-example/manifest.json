@@ -6,5 +6,14 @@
   "description": "Insert a timestamp and show the current note's word count.",
   "apiVersion": 1,
   "minAppVersion": "1.5.0",
-  "permissions": ["commands", "editor", "ui"]
+  "permissions": ["commands", "editor", "ui"],
+  "commands": [
+    { "id": "insert-timestamp", "label": "Insert timestamp" },
+    { "id": "word-count", "label": "Word count" }
+  ],
+  "instructions": [
+    "Enable the plugin and approve its editor and notification permissions.",
+    "Open a note, press `Cmd+P`, and run **Insert timestamp** to add the current time at the cursor.",
+    "Run **Word count** from `Cmd+P` to show the active note's word count."
+  ]
 }

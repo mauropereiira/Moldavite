@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 12, 2026 (v1.5.1 + unreleased)
+**Last Updated:** July 13, 2026 (v1.5.1 + unreleased)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -11,7 +11,7 @@
 ### Notes & Editing
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
 - TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; slash commands; tabs with pinning
-- Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, graph view (intentionally minimal)
+- Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, and a deterministic force-directed graph whose linked components cluster while orphans stay peripheral
 - Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (unreleased). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
@@ -38,14 +38,15 @@
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 unreleased)
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin macOS Keychain secrets; API v1 remains compatible
 - Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
+- Every successful bundled install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
 - Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 211 tests across 29 files (stores, lib, hooks, plugin RPC/manifest)
-- Backend: cargo test — 144 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
+- Frontend: vitest — 230 tests across 34 files (stores, lib, hooks, graph layout, plugin RPC/manifest/UI)
+- Backend: cargo test — 172 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 

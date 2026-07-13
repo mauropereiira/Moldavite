@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-13 10:12am GMT+1
+# [Moldavite] recent context, 2026-07-13 10:23am GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (33,448t read) | 477,987t work | 93% savings
+Stats: 50 obs (30,900t read) | 426,220t work | 93% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
@@ -22,24 +22,6 @@ S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions 
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
 ### Jul 13, 2026
-764 12:11a ⚖️ Moldavite v1.6 — Graph View Audit + MCP Path Disclosure Two-Task Session Scope
-765 12:12a ⚖️ Moldavite v1.6 — Graph View Audit + MCP Path Disclosure Two-Task Session Scope
-766 12:15a ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
-767 12:16a ⚖️ Moldavite v1.6 — End-to-End Stress-Test and Hardening Session Scoped
-768 " ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
-769 12:17a ⚖️ Moldavite v1.6 — Full End-to-End Stress-Test and Hardening Session Scoped
-770 12:18a ⚖️ Moldavite v1.6 — Comprehensive Stress-Test and Hardening Session Scope Defined
-771 12:19a 🔴 MCP Server — Oversized Request DoS Protection Added
-772 " ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Scope Defined on feat/v1.6-agent-native
-773 12:20a ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
-774 12:21a ⚖️ Moldavite v1.6 — Comprehensive Stress-Test and Hardening Session Scope Defined
-775 12:22a ⚖️ Moldavite v1.6 — Full End-to-End Stress-Test and Hardening Session Scoped
-776 12:23a ⚖️ Moldavite v1.6 — End-to-End Stress Test + Hardening Session Scope Defined
-777 8:34a ⚖️ Moldavite Website Refresh + Builder Docs — Full Scope Defined on feat/v1.6-agent-native
-778 8:35a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Full Scope Defined
-780 " 🔵 Moldavite v1.6 Codebase Architecture Audit — Key Facts for Website Refresh
-781 8:36a 🔵 Plugin Sandbox Hardening + v1.6 Feature Inventory Confirmed from CHANGELOG/PROJECT_STATUS
-782 8:37a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Full Implementation Session Started
 783 8:42a ⚖️ Moldavite Website Refresh + Builder Docs — Implementation Session Started
 784 8:43a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Started
 785 8:45a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Full Implementation Scope Defined
@@ -72,6 +54,24 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 814 " ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined (Continuation Session)
 815 9:11a ⚖️ Moldavite Open-Source Documentation Pass — Session Scope and Constraints Defined
 817 9:12a ✅ Moldavite Open-Source Documentation Pass — Fully Completed on feat/v1.6-agent-native
+818 10:13a ⚖️ Moldavite v1.6 — Two Blocking Bug Fix Session Scope Defined
+819 10:14a ⚖️ Moldavite v1.6 — Two Blocking Bug Fix Scope Defined on feat/v1.6-agent-native
+820 " 🔵 WordPress Plugin Install Bug — Root Cause: Build Script Hardcoded to moldavite-example Only
+822 " 🔴 Plugin Install — Failing Test Written (TDD Red Phase) Confirming Missing Manifest Validation
+823 10:15a 🔴 Moldavite Plugin Install — Atomic Copy + Dev-Mode Source Fallback Implemented
+824 " 🔴 Plugin Install Tests Green — All 7 commands::plugins::tests Pass
+827 10:16a 🔵 Bug 2 Lock-Flow Trace — Open Editor Tab Not Closed After lockNote Causes Black Screen
+828 10:17a ⚖️ Moldavite v1.6 — Bug 2 Investigation Scope: Note-Lock Black Screen
+829 10:18a ⚖️ Moldavite v1.6 — Bug 2 Note-Lock Black Screen: Investigation Scope Defined
+830 10:19a ⚖️ Moldavite v1.6 — Bug 2 Continuation Session: Note-Lock Black Screen Investigation
+831 10:20a 🔴 Moldavite v1.6 — Both Blocking Bugs Fixed: Full Acceptance Suite Green
+833 " 🔵 Moldavite — cargo clippy Blocked by macOS Sandbox Denying Swift Build in Agent Environment
+834 " 🔵 Moldavite — swift build --disable-sandbox Flag Available to Bypass Agent Sandbox Restriction
+835 10:22a 🔵 Moldavite WordPress Plugin Install — Root Cause: No Pre-flight Manifest Validation
+836 " 🔴 Moldavite WordPress Plugin Install — Pre-flight Validation + Atomic Copy Fixed
+837 " 🔴 Moldavite Note-Lock Black Screen — Root Cause Fixed + App-Level Error Boundary Added
+838 " 🔵 cargo clippy Blocked by macOS Sandbox Denying Swift Build in Agent Environment
+839 " ⚖️ Moldavite v1.6 — Two Blocking Bug Fixes Session Complete on feat/v1.6-agent-native
 
-Access 478k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 426k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
