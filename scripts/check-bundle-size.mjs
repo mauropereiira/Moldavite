@@ -40,7 +40,8 @@ const BUDGETS = [
 // PluginDialogHost is lazy-loaded, but this combined budget deliberately also
 // counts lazy app chunks, so it includes the small split-chunk/gzip overhead.
 // Bumped for the graph-view overhaul (deterministic layout, LOD, fit-view).
-const APP_JS_BUDGET = { rawKb: 522, gzipKb: 140 };
+// Bumped for force-clustered graph physics + plugin About/instructions dialog.
+const APP_JS_BUDGET = { rawKb: 536, gzipKb: 143 };
 
 async function main() {
   let entries;
