@@ -715,6 +715,7 @@ fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIn
         old_stem,
         new_stem,
         index,
+        None,
     );
 }
 
@@ -723,6 +724,7 @@ fn rewrite_inbound_links_in_roots(
     old_stem: &str,
     new_stem: &str,
     index: &Arc<BacklinksIndex>,
+    resolver: Option<&crate::backlinks_index::Resolver>,
 ) {
     for root in roots {
         if !root.exists() {
@@ -752,7 +754,11 @@ fn rewrite_inbound_links_in_roots(
             }
             if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
                 let body = crate::frontmatter::parse_note(&rewritten).body;
-                index.update_note(name, &body);
+                if let Some(resolver) = resolver {
+                    index.update_note_with(name, &body, resolver);
+                } else {
+                    index.update_note(name, &body);
+                }
             }
         }
     }
@@ -1237,6 +1243,7 @@ mod tests {
             "café",
             "日本語ノート",
             &index,
+            Some(&crate::wiki::note_name_to_filename),
         );
         let elapsed = started.elapsed();
         for i in 0..550 {
