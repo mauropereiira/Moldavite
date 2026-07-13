@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Puzzle, ExternalLink, Trash2, Download, FileCode, Globe2, RefreshCw } from 'lucide-react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
-import { usePluginStore, usePluginCommandStore } from '@/stores';
+import { usePluginStore, usePluginCommandStore, usePluginInstallStore } from '@/stores';
+import type { PluginInstallRequest } from '@/stores';
 import { useToastStore } from '@/stores/toastStore';
 import { safeInvoke } from '@/lib/ipc';
 import { loadEnabledPlugins } from '@/lib/plugins/host';
@@ -22,6 +23,7 @@ import {
 } from '@/lib/plugins/registry';
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
 import { PluginAboutDialog } from '@/components/plugins/PluginAboutDialog';
+import { PluginInstallDialog } from '@/components/plugins/PluginInstallDialog';
 import { ConfirmDialog } from '@/components/ui';
 import { Toggle } from '../common';
 
@@ -29,6 +31,7 @@ const PLUGINS_DOC_URL = 'https://github.com/mauropereiira/Moldavite/blob/main/do
 
 type SheetState = { info: PluginInfo; mode: 'grant' | 'view' } | null;
 type RegistryStatus = 'idle' | 'loading' | 'ready' | 'error';
+type PendingCommunityInstall = { plugin: CommunityPlugin; confirmUpdate: boolean } | null;
 
 export function PluginsSection() {
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
@@ -37,15 +40,19 @@ export function PluginsSection() {
   const [about, setAbout] = useState<PluginInfo | null>(null);
   const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<CommunityPlugin | null>(null);
+  const [pendingInstall, setPendingInstall] = useState<PendingCommunityInstall>(null);
   const [registryStatus, setRegistryStatus] = useState<RegistryStatus>('idle');
   const [communityPlugins, setCommunityPlugins] = useState<CommunityPlugin[]>([]);
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [rejectedEntries, setRejectedEntries] = useState(0);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } =
     usePluginStore();
   const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
+  const installRequest = usePluginInstallStore((s) => s.pending);
+  const clearInstallRequest = usePluginInstallStore((s) => s.clear);
 
   const refresh = useCallback(async () => {
     const infos = await loadEnabledPlugins();
@@ -129,32 +136,64 @@ export function PluginsSection() {
     }
   };
 
-  const browseCommunityPlugins = async () => {
-    setRegistryStatus('loading');
-    setRegistryError(null);
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 15_000);
-    try {
-      const response = await fetch(COMMUNITY_REGISTRY_URL, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(`GitHub returned status ${response.status}`);
-      const parsed = parseCommunityRegistry(await response.json());
-      setCommunityPlugins(parsed.plugins);
-      setRejectedEntries(parsed.rejectedEntries);
-      setRegistryStatus('ready');
-    } catch (error) {
-      const detail =
-        error instanceof Error && error.name !== 'AbortError' ? ` ${error.message}` : '';
-      setRegistryError(
-        `Couldn't reach the community registry. Check your connection and try again.${detail}`
-      );
-      setRegistryStatus('error');
-    } finally {
-      window.clearTimeout(timeout);
-    }
-  };
+  const browseCommunityPlugins = useCallback(
+    async (request?: PluginInstallRequest) => {
+      if (request) clearInstallRequest(request.nonce);
+      setRegistryStatus('loading');
+      setRegistryError(null);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      try {
+        const installedPlugins = await refresh();
+        const response = await fetch(COMMUNITY_REGISTRY_URL, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`GitHub returned status ${response.status}`);
+        const parsed = parseCommunityRegistry(await response.json());
+        setCommunityPlugins(parsed.plugins);
+        setRejectedEntries(parsed.rejectedEntries);
+        setRegistryStatus('ready');
+
+        if (request) {
+          const requestedPlugin = parsed.plugins.find((plugin) => plugin.id === request.id);
+          if (!requestedPlugin) {
+            addToast('error', `“${request.id}” isn't in the community plugin directory.`);
+            return;
+          }
+
+          setHighlightedId(requestedPlugin.id);
+          const installState = communityInstallState(requestedPlugin, installedPlugins);
+          if (installState === 'installed') {
+            addToast('success', `${requestedPlugin.name} is already installed`);
+          } else if (installState === 'update-available') {
+            setPendingInstall({ plugin: requestedPlugin, confirmUpdate: true });
+          } else {
+            setPendingInstall({ plugin: requestedPlugin, confirmUpdate: false });
+          }
+          window.requestAnimationFrame(() => {
+            document
+              .getElementById(`community-plugin-${requestedPlugin.id}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        }
+      } catch (error) {
+        const detail =
+          error instanceof Error && error.name !== 'AbortError' ? ` ${error.message}` : '';
+        setRegistryError(
+          `Couldn't reach the community registry. Check your connection and try again.${detail}`
+        );
+        setRegistryStatus('error');
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    },
+    [addToast, clearInstallRequest, refresh]
+  );
+
+  useEffect(() => {
+    if (installRequest) void browseCommunityPlugins(installRequest);
+  }, [browseCommunityPlugins, installRequest]);
 
   const installCommunityPlugin = async (plugin: CommunityPlugin, confirmUpdate: boolean) => {
     setBusy(true);
@@ -385,7 +424,7 @@ export function PluginsSection() {
           </button>
           <button
             type="button"
-            onClick={browseCommunityPlugins}
+            onClick={() => void browseCommunityPlugins()}
             disabled={registryStatus === 'loading' || busy}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
@@ -497,11 +536,17 @@ export function PluginsSection() {
                 return (
                   <article
                     key={plugin.id}
+                    id={`community-plugin-${plugin.id}`}
                     className="p-4"
                     style={{
                       backgroundColor: 'var(--bg-panel)',
-                      border: '1px solid var(--border-default)',
+                      border:
+                        highlightedId === plugin.id
+                          ? '2px solid var(--accent-primary)'
+                          : '1px solid var(--border-default)',
                       borderRadius: 'var(--radius-md)',
+                      boxShadow:
+                        highlightedId === plugin.id ? '0 0 0 3px var(--accent-subtle)' : 'none',
                     }}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -617,6 +662,19 @@ export function PluginsSection() {
             void installCommunityPlugin(plugin, true);
           }}
           onCancel={() => setPendingUpdate(null)}
+        />
+      )}
+
+      {pendingInstall && (
+        <PluginInstallDialog
+          plugin={pendingInstall.plugin}
+          actionLabel={pendingInstall.confirmUpdate ? 'Update' : 'Install'}
+          onInstall={() => {
+            const { plugin, confirmUpdate } = pendingInstall;
+            setPendingInstall(null);
+            void installCommunityPlugin(plugin, confirmUpdate);
+          }}
+          onClose={() => setPendingInstall(null)}
         />
       )}
 

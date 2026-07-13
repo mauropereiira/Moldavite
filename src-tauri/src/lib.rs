@@ -24,6 +24,9 @@ mod calendar;
 /// Core encryption logic (AES-256-GCM)
 mod encryption;
 
+/// Strict custom-scheme parsing and delivery for website plugin installs.
+mod deep_link;
+
 /// Security utilities (rate limiting)
 mod security;
 
@@ -139,6 +142,7 @@ pub fn run() {
     use std::sync::Arc;
 
     use tauri::Manager;
+    use tauri_plugin_deep_link::DeepLinkExt;
 
     use crate::backlinks_index::BacklinksIndex;
 
@@ -150,6 +154,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .register_uri_scheme_protocol("plugin", |_ctx, request| {
             use tauri::http::{header, Response, StatusCode};
             // URI shape: plugin://localhost/<id>/<relative-path>
@@ -187,7 +192,23 @@ pub fn run() {
         })
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
+        .manage(deep_link::PendingPluginInstallLinks::default())
         .setup(move |app| {
+            // Register before WebView hydration. Live URLs wake the frontend;
+            // cold-start URLs remain queued until React drains them.
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                deep_link::route_urls(&app_handle, event.urls().iter().map(|url| url.as_str()));
+            });
+            if let Some(urls) = app.deep_link().get_current()? {
+                deep_link::route_urls(app.handle(), urls.iter().map(|url| url.as_str()));
+            }
+            // macOS schemes are registered through the generated app bundle.
+            // Linux, and Windows development builds without an installer,
+            // register the configured schemes at runtime.
+            #[cfg(any(target_os = "linux", all(debug_assertions, target_os = "windows")))]
+            app.deep_link().register_all()?;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -232,6 +253,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            deep_link::take_pending_plugin_install_links,
             ensure_directories,
             get_app_binary_path,
             get_mcp_writes_enabled,

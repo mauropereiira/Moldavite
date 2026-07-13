@@ -21,6 +21,18 @@ export type SortOption =
   | 'created-asc';
 export type EditorWidth = 'narrow' | 'medium' | 'wide' | 'full';
 export type StartupView = 'last-note' | 'daily-note' | 'empty';
+export type SettingsTab =
+  | 'general'
+  | 'appearance'
+  | 'editor'
+  | 'features'
+  | 'sidebar'
+  | 'calendar'
+  | 'templates'
+  | 'plugins'
+  | 'agents'
+  | 'data'
+  | 'about';
 
 interface SettingsState {
   // General
@@ -79,6 +91,7 @@ interface SettingsState {
 
   // UI State
   isSettingsOpen: boolean;
+  activeSettingsTab: SettingsTab;
 
   // Actions
   setNotesDirectory: (path: string) => void;
@@ -115,6 +128,7 @@ interface SettingsState {
   setHasSeenAppOnboarding: (seen: boolean) => void;
   setLastSeenOnboardingVersion: (version: number) => void;
   setIsSettingsOpen: (open: boolean) => void;
+  setActiveSettingsTab: (tab: SettingsTab) => void;
   resetToDefaults: () => void;
 }
 
@@ -153,6 +167,7 @@ const defaultSettings = {
   hasSeenAppOnboarding: false,
   lastSeenOnboardingVersion: 0,
   isSettingsOpen: false,
+  activeSettingsTab: 'general' as SettingsTab,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -194,6 +209,7 @@ export const useSettingsStore = create<SettingsState>()(
       setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
       setLastSeenOnboardingVersion: (version) => set({ lastSeenOnboardingVersion: version }),
       setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
+      setActiveSettingsTab: (tab) => set({ activeSettingsTab: tab }),
       resetToDefaults: () => set(defaultSettings),
     }),
     {

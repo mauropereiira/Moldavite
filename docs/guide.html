@@ -355,11 +355,21 @@
       </p>
 
       <h3>Browse the community directory</h3>
+      <p>
+        The <a href="plugins.html#directory">website directory</a> is searchable by plugin name,
+        description, author, and permission. Its <strong>Install in Moldavite</strong> links use the
+        app's <code>moldavite://plugin/&lt;id&gt;</code> URL scheme to open Settings directly on the
+        chosen plugin. Moldavite still shows a confirmation with permissions and never installs or
+        enables a plugin silently.
+      </p>
       <ol>
-        <li>Open <strong>Settings → Plugins</strong>.</li>
         <li>
-          Select <strong>Browse community plugins</strong>. This is the explicit action that
-          contacts GitHub; Moldavite never fetches the registry during startup or in the background.
+          Use an install link on the website, or open <strong>Settings → Plugins</strong> and select
+          <strong>Browse community plugins</strong>.
+        </li>
+        <li>
+          That click is the explicit action that contacts GitHub; Moldavite never fetches the
+          registry during startup or in the background.
         </li>
         <li>
           Review the author, requested permissions, and exact network hosts, then select Install.

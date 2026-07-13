@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-13 10:39am GMT+1
+# [Moldavite] recent context, 2026-07-13 11:07am GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (31,424t read) | 424,515t work | 93% savings
+Stats: 50 obs (31,156t read) | 459,141t work | 93% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
@@ -22,36 +22,7 @@ S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions 
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
 ### Jul 13, 2026
-798 9:01a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined
-799 9:02a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined on feat/v1.6-agent-native
-801 " 🔄 Rust Doc Comments Added to locking.rs, notes.rs, and semantic.rs
-802 " 🔵 TypeScript Codebase Pre-Documentation State Audited
-803 9:03a ⚖️ Moldavite Open-Source Documentation Pass — Full Implementation Scope Defined on feat/v1.6-agent-native
-804 9:04a ⚖️ Moldavite Open-Source Documentation Pass — Implementation Session Started on feat/v1.6-agent-native
-805 9:05a ⚖️ Moldavite Open-Source Documentation Pass — Session Scope Confirmed on feat/v1.6-agent-native
-806 9:06a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined on feat/v1.6-agent-native
-807 9:07a ✅ TypeScript Test Files — File-Header Doc Comments Added to 22 Test Files
-809 " 🔵 Documentation Pass Progress Audit — 89 TS Files, 36 Rust Files, utils.rs Deleted
-810 " ✅ CONTRIBUTING.md Deleted to Be Recreated Fresh from README + CLAUDE.md Sources
-811 9:08a ⚖️ Moldavite Open-Source Documentation Pass — Full Implementation Scope Defined on feat/v1.6-agent-native
-812 9:09a ⚖️ Moldavite Open-Source Documentation Pass — Phase 2 Scope Defined
-813 9:10a ⚖️ Moldavite Open-Source Documentation Pass — Session Continuation Scope Defined
-814 " ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined (Continuation Session)
-815 9:11a ⚖️ Moldavite Open-Source Documentation Pass — Session Scope and Constraints Defined
-817 9:12a ✅ Moldavite Open-Source Documentation Pass — Fully Completed on feat/v1.6-agent-native
-818 10:13a ⚖️ Moldavite v1.6 — Two Blocking Bug Fix Session Scope Defined
-819 10:14a ⚖️ Moldavite v1.6 — Two Blocking Bug Fix Scope Defined on feat/v1.6-agent-native
-820 " 🔵 WordPress Plugin Install Bug — Root Cause: Build Script Hardcoded to moldavite-example Only
-822 " 🔴 Plugin Install — Failing Test Written (TDD Red Phase) Confirming Missing Manifest Validation
-823 10:15a 🔴 Moldavite Plugin Install — Atomic Copy + Dev-Mode Source Fallback Implemented
-824 " 🔴 Plugin Install Tests Green — All 7 commands::plugins::tests Pass
-827 10:16a 🔵 Bug 2 Lock-Flow Trace — Open Editor Tab Not Closed After lockNote Causes Black Screen
-828 10:17a ⚖️ Moldavite v1.6 — Bug 2 Investigation Scope: Note-Lock Black Screen
-829 10:18a ⚖️ Moldavite v1.6 — Bug 2 Note-Lock Black Screen: Investigation Scope Defined
-830 10:19a ⚖️ Moldavite v1.6 — Bug 2 Continuation Session: Note-Lock Black Screen Investigation
-831 10:20a 🔴 Moldavite v1.6 — Both Blocking Bugs Fixed: Full Acceptance Suite Green
-833 " 🔵 Moldavite — cargo clippy Blocked by macOS Sandbox Denying Swift Build in Agent Environment
-834 " 🔵 Moldavite — swift build --disable-sandbox Flag Available to Bypass Agent Sandbox Restriction
+834 10:20a 🔵 Moldavite — swift build --disable-sandbox Flag Available to Bypass Agent Sandbox Restriction
 835 10:22a 🔵 Moldavite WordPress Plugin Install — Root Cause: No Pre-flight Manifest Validation
 836 " 🔴 Moldavite WordPress Plugin Install — Pre-flight Validation + Atomic Copy Fixed
 837 " 🔴 Moldavite Note-Lock Black Screen — Root Cause Fixed + App-Level Error Boundary Added
@@ -72,6 +43,35 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 852 " ⚖️ Moldavite v1.6 — Graph Physics Redesign: Obsidian-Style Force-Directed Layout Scope Defined
 853 " ⚖️ Moldavite v1.6 — Plugin Install Instructions Dialog + Manifest `instructions` Field Scope Defined
 854 10:36a ⚖️ Moldavite v1.6 — Graph Physics + Plugin Install Instructions Two-Task Session Scope Defined
+855 10:39a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Full Scope Defined
+856 10:40a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
+857 10:41a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Scope Defined
+858 10:43a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
+859 " 🟣 Moldavite v1.6 — Rust install_plugin_from_data Command + Shared Staged Installer
+861 10:44a 🟣 Moldavite v1.6 — Rust Tests for Community Plugin Hash Verification and Staged Install
+862 " 🔵 Moldavite — cargo fmt --check Fails: Widespread Formatting Drift Across Rust Source
+863 10:45a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Full Scope Defined (Session Start)
+864 10:46a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Full Scope Defined (Session Start)
+865 " 🟣 Moldavite Community Plugin Browser UI — PluginsSection + registry.ts Implemented
+866 10:47a 🔴 PluginsSection.tsx — ESLint react/no-unescaped-entities Fix
+868 " 🔵 Moldavite Docs Truthfulness Audit — Stale Community Registry References Found
+869 10:48a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined (Continuation)
+870 10:49a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined (Jul 13)
+871 10:50a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
+872 10:51a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Full Session Scope Defined
+873 " ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Full Session Scope Confirmed
+874 10:52a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
+875 10:53a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope (Re-entry)
+876 10:54a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
+877 " 🔵 Moldavite — cargo clippy Swift Sandbox Workaround via Wrapper Script
+878 " 🔵 Moldavite Website — docs/site.js Has Exactly One External Fetch (Registry URL Confirmed)
+880 10:55a 🟣 Moldavite v1.6 — install_plugin_from_data Rust Command with SHA-256 Hash Verification
+881 " 🟣 Moldavite v1.6 — Community Plugin Browser UI in Settings → Plugins
+882 " 🟣 Moldavite Website — Canvas Mineral-Shard Animated Background + Hero Shimmer + Section Reveals
+883 " 🟣 Moldavite Website — docs/plugins.html Community Directory Page with Live Registry Fetch + Static Fallback
+884 " ✅ Moldavite Website — Acceptance Checks All Green (HTML Valid, ESLint Clean, Prettier Clean, One External URL)
+885 10:56a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined (Final)
+886 10:57a ⚖️ Moldavite v1.6 — Community Plugin Browser + Website Round 2 Session Scope Defined
 
-Access 425k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 459k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

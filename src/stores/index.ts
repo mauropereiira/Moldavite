@@ -43,6 +43,7 @@ export type {
   DefaultNoteType,
   FontFamily,
   AutoLockTimeout,
+  SettingsTab,
 } from './settingsStore';
 
 // Feature stores
@@ -53,6 +54,8 @@ export { useUpdateStore } from './updateStore';
 export { useWhatsNewStore } from './whatsNewStore';
 export { usePluginCommandStore } from './pluginCommandStore';
 export { usePluginStore } from './pluginStore';
+export { usePluginInstallStore } from './pluginInstallStore';
+export type { PluginInstallRequest } from './pluginInstallStore';
 export { editorHandle } from './editorHandleStore';
 export { useFolderStore } from './folderStore';
 export { useTrashStore } from './trashStore';

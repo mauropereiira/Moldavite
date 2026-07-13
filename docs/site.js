@@ -234,6 +234,13 @@
   function pluginCard(plugin) {
     var card = document.createElement('article');
     card.className = 'directory-card';
+    card.setAttribute(
+      'data-plugin-search-text',
+      [plugin.name, plugin.description, plugin.author]
+        .concat(plugin.permissions, plugin.allowedHosts)
+        .join(' ')
+        .toLowerCase()
+    );
     var heading = document.createElement('div');
     heading.className = 'directory-card-heading';
     text(heading, 'h3', '', plugin.name);
@@ -253,12 +260,17 @@
       text(permissions, 'span', 'directory-chip directory-host', 'host: ' + host);
     });
     card.appendChild(permissions);
-    text(
-      card,
-      'p',
-      'directory-install',
-      'Install in Moldavite: Settings → Plugins → Browse community plugins.'
-    );
+    var install = document.createElement('div');
+    install.className = 'directory-install';
+    var installLink = text(install, 'a', 'directory-install-button', 'Install in Moldavite');
+    installLink.setAttribute('href', 'moldavite://plugin/' + plugin.id);
+    var hint = document.createElement('span');
+    hint.appendChild(document.createTextNode('App not installed? '));
+    var downloadLink = text(hint, 'a', '', 'Download here');
+    downloadLink.setAttribute('href', 'index.html');
+    hint.appendChild(document.createTextNode('.'));
+    install.appendChild(hint);
+    card.appendChild(install);
     return card;
   }
 
@@ -266,8 +278,36 @@
     var directory = document.querySelector('[data-plugin-directory]');
     if (!directory) return;
     var status = document.querySelector('[data-registry-status]');
+    var search = document.querySelector('[data-plugin-search]');
+    var count = document.querySelector('[data-plugin-count]');
+    var empty = document.querySelector('[data-plugin-empty]');
     var registryUrl =
       'https://raw.githubusercontent.com/mauropereiira/moldavite-plugins/main/registry.json';
+
+    function filterDirectory() {
+      var query = search ? search.value.trim().toLowerCase() : '';
+      var terms = query ? query.split(/\s+/) : [];
+      var cards = Array.prototype.slice.call(directory.querySelectorAll('.directory-card'));
+      var visible = 0;
+      cards.forEach(function (card) {
+        var searchable = card.getAttribute('data-plugin-search-text') || '';
+        var matches = terms.every(function (term) {
+          return searchable.indexOf(term) !== -1;
+        });
+        card.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      if (count) {
+        count.textContent = query
+          ? visible + ' of ' + cards.length + ' plugins'
+          : cards.length + (cards.length === 1 ? ' plugin' : ' plugins');
+      }
+      if (empty) empty.hidden = visible !== 0;
+    }
+
+    if (search) search.addEventListener('input', filterDirectory);
+    filterDirectory();
+
     fetch(registryUrl, { cache: 'no-store' })
       .then(function (response) {
         if (!response.ok) throw new Error('registry unavailable');
@@ -290,6 +330,7 @@
         });
         directory.replaceChildren(fragment);
         if (status) status.textContent = 'Live directory · ' + plugins.length + ' plugins';
+        filterDirectory();
       })
       .catch(function () {
         if (status) status.textContent = 'Showing the bundled fallback directory';

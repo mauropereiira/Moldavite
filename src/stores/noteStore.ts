@@ -11,6 +11,8 @@
 import { create } from 'zustand';
 import type { Note, NoteFile } from '@/types';
 import { namespacedKey } from '@/lib/forgeStorage';
+import { useGraphStore } from './graphStore';
+import { useTimelineStore } from './timelineStore';
 
 interface NoteState {
   notes: NoteFile[];
@@ -163,6 +165,12 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    * or switches to existing tab if already open.
    */
   openTab: (note, inNewTab = false) => {
+    // A note becoming active always yields transient exploration views. Keep
+    // this at the canonical tab entry point so sidebar, search, quick switcher,
+    // locked-note unlocks, graph nodes, and virtual notes cannot diverge.
+    useTimelineStore.getState().close();
+    useGraphStore.getState().close();
+
     // Track in recent notes
     get().addRecentNote(note.id);
 

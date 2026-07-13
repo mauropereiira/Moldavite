@@ -23,6 +23,22 @@ macOS Keychain, and show notifications.
 > approved service. Only enable plugins you trust, and request the narrowest
 > permissions your plugin needs.
 
+## Installing from the directory
+
+The [website directory](https://mauropereiira.github.io/Moldavite/plugins.html#directory) can be
+searched by name, description, author, and permission. Each listed plugin has an
+**Install in Moldavite** link using the exact shape
+`moldavite://plugin/<plugin-id>`. Clicking it opens **Settings → Plugins**, explicitly fetches the
+community registry, highlights the requested entry, and shows an install confirmation with its
+permissions and allowed hosts.
+
+The link never carries file URLs or plugin code, and other `moldavite://` shapes are ignored. The
+id must pass Moldavite's normal plugin-id validation and must exist in the fetched registry. The
+normal security flow is unchanged: Rust verifies both registry hashes before the atomic install,
+installation leaves the plugin disabled, and the user must separately enable it and grant the
+content-hash-pinned permissions. Browsing directly from **Settings → Plugins** and manual folder
+installation remain available.
+
 ## Quick start
 
 Create this layout in the active Forge:
@@ -520,11 +536,13 @@ client ID, and the reference plugin intentionally does not embed or fake one.
 - Document every external service, exact manifest host, runtime-host reason,
   credential key, destructive action, and publishing action. Keep permissions
   minimal.
-- Users select **Settings → Plugins → Browse community plugins** to fetch the
-  directory explicitly; Moldavite never checks it at startup. The app constructs
-  file URLs only inside the pinned registry repository, and Rust verifies the
-  registry hashes before the shared staged/atomic installer writes either file.
-  Manual folder copies under `<Forge>/.plugins/` remain supported.
+- Users select **Settings → Plugins → Browse community plugins**, or click a
+  website **Install in Moldavite** link, to fetch the directory explicitly;
+  Moldavite never checks it at startup. Website links contain only the validated
+  registry id and always stop at a permission-visible confirmation. The app
+  constructs file URLs only inside the pinned registry repository, and Rust
+  verifies the registry hashes before the shared staged/atomic installer writes
+  either file. Manual folder copies under `<Forge>/.plugins/` remain supported.
 - To update, submit the new files, hashes, metadata, and incremented `version`
   together. Installed users see an Update action and must confirm replacement.
   Any byte change invalidates the content-hash grant and requires fresh consent.

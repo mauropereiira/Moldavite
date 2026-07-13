@@ -23,7 +23,7 @@ import {
   useSemanticStore,
 } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
-import { useAutoLock, useForgeWatcher, usePluginHost } from './hooks';
+import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
 
 function App() {
   const { theme, preset } = useThemeStore();
@@ -38,6 +38,9 @@ function App() {
 
   // Plugin host: load enabled plugins for the active Forge on startup
   usePluginHost();
+
+  // Website install links: subscribe first, then drain cold-start requests.
+  usePluginDeepLinks();
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {
