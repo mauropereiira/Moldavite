@@ -1,3 +1,11 @@
+//! MCP tool schemas and filesystem-backed tool dispatch.
+//!
+//! This is the MCP security boundary: every method name, JSON argument, note
+//! path, and folder path is untrusted. Reads stay within the selected Forge and
+//! reject symlinks; writes additionally re-read the persisted opt-in gate for
+//! each request and use atomic persistence. The exposed tool set must match
+//! [`ToolContext::call`], so a listed capability cannot bypass its validator.
+
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};

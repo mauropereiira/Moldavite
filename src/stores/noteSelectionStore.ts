@@ -1,3 +1,9 @@
+/**
+ * Transient bulk-selection state for stable note ids/paths.
+ * Set updates always allocate a new `Set` for Zustand change detection; callers
+ * must clear or migrate ids after structural note operations.
+ */
+
 import { create } from 'zustand';
 
 /**
@@ -48,10 +54,6 @@ export const useNoteSelectionStore = create<NoteSelectionState>((set) => ({
   clear: () => {
     // Avoid re-allocating an empty Set if already empty — keeps referential
     // equality so memoized selectors don't fire needlessly.
-    set((state) =>
-      state.selectedIds.size === 0
-        ? state
-        : { selectedIds: new Set<string>() },
-    );
+    set((state) => (state.selectedIds.size === 0 ? state : { selectedIds: new Set<string>() }));
   },
 }));

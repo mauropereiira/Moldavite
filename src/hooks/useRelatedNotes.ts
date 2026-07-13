@@ -1,3 +1,9 @@
+/**
+ * Debounced semantic-neighbor query state for the current note.
+ * Queries run only while the local index reports ready, discard stale async
+ * results on dependency changes, and treat rebuild races as non-fatal.
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import { semanticRelated, SEMANTIC_RELATED_LIMIT, type SemanticHit } from '@/lib/semantic';
 
@@ -15,11 +21,7 @@ const DEBOUNCE_MS = 500;
  * @param enabled - Gate: only query while the semantic index is ready.
  * @param refreshKey - Changes whenever the caller wants a re-query (debounced).
  */
-export function useRelatedNotes(
-  path: string | null,
-  enabled: boolean,
-  refreshKey: unknown = 0,
-) {
+export function useRelatedNotes(path: string | null, enabled: boolean, refreshKey: unknown = 0) {
   const [related, setRelated] = useState<SemanticHit[]>([]);
   const [loading, setLoading] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

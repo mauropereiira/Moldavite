@@ -1,3 +1,8 @@
+//! Binary entry point that selects headless MCP mode before Tauri starts.
+//!
+//! The `--mcp` path must not initialize the GUI: MCP clients expect a clean
+//! newline-delimited JSON-RPC stream on standard input and standard output.
+
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

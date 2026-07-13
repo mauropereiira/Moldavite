@@ -1,3 +1,9 @@
+/**
+ * Typed IPC wrappers for template CRUD, expansion, and note creation.
+ * Template ids and note paths remain backend-validated; this module performs no
+ * local path construction beyond forwarding the caller's addressed target.
+ */
+
 import { safeInvoke as invoke } from './ipc';
 import type { Template, SaveTemplateInput } from '@/types/template';
 

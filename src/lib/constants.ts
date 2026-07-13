@@ -1,5 +1,7 @@
 /**
- * Application-wide constants
+ * Legacy application-wide defaults, limits, labels, and storage keys.
+ * Values here are compile-time frontend policy; persisted settings and backend
+ * filesystem names remain authoritative where they overlap.
  */
 
 // Application metadata
@@ -104,9 +106,11 @@ export const SUCCESS_TEMPLATE_APPLIED = 'Template applied';
 
 // Confirmation messages
 export const CONFIRM_DELETE_NOTE = 'Delete this note? This cannot be undone.';
-export const CONFIRM_DELETE_ALL_NOTES = 'This will permanently delete ALL notes. This cannot be undone.';
+export const CONFIRM_DELETE_ALL_NOTES =
+  'This will permanently delete ALL notes. This cannot be undone.';
 export const CONFIRM_DELETE_TEMPLATE = 'Delete this template?';
-export const CONFIRM_CREATE_MISSING_NOTE = (name: string) => `Note "${name}" doesn't exist. Create it?`;
+export const CONFIRM_CREATE_MISSING_NOTE = (name: string) =>
+  `Note "${name}" doesn't exist. Create it?`;
 
 // Local storage keys
 export const STORAGE_KEY_THEME = 'theme';

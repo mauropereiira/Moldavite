@@ -1,9 +1,15 @@
-//! Filename and path validation helpers.
+//! Trust-boundary validation for every user- or client-supplied filesystem path.
+//!
+//! Bare note names, Forge-relative note paths, in-Forge destinations, and
+//! user-selected absolute export paths have distinct threat models and must use
+//! the matching validator. Checks reject traversal, hidden/internal paths,
+//! symlink redirection, and writes into sensitive system or home directories;
+//! validation must happen before any filesystem mutation.
 
 use std::fs;
 use std::path::Path;
 
-/// Validates that a filename is safe (no path traversal, no absolute paths)
+/// Accept only one non-empty filename component with no traversal or NUL bytes.
 pub(crate) fn is_safe_filename(filename: &str) -> bool {
     // Reject empty filenames
     if filename.is_empty() {
@@ -33,11 +39,11 @@ pub(crate) fn is_safe_filename(filename: &str) -> bool {
     true
 }
 
-/// Validates a standalone-note path relative to the notes/ dir — either a
-/// bare filename ("foo.md") or a folder-relative path ("Projects/foo.md").
-/// Component-wise checks reject traversal ("..", absolute paths), backslashes,
-/// null bytes, and hidden components (so .trash and atomic-write temp files
-/// can never be addressed).
+/// Accept a visible slash-separated path relative to the standalone notes root.
+///
+/// Each component must be non-empty and non-hidden; backslashes, absolute paths,
+/// NUL bytes, and `..` components are rejected so internal trees and atomic
+/// temporary files cannot be addressed.
 pub(crate) fn is_safe_note_path(path: &str) -> bool {
     if path.is_empty() || path.contains('\0') || path.contains('\\') || path.starts_with('/') {
         return false;
@@ -46,10 +52,11 @@ pub(crate) fn is_safe_note_path(path: &str) -> bool {
         .all(|part| !part.is_empty() && !part.starts_with('.'))
 }
 
-/// Validates that a destination path is within the expected base directory.
-/// Also rejects any path component along the way that is itself a symlink,
-/// so pre-placed symlinks inside `base_dir` cannot be used to redirect writes
-/// outside the canonicalized base.
+/// Require an existing destination parent inside `base_dir` with no symlink hop.
+///
+/// Canonical containment blocks lexical traversal, while the component walk
+/// rejects pre-positioned symlinks even when their current target resolves back
+/// inside the base.
 pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Result<(), String> {
     let canonical_base = base_dir
         .canonicalize()
@@ -86,8 +93,10 @@ pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Re
     Ok(())
 }
 
-/// Validate that `path` is a safe absolute destination for a user-chosen
-/// export file with the given extension. Shared by settings JSON export.
+/// Accept an absolute export file path with the required extension outside protected locations.
+///
+/// The parent must already exist; system trees, security-sensitive home
+/// subdirectories, and dotfiles are denied even though the user chose the path.
 pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Result<(), String> {
     if !path.is_absolute() {
         return Err("Path must be absolute".to_string());

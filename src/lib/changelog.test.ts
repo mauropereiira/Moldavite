@@ -1,3 +1,5 @@
+/** Pure parser and version-ordering coverage for in-app release notes. */
+
 import { describe, it, expect } from 'vitest';
 import { parseChangelog, isNewerVersion, shouldShowWhatsNew } from './changelog';
 

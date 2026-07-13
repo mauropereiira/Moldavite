@@ -1,3 +1,5 @@
+/** Host-boundary tests for plugin permissions, argument validation, fetch, and secrets. */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   dispatchPluginCall,

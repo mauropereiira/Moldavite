@@ -61,12 +61,18 @@ export function UpdateNotification() {
         {/* Content */}
         <div className="px-4 py-3">
           <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            Version <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{version}</span> is ready to install.
+            Version{' '}
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              {version}
+            </span>{' '}
+            is ready to install.
           </p>
 
           {/* Error message */}
           {error && (
-            <p className="text-xs mb-3" style={{ color: 'var(--text-error, #ef4444)' }}>{error}</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-error, #ef4444)' }}>
+              {error}
+            </p>
           )}
 
           {/* Progress bar */}

@@ -1,3 +1,13 @@
+/**
+ * Canonical frontend note list, editor tabs, active note, save flags, and unlock state.
+ *
+ * `openTabs` owns loaded note objects. `activeTabId` selects at most one tab, and
+ * `currentNote` must be that exact active tab object (or `null` when no tab is active);
+ * tab open, close, switch, content, and rename actions update the three together.
+ * Note ids are stable disk addresses, not display titles. Recent ids are persisted per
+ * Forge; temporary unlock state and loaded tab bodies are process-only.
+ */
+
 import { create } from 'zustand';
 import type { Note, NoteFile } from '@/types';
 import { namespacedKey } from '@/lib/forgeStorage';
@@ -7,7 +17,7 @@ interface NoteState {
   // Tab management
   openTabs: Note[];
   activeTabId: string | null;
-  // Legacy - computed from tabs for backward compatibility
+  // Compatibility alias for the tab selected by activeTabId; never independent state.
   currentNote: Note | null;
   isLoading: boolean;
   isSaving: boolean;
@@ -137,9 +147,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       }
 
       const updatedTabs = state.openTabs.map((tab) =>
-        tab.id === state.activeTabId
-          ? { ...tab, content, updatedAt: new Date() }
-          : tab
+        tab.id === state.activeTabId ? { ...tab, content, updatedAt: new Date() } : tab
       );
 
       const activeTab = updatedTabs.find((t) => t.id === state.activeTabId) || null;
@@ -192,9 +200,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         // Only applies when the active tab is unpinned.
         const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
         if (activeIndex >= 0) {
-          const newTabs = state.openTabs.map((t, i) =>
-            i === activeIndex ? note : t
-          );
+          const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
           return {
             openTabs: newTabs,
             activeTabId: note.id,
@@ -264,14 +270,13 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   updateTabContent: (noteId, content) =>
     set((state) => {
       const updatedTabs = state.openTabs.map((tab) =>
-        tab.id === noteId
-          ? { ...tab, content, updatedAt: new Date() }
-          : tab
+        tab.id === noteId ? { ...tab, content, updatedAt: new Date() } : tab
       );
 
-      const activeTab = state.activeTabId === noteId
-        ? updatedTabs.find((t) => t.id === noteId) || null
-        : state.currentNote;
+      const activeTab =
+        state.activeTabId === noteId
+          ? updatedTabs.find((t) => t.id === noteId) || null
+          : state.currentNote;
 
       return {
         openTabs: updatedTabs,
@@ -286,11 +291,9 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const openTabs = state.openTabs.map((tab) =>
         tab.id === oldPath ? { ...tab, id: newPath, title: newTitle } : tab
       );
-      const recentNoteIds = state.recentNoteIds.map((id) =>
-        id === oldPath ? newPath : id
-      );
+      const recentNoteIds = state.recentNoteIds.map((id) => (id === oldPath ? newPath : id));
       const unlockedNotes = new Set(
-        [...state.unlockedNotes].map((id) => (id === oldPath ? newPath : id)),
+        [...state.unlockedNotes].map((id) => (id === oldPath ? newPath : id))
       );
       const activeTabId = state.activeTabId === oldPath ? newPath : state.activeTabId;
       const currentNote = activeTabId
@@ -300,7 +303,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       try {
         localStorage.setItem(
           namespacedKey('moldavite-recent-notes'),
-          JSON.stringify(recentNoteIds),
+          JSON.stringify(recentNoteIds)
         );
         const pinnedIds = openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id);
         localStorage.setItem('moldavite-pinned-tabs', JSON.stringify(pinnedIds));
@@ -388,10 +391,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       tabs.splice(toIndex, 0, movedTab);
 
       // Ensure pinned tabs stay at the front
-      const sortedTabs = [
-        ...tabs.filter((t) => t.isPinned),
-        ...tabs.filter((t) => !t.isPinned),
-      ];
+      const sortedTabs = [...tabs.filter((t) => t.isPinned), ...tabs.filter((t) => !t.isPinned)];
 
       return { openTabs: sortedTabs };
     }),

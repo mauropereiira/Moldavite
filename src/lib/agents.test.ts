@@ -1,3 +1,5 @@
+/** Contract tests for generated agent guidance, MCP snippets, and Forge-root IPC. */
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import {

@@ -1,3 +1,9 @@
+/**
+ * Process-local toast queue with generated ids and optional expiry timers.
+ * Removal is idempotent, timers may only remove their own toast, and no notification
+ * state is persisted across reloads or Forge switches.
+ */
+
 import { create } from 'zustand';
 
 export type ToastType = 'success' | 'error' | 'warning';

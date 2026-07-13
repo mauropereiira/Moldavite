@@ -1,3 +1,5 @@
+/** Namespaced plugin-command registration, invocation, and teardown tests. */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { usePluginCommandStore } from './pluginCommandStore';
 
@@ -9,7 +11,9 @@ describe('pluginCommandStore', () => {
   beforeEach(() => usePluginCommandStore.getState().clear());
 
   it('adds and lists commands', () => {
-    usePluginCommandStore.getState().addCommand({ pluginId: 'p', id: 'p:a', label: 'A', handler: () => {} });
+    usePluginCommandStore
+      .getState()
+      .addCommand({ pluginId: 'p', id: 'p:a', label: 'A', handler: () => {} });
     expect(usePluginCommandStore.getState().commands).toHaveLength(1);
   });
 
@@ -23,7 +27,9 @@ describe('pluginCommandStore', () => {
 
   it('execute runs the matching handler', async () => {
     const spy = vi.fn();
-    usePluginCommandStore.getState().addCommand({ pluginId: 'p', id: 'p:a', label: 'A', handler: spy });
+    usePluginCommandStore
+      .getState()
+      .addCommand({ pluginId: 'p', id: 'p:a', label: 'A', handler: spy });
     await usePluginCommandStore.getState().execute('p:a');
     expect(spy).toHaveBeenCalledOnce();
   });

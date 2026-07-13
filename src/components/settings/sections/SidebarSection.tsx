@@ -10,7 +10,10 @@ export function SidebarSection() {
   return (
     <div className="space-y-6">
       {/* Visible Sections */}
-      <div className="p-4 space-y-1" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1 mb-3">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Visible Sections
@@ -25,13 +28,13 @@ export function SidebarSection() {
             </span>
             <InfoTooltip text="Browse notes organized by folders. Useful if you organize notes into different directories." />
           </div>
-          <Toggle
-            enabled={settings.showFoldersSection}
-            onChange={settings.setShowFoldersSection}
-          />
+          <Toggle enabled={settings.showFoldersSection} onChange={settings.setShowFoldersSection} />
         </div>
 
-        <div className="flex items-center justify-between py-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div className="flex items-center gap-1">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Backlinks Section
@@ -46,7 +49,10 @@ export function SidebarSection() {
       </div>
 
       {/* Sorting */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -59,22 +65,28 @@ export function SidebarSection() {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {([
-            { value: 'name-asc', label: 'Name (A-Z)' },
-            { value: 'name-desc', label: 'Name (Z-A)' },
-            { value: 'modified-desc', label: 'Modified (Newest)' },
-            { value: 'modified-asc', label: 'Modified (Oldest)' },
-            { value: 'created-desc', label: 'Created (Newest)' },
-            { value: 'created-asc', label: 'Created (Oldest)' },
-          ] as const).map((option) => (
+          {(
+            [
+              { value: 'name-asc', label: 'Name (A-Z)' },
+              { value: 'name-desc', label: 'Name (Z-A)' },
+              { value: 'modified-desc', label: 'Modified (Newest)' },
+              { value: 'modified-asc', label: 'Modified (Oldest)' },
+              { value: 'created-desc', label: 'Created (Newest)' },
+              { value: 'created-asc', label: 'Created (Oldest)' },
+            ] as const
+          ).map((option) => (
             <button
               key={option.value}
               onClick={() => settings.setSortOption(option.value)}
               className="px-3 py-2 text-sm font-medium transition-colors text-left"
               style={{
-                backgroundColor: settings.sortOption === option.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                backgroundColor:
+                  settings.sortOption === option.value
+                    ? 'var(--accent-primary)'
+                    : 'var(--bg-elevated)',
                 color: settings.sortOption === option.value ? 'white' : 'var(--text-secondary)',
-                border: settings.sortOption === option.value ? 'none' : '1px solid var(--border-default)',
+                border:
+                  settings.sortOption === option.value ? 'none' : '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
               }}
             >
@@ -85,7 +97,10 @@ export function SidebarSection() {
       </div>
 
       {/* Layout */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex items-center gap-1">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Layout
@@ -96,7 +111,11 @@ export function SidebarSection() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1">
-              <label htmlFor="sidebar-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              <label
+                htmlFor="sidebar-width-range"
+                className="text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 Sidebar Width
               </label>
               <InfoTooltip text="Width of the left sidebar in pixels. Range: 200px (compact) to 400px (spacious)." />
@@ -122,7 +141,11 @@ export function SidebarSection() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1">
-                <label htmlFor="right-panel-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                <label
+                  htmlFor="right-panel-width-range"
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   Right Panel Width
                 </label>
                 <InfoTooltip text="Width of the right panel (calendar/timeline) in pixels. Range: 250px to 500px." />

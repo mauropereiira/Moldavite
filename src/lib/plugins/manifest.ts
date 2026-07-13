@@ -1,3 +1,13 @@
+/**
+ * Strict validation for untrusted plugin manifests.
+ *
+ * Only the documented field set crosses into `PluginInfo`; ids must match their
+ * containing folder, API versions must be supported, permissions are allowlisted,
+ * and network entries are exact hostnames rather than URLs or wildcard patterns.
+ * Validation must never grant a capability merely because a type declaration says
+ * a field exists.
+ */
+
 import { PLUGIN_API_VERSION, SUPPORTED_PLUGIN_API_VERSIONS, type PluginManifest } from './types';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -15,6 +25,7 @@ const MANIFEST_FIELDS = new Set([
 
 type Result = { ok: true; manifest: PluginManifest } | { ok: false; reason: string };
 
+/** Convert an unknown JSON value into a complete, capability-safe manifest. */
 export function validateManifest(raw: unknown, folderId: string): Result {
   if (typeof raw !== 'object' || raw === null) {
     return { ok: false, reason: 'manifest.json is not an object' };

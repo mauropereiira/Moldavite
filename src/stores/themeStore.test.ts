@@ -1,3 +1,5 @@
+/** Theme hydration validation and deterministic DOM-projection tests. */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const STORAGE_KEY = 'moldavite-theme';

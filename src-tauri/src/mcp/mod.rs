@@ -1,7 +1,10 @@
-//! Built-in stdio Model Context Protocol server.
+//! Built-in stdio Model Context Protocol server and MCP-only startup path.
 //!
 //! The application binary enters this mode before Tauri is initialized when
-//! invoked with `--mcp`. Transport is newline-delimited JSON-RPC 2.0.
+//! invoked with `--mcp`. The supported subset is initialization, tool listing,
+//! and tool calls over newline-delimited JSON-RPC 2.0. Every client argument is
+//! untrusted: `server` bounds and parses messages, while `tools` validates paths,
+//! rejects symlinks, and gates every mutation on the persisted write setting.
 
 mod server;
 mod tools;

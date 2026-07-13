@@ -1,3 +1,5 @@
+/** Regression coverage for plain-text extraction from Markdown and embedded HTML. */
+
 import { describe, it, expect } from 'vitest';
 import { stripMarkdown } from './fileSystem';
 
@@ -13,14 +15,14 @@ describe('stripMarkdown', () => {
 
   it('drops link URLs but keeps text', () => {
     expect(stripMarkdown('See [docs](https://example.com) for more.')).toContain(
-      'See docs for more.',
+      'See docs for more.'
     );
   });
 
   it('keeps wiki link display name', () => {
     // [[Display|target]] — display text comes first, target second.
     expect(stripMarkdown('Pair with [[the project|project-2025]] today.')).toContain(
-      'Pair with the project today.',
+      'Pair with the project today.'
     );
     expect(stripMarkdown('See [[Onboarding]].')).toContain('See Onboarding.');
   });

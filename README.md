@@ -92,7 +92,9 @@ npm install
 npm run tauri dev
 ```
 
-Requires Node.js 18+, Rust 1.70+, and Xcode CLI tools.
+Requires Node.js 18+, Rust 1.77+, and Xcode CLI tools. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the project map, test commands, conventions,
+and pull request expectations.
 
 ---
 

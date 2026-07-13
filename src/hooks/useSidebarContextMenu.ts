@@ -1,3 +1,9 @@
+/**
+ * Sidebar note/folder context-menu state and outside-click dismissal.
+ * Note and folder targets remain independent so one menu can never act on the
+ * stale target of the other.
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import type { NoteFile, FolderInfo } from '@/types';
 

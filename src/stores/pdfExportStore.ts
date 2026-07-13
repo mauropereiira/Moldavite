@@ -1,3 +1,8 @@
+/**
+ * Persisted PDF page-size and margin preferences plus the canonical margin map.
+ * Values are presentation settings only; export rendering owns pagination and units.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -43,6 +48,6 @@ export const usePdfExportStore = create<PdfExportState>()(
       setPageSize: (pageSize) => set({ pageSize }),
       setMargin: (margin) => set({ margin }),
     }),
-    { name: 'moldavite-pdf-export' },
-  ),
+    { name: 'moldavite-pdf-export' }
+  )
 );

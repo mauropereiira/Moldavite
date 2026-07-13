@@ -11,7 +11,13 @@ import {
   FileText,
   Pencil,
 } from 'lucide-react';
-import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote, noteFileBackendPath } from '@/lib';
+import {
+  exportSingleNote,
+  exportNoteToPdf,
+  exportNoteAsPlaintext,
+  readNote,
+  noteFileBackendPath,
+} from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
@@ -67,7 +73,7 @@ export function NoteContextMenu({
           note.name,
           destination,
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         toast.success('Note exported');
       }
@@ -89,7 +95,7 @@ export function NoteContextMenu({
         const content = await readNote(
           noteFileBackendPath(note),
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         // Use the last persisted PDF options. The editor's PDF menu offers a
         // full picker; the sidebar context menu stays one-click for speed and
@@ -118,7 +124,7 @@ export function NoteContextMenu({
           note.name,
           destination,
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         toast.success('Exported as plaintext');
       }

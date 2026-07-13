@@ -4,6 +4,11 @@
 //! that link to it, plus an outbound map from source filename -> set of
 //! targets it currently references. This replaces O(n) full-disk scans
 //! on every `get_backlinks` call.
+//!
+//! Both maps are updated under one write lock so they cannot disagree. Rebuilds
+//! scan only visible Markdown files, never follow symlinks, and publish the new
+//! state only after the scan completes. Source keys retain their note address;
+//! targets pass through the shared wiki slug resolver.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;

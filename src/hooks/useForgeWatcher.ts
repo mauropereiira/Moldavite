@@ -1,3 +1,9 @@
+/**
+ * Frontend reconciliation for external Forge filesystem events.
+ * Event bursts coalesce into a note-list refresh; the active note body is never
+ * reloaded here because doing so could overwrite unsaved editor state.
+ */
+
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { listNotes } from '@/lib';

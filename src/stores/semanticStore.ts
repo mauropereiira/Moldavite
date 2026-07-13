@@ -1,3 +1,10 @@
+/**
+ * Frontend lifecycle state for the local semantic index.
+ * Backend status is authoritative; Tauri progress/ready/error listeners are installed
+ * once, reconciled into this store, and explicitly removable in tests. Enabling and
+ * model changes remain asynchronous backend operations rather than optimistic state.
+ */
+
 import { create } from 'zustand';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {

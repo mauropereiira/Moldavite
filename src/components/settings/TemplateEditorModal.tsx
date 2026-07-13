@@ -67,9 +67,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
 
     // Collision check: inline error rather than a toast so it sits right
     // under the offending field.
-    const exists = templates.some(
-      (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
-    );
+    const exists = templates.some((t) => t.name.toLowerCase() === trimmed.toLowerCase());
     if (exists) {
       setError('A template with this name already exists');
       return;
@@ -215,27 +213,15 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
                 color: 'var(--text-primary)',
               }}
             />
-            <p
-              className="text-xs mt-2"
-              style={{ color: 'var(--text-muted)' }}
-            >
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               Supported tokens:{' '}
-              <code
-                className="px-1 rounded"
-                style={{ backgroundColor: 'var(--bg-panel)' }}
-              >
+              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
                 {'{{date}}'}
               </code>{' '}
-              <code
-                className="px-1 rounded"
-                style={{ backgroundColor: 'var(--bg-panel)' }}
-              >
+              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
                 {'{{time}}'}
               </code>{' '}
-              <code
-                className="px-1 rounded"
-                style={{ backgroundColor: 'var(--bg-panel)' }}
-              >
+              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
                 {'{{title}}'}
               </code>
             </p>
@@ -287,6 +273,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
         </div>
       </div>
     </div>,
-    document.body,
+    document.body
   );
 }

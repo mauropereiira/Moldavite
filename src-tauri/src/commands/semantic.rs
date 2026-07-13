@@ -6,6 +6,9 @@
 //! events (`{ phase: "downloading" | "indexing", done, total }`) and the
 //! flow finishes with `semantic:ready` (`{ indexedCount }`) or
 //! `semantic:error` (`{ error }`).
+//! Disabling cancels in-flight work and removes the per-Forge index; model
+//! changes invalidate vectors built with the previous model. The service module
+//! owns embedding and persistence, while this module owns consent and Tauri events.
 
 use std::sync::Arc;
 

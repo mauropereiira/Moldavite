@@ -11,14 +11,11 @@
  *
  * Key caps use the macOS glyphs (`⌘`, `⇧`, `⌥`, `⌃`). The hook matches on
  * `metaKey || ctrlKey` so shortcuts Just Work on Windows/Linux too.
+ * Registry ids are stable coordination keys: help text and handler dispatch must
+ * be updated together whenever an entry is added or removed.
  */
 
-export type ShortcutCategory =
-  | 'navigation'
-  | 'editing'
-  | 'formatting'
-  | 'files'
-  | 'search';
+export type ShortcutCategory = 'navigation' | 'editing' | 'formatting' | 'files' | 'search';
 
 /**
  * Stable identifier for every shortcut in the app. The handler dispatches on
@@ -157,10 +154,7 @@ export const CATEGORY_ORDER: ShortcutCategory[] = [
  * Match a KeyboardEvent against a shortcut id. Uses `metaKey || ctrlKey` so
  * the same bindings work on macOS and other platforms.
  */
-export function matchesShortcut(
-  event: KeyboardEvent,
-  id: ShortcutId,
-): boolean {
+export function matchesShortcut(event: KeyboardEvent, id: ShortcutId): boolean {
   const isMod = event.metaKey || event.ctrlKey;
   const shortcut = SHORTCUTS.find((s) => s.id === id);
   if (!shortcut) return false;

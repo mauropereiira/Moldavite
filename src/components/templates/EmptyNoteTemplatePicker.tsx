@@ -14,9 +14,10 @@ export function EmptyNoteTemplatePicker({
   const { templates, pinnedTemplateIds } = useTemplateStore();
 
   // Show pinned templates if any, otherwise fall back to first 3
-  const displayTemplates = pinnedTemplateIds.length > 0
-    ? templates.filter(t => pinnedTemplateIds.includes(t.id)).slice(0, 6)
-    : templates.slice(0, 3);
+  const displayTemplates =
+    pinnedTemplateIds.length > 0
+      ? templates.filter((t) => pinnedTemplateIds.includes(t.id)).slice(0, 6)
+      : templates.slice(0, 3);
 
   if (templates.length === 0) {
     return null;
@@ -59,7 +60,10 @@ export function EmptyNoteTemplatePicker({
         </button>
       )}
       <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-        or press <kbd className="px-2 py-0.5 rounded-full text-xs font-medium bg-moldavite-200 dark:bg-moldavite-700 text-moldavite-700 dark:text-moldavite-200">Cmd+T</kbd>
+        or press{' '}
+        <kbd className="px-2 py-0.5 rounded-full text-xs font-medium bg-moldavite-200 dark:bg-moldavite-700 text-moldavite-700 dark:text-moldavite-200">
+          Cmd+T
+        </kbd>
       </p>
     </div>
   );

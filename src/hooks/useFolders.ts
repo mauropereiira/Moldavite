@@ -1,3 +1,9 @@
+/**
+ * Component-facing orchestration for standalone-note folders.
+ * Backend mutations remain authoritative; each successful structural change
+ * refreshes folder state and, where paths changed, note metadata as one workflow.
+ */
+
 import { useCallback } from 'react';
 import { useFolderStore, useNoteStore } from '@/stores';
 import {

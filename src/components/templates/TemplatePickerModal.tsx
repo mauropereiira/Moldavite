@@ -27,9 +27,7 @@ export function TemplatePickerModal({
 
     const query = searchQuery.toLowerCase();
     return templates.filter(
-      (t) =>
-        t.name.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query)
+      (t) => t.name.toLowerCase().includes(query) || t.description.toLowerCase().includes(query)
     );
   }, [templates, searchQuery]);
 
@@ -79,7 +77,10 @@ export function TemplatePickerModal({
       <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 id="template-picker-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h2
+            id="template-picker-title"
+            className="text-xl font-semibold text-gray-900 dark:text-white"
+          >
             {title}
           </h2>
           <button
@@ -116,9 +117,7 @@ export function TemplatePickerModal({
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 Failed to load templates
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                {loadError}
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{loadError}</p>
               <button
                 onClick={() => loadTemplates()}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white rounded btn-primary-gradient btn-elevated focus-ring"
@@ -131,10 +130,7 @@ export function TemplatePickerModal({
             // Loading skeleton
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded border border-gray-200 dark:border-gray-700"
-                >
+                <div key={i} className="p-4 rounded border border-gray-200 dark:border-gray-700">
                   <div className="skeleton w-8 h-8 rounded mb-3" />
                   <div className="skeleton h-4 w-3/4 mb-2" />
                   <div className="skeleton h-3 w-full" />
@@ -165,16 +161,24 @@ export function TemplatePickerModal({
                     className="w-full p-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
                   >
                     <div className="w-8 h-8 mb-3 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
                       </svg>
                     </div>
                     <h3 className="font-medium text-sm text-gray-900 dark:text-white mb-1">
                       Blank Note
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Start from scratch
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
                   </button>
                 </div>
               )}
@@ -184,10 +188,7 @@ export function TemplatePickerModal({
                   className="list-item-stagger"
                   style={{ '--index': searchQuery ? index : index + 1 } as React.CSSProperties}
                 >
-                  <TemplateCard
-                    template={template}
-                    onClick={() => handleSelect(template.id)}
-                  />
+                  <TemplateCard template={template} onClick={() => handleSelect(template.id)} />
                 </div>
               ))}
             </div>

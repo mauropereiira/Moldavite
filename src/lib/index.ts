@@ -1,7 +1,8 @@
 /**
- * Library utilities for Moldavite
+ * Public frontend library barrel for cross-feature helpers and IPC wrappers.
  *
- * This module re-exports all library utilities for convenient imports:
+ * Re-export additions can create store/library cycles; modules with store
+ * dependencies should import concrete files when the barrel would loop.
  *
  * ```tsx
  * import { readNote, writeNote, markdownToHtml } from '@/lib';

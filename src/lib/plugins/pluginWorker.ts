@@ -1,7 +1,12 @@
-// Runs inside a per-plugin module Worker. Establishes the sandbox, loads the
-// plugin, and proxies its curated PluginAPI calls back to the host over
-// postMessage. The worker has no DOM, no Zustand access, and no Tauri IPC —
-// the only channel out is `postMessage`.
+/**
+ * Per-plugin module Worker bootstrap and curated API proxy.
+ *
+ * Untrusted plugin source and host messages meet only inside this Worker. Before
+ * source loads, network and cross-context globals are removed; the sole outbound
+ * channel is the discriminated RPC protocol over `postMessage`. Plugin code must
+ * never receive DOM or Zustand objects, Tauri IPC, host functions, raw filesystem
+ * paths, unrestricted network globals, or another plugin's pending call state.
+ */
 
 import type {
   CallMessage,
@@ -14,10 +19,7 @@ import type {
   WorkerToHost,
 } from './rpc';
 
-/** Delete network/DOM-ish globals that a Worker would otherwise expose to
- *  plugin code. This is defense in depth — the real boundary is that plugin
- *  code has no channel to the app except postMessage — but removing these
- *  makes accidental (or lazy) network access impossible. */
+/** Remove ambient capabilities before any untrusted plugin module is evaluated. */
 function hardenGlobalScope(): void {
   const scope = globalThis as Record<string, unknown>;
   const toRemove = [

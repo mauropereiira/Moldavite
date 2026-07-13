@@ -1,3 +1,5 @@
+/** Typed semantic IPC wrapper and argument-shape contract tests. */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import {

@@ -1,4 +1,8 @@
-//! Wiki-link scanning, backlink lookup, create-from-link commands.
+//! Wiki-link scanning, indexed backlink lookup, and create-from-link commands.
+//!
+//! Link resolution uses the shared slug contract in `wiki`; backlink queries
+//! read the shared in-memory index, while note creation validates the resolved
+//! filename before touching the standalone notes directory.
 
 use std::sync::Arc;
 

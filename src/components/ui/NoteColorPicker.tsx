@@ -33,7 +33,12 @@ interface NoteColorPickerProps {
   openDirection?: 'up' | 'down';
 }
 
-export function NoteColorPicker({ currentColorId, onColorChange, isDark = false, openDirection = 'down' }: NoteColorPickerProps) {
+export function NoteColorPicker({
+  currentColorId,
+  onColorChange,
+  isDark = false,
+  openDirection = 'down',
+}: NoteColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -89,9 +94,7 @@ export function NoteColorPicker({ currentColorId, onColorChange, isDark = false,
             boxShadow: 'var(--shadow-lg)',
           }}
         >
-          <div className="section-header mb-2">
-            Note Background
-          </div>
+          <div className="section-header mb-2">Note Background</div>
 
           <div className="grid grid-cols-5 gap-1.5">
             {NOTE_COLORS.map((color) => {
@@ -119,7 +122,10 @@ export function NoteColorPicker({ currentColorId, onColorChange, isDark = false,
                   aria-label={color.name}
                 >
                   {isSelected && (
-                    <Check className="w-3 h-3 absolute inset-0 m-auto" style={{ color: 'var(--accent-primary)' }} />
+                    <Check
+                      className="w-3 h-3 absolute inset-0 m-auto"
+                      style={{ color: 'var(--accent-primary)' }}
+                    />
                   )}
                   {isDefault && !isSelected && (
                     <span

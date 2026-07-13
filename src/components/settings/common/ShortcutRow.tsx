@@ -10,7 +10,9 @@ export interface ShortcutRowProps {
 export function ShortcutRow({ keys, description }: ShortcutRowProps) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{description}</span>
+      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+        {description}
+      </span>
       <div className="flex gap-1">
         {keys.map((key, i) => (
           <kbd

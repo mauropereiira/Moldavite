@@ -24,7 +24,9 @@ describe('RenameNoteModal', () => {
     await user.clear(input);
     await user.type(input, 'bad/title');
     await user.click(screen.getByRole('button', { name: 'Rename' }));
-    expect(screen.getByText('Title can only contain letters, numbers, spaces, and hyphens')).toBeInTheDocument();
+    expect(
+      screen.getByText('Title can only contain letters, numbers, spaces, and hyphens')
+    ).toBeInTheDocument();
     expect(onRename).not.toHaveBeenCalled();
 
     await user.clear(input);

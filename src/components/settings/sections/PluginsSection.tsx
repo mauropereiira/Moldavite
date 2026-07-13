@@ -25,7 +25,8 @@ export function PluginsSection() {
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
-  const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } = usePluginStore();
+  const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } =
+    usePluginStore();
   const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -122,7 +123,11 @@ export function PluginsSection() {
       <div className="flex items-start gap-3">
         <div
           className="flex-shrink-0 p-2"
-          style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-primary)' }}
+          style={{
+            backgroundColor: 'var(--accent-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--accent-primary)',
+          }}
         >
           <Puzzle aria-hidden="true" className="w-5 h-5" />
         </div>
@@ -132,7 +137,15 @@ export function PluginsSection() {
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Add commands to Moldavite. Plugins live in your Forge under{' '}
-            <code style={{ backgroundColor: 'var(--bg-inset)', padding: '1px 4px', borderRadius: 'var(--radius-sm)' }}>.plugins/</code>{' '}
+            <code
+              style={{
+                backgroundColor: 'var(--bg-inset)',
+                padding: '1px 4px',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              .plugins/
+            </code>{' '}
             and run with access to your notes &mdash; only enable ones you trust.
           </p>
         </div>
@@ -142,7 +155,11 @@ export function PluginsSection() {
       {plugins.length === 0 ? (
         <div
           className="p-6 text-center"
-          style={{ backgroundColor: 'var(--bg-panel)', border: '1px dashed var(--border-default)', borderRadius: 'var(--radius-md)' }}
+          style={{
+            backgroundColor: 'var(--bg-panel)',
+            border: '1px dashed var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+          }}
         >
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             No plugins installed yet.
@@ -215,9 +232,7 @@ export function PluginsSection() {
                     </button>
                   </div>
                 </div>
-                {ok && (
-                  <Toggle enabled={enabled} onChange={(next) => handleToggle(info, next)} />
-                )}
+                {ok && <Toggle enabled={enabled} onChange={(next) => handleToggle(info, next)} />}
               </div>
             );
           })}
@@ -225,7 +240,10 @@ export function PluginsSection() {
       )}
 
       {/* Actions */}
-      <div className="p-4 space-y-3" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-3"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -274,7 +292,15 @@ export function PluginsSection() {
         </div>
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
           To install a plugin manually, drop its folder into{' '}
-          <code style={{ backgroundColor: 'var(--bg-inset)', padding: '1px 4px', borderRadius: 'var(--radius-sm)' }}>.plugins/</code>{' '}
+          <code
+            style={{
+              backgroundColor: 'var(--bg-inset)',
+              padding: '1px 4px',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            .plugins/
+          </code>{' '}
           in your Forge and reopen this tab.
         </p>
       </div>

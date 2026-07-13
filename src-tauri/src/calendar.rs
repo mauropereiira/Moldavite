@@ -1,3 +1,10 @@
+//! Safe Rust wrappers around the macOS EventKit Swift bridge.
+//!
+//! This module owns the FFI boundary and JSON decoding for calendar data.
+//! Swift owns returned C strings; every non-null pointer is reclaimed exactly
+//! once with `CString::from_raw`, and malformed bridge output becomes an error
+//! rather than crossing into the command layer.
+
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -69,6 +76,7 @@ pub struct CalendarEvent {
 }
 
 /// Get current calendar permission status
+/// Return the current EventKit authorization state reported by Swift.
 pub fn get_permission_status() -> CalendarPermission {
     let status = unsafe { check_calendar_permission() };
     CalendarPermission::from(status)
@@ -76,11 +84,13 @@ pub fn get_permission_status() -> CalendarPermission {
 
 /// Request calendar access permission
 /// Returns true if permission was granted
+/// Request EventKit access and return whether the resulting state is authorized.
 pub fn request_permission() -> bool {
     unsafe { request_calendar_permission() }
 }
 
 /// Check if calendar access is authorized
+/// Return whether calendar access is currently authorized without prompting.
 pub fn is_authorized() -> bool {
     matches!(
         get_permission_status(),
@@ -109,6 +119,7 @@ fn parse_swift_json<T: serde::de::DeserializeOwned>(json_str: &str, what: &str) 
 }
 
 /// Fetch all available calendars
+/// Fetch all visible calendars, rejecting null or malformed bridge responses.
 pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
     let json_ptr = unsafe { fetch_calendars() };
     if json_ptr.is_null() {
@@ -126,6 +137,7 @@ pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
 }
 
 /// Fetch events for a date range
+/// Fetch events in the date range understood by the Swift bridge.
 pub fn get_events(
     start_date: &str,
     end_date: &str,

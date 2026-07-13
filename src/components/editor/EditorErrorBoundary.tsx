@@ -34,7 +34,7 @@ export class EditorErrorBoundary extends Component<Props, State> {
     console.error('[EditorErrorBoundary] Component stack:', errorInfo.componentStack);
 
     // Increment error count
-    this.setState(prev => ({ errorCount: prev.errorCount + 1 }));
+    this.setState((prev) => ({ errorCount: prev.errorCount + 1 }));
 
     // Call optional error handler
     this.props.onError?.(error);

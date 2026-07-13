@@ -17,7 +17,7 @@ import {
   Code,
   Minus,
   Link as LinkIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
 import { LinkModal } from './LinkModal';
@@ -82,10 +82,7 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         position="center"
         openDirection={openDirection}
         trigger={
-          <button
-            className="toolbar-button"
-            title="Formatting"
-          >
+          <button className="toolbar-button" title="Formatting">
             <Type className="w-4 h-4" />
           </button>
         }
@@ -205,17 +202,11 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           {/* Insert */}
           <DropdownLabel>Insert</DropdownLabel>
-          <DropdownItem
-            onClick={handleLink}
-            icon={<LinkIcon className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={handleLink} icon={<LinkIcon className="w-4 h-4" />}>
             Link
             <span className="ml-auto text-xs text-gray-400">⌘K</span>
           </DropdownItem>
-          <DropdownItem
-            onClick={handleImage}
-            icon={<ImageIcon className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={handleImage} icon={<ImageIcon className="w-4 h-4" />}>
             Image
           </DropdownItem>
         </div>

@@ -1,3 +1,5 @@
+/** Tab/current-note synchronization and pinned-tab invariant tests. */
+
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useNoteStore } from './noteStore';
 import type { Note } from '@/types';

@@ -1,3 +1,5 @@
+/** Persisted theme axes and their deterministic projection onto document state. */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -6,6 +8,8 @@ import { persist } from 'zustand/middleware';
  *   - baseMode: light / dark / system (controls the `dark` class)
  *   - preset:   the palette family (controls the `data-theme` attribute)
  *
+ * Persisted values are validated during hydration. Applied DOM classes and attributes
+ * are a deterministic projection of the two axes, never a second theme state.
  * Each preset supplies tokens for one or both base modes. When a preset
  * doesn't fit a given base mode (e.g. Dracula in light), the CSS falls
  * back to the `default` palette. We don't try to invent palettes that
@@ -13,13 +17,7 @@ import { persist } from 'zustand/middleware';
  */
 export type BaseMode = 'light' | 'dark' | 'system';
 
-export type ThemePreset =
-  | 'default'
-  | 'solarized'
-  | 'dracula'
-  | 'nord'
-  | 'sepia'
-  | 'gruvbox';
+export type ThemePreset = 'default' | 'solarized' | 'dracula' | 'nord' | 'sepia' | 'gruvbox';
 
 /**
  * Coverage descriptor for the picker UI.
@@ -177,11 +175,9 @@ export const useThemeStore = create<ThemeState>()(
           persisted.baseMode === 'system'
             ? persisted.baseMode
             : legacyTheme === 'light' || legacyTheme === 'dark' || legacyTheme === 'system'
-            ? legacyTheme
-            : currentState.baseMode;
-        const preset: ThemePreset = isThemePreset(persisted.preset)
-          ? persisted.preset
-          : 'default';
+              ? legacyTheme
+              : currentState.baseMode;
+        const preset: ThemePreset = isThemePreset(persisted.preset) ? persisted.preset : 'default';
         return { ...currentState, baseMode, preset, theme: baseMode };
       },
     }

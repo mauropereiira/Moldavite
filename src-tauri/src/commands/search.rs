@@ -1,4 +1,9 @@
-//! Full-text search over unlocked notes.
+//! Bounded full-text search over visible, unlocked Markdown notes.
+//!
+//! Scans never follow symlinks or enter trash/internal directories. Results keep
+//! the frontend addressing contract: daily and weekly notes use bare filenames,
+//! while standalone notes retain their `notes/`-relative folder path. Snippets
+//! are Unicode-boundary safe and result counts are capped by the caller's limit.
 
 use std::fs;
 use std::path::Path;

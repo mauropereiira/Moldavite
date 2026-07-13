@@ -1,3 +1,12 @@
+/**
+ * Shared plugin manifest, host API, and UI data contracts.
+ *
+ * These declarations describe values after validation and values serialized over
+ * the worker RPC bridge; they do not enforce permissions. Untrusted manifests must
+ * pass `manifest.ts`, calls must pass `api.ts`, and plugin-facing types must never
+ * expose Tauri, filesystem paths, DOM/store objects, or unrestricted browser APIs.
+ */
+
 export const PLUGIN_API_VERSION = 2;
 export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2] as const;
 

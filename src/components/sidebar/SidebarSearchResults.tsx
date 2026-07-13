@@ -81,22 +81,14 @@ export function SidebarSearchResults({
                     style={{ color: 'var(--text-muted)' }}
                   />
                 )}
-                <span className="truncate font-medium">
-                  {match.filename.replace(/\.md$/, '')}
-                </span>
+                <span className="truncate font-medium">{match.filename.replace(/\.md$/, '')}</span>
                 {folder && (
-                  <span
-                    className="text-[11px] truncate"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
                     in {folder}
                   </span>
                 )}
               </span>
-              <p
-                className="text-xs mt-0.5 truncate"
-                style={{ color: 'var(--text-muted)' }}
-              >
+              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
                 {renderHighlighted(match.snippet, query)}
               </p>
             </button>

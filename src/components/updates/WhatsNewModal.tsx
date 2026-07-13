@@ -74,8 +74,16 @@ export function WhatsNewModal() {
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
           <div className="flex items-center gap-2">
-            <Sparkles aria-hidden="true" className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-            <h2 id="whats-new-title" className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <Sparkles
+              aria-hidden="true"
+              className="w-5 h-5"
+              style={{ color: 'var(--accent-primary)' }}
+            />
+            <h2
+              id="whats-new-title"
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               What&apos;s New in v{entry.version}
             </h2>
           </div>
@@ -120,7 +128,10 @@ export function WhatsNewModal() {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-default)' }}>
+        <div
+          className="flex justify-end px-6 py-4 flex-shrink-0"
+          style={{ borderTop: '1px solid var(--border-default)' }}
+        >
           <button
             onClick={close}
             className="px-4 py-2 text-sm font-medium text-white transition-colors"

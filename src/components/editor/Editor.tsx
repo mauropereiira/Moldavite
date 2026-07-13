@@ -29,7 +29,18 @@ import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
 import { ImageToolbar } from './ImageToolbar';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
-import { WikiLink, WikiLinkSuggestion, WikiLinkSuggestionList, TagMark, TagSuggestion, TagSuggestionList, SlashCommands, SlashCommandList, filterCommands, pluginSlashItem } from './extensions';
+import {
+  WikiLink,
+  WikiLinkSuggestion,
+  WikiLinkSuggestionList,
+  TagMark,
+  TagSuggestion,
+  TagSuggestionList,
+  SlashCommands,
+  SlashCommandList,
+  filterCommands,
+  pluginSlashItem,
+} from './extensions';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
 import type { TagItem, SlashCommandItem } from './extensions';
@@ -39,7 +50,14 @@ import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
 import './extensions/tags.css';
 import type { NoteFile } from '@/types';
-import { useNoteStore, useSettingsStore, useThemeStore, useNoteColorsStore, buildNotePath, useTagStore } from '@/stores';
+import {
+  useNoteStore,
+  useSettingsStore,
+  useThemeStore,
+  useNoteColorsStore,
+  buildNotePath,
+  useTagStore,
+} from '@/stores';
 import { editorHandle } from '@/stores/editorHandleStore';
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
@@ -52,7 +70,8 @@ import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal'
 import { BacklinksPanel } from '@/components/backlinks';
 
 export function Editor() {
-  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } = useNoteStore();
+  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } =
+    useNoteStore();
   const { spellCheck, tagsEnabled } = useSettingsStore();
   const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
@@ -62,15 +81,22 @@ export function Editor() {
   const toast = useToast();
 
   // Handle tag clicks - filter notes by tag
-  const handleTagClick = useCallback((tag: string) => {
-    setSelectedTag(tag);
-  }, [setSelectedTag]);
+  const handleTagClick = useCallback(
+    (tag: string) => {
+      setSelectedTag(tag);
+    },
+    [setSelectedTag]
+  );
 
   // Determine if dark mode
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   // Get current note's background color
-  const notePath = currentNote ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily) : '';
+  const notePath = currentNote
+    ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
+    : '';
   const noteColorId = getColor(notePath);
   const noteBackgroundColor = getNoteBackgroundColor(noteColorId, isDark);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -108,32 +134,35 @@ export function Editor() {
   }, []);
 
   // Handle wiki link clicks
-  const handleWikiLinkClick = useCallback(async (target: string) => {
-    const currentNotes = notesRef.current;
+  const handleWikiLinkClick = useCallback(
+    async (target: string) => {
+      const currentNotes = notesRef.current;
 
-    // Check if target is a daily note (YYYY-MM-DD.md format)
-    const isDailyNote = /^\d{4}-\d{2}-\d{2}\.md$/.test(target);
+      // Check if target is a daily note (YYYY-MM-DD.md format)
+      const isDailyNote = /^\d{4}-\d{2}-\d{2}\.md$/.test(target);
 
-    // Direct match first (for properly formatted targets like "Test 1.md")
-    let actualNote = currentNotes.find(n => n.name === target);
+      // Direct match first (for properly formatted targets like "Test 1.md")
+      let actualNote = currentNotes.find((n) => n.name === target);
 
-    // If no direct match, try slugified match (for targets like "test-1.md")
-    if (!actualNote) {
-      const targetSlug = slugifyNoteName(target);
-      actualNote = currentNotes.find(n => slugifyNoteName(n.name) === targetSlug);
-    }
+      // If no direct match, try slugified match (for targets like "test-1.md")
+      if (!actualNote) {
+        const targetSlug = slugifyNoteName(target);
+        actualNote = currentNotes.find((n) => slugifyNoteName(n.name) === targetSlug);
+      }
 
-    const noteExists = !!actualNote;
+      const noteExists = !!actualNote;
 
-    if (noteExists && actualNote) {
-      // Load the existing note
-      await loadNote(actualNote);
-    } else {
-      // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
-      const noteName = target.replace('.md', '').replace(/-/g, ' ');
-      setPendingLinkCreate({ target, noteName, isDailyNote });
-    }
-  }, [loadNote]);
+      if (noteExists && actualNote) {
+        // Load the existing note
+        await loadNote(actualNote);
+      } else {
+        // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
+        const noteName = target.replace('.md', '').replace(/-/g, ' ');
+        setPendingLinkCreate({ target, noteName, isDailyNote });
+      }
+    },
+    [loadNote]
+  );
 
   const handleConfirmLinkCreate = useCallback(async () => {
     const pending = pendingLinkCreate;
@@ -212,7 +241,6 @@ export function Editor() {
     }
   };
 
-
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
   };
@@ -231,476 +259,519 @@ export function Editor() {
     setShowDeleteConfirm(false);
   };
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-        link: false,      // Disable - we configure Link separately below
-        underline: false, // Disable - we add Underline separately below
-      }),
-      Placeholder.configure({
-        placeholder: 'Start writing...',
-      }),
-      ResizableImage.configure({
-        inline: false,
-        allowBase64: true,
-      }),
-      Link.configure({
-        openOnClick: true,
-        autolink: true,
-        protocols: ['http', 'https', 'mailto'],
-        HTMLAttributes: {
-          rel: 'noopener noreferrer nofollow',
-          target: '_blank',
-        },
-        validate: (href) => /^(https?:|mailto:)/i.test(href),
-      }),
-      Underline,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      Highlight.configure({
-        multicolor: false,
-      }).extend({
-        addKeyboardShortcuts() {
-          return {
-            'Mod-Shift-h': () => this.editor.commands.toggleHighlight(),
-          };
-        },
-      }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
-      WikiLink.configure({
-        onLinkClick: handleWikiLinkClick,
-      }),
-      // Only include TagMark and TagSuggestion when tags are enabled
-      ...(tagsEnabled ? [TagMark.configure({
-        onTagClick: handleTagClick,
-      })] : []),
-      ...(tagsEnabled ? [TagSuggestion.configure({
-        suggestion: {
-          char: '#',
-          allowSpaces: false,
-          items: ({ query }: { query: string }) => {
-            // Get tags from ref and filter based on query
-            const currentTags = tagsRef.current;
-            const tagItems: TagItem[] = [];
-
-            currentTags.forEach((count, name) => {
-              if (name.toLowerCase().includes(query.toLowerCase())) {
-                tagItems.push({ name, count });
-              }
-            });
-
-            // Sort by count (descending), then alphabetically
-            tagItems.sort((a, b) => {
-              if (b.count !== a.count) return b.count - a.count;
-              return a.name.localeCompare(b.name);
-            });
-
-            return tagItems.slice(0, 10); // Limit to 10 results
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          heading: {
+            levels: [1, 2, 3],
           },
-          render: () => {
-            let component: ReactRenderer | null = null;
-            let popup: Instance[] | null = null;
-
+          link: false, // Disable - we configure Link separately below
+          underline: false, // Disable - we add Underline separately below
+        }),
+        Placeholder.configure({
+          placeholder: 'Start writing...',
+        }),
+        ResizableImage.configure({
+          inline: false,
+          allowBase64: true,
+        }),
+        Link.configure({
+          openOnClick: true,
+          autolink: true,
+          protocols: ['http', 'https', 'mailto'],
+          HTMLAttributes: {
+            rel: 'noopener noreferrer nofollow',
+            target: '_blank',
+          },
+          validate: (href) => /^(https?:|mailto:)/i.test(href),
+        }),
+        Underline,
+        TextAlign.configure({
+          types: ['heading', 'paragraph'],
+        }),
+        Highlight.configure({
+          multicolor: false,
+        }).extend({
+          addKeyboardShortcuts() {
             return {
-              onStart: (props: SuggestionProps<TagItem>) => {
-                try {
-                  component = new ReactRenderer(TagSuggestionList, {
-                    props,
-                    editor: props.editor,
-                  });
-
-                  if (!props.clientRect) {
-                    return;
-                  }
-
-                  popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                    appendTo: () => document.body,
-                    content: component.element,
-                    showOnCreate: true,
-                    interactive: true,
-                    trigger: 'manual',
-                    placement: 'bottom-start',
-                    maxWidth: 'none',
-                  });
-                } catch (error) {
-                  console.error('[TagSuggestion] onStart error:', error);
-                }
-              },
-
-              onUpdate(props: SuggestionProps<TagItem>) {
-                try {
-                  component?.updateProps(props);
-
-                  if (!props.clientRect) {
-                    return;
-                  }
-
-                  popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                  });
-                } catch (error) {
-                  console.error('[TagSuggestion] onUpdate error:', error);
-                }
-              },
-
-              onKeyDown(props: SuggestionKeyDownProps) {
-                try {
-                  if (props.event.key === 'Escape') {
-                    popup?.[0]?.hide();
-                    return true;
-                  }
-
-                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
-                } catch (error) {
-                  console.error('[TagSuggestion] onKeyDown error:', error);
-                  return false;
-                }
-              },
-
-              onExit() {
-                try {
-                  if (popup?.[0]) {
-                    popup[0].destroy();
-                  }
-                  if (component) {
-                    component.destroy();
-                  }
-                } catch (error) {
-                  console.error('[TagSuggestion] onExit error:', error);
-                }
-                popup = null;
-                component = null;
-              },
+              'Mod-Shift-h': () => this.editor.commands.toggleHighlight(),
             };
           },
-          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: TagItem }) => {
-            const tag = props;
-            // Insert the tag text (the # is already typed, just add the name)
-            editor
-              .chain()
-              .focus()
-              .deleteRange(range)
-              .insertContent(`#${tag.name} `)
-              .run();
-          },
-        },
-      })] : []),
-      WikiLinkSuggestion.configure({
-        suggestion: {
-          char: '[',
-          allowSpaces: true,
-          items: ({ query }: { query: string }) => {
-            // Filter notes based on query
-            const currentNotes = notesRef.current;
-            const filtered = currentNotes.filter((note) => {
+        }),
+        TaskList,
+        TaskItem.configure({
+          nested: true,
+        }),
+        WikiLink.configure({
+          onLinkClick: handleWikiLinkClick,
+        }),
+        // Only include TagMark and TagSuggestion when tags are enabled
+        ...(tagsEnabled
+          ? [
+              TagMark.configure({
+                onTagClick: handleTagClick,
+              }),
+            ]
+          : []),
+        ...(tagsEnabled
+          ? [
+              TagSuggestion.configure({
+                suggestion: {
+                  char: '#',
+                  allowSpaces: false,
+                  items: ({ query }: { query: string }) => {
+                    // Get tags from ref and filter based on query
+                    const currentTags = tagsRef.current;
+                    const tagItems: TagItem[] = [];
+
+                    currentTags.forEach((count, name) => {
+                      if (name.toLowerCase().includes(query.toLowerCase())) {
+                        tagItems.push({ name, count });
+                      }
+                    });
+
+                    // Sort by count (descending), then alphabetically
+                    tagItems.sort((a, b) => {
+                      if (b.count !== a.count) return b.count - a.count;
+                      return a.name.localeCompare(b.name);
+                    });
+
+                    return tagItems.slice(0, 10); // Limit to 10 results
+                  },
+                  render: () => {
+                    let component: ReactRenderer | null = null;
+                    let popup: Instance[] | null = null;
+
+                    return {
+                      onStart: (props: SuggestionProps<TagItem>) => {
+                        try {
+                          component = new ReactRenderer(TagSuggestionList, {
+                            props,
+                            editor: props.editor,
+                          });
+
+                          if (!props.clientRect) {
+                            return;
+                          }
+
+                          popup = tippy('body', {
+                            getReferenceClientRect: props.clientRect as () => DOMRect,
+                            appendTo: () => document.body,
+                            content: component.element,
+                            showOnCreate: true,
+                            interactive: true,
+                            trigger: 'manual',
+                            placement: 'bottom-start',
+                            maxWidth: 'none',
+                          });
+                        } catch (error) {
+                          console.error('[TagSuggestion] onStart error:', error);
+                        }
+                      },
+
+                      onUpdate(props: SuggestionProps<TagItem>) {
+                        try {
+                          component?.updateProps(props);
+
+                          if (!props.clientRect) {
+                            return;
+                          }
+
+                          popup?.[0]?.setProps({
+                            getReferenceClientRect: props.clientRect as () => DOMRect,
+                          });
+                        } catch (error) {
+                          console.error('[TagSuggestion] onUpdate error:', error);
+                        }
+                      },
+
+                      onKeyDown(props: SuggestionKeyDownProps) {
+                        try {
+                          if (props.event.key === 'Escape') {
+                            popup?.[0]?.hide();
+                            return true;
+                          }
+
+                          return (
+                            (component?.ref as SuggestionListHandle | null)?.onKeyDown(
+                              props.event
+                            ) || false
+                          );
+                        } catch (error) {
+                          console.error('[TagSuggestion] onKeyDown error:', error);
+                          return false;
+                        }
+                      },
+
+                      onExit() {
+                        try {
+                          if (popup?.[0]) {
+                            popup[0].destroy();
+                          }
+                          if (component) {
+                            component.destroy();
+                          }
+                        } catch (error) {
+                          console.error('[TagSuggestion] onExit error:', error);
+                        }
+                        popup = null;
+                        component = null;
+                      },
+                    };
+                  },
+                  command: ({
+                    editor,
+                    range,
+                    props,
+                  }: {
+                    editor: TiptapEditor;
+                    range: TiptapRange;
+                    props: TagItem;
+                  }) => {
+                    const tag = props;
+                    // Insert the tag text (the # is already typed, just add the name)
+                    editor.chain().focus().deleteRange(range).insertContent(`#${tag.name} `).run();
+                  },
+                },
+              }),
+            ]
+          : []),
+        WikiLinkSuggestion.configure({
+          suggestion: {
+            char: '[',
+            allowSpaces: true,
+            items: ({ query }: { query: string }) => {
+              // Filter notes based on query
+              const currentNotes = notesRef.current;
+              const filtered = currentNotes.filter((note) => {
+                const noteName = note.name.replace('.md', '');
+                return noteName.toLowerCase().includes(query.toLowerCase());
+              });
+
+              return filtered.slice(0, 10); // Limit to 10 results
+            },
+            render: () => {
+              let component: ReactRenderer | null = null;
+              let popup: Instance[] | null = null;
+
+              return {
+                onStart: (props: SuggestionProps<NoteFile>) => {
+                  try {
+                    component = new ReactRenderer(WikiLinkSuggestionList, {
+                      props,
+                      editor: props.editor,
+                    });
+
+                    if (!props.clientRect) {
+                      return;
+                    }
+
+                    popup = tippy('body', {
+                      getReferenceClientRect: props.clientRect as () => DOMRect,
+                      appendTo: () => document.body,
+                      content: component.element,
+                      showOnCreate: true,
+                      interactive: true,
+                      trigger: 'manual',
+                      placement: 'bottom-start',
+                      maxWidth: 'none',
+                    });
+                  } catch (error) {
+                    console.error('[WikiLinkSuggestion] onStart error:', error);
+                  }
+                },
+
+                onUpdate(props: SuggestionProps<NoteFile>) {
+                  try {
+                    component?.updateProps(props);
+
+                    if (!props.clientRect) {
+                      return;
+                    }
+
+                    popup?.[0]?.setProps({
+                      getReferenceClientRect: props.clientRect as () => DOMRect,
+                    });
+                  } catch (error) {
+                    console.error('[WikiLinkSuggestion] onUpdate error:', error);
+                  }
+                },
+
+                onKeyDown(props: SuggestionKeyDownProps) {
+                  try {
+                    if (props.event.key === 'Escape') {
+                      popup?.[0]?.hide();
+                      return true;
+                    }
+
+                    return (
+                      (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) ||
+                      false
+                    );
+                  } catch (error) {
+                    console.error('[WikiLinkSuggestion] onKeyDown error:', error);
+                    return false;
+                  }
+                },
+
+                onExit() {
+                  // CRITICAL: Proper cleanup to allow re-triggering
+                  try {
+                    if (popup?.[0]) {
+                      popup[0].destroy();
+                    }
+                    if (component) {
+                      component.destroy();
+                    }
+                  } catch (error) {
+                    console.error('[WikiLinkSuggestion] onExit error:', error);
+                  }
+                  // Reset references so suggestion can trigger again
+                  popup = null;
+                  component = null;
+                },
+              };
+            },
+            command: ({
+              editor,
+              range,
+              props,
+            }: {
+              editor: TiptapEditor;
+              range: TiptapRange;
+              props: NoteFile;
+            }) => {
+              const note = props;
               const noteName = note.name.replace('.md', '');
-              return noteName.toLowerCase().includes(query.toLowerCase());
-            });
 
-            return filtered.slice(0, 10); // Limit to 10 results
+              editor
+                .chain()
+                .focus()
+                .deleteRange(range)
+                .setWikiLink({
+                  target: note.name,
+                  label: noteName,
+                })
+                .run();
+            },
           },
-          render: () => {
-            let component: ReactRenderer | null = null;
-            let popup: Instance[] | null = null;
+        }),
+        SlashCommands.configure({
+          suggestion: {
+            char: '/',
+            allowSpaces: false,
+            startOfLine: true,
+            items: ({ query }: { query: string }) => {
+              const q = query.toLowerCase();
+              const pluginItems = usePluginCommandStore
+                .getState()
+                .commands.map(pluginSlashItem)
+                .filter((i) => !q || i.title.toLowerCase().includes(q));
+              return [...filterCommands(query), ...pluginItems];
+            },
+            render: () => {
+              let component: ReactRenderer | null = null;
+              let popup: Instance[] | null = null;
 
-            return {
-              onStart: (props: SuggestionProps<NoteFile>) => {
-                try {
-                  component = new ReactRenderer(WikiLinkSuggestionList, {
-                    props,
-                    editor: props.editor,
-                  });
+              return {
+                onStart: (props: SuggestionProps<SlashCommandItem>) => {
+                  try {
+                    component = new ReactRenderer(SlashCommandList, {
+                      props: {
+                        ...props,
+                        editor: props.editor,
+                      },
+                      editor: props.editor,
+                    });
 
-                  if (!props.clientRect) {
-                    return;
+                    if (!props.clientRect) {
+                      return;
+                    }
+
+                    popup = tippy('body', {
+                      getReferenceClientRect: props.clientRect as () => DOMRect,
+                      appendTo: () => document.body,
+                      content: component.element,
+                      showOnCreate: true,
+                      interactive: true,
+                      trigger: 'manual',
+                      placement: 'bottom-start',
+                      maxWidth: 'none',
+                    });
+                  } catch (error) {
+                    console.error('[SlashCommands] onStart error:', error);
                   }
+                },
 
-                  popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                    appendTo: () => document.body,
-                    content: component.element,
-                    showOnCreate: true,
-                    interactive: true,
-                    trigger: 'manual',
-                    placement: 'bottom-start',
-                    maxWidth: 'none',
-                  });
-                } catch (error) {
-                  console.error('[WikiLinkSuggestion] onStart error:', error);
-                }
-              },
-
-              onUpdate(props: SuggestionProps<NoteFile>) {
-                try {
-                  component?.updateProps(props);
-
-                  if (!props.clientRect) {
-                    return;
-                  }
-
-                  popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                  });
-                } catch (error) {
-                  console.error('[WikiLinkSuggestion] onUpdate error:', error);
-                }
-              },
-
-              onKeyDown(props: SuggestionKeyDownProps) {
-                try {
-                  if (props.event.key === 'Escape') {
-                    popup?.[0]?.hide();
-                    return true;
-                  }
-
-                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
-                } catch (error) {
-                  console.error('[WikiLinkSuggestion] onKeyDown error:', error);
-                  return false;
-                }
-              },
-
-              onExit() {
-                // CRITICAL: Proper cleanup to allow re-triggering
-                try {
-                  if (popup?.[0]) {
-                    popup[0].destroy();
-                  }
-                  if (component) {
-                    component.destroy();
-                  }
-                } catch (error) {
-                  console.error('[WikiLinkSuggestion] onExit error:', error);
-                }
-                // Reset references so suggestion can trigger again
-                popup = null;
-                component = null;
-              },
-            };
-          },
-          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: NoteFile }) => {
-            const note = props;
-            const noteName = note.name.replace('.md', '');
-
-            editor
-              .chain()
-              .focus()
-              .deleteRange(range)
-              .setWikiLink({
-                target: note.name,
-                label: noteName,
-              })
-              .run();
-          },
-        },
-      }),
-      SlashCommands.configure({
-        suggestion: {
-          char: '/',
-          allowSpaces: false,
-          startOfLine: true,
-          items: ({ query }: { query: string }) => {
-            const q = query.toLowerCase();
-            const pluginItems = usePluginCommandStore
-              .getState()
-              .commands.map(pluginSlashItem)
-              .filter((i) => !q || i.title.toLowerCase().includes(q));
-            return [...filterCommands(query), ...pluginItems];
-          },
-          render: () => {
-            let component: ReactRenderer | null = null;
-            let popup: Instance[] | null = null;
-
-            return {
-              onStart: (props: SuggestionProps<SlashCommandItem>) => {
-                try {
-                  component = new ReactRenderer(SlashCommandList, {
-                    props: {
+                onUpdate(props: SuggestionProps<SlashCommandItem>) {
+                  try {
+                    component?.updateProps({
                       ...props,
                       editor: props.editor,
-                    },
-                    editor: props.editor,
-                  });
+                    });
 
-                  if (!props.clientRect) {
-                    return;
+                    if (!props.clientRect) {
+                      return;
+                    }
+
+                    popup?.[0]?.setProps({
+                      getReferenceClientRect: props.clientRect as () => DOMRect,
+                    });
+                  } catch (error) {
+                    console.error('[SlashCommands] onUpdate error:', error);
                   }
+                },
 
-                  popup = tippy('body', {
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                    appendTo: () => document.body,
-                    content: component.element,
-                    showOnCreate: true,
-                    interactive: true,
-                    trigger: 'manual',
-                    placement: 'bottom-start',
-                    maxWidth: 'none',
-                  });
-                } catch (error) {
-                  console.error('[SlashCommands] onStart error:', error);
-                }
-              },
+                onKeyDown(props: SuggestionKeyDownProps) {
+                  try {
+                    if (props.event.key === 'Escape') {
+                      popup?.[0]?.hide();
+                      return true;
+                    }
 
-              onUpdate(props: SuggestionProps<SlashCommandItem>) {
-                try {
-                  component?.updateProps({
-                    ...props,
-                    editor: props.editor,
-                  });
-
-                  if (!props.clientRect) {
-                    return;
+                    return (
+                      (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) ||
+                      false
+                    );
+                  } catch (error) {
+                    console.error('[SlashCommands] onKeyDown error:', error);
+                    return false;
                   }
+                },
 
-                  popup?.[0]?.setProps({
-                    getReferenceClientRect: props.clientRect as () => DOMRect,
-                  });
-                } catch (error) {
-                  console.error('[SlashCommands] onUpdate error:', error);
-                }
-              },
-
-              onKeyDown(props: SuggestionKeyDownProps) {
-                try {
-                  if (props.event.key === 'Escape') {
-                    popup?.[0]?.hide();
-                    return true;
+                onExit() {
+                  try {
+                    if (popup?.[0]) {
+                      popup[0].destroy();
+                    }
+                    if (component) {
+                      component.destroy();
+                    }
+                  } catch (error) {
+                    console.error('[SlashCommands] onExit error:', error);
                   }
-
-                  return (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) || false;
-                } catch (error) {
-                  console.error('[SlashCommands] onKeyDown error:', error);
-                  return false;
-                }
-              },
-
-              onExit() {
-                try {
-                  if (popup?.[0]) {
-                    popup[0].destroy();
-                  }
-                  if (component) {
-                    component.destroy();
-                  }
-                } catch (error) {
-                  console.error('[SlashCommands] onExit error:', error);
-                }
-                popup = null;
-                component = null;
-              },
-            };
+                  popup = null;
+                  component = null;
+                },
+              };
+            },
+            command: ({
+              editor,
+              range,
+              props,
+            }: {
+              editor: TiptapEditor;
+              range: TiptapRange;
+              props: SlashCommandItem;
+            }) => {
+              const item = props;
+              // Delete the "/" and run the command
+              editor.chain().focus().deleteRange(range).run();
+              item.command(editor);
+            },
           },
-          command: ({ editor, range, props }: { editor: TiptapEditor; range: TiptapRange; props: SlashCommandItem }) => {
-            const item = props;
-            // Delete the "/" and run the command
-            editor.chain().focus().deleteRange(range).run();
-            item.command(editor);
-          },
-        },
-      }),
-    ],
-    content: '',
-    onUpdate: ({ editor }) => {
-      try {
-        const html = editor.getHTML();
-        // Pass current note ID to prevent race conditions when switching notes
-        const noteId = currentNoteRef.current?.id;
-        updateNoteContent(html, noteId);
-        // Hide template picker when user adds any content (text or images)
-        if (showInlineTemplatePicker && !editor.isEmpty) {
-          setShowInlineTemplatePicker(false);
+        }),
+      ],
+      content: '',
+      onUpdate: ({ editor }) => {
+        try {
+          const html = editor.getHTML();
+          // Pass current note ID to prevent race conditions when switching notes
+          const noteId = currentNoteRef.current?.id;
+          updateNoteContent(html, noteId);
+          // Hide template picker when user adds any content (text or images)
+          if (showInlineTemplatePicker && !editor.isEmpty) {
+            setShowInlineTemplatePicker(false);
+          }
+        } catch (error) {
+          console.error('[Editor] onUpdate error:', error);
         }
-      } catch (error) {
-        console.error('[Editor] onUpdate error:', error);
-      }
-    },
-    onDestroy: () => {
-      // Clean up any pending operations when editor is destroyed
-    },
-    onSelectionUpdate: () => {
-      // Wrap in try-catch to prevent crashes during selection
-      try {
-        // Selection update handling - no-op but catches errors
-      } catch (error) {
-        console.error('[Editor] Selection update error:', error);
-      }
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
-        spellcheck: spellCheck ? 'true' : 'false',
       },
-      handlePaste: (_view, event) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
+      onDestroy: () => {
+        // Clean up any pending operations when editor is destroyed
+      },
+      onSelectionUpdate: () => {
+        // Wrap in try-catch to prevent crashes during selection
+        try {
+          // Selection update handling - no-op but catches errors
+        } catch (error) {
+          console.error('[Editor] Selection update error:', error);
+        }
+      },
+      editorProps: {
+        attributes: {
+          class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
+          spellcheck: spellCheck ? 'true' : 'false',
+        },
+        handlePaste: (_view, event) => {
+          const items = event.clipboardData?.items;
+          if (!items) return false;
 
-        for (const item of items) {
-          if (item.type.startsWith('image/')) {
-            event.preventDefault();
-            const file = item.getAsFile();
-            if (file && handleImageFileRef.current) {
-              handleImageFileRef.current(file);
-              return true;
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              event.preventDefault();
+              const file = item.getAsFile();
+              if (file && handleImageFileRef.current) {
+                handleImageFileRef.current(file);
+                return true;
+              }
             }
           }
-        }
-        return false;
-      },
-      handleDrop: (_view, event) => {
-        const files = event.dataTransfer?.files;
-        if (!files || files.length === 0) return false;
+          return false;
+        },
+        handleDrop: (_view, event) => {
+          const files = event.dataTransfer?.files;
+          if (!files || files.length === 0) return false;
 
-        const file = files[0];
-        if (file.type.startsWith('image/')) {
-          event.preventDefault();
-          if (handleImageFileRef.current) {
-            handleImageFileRef.current(file);
+          const file = files[0];
+          if (file.type.startsWith('image/')) {
+            event.preventDefault();
+            if (handleImageFileRef.current) {
+              handleImageFileRef.current(file);
+            }
+            return true;
           }
-          return true;
-        }
-        return false;
+          return false;
+        },
       },
     },
-  }, [tagsEnabled]); // Recreate editor when tagsEnabled changes
+    [tagsEnabled]
+  ); // Recreate editor when tagsEnabled changes
 
   // Handle image file from paste or drop
-  const handleImageFile = useCallback(async (file: File) => {
-    // Validate file type
-    const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Unsupported image format');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error('Image must be smaller than 10MB');
-      return;
-    }
-
-    try {
-      // Resize and save image
-      const savedPath = await processAndSaveImage(file);
-      const imageUrl = convertFileSrc(savedPath);
-
-      // Insert the image at the current cursor position
-      if (editor && !editor.isDestroyed) {
-        editor.chain().focus().setImage({ src: imageUrl }).run();
-        toast.success('Image added');
+  const handleImageFile = useCallback(
+    async (file: File) => {
+      // Validate file type
+      const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Unsupported image format');
+        return;
       }
-    } catch (err) {
-      toast.error(`Failed to upload image: ${err}`);
-    }
-  }, [editor, toast]);
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error('Image must be smaller than 10MB');
+        return;
+      }
+
+      try {
+        // Resize and save image
+        const savedPath = await processAndSaveImage(file);
+        const imageUrl = convertFileSrc(savedPath);
+
+        // Insert the image at the current cursor position
+        if (editor && !editor.isDestroyed) {
+          editor.chain().focus().setImage({ src: imageUrl }).run();
+          toast.success('Image added');
+        }
+      } catch (err) {
+        toast.error(`Failed to upload image: ${err}`);
+      }
+    },
+    [editor, toast]
+  );
 
   // Keep ref updated for use in editorProps
   handleImageFileRef.current = handleImageFile;
@@ -786,7 +857,7 @@ export function Editor() {
         if (!target) return;
         const targetSlug = slugifyNoteName(target);
         const found = currentNotes.some(
-          (n) => n.name === target || slugifyNoteName(n.name) === targetSlug,
+          (n) => n.name === target || slugifyNoteName(n.name) === targetSlug
         );
         const nextExists = found ? 'true' : 'false';
         if (node.attrs['data-exists'] !== nextExists) {
@@ -828,34 +899,40 @@ export function Editor() {
     setIsLinkModalOpen(true);
   }, [editor]);
 
-  const handleLinkInsert = useCallback((url: string, text?: string) => {
-    if (!editor) return;
+  const handleLinkInsert = useCallback(
+    (url: string, text?: string) => {
+      if (!editor) return;
 
-    const { from, to } = editor.state.selection;
-    const hasSelection = from !== to;
+      const { from, to } = editor.state.selection;
+      const hasSelection = from !== to;
 
-    if (hasSelection) {
-      // Apply link to selected text
-      editor.chain().focus().setLink({ href: url }).run();
-    } else {
-      // Insert new link with text
-      const linkText = text || url;
-      editor
-        .chain()
-        .focus()
-        .insertContent({
-          type: 'text',
-          marks: [{ type: 'link', attrs: { href: url } }],
-          text: linkText,
-        })
-        .run();
-    }
-  }, [editor]);
+      if (hasSelection) {
+        // Apply link to selected text
+        editor.chain().focus().setLink({ href: url }).run();
+      } else {
+        // Insert new link with text
+        const linkText = text || url;
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: 'text',
+            marks: [{ type: 'link', attrs: { href: url } }],
+            text: linkText,
+          })
+          .run();
+      }
+    },
+    [editor]
+  );
 
-  const handleImageInsert = useCallback((url: string, alt?: string) => {
-    if (!editor) return;
-    editor.chain().focus().setImage({ src: url, alt }).run();
-  }, [editor]);
+  const handleImageInsert = useCallback(
+    (url: string, alt?: string) => {
+      if (!editor) return;
+      editor.chain().focus().setImage({ src: url, alt }).run();
+    },
+    [editor]
+  );
 
   // Keyboard shortcuts
   const {
@@ -877,10 +954,7 @@ export function Editor() {
   if (!currentNote) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <WelcomeEmptyState
-          onCreateToday={handleCreateToday}
-          onCreateNote={handleCreateNote}
-        />
+        <WelcomeEmptyState onCreateToday={handleCreateToday} onCreateNote={handleCreateNote} />
       </div>
     );
   }
@@ -922,7 +996,9 @@ export function Editor() {
         <EditorErrorBoundary resetKey={currentNote?.id}>
           <EditorContent editor={editor} className="h-full content-enter" />
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {editor && !editor.isDestroyed && <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />}
+          {editor && !editor.isDestroyed && (
+            <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
+          )}
           {/* Image Toolbar - shows when image is selected */}
           {editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
@@ -935,7 +1011,10 @@ export function Editor() {
           <div
             className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
           >
             {/* Clickable overlay to dismiss picker and focus editor */}
             <div

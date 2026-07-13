@@ -370,7 +370,10 @@ fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
-/// Brute-force top-k cosine scan.
+/// Return deterministic top-k cosine matches, optionally excluding one note path.
+///
+/// The index is intentionally scanned in memory: at 384 dimensions and expected
+/// Forge sizes this remains fast while avoiding a vector-database dependency.
 pub(crate) fn top_k_similar(
     entries: &[IndexEntry],
     query: &[f32],

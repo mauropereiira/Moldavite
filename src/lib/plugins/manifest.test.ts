@@ -1,3 +1,5 @@
+/** Strict manifest-schema, identity, capability, and hostname validation tests. */
+
 import { describe, it, expect } from 'vitest';
 import { validateManifest } from './manifest';
 import wordpressManifest from '../../../src-tauri/example-plugin/moldavite-wordpress/manifest.json';

@@ -1,8 +1,8 @@
 /**
- * Custom React hooks for Moldavite
+ * Public barrel for reusable React hooks.
  *
- * These hooks encapsulate complex logic and provide clean interfaces
- * for components to interact with app features.
+ * Hooks own component-facing effects and orchestration; filesystem and durable
+ * state invariants remain in `lib/` and `stores/` rather than this re-export layer.
  *
  * ## Available Hooks
  *

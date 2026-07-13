@@ -9,6 +9,8 @@
  *
  * The backend enforces a hard whitelist (exactly `AGENTS.md` and
  * `.gitignore`); see src-tauri/src/commands/root_files.rs.
+ * Generated setup snippets are display/copy text only; this module never launches
+ * an MCP client or writes any Forge-root filename outside the mirrored whitelist.
  */
 
 import { safeInvoke } from './ipc';

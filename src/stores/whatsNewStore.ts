@@ -1,3 +1,9 @@
+/**
+ * Persisted "What's New" acknowledgement and transient modal visibility.
+ * `lastSeenVersion` advances only when the popup is acknowledged; opening/closing the
+ * current session must not itself mark unseen release notes as read.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ChangelogEntry } from '@/lib/changelog';

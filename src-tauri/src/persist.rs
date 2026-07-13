@@ -1,4 +1,11 @@
-//! On-disk state read/write helpers (config, trash metadata, note metadata).
+//! Atomic persistence and collision-free name generation for shared disk state.
+//!
+//! [`write_atomic`] is the only write primitive for config, metadata, indexes,
+//! and note data: it creates a same-directory temporary file, applies restrictive
+//! permissions before data becomes visible, writes and `fsync`s the file, then
+//! renames it over the destination. Same-directory rename provides atomic
+//! replacement; unique temp names keep concurrent writers isolated. Failed
+//! writes remove their temp file and leave the previous destination intact.
 
 use std::fs;
 use std::path::Path;
@@ -14,11 +21,11 @@ lazy_static! {
     static ref COUNTER_SUFFIX_RE: Regex = Regex::new(r"^(.+) \((\d+)\)$").unwrap();
 }
 
-/// Write `contents` to `path` atomically: write to a temp file in the same
-/// directory, flush to disk, then rename over the destination. A crash or
-/// full disk mid-write can never leave a truncated file at `path`. On Unix,
-/// `mode` (e.g. 0o600) is applied to the temp file before the rename so the
-/// final file never exists with looser permissions.
+/// Atomically replace `path` after a same-directory temp write and file `fsync`.
+///
+/// On Unix, `mode` is applied to the temporary file before rename, so the
+/// destination is never observable with broader permissions. Concurrent calls
+/// never share a temp path; on failure the prior destination remains intact.
 pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<(), String> {
     let parent = path
         .parent()

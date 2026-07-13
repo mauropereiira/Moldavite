@@ -1,3 +1,5 @@
+/** Verifies that a rename migrates every store keyed by the note's stable path. */
+
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteColorsStore } from '@/stores/noteColorsStore';

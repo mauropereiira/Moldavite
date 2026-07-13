@@ -79,7 +79,7 @@ export function BacklinksSection({
 
   // Handle clicking a backlink
   const handleBacklinkClick = (backlink: BacklinkInfo) => {
-    const note = notes.find(n => n.path === backlink.sourcePath);
+    const note = notes.find((n) => n.path === backlink.sourcePath);
     if (note) {
       onNoteClick(note);
     }
@@ -117,9 +117,15 @@ export function BacklinksSection({
               }}
             >
               {backlink.isDaily ? (
-                <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent-primary)' }} />
+                <Calendar
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={{ color: 'var(--accent-primary)' }}
+                />
               ) : (
-                <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+                <FileText
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={{ color: 'var(--text-muted)' }}
+                />
               )}
               <span className="truncate">{backlink.sourceName}</span>
             </button>

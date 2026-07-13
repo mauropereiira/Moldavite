@@ -34,11 +34,7 @@ export function TemplateCard({
         className={compact ? 'mb-2' : 'mb-3'}
         style={{ color: selected ? 'var(--accent-primary)' : 'var(--text-muted)' }}
       >
-        <TemplateIcon
-          icon={template.icon}
-          size={compact ? 24 : 32}
-          className="transition-colors"
-        />
+        <TemplateIcon icon={template.icon} size={compact ? 24 : 32} className="transition-colors" />
       </div>
 
       {/* Name */}

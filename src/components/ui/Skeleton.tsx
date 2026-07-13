@@ -7,12 +7,7 @@ interface SkeletonProps {
   height?: string | number;
 }
 
-export function Skeleton({
-  className = '',
-  variant = 'text',
-  width,
-  height,
-}: SkeletonProps) {
+export function Skeleton({ className = '', variant = 'text', width, height }: SkeletonProps) {
   const baseClasses = 'skeleton';
   const variantClasses = {
     text: 'rounded',
@@ -25,12 +20,7 @@ export function Skeleton({
     height: height || (variant === 'text' ? '1em' : undefined),
   };
 
-  return (
-    <div
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
-      style={style}
-    />
-  );
+  return <div className={`${baseClasses} ${variantClasses[variant]} ${className}`} style={style} />;
 }
 
 // Pre-built skeleton layouts

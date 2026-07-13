@@ -205,9 +205,7 @@ export function TabBar() {
       {/* Pinned tabs zone */}
       {pinnedTabs.length > 0 && (
         <>
-          <div className="pinned-tabs">
-            {pinnedTabs.map((note, i) => renderTab(note, i, true))}
-          </div>
+          <div className="pinned-tabs">{pinnedTabs.map((note, i) => renderTab(note, i, true))}</div>
           <div className="tabs-divider" />
         </>
       )}

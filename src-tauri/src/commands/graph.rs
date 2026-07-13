@@ -4,6 +4,8 @@
 //! Existing notes use their Forge-relative path as the stable node id
 //! (`daily/...`, `weekly/...`, or `notes/...`). Broken wiki-links use a
 //! `missing:` id, so a missing target can never collide with a real note.
+//! Locked notes and symlinks are excluded; edge resolution follows the same
+//! wiki slug rules as click-to-open and backlink indexing.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;

@@ -57,10 +57,7 @@ export function PdfExportOptionsModal({
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        <h3
-          className="text-base font-semibold mb-4"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
           {title}
         </h3>
 

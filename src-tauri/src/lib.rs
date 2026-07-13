@@ -1,8 +1,9 @@
-//! Moldavite - A local-first note-taking app for connected thinking
+//! Tauri library entry point and composition root for Moldavite.
 //!
-//! The Tauri command surface is organized into per-domain modules under
-//! `commands/`. Shared building blocks (types, path helpers, validation,
-//! persistence, wiki/template helpers) live alongside it.
+//! This module owns command registration, application startup, managed shared
+//! state, and the `plugin://` scheme handler. Domain behavior stays in
+//! `commands/` and the sibling service modules; every filesystem-facing
+//! command must preserve their validation and atomic-persistence invariants.
 //!
 //! # Security
 //!
@@ -25,9 +26,6 @@ mod encryption;
 
 /// Security utilities (rate limiting)
 mod security;
-
-/// Shared utilities (paths, config, permissions)
-mod utils;
 
 /// YAML frontmatter parsing for note files.
 pub(crate) mod frontmatter;

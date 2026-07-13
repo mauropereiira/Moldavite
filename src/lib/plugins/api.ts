@@ -1,8 +1,12 @@
-// Host-side implementations of the RPC methods a plugin can invoke over the
-// worker bridge. Every call arrives as a postMessage from the sandboxed
-// worker; we enforce the plugin's declared permissions here (defense in
-// depth — the worker also throws locally when a plugin uses an undeclared
-// API, but this is the real security boundary).
+/**
+ * Host-side implementations of the RPC methods a plugin may invoke.
+ *
+ * Method names, arguments, URLs, redirect targets, and response sizes cross the
+ * worker boundary and are untrusted. This is the authoritative permission and
+ * input-validation boundary; worker-side checks are defense in depth. Plugin code
+ * must never receive raw Tauri IPC, direct filesystem access, unrestricted fetch,
+ * another plugin's secrets, or unfiltered response headers.
+ */
 
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
