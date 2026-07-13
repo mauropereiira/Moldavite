@@ -9,7 +9,7 @@
 
 use serde::Serialize;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::paths::get_notes_dir;
 use crate::validation::validate_path_within_base;
@@ -238,28 +238,81 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
     Ok(())
 }
 
+fn copy_plugin_files(src: &Path, dest: &Path, plugin_id: &str) -> Result<(), String> {
+    for required in ["manifest.json", "plugin.js"] {
+        let path = src.join(required);
+        if !path.is_file() {
+            return Err(format!(
+                "bundled plugin source is missing {required}: {}",
+                path.display()
+            ));
+        }
+    }
+    if dest.exists() {
+        return Err(format!("{plugin_id} is already installed"));
+    }
+
+    let parent = dest
+        .parent()
+        .ok_or_else(|| "plugin destination has no parent directory".to_string())?;
+    fs::create_dir_all(parent).map_err(|e| format!("cannot create plugins directory: {e}"))?;
+    let staging = parent.join(format!(".{plugin_id}.installing"));
+    if staging.exists() {
+        fs::remove_dir_all(&staging)
+            .map_err(|e| format!("cannot clean previous plugin staging directory: {e}"))?;
+    }
+
+    let install_result = (|| {
+        fs::create_dir(&staging).map_err(|e| format!("cannot create plugin staging dir: {e}"))?;
+        for name in ["manifest.json", "plugin.js", "README.md"] {
+            let from = src.join(name);
+            if from.is_file() {
+                fs::copy(&from, staging.join(name))
+                    .map_err(|e| format!("copy {name} failed: {e}"))?;
+            }
+        }
+        fs::rename(&staging, dest).map_err(|e| format!("cannot finish plugin install: {e}"))
+    })();
+
+    if install_result.is_err() {
+        fs::remove_dir_all(&staging).ok();
+    }
+    install_result
+}
+
+fn bundled_plugin_source(app: &tauri::AppHandle, resource_name: &str) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    let bundled = app
+        .path()
+        .resolve(resource_name, tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("cannot locate bundled plugin: {e}"))?;
+
+    if bundled.join("manifest.json").is_file() {
+        return Ok(bundled);
+    }
+
+    // A running `tauri dev` process can have a stale target/debug resource
+    // tree when a new resource directory is added. Production must only use
+    // the app bundle; debug builds can safely fall back to the source tree.
+    #[cfg(debug_assertions)]
+    {
+        let source_tree = Path::new(env!("CARGO_MANIFEST_DIR")).join(resource_name);
+        if source_tree.join("manifest.json").is_file() {
+            return Ok(source_tree);
+        }
+    }
+
+    Ok(bundled)
+}
+
 fn install_bundled_plugin(
     app: &tauri::AppHandle,
     resource_name: &str,
     plugin_id: &str,
 ) -> Result<(), String> {
-    use tauri::Manager;
-    let src = app
-        .path()
-        .resolve(resource_name, tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("cannot locate bundled plugin: {e}"))?;
+    let src = bundled_plugin_source(app, resource_name)?;
     let dest = plugins_dir().join(plugin_id);
-    if dest.exists() {
-        return Err(format!("{plugin_id} is already installed"));
-    }
-    fs::create_dir_all(&dest).map_err(|e| format!("cannot create plugin dir: {e}"))?;
-    for name in ["manifest.json", "plugin.js", "README.md"] {
-        let from = src.join(name);
-        if from.is_file() {
-            fs::copy(&from, dest.join(name)).map_err(|e| format!("copy {name} failed: {e}"))?;
-        }
-    }
-    Ok(())
+    copy_plugin_files(&src, &dest, plugin_id)
 }
 
 #[tauri::command]
@@ -381,5 +434,57 @@ mod tests {
         let after = plugin_content_hash(&dir).unwrap();
         assert_ne!(before, after);
         fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn missing_source_manifest_does_not_leave_a_partial_install() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-install-test-{}",
+            std::process::id()
+        ));
+        let src = root.join("source");
+        let dest = root.join("plugins/moldavite-wordpress");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&src).unwrap();
+        fs::write(src.join("plugin.js"), "export default () => {};").unwrap();
+
+        let error = copy_plugin_files(&src, &dest, "moldavite-wordpress").unwrap_err();
+        assert!(error.contains("missing manifest.json"));
+        assert!(!dest.exists());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn plugin_copy_is_complete_and_can_reinstall_after_removal() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-reinstall-test-{}",
+            std::process::id()
+        ));
+        let src = root.join("source");
+        let dest = root.join("plugins/moldavite-wordpress");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&src).unwrap();
+        for (name, contents) in [
+            ("manifest.json", r#"{"id":"moldavite-wordpress"}"#),
+            ("plugin.js", "export default () => {};"),
+            ("README.md", "# Publish to WordPress"),
+        ] {
+            fs::write(src.join(name), contents).unwrap();
+        }
+
+        copy_plugin_files(&src, &dest, "moldavite-wordpress").unwrap();
+        assert_eq!(
+            fs::read_to_string(dest.join("manifest.json")).unwrap(),
+            r#"{"id":"moldavite-wordpress"}"#
+        );
+        assert!(dest.join("plugin.js").is_file());
+        assert!(dest.join("README.md").is_file());
+
+        fs::remove_dir_all(&dest).unwrap();
+        copy_plugin_files(&src, &dest, "moldavite-wordpress").unwrap();
+        assert!(dest.join("manifest.json").is_file());
+
+        fs::remove_dir_all(root).ok();
     }
 }

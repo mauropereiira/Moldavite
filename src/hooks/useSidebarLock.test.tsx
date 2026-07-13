@@ -1,4 +1,4 @@
-/** Verifies that temporary unlock exposes decrypted Markdown as view-only editor HTML. */
+/** Lock/unlock regressions for open editor tabs and decrypted view-only content. */
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,13 @@ const lockedNote: NoteFile = {
   isDaily: false,
   isWeekly: false,
   isLocked: true,
+};
+
+const unlockedNote: NoteFile = {
+  ...lockedNote,
+  name: 'Open.md',
+  path: 'notes/Open.md',
+  isLocked: false,
 };
 
 beforeEach(() => {
@@ -52,5 +59,40 @@ describe('useSidebarLock unlock', () => {
     expect(state.currentNote?.content).toContain('<h1>Decrypted</h1>');
     expect(state.currentNote?.content).toContain('<p>Visible immediately</p>');
     expect(state.unlockedNotes.has(lockedNote.path)).toBe(true);
+  });
+
+  it('locks an open note without corrupting the note store', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') {
+        return { contentHash: 'saved-before-lock', conflictCopy: null };
+      }
+      return undefined;
+    });
+    const openNote = {
+      id: unlockedNote.path,
+      title: 'Secret',
+      content: '<p>Editable secret</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    useNoteStore.setState({
+      notes: [unlockedNote],
+      openTabs: [openNote],
+      activeTabId: openNote.id,
+      currentNote: openNote,
+    });
+
+    const hook = renderHook(() => useSidebarLock());
+    act(() => hook.result.current.openLock(unlockedNote));
+    await act(() => hook.result.current.submit('password', [unlockedNote]));
+
+    const state = useNoteStore.getState();
+    expect(state.notes[0].isLocked).toBe(true);
+    expect(state.openTabs).toEqual([]);
+    expect(state.activeTabId).toBeNull();
+    expect(state.currentNote).toBeNull();
+    expect(invokeMock.mock.calls.map(([command]) => command)).toEqual(['write_note', 'lock_note']);
   });
 });
