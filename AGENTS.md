@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-13 12:15am GMT+1
+# [Moldavite] recent context, 2026-07-13 8:34am GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (24,511t read) | 404,286t work | 94% savings
+Stats: 50 obs (26,101t read) | 370,001t work | 93% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
@@ -21,18 +21,7 @@ S339 Moldavite v1.5.1 CI — Both Jobs Passed on PR #23 (Jul 12 at 11:14 AM)
 S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions Release Workflow (Jul 12 at 11:18 AM)
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
-711 11:47p ⚖️ Moldavite Plugin API v2 — "Publish to WordPress" Plugin Full Build Scope Defined
-712 " 🔵 Moldavite Plugin API v2 — Codebase Architecture Investigation
-713 " 🟣 Moldavite Plugin API v2 — net.requestHostAccess RPC Handler + Dynamic Host Union Implemented
-714 " ⚖️ Moldavite Plugin API v2 — "Publish to WordPress" Plugin + API Additions Full Scope Defined
-715 11:48p ⚖️ Moldavite Plugin API v2 — ui.prompt Security Architecture
-716 " ⚖️ Moldavite Plugin API v2 — net.requestHostAccess Grant Storage Architecture
-717 " ⚖️ Moldavite "Publish to WordPress" Plugin — Scope and Known Limitations
-718 11:49p ⚖️ Moldavite Plugin API v2 + "Publish to WordPress" Plugin — Full Build Scope Defined
-719 11:50p ⚖️ Moldavite Plugin API v2 — "Publish to WordPress" Plugin + ui.prompt + requestHostAccess Full Build Scope
 720 11:51p ⚖️ Moldavite Plugin API v2 — "Publish to WordPress" Full Build Scope Defined
-721 " ⚖️ WordPress Plugin — wp.com Simple Sites OAuth Limitation Documented as Out-of-Scope
-722 " ⚖️ ui.prompt Security Design — Plugin Identity Always Visible, One-at-a-Time Enforcement
 723 11:52p ⚖️ Moldavite Plugin API v2 — "Publish to WordPress" Plugin + ui.prompt + requestHostAccess Full Build Scope
 724 11:53p 🟣 Moldavite v1.6 — Plugin API v2 + WordPress Publisher: Cross-Cutting Integration Patch Applied
 725 " 🔴 net.fetch Redirect Security — Approved Hosts Re-Read at Every Redirect Hop
@@ -72,6 +61,17 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 763 " 🔵 Moldavite v1.6 Graph Audit — Scope of Changes: 32 Files, New addressing.ts and layout.ts Modules
 764 12:11a ⚖️ Moldavite v1.6 — Graph View Audit + MCP Path Disclosure Two-Task Session Scope
 765 12:12a ⚖️ Moldavite v1.6 — Graph View Audit + MCP Path Disclosure Two-Task Session Scope
+766 12:15a ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
+767 12:16a ⚖️ Moldavite v1.6 — End-to-End Stress-Test and Hardening Session Scoped
+768 " ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
+769 12:17a ⚖️ Moldavite v1.6 — Full End-to-End Stress-Test and Hardening Session Scoped
+770 12:18a ⚖️ Moldavite v1.6 — Comprehensive Stress-Test and Hardening Session Scope Defined
+771 12:19a 🔴 MCP Server — Oversized Request DoS Protection Added
+772 " ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Scope Defined on feat/v1.6-agent-native
+773 12:20a ⚖️ Moldavite v1.6 — Full Stress-Test and Hardening Session Scope Defined
+774 12:21a ⚖️ Moldavite v1.6 — Comprehensive Stress-Test and Hardening Session Scope Defined
+775 12:22a ⚖️ Moldavite v1.6 — Full End-to-End Stress-Test and Hardening Session Scoped
+776 12:23a ⚖️ Moldavite v1.6 — End-to-End Stress Test + Hardening Session Scope Defined
 
-Access 404k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 370k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

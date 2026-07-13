@@ -1,311 +1,413 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Moldavite - Your thoughts, forged from cosmic impact</title>
-  <meta name="description" content="A beautiful, privacy-first note-taking app for macOS. Local-first, no cloud, no tracking.">
-  <meta property="og:title" content="Moldavite">
-  <meta property="og:description" content="Your thoughts, forged from cosmic impact. A privacy-first note-taking app for macOS.">
-  <meta property="og:type" content="website">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    /* Hero */
-    .hero {
-      min-height: calc(100vh - 60px);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 60px 24px;
-    }
-
-    .logo {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 32px;
-      filter: drop-shadow(0 0 40px rgba(125, 185, 146, 0.3));
-    }
-
-    h1 {
-      font-size: clamp(2.5rem, 8vw, 4rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 16px;
-      background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-glow) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .tagline {
-      font-size: 1.25rem;
-      color: var(--text-secondary);
-      margin-bottom: 48px;
-      font-style: italic;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 16px;
-    }
-
-    .platform-note {
-      margin-top: 16px;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-
-    /* Story */
-    .story {
-      padding: 80px 24px;
-      text-align: center;
-      border-top: 1px solid var(--border);
-    }
-
-    .story p {
-      max-width: 600px;
-      margin: 0 auto;
-      font-size: 1.125rem;
-      color: var(--text-secondary);
-      line-height: 1.8;
-    }
-
-    .story strong {
-      color: var(--accent-glow);
-    }
-
-    /* Sections */
-    .features,
-    .privacy {
-      padding: 80px 24px;
-      border-top: 1px solid var(--border);
-    }
-
-    .shot {
-      padding-bottom: 80px;
-    }
-
-    /* Privacy */
-    .privacy-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px;
-      max-width: 960px;
-      margin: 0 auto;
-    }
-
-    .privacy-item {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 28px;
-    }
-
-    .privacy-item h3 {
-      font-size: 1.05rem;
-      margin-bottom: 8px;
-      color: var(--accent-glow);
-    }
-
-    .privacy-item p {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-    }
-
-    .privacy-lede {
-      max-width: 640px;
-      margin: 0 auto 48px;
-      text-align: center;
-      color: var(--text-secondary);
-      font-size: 1.05rem;
-    }
-
-    .privacy-lede strong {
-      color: var(--text-primary);
-    }
-
-    .github-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.875rem;
-    }
-
-    .github-link:hover {
-      color: var(--text-primary);
-    }
-
-    .github-link svg {
-      width: 18px;
-      height: 18px;
-    }
-  </style>
-</head>
-<body>
-  <header class="site-header">
-    <div class="nav-inner">
-      <a href="index.html" class="brand">
-        <img src="icon.png" alt="" aria-hidden="true">
-        Moldavite
-      </a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="var n=document.getElementById('nav');var o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">&#9776;</button>
-      <nav class="nav-links" id="nav">
-        <a href="index.html" aria-current="page">Home</a>
-        <a href="guide.html">User Guide</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-        <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta">Download</a>
-      </nav>
-    </div>
-  </header>
-
-  <section class="hero">
-    <img src="icon.png" alt="Moldavite" class="logo">
-    <h1>Moldavite</h1>
-    <p class="tagline">Your thoughts, forged from cosmic impact.</p>
-
-    <div class="hero-actions">
-      <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="download-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        Download for Mac
-      </a>
-      <a href="guide.html" class="btn-secondary">Read the guide</a>
-    </div>
-    <p class="platform-note">macOS 10.15+ · Apple Silicon &amp; Intel · Free &amp; open source</p>
-  </section>
-
-  <section class="story">
-    <div class="container">
-      <p>
-        Moldavite is a rare green gemstone formed 15 million years ago when a meteorite struck Earth.
-        The impact fused terrestrial and extraterrestrial matter into something entirely new.<br><br>
-        This app carries that spirit. Your notes live <strong>only on your Mac</strong>—fused with your workflow,
-        shaped by your thinking, belonging entirely to you.<br><br>
-        No cloud. No accounts. No tracking.
-      </p>
-    </div>
-  </section>
-
-  <div class="shot">
-    <div class="frame">
-      <img src="assets/screenshot-main.png" alt="Moldavite main window: sidebar, editor, and calendar panel"
-           loading="lazy"
-           onerror="this.closest('.shot').style.display='none'">
-    </div>
-  </div>
-
-  <section class="features" id="features">
-    <h2 class="section-title">Everything a thinking tool needs</h2>
-    <p class="section-sub">A fast, native-feeling editor with the connective tissue of a knowledge base — and none of the lock-in.</p>
-    <div class="features-grid">
-      <div class="feature">
-        <h3>Local-first by design</h3>
-        <p>Notes are plain Markdown files in your Forge at <code>~/Documents/Moldavite/</code>. Sync it, back it up, or open it in any other tool.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moldavite — Local notes, ready for your AI tools</title>
+    <meta
+      name="description"
+      content="Moldavite is a private, local-first macOS notes app with plain Markdown, fully local semantic search, an opt-in MCP server, and sandboxed plugins."
+    />
+    <meta property="og:title" content="Moldavite" />
+    <meta
+      property="og:description"
+      content="Your notes are the local memory layer for your thinking and your AI tools."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="nav-inner">
+        <div class="brand-wrap">
+          <a href="index.html" class="brand">
+            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
+            Moldavite
+          </a>
+          <span class="version-badge">v1.6</span>
+        </div>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+          aria-controls="nav"
+        >
+          Menu
+        </button>
+        <nav class="nav-links" id="nav" aria-label="Primary">
+          <a href="index.html" aria-current="page">Home</a>
+          <a href="guide.html">User Guide</a>
+          <a href="plugins.html">Plugins</a>
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+            >Download</a
+          >
+        </nav>
       </div>
-      <div class="feature">
-        <h3>Rich editing</h3>
-        <p>Markdown shortcuts, headings, task lists, images, highlights, code blocks, and a slash menu for quick actions.</p>
-      </div>
-      <div class="feature">
-        <h3>Daily &amp; weekly notes</h3>
-        <p>One click to today's note, created automatically and cleaned up if left empty. Weekly notes straight from the calendar.</p>
-      </div>
-      <div class="feature">
-        <h3>Connected thinking</h3>
-        <p><code>[[Wiki links]]</code> with a backlinks panel and a graph view. #tags with global rename. Folders when you need structure.</p>
-      </div>
-      <div class="feature">
-        <h3>Find anything fast</h3>
-        <p>Full-text search with ranked snippets, plus a command palette / quick switcher on <span class="kbd-hint">⌘P</span> for notes, actions, and plugin commands.</p>
-      </div>
-      <div class="feature">
-        <h3>Apple Calendar, read-only</h3>
-        <p>Today's events beside your notes via native EventKit — permission-gated by macOS, never written to, never uploaded.</p>
-      </div>
-      <div class="feature">
-        <h3>Templates</h3>
-        <p>Custom templates with <code>{{date}}</code>, <code>{{time}}</code>, and <code>{{day_of_week}}</code> variables, pinnable for one-click starts.</p>
-      </div>
-      <div class="feature">
-        <h3>Multiple Forges</h3>
-        <p>Keep separate vaults — Work, Personal, anything — and switch between them instantly. Each Forge has its own plugins and pinned notes.</p>
-      </div>
-      <div class="feature">
-        <h3>Plugins</h3>
-        <p>Add your own commands to the palette and slash menu with a small, permissioned JavaScript API. <a href="plugins.html">Build one →</a></p>
-      </div>
-      <div class="feature">
-        <h3>Agent-ready</h3>
-        <p>Your Forge is plain Markdown, so AI agents like Claude Code can work in it directly. One click generates an <code>AGENTS.md</code> that teaches them your vault's conventions. <a href="guide.html#agents">Learn how →</a></p>
-      </div>
-      <div class="feature">
-        <h3>Semantic search, fully local</h3>
-        <p>Opt in to search by meaning and see related notes as you read. Choose between three local models (all-MiniLM-L6-v2 is the default); your selection downloads once, then everything runs offline — your notes never leave your Mac. <a href="guide.html#semantic-search">How it works →</a></p>
-      </div>
-    </div>
-  </section>
+    </header>
 
-  <section class="privacy" id="privacy">
-    <h2 class="section-title">Private by architecture, not by promise</h2>
-    <p class="privacy-lede">
-      Moldavite doesn't have a privacy <em>policy</em> so much as a privacy <em>design</em>:
-      there is <strong>no server, no account, and zero telemetry</strong>. Nothing to leak, because nothing leaves.
-    </p>
-    <div class="privacy-grid">
-      <div class="privacy-item">
-        <h3>Plain files you own</h3>
-        <p>Every note is a Markdown file on your disk with owner-only file permissions. Delete the app and your notes are still just files.</p>
-      </div>
-      <div class="privacy-item">
-        <h3>Zero telemetry</h3>
-        <p>No analytics, no crash reporters, no phone-home. The only network request the app makes is checking GitHub for signed updates.</p>
-      </div>
-      <div class="privacy-item">
-        <h3>Encrypted note locking</h3>
-        <p>Lock sensitive notes behind a password — encrypted with AES-GCM and Argon2 key derivation, with brute-force rate limiting and auto-lock.</p>
-      </div>
-      <div class="privacy-item">
-        <h3>Encrypted backups</h3>
-        <p>Export your entire vault as a password-protected encrypted archive. Restore it anywhere, on your terms.</p>
-      </div>
-      <div class="privacy-item">
-        <h3>Signed auto-updates</h3>
-        <p>Updates are code-signed and cryptographically verified before install, so what you run is exactly what was released.</p>
-      </div>
-      <div class="privacy-item">
-        <h3>Plugin consent, pinned</h3>
-        <p>Plugins run only after you approve their permissions — and consent is pinned to a SHA-256 hash of the plugin's code, so any change re-prompts you.</p>
-      </div>
-    </div>
-  </section>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <span class="eyebrow">Private notes · agent-native</span>
+          <h1 id="hero-title">Your thoughts, <span>forged locally.</span></h1>
+          <p class="hero-lede">
+            Moldavite is a macOS notes app where your knowledge stays as plain Markdown on your
+            Mac—and becomes useful, permissioned memory for the AI tools you choose.
+          </p>
+          <div class="hero-actions">
+            <a
+              href="https://github.com/mauropereiira/Moldavite/releases/latest"
+              class="download-btn"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"
+                />
+              </svg>
+              Download for Mac
+            </a>
+            <a href="guide.html#agents" class="btn-secondary">Explore AI &amp; Agents</a>
+          </div>
+          <p class="platform-note">
+            macOS 10.15+ · Apple Silicon &amp; Intel · Free and open source
+          </p>
+        </div>
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <nav aria-label="Footer">
-        <a href="index.html">Home</a>
-        <a href="guide.html">User Guide</a>
-        <a href="plugins.html">Plugin Development</a>
-        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
-      </nav>
-      <div class="footer-meta">
-        <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License</p>
-        <a href="https://github.com/mauropereiira/Moldavite" class="github-link">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          View on GitHub
-        </a>
+        <div class="mineral-stage" aria-hidden="true">
+          <div class="mineral-fragment">
+            <img src="icon.png" alt="" width="1024" height="1024" />
+          </div>
+          <div class="mineral-caption">
+            <strong>Impact, made useful.</strong>
+            Local Markdown meets tools that can reason across it.
+          </div>
+        </div>
+      </section>
+
+      <div class="trust-strip" aria-label="Core principles">
+        <div class="trust-strip-inner">
+          <div class="trust-item">
+            <strong>No account</strong>
+            Your Forge lives on disk, not on a service.
+          </div>
+          <div class="trust-item">
+            <strong>Search stays local</strong>
+            Embeddings run offline after an explicit model download.
+          </div>
+          <div class="trust-item">
+            <strong>Agent writes are off</strong>
+            MCP clients start with read tools only.
+          </div>
+        </div>
       </div>
-    </div>
-  </footer>
-</body>
+
+      <section class="landing-section" aria-labelledby="origin-title">
+        <div class="container-wide origin-grid">
+          <div class="origin-fact reveal">
+            <span class="number">15m</span>
+            <p>
+              years ago, a meteorite impact fused Earth and sky into the green glass called
+              moldavite.
+            </p>
+          </div>
+          <div class="origin-copy reveal">
+            <span class="section-kicker">Why Moldavite</span>
+            <h2 class="section-title" id="origin-title">A thinking tool with a material memory</h2>
+            <p>
+              The name is a reminder that useful ideas come from collision: a note meeting another
+              note, a calendar event meeting a plan, your own memory meeting a new question.
+            </p>
+            <p>
+              Moldavite keeps that material honest. <strong>Your source of truth is a folder of real
+              Markdown files.</strong> You can sync it with a tool you trust, edit it elsewhere, put
+              it in git, or leave it entirely offline.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section ai-section" id="ai-agents" aria-labelledby="ai-title">
+        <div class="container-wide ai-grid">
+          <div class="reveal">
+            <span class="section-kicker">New in v1.6 · AI &amp; Agents</span>
+            <h2 class="section-title" id="ai-title">Your notes are the memory layer</h2>
+            <p class="section-sub">
+              Connect an AI tool without uploading your vault to a Moldavite service. The built-in
+              MCP server exposes validated note tools over local stdio, while direct file-based
+              agents can learn the Forge format from a generated <code>AGENTS.md</code>.
+            </p>
+            <div class="ai-points reveal-group">
+              <div class="ai-point">
+                <span class="step">01</span>
+                <div>
+                  <strong>Prepare the Forge</strong>
+                  <p>One click writes AGENTS.md plus a .gitignore for app-managed directories.</p>
+                </div>
+              </div>
+              <div class="ai-point">
+                <span class="step">02</span>
+                <div>
+                  <strong>Connect locally</strong>
+                  <p>Use Claude Code, Claude Desktop, Cursor, or another stdio MCP client.</p>
+                </div>
+              </div>
+              <div class="ai-point">
+                <span class="step">03</span>
+                <div>
+                  <strong>Control mutations</strong>
+                  <p>Search, reading, listing, and backlinks are on; creation and writes are opt-in.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="terminal-card reveal" aria-label="Claude Code MCP setup command">
+            <div class="terminal-bar">
+              <span class="terminal-label">
+                <span class="terminal-dots" aria-hidden="true">•••</span>
+                Claude Code · local stdio
+              </span>
+              <button
+                class="copy-button"
+                type="button"
+                data-copy-target="mcp-command"
+                aria-live="polite"
+              >
+                Copy
+              </button>
+            </div>
+            <pre class="terminal-code"><code><span class="prompt">$ </span><span id="mcp-command">claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</span></code></pre>
+            <p class="terminal-note">
+              Settings generates this with the exact binary path on your Mac. Add
+              <code>--forge "Work"</code> to choose another Forge.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section" id="features" aria-labelledby="features-title">
+        <div class="container-wide">
+          <div class="section-heading reveal">
+            <span class="section-kicker">The whole instrument</span>
+            <h2 class="section-title" id="features-title">Fast capture, durable connections</h2>
+            <p class="section-sub">
+              Rich editing where you want it, portable Markdown underneath, and v1.6 safety for the
+              moments when other tools touch the same files.
+            </p>
+          </div>
+
+          <div class="feature-grid reveal-group">
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">MD</span>
+              <h3>Plain files, rich editor</h3>
+              <p>
+                Headings, tasks, code, images, highlights, slash commands, daily and weekly notes,
+                templates, folders, tabs, and multiple Forges.
+              </p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">≈</span>
+              <h3>Semantic search, fully local</h3>
+              <p>
+                Opt in to one of three transparent embedding models, search by meaning, and discover
+                five related notes. Locked notes are never indexed.
+              </p>
+              <a href="guide.html#semantic-search">How local search works →</a>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">[[</span>
+              <h3>Links that survive change</h3>
+              <p>
+                Rename a standalone note from the sidebar or editor. Tabs and recents follow it,
+                while inbound wiki-links are rewritten across the Forge.
+              </p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">◎</span>
+              <h3>A graph you can navigate</h3>
+              <p>
+                Path-correct nodes for folders, daily, and weekly notes; visible broken links;
+                neighbor highlighting, dragging, bounded layout, zoom, pan, and Fit view.
+              </p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">±</span>
+              <h3>Sync-conflict safety</h3>
+              <p>
+                If disk changed while you had unsaved edits, Moldavite preserves that external
+                version as a timestamped sibling conflict note before saving yours.
+              </p>
+              <a href="guide.html#conflicts">Understand conflict copies →</a>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon" aria-hidden="true">API</span>
+              <h3>Sandboxed Plugin API v2</h3>
+              <p>
+                Permissioned note reads, exact-host HTTPS with runtime consent, Keychain secrets,
+                trusted prompts, and a first-party Publish to WordPress reference plugin.
+              </p>
+              <a href="plugins.html">Build a plugin →</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="container-wide">
+          <div class="privacy-intro reveal">
+            <div>
+              <span class="section-kicker">Privacy by architecture</span>
+              <h2 class="section-title" id="privacy-title">Local is the default state</h2>
+            </div>
+            <p>
+              Moldavite has no account system, hosted notes service, analytics, or telemetry. Your
+              notes live in the Forge you choose, and sensitive integrations are narrow, visible,
+              and permission-gated.
+            </p>
+          </div>
+
+          <div class="privacy-grid reveal-group">
+            <article class="privacy-card">
+              <h3>Owner-controlled files</h3>
+              <p>
+                Notes are real Markdown with atomic saves and owner-only permissions. Encrypted
+                locking uses AES-GCM with Argon2 key derivation.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <h3>Local AI index</h3>
+              <p>
+                The selected model downloads only after consent. Embeddings and queries then run on
+                your Mac; model files stay outside the Forge.
+              </p>
+            </article>
+            <article class="privacy-card">
+              <h3>Narrow plugin powers</h3>
+              <p>
+                Workers have no direct network or app access. The host enforces permissions, exact
+                HTTPS hosts, redirect checks, prompt identity, and Keychain isolation.
+              </p>
+            </article>
+          </div>
+
+          <p class="network-note reveal">
+            <strong>An honest network story:</strong> Moldavite checks GitHub for signed updates;
+            semantic models download from Hugging Face only after you opt in; and a plugin can send
+            data only through <code>net.fetch</code> to exact hosts you approved. Publishing a note
+            to WordPress is therefore an explicit action, not a claim that “nothing ever leaves.”
+          </p>
+        </div>
+      </section>
+
+      <section class="landing-section final-cta" aria-labelledby="cta-title">
+        <div class="container reveal">
+          <div class="section-heading">
+            <span class="section-kicker">Free · open source · macOS</span>
+            <h2 class="section-title" id="cta-title">Make your memory portable again</h2>
+            <p class="section-sub">
+              Start with plain Markdown. Add local meaning search and agent access when you decide
+              they earn a place in your workflow.
+            </p>
+          </div>
+          <div class="hero-actions">
+            <a
+              href="https://github.com/mauropereiira/Moldavite/releases/latest"
+              class="button-primary"
+              >Download the latest release</a
+            >
+            <a href="guide.html" class="button-secondary">Read the v1.6 guide</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="guide.html">User Guide</a>
+          <a href="plugins.html">Plugin Development</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+        </nav>
+        <p class="footer-meta">
+          v1.6 docs · Made by
+          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var toggle = document.querySelector('.nav-toggle');
+        var nav = document.getElementById('nav');
+        if (toggle && nav) {
+          toggle.addEventListener('click', function () {
+            var open = nav.classList.toggle('open');
+            toggle.setAttribute('aria-expanded', String(open));
+          });
+        }
+
+        var targets = document.querySelectorAll('.reveal, .reveal-group');
+        if ('IntersectionObserver' in window) {
+          var observer = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+              });
+            },
+            { rootMargin: '0px 0px -8% 0px', threshold: 0.08 }
+          );
+          targets.forEach(function (target) {
+            observer.observe(target);
+          });
+        } else {
+          targets.forEach(function (target) {
+            target.classList.add('is-visible');
+          });
+        }
+
+        document.querySelectorAll('[data-copy-target]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            var target = document.getElementById(button.getAttribute('data-copy-target'));
+            if (!target) return;
+            var selectCommand = function () {
+              var selection = window.getSelection();
+              if (selection) selection.selectAllChildren(target);
+            };
+            var showCopied = function () {
+              var previous = button.textContent;
+              button.textContent = 'Copied';
+              window.setTimeout(function () {
+                button.textContent = previous;
+              }, 1600);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(target.textContent || '').then(showCopied).catch(selectCommand);
+            } else {
+              selectCommand();
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
 </html>
