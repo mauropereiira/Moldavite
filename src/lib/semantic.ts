@@ -20,7 +20,13 @@
 import { safeInvoke as invoke } from './ipc';
 
 /** Lifecycle state reported by the backend `semantic_status` command. */
-export type SemanticState = 'disabled' | 'downloading' | 'indexing' | 'ready' | 'error';
+export type SemanticState =
+  | 'disabled'
+  | 'downloading'
+  | 'indexing'
+  | 'ready'
+  | 'error'
+  | 'unsupported';
 
 /** Shape of the Rust `SemanticStatus` struct (camelCase over IPC). */
 export interface SemanticStatus {
