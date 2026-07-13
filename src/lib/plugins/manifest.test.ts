@@ -99,4 +99,22 @@ describe('validateManifest', () => {
     expect(validateManifest(null, 'demo').ok).toBe(false);
     expect(validateManifest('x', 'demo').ok).toBe(false);
   });
+
+  it('cleanly rejects missing, unknown, and wrong-typed fields', () => {
+    const malformed: unknown[] = [
+      {},
+      { ...base, surprise: true },
+      { ...base, name: 42 },
+      { ...base, version: null },
+      { ...base, apiVersion: '2' },
+      { ...base, author: [] },
+      { ...base, permissions: 'ui' },
+      { ...base, permissions: ['ui', 42] },
+      { ...base, allowedHosts: ['api.example.com', false] },
+    ];
+    for (const raw of malformed) {
+      expect(() => validateManifest(raw, 'demo')).not.toThrow();
+      expect(validateManifest(raw, 'demo').ok).toBe(false);
+    }
+  });
 });

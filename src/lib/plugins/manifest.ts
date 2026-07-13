@@ -1,6 +1,17 @@
 import { PLUGIN_API_VERSION, SUPPORTED_PLUGIN_API_VERSIONS, type PluginManifest } from './types';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
+const MANIFEST_FIELDS = new Set([
+  'id',
+  'name',
+  'version',
+  'apiVersion',
+  'author',
+  'description',
+  'minAppVersion',
+  'permissions',
+  'allowedHosts',
+]);
 
 type Result = { ok: true; manifest: PluginManifest } | { ok: false; reason: string };
 
@@ -11,6 +22,9 @@ export function validateManifest(raw: unknown, folderId: string): Result {
   const m = raw as Record<string, unknown>;
   const str = (k: string) => (typeof m[k] === 'string' ? (m[k] as string) : undefined);
 
+  const extra = Object.keys(m).find((key) => !MANIFEST_FIELDS.has(key));
+  if (extra) return { ok: false, reason: `unknown manifest field "${extra}"` };
+
   const id = str('id');
   const name = str('name');
   const version = str('version');
@@ -18,6 +32,11 @@ export function validateManifest(raw: unknown, folderId: string): Result {
 
   if (!id || !name || !version || apiVersion === undefined) {
     return { ok: false, reason: 'missing required fields (id, name, version, apiVersion)' };
+  }
+  for (const field of ['author', 'description', 'minAppVersion']) {
+    if (m[field] !== undefined && typeof m[field] !== 'string') {
+      return { ok: false, reason: `${field} must be a string` };
+    }
   }
   if (id.length > 64 || !ID_RE.test(id)) {
     return { ok: false, reason: `invalid id "${id}" (use lowercase letters, digits, hyphens)` };
@@ -37,6 +56,13 @@ export function validateManifest(raw: unknown, folderId: string): Result {
   const allowedHosts = Array.isArray(m.allowedHosts)
     ? (m.allowedHosts.filter((host) => typeof host === 'string') as string[])
     : undefined;
+
+  if (
+    m.permissions !== undefined &&
+    (!Array.isArray(m.permissions) || permissions?.length !== m.permissions.length)
+  ) {
+    return { ok: false, reason: 'permissions must be an array of strings' };
+  }
 
   if (
     m.allowedHosts !== undefined &&

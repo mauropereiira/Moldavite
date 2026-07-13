@@ -387,7 +387,11 @@ pub(crate) fn top_k_similar(
             score: dot(&e.embedding, query),
         })
         .collect();
-    hits.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.path.cmp(&b.path)));
+    hits.sort_by(|a, b| {
+        b.score
+            .total_cmp(&a.score)
+            .then_with(|| a.path.cmp(&b.path))
+    });
     hits.truncate(limit);
     hits
 }
@@ -817,7 +821,12 @@ impl SemanticService {
             .find(|e| e.path == path)
             .ok_or_else(|| "Note is not in the semantic index".to_string())?;
         let qv = target.embedding.clone();
-        Ok(top_k_similar(&entries, &qv, limit.clamp(1, 100), Some(path)))
+        Ok(top_k_similar(
+            &entries,
+            &qv,
+            limit.clamp(1, 100),
+            Some(path),
+        ))
     }
 }
 
@@ -854,12 +863,10 @@ pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
             let Ok(mut entries) = svc.entries.write() else {
                 return;
             };
-            refresh_entry(&forge_root, embedder.as_ref(), &mut entries, &rel).unwrap_or_else(
-                |e| {
-                    log::warn!("[semantic] re-embed of {} failed: {}", rel, e);
-                    false
-                },
-            )
+            refresh_entry(&forge_root, embedder.as_ref(), &mut entries, &rel).unwrap_or_else(|e| {
+                log::warn!("[semantic] re-embed of {} failed: {}", rel, e);
+                false
+            })
         };
         if changed {
             svc.persist_entries(&forge_root);
@@ -1079,7 +1086,11 @@ mod tests {
         let v = embed_note_body(&fake, &body).unwrap().unwrap();
         assert_eq!(v.len(), EMBED_DIM as usize);
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-4, "expected unit norm, got {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-4,
+            "expected unit norm, got {}",
+            norm
+        );
         assert!(fake.embed_calls() > 1, "long note should embed >1 chunk");
     }
 
@@ -1310,6 +1321,106 @@ mod tests {
     }
 
     #[test]
+    fn stress_reconcile_builds_1000_note_vault_with_fake_embedder() {
+        let forge = TempForge::new("stress-1000");
+        for i in 0..1000 {
+            let dir = if i % 4 == 0 {
+                forge.path().join("notes/Projects")
+            } else {
+                forge.path().join("notes")
+            };
+            fs::write(
+                dir.join(format!("note-{i}.md")),
+                format!("# Note {i}\nsemantic stress corpus item {i} with common words"),
+            )
+            .unwrap();
+        }
+        let fake = FakeEmbedder::new();
+        let started = std::time::Instant::now();
+        let entries = reconcile_index(forge.path(), &fake, &[], |_, _| true).unwrap();
+        let elapsed = started.elapsed();
+        assert_eq!(entries.len(), 1000);
+        assert_eq!(fake.embed_calls(), 1000);
+        save_index(forge.path(), &entries, DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(
+            load_index(forge.path(), DEFAULT_MODEL_ID).unwrap().len(),
+            1000
+        );
+        eprintln!("[stress] semantic build over 1000 notes took {elapsed:?}");
+        assert!(elapsed.as_secs() < 10, "semantic build took {elapsed:?}");
+    }
+
+    #[test]
+    fn incremental_save_rename_trash_restore_churn_matches_disk() {
+        let forge = TempForge::new("churn");
+        let fake = FakeEmbedder::new();
+        let mut entries = Vec::new();
+        let a = forge.path().join("notes/a.md");
+        let b = forge.path().join("notes/Projects/β.md");
+        let trashed = forge.path().join(".trash/β.md");
+
+        for revision in 0..25 {
+            fs::write(&a, format!("revision {revision}")).unwrap();
+            refresh_entry(forge.path(), &fake, &mut entries, "notes/a.md").unwrap();
+        }
+        fs::rename(&a, &b).unwrap();
+        refresh_entry(forge.path(), &fake, &mut entries, "notes/a.md").unwrap();
+        refresh_entry(forge.path(), &fake, &mut entries, "notes/Projects/β.md").unwrap();
+        fs::rename(&b, &trashed).unwrap();
+        refresh_entry(forge.path(), &fake, &mut entries, "notes/Projects/β.md").unwrap();
+        fs::rename(&trashed, &b).unwrap();
+        refresh_entry(forge.path(), &fake, &mut entries, "notes/Projects/β.md").unwrap();
+
+        let rebuilt = reconcile_index(forge.path(), &fake, &entries, |_, _| true).unwrap();
+        assert_eq!(rebuilt.len(), 1);
+        assert_eq!(rebuilt[0].path, "notes/Projects/β.md");
+        assert_eq!(rebuilt[0].content_hash, content_hash("revision 24"));
+        assert_eq!(rebuilt, entries);
+    }
+
+    #[test]
+    fn corrupt_truncated_and_model_mismatched_indexes_rebuild_cleanly() {
+        let forge = TempForge::new("fallbacks");
+        fs::write(forge.path().join("notes/a.md"), "alpha body").unwrap();
+        let fake = FakeEmbedder::new();
+        fs::create_dir_all(forge.path().join(INDEX_DIR)).unwrap();
+        for corrupt in [b"\x01\x02".as_slice(), b"truncated-index".as_slice()] {
+            fs::write(index_path(forge.path()), corrupt).unwrap();
+            assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
+            let rebuilt = reconcile_index(forge.path(), &fake, &[], |_, _| true).unwrap();
+            save_index(forge.path(), &rebuilt, DEFAULT_MODEL_ID).unwrap();
+            assert_eq!(load_index(forge.path(), DEFAULT_MODEL_ID).unwrap(), rebuilt);
+        }
+
+        let entries = load_index(forge.path(), DEFAULT_MODEL_ID).unwrap();
+        save_index(forge.path(), &entries, "bge-small-en-v1.5").unwrap();
+        assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
+        let rebuilt = reconcile_index(forge.path(), &fake, &[], |_, _| true).unwrap();
+        save_index(forge.path(), &rebuilt, DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(load_index(forge.path(), DEFAULT_MODEL_ID).unwrap(), rebuilt);
+    }
+
+    #[test]
+    fn locked_note_exclusion_survives_repeated_lock_unlock_churn() {
+        let forge = TempForge::new("lock-churn");
+        let plain = forge.path().join("notes/secret.md");
+        let locked = forge.path().join("notes/secret.md.locked");
+        let fake = FakeEmbedder::new();
+        let mut entries = Vec::new();
+        for revision in 0..20 {
+            fs::write(&plain, format!("secret plaintext {revision}")).unwrap();
+            refresh_entry(forge.path(), &fake, &mut entries, "notes/secret.md").unwrap();
+            assert_eq!(entries.len(), 1);
+            fs::remove_file(&plain).unwrap();
+            fs::write(&locked, format!("ciphertext-{revision}")).unwrap();
+            refresh_entry(forge.path(), &fake, &mut entries, "notes/secret.md").unwrap();
+            assert!(entries.is_empty());
+            fs::remove_file(&locked).unwrap();
+        }
+        assert!(scan_note_sources(forge.path()).is_empty());
+    }
+
+    #[test]
     fn reconcile_reports_progress_and_can_be_cancelled() {
         let forge = TempForge::new("cancel");
         seed_vault(&forge);
@@ -1377,18 +1488,25 @@ mod tests {
         assert!(!entries.iter().any(|e| e.path == "notes/rust.md"));
         // And the ciphertext itself can never be addressed for indexing:
         // hidden/locked names fail path validation inside refresh_entry.
-        assert!(
-            !refresh_entry(forge.path(), &fake, &mut entries, "notes/../etc/passwd").unwrap()
-        );
+        assert!(!refresh_entry(forge.path(), &fake, &mut entries, "notes/../etc/passwd").unwrap());
     }
 
     // ---- path helpers -----------------------------------------------------------
 
     #[test]
     fn note_rel_path_maps_note_kinds() {
-        assert_eq!(note_rel_path("2026-07-12.md", true, false), "daily/2026-07-12.md");
-        assert_eq!(note_rel_path("2026-W28.md", false, true), "weekly/2026-W28.md");
-        assert_eq!(note_rel_path("Projects/x.md", false, false), "notes/Projects/x.md");
+        assert_eq!(
+            note_rel_path("2026-07-12.md", true, false),
+            "daily/2026-07-12.md"
+        );
+        assert_eq!(
+            note_rel_path("2026-W28.md", false, true),
+            "weekly/2026-W28.md"
+        );
+        assert_eq!(
+            note_rel_path("Projects/x.md", false, false),
+            "notes/Projects/x.md"
+        );
     }
 
     #[test]

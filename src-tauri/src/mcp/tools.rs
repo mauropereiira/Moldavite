@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use chrono::{Local, NaiveDate};
 use serde_json::{json, Value};
@@ -16,22 +17,53 @@ const WRITE_DISABLED: &str =
 #[derive(Clone)]
 pub(super) struct ToolContext {
     forge_root: PathBuf,
-    writes_enabled: bool,
+    write_gate: Arc<dyn Fn() -> bool + Send + Sync>,
     semantic_ready: bool,
 }
 
 impl ToolContext {
+    #[cfg(test)]
     pub(super) fn new(forge_root: PathBuf, writes_enabled: bool, semantic_ready: bool) -> Self {
         Self {
             forge_root,
-            writes_enabled,
+            write_gate: Arc::new(move || writes_enabled),
             semantic_ready,
         }
     }
 
+    /// Re-read the persisted setting for every request so disabling writes
+    /// takes effect in already-running MCP sessions.
+    pub(super) fn dynamic(forge_root: PathBuf, semantic_ready: bool) -> Self {
+        Self {
+            forge_root,
+            write_gate: Arc::new(|| {
+                crate::persist::read_config()
+                    .mcp_writes_enabled
+                    .unwrap_or(false)
+            }),
+            semantic_ready,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn with_write_gate(
+        forge_root: PathBuf,
+        write_gate: Arc<dyn Fn() -> bool + Send + Sync>,
+    ) -> Self {
+        Self {
+            forge_root,
+            write_gate,
+            semantic_ready: false,
+        }
+    }
+
+    fn writes_enabled(&self) -> bool {
+        (self.write_gate)()
+    }
+
     pub(super) fn tool_definitions(&self) -> Vec<Value> {
         let mut tools = read_tool_definitions();
-        if self.writes_enabled {
+        if self.writes_enabled() {
             tools.extend(write_tool_definitions());
         }
         tools
@@ -43,7 +75,7 @@ impl ToolContext {
             "read_note" => self.read_note(arguments),
             "list_notes" => self.list_notes(arguments),
             "get_backlinks" => self.get_backlinks(arguments),
-            "create_note" | "append_to_daily_note" | "write_note" if !self.writes_enabled => {
+            "create_note" | "append_to_daily_note" | "write_note" if !self.writes_enabled() => {
                 Err(WRITE_DISABLED.to_string())
             }
             "create_note" => self.create_note(arguments),

@@ -2,16 +2,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use tauri::State;
 
 use crate::backlinks_index::BacklinksIndex;
 use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
-use crate::paths::{
-    file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir,
-};
+use crate::paths::{file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir};
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
 use crate::validation::{is_safe_filename, is_safe_note_path};
@@ -75,17 +73,29 @@ fn is_week_stem(stem: &str) -> bool {
 /// the body is handed back so the caller can index it — or `None` when no
 /// conflict exists (no base hash, missing file, hash matches, or the incoming
 /// content is identical to the disk anyway).
-fn preserve_conflict_copy(
+fn conflict_copy_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// Test wrapper with an injectable timestamp.
+#[cfg(test)]
+fn preserve_conflict_copy_at(
     path: &Path,
     base_hash: Option<&str>,
     new_content: &str,
+    stamp: &str,
 ) -> Result<Option<(String, String)>, String> {
-    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
-    preserve_conflict_copy_at(path, base_hash, new_content, &stamp)
+    // Filename selection plus creation must be one critical section. Without
+    // it, two saves in the same minute can both select the same free conflict
+    // name and the later atomic rename silently replaces the first copy.
+    let _guard = conflict_copy_lock()
+        .lock()
+        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+    preserve_conflict_copy_unlocked(path, base_hash, new_content, stamp)
 }
 
-/// Testable core of [`preserve_conflict_copy`] with an injectable timestamp.
-fn preserve_conflict_copy_at(
+fn preserve_conflict_copy_unlocked(
     path: &Path,
     base_hash: Option<&str>,
     new_content: &str,
@@ -119,6 +129,33 @@ fn preserve_conflict_copy_at(
     Ok(Some((conflict_name, disk_body)))
 }
 
+/// Serialize conflict detection, frontmatter preservation, and the replacing
+/// write as one operation. This prevents concurrent saves from both observing
+/// the same old disk version and then silently overwriting one another.
+fn save_note_with_conflict(
+    path: &Path,
+    base_hash: Option<&str>,
+    content: &str,
+    color: Option<&str>,
+) -> Result<Option<(String, String)>, String> {
+    let _guard = conflict_copy_lock()
+        .lock()
+        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+    ensure_note_is_writable(path)?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+    let conflict = preserve_conflict_copy_unlocked(path, base_hash, content, &stamp)?;
+    let existing = fs::read_to_string(path).unwrap_or_default();
+    let parsed_existing = frontmatter::parse_note(&existing);
+    let resolved_color = match color {
+        Some("") | Some("default") => None,
+        Some(value) => Some(value),
+        None => parsed_existing.color.as_deref(),
+    };
+    let serialized = frontmatter::serialize_note(resolved_color, &parsed_existing.extra, content);
+    write_atomic(path, serialized.as_bytes(), Some(0o600))?;
+    Ok(conflict)
+}
+
 fn ensure_note_is_writable(path: &Path) -> Result<(), String> {
     let mut locked_name = path.as_os_str().to_os_string();
     locked_name.push(".locked");
@@ -134,7 +171,10 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
         for entry in entries.flatten() {
             let path = entry.path();
             // Skip symlinks so we never recurse outside the notes tree.
-            if fs::symlink_metadata(&path).map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+            if fs::symlink_metadata(&path)
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+            {
                 continue;
             }
             let Some(filename) = path.file_name().map(|f| f.to_string_lossy().to_string()) else {
@@ -381,52 +421,28 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
-    // A delayed frontend save must never recreate plaintext beside the
-    // encrypted note after `lock_note` removed the original `.md` file.
-    ensure_note_is_writable(&path)?;
-
     // External-edit conflict safety: if the disk copy changed since the
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
     // save below can never silently destroy it.
-    let conflict_copy = match preserve_conflict_copy(&path, base_hash.as_deref(), &content)? {
-        Some((conflict_name, disk_body)) => {
-            if let Some(parent) = path.parent() {
-                // The copy is our own write — suppress the watcher echo.
-                recent.record(&parent.join(&conflict_name));
+    let conflict_copy =
+        match save_note_with_conflict(&path, base_hash.as_deref(), &content, color.as_deref())? {
+            Some((conflict_name, disk_body)) => {
+                if let Some(parent) = path.parent() {
+                    // The copy is our own write — suppress the watcher echo.
+                    recent.record(&parent.join(&conflict_name));
+                }
+                index.update_note(&conflict_name, &disk_body);
+                // Echo back the same folder-relative shape we were addressed with.
+                let rel = match filename.rsplit_once('/') {
+                    Some((folder, _)) => format!("{}/{}", folder, conflict_name),
+                    None => conflict_name,
+                };
+                Some(rel)
             }
-            index.update_note(&conflict_name, &disk_body);
-            // Echo back the same folder-relative shape we were addressed with.
-            let rel = match filename.rsplit_once('/') {
-                Some((folder, _)) => format!("{}/{}", folder, conflict_name),
-                None => conflict_name,
-            };
-            Some(rel)
-        }
-        None => None,
-    };
+            None => None,
+        };
 
-    // Preserve any extra frontmatter keys from the existing file so external
-    // tools that add their own metadata don't lose it on save. If the caller
-    // didn't pass a `color`, also preserve the existing color from the file
-    // so a normal content save doesn't strip it.
-    let existing = fs::read_to_string(&path).unwrap_or_default();
-    let parsed_existing = frontmatter::parse_note(&existing);
-    let resolved_color: Option<String> = match color {
-        // Explicit clear: caller passed "default" or "" to wipe color.
-        Some(ref c) if c.is_empty() || c == "default" => None,
-        // Explicit set.
-        Some(c) => Some(c),
-        // Untouched: keep what's on disk.
-        None => parsed_existing.color.clone(),
-    };
-    let serialized = frontmatter::serialize_note(
-        resolved_color.as_deref(),
-        &parsed_existing.extra,
-        &content,
-    );
-
-    write_atomic(&path, serialized.as_bytes(), Some(0o600))?;
     recent.record(&path);
 
     // The backlinks index only cares about the body, not frontmatter.
@@ -678,11 +694,25 @@ pub(crate) fn rename_note(
 /// Failures on individual files are logged and skipped so one unreadable
 /// note doesn't abort the rename that already happened.
 fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIndex>) {
-    for root in [get_daily_dir(), get_weekly_dir(), get_standalone_dir()] {
+    rewrite_inbound_links_in_roots(
+        &[get_daily_dir(), get_weekly_dir(), get_standalone_dir()],
+        old_stem,
+        new_stem,
+        index,
+    );
+}
+
+fn rewrite_inbound_links_in_roots(
+    roots: &[PathBuf],
+    old_stem: &str,
+    new_stem: &str,
+    index: &Arc<BacklinksIndex>,
+) {
+    for root in roots {
         if !root.exists() {
             continue;
         }
-        for entry in walkdir::WalkDir::new(&root)
+        for entry in walkdir::WalkDir::new(root)
             .into_iter()
             .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
             .flatten()
@@ -771,7 +801,8 @@ pub(crate) fn move_note(
     }
 
     // Get the filename and extract base name without extension
-    let filename = source_path.file_name()
+    let filename = source_path
+        .file_name()
         .ok_or_else(|| "Invalid note path".to_string())?
         .to_string_lossy()
         .to_string();
@@ -793,8 +824,7 @@ pub(crate) fn move_note(
     let dest_path = dest_dir.join(&final_filename);
 
     // Move the file
-    fs::rename(&source_path, &dest_path)
-        .map_err(|e| format!("Failed to move note: {}", e))?;
+    fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
 
     // Keep backlinks index in sync: drop entries from old filename, then
     // re-index using the (possibly deduplicated) new filename + content.
@@ -971,7 +1001,10 @@ mod tests {
         let path = tmp.path().join("secret.md");
         fs::write(tmp.path().join("secret.md.locked"), "ciphertext").unwrap();
 
-        assert_eq!(ensure_note_is_writable(&path), Err("Note is locked".to_string()));
+        assert_eq!(
+            ensure_note_is_writable(&path),
+            Err("Note is locked".to_string())
+        );
         assert!(!path.exists());
     }
 
@@ -1001,6 +1034,116 @@ mod tests {
         assert_eq!(
             fs::read_to_string(tmp.path().join(&second)).unwrap(),
             "external two"
+        );
+    }
+
+    #[test]
+    fn conflict_filename_uniquifies_twelve_same_minute_collisions() {
+        let tmp = TempDir::new("many-collisions");
+        let path = tmp.path().join("note.md");
+        let base = sha256_hex("original");
+        for i in 0..12 {
+            fs::write(&path, format!("external {i}")).unwrap();
+            let (name, body) = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+                .unwrap()
+                .unwrap();
+            assert_eq!(body, format!("external {i}"));
+            assert_eq!(fs::read_to_string(tmp.path().join(name)).unwrap(), body);
+        }
+        assert_eq!(fs::read_dir(tmp.path()).unwrap().count(), 13);
+    }
+
+    #[test]
+    fn concurrent_conflict_copies_never_clobber_each_other() {
+        let tmp = TempDir::new("threaded-collisions");
+        let path = tmp.path().join("nested/Projects/note.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "external").unwrap();
+        let base = sha256_hex("original");
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for _ in 0..16 {
+                let path = path.clone();
+                let base = base.clone();
+                handles.push(scope.spawn(move || {
+                    preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP)
+                        .unwrap()
+                        .unwrap()
+                        .0
+                }));
+            }
+            let mut names: Vec<String> = handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect();
+            names.sort();
+            names.dedup();
+            assert_eq!(names.len(), 16);
+            assert!(names.iter().all(|name| {
+                fs::read_to_string(path.parent().unwrap().join(name)).unwrap() == "external"
+            }));
+        });
+    }
+
+    #[test]
+    fn concurrent_app_saves_preserve_external_and_both_app_versions() {
+        let tmp = TempDir::new("external-app-race");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external version").unwrap();
+        let base = sha256_hex("original version");
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for content in ["app version A", "app version B"] {
+                let path = path.clone();
+                let base = base.clone();
+                let barrier = barrier.clone();
+                handles.push(scope.spawn(move || {
+                    barrier.wait();
+                    save_note_with_conflict(&path, Some(&base), content, None)
+                        .unwrap()
+                        .unwrap()
+                        .0
+                }));
+            }
+            barrier.wait();
+            let conflict_names: Vec<String> = handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect();
+            assert_ne!(conflict_names[0], conflict_names[1]);
+            let mut versions = vec![fs::read_to_string(&path).unwrap()];
+            versions.extend(
+                conflict_names
+                    .iter()
+                    .map(|name| fs::read_to_string(tmp.path().join(name)).unwrap()),
+            );
+            versions.sort();
+            assert_eq!(
+                versions,
+                vec!["app version A", "app version B", "external version"]
+            );
+        });
+    }
+
+    #[test]
+    fn nested_conflict_copy_survives_followup_rename() {
+        let tmp = TempDir::new("nested-rename");
+        let dir = tmp.path().join("Área/日本語");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("café.md");
+        fs::write(&path, "external version").unwrap();
+        let base = sha256_hex("original");
+        let (conflict, _) = preserve_conflict_copy_at(&path, Some(&base), "app version", STAMP)
+            .unwrap()
+            .unwrap();
+        write_atomic(&path, b"app version", Some(0o600)).unwrap();
+        let renamed = dir.join("résumé.md");
+        fs::rename(&path, &renamed).unwrap();
+        assert_eq!(fs::read_to_string(renamed).unwrap(), "app version");
+        assert_eq!(
+            fs::read_to_string(dir.join(conflict)).unwrap(),
+            "external version"
         );
     }
 
@@ -1040,5 +1183,56 @@ mod tests {
         assert!(is_week_stem("2024-W52"));
         assert!(!is_week_stem("2024-W52 (conflict 2026-07-12 1015)"));
         assert!(!is_week_stem("2024-52"));
+    }
+
+    #[test]
+    fn stress_rewrite_500_inbound_links_across_folders_unicode_and_locked_notes() {
+        let tmp = TempDir::new("rewrite-large-unicode");
+        let daily = tmp.path().join("daily");
+        let weekly = tmp.path().join("weekly");
+        let original_notes = tmp.path().join("notes/Original/深い");
+        for dir in [&daily, &weekly, &original_notes] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        for i in 0..550 {
+            fs::write(
+                original_notes.join(format!("inbound-{i}.md")),
+                format!("# Inbound {i}\nSee [[Café]] and [[label|café]]."),
+            )
+            .unwrap();
+        }
+        fs::write(
+            original_notes.join("locked.md.locked"),
+            "ciphertext containing [[café]] must stay byte-identical",
+        )
+        .unwrap();
+        fs::rename(
+            tmp.path().join("notes/Original"),
+            tmp.path().join("notes/Moved"),
+        )
+        .unwrap();
+        let notes = tmp.path().join("notes/Moved/深い");
+        let locked = notes.join("locked.md.locked");
+        let index = Arc::new(BacklinksIndex::new());
+        let started = std::time::Instant::now();
+        rewrite_inbound_links_in_roots(
+            &[daily, weekly, tmp.path().join("notes")],
+            "café",
+            "日本語ノート",
+            &index,
+        );
+        let elapsed = started.elapsed();
+        for i in 0..550 {
+            let body = fs::read_to_string(notes.join(format!("inbound-{i}.md"))).unwrap();
+            assert!(body.contains("[[日本語ノート]]"));
+            assert!(body.contains("[[label|日本語ノート]]"));
+            assert!(!body.contains("[[Café]]"));
+        }
+        assert_eq!(
+            fs::read_to_string(locked).unwrap(),
+            "ciphertext containing [[café]] must stay byte-identical"
+        );
+        eprintln!("[stress] rewrote 550 foldered Unicode backlinks in {elapsed:?}");
+        assert!(elapsed.as_secs() < 30, "link rewrite took {elapsed:?}");
     }
 }
