@@ -103,6 +103,32 @@ describe('semanticStore', () => {
     expect(s.indexedCount).toBe(128);
   });
 
+  it('keeps Intel macOS unsupported without invoking the enable command', async () => {
+    mockInvoke.mockImplementation(async (cmd) => {
+      if (cmd === 'semantic_status') {
+        return {
+          enabled: false,
+          modelReady: false,
+          indexedCount: 0,
+          state: 'unsupported',
+          error: 'Semantic search requires Apple Silicon on macOS',
+        };
+      }
+      if (cmd === 'semantic_models') return models;
+      return undefined;
+    });
+
+    await useSemanticStore.getState().initialize();
+    mockInvoke.mockClear();
+    await useSemanticStore.getState().setEnabled(true);
+
+    const state = useSemanticStore.getState();
+    expect(state.state).toBe('unsupported');
+    expect(state.enabled).toBe(false);
+    expect(state.error).toBe('Semantic search requires Apple Silicon on macOS');
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
   it('progress events drive downloading → indexing with live counts', async () => {
     await useSemanticStore.getState().initialize();
 

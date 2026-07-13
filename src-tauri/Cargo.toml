@@ -51,14 +51,16 @@ zip = "2.2"
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"
 
-# Semantic (vector) search — fully local ONNX inference (all-MiniLM-L6-v2).
-# hf-hub is only used to download the model once, inside the explicit
-# enable flow; no network access happens at query time.
+bincode = "1.3"
+
+[target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
+# Semantic (vector) search — fully local ONNX inference. ort-sys does not
+# publish prebuilt ONNX Runtime binaries for Intel macOS, so that target keeps
+# keyword search but does not compile or ship the semantic-search runtime.
 fastembed = { version = "5.17", default-features = false, features = [
     "ort-download-binaries-native-tls",
     "hf-hub-native-tls",
 ] }
-bincode = "1.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0"

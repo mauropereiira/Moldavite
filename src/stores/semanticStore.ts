@@ -29,7 +29,7 @@ import {
 interface SemanticStoreState {
   /** User consent flag (persisted backend-side in the app config). */
   enabled: boolean;
-  /** "disabled" | "downloading" | "indexing" | "ready" | "error" */
+  /** "disabled" | "downloading" | "indexing" | "ready" | "error" | "unsupported" */
   state: SemanticState;
   modelReady: boolean;
   /** Curated model registry; exactly one entry is active. */
@@ -114,6 +114,10 @@ export const useSemanticStore = create<SemanticStoreState>((set, get) => ({
   },
 
   setEnabled: async (enabled) => {
+    // Intel macOS reports a stable informational state. The Settings UI does
+    // not render a toggle there, and this guard keeps any stale caller from
+    // invoking the unsupported backend path or producing an error toast.
+    if (get().state === 'unsupported') return;
     await setSemanticEnabled(enabled);
     if (enabled) {
       // The backend spawned the build; reflect the expected first phase

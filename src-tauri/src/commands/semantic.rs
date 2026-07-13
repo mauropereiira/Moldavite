@@ -10,14 +10,20 @@
 //! changes invalidate vectors built with the previous model. The service module
 //! owns embedding and persistence, while this module owns consent and Tauri events.
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+use tauri::Emitter;
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 use crate::paths::get_notes_dir;
 use crate::persist::{read_config, write_config};
-use crate::semantic::{self, Embedder, ModelInfo, Phase, SemanticHit, CANCELLED};
+use crate::semantic::{self, ModelInfo, SemanticHit};
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+use crate::semantic::{Embedder, Phase, CANCELLED};
 
 /// Snapshot of the semantic-search lifecycle for the frontend.
 #[derive(Debug, Serialize)]
@@ -26,24 +32,27 @@ pub(crate) struct SemanticStatus {
     pub(crate) enabled: bool,
     pub(crate) model_ready: bool,
     pub(crate) indexed_count: usize,
-    /// "disabled" | "downloading" | "indexing" | "ready" | "error"
+    /// "disabled" | "downloading" | "indexing" | "ready" | "error" | "unsupported"
     pub(crate) state: String,
     pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 struct SemanticProgress {
     phase: &'static str,
     done: usize,
     total: usize,
 }
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 fn semantic_enabled_in_config() -> bool {
     read_config().semantic_enabled.unwrap_or(false)
 }
 
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_status() -> SemanticStatus {
     let svc = semantic::service();
     let phase = svc.phase();
@@ -60,6 +69,18 @@ pub(crate) fn semantic_status() -> SemanticStatus {
     }
 }
 
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_status() -> SemanticStatus {
+    SemanticStatus {
+        enabled: false,
+        model_ready: false,
+        indexed_count: 0,
+        state: "unsupported".to_string(),
+        error: Some(semantic::UNSUPPORTED_MESSAGE.to_string()),
+    }
+}
+
 /// Curated local embedding models, including which configured id is active.
 #[tauri::command]
 pub(crate) fn semantic_models() -> Vec<ModelInfo> {
@@ -70,6 +91,7 @@ pub(crate) fn semantic_models() -> Vec<ModelInfo> {
 /// genuine change unloads the old model and starts a full rebuild with the
 /// new one (including a one-time download when it is not cached yet).
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_set_model(id: String, app: AppHandle) -> Result<(), String> {
     semantic::model_info(&id)?;
     let mut cfg = read_config();
@@ -81,8 +103,10 @@ pub(crate) fn semantic_set_model(id: String, app: AppHandle) -> Result<(), Strin
         return Ok(());
     }
     if cfg.semantic_enabled.unwrap_or(false) && semantic::service().is_building() {
-        return Err("Wait for the current semantic index build to finish before changing models"
-            .to_string());
+        return Err(
+            "Wait for the current semantic index build to finish before changing models"
+                .to_string(),
+        );
     }
     cfg.semantic_model = Some(id);
     let enabled = cfg.semantic_enabled.unwrap_or(false);
@@ -94,11 +118,18 @@ pub(crate) fn semantic_set_model(id: String, app: AppHandle) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_set_model(_id: String, _app: AppHandle) -> Result<(), String> {
+    Err(semantic::UNSUPPORTED_MESSAGE.to_string())
+}
+
 /// Toggle semantic search. First enable triggers the one-time model
 /// download and a full index build (both async — watch the events).
 /// Disabling frees the model and the in-memory vectors; the on-disk index
 /// is kept so a later re-enable only re-embeds notes that changed.
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_set_enabled(enabled: bool, app: AppHandle) -> Result<(), String> {
     let mut cfg = read_config();
     cfg.semantic_enabled = Some(enabled);
@@ -111,21 +142,49 @@ pub(crate) fn semantic_set_enabled(enabled: bool, app: AppHandle) -> Result<(), 
     Ok(())
 }
 
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_set_enabled(enabled: bool, _app: AppHandle) -> Result<(), String> {
+    if enabled {
+        return Err(semantic::UNSUPPORTED_MESSAGE.to_string());
+    }
+    let mut cfg = read_config();
+    cfg.semantic_enabled = Some(false);
+    write_config(&cfg)?;
+    semantic::service().disable();
+    Ok(())
+}
+
 /// Embed the query locally and return the `limit` most similar notes.
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_search(query: String, limit: u32) -> Result<Vec<SemanticHit>, String> {
     semantic::service().search(&query, limit as usize)
+}
+
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_search(_query: String, _limit: u32) -> Result<Vec<SemanticHit>, String> {
+    Err(semantic::UNSUPPORTED_MESSAGE.to_string())
 }
 
 /// Nearest neighbours of an indexed note (by forge-relative path such as
 /// `notes/Projects/foo.md`), excluding the note itself.
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_related(path: String, limit: u32) -> Result<Vec<SemanticHit>, String> {
     semantic::service().related(&path, limit as usize)
 }
 
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_related(_path: String, _limit: u32) -> Result<Vec<SemanticHit>, String> {
+    Err(semantic::UNSUPPORTED_MESSAGE.to_string())
+}
+
 /// Discard the current index and re-embed every note from scratch.
 #[tauri::command]
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn semantic_reindex(app: AppHandle) -> Result<(), String> {
     if !semantic_enabled_in_config() {
         return Err("Semantic search is disabled".to_string());
@@ -134,9 +193,16 @@ pub(crate) fn semantic_reindex(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn semantic_reindex(_app: AppHandle) -> Result<(), String> {
+    Err(semantic::UNSUPPORTED_MESSAGE.to_string())
+}
+
 /// Called by `set_active_forge`: the in-memory vectors belong to the old
 /// vault, so drop them and (if the feature is on) build/load the new
 /// Forge's index in the background.
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn on_forge_switched(app: AppHandle) {
     semantic::service().reset_for_forge_switch();
     if semantic_enabled_in_config() {
@@ -144,10 +210,14 @@ pub(crate) fn on_forge_switched(app: AppHandle) {
     }
 }
 
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn on_forge_switched(_app: AppHandle) {}
+
 /// Spawn the (single) background build task: ensure the model is loaded
 /// (downloading it if this is the first enable), then reconcile the index
 /// against the vault. `force` ignores the existing index and re-embeds
 /// everything.
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn spawn_semantic_build(app: AppHandle, force: bool) {
     let svc = semantic::service();
     if !svc.try_begin_build() {
@@ -176,10 +246,15 @@ pub(crate) fn spawn_semantic_build(app: AppHandle, force: bool) {
     });
 }
 
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn spawn_semantic_build(_app: AppHandle, _force: bool) {}
+
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 fn emit_progress(app: &AppHandle, phase: &'static str, done: usize, total: usize) {
     let _ = app.emit("semantic:progress", SemanticProgress { phase, done, total });
 }
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
     let svc = semantic::service();
     let model_id = semantic::configured_model_id();
@@ -194,8 +269,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
         None => {
             svc.set_phase(Phase::Downloading);
             emit_progress(app, "downloading", 0, 0);
-            let e: Arc<dyn Embedder> =
-                Arc::new(semantic::init_fastembed_embedder(&model_id)?);
+            let e: Arc<dyn Embedder> = Arc::new(semantic::init_fastembed_embedder(&model_id)?);
             svc.set_embedder(e.clone());
             emit_progress(app, "downloading", 1, 1);
             e
@@ -213,11 +287,8 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
     } else {
         semantic::load_index(&forge_root, &model_id).unwrap_or_default()
     };
-    let entries = semantic::reconcile_index(
-        &forge_root,
-        embedder.as_ref(),
-        &existing,
-        |done, total| {
+    let entries =
+        semantic::reconcile_index(&forge_root, embedder.as_ref(), &existing, |done, total| {
             // Throttle events on big vaults; always emit the final one.
             let step = (total / 50).max(1);
             if done % step == 0 || done == total {
@@ -226,8 +297,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
             // `disable()` flips the phase; abort instead of finishing a
             // build the user just turned off.
             !matches!(semantic::service().phase(), Phase::Disabled)
-        },
-    )?;
+        })?;
     // A Forge switch mid-build means these entries belong to the old vault.
     if get_notes_dir() != forge_root {
         return Err(CANCELLED.to_string());

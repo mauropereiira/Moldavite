@@ -64,6 +64,9 @@ const DEBOUNCE_MS: u64 = 600;
 /// Error string used to signal a user-initiated cancellation (disable
 /// mid-build). Not surfaced to the UI as an error.
 pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
+/// User-facing reason semantic search is unavailable on Intel macOS.
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) const UNSUPPORTED_MESSAGE: &str = "Semantic search requires Apple Silicon on macOS";
 
 // =============================================================================
 // EMBEDDER
@@ -146,6 +149,7 @@ pub(crate) fn model_info(id: &str) -> Result<ModelInfo, String> {
         })
 }
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 fn fastembed_model(id: &str) -> Result<fastembed::EmbeddingModel, String> {
     match id {
         DEFAULT_MODEL_ID => Ok(fastembed::EmbeddingModel::AllMiniLML6V2),
@@ -155,19 +159,21 @@ fn fastembed_model(id: &str) -> Result<fastembed::EmbeddingModel, String> {
     }
 }
 
-/// Anything that can turn text into vectors. The production implementation
-/// is [`FastEmbedder`]; tests use a deterministic fake so `cargo test` never
-/// touches the network or the real model.
+/// Anything that can turn text into vectors. Supported production targets use
+/// a fastembed-backed implementation; tests use a deterministic fake so
+/// `cargo test` never touches the network or the real model.
 pub(crate) trait Embedder: Send + Sync {
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String>;
 }
 
 /// Real embedder backed by fastembed (ONNX Runtime).
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) struct FastEmbedder {
     // fastembed's `embed` takes `&mut self`, so serialize access.
     inner: Mutex<fastembed::TextEmbedding>,
 }
 
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 impl Embedder for FastEmbedder {
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
         let mut model = self
@@ -204,6 +210,7 @@ pub(crate) fn model_files_cached(model_id: &str) -> bool {
 /// [`model_cache_dir`] if it is not cached yet — callers must only invoke
 /// this from the explicit enable flow (or on startup when the user already
 /// enabled the feature).
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn init_fastembed_embedder(model_id: &str) -> Result<FastEmbedder, String> {
     use fastembed::{InitOptions, TextEmbedding};
 
@@ -880,6 +887,7 @@ pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
 /// Load an already-built semantic index for MCP mode without rebuilding it.
 /// Returns false when semantic search is not immediately usable, allowing
 /// MCP search to fall back to keyword mode without downloading or indexing.
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 pub(crate) fn prepare_mcp_search(forge_root: &Path, model_id: &str) -> bool {
     let svc = service();
     if !model_files_cached(model_id) {
@@ -902,6 +910,13 @@ pub(crate) fn prepare_mcp_search(forge_root: &Path, model_id: &str) -> bool {
     svc.replace_entries(entries);
     svc.set_phase(Phase::Ready);
     true
+}
+
+/// Intel macOS has no ort-sys prebuilt runtime. Returning false keeps MCP's
+/// `search_notes` tool on its existing keyword-search fallback.
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub(crate) fn prepare_mcp_search(_forge_root: &Path, _model_id: &str) -> bool {
+    false
 }
 
 /// Several notes changed at once (folder restore). One background thread,
@@ -1177,6 +1192,7 @@ mod tests {
 
     // ---- index file round trip ----------------------------------------------
 
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
     #[test]
     fn curated_model_registry_maps_exact_fastembed_variants() {
         assert_eq!(MODEL_REGISTRY.len(), 3);
