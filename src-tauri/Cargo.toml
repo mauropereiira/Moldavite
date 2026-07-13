@@ -49,6 +49,7 @@ zeroize = { version = "1.7", features = ["derive"] }
 # Export/Import and file dialogs
 zip = "2.2"
 tauri-plugin-dialog = "2"
+tauri-plugin-deep-link = "2"
 
 # Semantic (vector) search — fully local ONNX inference (all-MiniLM-L6-v2).
 # hf-hub is only used to download the model once, inside the explicit

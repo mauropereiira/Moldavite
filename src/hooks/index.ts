@@ -36,3 +36,4 @@ export { useForgeWatcher } from './useForgeWatcher';
 export { useRelatedNotes } from './useRelatedNotes';
 export { useFocusTrap } from './useFocusTrap';
 export { usePluginHost } from './usePluginHost';
+export { usePluginDeepLinks } from './usePluginDeepLinks';

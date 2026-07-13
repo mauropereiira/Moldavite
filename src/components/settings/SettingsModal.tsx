@@ -29,8 +29,8 @@
  * @module components/settings/SettingsModal
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSettingsStore, useThemeStore, applyTheme } from '@/stores';
+import { useEffect, useRef, useMemo } from 'react';
+import { useSettingsStore, useThemeStore, applyTheme, type SettingsTab } from '@/stores';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   Calendar,
@@ -58,25 +58,12 @@ import { AgentsSection } from './sections/AgentsSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
-/** Available settings tabs */
-type SettingsTab =
-  | 'general'
-  | 'appearance'
-  | 'editor'
-  | 'features'
-  | 'sidebar'
-  | 'calendar'
-  | 'templates'
-  | 'plugins'
-  | 'agents'
-  | 'data'
-  | 'about';
-
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
   const { theme, setTheme, preset, setPreset } = useThemeStore();
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const activeTab = settingsStore.activeSettingsTab;
+  const setActiveTab = settingsStore.setActiveSettingsTab;
   const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
     general: null,
     appearance: null,

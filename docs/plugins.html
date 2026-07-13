@@ -74,12 +74,24 @@
 
       <h2 id="directory">Community plugin directory</h2>
       <p>
-        Discover plugins in <strong>Settings → Plugins → Browse community plugins</strong>. The app
-        contacts GitHub only after that click, downloads from a pinned repository path, and asks
-        Rust to verify both SHA-256 hashes before the shared staged installer makes files visible.
-        Install does not enable a plugin: permission consent remains a separate step, and changed
-        files always require a fresh grant.
+        Search the directory below, then use <strong>Install in Moldavite</strong> to open the app
+        directly on that plugin. Moldavite fetches the registry because you clicked the install
+        link, shows the permissions before installation, and asks Rust to verify both SHA-256
+        hashes before the shared staged installer makes files visible. Install does not enable a
+        plugin: permission consent remains a separate step, and changed files always require a
+        fresh grant. You can also browse from <strong>Settings → Plugins</strong>.
       </p>
+      <div class="directory-search">
+        <label for="plugin-directory-search">Search plugins</label>
+        <input
+          id="plugin-directory-search"
+          type="search"
+          placeholder="Name, description, author, or permission…"
+          autocomplete="off"
+          data-plugin-search
+        />
+        <span class="directory-count" data-plugin-count aria-live="polite">2 plugins</span>
+      </div>
       <div class="directory-toolbar">
         <span class="directory-status" data-registry-status aria-live="polite"
           >Seeded directory · updates when this page loads</span
@@ -89,7 +101,10 @@
         >
       </div>
       <div class="plugin-directory" data-plugin-directory>
-        <article class="directory-card">
+        <article
+          class="directory-card"
+          data-plugin-search-text="example plugin insert a timestamp show the current note word count moldavite commands editor ui"
+        >
           <div class="directory-card-heading">
             <h3>Example Plugin</h3>
             <span class="directory-version">v1.1.0 · Moldavite</span>
@@ -102,11 +117,17 @@
             <span class="directory-chip">editor</span>
             <span class="directory-chip">ui</span>
           </div>
-          <p class="directory-install">
-            Install in Moldavite: Settings → Plugins → Browse community plugins.
-          </p>
+          <div class="directory-install">
+            <a class="directory-install-button" href="moldavite://plugin/moldavite-example"
+              >Install in Moldavite</a
+            >
+            <span>App not installed? <a href="index.html">Download here</a>.</span>
+          </div>
         </article>
-        <article class="directory-card">
+        <article
+          class="directory-card"
+          data-plugin-search-text="publish to wordpress publish the active note as a wordpress draft safe updates re-publish moldavite editor ui notes.read net.fetch secrets public-api.wordpress.com"
+        >
           <div class="directory-card-heading">
             <h3>Publish to WordPress</h3>
             <span class="directory-version">v1.0.0 · Moldavite</span>
@@ -122,15 +143,22 @@
             <span class="directory-chip">secrets</span>
             <span class="directory-chip directory-host">host: public-api.wordpress.com</span>
           </div>
-          <p class="directory-install">
-            Install in Moldavite: Settings → Plugins → Browse community plugins.
-          </p>
+          <div class="directory-install">
+            <a class="directory-install-button" href="moldavite://plugin/moldavite-wordpress"
+              >Install in Moldavite</a
+            >
+            <span>App not installed? <a href="index.html">Download here</a>.</span>
+          </div>
         </article>
       </div>
+      <p class="directory-empty" data-plugin-empty hidden>
+        No plugins match that search. Try a name, author, or permission such as
+        <code>notes.read</code>.
+      </p>
       <noscript>
         <p class="callout">
-          This seeded list stays usable without JavaScript. Open Moldavite's community browser to
-          see the current registry.
+          This seeded list and its install links stay usable without JavaScript. Open Moldavite's
+          community browser to see the current registry.
         </p>
       </noscript>
 

@@ -15,7 +15,7 @@
 - Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (unreleased). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
-- Quick switcher / command palette (⌘P), backend full-text search with snippets, timeline view
+- Quick switcher / command palette (⌘P), backend full-text search with snippets, timeline view; opening any note yields transient Timeline/Graph views so navigation cannot remain hidden behind them
 - Local semantic search (unreleased): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Storage & Data Safety
@@ -39,15 +39,15 @@
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin macOS Keychain secrets; API v1 remains compatible
 - Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
 - Every successful in-app install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
-- Explicit-use community browser: Settings fetches the public GitHub registry only after **Browse community plugins** is clicked, rejects malformed entries, constructs downloads only under the pinned raw-repository base, and sends both files to Rust for SHA-256 verification plus staged/atomic install. Installed versions are labeled; replacement requires update confirmation; plugins stay disabled until the existing consent flow is completed
+- Explicit-use community browser: Settings fetches the public GitHub registry only after **Browse community plugins** is clicked, rejects malformed entries, constructs downloads only under the pinned raw-repository base, and sends both files to Rust for SHA-256 verification plus staged/atomic install. The website directory filters by name/description/author/permission with a static fallback and offers `moldavite://plugin/<id>` install links; strict queued routing handles cold and running app delivery, opens/highlights the registry entry, and requires a permission-visible confirmation. Installed versions are labeled; replacement requires update confirmation; plugins stay disabled until the existing consent flow is completed
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
 - Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 235 tests across 35 files (stores, lib, hooks, graph layout, plugin RPC/manifest/registry/UI)
-- Backend: cargo test — 176 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin install/hash/secret validation suites
+- Frontend: vitest — 241 tests across 38 files (stores, lib, hooks, graph layout, transient-view navigation, deep-link routing, plugin RPC/manifest/registry/UI)
+- Backend: cargo test — 178 tests incl. stress suite, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
