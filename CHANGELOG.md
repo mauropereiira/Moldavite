@@ -5,6 +5,7 @@ All notable changes to Moldavite are documented here.
 ## [Unreleased]
 
 ### Added
+- **Plugin install guides.** Every successful install now opens a themed, reopenable **About this plugin** dialog with the plugin's purpose, commands, setup steps, and permission summary. Installed cards keep an ⓘ action, manifests can declare bounded markdown-lite `instructions` and command metadata, and older plugins receive an automatic guide from the metadata available to the host.
 - **Plugin API v2.** Sandboxed plugins can request `notes.read` to list note metadata and read unlocked Markdown, `net.fetch` to make host-performed HTTPS requests only to exact manifest `allowedHosts` (manual redirect re-validation, 30-second timeout, 10 MiB cap), and `secrets` for plugin-namespaced credentials in macOS Keychain. The permission sheet explains each capability and shows every approved host. API v1 plugins remain compatible, and the existing manifest+code SHA-256 consent pin means permission or allowlist edits always re-prompt.
 - **Trusted plugin prompts and runtime host consent.** API v2 plugins can open one app-rendered `ui.prompt` form at a time; Moldavite's trusted header always identifies the requesting plugin. `net.requestHostAccess` applies the same public-DNS validation as manifest hosts, asks the user before adding an app-side per-Forge grant, and feeds the individually revocable host into fetch and redirect enforcement without changing the manifest consent hash.
 - **Publish to WordPress plugin.** Install Moldavite's first-party reference plugin from Settings, verify a self-hosted or WordPress.com Jetpack/Atomic site with an Application Password, and publish the active note as a draft. Re-publishing updates the path-mapped WordPress post instead of duplicating it. WordPress.com Simple sites remain unsupported because they require a separately registered OAuth client ID.
@@ -29,6 +30,7 @@ All notable changes to Moldavite are documented here.
 - **Temporarily unlocked notes display their decrypted content immediately.** Decrypted Markdown is converted to editor HTML before opening the note, without requiring a tab switch and return.
 
 ### Changed
+- **Linked notes now form visible graph clusters.** The deterministic layout uses short edge springs, efficient local repulsion, per-component gravity, and peripheral orphan rings; it remains bounded, cools to a full stop, and keeps springs active while a dragged note tugs its neighbors.
 - **MCP install path is tucked into a disclosure.** Settings → AI & Agents now reveals the resolved Moldavite binary path, development-build hint, and copy action only when **Path to your Moldavite install** is expanded; client snippets still embed the path automatically.
 - **MCP setup is client-aware and machine-specific.** Settings now explains that the Moldavite binary path is resolved automatically, identifies development paths, and provides copy-ready setup for Claude Code, Claude Desktop, Cursor, or a generic MCP client.
 

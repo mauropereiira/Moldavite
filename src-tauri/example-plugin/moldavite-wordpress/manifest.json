@@ -7,5 +7,15 @@
   "apiVersion": 2,
   "minAppVersion": "1.6.0",
   "permissions": ["editor", "ui", "notes.read", "net.fetch", "secrets"],
-  "allowedHosts": ["public-api.wordpress.com"]
+  "allowedHosts": ["public-api.wordpress.com"],
+  "commands": [
+    { "id": "configure-wordpress", "label": "Configure WordPress publishing" },
+    { "id": "publish-wordpress", "label": "Publish note to WordPress…" }
+  ],
+  "instructions": [
+    "Enable the plugin and approve its requested permissions.",
+    "Press `Cmd+P` and run **Configure WordPress publishing** first.",
+    "Enter your HTTPS site URL, WordPress username, and an Application Password; Moldavite verifies them before saving to Keychain.",
+    "Open a note and run **Publish note to WordPress…**. The first run creates a draft and later runs update it."
+  ]
 }

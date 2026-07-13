@@ -13,6 +13,7 @@ import { safeInvoke } from '@/lib/ipc';
 import { loadEnabledPlugins } from '@/lib/plugins/host';
 import type { PluginInfo } from '@/lib/plugins/types';
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
+import { PluginAboutDialog } from '@/components/plugins/PluginAboutDialog';
 import { ConfirmDialog } from '@/components/ui';
 import { Toggle } from '../common';
 
@@ -24,6 +25,7 @@ export function PluginsSection() {
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [about, setAbout] = useState<PluginInfo | null>(null);
   const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
   const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } =
     usePluginStore();
@@ -33,6 +35,7 @@ export function PluginsSection() {
   const refresh = useCallback(async () => {
     const infos = await loadEnabledPlugins();
     setPlugins(infos);
+    return infos;
   }, []);
 
   useEffect(() => {
@@ -87,8 +90,9 @@ export function PluginsSection() {
     setBusy(true);
     try {
       await safeInvoke('install_example_plugin');
-      await refresh();
+      const infos = await refresh();
       addToast('success', 'Example plugin installed — enable it below');
+      setAbout(infos.find((info) => info.manifest.id === 'moldavite-example') ?? null);
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
     } finally {
@@ -100,8 +104,9 @@ export function PluginsSection() {
     setBusy(true);
     try {
       await safeInvoke('install_wordpress_plugin');
-      await refresh();
+      const infos = await refresh();
       addToast('success', 'Publish to WordPress installed — enable it below');
+      setAbout(infos.find((info) => info.manifest.id === 'moldavite-wordpress') ?? null);
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
     } finally {
@@ -198,6 +203,16 @@ export function PluginsSection() {
                     >
                       {statusText(info)}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => setAbout(info)}
+                      className="text-sm leading-none p-0.5 focus-ring"
+                      style={{ color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+                      aria-label={`About ${ok ? name : id}`}
+                      title={`About ${ok ? name : id}`}
+                    >
+                      <span aria-hidden="true">ⓘ</span>
+                    </button>
                   </div>
                   {ok && description && (
                     <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -328,6 +343,16 @@ export function PluginsSection() {
           onEnable={confirmGrant}
           onRevokeHost={(host) => revokeHost(sheet.info.manifest.id, host)}
           onClose={() => setSheet(null)}
+        />
+      )}
+
+      {about && (
+        <PluginAboutDialog
+          manifest={about.manifest}
+          registeredCommands={registeredCommands
+            .filter((command) => command.pluginId === about.manifest.id)
+            .map((command) => ({ id: command.id, label: command.label }))}
+          onClose={() => setAbout(null)}
         />
       )}
     </div>

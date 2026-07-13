@@ -21,7 +21,13 @@ const MANIFEST_FIELDS = new Set([
   'minAppVersion',
   'permissions',
   'allowedHosts',
+  'commands',
+  'instructions',
 ]);
+
+const MAX_MANIFEST_COMMANDS = 50;
+const MAX_INSTRUCTION_STEPS = 20;
+const MAX_INSTRUCTION_LENGTH = 500;
 
 type Result = { ok: true; manifest: PluginManifest } | { ok: false; reason: string };
 
@@ -67,6 +73,9 @@ export function validateManifest(raw: unknown, folderId: string): Result {
   const allowedHosts = Array.isArray(m.allowedHosts)
     ? (m.allowedHosts.filter((host) => typeof host === 'string') as string[])
     : undefined;
+  const instructions = Array.isArray(m.instructions)
+    ? (m.instructions.filter((step) => typeof step === 'string') as string[])
+    : undefined;
 
   if (
     m.permissions !== undefined &&
@@ -80,6 +89,63 @@ export function validateManifest(raw: unknown, folderId: string): Result {
     (!Array.isArray(m.allowedHosts) || allowedHosts?.length !== m.allowedHosts.length)
   ) {
     return { ok: false, reason: 'allowedHosts must be an array of hostnames' };
+  }
+  if (
+    m.instructions !== undefined &&
+    (!Array.isArray(m.instructions) || instructions?.length !== m.instructions.length)
+  ) {
+    return { ok: false, reason: 'instructions must be an array of strings' };
+  }
+  if (instructions && instructions.length > MAX_INSTRUCTION_STEPS) {
+    return {
+      ok: false,
+      reason: `instructions must contain at most ${MAX_INSTRUCTION_STEPS} steps`,
+    };
+  }
+  if (instructions?.some((step) => step.length > MAX_INSTRUCTION_LENGTH)) {
+    return {
+      ok: false,
+      reason: `each instructions step must be at most ${MAX_INSTRUCTION_LENGTH} characters`,
+    };
+  }
+
+  let commands: PluginManifest['commands'];
+  if (m.commands !== undefined) {
+    if (!Array.isArray(m.commands)) {
+      return { ok: false, reason: 'commands must be an array' };
+    }
+    if (m.commands.length > MAX_MANIFEST_COMMANDS) {
+      return {
+        ok: false,
+        reason: `commands must contain at most ${MAX_MANIFEST_COMMANDS} entries`,
+      };
+    }
+    commands = [];
+    for (const command of m.commands) {
+      if (
+        typeof command !== 'object' ||
+        command === null ||
+        Array.isArray(command) ||
+        Object.keys(command).some((key) => key !== 'id' && key !== 'label')
+      ) {
+        return { ok: false, reason: 'each command must contain only string id and label fields' };
+      }
+      const { id: commandId, label } = command as Record<string, unknown>;
+      if (
+        typeof commandId !== 'string' ||
+        typeof label !== 'string' ||
+        commandId.length === 0 ||
+        commandId.length > 128 ||
+        label.length === 0 ||
+        label.length > 200
+      ) {
+        return { ok: false, reason: 'command ids and labels must be non-empty and bounded' };
+      }
+      commands.push({ id: commandId, label });
+    }
+    if (new Set(commands.map((command) => command.id)).size !== commands.length) {
+      return { ok: false, reason: 'command ids must be unique' };
+    }
   }
   if (allowedHosts?.some((host) => !isValidAllowedHost(host))) {
     return {
@@ -107,6 +173,8 @@ export function validateManifest(raw: unknown, folderId: string): Result {
       minAppVersion: str('minAppVersion'),
       permissions,
       allowedHosts,
+      commands,
+      instructions,
     },
   };
 }

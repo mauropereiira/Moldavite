@@ -57,7 +57,16 @@ self-contained ES module because Moldavite loads only this one entry file.
   "apiVersion": 2,
   "minAppVersion": "1.6.0",
   "permissions": ["editor", "ui", "notes.read", "net.fetch", "secrets"],
-  "allowedHosts": ["api.example.com"]
+  "allowedHosts": ["api.example.com"],
+  "commands": [
+    { "id": "configure-publisher", "label": "Configure publisher" },
+    { "id": "publish-note", "label": "Publish active note…" }
+  ],
+  "instructions": [
+    "Enable the plugin and approve its permissions.",
+    "Press `Cmd+P` and run **Configure publisher** first.",
+    "Open a note, then run **Publish active note…**."
+  ]
 }
 ```
 
@@ -72,6 +81,8 @@ self-contained ES module because Moldavite loads only this one entry file.
 | `minAppVersion` | no | Informational metadata in v1.6; it is not currently semver-enforced. Do not use it as a runtime guard. |
 | `permissions` | no | Supported capability strings from the permission table below. Commands are always available. |
 | `allowedHosts` | with `net.fetch` | Non-empty, unique array of exact lowercase public DNS hostnames. No scheme, port, path, IP, single-label name, localhost label, or wildcard. |
+| `commands` | no | Up to 50 `{ "id", "label" }` entries shown before the plugin is enabled. Each id must match the id registered through `api.commands.add`; ids are limited to 128 characters and labels to 200. Duplicate ids are invalid. |
+| `instructions` | no | Ordered setup/use steps shown in the post-install **About this plugin** dialog. Up to 20 strings, 500 characters each. Inline `**bold**` and `` `code` `` are rendered; other text remains literal. |
 
 Unknown top-level manifest fields and incorrectly typed values invalidate the
 manifest. Use only the supported permission strings documented below.
@@ -84,6 +95,14 @@ API v2 requires at least one manifest `allowedHosts` entry whenever
 `net.fetch` is declared, even if the plugin also requests user-supplied site
 hosts at runtime. Runtime grants extend the manifest list; they do not replace
 this validation requirement.
+
+Every successful bundled-plugin install opens a themed **About this plugin**
+dialog sourced from this validated metadata. The same dialog is always
+available from the ⓘ button on the installed plugin card. If `instructions` is
+omitted, Moldavite generates a short enable-and-open-the-palette flow from the
+description and command list. Legacy manifests without declarative `commands`
+remain compatible; once enabled, their runtime-registered commands are used as
+a display fallback.
 
 ## Entry point and command lifecycle
 

@@ -6,6 +6,7 @@
  */
 import { createPortal } from 'react-dom';
 import { ShieldAlert, X } from 'lucide-react';
+import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 
 export interface PluginPermissionSheetProps {
   manifest: {
@@ -24,15 +25,6 @@ export interface PluginPermissionSheetProps {
   onRevokeHost?: (host: string) => void;
   onClose: () => void;
 }
-
-const PERMISSION_LABEL: Record<string, string> = {
-  commands: 'Add commands to the palette and slash menu',
-  editor: 'Read and modify the active note',
-  ui: 'Show toasts / notifications',
-  'notes.read': 'List notes and read unlocked Markdown content',
-  'net.fetch': 'Make HTTPS requests through Moldavite',
-  secrets: 'Store plugin-owned credentials in macOS Keychain',
-};
 
 export function PluginPermissionSheet({
   manifest,
@@ -138,7 +130,7 @@ export function PluginPermissionSheet({
                     <span aria-hidden="true" style={{ color: 'var(--accent-primary)' }}>
                       &bull;
                     </span>
-                    <span>{PERMISSION_LABEL[p] ?? p}</span>
+                    <span>{pluginPermissionLabel(p)}</span>
                     {p === 'net.fetch' && manifest.allowedHosts?.length ? (
                       <ul className="mt-1 space-y-0.5">
                         {manifest.allowedHosts.map((host) => (

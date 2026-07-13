@@ -54,7 +54,7 @@ function optionsForNodeCount(count: number): Required<LayoutOptions> {
     height: side,
     optimalDistance: 72,
     initialTemperature: 28,
-    cooling: 0.9,
+    cooling: 0.965,
     seed: 1,
   };
 }
@@ -185,7 +185,7 @@ export function GraphView() {
         if (cancelled) return;
         const options = optionsForNodeCount(result.nodes.length);
         layoutOptionsRef.current = options;
-        layoutRef.current = initLayout(result.nodes, options);
+        layoutRef.current = initLayout(result.nodes, options, result.edges);
         temperatureRef.current = options.initialTemperature;
         zoomRef.current = 1;
         panRef.current = { x: 0, y: 0 };
@@ -266,14 +266,17 @@ export function GraphView() {
       const context = canvas?.getContext('2d');
       if (!canvas || !container || !context) return;
 
-      const simulating =
-        temperatureRef.current > SETTLED_TEMPERATURE && interactionRef.current?.mode !== 'node';
+      const simulating = temperatureRef.current > SETTLED_TEMPERATURE;
       if (simulating) {
         stepLayout(
           layoutRef.current,
           graph.edges,
           temperatureRef.current,
-          layoutOptionsRef.current
+          layoutOptionsRef.current,
+          {
+            pinnedNodeId:
+              interactionRef.current?.mode === 'node' ? interactionRef.current.nodeId : null,
+          }
         );
         temperatureRef.current *= layoutOptionsRef.current.cooling;
       }
@@ -475,7 +478,7 @@ export function GraphView() {
             -options.height / 2 + margin,
             Math.min(options.height / 2 - margin, node.y)
           );
-          temperatureRef.current = Math.max(temperatureRef.current, 5);
+          temperatureRef.current = Math.max(temperatureRef.current, 9);
         }
       }
       interaction.lastX = event.clientX;
@@ -495,7 +498,7 @@ export function GraphView() {
       }
       event.currentTarget.style.cursor = hoveredId ? 'pointer' : 'grab';
       if (interaction.mode === 'node' && interaction.moved) {
-        temperatureRef.current = Math.max(temperatureRef.current, 5);
+        temperatureRef.current = Math.max(temperatureRef.current, 9);
         scheduleDrawRef.current();
       } else if (!cancelled && !interaction.moved && interaction.nodeId) {
         void openGraphNode(interaction.nodeId);
