@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [1.6.0] - 2026-07-13
 
 ### Added
 - **Searchable plugin directory and safe install links.** The website filters live or bundled registry cards by name, description, author, and permissions, reports result counts, and keeps its offline/no-JavaScript fallback. Each card can open `moldavite://plugin/<id>` in Moldavite; strict backend routing accepts only validated plugin ids, cold-start and running-instance delivery both open Settings → Plugins, and the requested registry entry is highlighted with a permission-visible confirmation. Nothing installs silently: file downloads remain pinned and hash-verified, and enablement still requires the existing consent flow.
