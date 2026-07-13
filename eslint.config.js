@@ -138,6 +138,8 @@ export default [
     ignores: [
       'dist/**',
       'dist-ssr/**',
+      // Static GitHub Pages site — browser globals, not app code.
+      'docs/**',
       'node_modules/**',
       'src-tauri/target/**',
       'src-tauri/gen/**',
