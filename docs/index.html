@@ -19,6 +19,7 @@
     <script>
       document.documentElement.classList.add('has-js');
     </script>
+    <script src="site.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -134,9 +135,10 @@
               note, a calendar event meeting a plan, your own memory meeting a new question.
             </p>
             <p>
-              Moldavite keeps that material honest. <strong>Your source of truth is a folder of real
-              Markdown files.</strong> You can sync it with a tool you trust, edit it elsewhere, put
-              it in git, or leave it entirely offline.
+              Moldavite keeps that material honest.
+              <strong>Your source of truth is a folder of real Markdown files.</strong> You can sync
+              it with a tool you trust, edit it elsewhere, put it in git, or leave it entirely
+              offline.
             </p>
           </div>
         </div>
@@ -171,7 +173,9 @@
                 <span class="step">03</span>
                 <div>
                   <strong>Control mutations</strong>
-                  <p>Search, reading, listing, and backlinks are on; creation and writes are opt-in.</p>
+                  <p>
+                    Search, reading, listing, and backlinks are on; creation and writes are opt-in.
+                  </p>
                 </div>
               </div>
             </div>
@@ -192,7 +196,9 @@
                 Copy
               </button>
             </div>
-            <pre class="terminal-code"><code><span class="prompt">$ </span><span id="mcp-command">claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</span></code></pre>
+            <pre
+              class="terminal-code"
+            ><code><span class="prompt">$ </span><span id="mcp-command">claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</span></code></pre>
             <p class="terminal-note">
               Settings generates this with the exact binary path on your Mac. Add
               <code>--forge "Work"</code> to choose another Forge.
@@ -243,7 +249,8 @@
               <h3>A graph you can navigate</h3>
               <p>
                 Path-correct nodes for folders, daily, and weekly notes; visible broken links;
-                neighbor highlighting, dragging, bounded layout, zoom, pan, and Fit view.
+                neighbor highlighting, dragging, zoom, pan, and Fit view. Linked components settle
+                into visible clusters while orphan notes stay at the periphery.
               </p>
             </article>
             <article class="feature-card">
@@ -260,7 +267,9 @@
               <h3>Sandboxed Plugin API v2</h3>
               <p>
                 Permissioned note reads, exact-host HTTPS with runtime consent, Keychain secrets,
-                trusted prompts, and a first-party Publish to WordPress reference plugin.
+                trusted prompts, and a first-party Publish to WordPress reference plugin. Browse
+                community plugins on demand; verified installs open reusable
+                <strong>About this plugin</strong> instructions.
               </p>
               <a href="plugins.html">Build a plugin →</a>
             </article>
@@ -308,9 +317,10 @@
 
           <p class="network-note reveal">
             <strong>An honest network story:</strong> Moldavite checks GitHub for signed updates;
-            semantic models download from Hugging Face only after you opt in; and a plugin can send
-            data only through <code>net.fetch</code> to exact hosts you approved. Publishing a note
-            to WordPress is therefore an explicit action, not a claim that “nothing ever leaves.”
+            the community registry contacts GitHub only when you click Browse; semantic models
+            download from Hugging Face only after you opt in; and a plugin can send data only
+            through <code>net.fetch</code> to exact hosts you approved. Publishing a note to
+            WordPress is therefore an explicit action, not a claim that “nothing ever leaves.”
           </p>
         </div>
       </section>
@@ -352,62 +362,5 @@
         </p>
       </div>
     </footer>
-
-    <script>
-      (function () {
-        var toggle = document.querySelector('.nav-toggle');
-        var nav = document.getElementById('nav');
-        if (toggle && nav) {
-          toggle.addEventListener('click', function () {
-            var open = nav.classList.toggle('open');
-            toggle.setAttribute('aria-expanded', String(open));
-          });
-        }
-
-        var targets = document.querySelectorAll('.reveal, .reveal-group');
-        if ('IntersectionObserver' in window) {
-          var observer = new IntersectionObserver(
-            function (entries) {
-              entries.forEach(function (entry) {
-                if (!entry.isIntersecting) return;
-                entry.target.classList.add('is-visible');
-                observer.unobserve(entry.target);
-              });
-            },
-            { rootMargin: '0px 0px -8% 0px', threshold: 0.08 }
-          );
-          targets.forEach(function (target) {
-            observer.observe(target);
-          });
-        } else {
-          targets.forEach(function (target) {
-            target.classList.add('is-visible');
-          });
-        }
-
-        document.querySelectorAll('[data-copy-target]').forEach(function (button) {
-          button.addEventListener('click', function () {
-            var target = document.getElementById(button.getAttribute('data-copy-target'));
-            if (!target) return;
-            var selectCommand = function () {
-              var selection = window.getSelection();
-              if (selection) selection.selectAllChildren(target);
-            };
-            var showCopied = function () {
-              var previous = button.textContent;
-              button.textContent = 'Copied';
-              window.setTimeout(function () {
-                button.textContent = previous;
-              }, 1600);
-            };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(target.textContent || '').then(showCopied).catch(selectCommand);
-            } else {
-              selectCommand();
-            }
-          });
-        });
-      })();
-    </script>
   </body>
 </html>

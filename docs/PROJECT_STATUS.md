@@ -38,15 +38,16 @@
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 unreleased)
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin macOS Keychain secrets; API v1 remains compatible
 - Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
-- Every successful bundled install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
+- Every successful in-app install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
+- Explicit-use community browser: Settings fetches the public GitHub registry only after **Browse community plugins** is clicked, rejects malformed entries, constructs downloads only under the pinned raw-repository base, and sends both files to Rust for SHA-256 verification plus staged/atomic install. Installed versions are labeled; replacement requires update confirmation; plugins stay disabled until the existing consent flow is completed
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
 - Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 230 tests across 34 files (stores, lib, hooks, graph layout, plugin RPC/manifest/UI)
-- Backend: cargo test — 172 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin-secret isolation/validation suites
+- Frontend: vitest — 235 tests across 35 files (stores, lib, hooks, graph layout, plugin RPC/manifest/registry/UI)
+- Backend: cargo test — 176 tests incl. stress suite, conflict-copy, semantic-index, MCP, and plugin install/hash/secret validation suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 

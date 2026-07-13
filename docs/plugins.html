@@ -10,6 +10,10 @@
     />
     <link rel="icon" type="image/png" href="icon.png" />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+    </script>
+    <script src="site.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -56,6 +60,7 @@
       <nav class="docs-toc" aria-label="On this page">
         <strong>On this page</strong>
         <a href="#trust">Trust boundary</a>
+        <a href="#directory">Community directory</a>
         <a href="#quick-start">Quick start</a>
         <a href="#manifest">Manifest v2</a>
         <a href="#entry-point">Entry point</a>
@@ -67,17 +72,98 @@
         <a href="#v1">API v1 compatibility</a>
       </nav>
 
+      <h2 id="directory">Community plugin directory</h2>
+      <p>
+        Discover plugins in <strong>Settings → Plugins → Browse community plugins</strong>. The app
+        contacts GitHub only after that click, downloads from a pinned repository path, and asks
+        Rust to verify both SHA-256 hashes before the shared staged installer makes files visible.
+        Install does not enable a plugin: permission consent remains a separate step, and changed
+        files always require a fresh grant.
+      </p>
+      <div class="directory-toolbar">
+        <span class="directory-status" data-registry-status aria-live="polite"
+          >Seeded directory · updates when this page loads</span
+        >
+        <a href="https://github.com/mauropereiira/moldavite-plugins"
+          >Submit a plugin to the registry →</a
+        >
+      </div>
+      <div class="plugin-directory" data-plugin-directory>
+        <article class="directory-card">
+          <div class="directory-card-heading">
+            <h3>Example Plugin</h3>
+            <span class="directory-version">v1.1.0 · Moldavite</span>
+          </div>
+          <p class="directory-description">
+            Insert a timestamp and show the current note's word count.
+          </p>
+          <div class="directory-permissions" aria-label="Permissions">
+            <span class="directory-chip">commands</span>
+            <span class="directory-chip">editor</span>
+            <span class="directory-chip">ui</span>
+          </div>
+          <p class="directory-install">
+            Install in Moldavite: Settings → Plugins → Browse community plugins.
+          </p>
+        </article>
+        <article class="directory-card">
+          <div class="directory-card-heading">
+            <h3>Publish to WordPress</h3>
+            <span class="directory-version">v1.0.0 · Moldavite</span>
+          </div>
+          <p class="directory-description">
+            Publish the active note as a WordPress draft, with safe updates on re-publish.
+          </p>
+          <div class="directory-permissions" aria-label="Permissions">
+            <span class="directory-chip">editor</span>
+            <span class="directory-chip">ui</span>
+            <span class="directory-chip">notes.read</span>
+            <span class="directory-chip">net.fetch</span>
+            <span class="directory-chip">secrets</span>
+            <span class="directory-chip directory-host">host: public-api.wordpress.com</span>
+          </div>
+          <p class="directory-install">
+            Install in Moldavite: Settings → Plugins → Browse community plugins.
+          </p>
+        </article>
+      </div>
+      <noscript>
+        <p class="callout">
+          This seeded list stays usable without JavaScript. Open Moldavite's community browser to
+          see the current registry.
+        </p>
+      </noscript>
+
+      <div class="callout">
+        <span class="callout-title">After every install</span>
+        <p>
+          Moldavite opens a themed <strong>About this plugin</strong> dialog with the validated
+          description, commands, setup instructions, permissions, and hosts. Reopen it later with
+          the ⓘ action on the installed card, then enable and grant only if you trust the plugin.
+        </p>
+      </div>
+
+      <div class="callout">
+        <span class="callout-title">The wider v1.6 release</span>
+        <p>
+          Plugins ship alongside opt-in local semantic search, the read-first MCP and agent-ready
+          Forge tools, external-edit conflict copies, and graph clustering that pulls connected
+          components together while keeping orphan notes peripheral. The
+          <a href="guide.html">user guide</a> covers those app features end to end.
+        </p>
+      </div>
+
       <h2 id="trust">Trust boundary</h2>
       <p>
         Each plugin executes as an ES module in its own Web Worker. The worker has no DOM, Zustand,
         raw Tauri IPC, or direct network globals: <code>fetch</code>, <code>XMLHttpRequest</code>,
-        <code>WebSocket</code>, <code>EventSource</code>, and related escape hatches are removed. Its
-        only app channel is Moldavite's curated <code>postMessage</code> RPC surface.
+        <code>WebSocket</code>, <code>EventSource</code>, and related escape hatches are removed.
+        Its only app channel is Moldavite's curated <code>postMessage</code> RPC surface.
       </p>
       <p>
         The worker proxy rejects undeclared calls early for useful errors, but Moldavite repeats
-        permission and argument checks in the host. <strong>The host check is the security
-        boundary.</strong> Unknown RPC methods are rejected.
+        permission and argument checks in the host.
+        <strong>The host check is the security boundary.</strong> Unknown RPC methods are rejected.
       </p>
       <div class="callout warn">
         <span class="callout-title">Sandboxed does not mean trusted</span>
@@ -206,9 +292,9 @@
               <td><code>commands</code></td>
               <td>No</td>
               <td>
-                Up to 50 <code>{ "id", "label" }</code> entries shown before enable. Each id
-                must match <code>api.commands.add</code>; ids are limited to 128 characters,
-                labels to 200, and duplicate ids are invalid.
+                Up to 50 <code>{ "id", "label" }</code> entries shown before enable. Each id must
+                match <code>api.commands.add</code>; ids are limited to 128 characters, labels to
+                200, and duplicate ids are invalid.
               </td>
             </tr>
             <tr>
@@ -237,11 +323,12 @@
         </p>
       </div>
       <p>
-        Every successful bundled-plugin install opens a themed <strong>About this plugin</strong>
-        dialog from this validated metadata, and the installed card's ⓘ button reopens it at any
-        time. Without <code>instructions</code>, Moldavite generates a short enable-and-palette flow
-        from the description and command list. Legacy manifests remain compatible and use
-        runtime-registered commands as a display fallback after enable.
+        Every successful in-app install opens a themed
+        <strong>About this plugin</strong> dialog from this validated metadata, and the installed
+        card's ⓘ button reopens it at any time. Without <code>instructions</code>, Moldavite
+        generates a short enable-and-palette flow from the description and command list. Legacy
+        manifests remain compatible and use runtime-registered commands as a display fallback after
+        enable.
       </p>
 
       <h2 id="entry-point">Entry point and command lifecycle</h2>
@@ -261,8 +348,8 @@
   });
 }</code></pre>
       <p>
-        Moldavite namespaces command ids as <code>&lt;plugin-id&gt;:&lt;local-id&gt;</code> in the host.
-        Keep local ids stable and unique within the plugin. Every API call except
+        Moldavite namespaces command ids as <code>&lt;plugin-id&gt;:&lt;local-id&gt;</code> in the
+        host. Keep local ids stable and unique within the plugin. Every API call except
         <code>commands.add</code> is an asynchronous RPC. A command invocation that never settles is
         rejected by the host after 30 seconds.
       </p>
@@ -349,7 +436,10 @@
           <p class="method-description">The API version selected by this manifest.</p>
         </div>
         <div class="method-card">
-          <p class="method-signature">api.commands.add({ id, label, handler }): void <span class="permission-pill">always</span></p>
+          <p class="method-signature">
+            api.commands.add({ id, label, handler }): void
+            <span class="permission-pill">always</span>
+          </p>
           <p class="method-description">Registers a command in the palette and slash menu.</p>
         </div>
       </div>
@@ -364,15 +454,24 @@ api.commands.<span class="f">add</span>({
       <h3>Editor</h3>
       <div class="method-list">
         <div class="method-card">
-          <p class="method-signature">editor.getActiveNote(): Promise&lt;ActiveNote | null&gt; <span class="permission-pill">editor</span></p>
+          <p class="method-signature">
+            editor.getActiveNote(): Promise&lt;ActiveNote | null&gt;
+            <span class="permission-pill">editor</span>
+          </p>
           <p class="method-description">
             Returns the active note's Forge-relative path, display title, and live editor HTML, or
             <code>null</code> when no note is open.
           </p>
         </div>
         <div class="method-card">
-          <p class="method-signature">editor.insertText(text: string): Promise&lt;void&gt; <span class="permission-pill">editor</span></p>
-          <p class="method-description">Inserts text at the current editor cursor. If no editor is active, Moldavite shows an error notification.</p>
+          <p class="method-signature">
+            editor.insertText(text: string): Promise&lt;void&gt;
+            <span class="permission-pill">editor</span>
+          </p>
+          <p class="method-description">
+            Inserts text at the current editor cursor. If no editor is active, Moldavite shows an
+            error notification.
+          </p>
         </div>
       </div>
       <pre><code><span class="k">const</span> active = <span class="k">await</span> api.editor.<span class="f">getActiveNote</span>();
@@ -389,11 +488,19 @@ api.commands.<span class="f">add</span>({
       <h3>User interface</h3>
       <div class="method-list">
         <div class="method-card">
-          <p class="method-signature">ui.toast(message, kind?): Promise&lt;void&gt; <span class="permission-pill">ui</span></p>
-          <p class="method-description">Shows an app notification. Kind accepts <code>info</code>, <code>success</code>, or <code>error</code>.</p>
+          <p class="method-signature">
+            ui.toast(message, kind?): Promise&lt;void&gt; <span class="permission-pill">ui</span>
+          </p>
+          <p class="method-description">
+            Shows an app notification. Kind accepts <code>info</code>, <code>success</code>, or
+            <code>error</code>.
+          </p>
         </div>
         <div class="method-card">
-          <p class="method-signature">ui.prompt(options): Promise&lt;Record&lt;string, string&gt; | null&gt; <span class="permission-pill">API v2, no permission</span></p>
+          <p class="method-signature">
+            ui.prompt(options): Promise&lt;Record&lt;string, string&gt; | null&gt;
+            <span class="permission-pill">API v2, no permission</span>
+          </p>
           <p class="method-description">
             Opens a user-mediated Moldavite form. Submit returns strings keyed by field name; Cancel
             or Escape returns <code>null</code>.
@@ -415,20 +522,32 @@ api.commands.<span class="f">add</span>({
       <p>
         The host allows one plugin prompt or host-consent dialog at a time and always displays
         <strong>Request from plugin — Plugin Name</strong> in trusted chrome above plugin-controlled
-        copy. A form has 1–12 fields. Field names must be unique identifiers beginning with a letter;
-        supported field types are text, password, and URL. Titles are limited to 200 characters,
-        messages to 2,000, confirm labels to 80, names to 64, labels to 160, and placeholders to 300.
+        copy. A form has 1–12 fields. Field names must be unique identifiers beginning with a
+        letter; supported field types are text, password, and URL. Titles are limited to 200
+        characters, messages to 2,000, confirm labels to 80, names to 64, labels to 160, and
+        placeholders to 300.
       </p>
 
       <h3>Notes</h3>
       <div class="method-list">
         <div class="method-card">
-          <p class="method-signature">notes.list(): Promise&lt;PluginNoteMetadata[]&gt; <span class="permission-pill">notes.read</span></p>
-          <p class="method-description">Lists daily, weekly, and standalone note metadata, including locked placeholders.</p>
+          <p class="method-signature">
+            notes.list(): Promise&lt;PluginNoteMetadata[]&gt;
+            <span class="permission-pill">notes.read</span>
+          </p>
+          <p class="method-description">
+            Lists daily, weekly, and standalone note metadata, including locked placeholders.
+          </p>
         </div>
         <div class="method-card">
-          <p class="method-signature">notes.read(path: string): Promise&lt;string&gt; <span class="permission-pill">notes.read</span></p>
-          <p class="method-description">Reads the Markdown body of an exact listed, unlocked note path. Locked and unknown paths reject.</p>
+          <p class="method-signature">
+            notes.read(path: string): Promise&lt;string&gt;
+            <span class="permission-pill">notes.read</span>
+          </p>
+          <p class="method-description">
+            Reads the Markdown body of an exact listed, unlocked note path. Locked and unknown paths
+            reject.
+          </p>
         </div>
       </div>
       <pre><code><span class="k">const</span> notes = <span class="k">await</span> api.notes.<span class="f">list</span>();
@@ -448,15 +567,23 @@ api.commands.<span class="f">add</span>({
       <h3 id="network">Network and runtime host consent</h3>
       <div class="method-list">
         <div class="method-card">
-          <p class="method-signature">net.requestHostAccess(host: string): Promise&lt;boolean&gt; <span class="permission-pill">net.fetch</span></p>
+          <p class="method-signature">
+            net.requestHostAccess(host: string): Promise&lt;boolean&gt;
+            <span class="permission-pill">net.fetch</span>
+          </p>
           <p class="method-description">
             Returns true for an already approved exact host, otherwise asks the user. Denial returns
             false; malformed or non-public hostname forms reject.
           </p>
         </div>
         <div class="method-card">
-          <p class="method-signature">net.fetch(url, options?): Promise&lt;PluginFetchResponse&gt; <span class="permission-pill">net.fetch</span></p>
-          <p class="method-description">Makes a host-performed HTTPS request after checking the effective exact-host allowlist.</p>
+          <p class="method-signature">
+            net.fetch(url, options?): Promise&lt;PluginFetchResponse&gt;
+            <span class="permission-pill">net.fetch</span>
+          </p>
+          <p class="method-description">
+            Makes a host-performed HTTPS request after checking the effective exact-host allowlist.
+          </p>
         </div>
       </div>
       <pre><code><span class="k">const</span> site = <span class="k">new</span> URL(<span class="s">'https://notes.example.com'</span>);
@@ -485,7 +612,10 @@ api.commands.<span class="f">add</span>({
       <h4>Fetch validation and redirect policy</h4>
       <ul>
         <li>URLs must be absolute HTTPS without embedded username or password.</li>
-        <li>Request methods contain letters only; <code>CONNECT</code>, <code>TRACE</code>, and <code>TRACK</code> are blocked.</li>
+        <li>
+          Request methods contain letters only; <code>CONNECT</code>, <code>TRACE</code>, and
+          <code>TRACK</code> are blocked.
+        </li>
         <li>Headers are a string map and request bodies are strings.</li>
         <li>
           Redirects are manual. Every visible <code>Location</code> is resolved and checked before
@@ -509,15 +639,25 @@ api.commands.<span class="f">add</span>({
       <h3>Keychain secrets</h3>
       <div class="method-list">
         <div class="method-card">
-          <p class="method-signature">secrets.get(key): Promise&lt;string | null&gt; <span class="permission-pill">secrets</span></p>
+          <p class="method-signature">
+            secrets.get(key): Promise&lt;string | null&gt;
+            <span class="permission-pill">secrets</span>
+          </p>
           <p class="method-description">Returns the stored string or <code>null</code>.</p>
         </div>
         <div class="method-card">
-          <p class="method-signature">secrets.set(key, value): Promise&lt;void&gt; <span class="permission-pill">secrets</span></p>
-          <p class="method-description">Stores a string in this plugin's macOS Keychain namespace.</p>
+          <p class="method-signature">
+            secrets.set(key, value): Promise&lt;void&gt;
+            <span class="permission-pill">secrets</span>
+          </p>
+          <p class="method-description">
+            Stores a string in this plugin's macOS Keychain namespace.
+          </p>
         </div>
         <div class="method-card">
-          <p class="method-signature">secrets.delete(key): Promise&lt;void&gt; <span class="permission-pill">secrets</span></p>
+          <p class="method-signature">
+            secrets.delete(key): Promise&lt;void&gt; <span class="permission-pill">secrets</span>
+          </p>
           <p class="method-description">Deletes the entry when present and otherwise succeeds.</p>
         </div>
       </div>
@@ -529,10 +669,10 @@ api.commands.<span class="f">add</span>({
 }</code></pre>
       <p>
         The Keychain service is <code>Moldavite</code>. The host constructs the account as
-        <code>plugin:&lt;plugin-id&gt;:&lt;key&gt;</code>, so a worker cannot choose another plugin's
-        namespace. Keys are 1–128 characters, begin with a letter or digit, and then use letters,
-        digits, dots, underscores, or hyphens. Secret values are never listed or included in Forge,
-        settings, plugin, ZIP, or encrypted-backup exports.
+        <code>plugin:&lt;plugin-id&gt;:&lt;key&gt;</code>, so a worker cannot choose another
+        plugin's namespace. Keys are 1–128 characters, begin with a letter or digit, and then use
+        letters, digits, dots, underscores, or hyphens. Secret values are never listed or included
+        in Forge, settings, plugin, ZIP, or encrypted-backup exports.
       </p>
 
       <h2 id="consent">Permissions, consent, and failure behavior</h2>
@@ -547,7 +687,9 @@ api.commands.<span class="f">add</span>({
           <tbody>
             <tr>
               <td>None</td>
-              <td><code>app</code>, <code>commands.add</code>, and API v2 <code>ui.prompt</code>.</td>
+              <td>
+                <code>app</code>, <code>commands.add</code>, and API v2 <code>ui.prompt</code>.
+              </td>
             </tr>
             <tr>
               <td><code>editor</code></td>
@@ -573,20 +715,20 @@ api.commands.<span class="f">add</span>({
         </table>
       </div>
       <p>
-        Consent is pinned to a SHA-256 hash over the raw <code>manifest.json</code> bytes, a separator,
-        and the <code>plugin.js</code> bytes. Editing source, permissions, or
-        <code>allowedHosts</code> therefore changes the hash and reopens the permission sheet even if
-        <code>version</code> did not change.
+        Consent is pinned to a SHA-256 hash over the raw <code>manifest.json</code> bytes, a
+        separator, and the <code>plugin.js</code> bytes. Editing source, permissions, or
+        <code>allowedHosts</code> therefore changes the hash and reopens the permission sheet even
+        if <code>version</code> did not change.
       </p>
       <p>
         Runtime host grants are deliberately separate: they survive a plugin version/hash re-grant,
-        remain visible and individually revocable, and are forgotten with the plugin's consent record
-        when it is uninstalled. They do not modify files or the content hash.
+        remain visible and individually revocable, and are forgotten with the plugin's consent
+        record when it is uninstalled. They do not modify files or the content hash.
       </p>
       <p>
-        Disabling a plugin, uninstalling it, switching Forges, a worker crash, or an unreadable worker
-        message terminates the worker, removes its commands, and rejects pending command invocations.
-        Malformed manifests are shown as invalid rather than executed.
+        Disabling a plugin, uninstalling it, switching Forges, a worker crash, or an unreadable
+        worker message terminates the worker, removes its commands, and rejects pending command
+        invocations. Malformed manifests are shown as invalid rather than executed.
       </p>
 
       <h2 id="wordpress">Worked reference: Publish to WordPress</h2>
@@ -607,12 +749,13 @@ api.commands.<span class="f">add</span>({
           <code>secrets.set</code>.
         </li>
         <li>
-          <strong>Publish note to WordPress…</strong> uses <code>editor.getActiveNote</code> and sends
-          the live editor HTML to <code>/wp-json/wp/v2/posts</code> as a draft.
+          <strong>Publish note to WordPress…</strong> uses <code>editor.getActiveNote</code> and
+          sends the live editor HTML to <code>/wp-json/wp/v2/posts</code> as a draft.
         </li>
         <li>
           A Keychain-backed Forge-path-to-post-id map makes later publishes of the same path use
-          <code>PUT</code> to update the existing post. The success notification includes the edit URL.
+          <code>PUT</code> to update the existing post. The success notification includes the edit
+          URL.
         </li>
       </ol>
       <div class="callout warn">
@@ -630,19 +773,26 @@ api.commands.<span class="f">add</span>({
         <li>
           Distribute one folder whose name equals the manifest id and which contains
           <code>manifest.json</code>, the final self-contained <code>plugin.js</code>, and a README.
-          There is no public plugin registry or remote installer in v1.6.
+        </li>
+        <li>
+          To join the public directory, fork
+          <a href="https://github.com/mauropereiira/moldavite-plugins">moldavite-plugins</a>, add
+          your folder under <code>plugins/&lt;id&gt;/</code>, update <code>registry.json</code> with
+          the exact SHA-256 hashes and metadata, and open a pull request for review.
         </li>
         <li>
           Document every external service, exact manifest host, runtime-host reason, credential key,
           and destructive or publishing action. Keep requested permissions minimal.
         </li>
         <li>
-          Users install manually by copying the folder to <code>&lt;Forge&gt;/.plugins/</code> and
-          reopening Settings → Plugins. Enable state and consent are per Forge.
+          Registry users install from Browse community plugins. Manual installation by copying the
+          folder to <code>&lt;Forge&gt;/.plugins/</code> remains available. Enable state and consent
+          are per Forge.
         </li>
         <li>
-          For an update, replace the plugin files and increment <code>version</code> for human clarity.
-          Any byte change already invalidates the content-hash grant and requires fresh consent.
+          For an update, replace the plugin files and increment <code>version</code> for human
+          clarity. Any byte change already invalidates the content-hash grant and requires fresh
+          consent.
         </li>
         <li>
           Uninstalling in Settings deletes the plugin folder and forgets its consent/runtime-host
@@ -660,9 +810,10 @@ api.commands.<span class="f">add</span>({
       <h2 id="v1">API v1 compatibility</h2>
       <p>
         Existing manifests with <code>"apiVersion": 1</code> remain valid and receive the original
-        <code>app</code>, <code>commands</code>, <code>editor</code>, and <code>ui.toast</code> surface,
-        with <code>api.app.apiVersion === 1</code>. They do not need a source or manifest migration.
-        Use API v2 for trusted prompts, Forge note reads, networking, and Keychain secrets.
+        <code>app</code>, <code>commands</code>, <code>editor</code>, and
+        <code>ui.toast</code> surface, with <code>api.app.apiVersion === 1</code>. They do not need
+        a source or manifest migration. Use API v2 for trusted prompts, Forge note reads,
+        networking, and Keychain secrets.
       </p>
 
       <div class="next-links">
@@ -670,7 +821,9 @@ api.commands.<span class="f">add</span>({
           <span class="label">Using the app?</span>
           <span class="title">Read the v1.6 user guide →</span>
         </a>
-        <a href="https://github.com/mauropereiira/Moldavite/tree/feat/v1.6-agent-native/src-tauri/example-plugin">
+        <a
+          href="https://github.com/mauropereiira/Moldavite/tree/feat/v1.6-agent-native/src-tauri/example-plugin"
+        >
           <span class="label">Read the source</span>
           <span class="title">Open the bundled examples on GitHub →</span>
         </a>
@@ -692,17 +845,5 @@ api.commands.<span class="f">add</span>({
         </p>
       </div>
     </footer>
-
-    <script>
-      (function () {
-        var toggle = document.querySelector('.nav-toggle');
-        var nav = document.getElementById('nav');
-        if (!toggle || !nav) return;
-        toggle.addEventListener('click', function () {
-          var open = nav.classList.toggle('open');
-          toggle.setAttribute('aria-expanded', String(open));
-        });
-      })();
-    </script>
   </body>
 </html>

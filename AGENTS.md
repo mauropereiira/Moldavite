@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [Moldavite] recent context, 2026-07-13 10:23am GMT+1
+# [Moldavite] recent context, 2026-07-13 10:39am GMT+1
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (30,900t read) | 426,220t work | 93% savings
+Stats: 50 obs (31,424t read) | 424,515t work | 93% savings
 
 ### Jul 2, 2026
 S222 Dev Server Lost After Terminal Restart for Permissions (Jul 2 at 12:07 AM)
@@ -22,22 +22,7 @@ S341 Moldavite v1.5.1 — Merge PR #23, Tag Release, and Trigger GitHub Actions 
 S343 Moldavite — AI/Agent Integration Roadmap Scoped from Automattic P2 Strategic Discussion (Jul 12 at 11:18 AM)
 S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build semantic search, agent-ready vault, and sync conflict safety (Jul 12 at 11:39 AM)
 ### Jul 13, 2026
-783 8:42a ⚖️ Moldavite Website Refresh + Builder Docs — Implementation Session Started
-784 8:43a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Started
-785 8:45a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Full Implementation Scope Defined
-786 8:49a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Started
-787 8:50a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Initiated
-788 8:51a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Full Implementation Session Started
-789 8:52a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Started
-790 8:53a ⚖️ Moldavite v1.6 Website Refresh + Builder Docs — Implementation Session Started
-791 8:54a 🔴 Copy-Button Clipboard Fallback Fixed in docs/index.html
-792 8:55a ⚖️ Moldavite Website Refresh + Builder Docs — Implementation Session Started
-793 8:57a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined on feat/v1.6-agent-native
-794 " ⚖️ Moldavite v1.6 — Open-Source Documentation Pass Scope Defined
-795 8:59a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined
-796 " ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined
-797 9:01a ⚖️ Moldavite v1.6 — Open-Source Documentation Pass Scope Defined
-798 " ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined
+798 9:01a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined
 799 9:02a ⚖️ Moldavite Open-Source Documentation Pass — Full Scope Defined on feat/v1.6-agent-native
 801 " 🔄 Rust Doc Comments Added to locking.rs, notes.rs, and semantic.rs
 802 " 🔵 TypeScript Codebase Pre-Documentation State Audited
@@ -72,6 +57,21 @@ S345 Moldavite v1.6 — Wave 1: Three parallel subagents launched to build seman
 837 " 🔴 Moldavite Note-Lock Black Screen — Root Cause Fixed + App-Level Error Boundary Added
 838 " 🔵 cargo clippy Blocked by macOS Sandbox Denying Swift Build in Agent Environment
 839 " ⚖️ Moldavite v1.6 — Two Blocking Bug Fixes Session Complete on feat/v1.6-agent-native
+840 10:24a ⚖️ Moldavite v1.6 — Two UX Tasks Scoped: Graph Physics + Plugin Install Instructions
+841 10:25a ⚖️ Moldavite v1.6 — Graph Physics + Plugin Install Instructions Session Scope Defined
+842 10:27a ⚖️ Moldavite v1.6 — Graph Physics + Plugin Instructions Two-Task UX Session Scope Defined
+843 10:29a ⚖️ Moldavite v1.6 — Two UX Improvements Session Scope Defined
+844 10:30a ⚖️ Moldavite v1.6 — Two Frontend UX Tasks Scoped: Graph Physics + Plugin Install Instructions
+845 " ⚖️ Moldavite v1.6 — Graph Physics Overhaul Scope Defined
+846 " ⚖️ Moldavite v1.6 — Plugin Install Instructions Dialog Scope Defined
+847 10:32a ⚖️ Moldavite v1.6 — Two UX Improvement Session Scope Defined
+848 " ⚖️ Moldavite v1.6 — Graph Physics + Plugin Install Instructions Two-Task Session Scope Defined
+849 10:34a ⚖️ Moldavite v1.6 — Graph Physics + Plugin Install Instructions Two-Task Scope Defined
+850 " ⚖️ Moldavite v1.6 — Two UX Improvements Scoped: Graph Physics + Plugin Install Instructions
+851 10:35a ⚖️ Moldavite v1.6 — Graph Physics Overhaul + Plugin Install Instructions Two-Task Session Scope Defined
+852 " ⚖️ Moldavite v1.6 — Graph Physics Redesign: Obsidian-Style Force-Directed Layout Scope Defined
+853 " ⚖️ Moldavite v1.6 — Plugin Install Instructions Dialog + Manifest `instructions` Field Scope Defined
+854 10:36a ⚖️ Moldavite v1.6 — Graph Physics + Plugin Install Instructions Two-Task Session Scope Defined
 
-Access 426k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 425k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
