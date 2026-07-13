@@ -457,6 +457,9 @@ a {
   position: relative;
   z-index: 2;
   width: 47%;
+  /* The img carries width/height=1024 HTML attributes; without this the
+     attribute height wins over aspect-ratio and stretches the whole stage. */
+  height: auto;
   filter: drop-shadow(0 12px 24px rgba(2, 10, 5, 0.5));
 }
 
