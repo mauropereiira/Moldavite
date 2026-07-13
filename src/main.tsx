@@ -11,6 +11,7 @@ import '@fontsource/instrument-serif/400-italic.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import App from './App';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import './index.css';
 
 const rootEl = document.getElementById('root');
@@ -19,6 +20,8 @@ if (!rootEl) {
 }
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>
 );

@@ -326,12 +326,13 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   /**
    * Removes a tab by note path (used when a note is deleted).
    */
-  removeTabByPath: (notePath) =>
-    set((state) => {
-      const tab = state.openTabs.find((t) => t.id === notePath);
-      if (!tab) return state;
-      return get().closeTab(tab.id) as never; // Close the tab
-    }),
+  removeTabByPath: (notePath) => {
+    // `closeTab` already performs the complete atomic tab/current-note update.
+    // Do not call it from inside another `set` updater: actions return void,
+    // and returning that value would replace the entire Zustand state with
+    // `undefined`.
+    get().closeTab(notePath);
+  },
 
   /**
    * Toggles the pinned state of a tab.
