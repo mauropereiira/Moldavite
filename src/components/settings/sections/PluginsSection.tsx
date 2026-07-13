@@ -1,37 +1,63 @@
 /**
  * PluginsSection — manage plugins installed under the active Forge's
  * `.plugins/` directory: enable/disable (behind a permission sheet), view
- * permissions, uninstall, and install the bundled example. See docs/PLUGINS.md.
+ * permissions, uninstall, install bundled examples, and explicitly browse the
+ * public community registry. See docs/PLUGINS.md.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Puzzle, ExternalLink, Trash2, Download, FileCode } from 'lucide-react';
+import { Puzzle, ExternalLink, Trash2, Download, FileCode, Globe2, RefreshCw } from 'lucide-react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
-import { usePluginStore, usePluginCommandStore } from '@/stores';
+import { usePluginStore, usePluginCommandStore, usePluginInstallStore } from '@/stores';
+import type { PluginInstallRequest } from '@/stores';
 import { useToastStore } from '@/stores/toastStore';
 import { safeInvoke } from '@/lib/ipc';
 import { loadEnabledPlugins } from '@/lib/plugins/host';
 import type { PluginInfo } from '@/lib/plugins/types';
+import {
+  COMMUNITY_REGISTRY_URL,
+  communityInstallState,
+  communityPluginFileUrl,
+  parseCommunityRegistry,
+  type CommunityPlugin,
+} from '@/lib/plugins/registry';
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
+import { PluginAboutDialog } from '@/components/plugins/PluginAboutDialog';
+import { PluginInstallDialog } from '@/components/plugins/PluginInstallDialog';
 import { ConfirmDialog } from '@/components/ui';
 import { Toggle } from '../common';
 
 const PLUGINS_DOC_URL = 'https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md';
 
 type SheetState = { info: PluginInfo; mode: 'grant' | 'view' } | null;
+type RegistryStatus = 'idle' | 'loading' | 'ready' | 'error';
+type PendingCommunityInstall = { plugin: CommunityPlugin; confirmUpdate: boolean } | null;
 
 export function PluginsSection() {
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [about, setAbout] = useState<PluginInfo | null>(null);
   const [pendingUninstall, setPendingUninstall] = useState<PluginInfo | null>(null);
-  const { isEnabledAndGranted, needsGrant, grant, disable, revoke } = usePluginStore();
+  const [pendingUpdate, setPendingUpdate] = useState<CommunityPlugin | null>(null);
+  const [pendingInstall, setPendingInstall] = useState<PendingCommunityInstall>(null);
+  const [registryStatus, setRegistryStatus] = useState<RegistryStatus>('idle');
+  const [communityPlugins, setCommunityPlugins] = useState<CommunityPlugin[]>([]);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [rejectedEntries, setRejectedEntries] = useState(0);
+  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const { isEnabledAndGranted, needsGrant, grant, disable, revoke, approvedHosts, revokeHost } =
+    usePluginStore();
   const registeredCommands = usePluginCommandStore((s) => s.commands);
   const addToast = useToastStore((s) => s.addToast);
+  const installRequest = usePluginInstallStore((s) => s.pending);
+  const clearInstallRequest = usePluginInstallStore((s) => s.clear);
 
   const refresh = useCallback(async () => {
     const infos = await loadEnabledPlugins();
     setPlugins(infos);
+    return infos;
   }, []);
 
   useEffect(() => {
@@ -86,12 +112,138 @@ export function PluginsSection() {
     setBusy(true);
     try {
       await safeInvoke('install_example_plugin');
-      await refresh();
+      const infos = await refresh();
       addToast('success', 'Example plugin installed — enable it below');
+      setAbout(infos.find((info) => info.manifest.id === 'moldavite-example') ?? null);
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleInstallWordPress = async () => {
+    setBusy(true);
+    try {
+      await safeInvoke('install_wordpress_plugin');
+      const infos = await refresh();
+      addToast('success', 'Publish to WordPress installed — enable it below');
+      setAbout(infos.find((info) => info.manifest.id === 'moldavite-wordpress') ?? null);
+    } catch (e) {
+      addToast('error', e instanceof Error ? e.message : 'Install failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const browseCommunityPlugins = useCallback(
+    async (request?: PluginInstallRequest) => {
+      if (request) clearInstallRequest(request.nonce);
+      setRegistryStatus('loading');
+      setRegistryError(null);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      try {
+        const installedPlugins = await refresh();
+        const response = await fetch(COMMUNITY_REGISTRY_URL, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`GitHub returned status ${response.status}`);
+        const parsed = parseCommunityRegistry(await response.json());
+        setCommunityPlugins(parsed.plugins);
+        setRejectedEntries(parsed.rejectedEntries);
+        setRegistryStatus('ready');
+
+        if (request) {
+          const requestedPlugin = parsed.plugins.find((plugin) => plugin.id === request.id);
+          if (!requestedPlugin) {
+            addToast('error', `“${request.id}” isn't in the community plugin directory.`);
+            return;
+          }
+
+          setHighlightedId(requestedPlugin.id);
+          const installState = communityInstallState(requestedPlugin, installedPlugins);
+          if (installState === 'installed') {
+            addToast('success', `${requestedPlugin.name} is already installed`);
+          } else if (installState === 'update-available') {
+            setPendingInstall({ plugin: requestedPlugin, confirmUpdate: true });
+          } else {
+            setPendingInstall({ plugin: requestedPlugin, confirmUpdate: false });
+          }
+          window.requestAnimationFrame(() => {
+            document
+              .getElementById(`community-plugin-${requestedPlugin.id}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        }
+      } catch (error) {
+        const detail =
+          error instanceof Error && error.name !== 'AbortError' ? ` ${error.message}` : '';
+        setRegistryError(
+          `Couldn't reach the community registry. Check your connection and try again.${detail}`
+        );
+        setRegistryStatus('error');
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    },
+    [addToast, clearInstallRequest, refresh]
+  );
+
+  useEffect(() => {
+    if (installRequest) void browseCommunityPlugins(installRequest);
+  }, [browseCommunityPlugins, installRequest]);
+
+  const installCommunityPlugin = async (plugin: CommunityPlugin, confirmUpdate: boolean) => {
+    setBusy(true);
+    setInstallingId(plugin.id);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30_000);
+    try {
+      const [manifestResponse, pluginResponse] = await Promise.all([
+        fetch(communityPluginFileUrl(plugin, 'manifest.json'), {
+          cache: 'no-store',
+          signal: controller.signal,
+        }),
+        fetch(communityPluginFileUrl(plugin, 'plugin.js'), {
+          cache: 'no-store',
+          signal: controller.signal,
+        }),
+      ]);
+      if (!manifestResponse.ok || !pluginResponse.ok) {
+        throw new Error(
+          `Couldn't download ${plugin.name} from GitHub. Check your connection and try again.`
+        );
+      }
+      const [manifestJson, pluginJs] = await Promise.all([
+        manifestResponse.text(),
+        pluginResponse.text(),
+      ]);
+      await safeInvoke('install_plugin_from_data', {
+        id: plugin.id,
+        manifestJson,
+        pluginJs,
+        expectedManifestSha256: plugin.files['manifest.json'].sha256,
+        expectedPluginSha256: plugin.files['plugin.js'].sha256,
+        confirmUpdate,
+      });
+      const infos = await refresh();
+      addToast(
+        'success',
+        `${plugin.name} ${confirmUpdate ? 'updated' : 'installed'} — enable it below`
+      );
+      setAbout(infos.find((info) => info.manifest.id === plugin.id) ?? null);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.name !== 'AbortError'
+          ? error.message
+          : `Couldn't download ${plugin.name} from GitHub. Check your connection and try again.`;
+      addToast('error', message);
+    } finally {
+      window.clearTimeout(timeout);
+      setBusy(false);
+      setInstallingId(null);
     }
   };
 
@@ -109,7 +261,11 @@ export function PluginsSection() {
       <div className="flex items-start gap-3">
         <div
           className="flex-shrink-0 p-2"
-          style={{ backgroundColor: 'var(--accent-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-primary)' }}
+          style={{
+            backgroundColor: 'var(--accent-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--accent-primary)',
+          }}
         >
           <Puzzle aria-hidden="true" className="w-5 h-5" />
         </div>
@@ -119,7 +275,15 @@ export function PluginsSection() {
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Add commands to Moldavite. Plugins live in your Forge under{' '}
-            <code style={{ backgroundColor: 'var(--bg-inset)', padding: '1px 4px', borderRadius: 'var(--radius-sm)' }}>.plugins/</code>{' '}
+            <code
+              style={{
+                backgroundColor: 'var(--bg-inset)',
+                padding: '1px 4px',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              .plugins/
+            </code>{' '}
             and run with access to your notes &mdash; only enable ones you trust.
           </p>
         </div>
@@ -129,7 +293,11 @@ export function PluginsSection() {
       {plugins.length === 0 ? (
         <div
           className="p-6 text-center"
-          style={{ backgroundColor: 'var(--bg-panel)', border: '1px dashed var(--border-default)', borderRadius: 'var(--radius-md)' }}
+          style={{
+            backgroundColor: 'var(--bg-panel)',
+            border: '1px dashed var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+          }}
         >
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             No plugins installed yet.
@@ -168,6 +336,16 @@ export function PluginsSection() {
                     >
                       {statusText(info)}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => setAbout(info)}
+                      className="text-sm leading-none p-0.5 focus-ring"
+                      style={{ color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+                      aria-label={`About ${ok ? name : id}`}
+                      title={`About ${ok ? name : id}`}
+                    >
+                      <span aria-hidden="true">ⓘ</span>
+                    </button>
                   </div>
                   {ok && description && (
                     <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -202,9 +380,7 @@ export function PluginsSection() {
                     </button>
                   </div>
                 </div>
-                {ok && (
-                  <Toggle enabled={enabled} onChange={(next) => handleToggle(info, next)} />
-                )}
+                {ok && <Toggle enabled={enabled} onChange={(next) => handleToggle(info, next)} />}
               </div>
             );
           })}
@@ -212,8 +388,25 @@ export function PluginsSection() {
       )}
 
       {/* Actions */}
-      <div className="p-4 space-y-3" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-3"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleInstallWordPress}
+            disabled={busy}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'white',
+            }}
+          >
+            <Download aria-hidden="true" className="w-4 h-4" />
+            Install Publish to WordPress
+          </button>
           <button
             type="button"
             onClick={handleInstallExample}
@@ -231,6 +424,25 @@ export function PluginsSection() {
           </button>
           <button
             type="button"
+            onClick={() => void browseCommunityPlugins()}
+            disabled={registryStatus === 'loading' || busy}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {registryStatus === 'loading' ? (
+              <RefreshCw aria-hidden="true" className="w-4 h-4 animate-spin" />
+            ) : (
+              <Globe2 aria-hidden="true" className="w-4 h-4" />
+            )}
+            {registryStatus === 'idle' ? 'Browse community plugins' : 'Refresh community plugins'}
+          </button>
+          <button
+            type="button"
             onClick={() => openExternal(PLUGINS_DOC_URL)}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
@@ -245,12 +457,188 @@ export function PluginsSection() {
             <ExternalLink aria-hidden="true" className="w-3 h-3" />
           </button>
         </div>
+        {registryStatus === 'idle' && (
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            Browse community plugins contacts GitHub only when you click it. Moldavite never checks
+            the registry at startup or in the background.
+          </p>
+        )}
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
           To install a plugin manually, drop its folder into{' '}
-          <code style={{ backgroundColor: 'var(--bg-inset)', padding: '1px 4px', borderRadius: 'var(--radius-sm)' }}>.plugins/</code>{' '}
+          <code
+            style={{
+              backgroundColor: 'var(--bg-inset)',
+              padding: '1px 4px',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            .plugins/
+          </code>{' '}
           in your Forge and reopen this tab.
         </p>
       </div>
+
+      {registryStatus === 'error' && (
+        <div
+          role="alert"
+          className="p-4 text-sm"
+          style={{
+            backgroundColor: 'var(--bg-panel)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {registryError}
+        </div>
+      )}
+
+      {registryStatus === 'ready' && (
+        <section aria-labelledby="community-plugin-heading" className="space-y-3">
+          <div>
+            <h4
+              id="community-plugin-heading"
+              className="text-sm font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Community plugins
+            </h4>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Files come only from Moldavite&apos;s pinned community repository. Rust verifies both
+              registry hashes before anything is installed.
+            </p>
+          </div>
+
+          {rejectedEntries > 0 && (
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              {rejectedEntries} malformed registry{' '}
+              {rejectedEntries === 1 ? 'entry was' : 'entries were'} skipped.
+            </p>
+          )}
+
+          {communityPlugins.length === 0 ? (
+            <div
+              className="p-5 text-center text-sm"
+              style={{
+                backgroundColor: 'var(--bg-panel)',
+                border: '1px dashed var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              No valid community plugins are listed right now.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {communityPlugins.map((plugin) => {
+                const installState = communityInstallState(plugin, plugins);
+                const installing = installingId === plugin.id;
+                return (
+                  <article
+                    key={plugin.id}
+                    id={`community-plugin-${plugin.id}`}
+                    className="p-4"
+                    style={{
+                      backgroundColor: 'var(--bg-panel)',
+                      border:
+                        highlightedId === plugin.id
+                          ? '2px solid var(--accent-primary)'
+                          : '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow:
+                        highlightedId === plugin.id ? '0 0 0 3px var(--accent-subtle)' : 'none',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <h5
+                            className="text-sm font-semibold"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            {plugin.name}
+                          </h5>
+                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            v{plugin.version} · {plugin.author}
+                          </span>
+                        </div>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          {plugin.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busy || installState === 'installed'}
+                        onClick={() => {
+                          if (installState === 'update-available') setPendingUpdate(plugin);
+                          else void installCommunityPlugin(plugin, false);
+                        }}
+                        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium focus-ring"
+                        style={{
+                          backgroundColor:
+                            installState === 'installed'
+                              ? 'var(--bg-inset)'
+                              : 'var(--accent-primary)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: installState === 'installed' ? 'var(--text-tertiary)' : 'white',
+                        }}
+                      >
+                        {installing
+                          ? 'Installing…'
+                          : installState === 'installed'
+                            ? 'Installed'
+                            : installState === 'update-available'
+                              ? 'Update'
+                              : 'Install'}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-3" aria-label="Plugin permissions">
+                      {plugin.permissions.length === 0 && (
+                        <span
+                          className="text-[10px] px-2 py-0.5"
+                          style={{
+                            backgroundColor: 'var(--bg-inset)',
+                            borderRadius: '999px',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
+                          No extra permissions
+                        </span>
+                      )}
+                      {plugin.permissions.map((permission) => (
+                        <span
+                          key={permission}
+                          className="text-[10px] px-2 py-0.5"
+                          style={{
+                            backgroundColor: 'var(--accent-subtle)',
+                            borderRadius: '999px',
+                            color: 'var(--accent-primary)',
+                          }}
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                      {plugin.allowedHosts.map((host) => (
+                        <span
+                          key={host}
+                          className="text-[10px] px-2 py-0.5"
+                          style={{
+                            backgroundColor: 'var(--bg-inset)',
+                            borderRadius: '999px',
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
+                          host: {host}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {pendingUninstall && (
         <ConfirmDialog
@@ -263,16 +651,55 @@ export function PluginsSection() {
         />
       )}
 
+      {pendingUpdate && (
+        <ConfirmDialog
+          title="Update community plugin?"
+          message={`Replace the installed copy of "${pendingUpdate.name}" with registry version ${pendingUpdate.version}? Its files will be hash-verified, and changed code or permissions must be granted again before it runs.`}
+          confirmLabel="Update"
+          onConfirm={() => {
+            const plugin = pendingUpdate;
+            setPendingUpdate(null);
+            void installCommunityPlugin(plugin, true);
+          }}
+          onCancel={() => setPendingUpdate(null)}
+        />
+      )}
+
+      {pendingInstall && (
+        <PluginInstallDialog
+          plugin={pendingInstall.plugin}
+          actionLabel={pendingInstall.confirmUpdate ? 'Update' : 'Install'}
+          onInstall={() => {
+            const { plugin, confirmUpdate } = pendingInstall;
+            setPendingInstall(null);
+            void installCommunityPlugin(plugin, confirmUpdate);
+          }}
+          onClose={() => setPendingInstall(null)}
+        />
+      )}
+
       {sheet && (
         <PluginPermissionSheet
           manifest={sheet.info.manifest}
           permissions={sheet.info.manifest.permissions ?? []}
+          approvedHosts={approvedHosts(sheet.info.manifest.id)}
           commands={registeredCommands
             .filter((c) => c.pluginId === sheet.info.manifest.id)
             .map((c) => ({ id: c.id, label: c.label }))}
           mode={sheet.mode}
           onEnable={confirmGrant}
+          onRevokeHost={(host) => revokeHost(sheet.info.manifest.id, host)}
           onClose={() => setSheet(null)}
+        />
+      )}
+
+      {about && (
+        <PluginAboutDialog
+          manifest={about.manifest}
+          registeredCommands={registeredCommands
+            .filter((command) => command.pluginId === about.manifest.id)
+            .map((command) => ({ id: command.id, label: command.label }))}
+          onClose={() => setAbout(null)}
         />
       )}
     </div>

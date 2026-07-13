@@ -1,6 +1,8 @@
 /**
- * Backlinks utilities for extracting and managing wiki link references.
- * Wiki links use the format [[Note Name]] or [[Display|target-note]].
+ * Pure frontend backlink helpers for editor HTML and raw wiki-link syntax.
+ * Wiki links use `[[Note Name]]` or `[[Display|target-note]]`; normalization is
+ * comparison-only and does not replace the canonical filename slug contract in
+ * `fileSystem.ts` and `src-tauri/src/wiki.rs`.
  */
 
 /**
@@ -46,10 +48,7 @@ export function extractWikiLinks(content: string): string[] {
  * @returns Normalized identifier
  */
 export function normalizeNoteName(noteName: string): string {
-  return noteName
-    .replace(/\.md$/i, '')
-    .toLowerCase()
-    .trim();
+  return noteName.replace(/\.md$/i, '').toLowerCase().trim();
 }
 
 /**
@@ -108,7 +107,7 @@ export function findBacklinks(
     const links = extractWikiLinks(content);
 
     // Check if any link points to our target
-    const hasLink = links.some(link => linkMatchesNote(link, targetNoteName));
+    const hasLink = links.some((link) => linkMatchesNote(link, targetNoteName));
 
     if (hasLink) {
       backlinks.push({

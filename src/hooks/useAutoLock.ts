@@ -1,3 +1,10 @@
+/**
+ * Activity-driven relocking lifecycle for temporarily decrypted notes.
+ * One timer covers the current unlocked-note set, is reset by user activity, and
+ * is removed when disabled or unmounted. Relocking changes in-memory visibility;
+ * encrypted disk content remains authoritative throughout.
+ */
+
 import { useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -62,14 +69,7 @@ export function useAutoLock() {
     }
 
     // Activity events to track
-    const events = [
-      'mousedown',
-      'mousemove',
-      'keydown',
-      'scroll',
-      'touchstart',
-      'click',
-    ];
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
 
     // Add event listeners with passive option for performance
     events.forEach((event) => {
@@ -104,7 +104,7 @@ export function useAutoLock() {
       return null;
     }
     const elapsed = Date.now() - (lastActivityRef.current ?? Date.now());
-    const remaining = (autoLockTimeout * 60 * 1000) - elapsed;
+    const remaining = autoLockTimeout * 60 * 1000 - elapsed;
     return Math.max(0, remaining);
   }, [autoLockTimeout, unlockedNotes]);
 

@@ -1,3 +1,9 @@
+/**
+ * Typed IPC boundary for macOS calendar permission, calendars, and event ranges.
+ * The Rust/Swift bridge owns authorization and date filtering; callers must not
+ * infer authorization from an empty result set.
+ */
+
 import { safeInvoke as invoke } from './ipc';
 import type { CalendarEvent, CalendarInfo, CalendarPermission } from '@/types';
 

@@ -1,4 +1,20 @@
-export const PLUGIN_API_VERSION = 1;
+/**
+ * Shared plugin manifest, host API, and UI data contracts.
+ *
+ * These declarations describe values after validation and values serialized over
+ * the worker RPC bridge; they do not enforce permissions. Untrusted manifests must
+ * pass `manifest.ts`, calls must pass `api.ts`, and plugin-facing types must never
+ * expose Tauri, filesystem paths, DOM/store objects, or unrestricted browser APIs.
+ */
+
+export const PLUGIN_API_VERSION = 2;
+export const SUPPORTED_PLUGIN_API_VERSIONS = [1, 2] as const;
+
+export interface PluginManifestCommand {
+  /** Local command id, matching the id passed to api.commands.add. */
+  id: string;
+  label: string;
+}
 
 export interface PluginManifest {
   id: string;
@@ -9,6 +25,12 @@ export interface PluginManifest {
   apiVersion: number;
   minAppVersion?: string;
   permissions?: string[];
+  /** Exact HTTPS hostnames the plugin may contact through api.net.fetch. */
+  allowedHosts?: string[];
+  /** Declarative command labels available before the plugin is enabled. */
+  commands?: PluginManifestCommand[];
+  /** Short markdown-lite setup steps shown after install and from Settings. */
+  instructions?: string[];
 }
 
 export type PluginStatus = 'ok' | 'invalid' | 'incompatible';
@@ -34,10 +56,65 @@ export interface PluginAPI {
   editor: {
     // Async since plugins run in a Worker sandbox; every editor/ui method
     // round-trips through postMessage to the host thread.
-    getActiveNote(): Promise<{ title: string; content: string } | null>;
+    getActiveNote(): Promise<{ path: string; title: string; content: string } | null>;
     insertText(text: string): Promise<void>;
   };
-  ui: { toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void> };
+  ui: {
+    toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void>;
+    prompt(options: PluginPromptOptions): Promise<Record<string, string> | null>;
+  };
+  notes: {
+    list(): Promise<PluginNoteMetadata[]>;
+    read(path: string): Promise<string>;
+  };
+  net: {
+    fetch(url: string, options?: PluginFetchOptions): Promise<PluginFetchResponse>;
+    requestHostAccess(host: string): Promise<boolean>;
+  };
+  secrets: {
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+}
+
+export type PluginPromptFieldType = 'text' | 'password' | 'url';
+
+export interface PluginPromptField {
+  name: string;
+  label: string;
+  type: PluginPromptFieldType;
+  placeholder?: string;
+  required?: boolean;
+}
+
+export interface PluginPromptOptions {
+  title: string;
+  message?: string;
+  fields: PluginPromptField[];
+  confirmLabel?: string;
+}
+
+export type PluginNoteKind = 'daily' | 'weekly' | 'standalone';
+
+export interface PluginNoteMetadata {
+  path: string;
+  title: string;
+  kind: PluginNoteKind;
+  folder: string | null;
+}
+
+export interface PluginFetchOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface PluginFetchResponse {
+  status: number;
+  headers: Record<string, string>;
+  bodyText: string;
+  bodyBase64?: string;
 }
 
 export interface LoadedPlugin {

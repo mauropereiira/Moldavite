@@ -9,8 +9,15 @@ import {
   Download,
   FileDown,
   FileText,
+  Pencil,
 } from 'lucide-react';
-import { exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext, readNote, noteFileBackendPath } from '@/lib';
+import {
+  exportSingleNote,
+  exportNoteToPdf,
+  exportNoteAsPlaintext,
+  readNote,
+  noteFileBackendPath,
+} from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
@@ -20,6 +27,7 @@ interface NoteContextMenuProps {
   position: { x: number; y: number };
   onOpenInNewTab: (note: NoteFile) => void;
   onDuplicate: (note: NoteFile) => Promise<void>;
+  onRename: (note: NoteFile) => void;
   onLock: (note: NoteFile) => void;
   onUnlock: (note: NoteFile) => void;
   onPermanentUnlock: (note: NoteFile) => void;
@@ -42,6 +50,7 @@ export function NoteContextMenu({
   position,
   onOpenInNewTab,
   onDuplicate,
+  onRename,
   onLock,
   onUnlock,
   onPermanentUnlock,
@@ -64,7 +73,7 @@ export function NoteContextMenu({
           note.name,
           destination,
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         toast.success('Note exported');
       }
@@ -86,7 +95,7 @@ export function NoteContextMenu({
         const content = await readNote(
           noteFileBackendPath(note),
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         // Use the last persisted PDF options. The editor's PDF menu offers a
         // full picker; the sidebar context menu stays one-click for speed and
@@ -115,7 +124,7 @@ export function NoteContextMenu({
           note.name,
           destination,
           note.isDaily || false,
-          note.isWeekly || false,
+          note.isWeekly || false
         );
         toast.success('Exported as plaintext');
       }
@@ -209,6 +218,21 @@ export function NoteContextMenu({
         >
           <Copy className="w-4 h-4" />
           Duplicate
+        </button>
+      )}
+      {!note.isLocked && !note.isDaily && !note.isWeekly && (
+        <button
+          onClick={() => {
+            onRename(note);
+            onClose();
+          }}
+          className={itemClass}
+          style={{ color: 'var(--text-primary)' }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <Pencil className="w-4 h-4" />
+          Rename…
         </button>
       )}
       {!note.isLocked && (

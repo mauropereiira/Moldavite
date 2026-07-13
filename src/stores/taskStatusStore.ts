@@ -1,3 +1,9 @@
+/**
+ * In-memory task completion summaries keyed by stable note id.
+ * Values are derived from editor content and are discarded with the session; removing
+ * a note must remove its summary rather than leaving aggregate state behind.
+ */
+
 import { create } from 'zustand';
 
 interface TaskStatus {

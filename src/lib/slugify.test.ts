@@ -1,8 +1,12 @@
+/**
+ * Mirror tests for the shared wiki slug contract.
+ * Keep these cases synchronized with `note_name_to_filename` tests in
+ * `src-tauri/src/wiki.rs` and both production implementations.
+ */
+
 import { describe, it, expect } from 'vitest';
 import { slugifyNoteName, noteNameToFilename } from './fileSystem';
 
-// slugifyNoteName MUST stay in sync with note_name_to_filename in
-// src-tauri/src/wiki.rs — these cases mirror the Rust tests.
 describe('slugifyNoteName', () => {
   it('slugifies basic names', () => {
     expect(slugifyNoteName('Meeting Notes')).toBe('meeting-notes');

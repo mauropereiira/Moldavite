@@ -16,13 +16,7 @@ interface ErrorInfo {
   value?: number; // remaining attempts or lockout seconds
 }
 
-export function PasswordModal({
-  isOpen,
-  onClose,
-  onSubmit,
-  mode,
-  noteTitle,
-}: PasswordModalProps) {
+export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: PasswordModalProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -109,12 +103,18 @@ export function PasswordModal({
     // For lock mode, enforce stronger password requirements
     if (mode === 'lock') {
       if (password.length < 8) {
-        setErrorInfo({ type: 'generic', message: 'Password must be at least 8 characters for locking notes' });
+        setErrorInfo({
+          type: 'generic',
+          message: 'Password must be at least 8 characters for locking notes',
+        });
         return;
       }
 
       if (passwordStrength && !passwordStrength.isAcceptable) {
-        setErrorInfo({ type: 'generic', message: 'Password is too weak. Please choose a stronger password.' });
+        setErrorInfo({
+          type: 'generic',
+          message: 'Password is too weak. Please choose a stronger password.',
+        });
         return;
       }
 
@@ -168,33 +168,44 @@ export function PasswordModal({
     'permanent-unlock': 'Remove Lock',
   };
 
+  const strengthColor = passwordStrength
+    ? passwordStrength.level === 'weak'
+      ? 'var(--error)'
+      : passwordStrength.level === 'fair'
+        ? 'var(--warning)'
+        : passwordStrength.level === 'good'
+          ? 'var(--success)'
+          : 'var(--accent-primary)'
+    : 'var(--border-default)';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop-dark">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative modal-elevated w-full max-w-md mx-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <div className="flex items-center gap-3">
             {mode === 'lock' ? (
-              <Lock className="w-5 h-5 text-amber-500" />
+              <Lock className="w-5 h-5" style={{ color: 'var(--warning)' }} />
             ) : (
-              <Unlock className="w-5 h-5 text-blue-500" />
+              <Unlock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
             )}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               {titles[mode]}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="btn btn-ghost p-1 focus-ring"
+            aria-label="Close password dialog"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
 
@@ -202,42 +213,56 @@ export function PasswordModal({
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-4 space-y-4">
             {/* Note title */}
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-gray-900 dark:text-white">
+            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                 {noteTitle}
               </span>
             </div>
 
             {/* Description */}
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               {descriptions[mode]}
             </p>
 
             {/* Error message */}
             {errorInfo && (
-              <div className={`flex items-start gap-2 p-3 rounded-md ${
-                errorInfo.type === 'rate_limited'
-                  ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
-                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-              }`}>
+              <div
+                className="flex items-start gap-2 p-3 rounded-md border"
+                style={{
+                  backgroundColor:
+                    errorInfo.type === 'rate_limited'
+                      ? 'var(--warning-muted)'
+                      : 'var(--error-muted)',
+                  borderColor:
+                    errorInfo.type === 'rate_limited' ? 'var(--warning)' : 'var(--error)',
+                }}
+              >
                 {errorInfo.type === 'rate_limited' ? (
-                  <Clock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <Clock
+                    className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: 'var(--warning)' }}
+                  />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <AlertCircle
+                    className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: 'var(--error)' }}
+                  />
                 )}
                 <div className="flex-1">
-                  <p className={`text-sm ${
-                    errorInfo.type === 'rate_limited'
-                      ? 'text-amber-700 dark:text-amber-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <p
+                    className="text-sm"
+                    style={{
+                      color: errorInfo.type === 'rate_limited' ? 'var(--warning)' : 'var(--error)',
+                    }}
+                  >
                     {errorInfo.type === 'rate_limited' && lockoutSeconds !== null
                       ? `Too many failed attempts. Please wait ${lockoutSeconds} seconds.`
                       : errorInfo.message}
                   </p>
                   {errorInfo.type === 'wrong_password' && errorInfo.value !== undefined && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {errorInfo.value} {errorInfo.value === 1 ? 'attempt' : 'attempts'} remaining before lockout
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      {errorInfo.value} {errorInfo.value === 1 ? 'attempt' : 'attempts'} remaining
+                      before lockout
                     </p>
                   )}
                 </div>
@@ -248,7 +273,8 @@ export function PasswordModal({
             <div className="space-y-1">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--text-secondary)' }}
               >
                 Password
               </label>
@@ -259,20 +285,18 @@ export function PasswordModal({
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input pr-10"
                   placeholder="Enter password"
                   autoComplete="off"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus-ring rounded"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 transition-colors focus-ring rounded"
+                  style={{ color: 'var(--text-muted)' }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
 
@@ -284,42 +308,28 @@ export function PasswordModal({
                     {[0, 1, 2, 3].map((index) => (
                       <div
                         key={index}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
-                          index < passwordStrength.score
-                            ? passwordStrength.level === 'weak'
-                              ? 'bg-red-500'
-                              : passwordStrength.level === 'fair'
-                              ? 'bg-amber-500'
-                              : passwordStrength.level === 'good'
-                              ? 'bg-green-500'
-                              : 'bg-emerald-500'
-                            : 'bg-gray-200 dark:bg-gray-600'
-                        }`}
+                        className="h-1 flex-1 rounded-full transition-colors"
+                        style={{
+                          backgroundColor:
+                            index < passwordStrength.score
+                              ? strengthColor
+                              : 'var(--border-default)',
+                        }}
                       />
                     ))}
                   </div>
                   {/* Strength label and feedback */}
                   <div className="flex items-center justify-between text-xs">
-                    <span
-                      className={`font-medium ${
-                        passwordStrength.level === 'weak'
-                          ? 'text-red-500'
-                          : passwordStrength.level === 'fair'
-                          ? 'text-amber-500'
-                          : passwordStrength.level === 'good'
-                          ? 'text-green-500'
-                          : 'text-emerald-500'
-                      }`}
-                    >
+                    <span className="font-medium" style={{ color: strengthColor }}>
                       {passwordStrength.feedback}
                     </span>
                   </div>
                   {/* Suggestions */}
                   {passwordStrength.suggestions.length > 0 && passwordStrength.score < 3 && (
-                    <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                    <ul className="text-xs space-y-0.5" style={{ color: 'var(--text-tertiary)' }}>
                       {passwordStrength.suggestions.map((suggestion, index) => (
                         <li key={index} className="flex items-start gap-1">
-                          <span className="text-gray-400">•</span>
+                          <span style={{ color: 'var(--text-muted)' }}>•</span>
                           <span>{suggestion}</span>
                         </li>
                       ))}
@@ -334,7 +344,8 @@ export function PasswordModal({
               <div className="space-y-1">
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  className="block text-sm font-medium"
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   Confirm Password
                 </label>
@@ -343,7 +354,7 @@ export function PasswordModal({
                   id="confirmPassword"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input"
                   placeholder="Confirm password"
                   autoComplete="off"
                 />
@@ -352,38 +363,36 @@ export function PasswordModal({
 
             {/* Warning for lock mode */}
             {mode === 'lock' && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  <strong>Warning:</strong> If you forget your password, there
-                  is no way to recover the note. Make sure to remember it.
+              <div
+                className="p-3 border rounded-md"
+                style={{ backgroundColor: 'var(--warning-muted)', borderColor: 'var(--warning)' }}
+              >
+                <p className="text-xs" style={{ color: 'var(--warning)' }}>
+                  <strong>Warning:</strong> If you forget your password, there is no way to recover
+                  the note. Make sure to remember it.
                 </p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
-            >
+          <div
+            className="flex justify-end gap-3 px-6 py-4 border-t"
+            style={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-default)' }}
+          >
+            <button type="button" onClick={onClose} className="btn focus-ring">
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || (lockoutSeconds !== null && lockoutSeconds > 0)}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
-                mode === 'lock'
-                  ? 'bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 disabled:cursor-not-allowed'
-                  : 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 disabled:cursor-not-allowed'
-              }`}
+              className="btn btn-primary focus-ring"
             >
               {isSubmitting
                 ? 'Processing...'
                 : lockoutSeconds !== null && lockoutSeconds > 0
-                ? `Wait ${lockoutSeconds}s`
-                : submitLabels[mode]}
+                  ? `Wait ${lockoutSeconds}s`
+                  : submitLabels[mode]}
             </button>
           </div>
         </form>

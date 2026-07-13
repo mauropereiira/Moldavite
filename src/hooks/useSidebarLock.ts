@@ -1,5 +1,21 @@
+/**
+ * Sidebar password-modal orchestration for lock, temporary unlock, and permanent unlock.
+ * Editable content is flushed before encryption, temporary plaintext remains view-only
+ * in memory, and path-keyed tabs/unlock state are cleared when the disk form changes.
+ */
+
 import { useState } from 'react';
-import { lockNote, unlockNote, permanentlyUnlockNote } from '@/lib';
+import {
+  filenameToNote,
+  htmlToMarkdown,
+  isHtmlContent,
+  lockNote,
+  markdownToHtml,
+  noteFileBackendPath,
+  permanentlyUnlockNote,
+  unlockNote,
+  writeNote,
+} from '@/lib';
 import { useNoteStore } from '@/stores';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
@@ -13,7 +29,12 @@ type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
  * needed to render the PasswordModal.
  */
 export function useSidebarLock() {
-  const { currentNote, setNotes, setCurrentNote, unlockNote: trackUnlockedNote } = useNoteStore();
+  const {
+    setNotes,
+    setCurrentNote,
+    removeTabByPath,
+    unlockNote: trackUnlockedNote,
+  } = useNoteStore();
   const toast = useToast();
 
   const [mode, setMode] = useState<LockModalMode>(null);
@@ -47,30 +68,38 @@ export function useSidebarLock() {
     if (!noteToLock) return;
 
     if (mode === 'lock') {
-      await lockNote(noteToLock.name, password, noteToLock.isDaily);
+      const current = useNoteStore.getState().currentNote;
+      if (current?.id === noteToLock.path) {
+        await writeNote(
+          noteFileBackendPath(noteToLock),
+          htmlToMarkdown(current.content),
+          noteToLock.isDaily,
+          noteToLock.isWeekly || false
+        );
+      }
+      await lockNote(noteToLock.name, password, noteToLock.isDaily, noteToLock.isWeekly || false);
       toast.success('Note locked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: true } : n)));
-      if (currentNote && currentNote.id === noteToLock.path) {
-        setCurrentNote(null);
-      }
+      removeTabByPath(noteToLock.path);
     } else if (mode === 'unlock') {
-      const content = await unlockNote(noteToLock.name, password, noteToLock.isDaily);
-      const note = {
-        id: noteToLock.path,
-        title: noteToLock.name.replace(/\.md$/, ''),
-        content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isDaily: noteToLock.isDaily,
-        isWeekly: noteToLock.isWeekly || false,
-        date: noteToLock.date,
-        week: noteToLock.week,
-      };
+      const content = await unlockNote(
+        noteToLock.name,
+        password,
+        noteToLock.isDaily,
+        noteToLock.isWeekly || false
+      );
+      const htmlContent = isHtmlContent(content) ? content : markdownToHtml(content);
+      const note = filenameToNote(noteToLock, htmlContent);
       setCurrentNote(note);
       trackUnlockedNote(noteToLock.path);
       toast.success('Note unlocked (view only)');
     } else if (mode === 'permanent-unlock') {
-      await permanentlyUnlockNote(noteToLock.name, password, noteToLock.isDaily);
+      await permanentlyUnlockNote(
+        noteToLock.name,
+        password,
+        noteToLock.isDaily,
+        noteToLock.isWeekly || false
+      );
       toast.success('Note permanently unlocked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: false } : n)));
     }

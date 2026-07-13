@@ -1,10 +1,11 @@
+/**
+ * Settings-store adapters for applying visual preferences and controlling the modal.
+ * The store owns persistence; this hook keeps document-level visual side effects in
+ * sync without duplicating settings state in components.
+ */
+
 import { useEffect } from 'react';
-import {
-  useSettingsStore,
-  applyFontSize,
-  applyLineHeight,
-  applyCompactMode,
-} from '@/stores';
+import { useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode } from '@/stores';
 
 export function useSettings() {
   const settings = useSettingsStore();

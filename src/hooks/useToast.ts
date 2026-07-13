@@ -1,3 +1,9 @@
+/**
+ * Stable convenience callbacks over the toast store.
+ * The hook owns no queue state; duration, identity, removal, and cleanup remain
+ * centralized in `stores/toastStore.ts`.
+ */
+
 import { useCallback } from 'react';
 import { useToastStore } from '../stores/toastStore';
 

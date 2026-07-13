@@ -1,4 +1,9 @@
-//! Folder management commands.
+//! Standalone-note folder enumeration and mutation commands.
+//!
+//! Folder arguments are always relative to `notes/`; daily and weekly trees are
+//! outside this module's ownership. Mutations reject traversal and symlink
+//! escapes, preserve nested contents on moves, and return relative paths for the
+//! frontend addressing model.
 
 use std::fs;
 use std::path::Path;

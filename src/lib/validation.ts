@@ -1,5 +1,8 @@
 /**
- * Validation utilities for user input and data validation
+ * Frontend validation and presentation helpers for user-entered values.
+ * These checks improve immediate feedback but are not a filesystem or network
+ * security boundary; Rust commands and the plugin host must revalidate every
+ * value before privileged work.
  */
 
 /**

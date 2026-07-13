@@ -35,9 +35,7 @@ export function CollapsibleSection({
           }}
         >
           <ChevronRight
-            className={`w-3.5 h-3.5 transition-transform ${
-              isCollapsed ? '' : 'rotate-90'
-            }`}
+            className={`w-3.5 h-3.5 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
             style={{
               color: 'var(--text-tertiary)',
               transitionDuration: '200ms',
@@ -59,9 +57,7 @@ export function CollapsibleSection({
             </span>
           )}
         </button>
-        {rightAction && !isCollapsed && (
-          <div className="flex items-center">{rightAction}</div>
-        )}
+        {rightAction && !isCollapsed && <div className="flex items-center">{rightAction}</div>}
       </div>
       <div
         className={`overflow-hidden ${

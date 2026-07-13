@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+/** Per-Forge plugin consent tests for version and content-hash pinning. */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { usePluginStore } from './pluginStore';
 
 const HASH = 'abc123';
@@ -52,10 +54,37 @@ describe('pluginStore', () => {
     expect(s.needsGrant('p', '1.0.0', HASH)).toBe(true);
   });
 
+  it('persists approved hosts independently from the version/hash grant', () => {
+    const store = usePluginStore.getState();
+    store.grant('p', '1.0.0', HASH);
+    usePluginStore.getState().approveHost('p', 'site.example.com');
+    usePluginStore.getState().grant('p', '2.0.0', 'new-hash');
+    expect(usePluginStore.getState().approvedHosts('p')).toEqual(['site.example.com']);
+  });
+
+  it('revokes one approved host without changing the plugin grant', () => {
+    usePluginStore.getState().grant('p', '1.0.0', HASH);
+    usePluginStore.getState().approveHost('p', 'one.example.com');
+    usePluginStore.getState().approveHost('p', 'two.example.com');
+    usePluginStore.getState().revokeHost('p', 'one.example.com');
+    expect(usePluginStore.getState().approvedHosts('p')).toEqual(['two.example.com']);
+    expect(usePluginStore.getState().isEnabledAndGranted('p', '1.0.0', HASH)).toBe(true);
+  });
+
   it('revoke forgets the grant entirely', () => {
     usePluginStore.getState().grant('p', '1.0.0', HASH);
     usePluginStore.getState().revoke('p');
     expect(usePluginStore.getState().grants.p).toBeUndefined();
     expect(usePluginStore.getState().needsGrant('p', '1.0.0', HASH)).toBe(true);
+  });
+
+  it('recovers from a corrupt persisted grant store without granting anything', async () => {
+    localStorage.setItem('moldavite-plugins:default', '{truncated');
+    usePluginStore.setState({ grants: {} });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(usePluginStore.persist.rehydrate()).resolves.toBeUndefined();
+    expect(usePluginStore.getState().grants).toEqual({});
+    expect(usePluginStore.getState().isEnabledAndGranted('p', '1.0.0', HASH)).toBe(false);
+    consoleError.mockRestore();
   });
 });

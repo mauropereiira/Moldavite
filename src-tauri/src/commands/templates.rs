@@ -1,4 +1,9 @@
-//! Template management commands.
+//! Built-in and user template CRUD plus note creation from templates.
+//!
+//! Built-in templates are immutable defaults; user templates live as JSON in
+//! the active Forge. Template ids and target note paths are validated before
+//! access, variable expansion happens at application time, and created notes use
+//! the same daily/weekly/standalone addressing rules as ordinary note commands.
 
 use std::fs;
 

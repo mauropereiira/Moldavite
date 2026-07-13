@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   MoreVertical,
@@ -9,15 +9,27 @@ import {
   FileText,
   Trash2,
   Info,
-  Star
+  Star,
+  Pencil,
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
-import { createNote, writeNote, htmlToMarkdown, exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext } from '@/lib';
+import {
+  createNote,
+  writeNote,
+  htmlToMarkdown,
+  exportSingleNote,
+  exportNoteToPdf,
+  exportNoteAsPlaintext,
+} from '@/lib';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
+
+const RenameNoteModal = lazy(() =>
+  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal }))
+);
 
 interface MoreOptionsMenuProps {
   onDelete: () => void;
@@ -25,20 +37,33 @@ interface MoreOptionsMenuProps {
   wordCount: number;
   characterCount: number;
   openDirection?: 'up' | 'down';
+  onRenameNote: (note: NoteFile, title: string) => Promise<void>;
 }
 
-export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCount, openDirection = 'down' }: MoreOptionsMenuProps) {
+export function MoreOptionsMenu({
+  onDelete,
+  onShowToast,
+  wordCount,
+  characterCount,
+  onRenameNote,
+  openDirection = 'down',
+}: MoreOptionsMenuProps) {
   const { currentNote, notes, setNotes } = useNoteStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const currentNoteFile = currentNote
+    ? notes.find((note) => note.path === currentNote.id)
+    : undefined;
 
   const handleCopyUrl = async () => {
     if (!currentNote) return;
 
-    const filename = currentNote.isDaily && currentNote.date
-      ? `${currentNote.date}.md`
-      : `${currentNote.title}.md`;
+    const filename =
+      currentNote.isDaily && currentNote.date
+        ? `${currentNote.date}.md`
+        : `${currentNote.title}.md`;
 
     const link = `moldavite://note/${encodeURIComponent(filename)}`;
 
@@ -62,7 +87,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
       let attempt = 1;
 
       // Check if name already exists
-      while (notes.some(n => n.name === `${newTitle}.md`)) {
+      while (notes.some((n) => n.name === `${newTitle}.md`)) {
         attempt++;
         newTitle = `${currentNote.title} Copy ${attempt}`;
       }
@@ -95,11 +120,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     if (!currentNote) return;
 
     try {
-      const filename = currentNote.isDaily && currentNote.date
-        ? `${currentNote.date}.md`
-        : currentNote.isWeekly && currentNote.week
-        ? `${currentNote.week}.md`
-        : `${currentNote.title}.md`;
+      const filename =
+        currentNote.isDaily && currentNote.date
+          ? `${currentNote.date}.md`
+          : currentNote.isWeekly && currentNote.week
+            ? `${currentNote.week}.md`
+            : `${currentNote.title}.md`;
 
       const defaultName = filename.replace(/\.md$/, '');
       const destination = await save({
@@ -140,11 +166,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     if (!currentNote) return;
 
     try {
-      const baseName = currentNote.isDaily && currentNote.date
-        ? currentNote.date
-        : currentNote.isWeekly && currentNote.week
-        ? currentNote.week
-        : currentNote.title;
+      const baseName =
+        currentNote.isDaily && currentNote.date
+          ? currentNote.date
+          : currentNote.isWeekly && currentNote.week
+            ? currentNote.week
+            : currentNote.title;
 
       const destination = await save({
         title: 'Export as PDF',
@@ -166,11 +193,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
     if (!currentNote) return;
 
     try {
-      const filename = currentNote.isDaily && currentNote.date
-        ? `${currentNote.date}.md`
-        : currentNote.isWeekly && currentNote.week
-        ? `${currentNote.week}.md`
-        : `${currentNote.title}.md`;
+      const filename =
+        currentNote.isDaily && currentNote.date
+          ? `${currentNote.date}.md`
+          : currentNote.isWeekly && currentNote.week
+            ? `${currentNote.week}.md`
+            : `${currentNote.title}.md`;
 
       const baseName = filename.replace(/\.md$/, '');
       const destination = await save({
@@ -184,7 +212,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           filename,
           destination,
           currentNote.isDaily || false,
-          currentNote.isWeekly || false,
+          currentNote.isWeekly || false
         );
         onShowToast?.('Exported as plaintext');
       }
@@ -214,18 +242,12 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         position="right"
         openDirection={openDirection}
         trigger={
-          <button
-            className="toolbar-button"
-            title="More options"
-          >
+          <button className="toolbar-button" title="More options">
             <MoreVertical className="w-4 h-4" />
           </button>
         }
       >
-        <DropdownItem
-          onClick={handleCopyUrl}
-          icon={<Link2 className="w-4 h-4" />}
-        >
+        <DropdownItem onClick={handleCopyUrl} icon={<Link2 className="w-4 h-4" />}>
           Copy URL to note
         </DropdownItem>
         <DropdownItem
@@ -235,22 +257,21 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         >
           Duplicate note
         </DropdownItem>
-        <DropdownItem
-          onClick={handleExport}
-          icon={<Download className="w-4 h-4" />}
-        >
+        {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
+          <DropdownItem
+            onClick={() => setShowRenameModal(true)}
+            icon={<Pencil className="w-4 h-4" />}
+          >
+            Rename note…
+          </DropdownItem>
+        )}
+        <DropdownItem onClick={handleExport} icon={<Download className="w-4 h-4" />}>
           Export as Markdown
         </DropdownItem>
-        <DropdownItem
-          onClick={handleExportPdf}
-          icon={<FileDown className="w-4 h-4" />}
-        >
+        <DropdownItem onClick={handleExportPdf} icon={<FileDown className="w-4 h-4" />}>
           Export as PDF…
         </DropdownItem>
-        <DropdownItem
-          onClick={handleExportPlaintext}
-          icon={<FileText className="w-4 h-4" />}
-        >
+        <DropdownItem onClick={handleExportPlaintext} icon={<FileText className="w-4 h-4" />}>
           Export as Plaintext
         </DropdownItem>
         <DropdownItem
@@ -260,18 +281,11 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
           Save as template
         </DropdownItem>
         <DropdownDivider />
-        <DropdownItem
-          onClick={handleShowInfo}
-          icon={<Info className="w-4 h-4" />}
-        >
+        <DropdownItem onClick={handleShowInfo} icon={<Info className="w-4 h-4" />}>
           Note info
         </DropdownItem>
         <DropdownDivider />
-        <DropdownItem
-          onClick={onDelete}
-          icon={<Trash2 className="w-4 h-4" />}
-          variant="danger"
-        >
+        <DropdownItem onClick={onDelete} icon={<Trash2 className="w-4 h-4" />} variant="danger">
           Delete note
         </DropdownItem>
       </Dropdown>
@@ -292,31 +306,44 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
               Note Info
             </h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+              <div
+                className="flex justify-between py-1.5"
+                style={{ borderBottom: '1px solid var(--border-muted)' }}
+              >
                 <span style={{ color: 'var(--text-muted)' }}>Title</span>
                 <span className="truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
                   {currentNote.title}
                 </span>
               </div>
-              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+              <div
+                className="flex justify-between py-1.5"
+                style={{ borderBottom: '1px solid var(--border-muted)' }}
+              >
                 <span style={{ color: 'var(--text-muted)' }}>Type</span>
                 <span style={{ color: 'var(--text-primary)' }}>
                   {currentNote.isDaily ? 'Daily' : 'Standalone'}
                 </span>
               </div>
               {currentNote.isDaily && currentNote.date && (
-                <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                <div
+                  className="flex justify-between py-1.5"
+                  style={{ borderBottom: '1px solid var(--border-muted)' }}
+                >
                   <span style={{ color: 'var(--text-muted)' }}>Date</span>
-                  <span style={{ color: 'var(--text-primary)' }}>
-                    {currentNote.date}
-                  </span>
+                  <span style={{ color: 'var(--text-primary)' }}>{currentNote.date}</span>
                 </div>
               )}
-              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+              <div
+                className="flex justify-between py-1.5"
+                style={{ borderBottom: '1px solid var(--border-muted)' }}
+              >
                 <span style={{ color: 'var(--text-muted)' }}>Words</span>
                 <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
               </div>
-              <div className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border-muted)' }}>
+              <div
+                className="flex justify-between py-1.5"
+                style={{ borderBottom: '1px solid var(--border-muted)' }}
+              >
                 <span style={{ color: 'var(--text-muted)' }}>Characters</span>
                 <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
               </div>
@@ -326,10 +353,7 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
               </div>
             </div>
             <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowNoteInfo(false)}
-                className="btn focus-ring"
-              >
+              <button onClick={() => setShowNoteInfo(false)} className="btn focus-ring">
                 Close
               </button>
             </div>
@@ -352,6 +376,16 @@ export function MoreOptionsMenu({ onDelete, onShowToast, wordCount, characterCou
         onClose={() => setShowPdfOptions(false)}
         onConfirm={handlePdfExportConfirm}
       />
+
+      {showRenameModal && currentNoteFile && (
+        <Suspense fallback={null}>
+          <RenameNoteModal
+            note={currentNoteFile}
+            onRename={onRenameNote}
+            onClose={() => setShowRenameModal(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

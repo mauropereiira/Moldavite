@@ -1,3 +1,9 @@
+/**
+ * Debounced backlink-query state for the current note.
+ * Refreshes are cancellable and never retain results for a previous filename;
+ * backlink resolution itself belongs to the Rust index.
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 

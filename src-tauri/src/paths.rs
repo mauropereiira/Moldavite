@@ -1,4 +1,10 @@
-//! Path and directory helpers for the notes tree.
+//! Canonical configuration and active-Forge path derivation.
+//!
+//! All domain paths descend from the persisted Forges root plus active Forge;
+//! callers must not reconstruct these paths independently. Helpers only resolve
+//! locations (or create their one owned directory) and do not validate untrusted
+//! leaf names. Daily, weekly, standalone, images, trash, templates, and internal
+//! metadata roots remain distinct.
 
 use std::fs;
 use std::path::{Path, PathBuf};

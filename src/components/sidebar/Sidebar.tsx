@@ -13,9 +13,11 @@ import {
   useSettingsStore,
   useTagStore,
   useSearchStore,
+  useSemanticStore,
   useNoteSelectionStore,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
+import type { SemanticHit } from '@/lib/semantic';
 import { getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -33,10 +35,13 @@ import { BulkExportModal } from './BulkExportModal';
 // TrashPreviewModal and the entire settings tree (~150 KB) don't need
 // to ship with the first render.
 const SettingsModal = lazy(() =>
-  import('@/components/settings').then((m) => ({ default: m.SettingsModal })),
+  import('@/components/settings').then((m) => ({ default: m.SettingsModal }))
 );
 const TrashPreviewModal = lazy(() =>
-  import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal })),
+  import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal }))
+);
+const RenameNoteModal = lazy(() =>
+  import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal }))
 );
 import { ForgeSwitcher } from './ForgeSwitcher';
 import { ManageForgesModal } from './ManageForgesModal';
@@ -44,6 +49,11 @@ import { SidebarTagList } from './SidebarTagList';
 import { BacklinksSection } from './BacklinksSection';
 import { SidebarSearch } from './SidebarSearch';
 import { SidebarSearchResults } from './SidebarSearchResults';
+import {
+  SearchModeChips,
+  SemanticIndexingHint,
+  SidebarSemanticResults,
+} from './SidebarSemanticSearch';
 import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
@@ -51,7 +61,16 @@ import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
 export function Sidebar() {
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, duplicateNote, refresh: refreshNotes } = useNotes();
+  const {
+    notes,
+    loadNote,
+    loadDailyNote,
+    createNote,
+    createFromTemplate,
+    duplicateNote,
+    renameNote,
+    refresh: refreshNotes,
+  } = useNotes();
   const { currentNote, setSelectedDate, setCurrentNote } = useNoteStore();
   const lock = useSidebarLock();
   const {
@@ -68,7 +87,12 @@ export function Sidebar() {
   const searchResults = searchStore.results;
   const searchLoading = searchStore.loading;
   const searchSelectedIndex = searchStore.selectedIndex;
+  const searchMode = searchStore.mode;
+  const semanticResults = searchStore.semanticResults;
   const isSearchActive = searchQuery.trim().length > 0;
+  const semanticState = useSemanticStore((s) => s.state);
+  const semanticEnabled = useSemanticStore((s) => s.enabled);
+  const semanticReady = semanticState === 'ready';
   const toast = useToast();
   const {
     folders,
@@ -113,6 +137,7 @@ export function Sidebar() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [pendingNoteTitle, setPendingNoteTitle] = useState('');
+  const [noteToRename, setNoteToRename] = useState<NoteFile | null>(null);
 
   // Folder state
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
@@ -206,12 +231,19 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  /** Map a full-text search ContentMatch back to a loadable NoteFile. */
-  const openSearchMatch = (match: ContentMatch) => {
-    // The backend returns paths relative to the notes root, e.g.
-    // "notes/foo/bar.md" or "daily/2026-04-23.md". The in-memory
-    // note store stores paths in the same form.
-    const note = notes.find((n) => n.path === match.path);
+  // If the semantic index becomes unavailable (feature disabled, Forge
+  // switch, rebuild) while the user is in semantic mode, fall back to
+  // keyword search — the chips disappear along with it.
+  useEffect(() => {
+    if (searchMode === 'semantic' && !semanticReady) {
+      searchStore.setMode('keyword');
+    }
+  }, [searchMode, semanticReady, searchStore]);
+
+  /** Open a note by its forge-relative path ("notes/foo/bar.md", "daily/…"). */
+  const openNoteByPath = (path: string) => {
+    // The in-memory note store keeps paths in the same forge-relative form.
+    const note = notes.find((n) => n.path === path);
     if (note) {
       if (note.isLocked) {
         handleUnlockNote(note);
@@ -219,17 +251,30 @@ export function Sidebar() {
         loadNote(note);
       }
     } else {
-      console.error('[Sidebar] search match had no matching note in store:', match.path);
+      console.error('[Sidebar] search match had no matching note in store:', path);
     }
   };
+
+  /** Map a full-text search ContentMatch back to a loadable NoteFile. */
+  const openSearchMatch = (match: ContentMatch) => openNoteByPath(match.path);
+
+  /** Open a semantic search hit (same forge-relative path addressing). */
+  const openSemanticHit = (hit: SemanticHit) => openNoteByPath(hit.path);
+
+  const activeSearchResultsCount =
+    searchMode === 'semantic' ? semanticResults.length : searchResults.length;
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       searchStore.clear();
       searchInputRef.current?.blur();
-    } else if (e.key === 'Enter' && searchResults.length > 0) {
-      const idx = Math.max(0, Math.min(searchResults.length - 1, searchSelectedIndex));
-      openSearchMatch(searchResults[idx]);
+    } else if (e.key === 'Enter' && activeSearchResultsCount > 0) {
+      const idx = Math.max(0, Math.min(activeSearchResultsCount - 1, searchSelectedIndex));
+      if (searchMode === 'semantic') {
+        openSemanticHit(semanticResults[idx]);
+      } else {
+        openSearchMatch(searchResults[idx]);
+      }
       searchInputRef.current?.blur();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -489,7 +534,7 @@ export function Sidebar() {
       selected.map((n) => {
         const relative = n.path.startsWith('notes/') ? n.path.slice(6) : n.path;
         return moveNoteToFolder(relative, folderPath ?? undefined);
-      }),
+      })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
     if (failed > 0) {
@@ -513,7 +558,7 @@ export function Sidebar() {
             ? n.path.slice(6)
             : n.name;
         return trashNote(relative, n.isDaily || false);
-      }),
+      })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
 
@@ -561,7 +606,6 @@ export function Sidebar() {
       selectionClear();
     };
   }, [selectionClear]);
-
 
   return (
     <div
@@ -620,6 +664,7 @@ export function Sidebar() {
           position={noteMenu.position}
           onOpenInNewTab={(note) => loadNote(note, true)}
           onDuplicate={duplicateNote}
+          onRename={setNoteToRename}
           onLock={handleLockNote}
           onUnlock={handleUnlockNote}
           onPermanentUnlock={handlePermanentUnlock}
@@ -627,6 +672,16 @@ export function Sidebar() {
           onDelete={handleDeleteClick}
           onClose={closeContextMenu}
         />
+      )}
+
+      {noteToRename && (
+        <Suspense fallback={null}>
+          <RenameNoteModal
+            note={noteToRename}
+            onRename={renameNote}
+            onClose={() => setNoteToRename(null)}
+          />
+        </Suspense>
       )}
 
       {/* Template Picker Modal */}
@@ -669,10 +724,7 @@ export function Sidebar() {
       {/* Forge switcher (above search) */}
       <ForgeSwitcher onManage={() => setShowManageForges(true)} />
 
-      <ManageForgesModal
-        isOpen={showManageForges}
-        onClose={() => setShowManageForges(false)}
-      />
+      <ManageForgesModal isOpen={showManageForges} onClose={() => setShowManageForges(false)} />
 
       {/* Search Bar */}
       <SidebarSearch
@@ -684,18 +736,40 @@ export function Sidebar() {
         isSearching={searchLoading}
       />
 
+      {/* Search mode chips (only once the semantic index is ready) */}
+      {isSearchActive && semanticReady && (
+        <SearchModeChips mode={searchMode} onModeChange={searchStore.setMode} />
+      )}
+      {isSearchActive &&
+        semanticEnabled &&
+        (semanticState === 'indexing' || semanticState === 'downloading') && (
+          <SemanticIndexingHint />
+        )}
+
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {isSearchActive ? (
-          <SidebarSearchResults
-            query={searchQuery}
-            results={searchResults}
-            loading={searchLoading}
-            selectedIndex={searchSelectedIndex}
-            onSelect={searchStore.setSelectedIndex}
-            onOpen={openSearchMatch}
-            onClear={searchStore.clear}
-          />
+          searchMode === 'semantic' && semanticReady ? (
+            <SidebarSemanticResults
+              query={searchQuery}
+              hits={semanticResults}
+              loading={searchLoading}
+              selectedIndex={searchSelectedIndex}
+              onSelect={searchStore.setSelectedIndex}
+              onOpen={openSemanticHit}
+              onClear={searchStore.clear}
+            />
+          ) : (
+            <SidebarSearchResults
+              query={searchQuery}
+              results={searchResults}
+              loading={searchLoading}
+              selectedIndex={searchSelectedIndex}
+              onSelect={searchStore.setSelectedIndex}
+              onOpen={openSearchMatch}
+              onClear={searchStore.clear}
+            />
+          )
         ) : (
           <div className="py-2">
             <SidebarNotesList
@@ -800,10 +874,7 @@ export function Sidebar() {
         onExport={() => setShowBulkExportModal(true)}
       />
 
-      <BulkExportModal
-        isOpen={showBulkExportModal}
-        onClose={() => setShowBulkExportModal(false)}
-      />
+      <BulkExportModal isOpen={showBulkExportModal} onClose={() => setShowBulkExportModal(false)} />
 
       {showBulkMoveModal && (
         <MoveToFolderModal
@@ -830,10 +901,7 @@ export function Sidebar() {
               will be kept for 7 days.
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowBulkTrashConfirm(false)}
-                className="btn focus-ring"
-              >
+              <button onClick={() => setShowBulkTrashConfirm(false)} className="btn focus-ring">
                 Cancel
               </button>
               <button onClick={handleBulkTrashConfirm} className="btn btn-danger focus-ring">

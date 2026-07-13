@@ -13,12 +13,20 @@ export interface AppearanceSectionProps {
   onPresetChange: (preset: ThemePreset) => void;
 }
 
-export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange }: AppearanceSectionProps) {
+export function AppearanceSection({
+  theme,
+  onThemeChange,
+  preset,
+  onPresetChange,
+}: AppearanceSectionProps) {
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
       {/* Theme Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -50,7 +58,10 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
       </div>
 
       {/* Color Preset Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <div>
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -71,11 +82,7 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
           {PRESETS.map((p) => {
             const selected = preset === p.id;
             const badge =
-              p.coverage === 'dark'
-                ? 'Dark only'
-                : p.coverage === 'light'
-                ? 'Light only'
-                : null;
+              p.coverage === 'dark' ? 'Dark only' : p.coverage === 'light' ? 'Light only' : null;
             return (
               <button
                 key={p.id}
@@ -133,7 +140,10 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
       </div>
 
       {/* Typography Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Typography
         </h3>
@@ -143,20 +153,26 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
             Font Size
           </label>
           <div className="flex gap-2">
-            {([
-              { value: 'small', label: 'S' },
-              { value: 'medium', label: 'M' },
-              { value: 'large', label: 'L' },
-              { value: 'extra-large', label: 'XL' },
-            ] as const).map((size) => (
+            {(
+              [
+                { value: 'small', label: 'S' },
+                { value: 'medium', label: 'M' },
+                { value: 'large', label: 'L' },
+                { value: 'extra-large', label: 'XL' },
+              ] as const
+            ).map((size) => (
               <button
                 key={size.value}
                 onClick={() => settings.setFontSize(size.value)}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: settings.fontSize === size.value ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  backgroundColor:
+                    settings.fontSize === size.value
+                      ? 'var(--accent-primary)'
+                      : 'var(--bg-elevated)',
                   color: settings.fontSize === size.value ? 'white' : 'var(--text-secondary)',
-                  border: settings.fontSize === size.value ? 'none' : '1px solid var(--border-default)',
+                  border:
+                    settings.fontSize === size.value ? 'none' : '1px solid var(--border-default)',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -199,14 +215,21 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
       </div>
 
       {/* Layout Section */}
-      <div className="p-4 space-y-4" style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}>
+      <div
+        className="p-4 space-y-4"
+        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      >
         <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           Layout
         </h3>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="appearance-sidebar-width-range" className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            <label
+              htmlFor="appearance-sidebar-width-range"
+              className="text-xs"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Sidebar Width
             </label>
             <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
@@ -230,7 +253,10 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-muted)' }}>
+        <div
+          className="flex items-center justify-between pt-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Compact Mode
@@ -239,10 +265,7 @@ export function AppearanceSection({ theme, onThemeChange, preset, onPresetChange
               Tighter spacing throughout the app
             </p>
           </div>
-          <Toggle
-            enabled={settings.compactMode}
-            onChange={settings.setCompactMode}
-          />
+          <Toggle enabled={settings.compactMode} onChange={settings.setCompactMode} />
         </div>
       </div>
     </div>

@@ -4,6 +4,8 @@
  * This store holds nothing across reloads. The backend is the source of
  * truth for which Forges exist and which one is active; calling
  * `loadForges` rehydrates from the backend on startup.
+ * The synchronous active-Forge cache is updated only after backend selection so
+ * namespaced stores never lead the durable configuration.
  */
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';

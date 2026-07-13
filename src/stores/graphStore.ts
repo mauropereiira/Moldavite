@@ -1,3 +1,5 @@
+/** Transient visibility state for the graph overlay; graph data is fetched on demand. */
+
 import { create } from 'zustand';
 
 /**
@@ -6,6 +8,7 @@ import { create } from 'zustand';
  * Intentionally minimal — the actual graph data (nodes/edges) is fetched
  * by `GraphView` itself each time the overlay opens, so we don't pay the
  * memory cost while the overlay is closed.
+ * Visibility is transient and never implies that graph data is current.
  */
 interface GraphState {
   isOpen: boolean;

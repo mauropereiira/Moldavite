@@ -1,6 +1,7 @@
 /**
- * Tag parsing and management utilities.
- * Tags use the format #tagname (alphanumeric + hyphens).
+ * Pure tag parsing, normalization, aggregation, and content-rewrite helpers.
+ * Tags use `#tagname`, begin with an ASCII letter, and contain only letters,
+ * numbers, or hyphens. Public extractors return lowercase, de-duplicated names.
  */
 
 // Regex to match hashtags: must start with letter, can contain letters, numbers, hyphens

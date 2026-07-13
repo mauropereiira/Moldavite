@@ -24,7 +24,7 @@ export function CurrentTimeLine({ isToday }: CurrentTimeLineProps) {
 
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
-  const topPosition = (hours * HOUR_HEIGHT) + (minutes * HOUR_HEIGHT / 60);
+  const topPosition = hours * HOUR_HEIGHT + (minutes * HOUR_HEIGHT) / 60;
 
   return (
     <div
@@ -37,10 +37,7 @@ export function CurrentTimeLine({ isToday }: CurrentTimeLineProps) {
         style={{ left: '56px', top: '-3px' }}
       />
       {/* Red horizontal line */}
-      <div
-        className="absolute h-0.5 bg-red-500"
-        style={{ left: '60px', right: '0' }}
-      />
+      <div className="absolute h-0.5 bg-red-500" style={{ left: '60px', right: '0' }} />
     </div>
   );
 }

@@ -1,8 +1,7 @@
+/** Quick-switcher bounds, deduplication, pin, and persistence tests. */
+
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  useQuickSwitcherStore,
-  QUICK_SWITCHER_RECENT_SEARCH_LIMIT,
-} from './quickSwitcherStore';
+import { useQuickSwitcherStore, QUICK_SWITCHER_RECENT_SEARCH_LIMIT } from './quickSwitcherStore';
 
 describe('quickSwitcherStore', () => {
   beforeEach(() => {
@@ -22,10 +21,7 @@ describe('quickSwitcherStore', () => {
       addRecentSearch('alpha');
       addRecentSearch('beta');
       addRecentSearch('Alpha'); // same as 'alpha'
-      expect(useQuickSwitcherStore.getState().recentSearches).toEqual([
-        'Alpha',
-        'beta',
-      ]);
+      expect(useQuickSwitcherStore.getState().recentSearches).toEqual(['Alpha', 'beta']);
     });
 
     it('caps the list at the configured limit', () => {
@@ -60,17 +56,13 @@ describe('quickSwitcherStore', () => {
       const { togglePinned, isPinned } = useQuickSwitcherStore.getState();
 
       togglePinned('notes/foo.md');
-      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([
-        'notes/foo.md',
-      ]);
+      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['notes/foo.md']);
       expect(isPinned('notes/foo.md')).toBe(true);
 
       togglePinned('notes/foo.md');
       expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([]);
       // `isPinned` is bound to a snapshot, so re-read from getState.
-      expect(useQuickSwitcherStore.getState().isPinned('notes/foo.md')).toBe(
-        false,
-      );
+      expect(useQuickSwitcherStore.getState().isPinned('notes/foo.md')).toBe(false);
     });
 
     it('appends new pins without disturbing existing ones', () => {
@@ -78,11 +70,7 @@ describe('quickSwitcherStore', () => {
       togglePinned('a.md');
       togglePinned('b.md');
       togglePinned('c.md');
-      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([
-        'a.md',
-        'b.md',
-        'c.md',
-      ]);
+      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['a.md', 'b.md', 'c.md']);
     });
   });
 });

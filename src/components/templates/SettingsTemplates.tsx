@@ -18,10 +18,7 @@ interface SettingsTemplatesProps {
   ) => Promise<void>;
 }
 
-export function SettingsTemplates({
-  onDeleteTemplate,
-  onUpdateTemplate,
-}: SettingsTemplatesProps) {
+export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: SettingsTemplatesProps) {
   const {
     templates,
     defaultDailyTemplate,
@@ -89,9 +86,7 @@ export function SettingsTemplates({
         </p>
         <select
           value={defaultDailyTemplate || ''}
-          onChange={(e) =>
-            setDefaultDailyTemplate(e.target.value || null)
-          }
+          onChange={(e) => setDefaultDailyTemplate(e.target.value || null)}
           className="w-full px-3 py-2 text-sm rounded focus:outline-none focus:ring-2"
           style={{
             backgroundColor: 'var(--bg-elevated)',
@@ -237,10 +232,7 @@ export function SettingsTemplates({
               border: '1px dashed var(--border-default)',
             }}
           >
-            <div
-              className="flex justify-center mb-2"
-              style={{ color: 'var(--text-muted)' }}
-            >
+            <div className="flex justify-center mb-2" style={{ color: 'var(--text-muted)' }}>
               <TemplateIcon icon="file" size={32} />
             </div>
             <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
@@ -312,10 +304,7 @@ export function SettingsTemplates({
       />
 
       {/* New Template Modal */}
-      <TemplateEditorModal
-        isOpen={isCreating}
-        onClose={() => setIsCreating(false)}
-      />
+      <TemplateEditorModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
 
       {/* Delete Confirmation Modal */}
       {deletingTemplate && (

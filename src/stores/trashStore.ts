@@ -1,3 +1,9 @@
+/**
+ * Frontend cache of backend trash metadata and its loading state.
+ * Trash ids are opaque stable keys; the backend remains authoritative for original
+ * paths, expiry, restore collisions, and permanent deletion.
+ */
+
 import { create } from 'zustand';
 import type { TrashedNote } from '@/types';
 

@@ -1,6 +1,12 @@
+/**
+ * Process-local toast queue with generated ids and optional expiry timers.
+ * Removal is idempotent, timers may only remove their own toast, and no notification
+ * state is persisted across reloads or Forge switches.
+ */
+
 import { create } from 'zustand';
 
-export type ToastType = 'success' | 'error';
+export type ToastType = 'success' | 'error' | 'warning';
 
 export interface Toast {
   id: string;
@@ -23,7 +29,7 @@ export const useToastStore = create<ToastState>((set) => ({
 
   addToast: (type, message, duration) => {
     const id = generateId();
-    const defaultDuration = type === 'success' ? 3000 : 4000;
+    const defaultDuration = type === 'success' ? 3000 : type === 'warning' ? 5000 : 4000;
 
     const toast: Toast = {
       id,

@@ -1,170 +1,590 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Using Moldavite — User Guide</title>
-  <meta name="description" content="How to use Moldavite: Forges, daily notes, wiki links, tags, templates, note locking, encrypted backups, and more.">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="nav-inner">
-      <a href="index.html" class="brand">
-        <img src="icon.png" alt="" aria-hidden="true">
-        Moldavite
-      </a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="var n=document.getElementById('nav');var o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">&#9776;</button>
-      <nav class="nav-links" id="nav">
-        <a href="index.html">Home</a>
-        <a href="guide.html" aria-current="page">User Guide</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-        <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta">Download</a>
-      </nav>
-    </div>
-  </header>
-
-  <section class="docs-hero">
-    <h1>Using Moldavite</h1>
-    <p>Everything you need to go from first launch to a connected, private knowledge base.</p>
-  </section>
-
-  <main class="docs-body">
-    <h2 id="getting-started">Getting started</h2>
-    <p>
-      On first launch, Moldavite creates your <strong>Forge</strong> — the folder where all your notes live —
-      at <code>~/Documents/Moldavite/</code>. A short onboarding tour lets you pick a custom location instead
-      if you prefer. Every note is a plain Markdown file, so your Forge works with backups, sync tools,
-      and any other editor.
-    </p>
-    <ul>
-      <li><strong>Multiple Forges</strong> — you can keep several vaults side by side (Work, Personal, …) and switch between them from the dropdown above the sidebar search bar, or via the quick switcher's <em>Switch Forge…</em> action. Each Forge keeps its own pinned notes, recents, and plugins.</li>
-      <li><strong>Daily notes</strong> — one click on <em>Today</em> opens the note for the current day, creating it automatically. Daily notes you leave empty are cleaned up automatically, so your Forge never fills with blank files.</li>
-      <li><strong>Weekly notes</strong> — click a week number in the calendar to create or open that week's note. Like daily notes, they stay virtual until you write something and are removed if emptied.</li>
-      <li><strong>Standalone notes</strong> — regular notes with any title, organized into folders you can create, rename, and drag notes into from the sidebar.</li>
-    </ul>
-
-    <div class="shot">
-      <div class="frame">
-        <img src="assets/screenshot-main.png" alt="Moldavite main window: sidebar, editor, and calendar panel"
-             loading="lazy"
-             onerror="this.closest('.shot').style.display='none'">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Using Moldavite — v1.6 User Guide</title>
+    <meta
+      name="description"
+      content="The Moldavite v1.6 guide: Forges, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, conflicts, and privacy."
+    />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+    </script>
+    <script src="site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="nav-inner">
+        <div class="brand-wrap">
+          <a href="index.html" class="brand">
+            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
+            Moldavite
+          </a>
+          <span class="version-badge">v1.6</span>
+        </div>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+          aria-controls="nav"
+        >
+          Menu
+        </button>
+        <nav class="nav-links" id="nav" aria-label="Primary">
+          <a href="index.html">Home</a>
+          <a href="guide.html" aria-current="page">User Guide</a>
+          <a href="plugins.html">Plugins</a>
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+            >Download</a
+          >
+        </nav>
       </div>
-    </div>
+    </header>
 
-    <h2 id="editor">The editor</h2>
-    <p>
-      Moldavite's editor is a rich-text (WYSIWYG) editor built on TipTap, with Markdown shortcuts —
-      type <code>#</code> + space for a heading, <code>-</code> for a list, and so on.
-    </p>
-    <h3>Formatting</h3>
-    <ul>
-      <li>Headings, bulleted and numbered lists, and <strong>task lists</strong> with checkboxes.</li>
-      <li>Bold, italic, underline, strikethrough, <strong>highlights</strong>, and text alignment.</li>
-      <li>Inline code, code blocks, blockquotes, links, and images.</li>
-      <li>A <strong>selection toolbar</strong> appears when you highlight text, for quick formatting.</li>
-      <li>Type <code>/</code> for the <strong>slash menu</strong> — insert blocks and run commands (including plugin commands) without leaving the keyboard.</li>
-    </ul>
-
-    <h3>Wiki links &amp; backlinks</h3>
-    <p>
-      Type <code>[[</code> to link to another note: <code>[[Note Name]]</code>, or
-      <code>[[Display text|target-note]]</code> to show different text. The
-      <strong>backlinks panel</strong> below the editor lists every note that links to the one you're
-      reading, and the <strong>graph view</strong> shows your whole web of notes at once.
-    </p>
-
-    <h3>Tags</h3>
-    <p>
-      Add <code>#tags</code> anywhere in a note. Tags get their own section in the sidebar, and you can
-      right-click a tag to <strong>rename it across all notes</strong> in one step.
-    </p>
-
-    <h3>Templates</h3>
-    <p>
-      Start notes from templates — built-in or your own, created under
-      <strong>Settings → Templates</strong>. Templates support variables that are filled in when applied:
-    </p>
-    <table>
-      <thead>
-        <tr><th>Variable</th><th>Expands to</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>{{date}}</code></td><td>Current date (YYYY-MM-DD)</td></tr>
-        <tr><td><code>{{time}}</code></td><td>Current time (HH:mm)</td></tr>
-        <tr><td><code>{{day_of_week}}</code></td><td>Day name (e.g. Tuesday)</td></tr>
-      </tbody>
-    </table>
-    <p>Pin up to six templates for quick access from the "Start with a template" screen on empty notes.</p>
-
-    <h2 id="organization">Staying organized</h2>
-    <ul>
-      <li><strong>Quick switcher / command palette</strong> — press <kbd>⌘</kbd> <kbd>P</kbd> to jump to any note, run actions (Open Settings, Toggle Timeline, Open Graph, Switch Forge…), rerun recent searches, or trigger plugin commands.</li>
-      <li><strong>Full-text search</strong> — ranked content search across every note, with snippets. Locked and trashed notes are excluded.</li>
-      <li><strong>Folders</strong> — a drag-and-drop folder tree in the sidebar for hierarchy when you want it.</li>
-      <li><strong>Note colors</strong> — assign a color per note to make it stand out in the sidebar.</li>
-      <li><strong>Tabs &amp; pinning</strong> — open multiple notes in tabs, drag to reorder, and pin up to five so they're always at hand.</li>
-      <li><strong>Timeline</strong> — a chronological feed of notes bucketed by Today / Yesterday / This Week / This Month / Earlier.</li>
-      <li><strong>Shortcut help</strong> — press <kbd>⌘</kbd> <kbd>?</kbd> to see every keyboard shortcut.</li>
-    </ul>
-
-    <h2 id="safety">Safety &amp; privacy</h2>
-    <p>
-      Moldavite is local-only: no cloud, no accounts, no telemetry. On top of that, several layers
-      protect your notes from both accidents and prying eyes.
-    </p>
-    <ul>
-      <li><strong>Trash with 7-day retention</strong> — deleted notes sit in the trash popover with read-only previews. Restore with one click, or let them auto-clean after 7 days.</li>
-      <li><strong>Note locking</strong> — lock any note behind a password. Locked notes are encrypted with <strong>AES-GCM</strong> using <strong>Argon2</strong> key derivation, with brute-force rate limiting and a configurable auto-lock timeout.</li>
-      <li><strong>Encrypted backups</strong> — export your entire vault as a password-protected encrypted archive from Settings. App settings can also be exported/imported as JSON (notes are never included in the settings file).</li>
-      <li><strong>Import &amp; export</strong> — export notes as Markdown, PDF (with page-size and margin options), or plaintext — per note or in bulk.</li>
-      <li><strong>Atomic writes</strong> — since v1.5, note saves are written atomically, so a crash or power loss mid-save can't corrupt a note.</li>
-      <li><strong>Automatic signed updates</strong> — Moldavite checks GitHub for new releases and updates in place. Every update is cryptographically signed and verified before install, and a "What's New" popup summarizes the changes afterwards.</li>
-    </ul>
-
-    <h2 id="calendar">Apple Calendar integration</h2>
-    <p>
-      On macOS, the right panel shows a month calendar and a timeline of your Apple Calendar events
-      next to your notes. The integration is <strong>read-only</strong> and built on the native EventKit
-      framework: macOS asks for your permission before Moldavite can see any events, the app never
-      modifies your calendar, and nothing is sent anywhere.
-    </p>
-
-    <div class="callout">
-      <span class="callout-title">Your Forge is just files</span>
+    <section class="docs-hero">
+      <span class="version-badge">v1.6 user guide</span>
+      <h1>Using Moldavite</h1>
       <p>
-        Everything above operates on plain Markdown files with YAML frontmatter in your Forge.
-        External edits show up live thanks to a file watcher — feel free to point scripts, sync tools,
-        or other editors at the same folder.
+        From your first Forge to local semantic search, safe sync, plugins, and a read-first bridge
+        for AI tools.
       </p>
-    </div>
+    </section>
 
-    <div class="next-links">
-      <a href="plugins.html">
-        <span class="label">Next up</span>
-        <span class="title">Build a plugin →</span>
-      </a>
-      <a href="https://github.com/mauropereiira/Moldavite/releases/latest">
-        <span class="label">Ready?</span>
-        <span class="title">Download Moldavite for Mac →</span>
-      </a>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <nav aria-label="Footer">
-        <a href="index.html">Home</a>
-        <a href="guide.html">User Guide</a>
-        <a href="plugins.html">Plugin Development</a>
-        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+    <main class="docs-body" id="main">
+      <nav class="docs-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#getting-started">Getting started</a>
+        <a href="#editor">Editor, links, and graph</a>
+        <a href="#organization">Organization and search</a>
+        <a href="#semantic-search">Local semantic search</a>
+        <a href="#safety">Safety, privacy, and sync</a>
+        <a href="#plugins">Plugins and WordPress</a>
+        <a href="#agents">AI agents and AGENTS.md</a>
+        <a href="#mcp">MCP client setup</a>
       </nav>
-      <div class="footer-meta">
-        <p>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License · <a href="https://github.com/mauropereiira/Moldavite">GitHub</a></p>
+
+      <h2 id="getting-started">Getting started</h2>
+      <p>
+        A <strong>Forge</strong> is a vault directory. Forges normally live side by side under the
+        Forges root at <code>~/Documents/Moldavite/</code>, although onboarding lets you choose a
+        different root. Inside each Forge, notes are ordinary Markdown files organized into
+        <code>daily/</code>, <code>weekly/</code>, and <code>notes/</code>.
+      </p>
+      <ul>
+        <li>
+          <strong>Multiple Forges</strong> — keep Work, Personal, or other vaults separate and
+          switch from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher
+          action. Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
+        </li>
+        <li>
+          <strong>Daily notes</strong> — <em>Today</em> opens the current date and creates its file
+          when needed. Empty daily notes are removed automatically; images count as content.
+        </li>
+        <li>
+          <strong>Weekly notes</strong> — select a calendar week to open its ISO-week note. Empty
+          weekly notes are also cleaned up.
+        </li>
+        <li>
+          <strong>Standalone notes</strong> — create regular notes under <code>notes/</code>,
+          including nested folders. Folders can be created, renamed, and reorganized from the
+          sidebar.
+        </li>
+      </ul>
+      <div class="callout">
+        <span class="callout-title">Your files remain usable without Moldavite</span>
+        <p>
+          Notes use Markdown with optional YAML frontmatter. Moldavite preserves frontmatter keys it
+          does not understand, so metadata from another tool survives an app save.
+        </p>
       </div>
-    </div>
-  </footer>
-</body>
+
+      <h2 id="editor">The editor, wiki-links, and graph</h2>
+      <p>
+        Moldavite uses a TipTap rich-text editor while saving Markdown on disk. Markdown shortcuts
+        work as you type: for example, <code>#</code> plus Space starts a heading and
+        <code>-</code> starts a list.
+      </p>
+
+      <h3>Formatting and commands</h3>
+      <ul>
+        <li>Headings, bullets, numbered lists, task lists, and blockquotes.</li>
+        <li>Bold, italic, underline, strikethrough, highlights, and text alignment.</li>
+        <li>Inline code, code blocks, links, and resizable images.</li>
+        <li>A selection toolbar for formatting highlighted text.</li>
+        <li>
+          Type <code>/</code> for blocks and commands, including commands registered by enabled
+          plugins.
+        </li>
+      </ul>
+
+      <h3>Wiki-links and backlinks</h3>
+      <p>
+        Type <code>[[Note Name]]</code> to link a note, or
+        <code>[[Display text|target-note]]</code> to separate the visible label from its target.
+        Linked mentions below the editor and the backlinks sidebar show which notes point back to
+        the current one. Unresolved links remain visibly distinct and can create a standalone note.
+      </p>
+
+      <h3>Rename a note without breaking its context</h3>
+      <p>
+        Rename a standalone note from its sidebar context menu or the editor's <em>More</em> menu.
+        Moldavite updates the open note, tabs, recents, pinned state, colors, selection, and
+        backlinks to the new path, then rewrites inbound wiki-links across the Forge. Daily and
+        weekly notes stay date-named and cannot be renamed through this action.
+      </p>
+
+      <h3>Graph view</h3>
+      <p>
+        Open the graph from the quick switcher to explore connections. In v1.6, nodes use complete
+        Forge-relative paths, so folder notes, daily notes, and weekly notes with similar names
+        remain distinct and open the correct file. Broken-link nodes stay visible without colliding
+        with real notes.
+      </p>
+      <ul>
+        <li>Hover a node to highlight its neighbors and connecting edges.</li>
+        <li>Drag nodes, drag empty space to pan, and use the wheel or trackpad to zoom.</li>
+        <li>Use <strong>Fit view</strong> whenever you want to recover a useful framing.</li>
+        <li>
+          Short springs and per-component gravity pull connected notes into visible clusters while
+          isolated notes settle into peripheral rings. The bounded deterministic layout cools to a
+          stop, refits on resize, and redraws when the theme changes.
+        </li>
+      </ul>
+
+      <h3>Tags and templates</h3>
+      <p>
+        Inline <code>#tags</code> are aggregated in the sidebar; a tag can be renamed across the
+        Forge from its context menu. Templates live under <strong>Settings → Templates</strong> and
+        support these substitutions:
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Value when applied</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>{{date}}</code></td>
+              <td>Current date, YYYY-MM-DD</td>
+            </tr>
+            <tr>
+              <td><code>{{time}}</code></td>
+              <td>Current time, HH:mm</td>
+            </tr>
+            <tr>
+              <td><code>{{day_of_week}}</code></td>
+              <td>Current day name, such as Tuesday</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Pin up to six templates for quick access from an empty note.</p>
+
+      <h2 id="organization">Organization and search</h2>
+      <ul>
+        <li>
+          <strong>Quick switcher</strong> — press <kbd>⌘</kbd> <kbd>P</kbd> to open a note, run an
+          app action, repeat a recent search, switch Forges, or invoke a plugin command.
+        </li>
+        <li>
+          <strong>Keyword search</strong> — full-text search with snippets across unlocked,
+          non-trashed notes.
+        </li>
+        <li>
+          <strong>Folders</strong> — a drag-and-drop tree for standalone notes when hierarchy helps.
+        </li>
+        <li><strong>Colors</strong> — assign a sidebar color to individual notes.</li>
+        <li>
+          <strong>Tabs and pinning</strong> — reorder open tabs and pin up to five frequent notes.
+        </li>
+        <li>
+          <strong>Timeline</strong> — browse notes grouped into Today, Yesterday, This Week, This
+          Month, and Earlier.
+        </li>
+        <li>
+          <strong>Shortcut help</strong> — press <kbd>⌘</kbd> <kbd>?</kbd> for the current shortcut
+          list.
+        </li>
+      </ul>
+
+      <h2 id="semantic-search">Local semantic search</h2>
+      <p>
+        Keyword search matches words; semantic search matches meaning. A query such as “quarterly
+        planning” can surface a note that only says “Q3 roadmap discussion.” The feature is
+        <strong>off by default</strong> and must be enabled under
+        <strong>Settings → AI &amp; Agents</strong>.
+      </p>
+
+      <h3>Choose a transparent local model</h3>
+      <p>
+        Before the first download, Moldavite's consent dialog names the selected model and its
+        approximate size. The model is cached in the app data directory, never in a Forge. Notes are
+        embedded on your Mac; locked notes are never read or indexed.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Approx. download</th>
+              <th>Best fit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>all-MiniLM-L6-v2</td>
+              <td>97 MB</td>
+              <td>Fastest, English-focused; default</td>
+            </tr>
+            <tr>
+              <td>BGE small English v1.5</td>
+              <td>130 MB</td>
+              <td>Higher-quality English retrieval</td>
+            </tr>
+            <tr>
+              <td>Multilingual E5 small</td>
+              <td>450 MB</td>
+              <td>Non-English or mixed-language Forges</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Hugging Face is contacted only to retrieve the model after consent. Once the download is
+        complete, indexing, queries, and related-note comparisons run offline.
+      </p>
+
+      <h3>Search and discover related notes</h3>
+      <ul>
+        <li>
+          Once the index is ready, sidebar search shows a <strong>Keyword / Semantic</strong> mode
+          control. Semantic results are ranked by similarity.
+        </li>
+        <li>
+          A <strong>Related</strong> section below the editor lists the five notes most similar to
+          the note you are reading, alongside Linked mentions.
+        </li>
+      </ul>
+      <p>
+        The per-Forge index updates incrementally on save, delete, rename, trash, and restore.
+        Changing models performs a complete re-index with live progress. If results seem stale, use
+        <strong>Rebuild index</strong> in Settings to embed the Forge again from scratch. Internal
+        index data lives at <code>&lt;Forge&gt;/.index/</code>.
+      </p>
+
+      <h2 id="safety">Safety, privacy, and sync</h2>
+      <p>
+        Moldavite has no hosted note service, accounts, analytics, or telemetry. Notes stay in the
+        directory you choose. The app still has explicit network paths: signed update checks,
+        consented semantic-model downloads, and HTTPS calls made for a plugin to a host you
+        approved.
+      </p>
+      <ul>
+        <li>
+          <strong>Atomic writes</strong> — note and app-data saves use a temporary file, flush, and
+          rename so a mid-save crash cannot leave a truncated destination.
+        </li>
+        <li>
+          <strong>Trash</strong> — deleted notes remain available with previews for seven days
+          before automatic cleanup.
+        </li>
+        <li>
+          <strong>Note locking</strong> — encrypted <code>.md.locked</code> files use AES-256-GCM
+          with Argon2 key derivation, rate-limited unlock, and optional auto-lock.
+        </li>
+        <li>
+          <strong>Backups and export</strong> — export Markdown, plaintext, PDF, full ZIP archives,
+          or password-protected encrypted archives. Nested and weekly notes retain their folders.
+        </li>
+        <li>
+          <strong>Signed updates</strong> — update artifacts are cryptographically verified before
+          installation, and the app shows release notes afterwards.
+        </li>
+      </ul>
+
+      <h3 id="conflicts">External-edit conflict copies</h3>
+      <p>
+        A Forge can live in iCloud Drive, Dropbox, Syncthing, or git and can be edited in another
+        app. The file watcher refreshes Moldavite when disk changes. If a note changed on disk after
+        Moldavite last read it <em>and</em> you then save different edits, the app does not silently
+        destroy the disk version:
+      </p>
+      <ol>
+        <li>
+          The complete external file is preserved beside the original as
+          <code>&lt;name&gt; (conflict YYYY-MM-DD HHMM).md</code>.
+        </li>
+        <li>Your Moldavite edits are saved to the original path.</li>
+        <li>
+          A warning toast names the conflict note and the sidebar refreshes so you can merge it.
+        </li>
+      </ol>
+      <p>
+        Simultaneous conflict copies in the same minute receive a numeric suffix instead of
+        overwriting one another.
+      </p>
+
+      <h3>Apple Calendar</h3>
+      <p>
+        The right panel can show a month and Apple Calendar events through native EventKit. macOS
+        asks for permission first. Calendar access is read-only: Moldavite does not create or edit
+        events, and it does not upload them.
+      </p>
+
+      <h2 id="plugins">Plugins and Publish to WordPress</h2>
+      <p>
+        Plugins add commands to the command palette and slash menu. Each plugin runs in a Web Worker
+        without direct DOM, network, Tauri IPC, or global app-state access. Moldavite shows its
+        requested permissions before enabling it and re-prompts whenever the manifest or code hash
+        changes.
+      </p>
+      <p>
+        Plugin API v2 can expose active-editor HTML, trusted prompt forms, unlocked note reads,
+        host-performed HTTPS to exact approved hosts, and plugin-namespaced macOS Keychain secrets.
+        <strong>It does not provide note-write methods or custom panels.</strong> See the
+        <a href="plugins.html">complete author guide</a> for the exact API and security model.
+      </p>
+
+      <h3>Browse the community directory</h3>
+      <p>
+        The <a href="plugins.html#directory">website directory</a> is searchable by plugin name,
+        description, author, and permission. Its <strong>Install in Moldavite</strong> links use the
+        app's <code>moldavite://plugin/&lt;id&gt;</code> URL scheme to open Settings directly on the
+        chosen plugin. Moldavite still shows a confirmation with permissions and never installs or
+        enables a plugin silently.
+      </p>
+      <ol>
+        <li>
+          Use an install link on the website, or open <strong>Settings → Plugins</strong> and select
+          <strong>Browse community plugins</strong>.
+        </li>
+        <li>
+          That click is the explicit action that contacts GitHub; Moldavite never fetches the
+          registry during startup or in the background.
+        </li>
+        <li>
+          Review the author, requested permissions, and exact network hosts, then select Install.
+        </li>
+        <li>
+          Moldavite downloads only from its pinned community repository and verifies both files in
+          Rust against the registry SHA-256 hashes before installing them atomically.
+        </li>
+        <li>
+          Read the <strong>About this plugin</strong> setup dialog, then enable the plugin and grant
+          its permissions separately. The ⓘ action reopens those instructions at any time.
+        </li>
+      </ol>
+      <p>
+        Installed registry versions are labeled clearly. Updating requires confirmation, and any
+        manifest or code change invalidates the old consent hash so the plugin remains disabled
+        until you review it again.
+      </p>
+
+      <h3>Install the first-party WordPress reference</h3>
+      <ol>
+        <li>Open <strong>Settings → Plugins</strong>.</li>
+        <li>Select <strong>Install Publish to WordPress</strong>, then enable the plugin.</li>
+        <li>
+          Run <strong>Configure WordPress publishing</strong> and enter an HTTPS site URL, username,
+          and WordPress Application Password in the Moldavite-rendered prompt.
+        </li>
+        <li>
+          Approve the exact site host. The plugin verifies the credentials before saving them.
+        </li>
+        <li>Open a note and run <strong>Publish note to WordPress…</strong>.</li>
+      </ol>
+      <p>
+        The first publish creates a draft. Publishing the same Forge-relative note path again
+        updates the mapped post instead of creating a duplicate. Configuration and the path-to-post
+        map live in the plugin's Keychain namespace, not in the Forge.
+      </p>
+      <div class="callout warn">
+        <span class="callout-title">WordPress.com support boundary</span>
+        <p>
+          Self-hosted WordPress and WordPress.com Jetpack/Atomic sites work when they expose the
+          standard REST API and Application Passwords. WordPress.com Simple sites require OAuth with
+          a separately registered client ID and are not supported by this plugin.
+        </p>
+      </div>
+
+      <h2 id="agents">Use a Forge as agent memory</h2>
+      <p>
+        File-capable agents can work with a Forge directly because it is plain Markdown. Open
+        <strong>Settings → AI &amp; Agents</strong> and select
+        <strong>Make this Forge agent-ready</strong> to write two files at the Forge root:
+      </p>
+      <ul>
+        <li>
+          <strong><code>AGENTS.md</code></strong> describes daily, weekly, and standalone paths;
+          optional frontmatter; Unicode-aware wiki-link slugs; tags; locked notes; and rules that
+          keep agents away from app-managed directories.
+        </li>
+        <li>
+          <strong><code>.gitignore</code></strong> lists <code>.trash/</code>,
+          <code>.plugins/</code>, <code>.index/</code>, and <code>.DS_Store</code>.
+        </li>
+      </ul>
+      <p>
+        If either file exists, Moldavite asks before replacing it. Settings also shows whether the
+        current Forge already has an <code>AGENTS.md</code>.
+      </p>
+      <div class="callout warn">
+        <span class="callout-title">The MCP write switch does not govern direct file access</span>
+        <p>
+          An agent that already has operating-system permission to edit your Forge can write those
+          files directly. <strong>Allow agents to write notes</strong> controls only Moldavite's MCP
+          write tools. Scope file-system access in the AI client as carefully as MCP access.
+        </p>
+      </div>
+
+      <h2 id="mcp">Connect an MCP client</h2>
+      <p>
+        The normal Moldavite app binary becomes a local stdio MCP server when launched with
+        <code>--mcp</code>. It does not initialize the GUI and does not open a network listener.
+        Settings resolves the exact binary path on your Mac and provides copy-ready snippets for
+        each supported client; use those generated snippets whenever possible.
+      </p>
+
+      <h3>Claude Code</h3>
+      <p>Run the generated command in a terminal. A standard app installation looks like this:</p>
+      <pre><code>claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</code></pre>
+
+      <h3>Claude Desktop</h3>
+      <p>Add a server to <code>claude_desktop_config.json</code>:</p>
+      <pre><code>{
+  "mcpServers": {
+    "moldavite": {
+      "command": "/Applications/Moldavite.app/Contents/MacOS/moldavite",
+      "args": ["--mcp"]
+    }
+  }
+}</code></pre>
+
+      <h3>Cursor</h3>
+      <p>Save the same server shape as <code>.cursor/mcp.json</code>:</p>
+      <pre><code>{
+  "mcpServers": {
+    "moldavite": {
+      "command": "/Applications/Moldavite.app/Contents/MacOS/moldavite",
+      "args": ["--mcp"]
+    }
+  }
+}</code></pre>
+
+      <h3>Generic stdio MCP client</h3>
+      <p>
+        Use the resolved binary as <code>command</code> and pass <code>--mcp</code> as its first
+        argument. Moldavite's generic snippet is:
+      </p>
+      <pre><code>{
+  "moldavite": {
+    "command": "/Applications/Moldavite.app/Contents/MacOS/moldavite",
+    "args": ["--mcp"]
+  }
+}</code></pre>
+
+      <h3>Choose a Forge</h3>
+      <p>
+        MCP mode uses the active Forge by default. To pin a different existing Forge, append
+        <code>--forge</code> and its exact name. For JSON clients that means
+        <code>"args": ["--mcp", "--forge", "Work"]</code>.
+      </p>
+
+      <h3>Read tools are the default</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Behavior</th>
+              <th>Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>search_notes</code></td>
+              <td>
+                Uses the ready local semantic index when enabled; otherwise keyword full-text
+                search. The response identifies the mode used.
+              </td>
+              <td>Available</td>
+            </tr>
+            <tr>
+              <td><code>read_note</code></td>
+              <td>Reads one unlocked Markdown note by validated Forge-relative path.</td>
+              <td>Available</td>
+            </tr>
+            <tr>
+              <td><code>list_notes</code></td>
+              <td>Lists note paths and locked placeholders, optionally below a folder.</td>
+              <td>Available</td>
+            </tr>
+            <tr>
+              <td><code>get_backlinks</code></td>
+              <td>Finds unlocked notes linking to a selected note.</td>
+              <td>Available</td>
+            </tr>
+            <tr>
+              <td><code>create_note</code></td>
+              <td>Creates a new Markdown note without overwriting an existing or locked note.</td>
+              <td>Hidden</td>
+            </tr>
+            <tr>
+              <td><code>append_to_daily_note</code></td>
+              <td>Appends Markdown to a date's daily note, creating it when absent.</td>
+              <td>Hidden</td>
+            </tr>
+            <tr>
+              <td><code>write_note</code></td>
+              <td>Fully replaces an existing unlocked Markdown note.</td>
+              <td>Hidden</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Enable the three write tools only through
+        <strong>Settings → AI &amp; Agents → Allow agents to write notes</strong>. The setting is
+        re-read for every request, so turning it off removes and blocks write tools in
+        already-running sessions. Locked notes remain inaccessible, and every client-supplied path
+        is validated.
+      </p>
+
+      <div class="next-links">
+        <a href="plugins.html">
+          <span class="label">For builders</span>
+          <span class="title">Read the complete Plugin API v2 guide →</span>
+        </a>
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">
+          <span class="label">Ready?</span>
+          <span class="title">Download Moldavite for Mac →</span>
+        </a>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="guide.html">User Guide</a>
+          <a href="plugins.html">Plugin Development</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+        </nav>
+        <p class="footer-meta">
+          v1.6 docs · Made by
+          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+        </p>
+      </div>
+    </footer>
+  </body>
 </html>

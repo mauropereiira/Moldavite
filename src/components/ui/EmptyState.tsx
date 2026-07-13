@@ -9,7 +9,9 @@ interface EmptyStateAction {
 }
 
 interface EmptyStateProps {
-  icon: LucideIcon | ((props: Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>) => React.ReactElement);
+  icon:
+    | LucideIcon
+    | ((props: Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>) => React.ReactElement);
   heading: string;
   message?: string;
   actions?: EmptyStateAction[];
@@ -157,13 +159,7 @@ export function WelcomeEmptyState({
 }) {
   return (
     <EmptyState
-      icon={({ className }) => (
-        <img
-          src="/logo.png"
-          alt="Moldavite Logo"
-          className={className}
-        />
-      )}
+      icon={({ className }) => <img src="/logo.png" alt="Moldavite Logo" className={className} />}
       heading="Welcome to Moldavite"
       message="Your thoughts, forged from cosmic impact. Local-first notes that stay private on your device."
       actions={[

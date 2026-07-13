@@ -31,10 +31,10 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
   const endMinutes = end.getMinutes();
 
   // Calculate top position: (hour × 60px) + (minutes)
-  const topPosition = (startHours * HOUR_HEIGHT) + (startMinutes * HOUR_HEIGHT / 60);
+  const topPosition = startHours * HOUR_HEIGHT + (startMinutes * HOUR_HEIGHT) / 60;
 
   // Calculate height: duration in minutes × (60px / 60 minutes)
-  const durationMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+  const durationMinutes = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
   const height = Math.max(durationMinutes * (HOUR_HEIGHT / 60), 20); // Minimum 20px height
 
   // Calculate width and left position for overlapping events
@@ -163,10 +163,7 @@ export function AllDayEvent({ event }: AllDayEventProps) {
       }}
       onClick={handleClick}
     >
-      <span
-        className="text-xs font-medium truncate"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      <span className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
         {event.title}
       </span>
       {event.location && (

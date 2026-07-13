@@ -1,4 +1,10 @@
-//! Note locking/unlocking commands (AES-256-GCM based).
+//! Note locking and unlocking across daily, weekly, and standalone trees.
+//!
+//! Locking atomically replaces plaintext with an authenticated `.md.locked`
+//! payload and never keeps both forms as the steady state. Temporary unlocks
+//! return plaintext without changing disk; permanent unlock restores the
+//! Markdown file. Password failures pass through per-note and global rate limits,
+//! and every filename is validated before choosing a tree.
 
 use std::fs;
 use zeroize::Zeroizing;
@@ -8,7 +14,7 @@ use crate::paths::{get_daily_dir, get_standalone_dir, get_weekly_dir};
 use crate::security;
 use crate::validation::is_safe_filename;
 
-/// Lock a note by encrypting it with a password
+/// Atomically replace one plaintext note with its authenticated `.locked` form.
 #[tauri::command]
 pub(crate) fn lock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
     if !is_safe_filename(&filename) {
@@ -52,10 +58,15 @@ pub(crate) fn lock_note(filename: String, password: String, is_daily: bool, is_w
     fs::remove_file(&original_path)
         .map_err(|e| format!("Failed to remove original note: {}", e))?;
 
+    // A locked note is ciphertext — it must leave the semantic index.
+    crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
+
     Ok(())
 }
 
-/// Unlock a note temporarily to view it (returns decrypted content without saving)
+/// Return authenticated plaintext without modifying the encrypted file.
 /// Includes brute-force protection with rate limiting.
 #[tauri::command]
 pub(crate) fn unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<String, String> {
@@ -113,7 +124,7 @@ pub(crate) fn unlock_note(filename: String, password: String, is_daily: bool, is
     }
 }
 
-/// Permanently unlock a note (decrypt and save as regular .md file)
+/// Atomically replace an encrypted note with authenticated plaintext Markdown.
 /// Includes brute-force protection with rate limiting.
 #[tauri::command]
 pub(crate) fn permanently_unlock_note(filename: String, password: String, is_daily: bool, is_weekly: bool) -> Result<(), String> {
@@ -178,6 +189,11 @@ pub(crate) fn permanently_unlock_note(filename: String, password: String, is_dai
     // Delete the locked file
     fs::remove_file(&locked_path)
         .map_err(|e| format!("Failed to remove locked note: {}", e))?;
+
+    // The note is plaintext again — let it re-enter the semantic index.
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
 
     Ok(())
 }

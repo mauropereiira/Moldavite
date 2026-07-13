@@ -5,6 +5,8 @@
 //!
 //! Writes performed by Moldavite itself are short-circuited via a recent-write
 //! ignore list so the UI doesn't double-refresh after its own saves.
+//! Ignore entries are short-lived hints, not durable state; paths are normalized
+//! relative to the watched Forge and hidden/internal files never emit events.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -224,6 +226,10 @@ mod tests {
         assert!(!is_relevant(".note-metadata.json"));
         assert!(!is_relevant(".trash/old.md"));
         assert!(!is_relevant("notes/.DS_Store"));
+        // Semantic index state (and its atomic-write temp files) must never
+        // trigger forge:changed events.
+        assert!(!is_relevant(".index/embeddings.v1.bin"));
+        assert!(!is_relevant(".index/.embeddings.v1.bin.123.0.tmp"));
         assert!(is_relevant("notes/foo.md"));
         assert!(is_relevant("daily/2024-01-01.md"));
         assert!(is_relevant("notes/secret.md.locked"));

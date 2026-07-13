@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  filterCommands,
-  matchCommand,
-  QUICK_SWITCHER_COMMANDS,
-} from './commands';
+import { filterCommands, matchCommand, QUICK_SWITCHER_COMMANDS } from './commands';
 
 describe('QuickSwitcher command filter', () => {
   it('returns the full catalog when the query is empty', () => {

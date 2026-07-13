@@ -1,3 +1,9 @@
+/**
+ * Transient tag counts and sidebar filter selection.
+ * Counts are rebuilt from note content, selected tags use AND semantics, and the legacy
+ * single selection stays synchronized for consumers not yet using multi-select.
+ */
+
 import { create } from 'zustand';
 
 interface TagState {
@@ -42,10 +48,11 @@ export const useTagStore = create<TagState>((set, get) => ({
    * Also updates selectedTags array.
    * @param tag - Tag name to filter by, or null to clear
    */
-  setSelectedTag: (tag) => set({
-    selectedTag: tag,
-    selectedTags: tag ? [tag] : [],
-  }),
+  setSelectedTag: (tag) =>
+    set({
+      selectedTag: tag,
+      selectedTags: tag ? [tag] : [],
+    }),
 
   /**
    * Toggles a tag in the selection (for multi-select).
@@ -54,12 +61,11 @@ export const useTagStore = create<TagState>((set, get) => ({
   toggleTag: (tag) => {
     const { selectedTags } = get();
     const isSelected = selectedTags.includes(tag);
-    const newTags = isSelected
-      ? selectedTags.filter(t => t !== tag)
-      : [...selectedTags, tag];
+    const newTags = isSelected ? selectedTags.filter((t) => t !== tag) : [...selectedTags, tag];
     set({
       selectedTags: newTags,
-      selectedTag: newTags.length === 1 ? newTags[0] : newTags.length === 0 ? null : get().selectedTag,
+      selectedTag:
+        newTags.length === 1 ? newTags[0] : newTags.length === 0 ? null : get().selectedTag,
     });
   },
 
@@ -84,20 +90,22 @@ export const useTagStore = create<TagState>((set, get) => ({
    */
   removeTag: (tag) => {
     const { selectedTags } = get();
-    const newTags = selectedTags.filter(t => t !== tag);
+    const newTags = selectedTags.filter((t) => t !== tag);
     set({
       selectedTags: newTags,
-      selectedTag: newTags.length === 1 ? newTags[0] : newTags.length === 0 ? null : get().selectedTag,
+      selectedTag:
+        newTags.length === 1 ? newTags[0] : newTags.length === 0 ? null : get().selectedTag,
     });
   },
 
   /**
    * Clears all tag filters.
    */
-  clearFilter: () => set({
-    selectedTag: null,
-    selectedTags: [],
-  }),
+  clearFilter: () =>
+    set({
+      selectedTag: null,
+      selectedTags: [],
+    }),
 
   /**
    * Sets the search query for filtering the tag list.

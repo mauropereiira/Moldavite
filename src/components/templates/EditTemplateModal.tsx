@@ -21,12 +21,7 @@ interface EditTemplateModalProps {
 const MAX_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
 
-export function EditTemplateModal({
-  isOpen,
-  onClose,
-  template,
-  onSave,
-}: EditTemplateModalProps) {
+export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTemplateModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('blank');
@@ -128,31 +123,36 @@ export function EditTemplateModal({
         aria-modal="true"
         aria-labelledby="edit-template-title"
       >
-        <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-md mx-4 modal-elevated modal-content-enter shadow-2xl">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 id="edit-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="w-full max-w-md mx-4 modal-elevated modal-content-enter">
+          <div
+            className="flex items-center justify-between px-6 py-4 border-b"
+            style={{ borderColor: 'var(--border-default)' }}
+          >
+            <h2
+              id="edit-template-title"
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Edit Template
             </h2>
             <button
               onClick={handleClose}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring"
+              className="btn btn-ghost p-1 focus-ring"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           <div className="p-6 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--warning)' }} />
+            <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               Cannot Edit Default Template
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Default templates cannot be modified. You can create a custom template based on this one instead.
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Default templates cannot be modified. You can create a custom template based on this
+              one instead.
             </p>
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring"
-            >
+            <button onClick={handleClose} className="btn focus-ring">
               Close
             </button>
           </div>
@@ -171,16 +171,23 @@ export function EditTemplateModal({
       aria-modal="true"
       aria-labelledby="edit-template-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter shadow-2xl">
+      <div className="w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <h2 id="edit-template-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
+          <h2
+            id="edit-template-title"
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Edit Template
           </h2>
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring disabled:opacity-50"
+            className="btn btn-ghost p-1 focus-ring disabled:opacity-50"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -188,14 +195,19 @@ export function EditTemplateModal({
         </div>
 
         {/* Form - scrollable */}
-        <form id="edit-template-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+        <form
+          id="edit-template-form"
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
+        >
           {/* Name */}
           <div>
             <label
               htmlFor="edit-template-name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              Template Name <span className="text-red-500">*</span>
+              Template Name <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               ref={nameInputRef}
@@ -208,17 +220,23 @@ export function EditTemplateModal({
               }}
               maxLength={MAX_NAME_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="input disabled:opacity-50"
               aria-describedby={error ? 'edit-template-name-error' : undefined}
               aria-invalid={!!error}
             />
             <div className="flex justify-between mt-1">
               {error ? (
-                <p id="edit-template-name-error" className="text-xs text-red-500">{error}</p>
+                <p
+                  id="edit-template-name-error"
+                  className="text-xs"
+                  style={{ color: 'var(--error)' }}
+                >
+                  {error}
+                </p>
               ) : (
                 <span />
               )}
-              <span className="text-xs text-gray-400">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {name.length}/{MAX_NAME_LENGTH}
               </span>
             </div>
@@ -228,7 +246,8 @@ export function EditTemplateModal({
           <div>
             <label
               htmlFor="edit-template-description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Description
             </label>
@@ -239,10 +258,10 @@ export function EditTemplateModal({
               rows={2}
               maxLength={MAX_DESCRIPTION_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              className="input resize-none disabled:opacity-50"
             />
             <div className="flex justify-end mt-1">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {description.length}/{MAX_DESCRIPTION_LENGTH}
               </span>
             </div>
@@ -252,12 +271,16 @@ export function EditTemplateModal({
           <div>
             <label
               htmlFor="edit-template-icon"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Icon
             </label>
             <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <div
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 <TemplateIcon icon={icon} size={16} />
               </div>
               <select
@@ -265,7 +288,7 @@ export function EditTemplateModal({
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
                 disabled={isSaving}
-                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer disabled:opacity-50"
+                className="input pl-9 pr-8 appearance-none cursor-pointer disabled:opacity-50"
               >
                 {availableIcons.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -275,7 +298,8 @@ export function EditTemplateModal({
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <svg
-                  className="w-4 h-4 text-gray-400"
+                  className="w-4 h-4"
+                  style={{ color: 'var(--text-muted)' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -295,7 +319,8 @@ export function EditTemplateModal({
           <div>
             <label
               htmlFor="edit-template-content"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Content
             </label>
@@ -305,22 +330,25 @@ export function EditTemplateModal({
               onChange={(e) => setContent(e.target.value)}
               rows={6}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              className="input font-mono resize-none disabled:opacity-50"
               placeholder="<h1>Template Title</h1><p>Your content here...</p>"
             />
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
               Use HTML formatting (e.g., &lt;h1&gt;, &lt;p&gt;, &lt;ul&gt;)
             </p>
           </div>
         </form>
 
         {/* Footer - always visible at bottom */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-md flex-shrink-0">
+        <div
+          className="flex justify-end gap-3 px-6 py-4 border-t rounded-b-md flex-shrink-0"
+          style={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-default)' }}
+        >
           <button
             type="button"
             onClick={handleClose}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
+            className="btn focus-ring disabled:opacity-50"
           >
             Cancel
           </button>
@@ -328,7 +356,7 @@ export function EditTemplateModal({
             type="submit"
             form="edit-template-form"
             disabled={isSaving || !name.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors focus-ring disabled:opacity-50 flex items-center gap-2"
+            className="btn btn-primary focus-ring disabled:opacity-50 flex items-center gap-2"
           >
             {isSaving ? (
               <>
