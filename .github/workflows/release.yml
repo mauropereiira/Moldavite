@@ -68,6 +68,7 @@ jobs:
     needs: create-release
     permissions:
       contents: write
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
