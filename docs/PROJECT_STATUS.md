@@ -64,8 +64,8 @@
 1. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 2. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 3. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-4. ~~**Note rename UI**~~ — Done (unreleased): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
-5. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (unreleased): conflict copies preserve both versions on divergent saves.
+4. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
+5. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
 Staying a *note app*: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.
