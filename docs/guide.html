@@ -6,7 +6,7 @@
     <title>Using Moldavite — v1.6 User Guide</title>
     <meta
       name="description"
-      content="The Moldavite v1.6 guide: Forges, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, conflicts, and privacy."
+      content="The Moldavite v1.6 guide: Forges, Obsidian import, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, conflicts, and privacy."
     />
     <link rel="icon" type="image/png" href="icon.png" />
     <link rel="stylesheet" href="styles.css" />
@@ -60,6 +60,7 @@
       <nav class="docs-toc" aria-label="On this page">
         <strong>On this page</strong>
         <a href="#getting-started">Getting started</a>
+        <a href="#obsidian-import">Import from Obsidian</a>
         <a href="#editor">Editor, links, and graph</a>
         <a href="#organization">Organization and search</a>
         <a href="#semantic-search">Local semantic search</a>
@@ -103,6 +104,37 @@
           does not understand, so metadata from another tool survives an app save.
         </p>
       </div>
+
+      <h2 id="obsidian-import">Import from Obsidian</h2>
+      <p>
+        Open <strong>Settings → Import</strong> and choose an Obsidian vault folder. Moldavite first
+        shows a read-only preview, then copies the vault into a <strong>new Forge</strong>; it never
+        edits, moves, or deletes anything in the source vault. You choose the new Forge name and can
+        switch to it from the completion summary.
+      </p>
+      <ul>
+        <li>
+          Daily-note settings from <code>.obsidian/daily-notes.json</code> are detected when present.
+          Formats made from <code>YYYY</code>, <code>MM</code>, and <code>DD</code> with
+          <code>-</code>, <code>_</code>, <code>.</code>, or <code>/</code> separators are normalized to
+          <code>daily/YYYY-MM-DD.md</code>; names that do not parse remain standalone notes.
+        </li>
+        <li>
+          Other Markdown notes retain their folder structure with filesystem-safe, collision-deduped
+          names. YAML frontmatter is preserved verbatim.
+        </li>
+        <li>
+          Obsidian <code>[[target|Display]]</code> aliases become Moldavite
+          <code>[[Display|target]]</code> aliases, while heading and block suffixes are removed from
+          link targets. Referenced wiki embeds and local Markdown images are copied into
+          <code>images/</code> and rewritten to relative Markdown image paths.
+        </li>
+        <li>
+          <code>.obsidian/</code>, <code>.trash/</code>, hidden items, Canvas files, and symlinks are
+          never imported. Unreferenced attachments and unresolved embeds remain listed in the final
+          report; unresolved embed text is left in the note.
+        </li>
+      </ul>
 
       <h2 id="editor">The editor, wiki-links, and graph</h2>
       <p>
