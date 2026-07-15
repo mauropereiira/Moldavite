@@ -67,7 +67,11 @@ export function CollapsibleSection({
           transition: 'max-height 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
         }}
       >
-        {children}
+        {/* Indent section contents under the header with a tree guide line so
+            the section hierarchy stays readable at a glance. */}
+        <div className="ml-[18px] pl-1.5 border-l" style={{ borderColor: 'var(--border-default)' }}>
+          {children}
+        </div>
       </div>
     </div>
   );
