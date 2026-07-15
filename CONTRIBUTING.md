@@ -40,9 +40,9 @@ Clippy with warnings denied.
 
 ## Where things live
 
-The current architecture, file-storage model, command map, and feature-specific
-patterns are documented in [CLAUDE.md](CLAUDE.md). Keep that document accurate
-when architecture or commands change.
+The current feature status, storage model, and known debt are documented in
+[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Keep it accurate when
+architecture or commands change.
 
 - `src/components/` contains React UI grouped by feature.
 - `src/hooks/` owns component-facing effects and workflow orchestration.
@@ -81,14 +81,13 @@ Follow the patterns already present in the file you are changing. In particular:
 Add or update regression coverage with behavior changes. Preserve mirrored tests
 when a contract exists in both Rust and TypeScript.
 
-Follow the documentation-maintenance rules in [CLAUDE.md](CLAUDE.md):
+Follow the documentation-maintenance rules:
 
 - User-visible changes need an entry under the upcoming version in `CHANGELOG.md`.
 - Feature changes need corresponding updates in `README.md` and
   `docs/PROJECT_STATUS.md`.
 - Plugin API or permission changes must update both `docs/PLUGINS.md` and
   `docs/plugins.html`.
-- Architecture or command changes must update `CLAUDE.md`.
 - Website claims must stay aligned with shipped behavior.
 
 Before opening a pull request, ask whether any documentation now describes behavior

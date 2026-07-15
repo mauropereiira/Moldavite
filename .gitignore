@@ -52,6 +52,6 @@ yarn-error.log*
 coverage/
 CLAUDE.local.md
 
-# AI-local files — never commit AI session context or agent instructions
+# Local working files
 AGENTS.md
 AGENTS.local.md
