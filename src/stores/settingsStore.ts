@@ -32,6 +32,7 @@ export type SettingsTab =
   | 'plugins'
   | 'agents'
   | 'data'
+  | 'import'
   | 'about';
 
 interface SettingsState {

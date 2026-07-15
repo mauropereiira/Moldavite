@@ -2,6 +2,14 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Changed
+- **Clearer sidebar hierarchy.** Items inside each sidebar section (Notes, Folders, Daily, Tags, Backlinks) are now indented beneath their section header with a subtle tree guide line, so sections read as collapsible groups at a glance.
+
+### Added
+- **One-time Obsidian vault importer.** Settings → Import analyzes a user-selected Obsidian vault, previews notes, attachments, folders, Canvas skips, daily-note settings, and estimated naming collisions, then copies it into a brand-new Forge without modifying the source. Supported daily-note names are normalized to `daily/YYYY-MM-DD.md`; other notes keep a sanitized, collision-safe folder structure. Obsidian alias links are converted to Moldavite's `[[Display|target]]` order, heading and block suffixes are removed from targets, referenced attachments are copied atomically into `images/`, and the progress/summary flow reports skipped hidden, trash, Canvas, symlink, unreferenced, and unresolved items.
+
 ## [1.6.0] - 2026-07-13
 
 ### Added

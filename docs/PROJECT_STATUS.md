@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 13, 2026 (v1.5.1 + unreleased)
+**Last Updated:** July 15, 2026 (v1.6.0 + unreleased)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -27,6 +27,7 @@
 - Trash with 7-day retention, restore, previews; multiple Forges (vaults) with per-Forge state
 - Note locking (AES-256-GCM + Argon2, rate-limited unlock, auto-lock); encrypted vault backups; settings JSON export/import
 - Import/export: Markdown, PDF, plaintext, bulk export, encrypted archive
+- Obsidian vault importer (unreleased): Settings → Import performs a read-only analysis, then copies supported daily notes, standalone notes with sanitized folder structure, converted wiki-link aliases, verbatim YAML frontmatter, and referenced attachments into a new Forge. Name collisions are suffixed deterministically; hidden items, `.trash`, Canvas files, symlinks, unreferenced attachments, and unresolved embeds are skipped or warned in the final report.
 - Agent-ready Forge (unreleased): Settings → AI & Agents writes `AGENTS.md` + `.gitignore` to the Forge root via a hard-whitelisted backend command (exactly those two filenames), with confirm-overwrite and existence indicator
 - Built-in MCP stdio server (unreleased): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks
 
@@ -46,9 +47,9 @@
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 241 tests across 38 files (stores, lib, hooks, graph layout, transient-view navigation, deep-link routing, plugin RPC/manifest/registry/UI)
-- Backend: cargo test — 178 tests incl. stress suite, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
-- Bundle budget enforced via `npm run check:size` (within budget as of v1.5.0)
+- Frontend: vitest — 247 tests across 39 files (stores, lib, hooks, graph layout, transient-view navigation, Obsidian import, deep-link routing, plugin RPC/manifest/registry/UI)
+- Backend: cargo test — 187 tests incl. stress suite, Obsidian conversion/path-safety, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
+- Bundle budget enforced via `npm run check:size` (within budget as of v1.6.0 + unreleased importer)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt

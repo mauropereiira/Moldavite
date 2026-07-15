@@ -59,6 +59,8 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Encrypted backups** — Export your entire vault as a password-protected AES-256 archive. Settings can be exported as JSON for cross-device sync.
 
+**Obsidian vault import** — Settings → Import previews an Obsidian vault, then makes a one-time copy into a new Forge. Daily notes, standalone folder structure, wiki-link aliases, frontmatter, and referenced attachments are converted without changing the source; Canvas files, hidden data, trash, and symlinks are skipped and reported.
+
 **Crash-safe by design** — Every save is atomic (write + flush + rename), so a crash or full disk can never truncate a note. Files are owner-readable only.
 
 **Sync-friendly** — Point iCloud Drive, Dropbox, Syncthing, or git at your Forge. If a note changes on disk while you're editing it in Moldavite, the external version is preserved as a conflict copy instead of being overwritten.
