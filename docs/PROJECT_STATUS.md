@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 15, 2026 (v1.6.0 + unreleased)
+**Last Updated:** July 15, 2026 (v1.7.0)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -12,31 +12,31 @@
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
 - TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; slash commands; tabs with pinning
 - Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, and a deterministic force-directed graph whose linked components cluster while orphans stay peripheral
-- Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (unreleased). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
+- Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (v1.6). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
 - Quick switcher / command palette (⌘P), backend full-text search with snippets, timeline view; opening any note yields transient Timeline/Graph views so navigation cannot remain hidden behind them
-- Local semantic search (unreleased; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
+- Local semantic search (v1.6; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Storage & Data Safety
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable
 - **Atomic writes everywhere** (temp + fsync + rename; 0600 before visibility) — v1.5
 - Folder-relative note addressing (fixed folder-note round-trip data bug) — v1.5
-- **External-edit conflict safety** (unreleased): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
+- **External-edit conflict safety** (v1.6): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
 - Forge file watcher: external changes refresh the note list live (self-writes suppressed)
 - Trash with 7-day retention, restore, previews; multiple Forges (vaults) with per-Forge state
 - Note locking (AES-256-GCM + Argon2, rate-limited unlock, auto-lock); encrypted vault backups; settings JSON export/import
 - Import/export: Markdown, PDF, plaintext, bulk export, encrypted archive
-- Obsidian vault importer (unreleased): Settings → Import performs a read-only analysis, then copies supported daily notes, standalone notes with sanitized folder structure, converted wiki-link aliases, verbatim YAML frontmatter, and referenced attachments into a new Forge. Name collisions are suffixed deterministically; hidden items, `.trash`, Canvas files, symlinks, unreferenced attachments, and unresolved embeds are skipped or warned in the final report.
-- Agent-ready Forge (unreleased): Settings → AI & Agents writes `AGENTS.md` + `.gitignore` to the Forge root via a hard-whitelisted backend command (exactly those two filenames), with confirm-overwrite and existence indicator
-- Built-in MCP stdio server (unreleased): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks
+- Obsidian vault importer (v1.7): Settings → Import performs a read-only analysis, then copies supported daily notes, standalone notes with sanitized folder structure, converted wiki-link aliases, verbatim YAML frontmatter, and referenced attachments into a new Forge. Name collisions are suffixed deterministically; hidden items, `.trash`, Canvas files, symlinks, unreferenced attachments, and unresolved embeds are skipped or warned in the final report.
+- Agent-ready Forge (v1.6): Settings → AI & Agents writes `AGENTS.md` + `.gitignore` to the Forge root via a hard-whitelisted backend command (exactly those two filenames), with confirm-overwrite and existence indicator
+- Built-in MCP stdio server (v1.6): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks
 
 ### Platform
 - Apple Calendar (EventKit, read-only, permission-gated) in right panel + timeline
 - Signed + notarized releases, minisign-verified auto-updates, "What's New" popup from CHANGELOG (see docs/RELEASING.md)
 - Themes/presets, keyboard shortcut overlay (⌘?), settings modal with focus trap
 
-### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 unreleased)
+### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 shipped 1.6.0)
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin macOS Keychain secrets; API v1 remains compatible
 - Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
 - Every successful in-app install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
@@ -49,7 +49,7 @@
 ## Test & Quality Status
 - Frontend: vitest — 247 tests across 39 files (stores, lib, hooks, graph layout, transient-view navigation, Obsidian import, deep-link routing, plugin RPC/manifest/registry/UI)
 - Backend: cargo test — 187 tests incl. stress suite, Obsidian conversion/path-safety, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
-- Bundle budget enforced via `npm run check:size` (within budget as of v1.6.0 + unreleased importer)
+- Bundle budget enforced via `npm run check:size` (within budget as of v1.7.0)
 - ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt

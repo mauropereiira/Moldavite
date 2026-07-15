@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [1.7.0] - 2026-07-15
 
 ### Changed
 - **Clearer sidebar hierarchy.** Items inside each sidebar section (Notes, Folders, Daily, Tags, Backlinks) are now indented beneath their section header with a subtle tree guide line, so sections read as collapsible groups at a glance.
