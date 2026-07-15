@@ -9,6 +9,7 @@ pub mod export_import;
 pub mod folders;
 pub mod forges;
 pub mod graph;
+pub mod import_obsidian;
 pub mod locking;
 pub mod mcp_settings;
 pub mod misc;

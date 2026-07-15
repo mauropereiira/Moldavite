@@ -3544,3 +3544,188 @@ textarea:focus {
 .dark .slash-command-description {
   color: var(--text-secondary, #9098a8);
 }
+
+/* Settings → Import wizard. Theme tokens keep the lazy-loaded UI compact. */
+.obs-import-title {
+  color: var(--text-primary);
+}
+
+.obs-import-copy {
+  color: var(--text-tertiary);
+}
+
+.obs-import-card,
+.obs-import-metric {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+}
+
+.obs-import-card {
+  padding: 1rem;
+}
+
+.obs-import-safe,
+.obs-import-details {
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm);
+}
+
+.obs-import-primary,
+.obs-import-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: opacity var(--duration-fast);
+}
+
+.obs-import-primary {
+  color: var(--bg-base);
+  background: var(--accent-primary);
+}
+
+.obs-import-secondary {
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+}
+
+.obs-import-primary:disabled,
+.obs-import-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.obs-import-modal {
+  width: min(36rem, calc(100% - 2rem));
+  max-height: 82vh;
+  padding: 1.5rem;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+}
+
+.obs-import-close {
+  padding: 0.25rem;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+}
+
+.obs-import-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.obs-import-metric {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+}
+
+.obs-import-metric strong {
+  color: var(--text-primary);
+}
+
+.obs-import-metric span {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.obs-import-input {
+  width: 100%;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.obs-import-input.is-error {
+  border-color: var(--error);
+}
+
+.obs-import-error {
+  margin-top: 0.25rem;
+  color: var(--error);
+  font-size: 0.75rem;
+}
+
+.obs-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.obs-import-actions.split {
+  justify-content: space-between;
+}
+
+.obs-import-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+.obs-import-notice svg {
+  flex-shrink: 0;
+}
+
+.obs-import-notice.warning {
+  background: var(--warning-muted);
+  border: 1px solid var(--warning);
+}
+
+.obs-import-notice.error {
+  background: var(--error-muted);
+  border: 1px solid var(--error);
+}
+
+.obs-import-busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 6rem;
+  color: var(--accent-primary);
+}
+
+.obs-import-progress {
+  height: 0.5rem;
+  overflow: hidden;
+  background: var(--bg-inset);
+  border-radius: var(--radius-sm);
+}
+
+.obs-import-progress div {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: inherit;
+  transition: width var(--duration-normal);
+}
+
+.obs-import-success {
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.obs-import-details {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.obs-import-details p + p {
+  margin-top: 0.375rem;
+}

@@ -18,6 +18,7 @@
  * - **AI & Agents** (`AgentsSection`)    — agent-ready Forge (AGENTS.md)
  * - **Templates** (`SettingsTemplates`)  — template management
  * - **Data** (`SettingsData`)            — bulk import / export actions
+ * - **Import** (`ImportSection`)         — one-time Obsidian vault COPY import
  * - **About** (`AboutSection`)           — version, updates, shortcuts
  *
  * Shared primitives (`Toggle`, `InfoTooltip`, `ShortcutRow`) live under
@@ -44,6 +45,7 @@ import {
   Database,
   Puzzle,
   Bot,
+  FileInput,
 } from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
@@ -55,6 +57,7 @@ import { CalendarSection } from './sections/CalendarSection';
 import { GeneralSection } from './sections/GeneralSection';
 import { PluginsSection } from './sections/PluginsSection';
 import { AgentsSection } from './sections/AgentsSection';
+import { ImportSection } from './sections/ImportSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
@@ -75,6 +78,7 @@ export function SettingsModal() {
     plugins: null,
     agents: null,
     data: null,
+    import: null,
     about: null,
   });
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +123,7 @@ export function SettingsModal() {
       { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" /> },
       { id: 'agents', label: 'AI & Agents', icon: <Bot className="w-4 h-4" /> },
       { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+      { id: 'import', label: 'Import', icon: <FileInput className="w-4 h-4" /> },
       { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
     ],
     []
@@ -302,6 +307,7 @@ export function SettingsModal() {
               {activeTab === 'plugins' && <PluginsSection />}
               {activeTab === 'agents' && <AgentsSection />}
               {activeTab === 'data' && <SettingsData />}
+              {activeTab === 'import' && <ImportSection />}
               {activeTab === 'about' && <AboutSection />}
             </div>
           </div>

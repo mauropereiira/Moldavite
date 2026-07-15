@@ -42,15 +42,18 @@ export default defineConfig({
           if (id.includes('CHANGELOG.md')) return 'changelog';
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('@tiptap') || id.includes('prosemirror')) return 'tiptap-vendor';
-          if (
-            id.includes('markdown-it') ||
-            id.includes('turndown') ||
-            id.includes('dompurify')
-          )
+          if (id.includes('markdown-it') || id.includes('turndown') || id.includes('dompurify'))
             return 'markdown-vendor';
           if (id.includes('date-fns')) return 'date-vendor';
           if (id.includes('@dnd-kit')) return 'dnd-vendor';
-          if (id.includes('react-dom') || id.includes('/react/')) return 'react-vendor';
+          if (
+            id.includes('react-dom') ||
+            id.includes('/react/') ||
+            id.includes('@tauri-apps') ||
+            id.includes('lucide-react') ||
+            id.includes('/zustand/')
+          )
+            return 'react-vendor';
           return undefined;
         },
       },

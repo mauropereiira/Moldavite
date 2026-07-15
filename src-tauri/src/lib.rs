@@ -71,6 +71,7 @@ use commands::forges::{
     set_active_forge, set_forges_root,
 };
 use commands::graph::get_note_graph;
+use commands::import_obsidian::{analyze_obsidian_vault, import_obsidian_vault};
 use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlock_note};
 use commands::mcp_settings::{get_app_binary_path, get_mcp_writes_enabled, set_mcp_writes_enabled};
 use commands::misc::{
@@ -339,6 +340,9 @@ pub fn run() {
             delete_forge,
             set_forges_root,
             get_forges_root_path,
+            // One-time Obsidian vault COPY importer
+            analyze_obsidian_vault,
+            import_obsidian_vault,
             // Export/Import commands
             export_notes,
             import_notes,
