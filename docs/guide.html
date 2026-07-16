@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Using Moldavite — v1.6 User Guide</title>
+    <title>Using Moldavite — User Guide</title>
     <meta
       name="description"
-      content="The Moldavite v1.6 guide: Forges, Obsidian import, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, conflicts, and privacy."
+      content="The Moldavite user guide: Forges, Obsidian import, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, updates, conflicts, and privacy."
     />
     <link rel="icon" type="image/png" href="icon.png" />
     <link rel="stylesheet" href="styles.css" />
@@ -24,7 +24,7 @@
             <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
             Moldavite
           </a>
-          <span class="version-badge">v1.6</span>
+          <span class="version-badge">Open source</span>
         </div>
         <button
           class="nav-toggle"
@@ -48,7 +48,7 @@
     </header>
 
     <section class="docs-hero">
-      <span class="version-badge">v1.6 user guide</span>
+      <span class="version-badge">User guide</span>
       <h1>Using Moldavite</h1>
       <p>
         From your first Forge to local semantic search, safe sync, plugins, and a read-first bridge
@@ -65,6 +65,7 @@
         <a href="#organization">Organization and search</a>
         <a href="#semantic-search">Local semantic search</a>
         <a href="#safety">Safety, privacy, and sync</a>
+        <a href="#updates">Staying up to date</a>
         <a href="#plugins">Plugins and WordPress</a>
         <a href="#agents">AI agents and AGENTS.md</a>
         <a href="#mcp">MCP client setup</a>
@@ -173,7 +174,7 @@
 
       <h3>Graph view</h3>
       <p>
-        Open the graph from the quick switcher to explore connections. In v1.6, nodes use complete
+        Open the graph from the quick switcher to explore connections. Nodes use complete
         Forge-relative paths, so folder notes, daily notes, and weekly notes with similar names
         remain distinct and open the correct file. Broken-link nodes stay visible without colliding
         with real notes.
@@ -222,6 +223,10 @@
       <p>Pin up to six templates for quick access from an empty note.</p>
 
       <h2 id="organization">Organization and search</h2>
+      <p>
+        Sidebar sections are collapsible, with their contents indented beneath each section header
+        and a subtle guide line that makes the hierarchy clear at a glance.
+      </p>
       <ul>
         <li>
           <strong>Quick switcher</strong> — press <kbd>⌘</kbd> <kbd>P</kbd> to open a note, run an
@@ -282,7 +287,7 @@
               <td>Fastest, English-focused; default</td>
             </tr>
             <tr>
-              <td>BGE small English v1.5</td>
+              <td>BGE small English</td>
               <td>130 MB</td>
               <td>Higher-quality English retrieval</td>
             </tr>
@@ -374,6 +379,17 @@
         The right panel can show a month and Apple Calendar events through native EventKit. macOS
         asks for permission first. Calendar access is read-only: Moldavite does not create or edit
         events, and it does not upload them.
+      </p>
+
+      <h2 id="updates">Staying up to date</h2>
+      <p>
+        Moldavite checks for updates silently about once a day, including when you return focus to
+        the app after a day. When an update is pending, a small accent dot appears on the sidebar
+        Settings gear and on the About tab—no popup interrupts your work.
+      </p>
+      <p>
+        Open <strong>Settings → About</strong> to install the pending update. You can also check
+        manually from that tab at any time.
       </p>
 
       <h2 id="plugins">Plugins and Publish to WordPress</h2>
@@ -616,7 +632,7 @@
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
         </nav>
         <p class="footer-meta">
-          v1.6 docs · Made by
+          Documentation · Made by
           <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
         </p>
