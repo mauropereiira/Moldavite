@@ -50,7 +50,7 @@ export type {
 export { useCalendarStore } from './calendarStore';
 export { useTemplateStore } from './templateStore';
 export { useNoteColorsStore, buildNotePath } from './noteColorsStore';
-export { useUpdateStore } from './updateStore';
+export { useUpdateStore, selectHasPendingUpdate } from './updateStore';
 export { useWhatsNewStore } from './whatsNewStore';
 export { usePluginCommandStore } from './pluginCommandStore';
 export { usePluginStore } from './pluginStore';

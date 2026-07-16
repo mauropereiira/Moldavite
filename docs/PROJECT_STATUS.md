@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 15, 2026 (v1.7.0)
+**Last Updated:** July 16, 2026 (post-v1.7.0 development)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -33,7 +33,7 @@
 
 ### Platform
 - Apple Calendar (EventKit, read-only, permission-gated) in right panel + timeline
-- Signed + notarized releases, minisign-verified auto-updates, "What's New" popup from CHANGELOG (see docs/RELEASING.md)
+- Signed + notarized releases and minisign-verified auto-updates. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check; automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, keyboard shortcut overlay (⌘?), settings modal with focus trap
 
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 shipped 1.6.0)
@@ -47,10 +47,10 @@
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 247 tests across 39 files (stores, lib, hooks, graph layout, transient-view navigation, Obsidian import, deep-link routing, plugin RPC/manifest/registry/UI)
+- Frontend: vitest — 259 tests across 40 files (stores, lib, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, plugin RPC/manifest/registry/UI)
 - Backend: cargo test — 187 tests incl. stress suite, Obsidian conversion/path-safety, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
 - Bundle budget enforced via `npm run check:size` (within budget as of v1.7.0)
-- ESLint: 0 errors, ~22 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
+- ESLint: 0 errors, 18 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).

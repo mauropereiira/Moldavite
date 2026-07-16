@@ -1,132 +1,228 @@
 /**
- * Application-update polling, download progress, and install lifecycle state.
- * Only one check/download is active at a time, automatic checks are interval-gated,
- * and the updater plugin's returned handle remains authoritative for installation.
+ * Application-update checks, persisted pending metadata, and install lifecycle state.
+ * Automatic checks are silent and indicator-only; manual checks retain explicit feedback.
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
-// Check for updates every 24 hours (in milliseconds)
-const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
+export const INITIAL_UPDATE_CHECK_DELAY_MS = 15 * 1000;
+export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-interface UpdateState {
-  available: boolean;
-  version: string | null;
+export interface UpdateState {
+  availableVersion: string | null;
   downloading: boolean;
   progress: number;
   error: string | null;
   isChecking: boolean;
-  lastChecked: Date | null;
+  /** Unix timestamp of the last successful updater response. */
+  lastCheckedAt: number | null;
   dismissed: boolean;
+  /** Live updater handle; intentionally not persisted. */
   update: Update | null;
   checkForUpdate: () => Promise<void>;
+  checkForUpdateSilently: () => Promise<void>;
   installUpdate: () => Promise<void>;
   dismiss: () => void;
   startPeriodicChecks: () => () => void;
 }
 
-export const useUpdateStore = create<UpdateState>((set, get) => ({
-  available: false,
-  version: null,
+type PersistedUpdateState = Pick<UpdateState, 'availableVersion' | 'lastCheckedAt' | 'dismissed'>;
+
+const initialUpdateState = {
+  availableVersion: null,
   downloading: false,
   progress: 0,
   error: null,
   isChecking: false,
-  lastChecked: null,
+  lastCheckedAt: null,
   dismissed: false,
   update: null,
+} satisfies Omit<
+  UpdateState,
+  'checkForUpdate' | 'checkForUpdateSilently' | 'installUpdate' | 'dismiss' | 'startPeriodicChecks'
+>;
 
-  checkForUpdate: async () => {
-    set({ isChecking: true, error: null });
-    try {
-      const update = await check();
-      if (update) {
-        set({
-          available: true,
-          version: update.version,
-          update,
-          dismissed: false,
-          isChecking: false,
-          lastChecked: new Date(),
-        });
-      } else {
-        set({
-          available: false,
-          version: null,
-          update: null,
-          isChecking: false,
-          lastChecked: new Date(),
-        });
-      }
-    } catch (error) {
-      console.error('[updateStore] Update check failed:', error);
-      set({
-        isChecking: false,
-        lastChecked: new Date(),
-        error: error instanceof Error ? error.message : 'Update check failed',
-      });
-    }
-  },
+export function isUpdateCheckStale(lastCheckedAt: number | null, now = Date.now()): boolean {
+  return lastCheckedAt === null || now - lastCheckedAt >= UPDATE_CHECK_INTERVAL_MS;
+}
 
-  installUpdate: async () => {
-    const { update } = get();
-    if (!update) return;
+export function selectHasPendingUpdate(state: Pick<UpdateState, 'availableVersion'>): boolean {
+  return state.availableVersion !== null;
+}
 
-    set({ downloading: true, progress: 0, error: null });
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
-    try {
-      let downloaded = 0;
-      let contentLength = 0;
+export const useUpdateStore = create<UpdateState>()(
+  persist(
+    (set, get) => {
+      const runCheck = async (silent: boolean) => {
+        if (get().isChecking) return;
 
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case 'Started':
-            contentLength = event.data.contentLength || 0;
-            break;
-          case 'Progress':
-            downloaded += event.data.chunkLength;
-            if (contentLength > 0) {
-              const progress = Math.round((downloaded / contentLength) * 100);
-              set({ progress });
-            }
-            break;
-          case 'Finished':
-            set({ progress: 100 });
-            break;
+        set({ isChecking: true, error: null });
+        try {
+          const update = await check();
+          const checkedAt = Date.now();
+
+          if (update) {
+            const previous = get();
+            set({
+              availableVersion: update.version,
+              update,
+              // Automatic discoveries are indicator-only. If an explicit check
+              // already opened this version's notification, leave it alone.
+              dismissed: silent
+                ? previous.availableVersion === update.version
+                  ? previous.dismissed
+                  : true
+                : false,
+              isChecking: false,
+              lastCheckedAt: checkedAt,
+            });
+          } else {
+            set({
+              availableVersion: null,
+              update: null,
+              dismissed: false,
+              isChecking: false,
+              lastCheckedAt: checkedAt,
+            });
+          }
+        } catch (error) {
+          console.error(
+            silent
+              ? '[updateStore] Automatic update check failed:'
+              : '[updateStore] Update check failed:',
+            error
+          );
+          set({
+            isChecking: false,
+            error: silent ? null : errorMessage(error, 'Update check failed'),
+          });
         }
-      });
+      };
 
-      // Relaunch the app after successful download
-      await relaunch();
-    } catch (error) {
-      set({
-        downloading: false,
-        error: error instanceof Error ? error.message : 'Download failed',
-      });
+      return {
+        ...initialUpdateState,
+
+        checkForUpdate: () => runCheck(false),
+
+        checkForUpdateSilently: () => runCheck(true),
+
+        installUpdate: async () => {
+          let update = get().update;
+          if (!update && !get().availableVersion) return;
+
+          set({ downloading: true, progress: 0, error: null });
+
+          try {
+            // Persisted metadata survives a relaunch, but the updater handle
+            // cannot. Re-check only when needed to recover an installable handle.
+            if (!update) {
+              update = await check();
+              const checkedAt = Date.now();
+              if (!update) {
+                set({
+                  availableVersion: null,
+                  update: null,
+                  dismissed: false,
+                  downloading: false,
+                  lastCheckedAt: checkedAt,
+                });
+                return;
+              }
+              set({
+                availableVersion: update.version,
+                update,
+                lastCheckedAt: checkedAt,
+              });
+            }
+
+            let downloaded = 0;
+            let contentLength = 0;
+
+            await update.downloadAndInstall((event) => {
+              switch (event.event) {
+                case 'Started':
+                  contentLength = event.data.contentLength || 0;
+                  break;
+                case 'Progress': {
+                  downloaded += event.data.chunkLength;
+                  if (contentLength > 0) {
+                    set({ progress: Math.round((downloaded / contentLength) * 100) });
+                  }
+                  break;
+                }
+                case 'Finished':
+                  set({ progress: 100 });
+                  break;
+              }
+            });
+
+            // Clear persisted pending state before relaunch so the installed
+            // version never rehydrates with a stale indicator.
+            set({
+              availableVersion: null,
+              update: null,
+              dismissed: false,
+              downloading: false,
+              progress: 100,
+            });
+            await relaunch();
+          } catch (error) {
+            set({
+              downloading: false,
+              error: errorMessage(error, 'Download failed'),
+            });
+          }
+        },
+
+        dismiss: () => {
+          set({ dismissed: true });
+        },
+
+        startPeriodicChecks: () => {
+          const runAutomaticCheck = () => {
+            void get().checkForUpdateSilently();
+          };
+
+          const initialTimeout = window.setTimeout(
+            runAutomaticCheck,
+            INITIAL_UPDATE_CHECK_DELAY_MS
+          );
+          const interval = window.setInterval(runAutomaticCheck, UPDATE_CHECK_INTERVAL_MS);
+          const handleFocus = () => {
+            if (isUpdateCheckStale(get().lastCheckedAt)) {
+              runAutomaticCheck();
+            }
+          };
+
+          window.addEventListener('focus', handleFocus);
+
+          return () => {
+            window.clearTimeout(initialTimeout);
+            window.clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+          };
+        },
+      };
+    },
+    {
+      name: 'moldavite-updates',
+      partialize: (state): PersistedUpdateState => ({
+        availableVersion: state.availableVersion,
+        lastCheckedAt: state.lastCheckedAt,
+        dismissed: state.dismissed,
+      }),
     }
-  },
+  )
+);
 
-  dismiss: () => {
-    set({ dismissed: true });
-  },
-
-  startPeriodicChecks: () => {
-    // Initial check after a short delay to let app fully load
-    const initialTimeout = setTimeout(() => {
-      get().checkForUpdate();
-    }, 5000);
-
-    // Periodic checks every 24 hours
-    const interval = setInterval(() => {
-      get().checkForUpdate();
-    }, UPDATE_CHECK_INTERVAL);
-
-    // Return cleanup function
-    return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
-    };
-  },
-}));
+export function __resetUpdateStoreForTests(): void {
+  useUpdateStore.setState(initialUpdateState);
+  void useUpdateStore.persist.clearStorage();
+}
