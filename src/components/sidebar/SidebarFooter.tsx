@@ -8,7 +8,7 @@ import {
   AlignJustify,
   Share2,
 } from 'lucide-react';
-import { useTimelineStore, useGraphStore } from '@/stores';
+import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
 
 interface SidebarFooterProps {
   onToday: () => void;
@@ -29,6 +29,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
   const trashBtnRef = useRef<HTMLButtonElement>(null);
   const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
   const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
+  const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
 
   useEffect(() => {
     getVersion()
@@ -121,15 +122,22 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
         <button
           type="button"
           onClick={onSettings}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
+          className="relative flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
           style={iconBtnStyle}
           onMouseEnter={handleIconEnter}
           onMouseLeave={handleIconLeave}
           title="Settings (⌘,)"
-          aria-label="Open settings"
+          aria-label={hasPendingUpdate ? 'Open settings (update available)' : 'Open settings'}
         >
           <SettingsIcon aria-hidden="true" className="w-4 h-4" />
           <span>Settings</span>
+          {hasPendingUpdate && (
+            <span
+              aria-hidden="true"
+              className="absolute top-1 right-1.5 rounded-full"
+              style={{ width: '7px', height: '7px', backgroundColor: 'var(--accent-primary)' }}
+            />
+          )}
         </button>
         <button
           type="button"

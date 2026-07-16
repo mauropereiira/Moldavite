@@ -4,8 +4,7 @@ import { Download, X, RefreshCw } from 'lucide-react';
 
 export function UpdateNotification() {
   const {
-    available,
-    version,
+    availableVersion,
     downloading,
     progress,
     error,
@@ -22,7 +21,7 @@ export function UpdateNotification() {
   }, [startPeriodicChecks]);
 
   // Don't render if no update available or dismissed
-  if (!available || dismissed) {
+  if (!availableVersion || dismissed) {
     return null;
   }
 
@@ -63,7 +62,7 @@ export function UpdateNotification() {
           <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
             Version{' '}
             <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {version}
+              {availableVersion}
             </span>{' '}
             is ready to install.
           </p>

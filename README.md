@@ -65,7 +65,7 @@ This app carries that spirit. Your notes live only on your Mac—fused with your
 
 **Sync-friendly** — Point iCloud Drive, Dropbox, Syncthing, or git at your Forge. If a note changes on disk while you're editing it in Moldavite, the external version is preserved as a conflict copy instead of being overwritten.
 
-**Automatic updates** — Moldavite checks for new versions and updates in place. After updating, a "What's New" popup summarizes the changes.
+**Automatic updates** — Moldavite checks shortly after launch, every 24 hours while open, and when a stale window regains focus. Pending versions add a quiet dot to Settings and About with an install action; transient automatic-check failures stay silent, while manual checks remain explicit. After updating, a "What's New" popup summarizes the changes.
 
 **Plugins** — build sandboxed command integrations with permissioned unlocked-note reads, exact-host HTTPS requests (including individually revocable runtime host grants), trusted app-rendered forms, and plugin-owned macOS Keychain secrets. Browse in Settings or search the website directory and use its `moldavite://plugin/<id>` install links; Moldavite opens the chosen registry entry and shows its permissions before any install. Downloads stay pinned to the registry repository and Rust verifies both SHA-256 hashes before an atomic install. Every install shows a reopenable setup guide, while enablement and consent remain separate. Install the **Publish to WordPress** reference to publish/update drafts with Application Passwords. Plugins live in your Forge, every capability is host-enforced, and manifest/code changes re-prompt for consent; see [docs/PLUGINS.md](docs/PLUGINS.md).
 

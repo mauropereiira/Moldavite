@@ -31,7 +31,14 @@
  */
 
 import { useEffect, useRef, useMemo } from 'react';
-import { useSettingsStore, useThemeStore, applyTheme, type SettingsTab } from '@/stores';
+import {
+  useSettingsStore,
+  useThemeStore,
+  useUpdateStore,
+  selectHasPendingUpdate,
+  applyTheme,
+  type SettingsTab,
+} from '@/stores';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   Calendar,
@@ -67,6 +74,7 @@ export function SettingsModal() {
   const { deleteExistingTemplate, updateExistingTemplate } = useTemplates();
   const activeTab = settingsStore.activeSettingsTab;
   const setActiveTab = settingsStore.setActiveSettingsTab;
+  const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
   const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
     general: null,
     appearance: null,
@@ -248,6 +256,9 @@ export function SettingsModal() {
                   type="button"
                   aria-selected={isActive}
                   aria-controls={tabPanelId(tab.id)}
+                  aria-label={
+                    tab.id === 'about' && hasPendingUpdate ? 'About (update available)' : undefined
+                  }
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setActiveTab(tab.id)}
                   onKeyDown={(e) => handleTabKeyDown(e, index)}
@@ -272,6 +283,17 @@ export function SettingsModal() {
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
+                  {tab.id === 'about' && hasPendingUpdate && (
+                    <span
+                      aria-hidden="true"
+                      className="ml-auto rounded-full"
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        backgroundColor: 'var(--accent-primary)',
+                      }}
+                    />
+                  )}
                 </button>
               );
             })}

@@ -12,10 +12,9 @@ import { ShortcutRow } from '../common';
 
 function SoftwareUpdatesSection() {
   const {
-    available,
-    version,
+    availableVersion,
     isChecking,
-    lastChecked,
+    lastCheckedAt,
     error,
     checkForUpdate,
     installUpdate,
@@ -34,7 +33,7 @@ function SoftwareUpdatesSection() {
 
       <div className="space-y-3">
         {/* Update status */}
-        {available ? (
+        {availableVersion ? (
           <div
             className="flex items-center gap-2 p-3"
             style={{
@@ -50,7 +49,7 @@ function SoftwareUpdatesSection() {
             />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                Update Available: v{version}
+                Update available: v{availableVersion}
               </p>
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                 A new version is ready to install
@@ -75,9 +74,9 @@ function SoftwareUpdatesSection() {
               <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {isChecking ? 'Checking for updates...' : "You're up to date"}
               </p>
-              {lastChecked && (
+              {lastCheckedAt && (
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Last checked: {lastChecked.toLocaleString()}
+                  Last checked: {new Date(lastCheckedAt).toLocaleString()}
                 </p>
               )}
             </div>
@@ -111,7 +110,7 @@ function SoftwareUpdatesSection() {
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          {available ? (
+          {availableVersion ? (
             <button
               onClick={installUpdate}
               disabled={downloading}
