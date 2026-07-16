@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [1.7.1] - 2026-07-16
 
 ### Added
 - **Unobtrusive automatic update checks.** Moldavite checks about 15 seconds after launch, every 24 hours while running, and when a stale app window regains focus. Automatic network and mid-release 404 failures retry silently, while a pending version appears as an accent dot on Settings and its About tab with the existing install action; manual checks continue to show explicit errors.
