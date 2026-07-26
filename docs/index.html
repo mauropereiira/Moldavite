@@ -99,8 +99,11 @@
            Signature — one note, two truths
            ================================================================ -->
       <!-- TODO(media): once docs/media/editor.{webm,mp4} exist, drop
-           data-default-view and data-autoplay so the panel opens on the editor
-           and plays the editor → note.md sequence once on first view. -->
+           data-default-view and data-autoplay, and move aria-selected="true" /
+           data-active="true" back to the editor tab and panel, so the panel
+           opens on the editor and plays the editor → note.md sequence once on
+           first view. The markup default and the JS default must agree —
+           without JS the markup is the only thing that picks a panel. -->
       <section
         class="duality"
         aria-labelledby="duality-title"
@@ -118,7 +121,7 @@
                 role="tab"
                 data-view="editor"
                 data-path="Field Notes › notes › Feedback Loops"
-                aria-selected="true"
+                aria-selected="false"
               >
                 editor
               </button>
@@ -128,16 +131,18 @@
                 role="tab"
                 data-view="source"
                 data-path="~/Documents/Moldavite/Field Notes/notes/Feedback Loops.md"
-                aria-selected="false"
+                aria-selected="true"
               >
                 note.md
               </button>
             </div>
-            <span class="duality-path">Field Notes › notes › Feedback Loops</span>
+            <span class="duality-path"
+              >~/Documents/Moldavite/Field Notes/notes/Feedback Loops.md</span
+            >
           </div>
 
           <div class="duality-stage">
-            <div class="duality-panel" data-view="editor" data-active="true">
+            <div class="duality-panel" data-view="editor" data-active="false">
               <video
                 data-autoplay
                 muted
@@ -151,7 +156,7 @@
                 <source src="media/editor.mp4" type="video/mp4" />
               </video>
             </div>
-            <div class="duality-panel" data-view="source">
+            <div class="duality-panel" data-view="source" data-active="true">
               <pre class="duality-source"><code><span class="h"># Feedback Loops</span>
 
 A loop is any path where an output circles back and becomes an input. Once you
