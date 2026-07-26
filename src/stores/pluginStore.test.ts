@@ -2,11 +2,18 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { usePluginStore } from './pluginStore';
+import { rememberActiveForge } from '@/lib/forgeStorage';
 
 const HASH = 'abc123';
 
+/** Persist rehydration settles in microtasks with synchronous storage. */
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('pluginStore', () => {
-  beforeEach(() => usePluginStore.setState({ grants: {} }));
+  beforeEach(() => {
+    localStorage.clear();
+    usePluginStore.setState({ grants: {} });
+  });
 
   it('is not granted by default and needs a grant', () => {
     const s = usePluginStore.getState();
@@ -79,12 +86,57 @@ describe('pluginStore', () => {
   });
 
   it('recovers from a corrupt persisted grant store without granting anything', async () => {
-    localStorage.setItem('moldavite-plugins:default', '{truncated');
+    localStorage.setItem('moldavite-plugins:Default', '{truncated');
     usePluginStore.setState({ grants: {} });
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(usePluginStore.persist.rehydrate()).resolves.toBeUndefined();
     expect(usePluginStore.getState().grants).toEqual({});
     expect(usePluginStore.getState().isEnabledAndGranted('p', '1.0.0', HASH)).toBe(false);
     consoleError.mockRestore();
+  });
+
+  describe('per-Forge isolation', () => {
+    it('writes grants under the Forge that is active at write time', () => {
+      rememberActiveForge('Alpha');
+      usePluginStore.getState().grant('p', '1.0.0', HASH);
+      rememberActiveForge('Beta');
+      usePluginStore.getState().grant('q', '1.0.0', HASH);
+
+      const alpha = JSON.parse(localStorage.getItem('moldavite-plugins:Alpha') ?? '{}');
+      const beta = JSON.parse(localStorage.getItem('moldavite-plugins:Beta') ?? '{}');
+      expect(Object.keys(alpha.state.grants)).toEqual(['p']);
+      expect(Object.keys(beta.state.grants)).toEqual(['q']);
+    });
+
+    it("re-reads the correct Forge's grants once the active Forge is known", async () => {
+      localStorage.setItem(
+        'moldavite-plugins:Beta',
+        JSON.stringify({
+          state: { grants: { q: { enabled: true, grantedVersion: '1.0.0', grantedHash: HASH } } },
+        })
+      );
+      // Stand in for the stale slice hydration loaded under the previous Forge.
+      usePluginStore.setState({
+        grants: { p: { enabled: true, grantedVersion: '1.0.0', grantedHash: HASH } },
+      });
+
+      rememberActiveForge('Beta');
+      await flushMicrotasks();
+
+      expect(usePluginStore.getState().isEnabledAndGranted('q', '1.0.0', HASH)).toBe(true);
+      expect(usePluginStore.getState().isEnabledAndGranted('p', '1.0.0', HASH)).toBe(false);
+    });
+
+    it('drops consent carried over from another Forge that has no grants here', async () => {
+      usePluginStore.setState({
+        grants: { p: { enabled: true, grantedVersion: '1.0.0', grantedHash: HASH } },
+      });
+
+      rememberActiveForge('Empty');
+      await flushMicrotasks();
+
+      expect(usePluginStore.getState().grants).toEqual({});
+      expect(usePluginStore.getState().needsGrant('p', '1.0.0', HASH)).toBe(true);
+    });
   });
 });

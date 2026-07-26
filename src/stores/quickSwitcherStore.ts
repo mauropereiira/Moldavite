@@ -6,9 +6,10 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { namespacedKey } from '@/lib/forgeStorage';
+import { forgeNamespacedStorage, onActiveForgeChange, readNamespaced } from '@/lib/forgeStorage';
 
 const MAX_RECENT_SEARCHES = 5;
+const QUICK_SWITCHER_KEY = 'moldavite-quick-switcher';
 
 interface QuickSwitcherState {
   isOpen: boolean;
@@ -75,8 +76,10 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         })),
     }),
     {
-      name: namespacedKey('moldavite-quick-switcher'),
-      storage: createJSONStorage(() => localStorage),
+      // The key is namespaced by `forgeNamespacedStorage` on every access, not
+      // baked in here: this module is imported before the active Forge is known.
+      name: QUICK_SWITCHER_KEY,
+      storage: createJSONStorage(() => forgeNamespacedStorage),
       // Don't persist transient UI state.
       partialize: (state) => ({
         recentSearches: state.recentSearches,
@@ -85,5 +88,17 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
     }
   )
 );
+
+// Hydration ran at import time, when the cache could still name the Forge we
+// just switched away from. Re-read under the corrected key the moment the real
+// active Forge is known — pins are Forge-relative note paths, so keeping the
+// previous Forge's list would point them at notes that don't exist here.
+onActiveForgeChange(() => {
+  if (readNamespaced(QUICK_SWITCHER_KEY) === null) {
+    useQuickSwitcherStore.setState({ recentSearches: [], pinnedNoteIds: [] });
+    return;
+  }
+  void useQuickSwitcherStore.persist.rehydrate();
+});
 
 export const QUICK_SWITCHER_RECENT_SEARCH_LIMIT = MAX_RECENT_SEARCHES;

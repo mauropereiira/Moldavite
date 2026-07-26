@@ -7,7 +7,9 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { namespacedKey } from '@/lib/forgeStorage';
+import { forgeNamespacedStorage, onActiveForgeChange, readNamespaced } from '@/lib/forgeStorage';
+
+const PLUGIN_GRANTS_KEY = 'moldavite-plugins';
 
 export interface PluginGrant {
   enabled: boolean;
@@ -101,9 +103,23 @@ export const usePluginStore = create<PluginState>()(
         }),
     }),
     {
-      name: namespacedKey('moldavite-plugins'),
-      storage: createJSONStorage(() => localStorage),
+      // The key is namespaced by `forgeNamespacedStorage` on every access, not
+      // baked in here: this module is imported before the active Forge is known.
+      name: PLUGIN_GRANTS_KEY,
+      storage: createJSONStorage(() => forgeNamespacedStorage),
       partialize: (s) => ({ grants: s.grants }),
     }
   )
 );
+
+// Hydration ran at import time, when the cache could still name the Forge we
+// just switched away from. Re-read under the corrected key the moment the real
+// active Forge is known — and drop what we loaded when that Forge has no slice
+// yet, because consent must never leak from one Forge to another.
+onActiveForgeChange(() => {
+  if (readNamespaced(PLUGIN_GRANTS_KEY) === null) {
+    usePluginStore.setState({ grants: {} });
+    return;
+  }
+  void usePluginStore.persist.rehydrate();
+});

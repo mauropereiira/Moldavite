@@ -71,9 +71,12 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
     const folder = destDir;
     setBusy(true);
 
-    // Sanitize a note path/name into a safe per-platform filename stem.
+    // Sanitize a note path/name into a safe per-platform filename stem. The
+    // stem is built from the folder-relative path, not the basename: the
+    // destination is one flat folder, so two selected notes named `roadmap.md`
+    // in different folders would otherwise export onto each other.
     const safeStem = (note: NoteFile): string => {
-      const raw = note.name.replace(/\.md$/, '');
+      const raw = noteFileBackendPath(note).replace(/\.md$/, '');
       // Drop folder separators and characters that confuse common filesystems.
       // We intentionally keep unicode letters/digits — the user picked the
       // names, and the OS dialogs handle them fine.
@@ -94,17 +97,21 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
 
     for (const note of targets) {
       const stem = safeStem(note);
+      // Every branch has to address the note the same way the backend does —
+      // a bare name resolves to notes/<name>.md and silently exports whatever
+      // unrelated root note shares that basename.
+      const backendPath = noteFileBackendPath(note);
       try {
         if (format === 'markdown') {
           await exportSingleNote(
-            note.name,
+            backendPath,
             join(folder, `${stem}.md`),
             note.isDaily || false,
             note.isWeekly || false
           );
         } else if (format === 'plaintext') {
           await exportNoteAsPlaintext(
-            note.name,
+            backendPath,
             join(folder, `${stem}.txt`),
             note.isDaily || false,
             note.isWeekly || false
@@ -116,11 +123,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           // handles plain text reasonably and we already sanitize on the way
           // in. (If a note uses heavy formatting that needs Tiptap parsing,
           // the per-note PDF path from the editor remains available.)
-          const md = await readNote(
-            noteFileBackendPath(note),
-            note.isDaily || false,
-            note.isWeekly || false
-          );
+          const md = await readNote(backendPath, note.isDaily || false, note.isWeekly || false);
           await exportNoteToPdf(stem, md, join(folder, `${stem}.pdf`), {
             pageSize,
             margin,
@@ -128,7 +131,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
         }
         succeeded += 1;
       } catch (error) {
-        console.error('[BulkExportModal] export failed for', note.name, error);
+        console.error('[BulkExportModal] export failed for', backendPath, error);
         failures.push(note.name);
       }
     }

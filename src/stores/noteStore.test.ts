@@ -2,6 +2,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useNoteStore } from './noteStore';
+import { rememberActiveForge } from '@/lib/forgeStorage';
 import type { Note } from '@/types';
 
 const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
@@ -17,7 +18,7 @@ const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
 
 describe('noteStore - pinned tabs', () => {
   beforeEach(() => {
-    localStorage.removeItem('moldavite-pinned-tabs');
+    localStorage.clear();
     useNoteStore.setState({
       notes: [],
       openTabs: [],
@@ -125,5 +126,54 @@ describe('noteStore - pinned tabs', () => {
       activeTabId: null,
       currentNote: null,
     });
+  });
+});
+
+describe('noteStore - pinned tabs are per Forge', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useNoteStore.setState({
+      notes: [],
+      openTabs: [],
+      activeTabId: null,
+      currentNote: null,
+      isLoading: false,
+      isSaving: false,
+    });
+  });
+
+  it('persists pins under the active Forge key', () => {
+    rememberActiveForge('Alpha');
+    const { openTab, pinTab } = useNoteStore.getState();
+    openTab(makeNote('notes/alpha.md'), false);
+    pinTab('notes/alpha.md');
+
+    expect(JSON.parse(localStorage.getItem('moldavite-pinned-tabs:Alpha') ?? '[]')).toEqual([
+      'notes/alpha.md',
+    ]);
+    // Pinned ids are Forge-relative paths — nothing may land on a global key.
+    expect(localStorage.getItem('moldavite-pinned-tabs')).toBeNull();
+  });
+
+  it('does not resurrect another Forge’s pins', () => {
+    localStorage.setItem('moldavite-pinned-tabs:Alpha', JSON.stringify(['notes/shared.md']));
+    rememberActiveForge('Beta');
+
+    const { openTab, loadPinnedTabs } = useNoteStore.getState();
+    openTab(makeNote('notes/shared.md'), false);
+    loadPinnedTabs();
+
+    expect(useNoteStore.getState().openTabs.filter((t) => t.isPinned)).toEqual([]);
+  });
+
+  it('restores the active Forge’s pins', () => {
+    rememberActiveForge('Alpha');
+    localStorage.setItem('moldavite-pinned-tabs:Alpha', JSON.stringify(['notes/shared.md']));
+
+    const { openTab, loadPinnedTabs } = useNoteStore.getState();
+    openTab(makeNote('notes/shared.md'), false);
+    loadPinnedTabs();
+
+    expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
   });
 });
