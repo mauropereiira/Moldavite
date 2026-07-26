@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Moldavite — Local notes, ready for your AI tools</title>
+    <title>Moldavite — Local Markdown notes, ready for your AI tools</title>
     <meta
       name="description"
-      content="Moldavite is a private, local-first macOS notes app with plain Markdown, fully local semantic search on Apple Silicon, an opt-in MCP server, and sandboxed plugins."
+      content="Moldavite is a private, local-first macOS notes app. Everything is plain Markdown in a folder you own, with fully offline semantic search, a built-in MCP server, and hard-sandboxed plugins."
     />
     <meta property="og:title" content="Moldavite" />
     <meta
       property="og:description"
-      content="Your notes are the local memory layer for your thinking and your AI tools."
+      content="A notes app that never takes your notes. Plain Markdown on your Mac, and a permissioned door in for the AI tools you choose."
     />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/png" href="icon.png" />
@@ -23,11 +23,12 @@
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
+
     <header class="site-header">
       <div class="nav-inner liquid-glass">
         <div class="brand-wrap">
           <a href="index.html" class="brand">
-            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
+            <img src="icon.png" alt="" aria-hidden="true" width="27" height="27" />
             Moldavite
           </a>
           <span class="version-badge">Open source</span>
@@ -56,306 +57,638 @@
     </header>
 
     <main id="main">
+      <!-- ================================================================
+           Hero
+           ================================================================ -->
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <span class="eyebrow liquid-glass"
-            ><span class="eyebrow-rule" aria-hidden="true"></span>Private notes · agent-native</span
-          >
-          <h1 id="hero-title">Your thoughts, <span class="hero-gradient">forged locally.</span></h1>
-          <p class="hero-lede">
-            Moldavite is a macOS notes app where your knowledge stays as plain Markdown on your
-            Mac—and becomes useful, permissioned memory for the AI tools you choose.
-          </p>
-          <div class="hero-actions">
-            <a
-              href="https://github.com/mauropereiira/Moldavite/releases/latest"
-              class="download-btn liquid-glass liquid-glass-strong"
+        <span class="eyebrow liquid-glass">
+          <span class="eyebrow-dot" aria-hidden="true"></span>
+          Local-first · Agent-native · macOS
+        </span>
+        <h1 id="hero-title">A notes app that never <em>takes</em> your notes.</h1>
+        <p class="hero-lede">
+          Everything you write stays as plain Markdown in a folder on your Mac. Connect Claude or
+          any MCP client when you want to — reading only, until you decide otherwise.
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="download-btn">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"
-                />
-              </svg>
-              Download for Mac
-            </a>
-            <a href="guide.html#agents" class="btn-secondary liquid-glass"
-              >Explore AI &amp; Agents</a
-            >
-          </div>
-          <p class="platform-note">
-            macOS 10.15+ · Apple Silicon &amp; Intel · Free and open source
-          </p>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"
+              />
+            </svg>
+            Download for Mac
+          </a>
+          <a href="#agents" class="btn-secondary liquid-glass">See the MCP server</a>
         </div>
-
-        <div class="mineral-stage" aria-hidden="true">
-          <div class="mineral-fragment"><span class="mineral-specular"></span></div>
-          <div class="mineral-caption">
-            <strong>Impact, made useful.</strong>
-            Local Markdown meets tools that can reason across it.
-          </div>
-        </div>
+        <p class="platform-note">
+          macOS 10.15+ · Apple Silicon &amp; Intel · Free and MIT licensed
+        </p>
       </section>
 
+      <!-- ================================================================
+           Signature — one note, two truths
+           ================================================================ -->
+      <!-- The markup default and the JS default must agree: without JS the
+           markup is the only thing that picks a panel, so the editor tab and
+           the editor panel both start active here. -->
+      <section class="duality" aria-labelledby="duality-title" data-duality>
+        <h2 id="duality-title" hidden>The same note, two ways</h2>
+        <div class="duality-frame liquid-glass">
+          <div class="duality-bar">
+            <div class="duality-switch" role="tablist" aria-label="View this note as">
+              <button
+                class="duality-tab"
+                type="button"
+                role="tab"
+                data-view="editor"
+                data-path="Field Notes › notes › Feedback Loops"
+                aria-selected="true"
+              >
+                editor
+              </button>
+              <button
+                class="duality-tab"
+                type="button"
+                role="tab"
+                data-view="source"
+                data-path="~/Documents/Moldavite/Field Notes/notes/Feedback Loops.md"
+                aria-selected="false"
+              >
+                note.md
+              </button>
+            </div>
+            <span class="duality-path">Field Notes › notes › Feedback Loops</span>
+          </div>
+
+          <div class="duality-stage">
+            <div class="duality-panel" data-view="editor" data-active="true">
+              <video
+                data-autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                poster="media/editor-poster.jpg"
+                aria-label="Writing a note in Moldavite's editor"
+              >
+                <source src="media/editor.webm" type="video/webm" />
+                <source src="media/editor.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <div class="duality-panel" data-view="source" data-active="false">
+              <pre class="duality-source"><code><span class="h"># Feedback Loops</span>
+
+A loop is any path where an output circles back and becomes an input. Once you
+start looking for them you stop seeing organisations as org charts and start
+seeing them as circuits.
+
+<span class="h">## The two kinds</span>
+
+<span class="tk">**</span>Reinforcing<span class="tk">**</span> loops amplify. Growth, compound interest, panic buying, the
+rich getting richer. Left alone they run until they hit a limit.
+
+<span class="tk">**</span>Balancing<span class="tk">**</span> loops resist. A thermostat, a hiring freeze, the way a team
+quietly slows down when the backlog gets frightening.
+
+Most surprising behaviour comes from a balancing loop you did not know was
+there. See <span class="lk">[[Thinking in Systems]]</span> for the canonical treatment.
+
+<span class="h">## Why it matters for product work</span>
+
+The <span class="lk">[[Onboarding Rework]]</span> stalled twice because we kept treating drop-off as
+a line to be pushed up rather than the output of a loop.
+
+Related: <span class="lk">[[Mental Models]]</span> · <span class="lk">[[Systems Vocabulary]]</span>
+
+<span class="tg">#systems</span> <span class="tg">#thinking</span></code></pre>
+            </div>
+          </div>
+        </div>
+        <p class="duality-caption">
+          The same note. Nothing is exported, converted, or locked in — the file on the left is the
+          file on the right.
+        </p>
+      </section>
+
+      <!-- ================================================================
+           Trust strip
+           ================================================================ -->
       <div class="trust-strip" aria-label="Core principles">
         <div class="trust-strip-inner reveal-group">
-          <div class="trust-item liquid-glass">
+          <div class="trust-item">
             <strong>No account</strong>
-            Your Forge lives on disk, not on a service.
+            There is nothing to sign up for. Your Forge is a folder on disk, not a row in someone's
+            database.
           </div>
-          <div class="trust-item liquid-glass">
-            <strong>Search stays local</strong>
-            Embeddings run offline after an explicit model download.
+          <div class="trust-item">
+            <strong>No telemetry</strong>
+            No analytics, no crash pings, no usage events. The network calls Moldavite makes are
+            listed in full further down this page.
           </div>
-          <div class="trust-item liquid-glass">
-            <strong>Agent writes are off</strong>
-            MCP clients start with read tools only.
+          <div class="trust-item">
+            <strong>Writes are off</strong>
+            Connected AI clients get read tools only. Creating and editing notes is a switch you
+            have to find and turn on.
           </div>
         </div>
       </div>
 
-      <section class="landing-section" aria-labelledby="origin-title">
-        <div class="container-wide origin-grid">
-          <div class="origin-fact reveal liquid-glass">
-            <span class="number">15m</span>
+      <!-- ================================================================
+           The Forge
+           ================================================================ -->
+      <section class="landing-section" id="forge" aria-labelledby="forge-title">
+        <div class="container-wide split">
+          <div class="split-copy reveal">
+            <span class="section-kicker">~/Documents/Moldavite/</span>
+            <h2 class="section-title" id="forge-title">
+              Everything lives in a folder called a Forge
+            </h2>
             <p>
-              years ago, a meteorite impact fused Earth and sky into the green glass called
-              moldavite.
+              A Forge holds <code>daily/</code>, <code>weekly/</code>, <code>notes/</code>, your
+              images, and your templates. Open it in Finder. Point iCloud, Dropbox, Syncthing, or
+              git at it. Edit a note in another app and Moldavite picks up the change.
+            </p>
+            <p>
+              <strong>Every write is atomic</strong> — a temp file, an fsync, then a rename, with
+              owner-only permissions applied before the file becomes visible. A crash or a full disk
+              cannot leave you with half a note.
+            </p>
+            <p>
+              Keep as many Forges as you like and switch between them. Work in one, research in
+              another, and give each its own plugins and search index.
             </p>
           </div>
-          <div class="origin-copy reveal">
-            <span class="section-kicker">Why Moldavite</span>
-            <h2 class="section-title" id="origin-title">A thinking tool with a material memory</h2>
-            <p>
-              The name is a reminder that useful ideas come from collision: a note meeting another
-              note, a calendar event meeting a plan, your own memory meeting a new question.
-            </p>
-            <p>
-              Moldavite keeps that material honest.
-              <strong>Your source of truth is a folder of real Markdown files.</strong> You can sync
-              it with a tool you trust, edit it elsewhere, put it in git, or leave it entirely
-              offline.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section ai-section" id="ai-agents" aria-labelledby="ai-title">
-        <div class="container-wide ai-grid">
           <div class="reveal">
-            <span class="section-kicker">AI &amp; Agents</span>
-            <h2 class="section-title" id="ai-title">Your notes are the memory layer</h2>
-            <p class="section-sub">
-              Connect an AI tool without uploading your vault to a Moldavite service. The built-in
-              MCP server exposes validated note tools over local stdio, while direct file-based
-              agents can learn the Forge format from a generated <code>AGENTS.md</code>.
-            </p>
-            <div class="ai-points reveal-group">
-              <div class="ai-point">
-                <span class="step">01</span>
-                <div>
-                  <strong>Prepare the Forge</strong>
-                  <p>One click writes AGENTS.md plus a .gitignore for app-managed directories.</p>
-                </div>
-              </div>
-              <div class="ai-point">
-                <span class="step">02</span>
-                <div>
-                  <strong>Connect locally</strong>
-                  <p>Use Claude Code, Claude Desktop, Cursor, or another stdio MCP client.</p>
-                </div>
-              </div>
-              <div class="ai-point">
-                <span class="step">03</span>
-                <div>
-                  <strong>Control mutations</strong>
-                  <p>
-                    Search, reading, listing, and backlinks are on; creation and writes are opt-in.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="terminal-card reveal" aria-label="Claude Code MCP setup command">
-            <div class="terminal-bar">
-              <span class="terminal-label">
-                <span class="terminal-dots" aria-hidden="true">•••</span>
-                Claude Code · local stdio
-              </span>
-              <button
-                class="copy-button"
-                type="button"
-                data-copy-target="mcp-command"
-                aria-live="polite"
+            <div class="media-frame liquid-glass">
+              <video
+                data-autoplay
+                muted
+                loop
+                playsinline
+                preload="none"
+                poster="media/forge-poster.jpg"
+                aria-label="Switching between Forges in Moldavite"
               >
-                Copy
-              </button>
+                <source src="media/forge.webm" type="video/webm" />
+                <source src="media/forge.mp4" type="video/mp4" />
+              </video>
+              <p class="media-caption">Forge switcher · sidebar</p>
             </div>
-            <pre
-              class="terminal-code"
-            ><code><span class="prompt">$ </span><span id="mcp-command">claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</span></code></pre>
-            <p class="terminal-note">
-              Settings generates this with the exact binary path on your Mac. Add
-              <code>--forge "Work"</code> to choose another Forge.
-            </p>
           </div>
         </div>
       </section>
 
+      <!-- ================================================================
+           AI & Agents
+           ================================================================ -->
+      <section class="landing-section" id="agents" aria-labelledby="agents-title">
+        <div class="container-wide">
+          <div class="section-heading reveal">
+            <span class="section-kicker">moldavite --mcp</span>
+            <h2 class="section-title" id="agents-title">
+              Your notes become memory your tools can <em>use</em>
+            </h2>
+            <p class="section-sub">
+              The app binary doubles as an MCP server. Point Claude Code, Claude Desktop, Cursor, or
+              any stdio MCP client at it and they read your vault directly on your machine — no
+              upload, no sync service, no Moldavite account in the middle.
+            </p>
+          </div>
+
+          <div class="split">
+            <div class="reveal">
+              <div class="terminal-card liquid-glass">
+                <div class="terminal-bar">
+                  <span class="terminal-label">
+                    <span class="terminal-dots" aria-hidden="true">•••</span>
+                    Claude Code · local stdio
+                  </span>
+                  <button
+                    class="copy-button"
+                    type="button"
+                    data-copy-target="mcp-command"
+                    aria-live="polite"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre
+                  class="terminal-code"
+                ><code><span class="prompt">$ </span><span id="mcp-command">claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</span></code></pre>
+                <p class="terminal-note">
+                  Settings → AI &amp; Agents generates this line with the exact binary path on your
+                  Mac. Add <code>--forge "Work"</code> to point a client at a different Forge.
+                </p>
+              </div>
+
+              <p class="network-note">
+                <strong>Not every agent speaks MCP.</strong> For the ones that just read files —
+                Claude Code working in a directory, a script, your own tooling — one click writes an
+                <code>AGENTS.md</code> describing your Forge's conventions, plus a
+                <code>.gitignore</code> for the folders the app manages itself.
+              </p>
+            </div>
+
+            <div class="reveal">
+              <h3 class="ledger-title">Tools exposed over stdio</h3>
+              <ul class="ledger">
+                <li>
+                  <span class="ledger-key">list_notes</span>
+                  <span class="ledger-val"
+                    >Enumerate notes and locked-note placeholders, optionally scoped to a
+                    folder.</span
+                  >
+                </li>
+                <li>
+                  <span class="ledger-key">read_note</span>
+                  <span class="ledger-val">Read one unlocked note by its Forge-relative path.</span>
+                </li>
+                <li>
+                  <span class="ledger-key">search_notes</span>
+                  <span class="ledger-val">Ranked full-text search with snippets.</span>
+                </li>
+                <li>
+                  <span class="ledger-key">get_backlinks</span>
+                  <span class="ledger-val">Every note that links to a given note.</span>
+                </li>
+                <li>
+                  <span class="ledger-key"
+                    >create_note <span class="gated">·&nbsp;gated</span></span
+                  >
+                  <span class="ledger-val">Create a new note. Off until you enable writes.</span>
+                </li>
+                <li>
+                  <span class="ledger-key">write_note <span class="gated">·&nbsp;gated</span></span>
+                  <span class="ledger-val"
+                    >Replace a note's contents. Off until you enable writes.</span
+                  >
+                </li>
+                <li>
+                  <span class="ledger-key"
+                    >append_to_daily_note <span class="gated">·&nbsp;gated</span></span
+                  >
+                  <span class="ledger-val"
+                    >Append to today's note. Off until you enable writes.</span
+                  >
+                </li>
+              </ul>
+              <p class="media-caption">
+                Locked notes are refused outright. Every client-supplied path is validated before it
+                touches disk.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Semantic search
+           ================================================================ -->
+      <section class="landing-section" id="semantic-search" aria-labelledby="semantic-title">
+        <div class="container-wide split">
+          <div class="split-copy reveal">
+            <span class="section-kicker">all-MiniLM-L6-v2</span>
+            <h2 class="section-title" id="semantic-title">Search by meaning, entirely offline</h2>
+            <p>
+              Ask for “why did onboarding stall” and get the note that explains it, even though it
+              never uses those words. A <strong>Related</strong> list under the editor surfaces five
+              notes that belong with whatever you are reading.
+            </p>
+            <p>
+              Pick from three embedding models. The one you choose downloads once, after a prompt
+              that names it and its size — then every query runs on your Mac, forever offline.
+              Locked notes are never indexed.
+            </p>
+          </div>
+          <div class="reveal">
+            <ul class="ledger">
+              <li>
+                <span class="ledger-key">Default</span>
+                <span class="ledger-val">all-MiniLM-L6-v2 — small, fast, English.</span>
+              </li>
+              <li>
+                <span class="ledger-key">Higher quality</span>
+                <span class="ledger-val">BGE small English v1.5.</span>
+              </li>
+              <li>
+                <span class="ledger-key">Multilingual</span>
+                <span class="ledger-val">Multilingual E5 small.</span>
+              </li>
+              <li>
+                <span class="ledger-key">Requirement</span>
+                <span class="ledger-val"
+                  >Apple Silicon. Intel Macs get keyword search instead.</span
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Connected thinking
+           ================================================================ -->
+      <section class="landing-section" id="graph" aria-labelledby="graph-title">
+        <div class="container-wide">
+          <div class="section-heading reveal">
+            <span class="section-kicker">[[wiki-links]]</span>
+            <h2 class="section-title" id="graph-title">Links that survive being <em>wrong</em></h2>
+            <p class="section-sub">
+              Type <code>[[</code> and connect two notes. Rename either one from the sidebar or the
+              editor and Moldavite rewrites every inbound link across the Forge, keeps your open
+              tabs pointed at the right file, and leaves your recents intact.
+            </p>
+          </div>
+          <div class="reveal">
+            <div class="media-frame liquid-glass">
+              <video
+                data-autoplay
+                muted
+                loop
+                playsinline
+                preload="none"
+                poster="media/graph-poster.jpg"
+                aria-label="The Moldavite graph view clustering linked notes"
+              >
+                <source src="media/graph.webm" type="video/webm" />
+                <source src="media/graph.mp4" type="video/mp4" />
+              </video>
+              <p class="media-caption">
+                Graph view · linked notes cluster, orphans stay at the edge
+              </p>
+            </div>
+          </div>
+          <div class="feature-grid reveal-group is-spaced">
+            <article class="feature-card liquid-glass">
+              <span class="feature-icon" aria-hidden="true">←</span>
+              <h3>Backlinks</h3>
+              <p>
+                A panel showing every note that points at this one, so you can see what a note is
+                load-bearing for before you change it.
+              </p>
+            </article>
+            <article class="feature-card liquid-glass">
+              <span class="feature-icon" aria-hidden="true">◎</span>
+              <h3>A graph you can steer</h3>
+              <p>
+                Drag, zoom, pan, and fit. Broken links are visible rather than silently dropped, and
+                folders, daily, and weekly notes all resolve to the right node.
+              </p>
+            </article>
+            <article class="feature-card liquid-glass">
+              <span class="feature-icon" aria-hidden="true">#</span>
+              <h3>Tags and folders</h3>
+              <p>
+                Folders when a hierarchy is genuinely right, tags when it isn't. Renaming a tag
+                updates it everywhere at once.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Plugins
+           ================================================================ -->
+      <section class="landing-section" id="plugins" aria-labelledby="plugins-title">
+        <div class="container-wide">
+          <div class="section-heading reveal">
+            <span class="section-kicker">.plugins/&lt;id&gt;/</span>
+            <h2 class="section-title" id="plugins-title">
+              Extensions that can't quietly <em>help themselves</em>
+            </h2>
+            <p class="section-sub">
+              Every plugin runs in its own Web Worker with no DOM, no network globals, and no access
+              to app IPC. Everything it can do crosses a message bridge the host controls, and
+              consent is pinned to a SHA-256 hash of the manifest and code — change either byte and
+              you are asked again.
+            </p>
+          </div>
+
+          <div class="sandbox reveal-group">
+            <div class="sandbox-lane liquid-glass">
+              <h4>Granted by default</h4>
+              <ul>
+                <li>Register commands</li>
+                <li>Read and replace editor selections</li>
+                <li>Show toasts</li>
+                <li>Store its own settings</li>
+              </ul>
+            </div>
+            <div class="sandbox-lane liquid-glass">
+              <h4>Only after you agree</h4>
+              <ul>
+                <li>Read unlocked note metadata and Markdown</li>
+                <li>HTTPS to exact hosts, each revocable</li>
+                <li>Secrets in the macOS Keychain, namespaced per plugin</li>
+                <li>Host-rendered prompt forms</li>
+              </ul>
+            </div>
+            <div class="sandbox-lane liquid-glass" data-denied="true">
+              <h4>Never available</h4>
+              <ul>
+                <li>The DOM or the app window</li>
+                <li><code>fetch</code>, <code>XMLHttpRequest</code>, WebSockets</li>
+                <li>Tauri IPC — <code>withGlobalTauri</code> stays off</li>
+                <li>Another plugin's secrets</li>
+                <li>Locked notes, in any form</li>
+              </ul>
+            </div>
+          </div>
+
+          <p class="network-note reveal">
+            <strong>Installing is deliberate.</strong> The community registry is contacted only when
+            you press Browse. Downloads are constructed only under the pinned repository, and Rust
+            verifies both SHA-256 hashes before an atomic install. Website install links use
+            <code>moldavite://plugin/&lt;id&gt;</code>, which opens the entry and shows its
+            permissions — enabling it is still a separate, explicit step. The first-party
+            <strong>Publish to WordPress</strong> plugin is a worked example you can read.
+          </p>
+
+          <div class="hero-actions reveal is-start is-spaced">
+            <a href="plugins.html" class="btn-secondary liquid-glass">Browse the directory</a>
+            <a
+              href="https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md"
+              class="btn-secondary liquid-glass"
+              >Write a plugin</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Privacy
+           ================================================================ -->
+      <section class="landing-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="container-wide">
+          <div class="privacy-intro reveal">
+            <div>
+              <span class="section-kicker">AES-256-GCM</span>
+              <h2 class="section-title" id="privacy-title">Local is the default, not a mode</h2>
+            </div>
+            <p>
+              There is no account system, no hosted notes service, and no telemetry to switch off.
+              What follows is the complete list of times Moldavite touches the network — written out
+              so you can check it against the source.
+            </p>
+          </div>
+
+          <div class="privacy-grid reveal-group">
+            <article class="privacy-card liquid-glass">
+              <h3>Files you own</h3>
+              <p>
+                Real Markdown with YAML frontmatter, atomic saves, and owner-only permissions.
+                Individual notes can be encrypted with AES-256-GCM and Argon2, and stay encrypted at
+                rest.
+              </p>
+            </article>
+            <article class="privacy-card liquid-glass">
+              <h3>A local index</h3>
+              <p>
+                Your chosen embedding model downloads once from Hugging Face after you opt in. After
+                that, indexing and querying happen on your Mac. Model files live outside the Forge.
+              </p>
+            </article>
+            <article class="privacy-card liquid-glass">
+              <h3>Narrow plugin powers</h3>
+              <p>
+                A plugin can reach the network only through <code>net.fetch</code>, only to hosts
+                you approved by name, with redirects checked against the same list.
+              </p>
+            </article>
+            <article class="privacy-card liquid-glass">
+              <h3>Sync you control</h3>
+              <p>
+                If a note changed on disk while you had unsaved edits, the disk version is preserved
+                as a timestamped conflict copy before yours is written. Nothing is silently
+                overwritten.
+              </p>
+            </article>
+          </div>
+
+          <p class="network-note reveal">
+            <strong>The whole network story:</strong> a signed, notarized update check runs about
+            fifteen seconds after launch and once a day thereafter; the plugin registry is fetched
+            from GitHub only when you press Browse; a semantic model downloads from Hugging Face
+            only after you opt in; and a plugin can send data only to hosts you approved. That is
+            the list. Publishing a note to WordPress is something you do on purpose — not evidence
+            that “nothing ever leaves”.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Everything else
+           ================================================================ -->
       <section class="landing-section" id="features" aria-labelledby="features-title">
         <div class="container-wide">
           <div class="section-heading reveal">
-            <span class="section-kicker">The whole instrument</span>
-            <h2 class="section-title" id="features-title">Fast capture, durable connections</h2>
+            <span class="section-kicker">⌘ + ?</span>
+            <h2 class="section-title" id="features-title">The rest of the instrument</h2>
             <p class="section-sub">
-              Rich editing where you want it, portable Markdown underneath, and built-in safety
-              for the moments when other tools touch the same files.
+              The parts you stop noticing once they work. Press <code>⌘ + ?</code> in the app for
+              every shortcut.
             </p>
           </div>
 
           <div class="feature-grid reveal-group">
             <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">MD</span>
-              <h3>Plain files, rich editor</h3>
+              <h3>An editor worth writing in</h3>
               <p>
-                Headings, tasks, code, images, highlights, slash commands, daily and weekly notes,
-                templates, folders, tabs, and multiple Forges.
+                Markdown shortcuts, headings, task lists, resizable images, code blocks, highlights,
+                slash commands, and tabs you can pin.
               </p>
             </article>
             <article class="feature-card liquid-glass">
-              <span class="feature-icon" aria-hidden="true">≈</span>
-              <h3>Semantic search, fully local</h3>
+              <span class="feature-icon" aria-hidden="true">▦</span>
+              <h3>Daily and weekly notes</h3>
               <p>
-                Opt in to one of three transparent embedding models, search by meaning, and discover
-                five related notes. Requires Apple Silicon on macOS; Intel Macs get keyword search.
-                Locked notes are never indexed.
-              </p>
-              <a href="guide.html#semantic-search">How local search works →</a>
-            </article>
-            <article class="feature-card liquid-glass">
-              <span class="feature-icon" aria-hidden="true">[[</span>
-              <h3>Links that survive change</h3>
-              <p>
-                Rename a standalone note from the sidebar or editor. Tabs and recents follow it,
-                while inbound wiki-links are rewritten across the Forge.
+                One click to today. Empty daily notes delete themselves rather than accumulating,
+                and templates fill in the date, time, and day for you.
               </p>
             </article>
             <article class="feature-card liquid-glass">
-              <span class="feature-icon" aria-hidden="true">◎</span>
-              <h3>A graph you can navigate</h3>
+              <span class="feature-icon" aria-hidden="true">◷</span>
+              <h3>Timeline and Calendar</h3>
               <p>
-                Path-correct nodes for folders, daily, and weekly notes; visible broken links;
-                neighbor highlighting, dragging, zoom, pan, and Fit view. Linked components settle
-                into visible clusters while orphan notes stay at the periphery.
+                A chronological feed bucketed by Today, Yesterday, This Week, and Earlier, with your
+                Apple Calendar events read-only alongside it.
               </p>
             </article>
             <article class="feature-card liquid-glass">
-              <span class="feature-icon" aria-hidden="true">±</span>
-              <h3>Sync-conflict safety</h3>
+              <span class="feature-icon" aria-hidden="true">🔒</span>
+              <h3>Locked notes</h3>
               <p>
-                If disk changed while you had unsaved edits, Moldavite preserves that external
-                version as a timestamped sibling conflict note before saving yours.
+                Encrypt a single note with a password. It stays encrypted on disk, relocks itself,
+                and is excluded from search, indexing, and every agent tool.
               </p>
-              <a href="guide.html#conflicts">Understand conflict copies →</a>
+            </article>
+            <article class="feature-card liquid-glass">
+              <span class="feature-icon" aria-hidden="true">↩</span>
+              <h3>Trash that waits</h3>
+              <p>
+                Deleted notes sit in a sidebar popover for seven days with read-only previews, so
+                you can check before anything becomes permanent.
+              </p>
             </article>
             <article class="feature-card liquid-glass">
               <span class="feature-icon" aria-hidden="true">→MD</span>
-              <h3>Move from Obsidian safely</h3>
+              <h3>Obsidian import</h3>
               <p>
-                Run a one-time import that previews an Obsidian vault, then copies its notes,
-                supported daily-note layout, wiki-links, and referenced attachments into a new
-                Forge. The source is never modified.
+                Preview an Obsidian vault, then copy it into a new Forge — daily notes, folders,
+                wiki-link aliases, frontmatter, and referenced attachments. The source is never
+                touched.
               </p>
               <a href="guide.html#obsidian-import">See exactly what imports →</a>
             </article>
             <article class="feature-card liquid-glass">
-              <span class="feature-icon" aria-hidden="true">API</span>
-              <h3>Sandboxed Plugin API v2</h3>
+              <span class="feature-icon" aria-hidden="true">⇩</span>
+              <h3>Encrypted backups</h3>
               <p>
-                Permissioned note reads, exact-host HTTPS with runtime consent, Keychain secrets,
-                trusted prompts, and a first-party Publish to WordPress reference plugin. Browse
-                community plugins on demand; verified installs open reusable
-                <strong>About this plugin</strong> instructions.
+                Export the whole vault as a password-protected AES-256 archive, or your settings as
+                JSON to carry to another Mac.
               </p>
-              <a href="plugins.html">Build a plugin →</a>
+            </article>
+            <article class="feature-card liquid-glass">
+              <span class="feature-icon" aria-hidden="true">↑</span>
+              <h3>Quiet updates</h3>
+              <p>
+                Signed and notarized, verified with minisign. A pending version adds a small dot in
+                Settings rather than interrupting you, and a failed check stays silent and retries.
+              </p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="landing-section" id="privacy" aria-labelledby="privacy-title">
-        <div class="container-wide">
-          <div class="privacy-intro reveal">
-            <div>
-              <span class="section-kicker">Privacy by architecture</span>
-              <h2 class="section-title" id="privacy-title">Local is the default state</h2>
-            </div>
-            <p>
-              Moldavite has no account system, hosted notes service, analytics, or telemetry. Your
-              notes live in the Forge you choose, and sensitive integrations are narrow, visible,
-              and permission-gated.
-            </p>
-          </div>
-
-          <div class="privacy-grid reveal-group">
-            <article class="privacy-card liquid-glass">
-              <h3>Owner-controlled files</h3>
-              <p>
-                Notes are real Markdown with atomic saves and owner-only permissions. Encrypted
-                locking uses AES-GCM with Argon2 key derivation.
-              </p>
-            </article>
-            <article class="privacy-card liquid-glass">
-              <h3>Local AI index</h3>
-              <p>
-                The selected model downloads only after consent. Embeddings and queries then run on
-                Apple Silicon Macs; Intel Macs use keyword search. Model files stay outside the
-                Forge.
-              </p>
-            </article>
-            <article class="privacy-card liquid-glass">
-              <h3>Narrow plugin powers</h3>
-              <p>
-                Workers have no direct network or app access. The host enforces permissions, exact
-                HTTPS hosts, redirect checks, prompt identity, and Keychain isolation.
-              </p>
-            </article>
-          </div>
-
-          <p class="network-note reveal">
-            <strong>An honest network story:</strong> Moldavite checks automatically once a day for
-            signed, notarized updates; a subtle in-app indicator appears when one is pending, with
-            no nagging popups. The community registry contacts GitHub only when you click Browse;
-            semantic models download from Hugging Face only after you opt in; and a plugin can send
-            data only through <code>net.fetch</code> to exact hosts you approved. Publishing a note
-            to WordPress is therefore an explicit action, not a claim that “nothing ever leaves.”
-          </p>
-        </div>
-      </section>
-
+      <!-- ================================================================
+           Final CTA
+           ================================================================ -->
       <section class="landing-section final-cta" aria-labelledby="cta-title">
         <div class="container reveal">
           <div class="section-heading">
-            <span class="section-kicker">Free · open source · macOS</span>
-            <h2 class="section-title" id="cta-title">Make your memory portable again</h2>
+            <span class="section-kicker">Free · MIT · macOS</span>
+            <h2 class="section-title" id="cta-title">Start with a folder of files</h2>
             <p class="section-sub">
-              Start with plain Markdown. Add local meaning search and agent access when you decide
-              they earn a place in your workflow.
+              Write first. Add meaning search and agent access later, if and when they earn a place
+              in how you work.
             </p>
           </div>
           <div class="hero-actions">
             <a
               href="https://github.com/mauropereiira/Moldavite/releases/latest"
-              class="button-primary liquid-glass liquid-glass-strong"
+              class="button-primary"
               >Download the latest release</a
             >
             <a href="guide.html" class="button-secondary liquid-glass">Read the user guide</a>
@@ -373,9 +706,8 @@
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
         </nav>
         <p class="footer-meta">
-          Documentation · Made by
-          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
-          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
+          <a href="https://github.com/mauropereiira/Moldavite">Source on GitHub</a>
         </p>
       </div>
     </footer>
