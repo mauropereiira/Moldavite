@@ -98,19 +98,10 @@
       <!-- ================================================================
            Signature — one note, two truths
            ================================================================ -->
-      <!-- TODO(media): once docs/media/editor.{webm,mp4} exist, drop
-           data-default-view and data-autoplay, and move aria-selected="true" /
-           data-active="true" back to the editor tab and panel, so the panel
-           opens on the editor and plays the editor → note.md sequence once on
-           first view. The markup default and the JS default must agree —
-           without JS the markup is the only thing that picks a panel. -->
-      <section
-        class="duality"
-        aria-labelledby="duality-title"
-        data-duality
-        data-default-view="source"
-        data-autoplay="off"
-      >
+      <!-- The markup default and the JS default must agree: without JS the
+           markup is the only thing that picks a panel, so the editor tab and
+           the editor panel both start active here. -->
+      <section class="duality" aria-labelledby="duality-title" data-duality>
         <h2 id="duality-title" hidden>The same note, two ways</h2>
         <div class="duality-frame liquid-glass">
           <div class="duality-bar">
@@ -121,7 +112,7 @@
                 role="tab"
                 data-view="editor"
                 data-path="Field Notes › notes › Feedback Loops"
-                aria-selected="false"
+                aria-selected="true"
               >
                 editor
               </button>
@@ -131,18 +122,16 @@
                 role="tab"
                 data-view="source"
                 data-path="~/Documents/Moldavite/Field Notes/notes/Feedback Loops.md"
-                aria-selected="true"
+                aria-selected="false"
               >
                 note.md
               </button>
             </div>
-            <span class="duality-path"
-              >~/Documents/Moldavite/Field Notes/notes/Feedback Loops.md</span
-            >
+            <span class="duality-path">Field Notes › notes › Feedback Loops</span>
           </div>
 
           <div class="duality-stage">
-            <div class="duality-panel" data-view="editor" data-active="false">
+            <div class="duality-panel" data-view="editor" data-active="true">
               <video
                 data-autoplay
                 muted
@@ -156,7 +145,7 @@
                 <source src="media/editor.mp4" type="video/mp4" />
               </video>
             </div>
-            <div class="duality-panel" data-view="source" data-active="true">
+            <div class="duality-panel" data-view="source" data-active="false">
               <pre class="duality-source"><code><span class="h"># Feedback Loops</span>
 
 A loop is any path where an output circles back and becomes an input. Once you
@@ -367,23 +356,6 @@ Related: <span class="lk">[[Mental Models]]</span> · <span class="lk">[[Systems
            ================================================================ -->
       <section class="landing-section" id="semantic-search" aria-labelledby="semantic-title">
         <div class="container-wide split">
-          <div class="reveal">
-            <div class="media-frame liquid-glass">
-              <video
-                data-autoplay
-                muted
-                loop
-                playsinline
-                preload="none"
-                poster="media/search-poster.jpg"
-                aria-label="Searching notes by meaning in Moldavite"
-              >
-                <source src="media/search.webm" type="video/webm" />
-                <source src="media/search.mp4" type="video/mp4" />
-              </video>
-              <p class="media-caption">Semantic mode · sidebar search</p>
-            </div>
-          </div>
           <div class="split-copy reveal">
             <span class="section-kicker">all-MiniLM-L6-v2</span>
             <h2 class="section-title" id="semantic-title">Search by meaning, entirely offline</h2>
@@ -397,6 +369,8 @@ Related: <span class="lk">[[Mental Models]]</span> · <span class="lk">[[Systems
               that names it and its size — then every query runs on your Mac, forever offline.
               Locked notes are never indexed.
             </p>
+          </div>
+          <div class="reveal">
             <ul class="ledger">
               <li>
                 <span class="ledger-key">Default</span>

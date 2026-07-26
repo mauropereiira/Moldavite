@@ -9,11 +9,17 @@
 #
 #   ./scripts/encode-site-media.sh ~/Desktop/moldavite-raw
 #
-# Expected input names (extension can be .mov, .mp4, or .m4v):
-#   editor   — writing a note: Markdown shortcuts, a [[wiki link]], slash menu
+# Expected input names (extension can be .mov, .mp4, or .m4v). Missing slots
+# are skipped, so you can re-shoot one clip without touching the others.
+#
+# Used by the landing page today:
+#   editor   — writing a note: Markdown shortcut, slash menu, task list, tag
 #   forge    — switching Forges from the sidebar
+#   graph    — the graph view clustering, with a node drag
+#
+# Recognised but not currently on the page (the semantic-search section is
+# text-only until there is footage of a downloaded model indexing a vault):
 #   search   — semantic search: a meaning-based query, then Related notes
-#   graph    — the graph view clustering, with a drag
 #
 # Record with the demo Forge active so no personal note ever reaches a frame.
 set -euo pipefail
