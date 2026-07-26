@@ -1,7 +1,8 @@
-//! File watcher rooted at the configured Forge directory.
+//! File watcher rooted at the active Forge plus its parent Forges directory.
 //!
 //! Emits a Tauri event `forge:changed` with `{ kind, relPath }` whenever a
-//! note file is created, modified, or removed by an external process.
+//! note file is created, modified, or removed by an external process, and a
+//! `forges:changed` event when a direct child Forge is added, removed, or renamed.
 //!
 //! Writes performed by Moldavite itself are short-circuited via a recent-write
 //! ignore list so the UI doesn't double-refresh after its own saves.
@@ -18,7 +19,7 @@ use notify_debouncer_mini::new_debouncer;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-use crate::paths::get_notes_dir;
+use crate::paths::{get_forges_root, get_notes_dir};
 
 /// How long after a self-write to ignore an event for that path.
 const SELF_WRITE_IGNORE_MS: u64 = 500;
@@ -85,6 +86,16 @@ fn rel_path(root: &Path, abs: &Path) -> Option<String> {
     })
 }
 
+fn direct_forge_name(forges_root: &Path, abs: &Path) -> Option<String> {
+    let rel = abs.strip_prefix(forges_root).ok()?;
+    let mut components = rel.components();
+    let name = components.next()?.as_os_str().to_string_lossy();
+    if components.next().is_some() || name.is_empty() || name.starts_with('.') {
+        return None;
+    }
+    Some(name.into_owned())
+}
+
 /// Whether a path is something Moldavite cares about (a note, image, or
 /// template). Filters out hidden files (`.note-metadata.json*`, `.trash/`,
 /// `.DS_Store`) so we don't fire constant noise.
@@ -102,18 +113,14 @@ fn is_relevant(rel: &str) -> bool {
     }
     // Only notes and templates — we leave image events alone since the
     // frontend re-renders images on its own.
-    last.ends_with(".md")
-        || last.ends_with(".md.locked")
-        || last.ends_with(".json")
+    last.ends_with(".md") || last.ends_with(".md.locked") || last.ends_with(".json")
 }
 
-/// Spawn a long-lived background thread that watches the Forge directory and
-/// emits Tauri events. Returns a guard handle whose Drop stops the watcher.
-pub fn spawn(
-    app: AppHandle,
-    recent: Arc<RecentWrites>,
-) -> Result<WatcherHandle, String> {
+/// Spawn a long-lived background thread that watches active-Forge contents and
+/// direct children of the Forges root. Returns a guard whose Drop stops it.
+pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle, String> {
     let root = get_notes_dir();
+    let forges_root = get_forges_root();
     if !root.exists() {
         // Nothing to watch yet; the caller can re-spawn after dirs are made.
         log::info!("[forge watcher] root {:?} does not exist yet", root);
@@ -121,6 +128,7 @@ pub fn spawn(
 
     let app_for_thread = app.clone();
     let root_for_thread = root.clone();
+    let forges_root_for_thread = forges_root.clone();
     let recent_for_thread = recent.clone();
 
     let (tx, rx) = std::sync::mpsc::channel();
@@ -132,6 +140,12 @@ pub fn spawn(
             .watcher()
             .watch(&root, RecursiveMode::Recursive)
             .map_err(|e| format!("failed to watch {:?}: {}", root, e))?;
+    }
+    if forges_root.exists() {
+        debouncer
+            .watcher()
+            .watch(&forges_root, RecursiveMode::NonRecursive)
+            .map_err(|e| format!("failed to watch {:?}: {}", forges_root, e))?;
     }
 
     let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
@@ -167,21 +181,25 @@ pub fn spawn(
                 };
                 for event in events {
                     let path = event.path;
-                    if recent_for_thread.is_recent(&path) {
-                        continue;
-                    }
-                    let Some(rel) = rel_path(&root_for_thread, &path) else {
-                        continue;
-                    };
-                    if !is_relevant(&rel) {
-                        continue;
-                    }
-                    let payload = ForgeChange {
-                        kind: "modified".into(),
-                        rel_path: rel,
-                    };
-                    if let Err(e) = app_for_thread.emit("forge:changed", payload) {
-                        log::warn!("[forge watcher] emit failed: {}", e);
+                    if let Some(name) = direct_forge_name(&forges_root_for_thread, &path) {
+                        let payload = ForgeChange {
+                            kind: "modified".into(),
+                            rel_path: name,
+                        };
+                        if let Err(e) = app_for_thread.emit("forges:changed", payload) {
+                            log::warn!("[forge watcher] Forge-list emit failed: {}", e);
+                        }
+                    } else if let Some(rel) = rel_path(&root_for_thread, &path) {
+                        if recent_for_thread.is_recent(&path) || !is_relevant(&rel) {
+                            continue;
+                        }
+                        let payload = ForgeChange {
+                            kind: "modified".into(),
+                            rel_path: rel,
+                        };
+                        if let Err(e) = app_for_thread.emit("forge:changed", payload) {
+                            log::warn!("[forge watcher] emit failed: {}", e);
+                        }
                     }
                 }
             }
@@ -239,6 +257,25 @@ mod tests {
     fn relevant_ignores_unknown_extensions() {
         assert!(!is_relevant("notes/foo.png"));
         assert!(!is_relevant("notes/foo.txt"));
+    }
+
+    #[test]
+    fn forge_root_events_include_direct_siblings_but_not_nested_files() {
+        let root = Path::new("/forges");
+        assert_eq!(
+            direct_forge_name(root, Path::new("/forges/New Forge")),
+            Some("New Forge".to_string())
+        );
+        assert_eq!(
+            direct_forge_name(root, Path::new("/forges/Default")),
+            Some("Default".to_string())
+        );
+        assert_eq!(
+            direct_forge_name(root, Path::new("/forges/Other/notes/private.md")),
+            None
+        );
+        assert_eq!(direct_forge_name(root, Path::new("/forges/.hidden")), None);
+        assert!(is_relevant("notes/legitimate.md"));
     }
 
     #[test]
