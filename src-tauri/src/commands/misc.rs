@@ -16,7 +16,7 @@ use crate::paths::{
     get_daily_dir, get_images_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
 };
 use crate::persist::{read_config, write_config};
-use crate::validation::is_safe_filename;
+use crate::validation::{is_safe_filename, is_safe_note_path};
 use std::sync::Arc;
 use tauri::State;
 use walkdir::WalkDir;
@@ -198,15 +198,15 @@ pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
 /// Resolve a `note_path` (relative, like `daily/foo.md` or `notes/sub/x.md`)
 /// to an absolute path under the notes dir. Refuses traversal attempts.
 fn resolve_note_path(note_path: &str) -> Option<PathBuf> {
-    if note_path.is_empty()
-        || note_path.contains("..")
-        || note_path.contains('\0')
-        || note_path.starts_with('/')
-        || note_path.starts_with('\\')
-    {
+    resolve_note_path_from(&get_notes_dir(), note_path)
+}
+
+fn resolve_note_path_from(root: &Path, note_path: &str) -> Option<PathBuf> {
+    let (category, relative) = note_path.split_once('/')?;
+    if !matches!(category, "daily" | "weekly" | "notes") || !is_safe_note_path(relative) {
         return None;
     }
-    Some(get_notes_dir().join(note_path))
+    Some(root.join(category).join(relative))
 }
 
 /// Get the color ID for a specific note (reads from YAML frontmatter).
@@ -421,4 +421,36 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
 
     // Return the absolute path
     Ok(file_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_note_path_rejects_internal_trees_and_accepts_note_categories() {
+        let root = Path::new("/forge");
+        for malicious in [
+            ".trash/metadata.json",
+            ".plugins/evil/plugin.js",
+            "templates/template.json",
+            "notes/.hidden.md",
+            "notes/Projects/.hidden/note.md",
+        ] {
+            assert!(resolve_note_path_from(root, malicious).is_none());
+        }
+
+        assert_eq!(
+            resolve_note_path_from(root, "daily/2026-07-26.md"),
+            Some(root.join("daily/2026-07-26.md"))
+        );
+        assert_eq!(
+            resolve_note_path_from(root, "weekly/2026-W30.md"),
+            Some(root.join("weekly/2026-W30.md"))
+        );
+        assert_eq!(
+            resolve_note_path_from(root, "notes/Projects/plan.md"),
+            Some(root.join("notes/Projects/plan.md"))
+        );
+    }
 }

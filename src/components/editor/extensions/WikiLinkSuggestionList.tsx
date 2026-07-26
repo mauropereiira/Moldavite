@@ -36,12 +36,19 @@ export const WikiLinkSuggestionList = forwardRef<
     setSelectedIndex((selectedIndex + 1) % props.items.length);
   };
 
+  /** True when Enter actually selected something, so the caller knows whether
+   *  to swallow the key. With no matches the editor must still get its
+   *  newline. */
   const enterHandler = () => {
+    if (!props.items.length) return false;
     selectItem(selectedIndex);
+    return true;
   };
 
   useImperativeHandle(ref, () => ({
     onKeyDown: (event: KeyboardEvent) => {
+      if (!props.items.length) return false;
+
       if (event.key === 'ArrowUp') {
         upHandler();
         return true;
@@ -53,8 +60,7 @@ export const WikiLinkSuggestionList = forwardRef<
       }
 
       if (event.key === 'Enter') {
-        enterHandler();
-        return true;
+        return enterHandler();
       }
 
       return false;

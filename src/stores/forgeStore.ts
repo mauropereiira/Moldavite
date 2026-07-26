@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { rememberActiveForge } from '@/lib/forgeStorage';
+import { flushPendingAutosave } from '@/lib/autosaveFlush';
 
 export interface Forge {
   name: string;
@@ -55,6 +56,9 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
 
   switchTo: async (name) => {
     if (get().active === name) return;
+    // The reload below never runs React cleanup, so a debounced edit would be
+    // destroyed by the switch. Settle it first.
+    await flushPendingAutosave();
     await safeInvoke<string>('set_active_forge', { name });
     // Page reload mirrors the existing `set_notes_directory` flow: it's
     // the simplest way to ensure every store/cache is rehydrated against

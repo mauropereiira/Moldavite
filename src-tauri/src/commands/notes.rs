@@ -19,7 +19,7 @@ use crate::frontmatter;
 use crate::paths::{file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir};
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
-use crate::validation::{is_safe_filename, is_safe_note_path};
+use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
 
 /// Standalone notes may live in folders and are addressed by a notes/-relative
 /// path; daily and weekly notes are always addressed by a bare filename.
@@ -515,21 +515,35 @@ pub(crate) fn create_note(
     folder_path: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    // Prevent path traversal attacks
-    if title.contains("..") {
+    let base_dir = get_standalone_dir();
+    let (filename, relative_path) =
+        create_note_in(&base_dir, &title, folder_path.as_deref())?;
+    index.update_note(&filename, "");
+    Ok(relative_path)
+}
+
+fn create_note_in(
+    base_dir: &Path,
+    title: &str,
+    folder_path: Option<&str>,
+) -> Result<(String, String), String> {
+    if !is_safe_filename(title) {
         return Err("Invalid title".to_string());
     }
-    if let Some(ref folder) = folder_path {
-        if folder.contains("..") {
+    if let Some(folder) = folder_path {
+        if !is_safe_note_path(folder) {
             return Err("Invalid folder path".to_string());
         }
     }
 
-    let base_dir = get_standalone_dir();
-    let dir = match &folder_path {
+    let dir = match folder_path {
         Some(folder) => base_dir.join(folder),
-        None => base_dir,
+        None => base_dir.to_path_buf(),
     };
+    if folder_path.is_some() {
+        validate_path_within_base(&dir, base_dir)
+            .map_err(|_| "Invalid folder path".to_string())?;
+    }
 
     // Ensure the folder exists
     if !dir.exists() {
@@ -537,17 +551,16 @@ pub(crate) fn create_note(
     }
 
     // Generate unique filename if needed
-    let filename = generate_unique_filename(&dir, &title, "md");
+    let filename = generate_unique_filename(&dir, title, "md");
     let path = dir.join(&filename);
+    validate_path_within_base(&path, base_dir).map_err(|_| "Invalid note path".to_string())?;
 
     write_atomic(&path, b"", Some(0o600))?;
 
-    index.update_note(&filename, "");
-
     // Return the full relative path
     match folder_path {
-        Some(folder) => Ok(format!("{}/{}", folder, filename)),
-        None => Ok(filename),
+        Some(folder) => Ok((filename.clone(), format!("{}/{}", folder, filename))),
+        None => Ok((filename.clone(), filename)),
     }
 }
 
@@ -766,36 +779,48 @@ fn rewrite_inbound_links_in_roots(
 
 #[tauri::command]
 pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(), String> {
-    // Delete all files in daily directory
-    let daily_dir = get_daily_dir();
-    if daily_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&daily_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
-                    fs::remove_file(&path).map_err(|e| e.to_string())?;
-                }
-            }
-        }
-    }
-
-    // Delete all files in standalone directory
-    let standalone_dir = get_standalone_dir();
-    if standalone_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&standalone_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
-                    fs::remove_file(&path).map_err(|e| e.to_string())?;
-                }
-            }
-        }
-    }
+    let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+    visit_note_files(&roots, |path| {
+        fs::remove_file(path).map_err(|e| e.to_string())
+    })?;
 
     index.remove_all();
     crate::semantic::all_notes_removed();
 
     Ok(())
+}
+
+fn visit_note_files(
+    roots: &[PathBuf],
+    mut operation: impl FnMut(&Path) -> Result<(), String>,
+) -> Result<u32, String> {
+    let mut count = 0;
+    for root in roots {
+        if !root.exists() {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(root)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|entry| {
+                entry.depth() == 0
+                    || !entry.file_type().is_dir()
+                    || !entry.file_name().to_string_lossy().starts_with('.')
+            })
+        {
+            let entry = entry.map_err(|e| e.to_string())?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy();
+            if !name.ends_with(".md") && !name.ends_with(".md.locked") {
+                continue;
+            }
+            operation(entry.path())?;
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
 /// Move a standalone note within `notes/` and return its new relative address.
@@ -806,18 +831,38 @@ pub(crate) fn move_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
     let standalone_dir = get_standalone_dir();
+    let (old_filename, final_filename, new_relative_path, dest_path) =
+        move_note_in(&standalone_dir, &note_path, to_folder.as_deref())?;
 
-    // Validate paths
-    if note_path.contains("..") {
+    // Keep backlinks index in sync: drop entries from old filename, then
+    // re-index using the (possibly deduplicated) new filename + content.
+    index.remove_note(&old_filename);
+    let content = fs::read_to_string(&dest_path).unwrap_or_default();
+    index.update_note(&final_filename, &content);
+
+    crate::semantic::note_removed(&format!("notes/{}", note_path));
+    crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
+
+    Ok(format!("notes/{}", new_relative_path))
+}
+
+fn move_note_in(
+    standalone_dir: &Path,
+    note_path: &str,
+    to_folder: Option<&str>,
+) -> Result<(String, String, String, PathBuf), String> {
+    if !is_safe_note_path(note_path) {
         return Err("Invalid note path".to_string());
     }
-    if let Some(ref folder) = to_folder {
-        if folder.contains("..") {
+    if let Some(folder) = to_folder {
+        if !is_safe_note_path(folder) {
             return Err("Invalid folder path".to_string());
         }
     }
 
-    let source_path = standalone_dir.join(&note_path);
+    let source_path = standalone_dir.join(note_path);
+    validate_path_within_base(&source_path, standalone_dir)
+        .map_err(|_| "Invalid note path".to_string())?;
 
     if !source_path.exists() {
         return Err("Note not found".to_string());
@@ -831,10 +876,14 @@ pub(crate) fn move_note(
         .to_string();
 
     // Calculate destination path
-    let dest_dir = match &to_folder {
+    let dest_dir = match to_folder {
         Some(folder) => standalone_dir.join(folder),
-        None => standalone_dir.clone(),
+        None => standalone_dir.to_path_buf(),
     };
+    if to_folder.is_some() {
+        validate_path_within_base(&dest_dir, standalone_dir)
+            .map_err(|_| "Invalid folder path".to_string())?;
+    }
 
     // Ensure destination folder exists
     if !dest_dir.exists() {
@@ -845,27 +894,19 @@ pub(crate) fn move_note(
     let base_name = filename.trim_end_matches(".md");
     let final_filename = generate_unique_filename(&dest_dir, base_name, "md");
     let dest_path = dest_dir.join(&final_filename);
+    validate_path_within_base(&dest_path, standalone_dir)
+        .map_err(|_| "Invalid note path".to_string())?;
 
     // Move the file
     fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
 
-    // Keep backlinks index in sync: drop entries from old filename, then
-    // re-index using the (possibly deduplicated) new filename + content.
-    let old_filename = filename.clone();
-    index.remove_note(&old_filename);
-    let content = fs::read_to_string(&dest_path).unwrap_or_default();
-    index.update_note(&final_filename, &content);
-
     // Return new relative path
-    let new_relative_path = match &to_folder {
+    let new_relative_path = match to_folder {
         Some(folder) => format!("{}/{}", folder, final_filename),
-        None => final_filename,
+        None => final_filename.clone(),
     };
 
-    crate::semantic::note_removed(&format!("notes/{}", note_path));
-    crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
-
-    Ok(format!("notes/{}", new_relative_path))
+    Ok((filename, final_filename, new_relative_path, dest_path))
 }
 
 // Fix permissions on existing note files
@@ -876,23 +917,11 @@ pub(crate) fn fix_note_permissions() -> Result<u32, String> {
         use std::os::unix::fs::PermissionsExt;
         let mut fixed_count = 0u32;
 
-        for dir in [get_daily_dir(), get_standalone_dir()] {
-            if !dir.exists() {
-                continue;
-            }
-
-            if let Ok(entries) = fs::read_dir(&dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.extension().is_some_and(|ext| ext == "md") {
-                        let permissions = fs::Permissions::from_mode(0o600);
-                        if fs::set_permissions(&path, permissions).is_ok() {
-                            fixed_count += 1;
-                        }
-                    }
-                }
-            }
-        }
+        let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+        fixed_count += visit_note_files(&roots, |path| {
+            let permissions = fs::Permissions::from_mode(0o600);
+            fs::set_permissions(path, permissions).map_err(|e| e.to_string())
+        })?;
 
         Ok(fixed_count)
     }
@@ -1206,6 +1235,128 @@ mod tests {
         assert!(is_week_stem("2024-W52"));
         assert!(!is_week_stem("2024-W52 (conflict 2026-07-12 1015)"));
         assert!(!is_week_stem("2024-52"));
+    }
+
+    #[test]
+    fn create_note_rejects_absolute_inputs_and_accepts_valid_nested_folder() {
+        let tmp = TempDir::new("create-validation");
+        let notes = tmp.path().join("notes");
+        let projects = notes.join("Projects/Active");
+        fs::create_dir_all(&projects).unwrap();
+
+        assert!(create_note_in(&notes, "/tmp/escaped", None).is_err());
+        assert!(
+            create_note_in(&notes, "Safe title", Some(tmp.path().to_str().unwrap())).is_err()
+        );
+        assert!(!tmp.path().join("escaped.md").exists());
+
+        let (filename, relative) =
+            create_note_in(&notes, "Project plan", Some("Projects/Active")).unwrap();
+        assert_eq!(filename, "Project plan.md");
+        assert_eq!(relative, "Projects/Active/Project plan.md");
+        assert!(projects.join("Project plan.md").is_file());
+    }
+
+    #[test]
+    fn move_note_rejects_absolute_source_and_destination_and_accepts_nested_paths() {
+        let tmp = TempDir::new("move-validation");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+        fs::create_dir_all(notes.join("Archive")).unwrap();
+        fs::write(notes.join("Projects/note.md"), "body").unwrap();
+        let outside = tmp.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.md"), "keep").unwrap();
+
+        assert!(move_note_in(&notes, outside.join("keep.md").to_str().unwrap(), None).is_err());
+        assert!(
+            move_note_in(&notes, "Projects/note.md", Some(outside.to_str().unwrap())).is_err()
+        );
+        assert!(outside.join("keep.md").exists());
+        assert!(notes.join("Projects/note.md").exists());
+
+        let (_, final_filename, relative, destination) =
+            move_note_in(&notes, "Projects/note.md", Some("Archive")).unwrap();
+        assert_eq!(final_filename, "note.md");
+        assert_eq!(relative, "Archive/note.md");
+        assert_eq!(fs::read_to_string(destination).unwrap(), "body");
+    }
+
+    #[test]
+    fn clear_all_notes_recursively_removes_weekly_nested_and_locked_files() {
+        let tmp = TempDir::new("clear-recursive");
+        let daily = tmp.path().join("daily");
+        let weekly = tmp.path().join("weekly");
+        let notes = tmp.path().join("notes");
+        for dir in [
+            daily.join("Nested"),
+            weekly.join("Nested"),
+            notes.join("Projects/Deep"),
+            notes.join(".hidden"),
+        ] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        for path in [
+            daily.join("today.md"),
+            daily.join("Nested/today.md.locked"),
+            weekly.join("week.md"),
+            weekly.join("Nested/week.md.locked"),
+            notes.join("Projects/Deep/note.md"),
+            notes.join("Projects/Deep/secret.md.locked"),
+        ] {
+            fs::write(path, "note").unwrap();
+        }
+        fs::write(notes.join("Projects/Deep/keep.txt"), "keep").unwrap();
+        fs::write(notes.join(".hidden/keep.md"), "hidden").unwrap();
+
+        let removed = visit_note_files(&[daily, weekly, notes.clone()], |path| {
+            fs::remove_file(path).map_err(|e| e.to_string())
+        })
+        .unwrap();
+        assert_eq!(removed, 6);
+        assert!(notes.join("Projects/Deep/keep.txt").exists());
+        assert!(notes.join(".hidden/keep.md").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fix_note_permissions_recursively_secures_weekly_nested_and_locked_files() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = TempDir::new("permissions-recursive");
+        let daily = tmp.path().join("daily");
+        let weekly = tmp.path().join("weekly/Nested");
+        let notes = tmp.path().join("notes/Projects");
+        for dir in [&daily, &weekly, &notes] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        let files = [
+            daily.join("today.md"),
+            weekly.join("week.md"),
+            weekly.join("secret.md.locked"),
+            notes.join("note.md"),
+        ];
+        for path in &files {
+            fs::write(path, "note").unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+
+        let fixed = visit_note_files(
+            &[
+                tmp.path().join("daily"),
+                tmp.path().join("weekly"),
+                tmp.path().join("notes"),
+            ],
+            |path| {
+                fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+                    .map_err(|e| e.to_string())
+            },
+        )
+        .unwrap();
+        assert_eq!(fixed, files.len() as u32);
+        for path in files {
+            assert_eq!(fs::metadata(path).unwrap().permissions().mode() & 0o777, 0o600);
+        }
     }
 
     #[test]

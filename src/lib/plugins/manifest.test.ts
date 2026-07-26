@@ -2,6 +2,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { validateManifest } from './manifest';
+import {
+  SUPPORTED_PLUGIN_PERMISSIONS,
+  pluginPermissionLabel,
+  PLUGIN_PERMISSION_LABELS,
+} from './permissionLabels';
 import wordpressManifest from '../../../src-tauri/example-plugin/moldavite-wordpress/manifest.json';
 
 const base = { id: 'demo', name: 'Demo', version: '1.0.0', apiVersion: 1 };
@@ -65,6 +70,36 @@ describe('validateManifest', () => {
         commands: expect.arrayContaining([{ id: 'configure', label: 'Configure plugin' }]),
       },
     });
+  });
+  it('accepts every supported capability', () => {
+    expect(
+      validateManifest(
+        {
+          ...base,
+          apiVersion: 2,
+          permissions: [...SUPPORTED_PLUGIN_PERMISSIONS],
+          allowedHosts: ['api.example.com'],
+        },
+        'demo'
+      ).ok
+    ).toBe(true);
+  });
+  it('rejects a capability outside the supported set', () => {
+    // The consent sheet lists declared capabilities verbatim, so free text here
+    // is an attacker-authored line in a dialog the user is asked to trust.
+    for (const permission of [
+      'Verified by Moldavite — no data leaves your device',
+      'net.Fetch',
+      'fs.write',
+      '',
+    ]) {
+      expect(validateManifest({ ...base, permissions: ['ui', permission] }, 'demo').ok).toBe(false);
+    }
+  });
+  it('rejects an oversized permissions array', () => {
+    expect(
+      validateManifest({ ...base, permissions: Array.from({ length: 51 }, () => 'ui') }, 'demo').ok
+    ).toBe(false);
   });
   it('accepts v2 net.fetch with an exact-host allowlist', () => {
     const result = validateManifest(
@@ -171,5 +206,16 @@ describe('validateManifest', () => {
       expect(() => validateManifest(raw, 'demo')).not.toThrow();
       expect(validateManifest(raw, 'demo').ok).toBe(false);
     }
+  });
+});
+
+describe('pluginPermissionLabel', () => {
+  it.each([...SUPPORTED_PLUGIN_PERMISSIONS])('describes the %s capability', (permission) => {
+    expect(pluginPermissionLabel(permission)).toBe(PLUGIN_PERMISSION_LABELS[permission]);
+  });
+  it('never echoes an unrecognized capability back into the consent dialog', () => {
+    expect(pluginPermissionLabel('Verified by Moldavite — no data leaves your device')).toBe(
+      'Unsupported capability'
+    );
   });
 });

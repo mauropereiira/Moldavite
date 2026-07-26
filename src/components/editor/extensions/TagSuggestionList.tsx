@@ -44,6 +44,11 @@ export const TagSuggestionList = forwardRef<TagSuggestionListRef, TagSuggestionL
 
     useImperativeHandle(ref, () => ({
       onKeyDown: (event: KeyboardEvent) => {
+        // With no matches there is nothing to navigate or choose, so let every
+        // key through — otherwise Enter is swallowed and the user cannot start
+        // a new line while the empty popup is showing.
+        if (!props.items.length) return false;
+
         if (event.key === 'ArrowUp') {
           upHandler();
           return true;

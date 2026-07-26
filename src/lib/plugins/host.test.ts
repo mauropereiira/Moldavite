@@ -51,20 +51,26 @@ const plugin = {
   contentHash: 'hash',
 };
 
-async function loadCommand() {
+type LoadedWorker = InstanceType<typeof workerHarness.MockWorker>;
+
+async function loadWorker(): Promise<LoadedWorker> {
   await loadEnabledPlugins();
   const worker = workerHarness.MockWorker.instances[workerHarness.MockWorker.instances.length - 1];
   if (!worker) throw new Error('plugin worker was not created');
-  worker.emit(
-    'message',
-    new MessageEvent('message', {
-      data: { kind: 'commandRegistered', localId: 'run', label: 'Run' },
-    })
-  );
   return worker;
 }
 
-describe('plugin worker invocation lifecycle', () => {
+function postFromWorker(worker: LoadedWorker, data: unknown) {
+  worker.emit('message', new MessageEvent('message', { data }));
+}
+
+async function loadCommand() {
+  const worker = await loadWorker();
+  postFromWorker(worker, { kind: 'commandRegistered', localId: 'run', label: 'Run' });
+  return worker;
+}
+
+function useGrantedPluginHarness() {
   beforeEach(() => {
     vi.useFakeTimers();
     workerHarness.MockWorker.instances.length = 0;
@@ -83,6 +89,10 @@ describe('plugin worker invocation lifecycle', () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
+}
+
+describe('plugin worker invocation lifecycle', () => {
+  useGrantedPluginHarness();
 
   it('rejects a pending invocation and removes commands when the worker crashes', async () => {
     const worker = await loadCommand();
@@ -114,5 +124,54 @@ describe('plugin worker invocation lifecycle', () => {
       })
     );
     await expect(second).resolves.toBeUndefined();
+  });
+});
+
+describe('untrusted commandRegistered messages', () => {
+  useGrantedPluginHarness();
+
+  it('accepts a well-formed registration', async () => {
+    const worker = await loadWorker();
+    postFromWorker(worker, { kind: 'commandRegistered', localId: 'run', label: 'Run' });
+    expect(usePluginCommandStore.getState().commands).toMatchObject([
+      { pluginId: 'crashy', id: 'crashy:run', label: 'Run' },
+    ]);
+  });
+
+  it.each([
+    ['a non-string label', { localId: 'run', label: 42 }],
+    ['a non-string id', { localId: 42, label: 'Run' }],
+    ['an object id that would stringify', { localId: { value: 'run' }, label: 'Run' }],
+    ['a missing label', { localId: 'run' }],
+    ['an empty id', { localId: '', label: 'Run' }],
+    ['an empty label', { localId: 'run', label: '' }],
+    ['an oversized id', { localId: 'a'.repeat(129), label: 'Run' }],
+    ['an oversized label', { localId: 'run', label: 'a'.repeat(201) }],
+  ])('drops a registration with %s', async (_name, payload) => {
+    const worker = await loadWorker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    postFromWorker(worker, { kind: 'commandRegistered', ...payload });
+    expect(usePluginCommandStore.getState().commands).toEqual([]);
+    expect(consoleError).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
+  it('caps how many commands one worker can register and warns only once', async () => {
+    const worker = await loadWorker();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (let i = 0; i < 200; i += 1) {
+      postFromWorker(worker, { kind: 'commandRegistered', localId: `cmd-${i}`, label: `Cmd ${i}` });
+    }
+    expect(usePluginCommandStore.getState().commands).toHaveLength(50);
+    expect(consoleError).toHaveBeenCalledOnce();
+
+    // Re-registering an already-known id replaces its handler rather than
+    // counting against the cap, matching the documented commands.add behaviour.
+    postFromWorker(worker, { kind: 'commandRegistered', localId: 'cmd-0', label: 'Renamed' });
+    expect(usePluginCommandStore.getState().commands).toHaveLength(50);
+    expect(
+      usePluginCommandStore.getState().commands.find((c) => c.id === 'crashy:cmd-0')?.label
+    ).toBe('Renamed');
+    consoleError.mockRestore();
   });
 });
