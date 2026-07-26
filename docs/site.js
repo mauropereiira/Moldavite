@@ -1,104 +1,49 @@
-/* Shared progressive enhancement for the self-contained GitHub Pages site. */
 (function () {
   'use strict';
 
-  var motion = window.matchMedia('(prefers-reduced-motion: no-preference)');
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function prefersReducedMotion() {
+    return reduceMotion.matches;
+  }
+
+  /* ---------------------------------------------------------------------
+     Navigation
+     --------------------------------------------------------------------- */
 
   function setupNavigation() {
     var toggle = document.querySelector('.nav-toggle');
-    var nav = document.getElementById('nav');
+    var nav = document.querySelector('.nav-links');
     if (!toggle || !nav) return;
+
     toggle.addEventListener('click', function () {
-      var open = nav.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', String(open));
+      var open = nav.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    nav.addEventListener('click', function (event) {
+      if (event.target.tagName === 'A') {
+        nav.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
     });
   }
 
-  function splitWords(element) {
-    var label = (element.textContent || '').replace(/\s+/g, ' ').trim();
-    var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    var textNodes = [];
-    var current = walker.nextNode();
-    var wordIndex = 0;
-
-    while (current) {
-      textNodes.push(current);
-      current = walker.nextNode();
-    }
-
-    textNodes.forEach(function (node) {
-      if (!node.nodeValue || !/\S/.test(node.nodeValue)) return;
-      var fragment = document.createDocumentFragment();
-      node.nodeValue.split(/(\s+)/).forEach(function (part) {
-        if (!part) return;
-        if (/^\s+$/.test(part)) {
-          fragment.appendChild(document.createTextNode(part));
-          return;
-        }
-        var word = document.createElement('span');
-        word.className = 'blur-word';
-        word.style.setProperty('--word-delay', wordIndex * 100 + 'ms');
-        word.setAttribute('aria-hidden', 'true');
-        word.textContent = part;
-        fragment.appendChild(word);
-        wordIndex += 1;
-      });
-      node.parentNode.replaceChild(fragment, node);
-    });
-
-    if (label) element.setAttribute('aria-label', label);
-    element.classList.add('blur-text-ready');
-  }
-
-  function setupBlurText() {
-    if (!motion.matches) return;
-
-    var heroTitle = document.getElementById('hero-title');
-    if (heroTitle) splitWords(heroTitle);
-
-    var sectionTitles = document.querySelectorAll('.landing-section .section-title');
-    sectionTitles.forEach(function (title) {
-      splitWords(title);
-    });
-
-    if (!('IntersectionObserver' in window)) {
-      sectionTitles.forEach(function (title) {
-        title.classList.add('is-blur-visible');
-      });
-      return;
-    }
-
-    var titleObserver = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add('is-blur-visible');
-          titleObserver.unobserve(entry.target);
-        });
-      },
-      { threshold: 0.1 }
-    );
-    sectionTitles.forEach(function (title) {
-      titleObserver.observe(title);
-    });
-  }
+  /* ---------------------------------------------------------------------
+     Scroll reveals
+     --------------------------------------------------------------------- */
 
   function setupReveals() {
-    if (!motion.matches) return;
-    var sections = document.querySelectorAll(
-      '.landing-section, .docs-body > h2, .docs-body > .callout, .docs-body > .method-list, .plugin-directory'
-    );
-    sections.forEach(function (section) {
-      section.classList.add('section-reveal');
-    });
+    var targets = document.querySelectorAll('.reveal, .reveal-group');
+    if (!targets.length) return;
 
-    var targets = document.querySelectorAll('.reveal, .reveal-group, .section-reveal');
-    if (!('IntersectionObserver' in window)) {
+    if (prefersReducedMotion() || !('IntersectionObserver' in window)) {
       targets.forEach(function (target) {
         target.classList.add('is-visible');
       });
       return;
     }
+
     var observer = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
@@ -107,159 +52,189 @@
           observer.unobserve(entry.target);
         });
       },
-      { rootMargin: '0px 0px -7% 0px', threshold: 0.06 }
+      { rootMargin: '0px 0px -12% 0px', threshold: 0.12 }
     );
+
     targets.forEach(function (target) {
       observer.observe(target);
     });
   }
+
+  /* ---------------------------------------------------------------------
+     Video: only play what is on screen, and never autoplay under
+     reduced-motion — the poster frame carries the meaning instead.
+     --------------------------------------------------------------------- */
+
+  function setupVideos() {
+    var videos = document.querySelectorAll('video[data-autoplay]');
+    if (!videos.length) return;
+
+    if (prefersReducedMotion()) {
+      videos.forEach(function (video) {
+        video.removeAttribute('autoplay');
+        video.pause();
+      });
+      return;
+    }
+
+    if (!('IntersectionObserver' in window)) return;
+
+    var observer = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          var video = entry.target;
+          if (entry.isIntersecting) {
+            var attempt = video.play();
+            if (attempt && attempt.catch) attempt.catch(function () {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+
+    videos.forEach(function (video) {
+      observer.observe(video);
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     Signature: one note, two truths.
+
+     The rich editor and the plain Markdown file are the same note. On first
+     view the panel plays that argument through once by itself, then hands
+     control to the reader.
+     --------------------------------------------------------------------- */
+
+  function setupDuality() {
+    var root = document.querySelector('[data-duality]');
+    if (!root) return;
+
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('.duality-tab'));
+    var panels = Array.prototype.slice.call(root.querySelectorAll('.duality-panel'));
+    var path = root.querySelector('.duality-path');
+    if (!tabs.length || !panels.length) return;
+
+    var timers = [];
+    var autoplayed = false;
+
+    function show(name) {
+      tabs.forEach(function (tab) {
+        tab.setAttribute('aria-selected', tab.dataset.view === name ? 'true' : 'false');
+      });
+      panels.forEach(function (panel) {
+        panel.dataset.active = panel.dataset.view === name ? 'true' : 'false';
+      });
+      var active = tabs.filter(function (tab) {
+        return tab.dataset.view === name;
+      })[0];
+      if (path && active && active.dataset.path) path.textContent = active.dataset.path;
+    }
+
+    function cancelAutoplay() {
+      timers.forEach(clearTimeout);
+      timers = [];
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        cancelAutoplay();
+        show(tab.dataset.view);
+      });
+    });
+
+    root.addEventListener('keydown', function (event) {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      var current = tabs.findIndex(function (tab) {
+        return tab.getAttribute('aria-selected') === 'true';
+      });
+      var next = event.key === 'ArrowRight' ? current + 1 : current - 1;
+      if (next < 0) next = tabs.length - 1;
+      if (next >= tabs.length) next = 0;
+      cancelAutoplay();
+      show(tabs[next].dataset.view);
+      tabs[next].focus();
+      event.preventDefault();
+    });
+
+    show(root.dataset.defaultView || tabs[0].dataset.view);
+
+    // The autoplay sequence only makes sense once both panels have something
+    // to show; opt out until the editor recording is in place.
+    if (root.dataset.autoplay === 'off') return;
+    if (prefersReducedMotion() || !('IntersectionObserver' in window)) return;
+
+    var observer = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting || autoplayed) return;
+          autoplayed = true;
+          observer.disconnect();
+          timers.push(
+            setTimeout(function () {
+              show('source');
+            }, 2200)
+          );
+          timers.push(
+            setTimeout(function () {
+              show('editor');
+            }, 5400)
+          );
+        });
+      },
+      { threshold: 0.45 }
+    );
+
+    observer.observe(root);
+  }
+
+  /* ---------------------------------------------------------------------
+     Copy buttons
+     --------------------------------------------------------------------- */
 
   function setupCopyButtons() {
     document.querySelectorAll('[data-copy-target]').forEach(function (button) {
       button.addEventListener('click', function () {
         var target = document.getElementById(button.getAttribute('data-copy-target'));
         if (!target) return;
-        var selectCommand = function () {
-          var selection = window.getSelection();
-          if (selection) selection.selectAllChildren(target);
-        };
-        var showCopied = function () {
-          var previous = button.textContent;
-          button.textContent = 'Copied';
-          window.setTimeout(function () {
-            button.textContent = previous;
+        var value = target.textContent;
+        var original = button.textContent;
+
+        function done(label) {
+          button.textContent = label;
+          setTimeout(function () {
+            button.textContent = original;
           }, 1600);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard
-            .writeText(target.textContent || '')
-            .then(showCopied)
-            .catch(selectCommand);
-        } else {
-          selectCommand();
         }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value).then(
+            function () {
+              done('Copied');
+            },
+            function () {
+              done('Press ⌘C');
+            }
+          );
+          return;
+        }
+
+        var selection = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(target);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        done('Press ⌘C');
       });
     });
   }
 
-  function setupMineralField() {
-    if (!motion.matches) return;
-    var canvas = document.createElement('canvas');
-    canvas.className = 'mineral-field';
-    canvas.setAttribute('aria-hidden', 'true');
-    document.body.prepend(canvas);
-    var context = canvas.getContext('2d', { alpha: true });
-    if (!context) {
-      canvas.remove();
-      return;
-    }
-
-    var width = 0;
-    var height = 0;
-    var ratio = 1;
-    var shards = [];
-    var frame = 0;
-    var lastDraw = 0;
-
-    function newShard(index) {
-      var points = 4 + (index % 3);
-      var shape = [];
-      for (var point = 0; point < points; point += 1) {
-        var angle = (Math.PI * 2 * point) / points;
-        var radius = 0.58 + ((index * 17 + point * 11) % 34) / 100;
-        shape.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
-      }
-      return {
-        x: Math.random() * width,
-        y: Math.random() * height,
-        size: 7 + Math.random() * 18,
-        vx: -1.5 + Math.random() * 3,
-        vy: 2 + Math.random() * 4,
-        angle: Math.random() * Math.PI,
-        spin: -0.025 + Math.random() * 0.05,
-        alpha: 0.05 + Math.random() * 0.1,
-        shape: shape,
-      };
-    }
-
-    function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      ratio = Math.min(window.devicePixelRatio || 1, 1.5);
-      canvas.width = Math.floor(width * ratio);
-      canvas.height = Math.floor(height * ratio);
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      var count = width < 700 ? 9 : 15;
-      shards = Array.from({ length: count }, function (_, index) {
-        return newShard(index);
-      });
-    }
-
-    function draw(timestamp) {
-      frame = window.requestAnimationFrame(draw);
-      if (timestamp - lastDraw < 42) return;
-      var elapsed = Math.min((timestamp - lastDraw) / 1000 || 0, 0.1);
-      lastDraw = timestamp;
-      context.clearRect(0, 0, width, height);
-      shards.forEach(function (shard) {
-        shard.x += shard.vx * elapsed;
-        shard.y += shard.vy * elapsed;
-        shard.angle += shard.spin * elapsed;
-        if (shard.y - shard.size > height) shard.y = -shard.size;
-        if (shard.x + shard.size < 0) shard.x = width + shard.size;
-        if (shard.x - shard.size > width) shard.x = -shard.size;
-
-        context.save();
-        context.translate(shard.x, shard.y);
-        context.rotate(shard.angle);
-        context.beginPath();
-        shard.shape.forEach(function (point, index) {
-          var x = point[0] * shard.size;
-          var y = point[1] * shard.size;
-          if (index === 0) context.moveTo(x, y);
-          else context.lineTo(x, y);
-        });
-        context.closePath();
-        context.fillStyle = 'rgba(121, 206, 149, ' + shard.alpha + ')';
-        context.strokeStyle = 'rgba(210, 186, 120, ' + shard.alpha * 0.55 + ')';
-        context.lineWidth = 0.7;
-        context.fill();
-        context.stroke();
-        context.restore();
-      });
-    }
-
-    function start() {
-      if (frame || document.hidden || !motion.matches) return;
-      canvas.hidden = false;
-      lastDraw = performance.now();
-      frame = window.requestAnimationFrame(draw);
-    }
-
-    function stop() {
-      if (frame) window.cancelAnimationFrame(frame);
-      frame = 0;
-    }
-
-    resize();
-    start();
-    window.addEventListener('resize', resize, { passive: true });
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) stop();
-      else start();
-    });
-    var handleMotionChange = function () {
-      if (motion.matches) start();
-      else {
-        stop();
-        canvas.hidden = true;
-      }
-    };
-    if (motion.addEventListener) motion.addEventListener('change', handleMotionChange);
-    else motion.addListener(handleMotionChange);
-  }
+  /* ---------------------------------------------------------------------
+     Plugin directory — the registry URL is pinned, every entry is validated
+     before it is rendered, and a failed fetch falls back to the static
+     markup already in the page.
+     --------------------------------------------------------------------- */
 
   function text(parent, tag, className, value) {
     var element = document.createElement(tag);
@@ -407,9 +382,9 @@
   }
 
   setupNavigation();
-  setupBlurText();
   setupReveals();
+  setupVideos();
+  setupDuality();
   setupCopyButtons();
-  setupMineralField();
   loadPluginDirectory();
 })();
