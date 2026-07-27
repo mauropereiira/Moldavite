@@ -6,9 +6,19 @@ app-rendered forms, call explicitly approved HTTPS hosts, store credentials in
 macOS Keychain, and show notifications.
 
 > **Trust model.** Each plugin is an ES module running in its own sandboxed Web
-> Worker with no DOM, Zustand, raw Tauri IPC, or direct network globals
-> (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, and related APIs are
-> removed). Its only app channel is the curated `postMessage` RPC below. The
+> Worker with no DOM, Zustand, and no raw Tauri IPC. The worker scope is reduced
+> to an **allowlist** before your code is evaluated: the ECMAScript built-ins,
+> `console`, timers, `queueMicrotask`, `structuredClone`, `TextEncoder`/
+> `TextDecoder`, `atob`/`btoa`, `crypto`, `performance`, `URL`, `URLSearchParams`,
+> `Blob`, and the `postMessage` channel. Everything else is unavailable — that
+> includes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts`,
+> nested `Worker`/`SharedWorker`, `caches`, `indexedDB`, `WebAssembly`,
+> `AbortController`, `Request`/`Response`/`Headers`, and `navigator` beyond a
+> frozen snapshot of `userAgent`, `language`, `languages`, and
+> `hardwareConcurrency`. An allowlist means capabilities added by future browser
+> versions are denied by default rather than silently appearing in the sandbox.
+> Reach the network through `net.fetch` instead. Its only app channel is the
+> curated `postMessage` RPC below. The
 > worker proxy rejects undeclared calls early, and Moldavite independently
 > enforces permissions and arguments on the host side. The host check is the
 > security boundary.
@@ -86,19 +96,19 @@ self-contained ES module because Moldavite loads only this one entry file.
 }
 ```
 
-| Field | Required | Meaning |
-| --- | ---: | --- |
-| `id` | yes | Must match the folder name. Lowercase ASCII letters, digits, and hyphens; begins with a letter or digit; maximum 64 characters. |
-| `name` | yes | User-facing name shown in Settings and trusted prompt chrome. |
-| `version` | yes | User-facing plugin version. Consent is content-hash-pinned even without a version change. |
-| `apiVersion` | yes | Use `2` for this API. Versions 1 and 2 are supported. |
-| `author` | no | Display metadata. |
-| `description` | no | Display metadata. Explain what the plugin does and where data may go. |
-| `minAppVersion` | no | Informational metadata in v1.6; it is not currently semver-enforced. Do not use it as a runtime guard. |
-| `permissions` | no | Supported capability strings from the permission table below. Commands are always available. |
-| `allowedHosts` | with `net.fetch` | Non-empty, unique array of exact lowercase public DNS hostnames. No scheme, port, path, IP, single-label name, localhost label, or wildcard. |
-| `commands` | no | Up to 50 `{ "id", "label" }` entries shown before the plugin is enabled. Each id must match the id registered through `api.commands.add`; ids are limited to 128 characters and labels to 200. Duplicate ids are invalid. |
-| `instructions` | no | Ordered setup/use steps shown in the post-install **About this plugin** dialog. Up to 20 strings, 500 characters each. Inline `**bold**` and `` `code` `` are rendered; other text remains literal. |
+| Field           |         Required | Meaning                                                                                                                                                                                                                   |
+| --------------- | ---------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            |              yes | Must match the folder name. Lowercase ASCII letters, digits, and hyphens; begins with a letter or digit; maximum 64 characters.                                                                                           |
+| `name`          |              yes | User-facing name shown in Settings and trusted prompt chrome.                                                                                                                                                             |
+| `version`       |              yes | User-facing plugin version. Consent is content-hash-pinned even without a version change.                                                                                                                                 |
+| `apiVersion`    |              yes | Use `2` for this API. Versions 1 and 2 are supported.                                                                                                                                                                     |
+| `author`        |               no | Display metadata.                                                                                                                                                                                                         |
+| `description`   |               no | Display metadata. Explain what the plugin does and where data may go.                                                                                                                                                     |
+| `minAppVersion` |               no | Informational metadata in v1.6; it is not currently semver-enforced. Do not use it as a runtime guard.                                                                                                                    |
+| `permissions`   |               no | Supported capability strings from the permission table below. Commands are always available.                                                                                                                              |
+| `allowedHosts`  | with `net.fetch` | Non-empty, unique array of exact lowercase public DNS hostnames. No scheme, port, path, IP, single-label name, localhost label, or wildcard.                                                                              |
+| `commands`      |               no | Up to 50 `{ "id", "label" }` entries shown before the plugin is enabled. Each id must match the id registered through `api.commands.add`; ids are limited to 128 characters and labels to 200. Duplicate ids are invalid. |
+| `instructions`  |               no | Ordered setup/use steps shown in the post-install **About this plugin** dialog. Up to 20 strings, 500 characters each. Inline `**bold**` and `` `code` `` are rendered; other text remains literal.                       |
 
 Unknown top-level manifest fields and incorrectly typed values invalidate the
 manifest. Use only the supported permission strings documented below.
@@ -152,11 +162,7 @@ interface PluginAPI {
 
   // Always available.
   commands: {
-    add(command: {
-      id: string;
-      label: string;
-      handler: () => void | Promise<void>;
-    }): void;
+    add(command: { id: string; label: string; handler: () => void | Promise<void> }): void;
   };
 
   // Requires "editor". Content is live editor HTML.
@@ -171,10 +177,7 @@ interface PluginAPI {
 
   ui: {
     // Requires "ui".
-    toast(
-      message: string,
-      kind?: 'info' | 'success' | 'error'
-    ): Promise<void>;
+    toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void>;
 
     // API v2, always available and user-mediated.
     prompt(options: {
@@ -332,17 +335,17 @@ plugin-supplied content.
 
 Prompt validation:
 
-| Value | Limit/rule |
-| --- | --- |
-| `title` | Non-empty, up to 200 characters |
-| `message` | Optional, up to 2,000 characters |
-| `fields` | 1–12 fields |
-| field `name` | Unique identifier beginning with a letter; letters, digits, `_`, and `-`; up to 64 characters |
-| field `label` | Non-empty, up to 160 characters |
-| field `type` | `text`, `password`, or `url` |
-| field `placeholder` | Optional, up to 300 characters |
-| field `required` | Optional boolean |
-| `confirmLabel` | Optional non-empty string up to 80 characters |
+| Value               | Limit/rule                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `title`             | Non-empty, up to 200 characters                                                               |
+| `message`           | Optional, up to 2,000 characters                                                              |
+| `fields`            | 1–12 fields                                                                                   |
+| field `name`        | Unique identifier beginning with a letter; letters, digits, `_`, and `-`; up to 64 characters |
+| field `label`       | Non-empty, up to 160 characters                                                               |
+| field `type`        | `text`, `password`, or `url`                                                                  |
+| field `placeholder` | Optional, up to 300 characters                                                                |
+| field `required`    | Optional boolean                                                                              |
+| `confirmLabel`      | Optional non-empty string up to 80 characters                                                 |
 
 ### Notes
 
@@ -472,14 +475,14 @@ settings, plugin, ZIP, or encrypted-backup exports.
 
 ## Permissions and consent
 
-| Permission | Grants |
-| --- | --- |
-| none | `app`, `commands.add`, and API v2 `ui.prompt` |
-| `editor` | Read active-note path/title/HTML and insert text at the cursor |
-| `ui` | Show toast notifications |
-| `notes.read` | List note metadata and read unlocked Markdown bodies |
-| `net.fetch` | Request runtime hosts and ask Moldavite to call exact approved HTTPS hosts |
-| `secrets` | Read, write, and delete this plugin's namespaced Keychain entries |
+| Permission   | Grants                                                                     |
+| ------------ | -------------------------------------------------------------------------- |
+| none         | `app`, `commands.add`, and API v2 `ui.prompt`                              |
+| `editor`     | Read active-note path/title/HTML and insert text at the cursor             |
+| `ui`         | Show toast notifications                                                   |
+| `notes.read` | List note metadata and read unlocked Markdown bodies                       |
+| `net.fetch`  | Request runtime hosts and ask Moldavite to call exact approved HTTPS hosts |
+| `secrets`    | Read, write, and delete this plugin's namespaced Keychain entries          |
 
 Consent covers the raw manifest bytes, a separator, and the `plugin.js` bytes.
 Adding, removing, or editing a permission or `allowedHosts` entry therefore

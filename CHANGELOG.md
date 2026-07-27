@@ -2,22 +2,61 @@
 
 All notable changes to Moldavite are documented here.
 
+## [1.7.2] - 2026-07-27
+
+### Fixed
+
+- **Wiki-link autocomplete works again.** Typing `[[` now lists your notes and filters as you type. It had never worked: the suggestion was matching on a single `[`, so the search text always kept the second bracket and could never match a note name.
+- **Edits are no longer lost when you leave a note.** Switching tabs, closing a tab, or switching Forge cancelled a save that hadn't happened yet, and reopening the note showed the older copy from disk. Whatever is still unsaved is now written out before you move.
+- **Deleting the open note closes its tab.** The tab used to stay behind holding the deleted note, and typing in it wrote the file back to disk while a copy sat in the trash. Bulk delete now closes every affected tab, not just the active one.
+- **Opening a note no longer rewrites it.** Simply opening a note triggered a save that re-wrote the file with only what the editor can represent, quietly flattening things like Markdown tables — with no edit from you.
+- **A note that starts with an image is no longer mangled.** Such notes were mistaken for old-format HTML, so every heading and list below the image turned into plain text and the next save made it permanent.
+- **Locking a note inside a folder locks that note.** Lock, unlock, and permanent unlock addressed notes by filename only, so a note in a folder resolved to the vault root — which could encrypt a different note of the same name.
+- **Renaming a tag and bulk export now cover notes inside folders.** Both addressed notes by filename alone, so they skipped folder notes or acted on a same-named note at the root.
+- **New Forges appear without restarting.** A Forge created outside the window — by an agent, the Obsidian importer, or anything writing to your Forges folder — stayed invisible until relaunch.
+- **Agents follow the Forge you switch to.** An MCP session pinned the Forge at startup, so after switching in the app, agent writes silently went to the previous vault and still reported success.
+- **Locking a note removes it from backlinks immediately.** A locked note's title and a line from its body stayed visible in the backlinks panel until restart. Permanently unlocking a note now restores its links right away.
+- **"Delete all notes" deletes all of them.** It skipped weekly notes, every note inside a folder, and locked notes, while still emptying the sidebar — so the app looked empty over notes that were still on disk.
+- **The Geist typeface loads.** It pointed at a file path that does not exist, so it had never loaded in a released build.
+- **Plugin settings and pinned tabs stay with their own Forge.** After switching Forge, both were read and written under the previous Forge's name for the rest of the session.
+- **Suggestion popups behave.** A note ending in a tag opened a popup by itself that nothing would dismiss, and an empty popup swallowed Enter so you could not start a new line.
+
+### Security
+
+- **Plugin sandbox actually removes what it claimed to.** The network globals were being deleted in a way that had no effect, leaving `fetch` and friends reachable inside plugin workers regardless of the permissions a plugin declared. Replaced with an allowlist so anything not explicitly needed — including nested workers, caches, and storage — is unavailable by default.
+- **Plugins can only read their own files.** The internal `plugin://` channel let any plugin read every installed plugin's source, and followed symbolic links out of the folder.
+- **Hardened every command that takes a path.** File and folder operations, templates, exports, and note colours accepted paths pointing outside your vault. Exported archives, which contain your notes in the clear, are now written owner-only.
+- **Consent dialogs cannot be dressed up.** A plugin could invent capability lines and have them rendered verbatim among the real ones.
+- **Release pipeline.** Builds now install exactly the reviewed dependency set, and the third-party steps in the signing job are pinned to fixed revisions.
+
+### Removed
+
+- The `geist` package, which pulled Next.js and an image library into the app for two font files. The fonts now ship directly.
+
+### Note
+
+- Pinned tabs were previously shared across Forges; that list is reset once on upgrade.
+
 ## [1.7.1] - 2026-07-16
 
 ### Added
+
 - **Unobtrusive automatic update checks.** Moldavite checks about 15 seconds after launch, every 24 hours while running, and when a stale app window regains focus. Automatic network and mid-release 404 failures retry silently, while a pending version appears as an accent dot on Settings and its About tab with the existing install action; manual checks continue to show explicit errors.
 
 ## [1.7.0] - 2026-07-15
 
 ### Changed
+
 - **Clearer sidebar hierarchy.** Items inside each sidebar section (Notes, Folders, Daily, Tags, Backlinks) are now indented beneath their section header with a subtle tree guide line, so sections read as collapsible groups at a glance.
 
 ### Added
+
 - **One-time Obsidian vault importer.** Settings → Import analyzes a user-selected Obsidian vault, previews notes, attachments, folders, Canvas skips, daily-note settings, and estimated naming collisions, then copies it into a brand-new Forge without modifying the source. Supported daily-note names are normalized to `daily/YYYY-MM-DD.md`; other notes keep a sanitized, collision-safe folder structure. Obsidian alias links are converted to Moldavite's `[[Display|target]]` order, heading and block suffixes are removed from targets, referenced attachments are copied atomically into `images/`, and the progress/summary flow reports skipped hidden, trash, Canvas, symlink, unreferenced, and unresolved items.
 
 ## [1.6.0] - 2026-07-13
 
 ### Added
+
 - **Searchable plugin directory and safe install links.** The website filters live or bundled registry cards by name, description, author, and permissions, reports result counts, and keeps its offline/no-JavaScript fallback. Each card can open `moldavite://plugin/<id>` in Moldavite; strict backend routing accepts only validated plugin ids, cold-start and running-instance delivery both open Settings → Plugins, and the requested registry entry is highlighted with a permission-visible confirmation. Nothing installs silently: file downloads remain pinned and hash-verified, and enablement still requires the existing consent flow.
 - **Community plugin browser.** **Settings → Plugins → Browse community plugins** fetches the public GitHub registry only after an explicit click, shows authors, versions, permissions, exact hosts, and installed/update state, and handles offline or malformed responses without disrupting Settings. Downloads are constructed only under Moldavite's pinned registry repository; Rust validates the plugin id and manifest identity, verifies both registry SHA-256 hashes before touching disk, and reuses the staged atomic installer. Updates require confirmation, changed content requires fresh consent, and successful installs open the existing **About this plugin** setup guide.
 - **Livelier v1.6 website and plugin directory.** All three self-contained GitHub Pages documents gain reduced-motion-safe staggered entrances, title shimmer, section transitions, and a low-density mineral-shard canvas that stops while the tab is hidden. The plugin guide fetches the public registry at view time—the site's only external data request—and keeps a two-plugin static fallback for no-JavaScript or offline visits.
@@ -33,6 +72,7 @@ All notable changes to Moldavite are documented here.
 - **External-edit conflict safety.** If a note changes on disk (iCloud Drive, Dropbox, Syncthing, git, another editor…) while you have unsaved edits in Moldavite, saving no longer silently overwrites the external version: the disk version is preserved as a sibling `<name> (conflict YYYY-MM-DD HHMM).md` note, your edits are then saved, and a warning toast names the conflict copy.
 
 ### Fixed
+
 - **Opening the Timeline no longer traps the editor.** Clicking any sidebar, search, or quick-switcher note now closes the Timeline and reveals the loaded note; the same centralized navigation rule also closes a graph overlay opened before external note navigation.
 - **Bundled plugins install reliably in development and release builds.** Publish to WordPress and the example plugin are explicitly bundled, development installs recover from stale staged resources, and a missing or failed source copy can no longer leave an empty `Invalid — no manifest.json` plugin behind. Uninstalling and reinstalling works normally.
 - **Locking an open note no longer blacks out the app.** Closing the encrypted note now preserves the Zustand store instead of replacing it with `undefined`, and a top-level themed recovery screen offers **Reload** if any future uncaught render error reaches the React root.
@@ -47,6 +87,7 @@ All notable changes to Moldavite are documented here.
 - **Temporarily unlocked notes display their decrypted content immediately.** Decrypted Markdown is converted to editor HTML before opening the note, without requiring a tab switch and return.
 
 ### Changed
+
 - **Linked notes now form visible graph clusters.** The deterministic layout uses short edge springs, efficient local repulsion, per-component gravity, and peripheral orphan rings; it remains bounded, cools to a full stop, and keeps springs active while a dragged note tugs its neighbors.
 - **MCP install path is tucked into a disclosure.** Settings → AI & Agents now reveals the resolved Moldavite binary path, development-build hint, and copy action only when **Path to your Moldavite install** is expanded; client snippets still embed the path automatically.
 - **MCP setup is client-aware and machine-specific.** Settings now explains that the Moldavite binary path is resolved automatically, identifies development paths, and provides copy-ready setup for Claude Code, Claude Desktop, Cursor, or a generic MCP client.
@@ -54,11 +95,13 @@ All notable changes to Moldavite are documented here.
 ## [1.5.1] - 2026-07-12
 
 ### Fixed
+
 - **Editing or creating a template from Settings → Templates works again.** The template editor opened behind the Settings window (only the backdrop darkened); it now stacks above Settings.
 
 ## [1.5.0] - 2026-07-02
 
 ### Fixed
+
 - **Notes inside folders now load and save correctly.** Opening a note in a folder previously showed empty content, and typing created a duplicate at the vault root. All note commands now address standalone notes by their folder-relative path.
 - **Crash-safe saves** — every note, config, template, backup, and lock/unlock write is now atomic (temp file + flush + rename). A crash or full disk mid-save can no longer truncate a note. File permissions (owner-only) are applied before the file becomes visible.
 - **Image-only daily notes are no longer deleted.** The auto-save "empty note" check now counts embedded media as content.
@@ -69,7 +112,8 @@ All notable changes to Moldavite are documented here.
 - Failed note loads/creates now show an error toast instead of silently logging to the console.
 
 ### Changed
-- **Plugins now run in a sandboxed Web Worker** with no DOM, no Zustand stores, no Tauri IPC, and no network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, etc. are removed from the worker's global scope). The curated `PluginAPI` is now a `postMessage` bridge to the main thread, and permissions are enforced *host-side* — a plugin can't reach a method its manifest didn't declare, even by trying to bypass the API object it was handed. Every `editor` and `ui` method is now async; command handlers should `await` them. Existing plugins need to add `await` — see docs/PLUGINS.md.
+
+- **Plugins now run in a sandboxed Web Worker** with no DOM, no Zustand stores, no Tauri IPC, and no network globals (`fetch`, `XMLHttpRequest`, `WebSocket`, etc. are removed from the worker's global scope). The curated `PluginAPI` is now a `postMessage` bridge to the main thread, and permissions are enforced _host-side_ — a plugin can't reach a method its manifest didn't declare, even by trying to bypass the API object it was handed. Every `editor` and `ui` method is now async; command handlers should `await` them. Existing plugins need to add `await` — see docs/PLUGINS.md.
 - **Plugin consent is pinned to the plugin's code.** Enabling a plugin records a SHA-256 hash of its `manifest.json` + `plugin.js`; if the code on disk changes in any way, Moldavite asks for consent again before running it (previously only a version bump re-prompted).
 - **Plugins can no longer reach the raw Tauri IPC bridge** — the `window.__TAURI__` global has been removed (the app itself never needed it).
 - The system opener (`shell:open`) is now restricted to `https://` URLs.
@@ -77,50 +121,60 @@ All notable changes to Moldavite are documented here.
 - Startup scan of daily notes for task-status badges is now capped at 8 concurrent reads, improving cold start on large vaults.
 
 ### Added
+
 - Backend stress-test suite: 1,000-note vault search, concurrent atomic-write contention (torn-file detection), and bulk link rewriting.
 
 ## [1.4.0] - 2026-07-01
 
 ### Added
+
 - **Plugin system (v1)** — third-party plugins can add commands to the command palette and editor slash menu. Plugins live in your Forge under `.plugins/<id>/` (`manifest.json` + `plugin.js`), load over a dedicated `plugin://` scheme (no `eval`), and run behind a per-plugin, per-Forge permission sheet. A curated, permission-enforced `PluginAPI` exposes commands + minimal editor + toasts. Manage them in **Settings → Plugins** (enable/disable, view permissions, uninstall, install the bundled example). Author guide in `docs/PLUGINS.md`. Permissioned-open by design: a granted plugin runs with real access to the Forge — enable only trusted plugins.
 - **"What's New" popup** — after the app updates, a dialog shows the release notes for the new version (sourced from this changelog). Re-openable any time from Settings → About → "What's new in this version". Never shown on a first install.
 - **Release runbook** — `docs/RELEASING.md` documents the full signed/notarized release + self-update process, required secrets, and updater-key rotation.
 - **Version-sync tooling** — `npm run release:version -- X.Y.Z` keeps the version aligned across `package.json`, `tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`.
 
 ### Fixed
+
 - **Settings info tooltips** — the (i) popovers are now rendered through a portal with viewport-aware positioning, so they no longer get clipped off-screen, collapse into a narrow column, or snap the settings panel back to the top of the section when you scroll.
 - **Update UI accent color** — the "Install Update" button, update banner, download progress bar, and selected template cards referenced an undefined CSS variable (`--accent-color`) and rendered without their accent color. They now use the real `--accent-primary` token.
 
 ### Changed
+
 - **Settings modal accessibility** — focus is trapped inside the modal while open (initial focus, Tab cycling, focus restore on close), and the sidebar-width range sliders are now associated with their labels.
 - **Release notes in GitHub Releases** — the release body is now the matching `CHANGELOG.md` section instead of a generic link, matching the in-app "What's New" content.
 
 ## [1.3.1] - 2026-05-02
 
 ### Fixed
+
 - **Pinned tabs survive sidebar navigation** — clicking another note in the sidebar while a pinned tab is active now opens the new note in a fresh tab instead of replacing the pinned one.
 
 ### Added
+
 - **Settings → Plugins tab** — informational surface promoting community-built integrations. Status banner ("design phase"), starter ideas (Zoom / Meet / Web Clipper / custom exports), and CTAs linking to `docs/PLUGINS_DESIGN.md` + the issues tracker. No loader yet — sets expectations and invites contributions.
 
 ## [1.3.0] - 2026-05-02
 
 ### Added
+
 - **Multiple Forges** — sibling vault directories you can switch between (Obsidian-style). New sidebar dropdown above the search bar lists all Forges; "Manage Forges…" lets you create/rename/delete. Each Forge has its own pinned/recent state (localStorage namespaced per-Forge). Existing single-Forge users auto-migrate on first launch — content wraps into a `Default/` Forge in place. New IPC: `list_forges`, `create_forge`, `set_active_forge`, `rename_forge`, `delete_forge`, `set_forges_root`, `get_forges_root_path`. QuickSwitcher gains a "Switch Forge…" action.
 - **Settings tab navigation** — the modal now has a left tab list instead of a long vertical scroll. Up/Down/Home/End keyboard nav, full ARIA tablist semantics.
 - **Plugins design doc** — `docs/PLUGINS_DESIGN.md` records the intended shape for an Obsidian-style plugin system (no implementation yet — design only).
 
 ### Fixed
+
 - **Right sidebar resizing** — calendar grid now shrinks gracefully instead of clipping when the sidebar narrows; timeline + month-switch buttons remain visible at minimum width.
 - **Theme preset / dark base mode mismatch** — picking a light-only preset (Sepia) while in dark mode no longer leaves the editor with a black background and Sepia chrome. The applied preset auto-falls back to default when the picked preset doesn't cover the active base mode; the user's preference stays stored.
 - **Settings → Templates** — section was rendering see-through under non-default presets due to hardcoded Tailwind grays. Now uses theme tokens (`var(--bg-*)`, `var(--text-*)`).
 
 ### Changed
+
 - File watcher restarts cleanly on Forge switch (drops old watcher, spawns a new one rooted at the new active Forge, clears the self-write ignore-list).
 
 ## [1.2.0] - 2026-05-01
 
 ### Added
+
 - **Forge** — Moldavite's note storage is now first-class for external tools.
   - YAML frontmatter on every note (currently `color`; schema is extensible — unknown keys round-trip cleanly).
   - One-shot, idempotent migration moves the legacy `.note-metadata.json` sidecar into per-file frontmatter.
@@ -137,15 +191,18 @@ All notable changes to Moldavite are documented here.
 - **Empty-state polish** — `NoBacklinks`, `EmptyTrash`, `EmptyGraph` variants; consistent empty UI across the sidebar, graph view, and trash popover.
 
 ### Changed
+
 - App-level a11y pass on Graph view, BulkActionBar, SidebarFooter, and Settings sections (dialog roles, focus management, `aria-label`s, `aria-hidden` on decorative icons, `role="switch"` on toggles).
 - Bundle raw budget raised to 460 KB to accommodate v1.2 features (gzip cap unchanged at 120 KB; gzipped size ≈ 111 KB).
 
 ### Removed
+
 - Sidecar `.note-metadata.json` is replaced by frontmatter; the file is renamed to `.note-metadata.json.migrated` after migration so it can be inspected/reverted manually if needed.
 
 ## [1.1.0] - 2026-04-23
 
 ### Added
+
 - **Full-text search** across notes with ranked content matches and snippets
   (new `search_notes_content` Tauri command, powered by `walkdir` + regex).
   Locked notes and trashed notes are excluded from results.
@@ -175,10 +232,12 @@ All notable changes to Moldavite are documented here.
   can be bucketed by actual filesystem mtime in the timeline view.
 
 ### Fixed
+
 - Empty-note template suggestion buttons no longer overlap the Settings / Trash
   popovers (z-index regression).
 
 ### Changed
+
 - Added `walkdir = "2.5"` to the Rust dependency set for recursive content
   search.
 - Added 7 new Rust unit tests covering the content-search command (case
@@ -188,6 +247,7 @@ All notable changes to Moldavite are documented here.
 ## [1.0.3] - 2026-04-22
 
 ### Security
+
 - **Path traversal hardening**: replaced weak `..` string checks with a strict
   `is_safe_filename` validator across every filesystem-touching Tauri command.
 - **Symlink redirect protection**: `validate_path_within_base` now rejects any
@@ -210,13 +270,15 @@ All notable changes to Moldavite are documented here.
   `validate_path_within_base` (including symlink redirect rejection).
 
 ### Changed
+
 - Removed ~1000 lines of dead scaffolding (`src-tauri/src/commands/*`) that was
   never wired into the Tauri handler.
 - Bumped Vite build target to `es2022` / `chrome110` / `safari15` for newer jspdf.
 - Added CI workflow running ESLint + Vite build + `cargo clippy -D warnings`
-  + `cargo test` on every PR.
+  - `cargo test` on every PR.
 
 ### Fixed
+
 - `useAutoLock` no longer violates React's purity rule — the last-activity
   timestamp is initialized inside the mount effect instead of during render.
 - Corrected `mauropereiira/Moldavite` repository URL in `Cargo.toml` and
@@ -225,6 +287,7 @@ All notable changes to Moldavite are documented here.
 ## [1.0.0] - 2025-01-21
 
 ### Changed
+
 - **Rebranded to Moldavite** - Complete visual identity refresh
   - New name: Moldavite (from Notomattic)
   - New color palette inspired by Moldavite crystal
@@ -237,17 +300,20 @@ All notable changes to Moldavite are documented here.
 ## [0.6.0] - 2025-01-20
 
 ### Added
+
 - **PDF Export**: Right-click any note to export as PDF with styled formatting
 - **Tag Management**: Right-click tags in sidebar to rename them across all notes
 - **Template Picker Customization**: Pin up to 6 templates for quick access in "Start with a template"
 - **Sort Options**: Toggle A-Z/Z-A sorting for notes in sidebar
 
 ### Fixed
+
 - Search results now persist after selecting a note (no longer clears search)
 
 ## [0.5.0] - 2025-01-04
 
 ### Added
+
 - **Open Source**: Now available under MIT license
 - **Security Hardening**:
   - HTML sanitization to prevent XSS attacks
@@ -260,6 +326,7 @@ All notable changes to Moldavite are documented here.
 - **Code Documentation**: Added JSDoc comments throughout codebase
 
 ### Changed
+
 - **Codebase Restructure**: Improved module organization for maintainability
   - Backend split into focused command modules
   - Added utility modules for shared functionality
@@ -267,11 +334,13 @@ All notable changes to Moldavite are documented here.
 - **Settings UI**: Cleaned up About section
 
 ### Fixed
+
 - Repository URL typo in Cargo.toml
 
 ## [0.4.0] - 2025-01-04
 
 ### Added
+
 - **Weekly Notes**: Click week numbers in the calendar to create/open weekly notes
   - Week numbers displayed on left side of calendar (ISO week numbering)
   - Weekly notes stored in `weekly/` directory with `YYYY-Www.md` format
@@ -291,6 +360,7 @@ All notable changes to Moldavite are documented here.
 - **Editor Error Boundary**: Prevents app crashes from editor errors
 
 ### Fixed
+
 - Editor Cmd+A crash bug resolved
 - Selection state no longer persists across notes
 - Line spacing preserved when switching notes
@@ -298,12 +368,14 @@ All notable changes to Moldavite are documented here.
 ## [0.3.9] - 2025-12-19
 
 ### Fixed
+
 - Template application now visually updates the editor immediately
 - Added editor to useCallback dependencies for proper reactivity
 
 ## [0.3.2] - 2025-12-13
 
 ### Fixed
+
 - Use Tauri shell plugin to open GitHub releases URL
 - Replace auto-update with manual GitHub releases link (auto-updates were problematic)
 - Show dynamic app version in sidebar
@@ -312,6 +384,7 @@ All notable changes to Moldavite are documented here.
 ## [0.3.1] - 2025-12-11
 
 ### Added
+
 - UI polish with boxy aesthetic and per-note colors
 - Directory change feature - store notes wherever you want
 - Export/import functionality for notes
@@ -320,6 +393,7 @@ All notable changes to Moldavite are documented here.
 - Privacy improvements
 
 ### Fixed
+
 - Template modal fixes
 - Calendar permissions handling
 - Wiki link copy behavior - now copies partial wiki link to trigger autocomplete on paste
@@ -328,17 +402,20 @@ All notable changes to Moldavite are documented here.
 ## [0.1.1] - 2025-12-06
 
 ### Added
+
 - Windows support (experimental)
 - Automated multi-platform builds
 - Apple code signing and notarization for macOS
 
 ### Fixed
+
 - Cross-platform build errors
 - Calendar features now macOS-only for compatibility
 
 ## [0.1.0] - 2025-12-05
 
 ### Added
+
 - Initial release
 - WYSIWYG rich text editor with TipTap
 - Daily notes with automatic creation
