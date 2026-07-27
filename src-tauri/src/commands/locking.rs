@@ -182,6 +182,9 @@ pub(crate) fn unlock_note(
     unlock_note_in(&get_notes_dir(), filename, password, is_daily, is_weekly)
 }
 
+/// `resolver` mirrors `BacklinksIndex::update_note_with`: the default resolver
+/// touches the real Forge on disk, so tests inject their own rather than
+/// depending on a Documents directory existing on the machine.
 fn permanently_unlock_note_in(
     forge_root: &Path,
     filename: String,
@@ -189,6 +192,7 @@ fn permanently_unlock_note_in(
     is_daily: bool,
     is_weekly: bool,
     index: &BacklinksIndex,
+    resolver: Option<&crate::backlinks_index::Resolver>,
 ) -> Result<(), String> {
     if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
@@ -237,7 +241,10 @@ fn permanently_unlock_note_in(
     fs::remove_file(&locked_path).map_err(|e| format!("Failed to remove locked note: {e}"))?;
 
     let body = crate::frontmatter::parse_note(&decrypted).body;
-    index.update_note(index_key(&filename), &body);
+    match resolver {
+        Some(resolve) => index.update_note_with(index_key(&filename), &body, resolve),
+        None => index.update_note(index_key(&filename), &body),
+    }
     Ok(())
 }
 
@@ -258,6 +265,7 @@ pub(crate) fn permanently_unlock_note(
         is_daily,
         is_weekly,
         &index,
+        None,
     )?;
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
@@ -343,6 +351,7 @@ mod tests {
             false,
             false,
             &index,
+            Some(&resolver),
         )
         .unwrap();
         assert_eq!(
