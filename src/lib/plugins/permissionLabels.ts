@@ -8,6 +8,17 @@ export const PLUGIN_PERMISSION_LABELS: Record<string, string> = {
   secrets: 'Store plugin-owned credentials in macOS Keychain',
 };
 
+/** The single source of truth for what a manifest may declare. */
+export const SUPPORTED_PLUGIN_PERMISSIONS: ReadonlySet<string> = new Set(
+  Object.keys(PLUGIN_PERMISSION_LABELS)
+);
+
+/**
+ * Consent dialogs render this next to a checkbox, so an unknown value must never
+ * be echoed back: a plugin could otherwise put reassuring text ("Verified by
+ * Moldavite — no data leaves your device") in the capability list it is asking
+ * the user to approve.
+ */
 export function pluginPermissionLabel(permission: string): string {
-  return PLUGIN_PERMISSION_LABELS[permission] ?? permission;
+  return PLUGIN_PERMISSION_LABELS[permission] ?? 'Unsupported capability';
 }

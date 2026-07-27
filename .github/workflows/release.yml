@@ -90,12 +90,16 @@ jobs:
           node-version: 20
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install frontend dependencies
-        run: npm install
+        # `npm ci` installs exactly what package-lock.json pins. `npm install`
+        # re-resolved every ^ range at release time, so the artifact that gets
+        # signed, notarized and auto-pushed to users was built from a different
+        # dependency tree than CI validated.
+        run: npm ci
 
       # macOS code signing setup. Do NOT replace this with a manual
       # `security create-keychain` script, and do NOT pass APPLE_CERTIFICATE to
@@ -104,7 +108,7 @@ jobs:
       # aarch64 v1.6.0 build at the 6h job timeout).
       - name: Import Apple Certificate
         if: matrix.platform == 'macos-latest'
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -113,7 +117,7 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: security find-identity -v -p codesigning
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS code signing (identity only — cert lives in the keychain

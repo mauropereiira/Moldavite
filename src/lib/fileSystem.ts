@@ -506,28 +506,39 @@ export function parseTaskStatus(html: string): { totalTasks: number; completedTa
   return { totalTasks, completedTasks };
 }
 
+/** A block container opening the body — never `<img>`, which is inline. */
+const LEGACY_HTML_OPENER = /^<(p|h[1-6]|ul|ol|blockquote|pre|div|table)(\s[^>]*)?>/i;
+
+/** The same body has to close a block somewhere, or it isn't an HTML document. */
+const LEGACY_HTML_CLOSER = /<\/(p|h[1-6]|ul|ol|li|blockquote|pre|div|table)>/i;
+
+/** Markdown structure that a legacy HTML body would have expressed as tags. */
+const MARKDOWN_BLOCK_MARKER = /^(?:#{1,6} |[-*+] |\d+\. |> |```|~~~|---\s*$)/m;
+
 /**
- * Detects if content is already HTML format for backwards compatibility.
- * Checks for common HTML tag patterns at the start of content.
+ * Detects if content is a legacy HTML-bodied note (pre-Markdown storage).
+ *
+ * The sniff has to be pessimistic, because a false positive corrupts the note:
+ * the caller skips `markdownToHtml`, so every heading/bold/list renders as
+ * literal text and the next autosave writes that literal text back escaped.
+ * Markdown notes routinely contain raw HTML — the Turndown image rule emits a
+ * bare `<img ...>` tag, so any note whose first block is an image starts with
+ * one — so leading markup alone proves nothing. We require a real block
+ * container to open the body, a block tag to close somewhere, and no Markdown
+ * block markers anywhere. Guessing "Markdown" is the safe way to be wrong:
+ * markdown-it is configured with `html: true`, so genuine HTML still survives
+ * that path.
+ *
  * @param content - The content to check
- * @returns True if content appears to be HTML
+ * @returns True if content appears to be a legacy HTML body
  */
 export function isHtmlContent(content: string): boolean {
   if (!content) return false;
-  // Check if content starts with HTML tags or contains typical HTML patterns
   const trimmed = content.trim();
   return (
-    trimmed.startsWith('<') &&
-    (trimmed.startsWith('<p>') ||
-      trimmed.startsWith('<h1>') ||
-      trimmed.startsWith('<h2>') ||
-      trimmed.startsWith('<h3>') ||
-      trimmed.startsWith('<ul>') ||
-      trimmed.startsWith('<ol>') ||
-      trimmed.startsWith('<blockquote>') ||
-      trimmed.startsWith('<pre>') ||
-      trimmed.startsWith('<div>') ||
-      trimmed.startsWith('<img'))
+    LEGACY_HTML_OPENER.test(trimmed) &&
+    LEGACY_HTML_CLOSER.test(trimmed) &&
+    !MARKDOWN_BLOCK_MARKER.test(trimmed)
   );
 }
 
@@ -836,6 +847,12 @@ export function getNoteTitleFromFilename(filename: string): string {
 /**
  * Converts a note file metadata object into a full Note object.
  * Formats daily note titles as readable dates and weekly notes as "Week X, YYYY".
+ *
+ * The content is sanitized here because this is the one choke point every note
+ * body crosses on its way into the editor: bodies taking the legacy HTML branch
+ * never pass through `markdownToHtml`, which is otherwise the only place
+ * DOMPurify runs. Re-sanitizing already-converted Markdown is idempotent.
+ *
  * @param file - The note file metadata
  * @param content - The note's HTML content
  * @returns Complete Note object with formatted title
@@ -854,7 +871,7 @@ export function filenameToNote(file: NoteFile, content: string): Note {
   return {
     id: file.path,
     title,
-    content,
+    content: content ? DOMPurify.sanitize(content, DOMPURIFY_CONFIG) : content,
     createdAt: new Date(), // Would need file metadata for actual values
     updatedAt: new Date(),
     isDaily: file.isDaily,
@@ -1368,9 +1385,13 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
   let updatedCount = 0;
 
   for (const note of notes) {
+    // Folder-relative address: `note.name` alone resolves to notes/<name>.md,
+    // which either misses the note in a folder or rewrites a different note
+    // that happens to share its basename at the vault root.
+    const backendPath = noteFileBackendPath(note);
     try {
       // Read the note content (returns markdown)
-      const content = await readNote(note.name, note.isDaily, note.isWeekly);
+      const content = await readNote(backendPath, note.isDaily, note.isWeekly);
 
       // Check if this note has the tag
       if (!hasTag(content, oldTag)) {
@@ -1382,11 +1403,11 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
 
       // Only write if content actually changed
       if (updatedContent !== content) {
-        await writeNote(note.name, updatedContent, note.isDaily, note.isWeekly);
+        await writeNote(backendPath, updatedContent, note.isDaily, note.isWeekly);
         updatedCount++;
       }
     } catch (err) {
-      console.error(`[renameTagGlobally] Failed to process note ${note.name}:`, err);
+      console.error(`[renameTagGlobally] Failed to process note ${backendPath}:`, err);
       // Continue with other notes even if one fails
     }
   }

@@ -9,6 +9,7 @@
  */
 
 import { PLUGIN_API_VERSION, SUPPORTED_PLUGIN_API_VERSIONS, type PluginManifest } from './types';
+import { SUPPORTED_PLUGIN_PERMISSIONS } from './permissionLabels';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const MANIFEST_FIELDS = new Set([
@@ -25,7 +26,10 @@ const MANIFEST_FIELDS = new Set([
   'instructions',
 ]);
 
-const MAX_MANIFEST_COMMANDS = 50;
+export const MAX_MANIFEST_COMMANDS = 50;
+export const MAX_COMMAND_ID_LENGTH = 128;
+export const MAX_COMMAND_LABEL_LENGTH = 200;
+const MAX_MANIFEST_PERMISSIONS = 50;
 const MAX_INSTRUCTION_STEPS = 20;
 const MAX_INSTRUCTION_LENGTH = 500;
 
@@ -84,6 +88,22 @@ export function validateManifest(raw: unknown, folderId: string): Result {
     return { ok: false, reason: 'permissions must be an array of strings' };
   }
 
+  // The consent sheet lists these verbatim, so an unbounded or free-text array
+  // is attacker-controlled UI: thousands of filler rows push the real
+  // capabilities out of view, and invented strings read as extra reassurance.
+  if (permissions && permissions.length > MAX_MANIFEST_PERMISSIONS) {
+    return {
+      ok: false,
+      reason: `permissions must contain at most ${MAX_MANIFEST_PERMISSIONS} entries`,
+    };
+  }
+  if (permissions?.some((permission) => !SUPPORTED_PLUGIN_PERMISSIONS.has(permission))) {
+    return {
+      ok: false,
+      reason: `permissions must only contain supported capabilities (${[...SUPPORTED_PLUGIN_PERMISSIONS].join(', ')})`,
+    };
+  }
+
   if (
     m.allowedHosts !== undefined &&
     (!Array.isArray(m.allowedHosts) || allowedHosts?.length !== m.allowedHosts.length)
@@ -135,9 +155,9 @@ export function validateManifest(raw: unknown, folderId: string): Result {
         typeof commandId !== 'string' ||
         typeof label !== 'string' ||
         commandId.length === 0 ||
-        commandId.length > 128 ||
+        commandId.length > MAX_COMMAND_ID_LENGTH ||
         label.length === 0 ||
-        label.length > 200
+        label.length > MAX_COMMAND_LABEL_LENGTH
       ) {
         return { ok: false, reason: 'command ids and labels must be non-empty and bounded' };
       }

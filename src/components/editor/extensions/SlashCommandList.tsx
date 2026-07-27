@@ -212,6 +212,10 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
 
     useImperativeHandle(ref, () => ({
       onKeyDown: (event: KeyboardEvent) => {
+        // Nothing to navigate or choose when the filter matched no commands —
+        // swallowing Enter here would stop the user starting a new line.
+        if (!props.items.length) return false;
+
         if (event.key === 'ArrowUp') {
           upHandler();
           return true;

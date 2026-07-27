@@ -182,7 +182,7 @@ mod tests {
     use std::io::Cursor;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
@@ -408,6 +408,112 @@ mod tests {
         assert_eq!(second["isError"], true);
         assert!(!root.join("notes/second.md").exists());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn active_forge_switch_is_observed_between_tool_calls() {
+        let first = temp_forge("dynamic-first");
+        let second = temp_forge("dynamic-second");
+        let selected = Arc::new(Mutex::new(first.clone()));
+        let selected_for_resolver = selected.clone();
+        let resolver = Arc::new(move || {
+            let root = selected_for_resolver.lock().unwrap().clone();
+            if fs::symlink_metadata(&root)
+                .map(|metadata| metadata.file_type().is_symlink())
+                .unwrap_or(false)
+            {
+                return Err("Refusing to use a symlinked Forge".to_string());
+            }
+            if !root.is_dir() {
+                return Err("Selected Forge does not exist".to_string());
+            }
+            Ok(root)
+        });
+        let context = ToolContext::with_forge_resolver(resolver, true);
+
+        let first_call = context.call(
+            "create_note",
+            &json!({"path":"notes/first.md","content":"first Forge"}),
+        );
+        assert_eq!(first_call["isError"], false);
+        *selected.lock().unwrap() = second.clone();
+        let second_call = context.call(
+            "create_note",
+            &json!({"path":"notes/second.md","content":"second Forge"}),
+        );
+        assert_eq!(second_call["isError"], false);
+        assert!(first.join("notes/first.md").is_file());
+        assert!(!first.join("notes/second.md").exists());
+        assert!(second.join("notes/second.md").is_file());
+
+        *selected.lock().unwrap() = second.join("missing");
+        let missing = context.call("list_notes", &json!({}));
+        assert_eq!(missing["isError"], true);
+        assert!(missing["structuredContent"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("does not exist"));
+
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_tools_reject_symlink_destinations_and_accept_regular_notes() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_forge("write-symlinks");
+        let outside = root.parent().unwrap().join(format!(
+            "moldavite-mcp-outside-{}-{}.md",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::write(&outside, "outside secret").unwrap();
+        symlink(&outside, root.join("daily/2026-07-13.md")).unwrap();
+        symlink(&outside, root.join("notes/linked.md")).unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+
+        let append = context.call(
+            "append_to_daily_note",
+            &json!({"content":"steal","date":"2026-07-13"}),
+        );
+        let create = context.call(
+            "create_note",
+            &json!({"path":"notes/linked.md","content":"replace"}),
+        );
+        assert_eq!(append["isError"], true);
+        assert_eq!(create["isError"], true);
+        assert!(append["structuredContent"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("symlinked note"));
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "outside secret");
+
+        let regular_create = context.call(
+            "create_note",
+            &json!({"path":"notes/regular.md","content":"regular"}),
+        );
+        let regular_append = context.call(
+            "append_to_daily_note",
+            &json!({"content":"daily","date":"2026-07-14"}),
+        );
+        assert_eq!(regular_create["isError"], false);
+        assert_eq!(regular_append["isError"], false);
+        assert_eq!(
+            fs::read_to_string(root.join("notes/regular.md")).unwrap(),
+            "regular"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("daily/2026-07-14.md")).unwrap(),
+            "daily"
+        );
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_file(outside).unwrap();
     }
 
     #[test]

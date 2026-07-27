@@ -76,10 +76,10 @@
       <p>
         Search the directory below, then use <strong>Install in Moldavite</strong> to open the app
         directly on that plugin. Moldavite fetches the registry because you clicked the install
-        link, shows the permissions before installation, and asks Rust to verify both SHA-256
-        hashes before the shared staged installer makes files visible. Install does not enable a
-        plugin: permission consent remains a separate step, and changed files always require a
-        fresh grant. You can also browse from <strong>Settings → Plugins</strong>.
+        link, shows the permissions before installation, and asks Rust to verify both SHA-256 hashes
+        before the shared staged installer makes files visible. Install does not enable a plugin:
+        permission consent remains a separate step, and changed files always require a fresh grant.
+        You can also browse from <strong>Settings → Plugins</strong>.
       </p>
       <div class="directory-search">
         <label for="plugin-directory-search">Search plugins</label>
@@ -183,10 +183,16 @@
 
       <h2 id="trust">Trust boundary</h2>
       <p>
-        Each plugin executes as an ES module in its own Web Worker. The worker has no DOM, Zustand,
-        raw Tauri IPC, or direct network globals: <code>fetch</code>, <code>XMLHttpRequest</code>,
-        <code>WebSocket</code>, <code>EventSource</code>, and related escape hatches are removed.
-        Its only app channel is Moldavite's curated <code>postMessage</code> RPC surface.
+        Each plugin executes as an ES module in its own Web Worker with no DOM, Zustand, and no raw
+        Tauri IPC. Before plugin code is evaluated the worker scope is reduced to an
+        <strong>allowlist</strong> — the language built-ins, <code>console</code>, timers,
+        <code>crypto</code>, text encoding, <code>URL</code>, <code>Blob</code>, and the
+        <code>postMessage</code> channel. Everything else is gone: <code>fetch</code>,
+        <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>EventSource</code>,
+        <code>importScripts</code>, nested workers, <code>caches</code>, <code>indexedDB</code>, and
+        <code>WebAssembly</code> among them. Because it is an allowlist, capabilities shipped by
+        future browser versions are denied by default instead of quietly appearing inside the
+        sandbox. Network access goes through the permissioned <code>net.fetch</code> instead.
       </p>
       <p>
         The worker proxy rejects undeclared calls early for useful errors, but Moldavite repeats
@@ -849,9 +855,7 @@ api.commands.<span class="f">add</span>({
           <span class="label">Using the app?</span>
           <span class="title">Read the user guide →</span>
         </a>
-        <a
-          href="https://github.com/mauropereiira/Moldavite/tree/main/src-tauri/example-plugin"
-        >
+        <a href="https://github.com/mauropereiira/Moldavite/tree/main/src-tauri/example-plugin">
           <span class="label">Read the source</span>
           <span class="title">Open the bundled examples on GitHub →</span>
         </a>

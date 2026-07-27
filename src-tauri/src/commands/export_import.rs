@@ -176,13 +176,26 @@ pub(crate) fn export_notes(destination: String) -> Result<String, String> {
     let notes_dir = get_notes_dir();
     let zip_path = PathBuf::from(&destination);
 
-    export_notes_from(&notes_dir, &zip_path)?;
+    export_notes_to(&notes_dir, &zip_path)?;
     Ok(zip_path.to_string_lossy().to_string())
 }
 
+fn export_notes_to(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
+    validate_user_export_path(zip_path, "zip")?;
+    export_notes_from(notes_dir, zip_path)
+}
+
 fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
-    let file =
-        fs::File::create(zip_path).map_err(|e| format!("Failed to create ZIP file: {}", e))?;
+    let mut open_options = fs::OpenOptions::new();
+    open_options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        open_options.mode(0o600);
+    }
+    let file = open_options
+        .open(zip_path)
+        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
     let mut zip = zip::ZipWriter::new(file);
 
     let options = SimpleFileOptions::default()
@@ -193,8 +206,15 @@ fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
         add_archive_tree(&mut zip, notes_dir, subdir, options)?;
     }
 
-    zip.finish()
+    let file = zip
+        .finish()
         .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("Failed to secure ZIP file: {}", e))?;
+    }
 
     Ok(())
 }
@@ -307,8 +327,17 @@ pub(crate) fn export_encrypted_backup(
     let password = Zeroizing::new(password);
     let notes_dir = get_notes_dir();
     let backup_path = PathBuf::from(&destination);
-    export_encrypted_backup_from(&notes_dir, &backup_path, &password)?;
+    export_encrypted_backup_to(&notes_dir, &backup_path, &password)?;
     Ok(backup_path.to_string_lossy().to_string())
+}
+
+fn export_encrypted_backup_to(
+    notes_dir: &Path,
+    backup_path: &Path,
+    password: &str,
+) -> Result<(), String> {
+    validate_user_export_path(backup_path, "moldavite-backup")?;
+    export_encrypted_backup_from(notes_dir, backup_path, password)
 }
 
 fn export_encrypted_backup_from(
@@ -546,10 +575,79 @@ mod tests {
         }
     }
 
+    struct ExportTempDir(PathBuf);
+
+    impl ExportTempDir {
+        fn new(tag: &str) -> Self {
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("target")
+                .join(format!(
+                    "moldavite-export-{tag}-{}-{}",
+                    std::process::id(),
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_nanos()
+                ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for ExportTempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     fn scaffold(path: &Path) {
         for subdir in ["daily", "weekly", "notes", "templates", "images"] {
             fs::create_dir_all(path.join(subdir)).unwrap();
         }
+    }
+
+    #[test]
+    fn export_notes_rejects_unsafe_destination_and_creates_private_archive() {
+        let tmp = ExportTempDir::new("zip-validation");
+        let source = tmp.0.join("source");
+        scaffold(&source);
+        fs::write(source.join("notes/note.md"), "private note").unwrap();
+
+        assert!(export_notes_to(&source, Path::new("relative.zip")).is_err());
+        assert!(!Path::new("relative.zip").exists());
+
+        let archive = tmp.0.join("vault.zip");
+        export_notes_to(&source, &archive).unwrap();
+        assert!(archive.is_file());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&archive).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+
+    #[test]
+    fn encrypted_backup_rejects_unsafe_destination_and_accepts_valid_backup_path() {
+        let tmp = ExportTempDir::new("encrypted-validation");
+        let source = tmp.0.join("source");
+        scaffold(&source);
+        fs::write(source.join("notes/note.md"), "private note").unwrap();
+
+        assert!(
+            export_encrypted_backup_to(
+                &source,
+                Path::new("relative.moldavite-backup"),
+                "password"
+            )
+            .is_err()
+        );
+
+        let backup = tmp.0.join("vault.moldavite-backup");
+        export_encrypted_backup_to(&source, &backup, "password").unwrap();
+        assert!(backup.is_file());
     }
 
     #[test]

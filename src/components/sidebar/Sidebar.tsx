@@ -71,7 +71,7 @@ export function Sidebar() {
     renameNote,
     refresh: refreshNotes,
   } = useNotes();
-  const { currentNote, setSelectedDate, setCurrentNote } = useNoteStore();
+  const { currentNote, setSelectedDate, removeTabByPath } = useNoteStore();
   const lock = useSidebarLock();
   const {
     setIsSettingsOpen,
@@ -357,9 +357,10 @@ export function Sidebar() {
       }
       await trashNote(relativePath, noteToDelete.isDaily || false);
 
-      if (currentNote && currentNote.id === noteToDelete.path) {
-        setCurrentNote(null);
-      }
+      // Close the tab, don't just null `currentNote` — a surviving tab still
+      // holds the deleted note's body, and editing it autosaves the file back
+      // onto disk while a copy sits in the trash.
+      removeTabByPath(noteToDelete.path);
     } catch (error) {
       console.error('[Sidebar] Trash failed:', error);
     } finally {
@@ -562,10 +563,9 @@ export function Sidebar() {
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
 
-    // Drop the current note from view if it was trashed
-    if (currentNote && selected.some((n) => n.path === currentNote.id)) {
-      setCurrentNote(null);
-    }
+    // Close a tab for every trashed note, not just the active one — any tab
+    // left open still holds the note's body and would write it back on edit.
+    selected.forEach((n) => removeTabByPath(n.path));
 
     if (failed > 0) {
       toast.error(`Failed to trash ${failed} note${failed === 1 ? '' : 's'}`);

@@ -2,8 +2,9 @@
  * Per-plugin module Worker bootstrap and curated API proxy.
  *
  * Untrusted plugin source and host messages meet only inside this Worker. Before
- * source loads, network and cross-context globals are removed; the sole outbound
- * channel is the discriminated RPC protocol over `postMessage`. Plugin code must
+ * source loads, the scope is reduced to an allowlist of pure-computation globals;
+ * the sole outbound channel is the discriminated RPC protocol over
+ * `postMessage`. Plugin code must
  * never receive DOM or Zustand objects, Tauri IPC, host functions, raw filesystem
  * paths, unrestricted network globals, or another plugin's pending call state.
  */
@@ -19,30 +20,200 @@ import type {
   WorkerToHost,
 } from './rpc';
 
-/** Remove ambient capabilities before any untrusted plugin module is evaluated. */
-function hardenGlobalScope(): void {
-  const scope = globalThis as Record<string, unknown>;
-  const toRemove = [
-    'fetch',
-    'XMLHttpRequest',
-    'WebSocket',
-    'EventSource',
-    'importScripts',
-    'Notification',
-    'BroadcastChannel',
-  ];
-  for (const name of toRemove) {
-    try {
-      delete scope[name];
-    } catch {
-      // Non-configurable: shadow with undefined so at least direct access fails.
-      try {
-        Object.defineProperty(scope, name, { value: undefined, configurable: false });
-      } catch {
-        // ignore
-      }
+/**
+ * The only globals untrusted plugin code keeps.
+ *
+ * This is deliberately an allowlist: a denylist silently re-opens the sandbox
+ * every time a browser ships a new API. It already had — `Worker` survived, and
+ * a nested worker starts with a pristine scope, handing any plugin an un-gated
+ * `fetch` (bypassing both the `net.fetch` permission and `allowedHosts`) plus a
+ * way to read every other installed plugin's source over `plugin://`. `caches`,
+ * `indexedDB`, and `navigator.sendBeacon` were reachable for the same reason.
+ *
+ * Anything added here must be pure computation: no network, no storage shared
+ * with the app or with another plugin, and no way to spawn a fresh scope.
+ */
+const ALLOWED_WORKER_GLOBALS = new Set<string>([
+  // ECMAScript intrinsics. Plugin code (and anything it bundles) cannot run
+  // without these, and none of them reach outside the worker.
+  'globalThis',
+  'undefined',
+  'NaN',
+  'Infinity',
+  'eval',
+  'isFinite',
+  'isNaN',
+  'parseFloat',
+  'parseInt',
+  'decodeURI',
+  'decodeURIComponent',
+  'encodeURI',
+  'encodeURIComponent',
+  'escape',
+  'unescape',
+  'constructor',
+  'Object',
+  'Function',
+  'Boolean',
+  'Symbol',
+  'Error',
+  'AggregateError',
+  'EvalError',
+  'RangeError',
+  'ReferenceError',
+  'SyntaxError',
+  'TypeError',
+  'URIError',
+  'Number',
+  'BigInt',
+  'Math',
+  'Date',
+  'String',
+  'RegExp',
+  'Array',
+  'Int8Array',
+  'Uint8Array',
+  'Uint8ClampedArray',
+  'Int16Array',
+  'Uint16Array',
+  'Int32Array',
+  'Uint32Array',
+  'Float16Array',
+  'Float32Array',
+  'Float64Array',
+  'BigInt64Array',
+  'BigUint64Array',
+  'Map',
+  'Set',
+  'WeakMap',
+  'WeakSet',
+  'ArrayBuffer',
+  'DataView',
+  'JSON',
+  'Promise',
+  'Reflect',
+  'Proxy',
+  'Intl',
+  'WeakRef',
+  'FinalizationRegistry',
+  'Iterator',
+  // Worker plumbing this bootstrap still needs after hardening: `Blob`/`URL`
+  // load the plugin module, and self/postMessage/addEventListener are the sole
+  // channel to the host. The `on*` hooks carry no capability of their own.
+  'self',
+  'postMessage',
+  'addEventListener',
+  'removeEventListener',
+  'dispatchEvent',
+  'onmessage',
+  'onmessageerror',
+  'onerror',
+  'onunhandledrejection',
+  'onrejectionhandled',
+  'Blob',
+  'URL',
+  'URLSearchParams',
+  // Data-only helpers the documented plugin API and the bundled plugins use.
+  'console',
+  'setTimeout',
+  'clearTimeout',
+  'setInterval',
+  'clearInterval',
+  'queueMicrotask',
+  'structuredClone',
+  'TextEncoder',
+  'TextDecoder',
+  'atob',
+  'btoa',
+  'crypto',
+  'performance',
+  // Survives only as the frozen snapshot built by `neutraliseNavigator`.
+  'navigator',
+]);
+
+/** Every property name reachable from the scope, prototypes included. */
+function collectScopeNames(scope: object): Set<string> {
+  const names = new Set<string>();
+  for (
+    let obj: object | null = scope;
+    obj && obj !== Object.prototype;
+    obj = Object.getPrototypeOf(obj)
+  ) {
+    for (const name of Object.getOwnPropertyNames(obj)) {
+      names.add(name);
     }
   }
+  return names;
+}
+
+/**
+ * Web platform globals are defined on the scope's prototypes, not on the scope
+ * itself, so deleting the own property is a no-op that leaves `fetch` and
+ * friends fully reachable. Walk the chain, then shadow whatever survives.
+ */
+function removeGlobal(scope: object, name: string): void {
+  for (
+    let obj: object | null = scope;
+    obj && obj !== Object.prototype;
+    obj = Object.getPrototypeOf(obj)
+  ) {
+    if (!Object.prototype.hasOwnProperty.call(obj, name)) continue;
+    try {
+      delete (obj as Record<string, unknown>)[name];
+    } catch {
+      // Non-configurable: the shadow below is the fallback.
+    }
+  }
+  if (!(name in scope)) return;
+  try {
+    Object.defineProperty(scope, name, { value: undefined, writable: false, configurable: false });
+  } catch {
+    // Locked by the platform; nothing further is possible here.
+  }
+}
+
+/**
+ * `navigator.sendBeacon` posts to any URL without touching a gated API, and the
+ * worker navigator also exposes storage, locks, and device entry points. Nothing
+ * in the plugin API needs those, so replace it with an inert frozen snapshot of
+ * the descriptive fields libraries feature-detect on.
+ */
+function neutraliseNavigator(scope: Record<string, unknown>): void {
+  const source = scope.navigator as Record<string, unknown> | undefined;
+  if (!source) return;
+  const languages = Array.isArray(source.languages) ? source.languages : [];
+  const snapshot = Object.freeze({
+    userAgent: typeof source.userAgent === 'string' ? source.userAgent : '',
+    language: typeof source.language === 'string' ? source.language : '',
+    languages: Object.freeze(languages.filter((lang): lang is string => typeof lang === 'string')),
+    hardwareConcurrency:
+      typeof source.hardwareConcurrency === 'number' ? source.hardwareConcurrency : 1,
+  });
+  try {
+    Object.defineProperty(scope, 'navigator', {
+      value: snapshot,
+      writable: false,
+      configurable: false,
+      enumerable: true,
+    });
+  } catch {
+    // The platform refused to let navigator be shadowed: at minimum take away
+    // the one method on it that can reach the network.
+    removeGlobal(source, 'sendBeacon');
+  }
+}
+
+/**
+ * Remove ambient capabilities before any untrusted plugin module is evaluated.
+ * Exported for tests, which run it against a simulated scope rather than the
+ * real one.
+ */
+export function hardenGlobalScope(scope: object = globalThis): void {
+  for (const name of collectScopeNames(scope)) {
+    if (ALLOWED_WORKER_GLOBALS.has(name)) continue;
+    removeGlobal(scope, name);
+  }
+  neutraliseNavigator(scope as Record<string, unknown>);
 }
 
 function send(msg: WorkerToHost): void {

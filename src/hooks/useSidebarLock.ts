@@ -66,24 +66,25 @@ export function useSidebarLock() {
    */
   const submit = async (password: string, notes: NoteFile[]) => {
     if (!noteToLock) return;
+    const backendPath = noteFileBackendPath(noteToLock);
 
     if (mode === 'lock') {
       const current = useNoteStore.getState().currentNote;
       if (current?.id === noteToLock.path) {
         await writeNote(
-          noteFileBackendPath(noteToLock),
+          backendPath,
           htmlToMarkdown(current.content),
           noteToLock.isDaily,
           noteToLock.isWeekly || false
         );
       }
-      await lockNote(noteToLock.name, password, noteToLock.isDaily, noteToLock.isWeekly || false);
+      await lockNote(backendPath, password, noteToLock.isDaily, noteToLock.isWeekly || false);
       toast.success('Note locked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: true } : n)));
       removeTabByPath(noteToLock.path);
     } else if (mode === 'unlock') {
       const content = await unlockNote(
-        noteToLock.name,
+        backendPath,
         password,
         noteToLock.isDaily,
         noteToLock.isWeekly || false
@@ -95,7 +96,7 @@ export function useSidebarLock() {
       toast.success('Note unlocked (view only)');
     } else if (mode === 'permanent-unlock') {
       await permanentlyUnlockNote(
-        noteToLock.name,
+        backendPath,
         password,
         noteToLock.isDaily,
         noteToLock.isWeekly || false

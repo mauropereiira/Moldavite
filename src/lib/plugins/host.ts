@@ -10,7 +10,12 @@
 
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
-import { validateManifest } from './manifest';
+import {
+  MAX_COMMAND_ID_LENGTH,
+  MAX_COMMAND_LABEL_LENGTH,
+  MAX_MANIFEST_COMMANDS,
+  validateManifest,
+} from './manifest';
 import { dispatchPluginCall, setPluginAppVersion, getPluginAppVersion } from './api';
 import type { PluginInfo } from './types';
 import type {
@@ -76,6 +81,10 @@ interface PluginRuntime {
     { resolve: () => void; reject: (e: Error) => void; timeout: ReturnType<typeof setTimeout> }
   >;
   nextInvocationId: number;
+  /** Local ids this worker has already registered, so a flood can be bounded. */
+  registeredCommandIds: Set<string>;
+  /** Keeps a misbehaving worker from filling the console with the same warning. */
+  commandDropWarned: boolean;
 }
 
 const runtimes = new Map<string, PluginRuntime>();
@@ -121,6 +130,21 @@ function invokeCommandInWorker(pluginId: string, commandLocalId: string): Promis
   });
 }
 
+/**
+ * The worker-side check in `commands.add` is a developer aid, not a boundary —
+ * plugin code can call `postMessage` itself. A non-string label throws inside
+ * React when the palette renders it, and an unbounded stream of registrations
+ * grows the store without limit, so apply the manifest's own bounds here.
+ */
+function acceptsCommandRegistration(rt: PluginRuntime, localId: unknown, label: unknown): boolean {
+  if (typeof localId !== 'string' || typeof label !== 'string') return false;
+  if (localId.length === 0 || localId.length > MAX_COMMAND_ID_LENGTH) return false;
+  if (label.length === 0 || label.length > MAX_COMMAND_LABEL_LENGTH) return false;
+  return (
+    rt.registeredCommandIds.has(localId) || rt.registeredCommandIds.size < MAX_MANIFEST_COMMANDS
+  );
+}
+
 /** Route one untrusted worker message without exposing host capabilities directly. */
 async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerToHost>) {
   const rt = runtimes.get(pluginId);
@@ -131,6 +155,16 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
   switch (msg.kind) {
     case 'commandRegistered': {
       const { localId, label } = msg as CommandRegisteredMessage;
+      if (!acceptsCommandRegistration(rt, localId, label)) {
+        if (!rt.commandDropWarned) {
+          rt.commandDropWarned = true;
+          console.error(
+            `[plugin:${pluginId}] ignored a malformed or excessive command registration`
+          );
+        }
+        return;
+      }
+      rt.registeredCommandIds.add(localId);
       usePluginCommandStore.getState().addCommand({
         pluginId,
         id: `${pluginId}:${localId}`,
@@ -213,6 +247,8 @@ async function loadOne(info: PluginInfo): Promise<void> {
     apiVersion: info.manifest.apiVersion,
     pendingInvocations: new Map(),
     nextInvocationId: 1,
+    registeredCommandIds: new Set(),
+    commandDropWarned: false,
   };
   runtimes.set(id, rt);
 

@@ -8,7 +8,7 @@
  * unlocked notes are view-only and must never be written back as plaintext.
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
 import {
   writeNote,
@@ -19,7 +19,8 @@ import {
   notifyConflictCopy,
   LockedNoteWriteError,
 } from '@/lib';
-import type { NoteFile } from '@/types';
+import { registerAutosaveFlush } from '@/lib/autosaveFlush';
+import type { Note, NoteFile } from '@/types';
 
 /**
  * Automatically saves note changes after a configurable delay.
@@ -33,64 +34,38 @@ export function useAutoSave() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastContentRef = useRef<string>('');
   const lastNoteIdRef = useRef<string | null>(null);
+  /**
+   * The note a debounced write is still owed to. Held separately from
+   * `currentNote` so that switching notes can settle the previous one's edit
+   * against the note it actually belongs to.
+   */
+  const pendingRef = useRef<Note | null>(null);
 
-  useEffect(() => {
-    if (!currentNote) {
-      lastNoteIdRef.current = null;
-      lastContentRef.current = '';
-      return;
-    }
-
-    // Temporarily decrypted notes remain encrypted on disk and are view-only.
-    if (getState().unlockedNotes.has(currentNote.id)) {
-      return;
-    }
-
-    // Check if this is a new note being loaded
-    const isNewNote = currentNote.id !== lastNoteIdRef.current;
-
-    if (isNewNote) {
-      // Update refs for the new note - don't save yet
-      lastNoteIdRef.current = currentNote.id;
-      lastContentRef.current = currentNote.content;
-
-      // Clear any pending save from previous note
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      return;
-    }
-
-    // Don't save if content hasn't changed
-    if (currentNote.content === lastContentRef.current) {
-      return;
-    }
-
-    // Clear previous timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Set new timeout for auto-save
-    timeoutRef.current = setTimeout(async () => {
+  /**
+   * Write one note to disk immediately. Takes the note explicitly rather than
+   * closing over `currentNote`, so a flush triggered by a note switch persists
+   * the note being left rather than the one being opened.
+   */
+  const persistNote = useCallback(
+    async (note: Note) => {
       try {
         setIsSaving(true);
 
         // Determine filename based on note type
         let filename: string;
-        if (currentNote.isDaily && currentNote.date) {
-          filename = `${currentNote.date}.md`;
-        } else if (currentNote.isWeekly && currentNote.week) {
-          filename = `${currentNote.week}.md`;
+        if (note.isDaily && note.date) {
+          filename = `${note.date}.md`;
+        } else if (note.isWeekly && note.week) {
+          filename = `${note.week}.md`;
         } else {
           // Address the note by its on-disk path (folder included); the display
           // title can diverge from the filename and must never decide where we save.
-          filename = currentNote.id.startsWith('notes/')
-            ? currentNote.id.slice('notes/'.length)
-            : `${currentNote.title}.md`;
+          filename = note.id.startsWith('notes/')
+            ? note.id.slice('notes/'.length)
+            : `${note.title}.md`;
         }
 
+        const currentNote = note;
         const isEmpty = isContentEmpty(currentNote.content);
         const freshNotes = getState().notes;
 
@@ -182,6 +157,7 @@ export function useAutoSave() {
           notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
         }
 
+        if (pendingRef.current === note) pendingRef.current = null;
         lastContentRef.current = currentNote.content;
       } catch (error) {
         if (error instanceof LockedNoteWriteError) return;
@@ -191,6 +167,65 @@ export function useAutoSave() {
       } finally {
         setIsSaving(false);
       }
+    },
+    [setIsSaving, setNotes, getState]
+  );
+
+  /** Settle any owed write now, cancelling the debounce that would have done it. */
+  const flushPending = useCallback(async () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) await persistNote(pending);
+  }, [persistNote]);
+
+  // Expose the flush so a Forge switch can await it before reloading the window.
+  useEffect(() => registerAutosaveFlush(flushPending), [flushPending]);
+
+  useEffect(() => {
+    if (!currentNote) {
+      // Losing the active note must not drop an edit it was still owed.
+      void flushPending();
+      lastNoteIdRef.current = null;
+      lastContentRef.current = '';
+      return;
+    }
+
+    // Temporarily decrypted notes remain encrypted on disk and are view-only.
+    if (getState().unlockedNotes.has(currentNote.id)) {
+      return;
+    }
+
+    // Check if this is a new note being loaded
+    const isNewNote = currentNote.id !== lastNoteIdRef.current;
+
+    if (isNewNote) {
+      // Switching notes (tab click, Cmd+W, tab shortcuts) used to cancel the
+      // previous note's debounce outright, losing the edit — and re-seeding the
+      // baseline below meant switching back could not recover it either.
+      void flushPending();
+      lastNoteIdRef.current = currentNote.id;
+      lastContentRef.current = currentNote.content;
+      return;
+    }
+
+    // Don't save if content hasn't changed
+    if (currentNote.content === lastContentRef.current) {
+      return;
+    }
+
+    // Clear previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    pendingRef.current = currentNote;
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      void persistNote(currentNote);
     }, autoSaveDelay);
 
     return () => {
@@ -198,5 +233,9 @@ export function useAutoSave() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentNote, setIsSaving, setNotes, getState, autoSaveDelay]);
+  }, [currentNote, getState, autoSaveDelay, persistNote, flushPending]);
+
+  // Unmount (app close, Forge switch reload) must also settle what is owed.
+  // Kept separate from the effect above, whose cleanup runs on every keystroke.
+  useEffect(() => () => void flushPending(), [flushPending]);
 }

@@ -6,15 +6,26 @@
 //! the same daily/weekly/standalone addressing rules as ordinary note commands.
 
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::paths::{
     ensure_templates_dir, get_daily_dir, get_standalone_dir, get_templates_dir, get_weekly_dir,
 };
-use crate::validation::{is_safe_filename, is_safe_note_path};
+use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
 use crate::templates_data::{
     generate_template_id, get_default_templates, replace_template_variables,
 };
 use crate::types::{SaveTemplateInput, Template};
+
+fn validated_template_path(templates_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    if !is_safe_filename(id) || generate_template_id(id) != id {
+        return Err("Invalid template id".to_string());
+    }
+    let path = templates_dir.join(format!("{}.json", id));
+    validate_path_within_base(&path, templates_dir)
+        .map_err(|_| "Invalid template id".to_string())?;
+    Ok(path)
+}
 
 #[tauri::command]
 pub(crate) fn list_templates() -> Result<Vec<Template>, String> {
@@ -49,8 +60,9 @@ pub(crate) fn get_template(id: String) -> Result<Template, String> {
     }
 
     // Check custom templates
+    ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = templates_dir.join(format!("{}.json", id));
+    let template_path = validated_template_path(&templates_dir, &id)?;
 
     if template_path.exists() {
         let content = fs::read_to_string(&template_path).map_err(|e| e.to_string())?;
@@ -103,8 +115,9 @@ pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Te
         return Err("Cannot modify a default template".to_string());
     }
 
+    ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = templates_dir.join(format!("{}.json", id));
+    let template_path = validated_template_path(&templates_dir, &id)?;
 
     if !template_path.exists() {
         return Err(format!("Template '{}' not found", id));
@@ -133,14 +146,50 @@ pub(crate) fn delete_template(id: String) -> Result<(), String> {
         return Err("Cannot delete a default template".to_string());
     }
 
+    ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = templates_dir.join(format!("{}.json", id));
+    let template_path = validated_template_path(&templates_dir, &id)?;
 
     if template_path.exists() {
         fs::remove_file(&template_path).map_err(|e| e.to_string())?;
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn template_crud_path_validation_rejects_traversal_and_accepts_generated_ids() {
+        let templates_dir = std::env::temp_dir().join(format!(
+            "moldavite-templates-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&templates_dir).unwrap();
+
+        for malicious in [
+            "../../../../foo",
+            "/tmp/foo",
+            "",
+            "My Template",
+            "not--a-slug",
+        ] {
+            assert!(validated_template_path(&templates_dir, malicious).is_err());
+        }
+
+        let id = generate_template_id("My Template");
+        let path = validated_template_path(&templates_dir, &id).unwrap();
+        assert_eq!(id, "my-template");
+        assert_eq!(path, templates_dir.join("my-template.json"));
+
+        let _ = fs::remove_dir_all(templates_dir);
+    }
 }
 
 #[tauri::command]

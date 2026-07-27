@@ -2,12 +2,16 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useQuickSwitcherStore, QUICK_SWITCHER_RECENT_SEARCH_LIMIT } from './quickSwitcherStore';
+import { rememberActiveForge } from '@/lib/forgeStorage';
+
+/** Persist rehydration settles in microtasks with synchronous storage. */
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('quickSwitcherStore', () => {
   beforeEach(() => {
     // Reset to a known clean slate. localStorage is jsdom-backed in tests,
-    // so we wipe the persisted slice too for hermetic runs.
-    localStorage.removeItem('moldavite-quick-switcher:default');
+    // so we wipe the persisted slices (and the Forge cache) for hermetic runs.
+    localStorage.clear();
     useQuickSwitcherStore.setState({
       isOpen: false,
       recentSearches: [],
@@ -37,7 +41,7 @@ describe('quickSwitcherStore', () => {
 
     it('persists recent searches to localStorage', () => {
       useQuickSwitcherStore.getState().addRecentSearch('persisted');
-      const raw = localStorage.getItem('moldavite-quick-switcher:default');
+      const raw = localStorage.getItem('moldavite-quick-switcher:Default');
       expect(raw).toBeTruthy();
       const parsed = JSON.parse(raw ?? '{}');
       expect(parsed.state.recentSearches).toContain('persisted');
@@ -71,6 +75,45 @@ describe('quickSwitcherStore', () => {
       togglePinned('b.md');
       togglePinned('c.md');
       expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['a.md', 'b.md', 'c.md']);
+    });
+  });
+
+  describe('per-Forge isolation', () => {
+    it('writes pins under the Forge that is active at write time', () => {
+      rememberActiveForge('Alpha');
+      useQuickSwitcherStore.getState().togglePinned('notes/alpha.md');
+      rememberActiveForge('Beta');
+      useQuickSwitcherStore.getState().togglePinned('notes/beta.md');
+
+      const alpha = JSON.parse(localStorage.getItem('moldavite-quick-switcher:Alpha') ?? '{}');
+      const beta = JSON.parse(localStorage.getItem('moldavite-quick-switcher:Beta') ?? '{}');
+      expect(alpha.state.pinnedNoteIds).toEqual(['notes/alpha.md']);
+      expect(beta.state.pinnedNoteIds).toContain('notes/beta.md');
+    });
+
+    it("re-reads the correct Forge's pins once the active Forge is known", async () => {
+      localStorage.setItem(
+        'moldavite-quick-switcher:Beta',
+        JSON.stringify({ state: { recentSearches: ['beta-search'], pinnedNoteIds: ['b.md'] } })
+      );
+      // Stand in for the stale slice hydration loaded under the previous Forge.
+      useQuickSwitcherStore.setState({ recentSearches: ['alpha-search'], pinnedNoteIds: ['a.md'] });
+
+      rememberActiveForge('Beta');
+      await flushMicrotasks();
+
+      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['b.md']);
+      expect(useQuickSwitcherStore.getState().recentSearches).toEqual(['beta-search']);
+    });
+
+    it('drops the previous Forge state when the new Forge has none', async () => {
+      useQuickSwitcherStore.setState({ recentSearches: ['alpha-search'], pinnedNoteIds: ['a.md'] });
+
+      rememberActiveForge('Empty');
+      await flushMicrotasks();
+
+      expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([]);
+      expect(useQuickSwitcherStore.getState().recentSearches).toEqual([]);
     });
   });
 });

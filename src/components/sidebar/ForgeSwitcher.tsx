@@ -89,7 +89,16 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
     <div ref={wrapRef} className="relative px-3 pt-3">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        // Re-list on open: the Forge list is otherwise only loaded at mount, so
+        // a Forge created outside this window (an agent over MCP, the Obsidian
+        // importer, or anything writing to the Forges root) stayed invisible
+        // until the app was restarted.
+        onClick={() => {
+          setOpen((v) => {
+            if (!v) void loadForges().catch(() => {});
+            return !v;
+          });
+        }}
         className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium hover:bg-[var(--bg-hover)]"
         style={{ color: 'var(--text-primary)' }}
         aria-haspopup="listbox"

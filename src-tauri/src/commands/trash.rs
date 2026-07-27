@@ -18,7 +18,7 @@ use crate::paths::{
 };
 use crate::persist::{read_trash_metadata, write_trash_metadata};
 use crate::types::{TrashMetadata, TrashedNote, TrashedNoteMetadata};
-use crate::validation::{is_safe_filename, validate_path_within_base};
+use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
 
 fn next_trash_id() -> String {
     static LAST_ID: AtomicI64 = AtomicI64::new(0);
@@ -56,10 +56,38 @@ fn restore_item_on_disk(
     } else {
         standalone_dir
     };
-    let destination = root.join(&item.original_path);
-    if let Some(parent) = destination.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
+    let valid_original_path = if item.is_daily {
+        is_safe_filename(&item.original_path)
+    } else {
+        is_safe_note_path(&item.original_path)
+    };
+    if !valid_original_path {
+        return Err("Invalid original path in trash metadata".to_string());
     }
+    let destination = root.join(&item.original_path);
+    let parent = destination
+        .parent()
+        .ok_or_else(|| "Invalid restore destination".to_string())?;
+    let relative_parent = parent
+        .strip_prefix(root)
+        .map_err(|_| "Invalid restore destination".to_string())?;
+    let mut current = root.to_path_buf();
+    for component in relative_parent.components() {
+        current.push(component);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                return Err("Invalid restore destination".to_string())
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::create_dir(&current)
+                    .map_err(|e| format!("Failed to create directory: {e}"))?;
+            }
+            Err(error) => return Err(format!("Failed to inspect restore directory: {error}")),
+        }
+    }
+    validate_path_within_base(&destination, root)
+        .map_err(|_| "Invalid restore destination".to_string())?;
     fs::rename(&source, &destination).map_err(|e| format!("Failed to restore: {e}"))?;
     Ok(destination)
 }
@@ -381,18 +409,52 @@ fn cleanup_old_trash_in(
     Ok(deleted_count)
 }
 
-#[tauri::command]
-pub(crate) fn trash_folder(
-    path: String,
-    index: State<'_, Arc<BacklinksIndex>>,
-) -> Result<(), String> {
-    // Prevent path traversal attacks
-    if path.contains("..") {
+fn collect_folder_files(dir: &std::path::Path, relative_path: &str, files: &mut Vec<String>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if fs::symlink_metadata(&path)
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let Some(name) = path.file_name().map(|f| f.to_string_lossy().to_string()) else {
+                continue;
+            };
+            if path.is_dir() {
+                let sub_path = if relative_path.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{}/{}", relative_path, name)
+                };
+                collect_folder_files(&path, &sub_path, files);
+            } else if path.extension().is_some_and(|ext| ext == "md") {
+                let file_path = if relative_path.is_empty() {
+                    name
+                } else {
+                    format!("{}/{}", relative_path, name)
+                };
+                files.push(file_path);
+            }
+        }
+    }
+}
+
+fn trash_folder_on_disk(
+    standalone_dir: &std::path::Path,
+    trash_dir: &std::path::Path,
+    path: &str,
+    id: &str,
+    trashed_at: i64,
+) -> Result<TrashedNoteMetadata, String> {
+    if !is_safe_note_path(path) {
         return Err("Invalid folder path".to_string());
     }
 
-    let standalone_dir = get_standalone_dir();
-    let source_path = standalone_dir.join(&path);
+    let source_path = standalone_dir.join(path);
+    validate_path_within_base(&source_path, standalone_dir)
+        .map_err(|_| "Invalid folder path".to_string())?;
 
     if !source_path.exists() {
         return Err("Folder does not exist".to_string());
@@ -402,81 +464,65 @@ pub(crate) fn trash_folder(
         return Err("Path is not a folder".to_string());
     }
 
-    // Collect list of files in the folder
-    let mut contained_files: Vec<String> = Vec::new();
-    fn collect_files(dir: &std::path::Path, relative_path: &str, files: &mut Vec<String>) {
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if fs::symlink_metadata(&path)
-                    .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false)
-                {
-                    continue;
-                }
-                let Some(name) = path.file_name().map(|f| f.to_string_lossy().to_string()) else {
-                    continue;
-                };
-                if path.is_dir() {
-                    let sub_path = if relative_path.is_empty() {
-                        name.clone()
-                    } else {
-                        format!("{}/{}", relative_path, name)
-                    };
-                    collect_files(&path, &sub_path, files);
-                } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let file_path = if relative_path.is_empty() {
-                        name
-                    } else {
-                        format!("{}/{}", relative_path, name)
-                    };
-                    files.push(file_path);
-                }
-            }
-        }
-    }
-    collect_files(&source_path, "", &mut contained_files);
+    let mut contained_files = Vec::new();
+    collect_folder_files(&source_path, "", &mut contained_files);
 
-    // Generate unique ID for trash item
-    let id = next_trash_id();
-
-    // Create trash directory if needed
-    ensure_trash_dir()?;
-
-    // Move folder to trash
     let folder_name = source_path
         .file_name()
         .and_then(|s| s.to_str())
-        .unwrap_or(&path)
+        .unwrap_or(path)
         .to_string();
     let trash_filename = format!("{}_{}", id, path.replace('/', "_"));
-    let trash_path = get_trash_dir().join(&trash_filename);
+    let trash_path = trash_dir.join(&trash_filename);
+    validate_path_within_base(&trash_path, trash_dir)
+        .map_err(|_| "Invalid trash destination".to_string())?;
     fs::rename(&source_path, &trash_path)
         .map_err(|e| format!("Failed to move folder to trash: {}", e))?;
 
+    Ok(TrashedNoteMetadata {
+        id: id.to_string(),
+        filename: folder_name,
+        original_path: path.to_string(),
+        is_daily: false,
+        is_folder: true,
+        contained_files,
+        trashed_at,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn trash_folder(
+    path: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
+    let standalone_dir = get_standalone_dir();
+    ensure_trash_dir()?;
+    let trash_dir = get_trash_dir();
+    let id = next_trash_id();
+    let item = trash_folder_on_disk(
+        &standalone_dir,
+        &trash_dir,
+        &path,
+        &id,
+        chrono::Utc::now().timestamp(),
+    )?;
+
     // Forge-relative paths of every trashed note, for the semantic index.
-    let semantic_paths: Vec<String> = contained_files
+    let semantic_paths: Vec<String> = item
+        .contained_files
         .iter()
         .map(|rel| format!("notes/{}/{}", path, rel))
         .collect();
 
     // Update metadata
     let mut metadata = read_trash_metadata();
-    metadata.items.push(TrashedNoteMetadata {
-        id: id.clone(),
-        filename: folder_name,
-        original_path: path,
-        is_daily: false,
-        is_folder: true,
-        contained_files: contained_files.clone(),
-        trashed_at: chrono::Utc::now().timestamp(),
-    });
+    metadata.items.push(item.clone());
     write_trash_metadata(&metadata)?;
 
     // Remove every trashed note from the backlinks index. `contained_files`
     // entries are relative paths inside the folder; we only care about the
     // leaf .md filename for index keying.
-    for rel in &contained_files {
+    for rel in &item.contained_files {
         if let Some(name) = std::path::Path::new(rel)
             .file_name()
             .and_then(|s| s.to_str())
@@ -654,6 +700,52 @@ mod tests {
         assert_eq!(metadata.items.len(), 1);
         assert_eq!(metadata.items[0].id, fresh.id);
         assert!(trash_item_path(&trash, &fresh).exists());
+    }
+
+    #[test]
+    fn restore_rejects_untrusted_absolute_metadata_and_accepts_nested_path() {
+        let tmp = TempDir::new("restore-validation");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let notes = tmp.0.join("notes");
+        let outside = tmp.0.join("outside.md");
+        fs::write(&outside, "keep").unwrap();
+
+        let malicious = item("malicious".into(), outside.to_string_lossy().to_string(), 0);
+        fs::write(trash_item_path(&trash, &malicious), "stolen").unwrap();
+        assert!(restore_item_on_disk(&trash, &daily, &notes, &malicious).is_err());
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
+        assert!(trash_item_path(&trash, &malicious).exists());
+
+        let legitimate = item("legitimate".into(), "Projects/Deep/note.md".into(), 0);
+        fs::write(trash_item_path(&trash, &legitimate), "restored").unwrap();
+        let restored = restore_item_on_disk(&trash, &daily, &notes, &legitimate).unwrap();
+        assert_eq!(restored, notes.join("Projects/Deep/note.md"));
+        assert_eq!(fs::read_to_string(restored).unwrap(), "restored");
+    }
+
+    #[test]
+    fn trash_folder_rejects_absolute_path_and_records_valid_relative_path() {
+        let tmp = TempDir::new("folder-validation");
+        let trash = tmp.0.join("trash");
+        let notes = tmp.0.join("notes");
+        let outside = tmp.0.join("outside");
+        fs::create_dir_all(notes.join("Projects/Deep")).unwrap();
+        fs::write(notes.join("Projects/Deep/note.md"), "note").unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.md"), "keep").unwrap();
+
+        assert!(
+            trash_folder_on_disk(&notes, &trash, outside.to_str().unwrap(), "bad", 0).is_err()
+        );
+        assert!(outside.join("keep.md").exists());
+
+        let metadata =
+            trash_folder_on_disk(&notes, &trash, "Projects/Deep", "valid", 123).unwrap();
+        assert_eq!(metadata.original_path, "Projects/Deep");
+        assert_eq!(metadata.contained_files, vec!["note.md"]);
+        assert!(!notes.join("Projects/Deep").exists());
+        assert!(trash_item_path(&trash, &metadata).is_dir());
     }
 
     #[test]

@@ -320,6 +320,11 @@ export function Editor() {
                 suggestion: {
                   char: '#',
                   allowSpaces: false,
+                  // See the WikiLinkSuggestion note: a note body ending in a
+                  // tag would otherwise pop this open the moment the note is
+                  // opened, with nothing to dismiss it.
+                  allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
+                    isActive === true || editor.isFocused,
                   items: ({ query }: { query: string }) => {
                     // Get tags from ref and filter based on query
                     const currentTags = tagsRef.current;
@@ -439,8 +444,17 @@ export function Editor() {
           : []),
         WikiLinkSuggestion.configure({
           suggestion: {
-            char: '[',
+            // No `char` override here: the extension declares '[[' and matching
+            // on a single '[' makes the query keep the second bracket
+            // ("[Menta"), which can never match a note name.
             allowSpaces: true,
+            // Opening a note restores the selection at the end of the document.
+            // If the body ends in a tag or a link, that alone would activate the
+            // suggestion and leave a popup on screen the user never asked for.
+            // Only start while the editor has focus; `isActive` keeps an open
+            // popup alive so clicking one of its items still works.
+            allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
+              isActive === true || editor.isFocused,
             items: ({ query }: { query: string }) => {
               // Filter notes based on query
               const currentNotes = notesRef.current;
@@ -562,6 +576,8 @@ export function Editor() {
             char: '/',
             allowSpaces: false,
             startOfLine: true,
+            allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
+              isActive === true || editor.isFocused,
             items: ({ query }: { query: string }) => {
               const q = query.toLowerCase();
               const pluginItems = usePluginCommandStore
@@ -807,8 +823,13 @@ export function Editor() {
           try {
             // Double-check mounted and editor state before DOM operations
             if (isMountedRef.current && editor && !editor.isDestroyed) {
-              // Clear and set content, then blur to clear any selection
-              editor.commands.setContent(note.content || '');
+              // Clear and set content, then blur to clear any selection.
+              // emitUpdate:false because TipTap v3 defaults it to true, which
+              // made merely *opening* a note fire onUpdate -> autosave and
+              // rewrite the file with whatever the schema could model. Anything
+              // it cannot represent (Markdown tables, say) was flattened on
+              // disk without the user typing a thing.
+              editor.commands.setContent(note.content || '', { emitUpdate: false });
               editor.commands.blur();
               // Reset scroll position to top
               if (scrollContainerRef.current) {
@@ -874,8 +895,11 @@ export function Editor() {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, 'data-exists': exists });
       }
       // Mark the transaction as an internal metadata change so it doesn't
-      // trigger onUpdate -> autosave churn.
+      // trigger onUpdate -> autosave churn. `addToHistory` only keeps it out of
+      // the undo stack — `preventUpdate` is the one that actually suppresses
+      // onUpdate, and without it every note with a wiki link autosaved on open.
       tr.setMeta('addToHistory', false);
+      tr.setMeta('preventUpdate', true);
       editor.view.dispatch(tr);
     });
 

@@ -62,6 +62,14 @@ pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Re
         .canonicalize()
         .map_err(|_| "Base directory does not exist".to_string())?;
 
+    // The destination itself may not exist yet (writes and atomic renames), but
+    // an existing leaf must never be a symlink because reads would follow it.
+    if let Ok(meta) = fs::symlink_metadata(dest_path) {
+        if meta.file_type().is_symlink() {
+            return Err("Refusing to traverse a symlink".to_string());
+        }
+    }
+
     let parent = dest_path
         .parent()
         .ok_or_else(|| "Invalid destination path".to_string())?;
@@ -256,5 +264,30 @@ mod tests {
         assert!(!is_safe_note_path("a/.hidden.md"));
         assert!(!is_safe_note_path("a\\b.md"));
         assert!(!is_safe_note_path("a/b\0.md"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn path_within_base_rejects_symlink_leaf_and_accepts_regular_or_missing_leaf() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tmp_dir("symlink-leaf");
+        let outside = dir
+            .parent()
+            .unwrap()
+            .join(format!("{}-outside", dir.file_name().unwrap().to_string_lossy()));
+        fs::write(&outside, "secret").unwrap();
+
+        let link = dir.join("leak.md");
+        symlink(&outside, &link).unwrap();
+        assert!(validate_path_within_base(&link, &dir).is_err());
+
+        let regular = dir.join("regular.md");
+        fs::write(&regular, "note").unwrap();
+        assert!(validate_path_within_base(&regular, &dir).is_ok());
+        assert!(validate_path_within_base(&dir.join("new.md"), &dir).is_ok());
+
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_file(&outside);
     }
 }

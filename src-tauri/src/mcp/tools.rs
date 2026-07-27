@@ -24,24 +24,31 @@ const WRITE_DISABLED: &str =
 
 #[derive(Clone)]
 pub(super) struct ToolContext {
-    forge_root: PathBuf,
+    forge_root: Arc<dyn Fn() -> Result<PathBuf, String> + Send + Sync>,
     write_gate: Arc<dyn Fn() -> bool + Send + Sync>,
+    semantic_root: PathBuf,
     semantic_ready: bool,
 }
 
 impl ToolContext {
     #[cfg(test)]
     pub(super) fn new(forge_root: PathBuf, writes_enabled: bool, semantic_ready: bool) -> Self {
+        let semantic_root = forge_root.clone();
         Self {
-            forge_root,
+            forge_root: Arc::new(move || Ok(forge_root.clone())),
             write_gate: Arc::new(move || writes_enabled),
+            semantic_root,
             semantic_ready,
         }
     }
 
     /// Re-read the persisted setting for every request so disabling writes
-    /// takes effect in already-running MCP sessions.
-    pub(super) fn dynamic(forge_root: PathBuf, semantic_ready: bool) -> Self {
+    /// and switching the active Forge take effect in already-running MCP sessions.
+    pub(super) fn dynamic(
+        forge_root: Arc<dyn Fn() -> Result<PathBuf, String> + Send + Sync>,
+        semantic_root: PathBuf,
+        semantic_ready: bool,
+    ) -> Self {
         Self {
             forge_root,
             write_gate: Arc::new(|| {
@@ -49,6 +56,7 @@ impl ToolContext {
                     .mcp_writes_enabled
                     .unwrap_or(false)
             }),
+            semantic_root,
             semantic_ready,
         }
     }
@@ -58,9 +66,24 @@ impl ToolContext {
         forge_root: PathBuf,
         write_gate: Arc<dyn Fn() -> bool + Send + Sync>,
     ) -> Self {
+        let semantic_root = forge_root.clone();
+        Self {
+            forge_root: Arc::new(move || Ok(forge_root.clone())),
+            write_gate,
+            semantic_root,
+            semantic_ready: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn with_forge_resolver(
+        forge_root: Arc<dyn Fn() -> Result<PathBuf, String> + Send + Sync>,
+        writes_enabled: bool,
+    ) -> Self {
         Self {
             forge_root,
-            write_gate,
+            write_gate: Arc::new(move || writes_enabled),
+            semantic_root: PathBuf::new(),
             semantic_ready: false,
         }
     }
@@ -79,16 +102,25 @@ impl ToolContext {
 
     pub(super) fn call(&self, name: &str, arguments: &Value) -> Value {
         let result = match name {
-            "search_notes" => self.search_notes(arguments),
-            "read_note" => self.read_note(arguments),
-            "list_notes" => self.list_notes(arguments),
-            "get_backlinks" => self.get_backlinks(arguments),
             "create_note" | "append_to_daily_note" | "write_note" if !self.writes_enabled() => {
                 Err(WRITE_DISABLED.to_string())
             }
-            "create_note" => self.create_note(arguments),
-            "append_to_daily_note" => self.append_to_daily_note(arguments),
-            "write_note" => self.write_note(arguments),
+            "search_notes"
+            | "read_note"
+            | "list_notes"
+            | "get_backlinks"
+            | "create_note"
+            | "append_to_daily_note"
+            | "write_note" => (self.forge_root)().and_then(|root| match name {
+                "search_notes" => self.search_notes(&root, arguments),
+                "read_note" => self.read_note(&root, arguments),
+                "list_notes" => self.list_notes(&root, arguments),
+                "get_backlinks" => self.get_backlinks(&root, arguments),
+                "create_note" => self.create_note(&root, arguments),
+                "append_to_daily_note" => self.append_to_daily_note(&root, arguments),
+                "write_note" => self.write_note(&root, arguments),
+                _ => unreachable!(),
+            }),
             _ => Err(format!("Unknown tool: {name}")),
         };
         match result {
@@ -97,41 +129,39 @@ impl ToolContext {
         }
     }
 
-    fn search_notes(&self, arguments: &Value) -> Result<Value, String> {
+    fn search_notes(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let query = required_string(arguments, "query")?;
         let limit = optional_u32(arguments, "limit")?
             .unwrap_or(20)
             .clamp(1, 100);
-        if self.semantic_ready && crate::semantic::service().is_ready() {
+        if self.semantic_ready
+            && forge_root == self.semantic_root
+            && crate::semantic::service().is_ready()
+        {
             if let Ok(results) = crate::semantic::service().search(query, limit as usize) {
                 return Ok(json!({ "mode": "semantic", "results": results }));
             }
         }
-        let results = search_notes_content_in(
-            &self.forge_root,
-            &self.forge_root.join(".trash"),
-            query,
-            limit,
-        );
+        let results = search_notes_content_in(forge_root, &forge_root.join(".trash"), query, limit);
         Ok(json!({ "mode": "keyword", "results": results }))
     }
 
-    fn read_note(&self, arguments: &Value) -> Result<Value, String> {
+    fn read_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let rel = validated_note_path(required_string(arguments, "path")?)?;
-        let path = self.checked_existing_note(&rel)?;
+        let path = self.checked_existing_note(forge_root, &rel)?;
         let content =
             fs::read_to_string(&path).map_err(|error| format!("Failed to read note: {error}"))?;
         Ok(json!({ "path": rel, "content": content }))
     }
 
-    fn list_notes(&self, arguments: &Value) -> Result<Value, String> {
+    fn list_notes(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let folder = match arguments.get("folder") {
             None | Some(Value::Null) => None,
             Some(Value::String(folder)) => Some(validated_folder(folder)?),
             Some(_) => return Err("folder must be a string".to_string()),
         };
         let mut notes = Vec::new();
-        for entry in WalkDir::new(&self.forge_root)
+        for entry in WalkDir::new(forge_root)
             .follow_links(false)
             .into_iter()
             .filter_entry(|entry| {
@@ -148,7 +178,7 @@ impl ToolContext {
             if !entry.file_type().is_file() {
                 continue;
             }
-            let Ok(rel) = entry.path().strip_prefix(&self.forge_root) else {
+            let Ok(rel) = entry.path().strip_prefix(forge_root) else {
                 continue;
             };
             let mut rel = rel.to_string_lossy().replace('\\', "/");
@@ -169,9 +199,9 @@ impl ToolContext {
         Ok(json!({ "notes": notes }))
     }
 
-    fn get_backlinks(&self, arguments: &Value) -> Result<Value, String> {
+    fn get_backlinks(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let target_rel = validated_note_path(required_string(arguments, "path")?)?;
-        self.checked_existing_note(&target_rel)?;
+        self.checked_existing_note(forge_root, &target_rel)?;
         let target_filename = Path::new(&target_rel)
             .file_name()
             .and_then(|name| name.to_str())
@@ -179,7 +209,7 @@ impl ToolContext {
         let target_stem = target_filename.trim_end_matches(".md");
         let mut seen = HashSet::new();
         let mut backlinks = Vec::new();
-        for entry in WalkDir::new(&self.forge_root)
+        for entry in WalkDir::new(forge_root)
             .follow_links(false)
             .into_iter()
             .filter_entry(|entry| {
@@ -192,7 +222,7 @@ impl ToolContext {
             {
                 continue;
             }
-            let Ok(source_rel) = entry.path().strip_prefix(&self.forge_root) else {
+            let Ok(source_rel) = entry.path().strip_prefix(forge_root) else {
                 continue;
             };
             let source_rel = source_rel.to_string_lossy().replace('\\', "/");
@@ -231,10 +261,10 @@ impl ToolContext {
         Ok(json!({ "path": target_rel, "backlinks": backlinks }))
     }
 
-    fn create_note(&self, arguments: &Value) -> Result<Value, String> {
+    fn create_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let rel = validated_note_path(required_string(arguments, "path")?)?;
         let content = required_string(arguments, "content")?;
-        let path = self.prepare_note_destination(&rel)?;
+        let path = self.prepare_note_destination(forge_root, &rel)?;
         if locked_path(&path).exists() {
             return Err("Refusing to create a locked note".to_string());
         }
@@ -242,11 +272,11 @@ impl ToolContext {
             return Err("Note already exists; use write_note to replace it".to_string());
         }
         write_atomic(&path, content.as_bytes(), Some(0o600))?;
-        self.note_changed(&rel);
+        self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "created": true }))
     }
 
-    fn append_to_daily_note(&self, arguments: &Value) -> Result<Value, String> {
+    fn append_to_daily_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let content = required_string(arguments, "content")?;
         let date = match arguments.get("date") {
             None | Some(Value::Null) => Local::now().date_naive(),
@@ -258,7 +288,7 @@ impl ToolContext {
             Some(_) => return Err("date must be a string".to_string()),
         };
         let rel = format!("daily/{}.md", date.format("%Y-%m-%d"));
-        let path = self.prepare_note_destination(&rel)?;
+        let path = self.prepare_note_destination(forge_root, &rel)?;
         if locked_path(&path).exists() {
             return Err("Refusing to append to a locked note".to_string());
         }
@@ -274,28 +304,27 @@ impl ToolContext {
         }
         existing.push_str(content);
         write_atomic(&path, existing.as_bytes(), Some(0o600))?;
-        self.note_changed(&rel);
+        self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "created": created }))
     }
 
-    fn write_note(&self, arguments: &Value) -> Result<Value, String> {
+    fn write_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let rel = validated_note_path(required_string(arguments, "path")?)?;
         let content = required_string(arguments, "content")?;
-        let path = self.prepare_note_destination(&rel)?;
+        let path = self.prepare_note_destination(forge_root, &rel)?;
         if locked_path(&path).exists() {
             return Err("Refusing to write a locked note".to_string());
         }
         if !path.exists() {
             return Err("Note does not exist; use create_note first".to_string());
         }
-        reject_symlink(&path)?;
         write_atomic(&path, content.as_bytes(), Some(0o600))?;
-        self.note_changed(&rel);
+        self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "written": true }))
     }
 
-    fn checked_existing_note(&self, rel: &str) -> Result<PathBuf, String> {
-        let path = self.forge_root.join(rel);
+    fn checked_existing_note(&self, forge_root: &Path, rel: &str) -> Result<PathBuf, String> {
+        let path = forge_root.join(rel);
         if locked_path(&path).exists() {
             return Err("This note is locked and cannot be accessed through MCP".to_string());
         }
@@ -303,22 +332,23 @@ impl ToolContext {
             return Err("Note not found".to_string());
         }
         reject_symlink(&path)?;
-        validate_path_within_base(&path, &self.forge_root)?;
+        validate_path_within_base(&path, forge_root)?;
         Ok(path)
     }
 
-    fn prepare_note_destination(&self, rel: &str) -> Result<PathBuf, String> {
-        let path = self.forge_root.join(rel);
+    fn prepare_note_destination(&self, forge_root: &Path, rel: &str) -> Result<PathBuf, String> {
+        let path = forge_root.join(rel);
         let parent = path
             .parent()
             .ok_or_else(|| "Invalid note path".to_string())?;
-        ensure_directory_tree(&self.forge_root, parent)?;
-        validate_path_within_base(&path, &self.forge_root)?;
+        ensure_directory_tree(forge_root, parent)?;
+        reject_symlink(&path)?;
+        validate_path_within_base(&path, forge_root)?;
         Ok(path)
     }
 
-    fn note_changed(&self, rel: &str) {
-        crate::semantic::note_changed_in(rel, self.forge_root.clone());
+    fn note_changed(&self, forge_root: &Path, rel: &str) {
+        crate::semantic::note_changed_in(rel, forge_root.to_path_buf());
     }
 }
 

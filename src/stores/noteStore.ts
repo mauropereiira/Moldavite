@@ -314,7 +314,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           JSON.stringify(recentNoteIds)
         );
         const pinnedIds = openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id);
-        localStorage.setItem('moldavite-pinned-tabs', JSON.stringify(pinnedIds));
+        localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
       } catch (error) {
         console.error('[noteStore] Failed to persist renamed note references:', error);
       }
@@ -370,9 +370,11 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         ...updatedTabs.filter((t) => !t.isPinned),
       ];
 
-      // Persist pinned tab IDs to localStorage
+      // Persist pinned tab IDs to localStorage. Pinned ids are Forge-relative
+      // note paths, so the slot has to be per Forge like recent notes — a
+      // global key resurrects another Forge's pins on unrelated notes.
       const pinnedIds = sortedTabs.filter((t) => t.isPinned).map((t) => t.id);
-      localStorage.setItem('moldavite-pinned-tabs', JSON.stringify(pinnedIds));
+      localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
 
       return {
         openTabs: sortedTabs,
@@ -410,7 +412,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    */
   loadPinnedTabs: () => {
     try {
-      const stored = localStorage.getItem('moldavite-pinned-tabs');
+      const stored = localStorage.getItem(namespacedKey('moldavite-pinned-tabs'));
       if (!stored) return;
 
       const pinnedIds: string[] = JSON.parse(stored);

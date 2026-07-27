@@ -16,15 +16,18 @@ import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
 
-const SETTINGS_LS_KEYS = [
+// Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
+// Forge's slot. Resolved per call, never once at module load: the active-Forge
+// cache is populated after this module is imported, so a captured key would
+// name whichever Forge was active before the last switch.
+const settingsLsKeys = (): string[] => [
   'moldavite-calendar',
   'moldavite-folders',
-  'moldavite-pinned-tabs',
-  // Per-Forge keys are namespaced (`<key>:<forge>`); export the active Forge's slot.
-  namespacedKey('moldavite-recent-notes'),
   'moldavite-settings',
   'moldavite-theme',
-] as const;
+  namespacedKey('moldavite-pinned-tabs'),
+  namespacedKey('moldavite-recent-notes'),
+];
 
 const SETTINGS_EXPORT_VERSION = 1;
 
@@ -213,7 +216,7 @@ export function SettingsData() {
     try {
       setIsExportingSettings(true);
       const entries: Record<string, string> = {};
-      for (const key of SETTINGS_LS_KEYS) {
+      for (const key of settingsLsKeys()) {
         const value = localStorage.getItem(key);
         if (value !== null) entries[key] = value;
       }
@@ -272,7 +275,7 @@ export function SettingsData() {
         return;
       }
       let applied = 0;
-      for (const key of SETTINGS_LS_KEYS) {
+      for (const key of settingsLsKeys()) {
         const value = (payload.entries as Record<string, unknown>)[key];
         if (typeof value === 'string') {
           localStorage.setItem(key, value);

@@ -4,10 +4,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap');
 
-/* Geist Font */
+/* Geist, served from public/fonts.
+   These were previously loaded from '/node_modules/geist/...', which never
+   worked: that path does not exist inside the package (the real files are
+   under geist-sans/ and geist-mono/), and Vite does not rewrite root-absolute
+   URLs, so the literal string survived into the built CSS with no font
+   emitted. Vendoring the two variable files also drops the `geist` dependency,
+   which pulled Next.js and sharp into production for two .woff2 files. */
 @font-face {
   font-family: 'Geist';
-  src: url('/node_modules/geist/dist/fonts/geist-variable.woff2') format('woff2');
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -15,7 +21,7 @@
 
 @font-face {
   font-family: 'Geist Mono';
-  src: url('/node_modules/geist/dist/fonts/geist-mono-variable.woff2') format('woff2');
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;

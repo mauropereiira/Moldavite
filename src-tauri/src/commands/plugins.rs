@@ -133,18 +133,29 @@ pub(crate) fn plugin_secret_delete(plugin_id: String, key: String) -> Result<(),
     secret_delete_with(&KeychainSecretStore, &plugin_id, &key)
 }
 
-/// Resolve `<plugins_dir>/<id>/<rel>` and confirm it stays inside `.plugins`.
-/// Returns None on any invalid id, empty rel, traversal, or missing file.
+/// Resolve one plugin's executable module and confirm it stays inside that
+/// plugin's own directory without following a symlinked leaf.
 pub(crate) fn resolve_plugin_file(id: &str, rel: &str) -> Option<PathBuf> {
-    if !is_valid_plugin_id(id) || rel.is_empty() {
+    resolve_plugin_file_in(&plugins_dir(), id, rel)
+}
+
+fn resolve_plugin_file_in(base: &Path, id: &str, rel: &str) -> Option<PathBuf> {
+    if !is_valid_plugin_id(id) || rel != "plugin.js" {
         return None;
     }
-    let base = plugins_dir();
-    let candidate = base.join(id).join(rel);
-    if validate_path_within_base(&candidate, &base).is_err() {
+    let plugin_base = base.join(id);
+    let candidate = plugin_base.join(rel);
+    if fs::symlink_metadata(&candidate)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(true)
+    {
         return None;
     }
-    if candidate.is_file() {
+    if validate_path_within_base(&candidate, &plugin_base).is_ok()
+        && fs::symlink_metadata(&candidate)
+            .map(|metadata| metadata.is_file())
+            .unwrap_or(false)
+    {
         Some(candidate)
     } else {
         None
@@ -548,6 +559,46 @@ mod tests {
         assert!(!is_valid_plugin_id("../etc"));
         assert!(!is_valid_plugin_id("under_score"));
         assert!(!is_valid_plugin_id(&"a".repeat(65)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn plugin_file_resolution_is_scoped_and_rejects_symlinked_leafs() {
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-resolution-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let base = root.join(".plugins");
+        let first = base.join("first-plugin");
+        let second = base.join("second-plugin");
+        let symlinked = base.join("symlinked-plugin");
+        fs::create_dir_all(&first).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        fs::create_dir_all(&symlinked).unwrap();
+        fs::write(first.join("plugin.js"), "first").unwrap();
+        fs::write(first.join("README.md"), "not executable").unwrap();
+        fs::write(second.join("plugin.js"), "second").unwrap();
+        let outside = root.join("outside.js");
+        fs::write(&outside, "secret").unwrap();
+        symlink(&outside, symlinked.join("plugin.js")).unwrap();
+
+        assert_eq!(
+            resolve_plugin_file_in(&base, "first-plugin", "plugin.js"),
+            Some(first.join("plugin.js"))
+        );
+        assert!(
+            resolve_plugin_file_in(&base, "first-plugin", "../second-plugin/plugin.js").is_none()
+        );
+        assert!(resolve_plugin_file_in(&base, "symlinked-plugin", "plugin.js").is_none());
+        assert!(resolve_plugin_file_in(&base, "first-plugin", "README.md").is_none());
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
