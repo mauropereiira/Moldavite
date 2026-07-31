@@ -2,6 +2,13 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **Fresh installs always have a usable Default Forge.** Startup now scaffolds a missing active Forge, adopts note folders accidentally created at the Forges root, and lets an unpinned MCP session repair a missing active Forge without weakening strict `--forge` selection.
+- **Agent and external edits can no longer disappear behind an open buffer.** Clean notes reload automatically; dirty notes keep their buffer and show choices that preserve either the disk or buffer version as a conflict copy. Virtual notes establish a conflict base before editing, implicit empty-note deletion refuses changed disk content, and MCP whole-note replacement preserves frontmatter.
+
 ## [1.7.2] - 2026-07-27
 
 ### Fixed

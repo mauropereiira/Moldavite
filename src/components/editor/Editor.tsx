@@ -68,10 +68,13 @@ import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { BacklinksPanel } from '@/components/backlinks';
+import { ExternalChangeBanner } from './ExternalChangeBanner';
 
 export function Editor() {
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } =
     useNoteStore();
+  const currentNoteId = currentNote?.id;
+  const currentNoteContent = currentNote?.content;
   const { spellCheck, tagsEnabled } = useSettingsStore();
   const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
@@ -216,13 +219,13 @@ export function Editor() {
 
   // Check if note is empty and show template picker
   useEffect(() => {
-    if (currentNote) {
+    if (currentNoteId) {
       // Shared emptiness rule: media-only notes count as content.
-      setShowInlineTemplatePicker(isContentEmpty(currentNote.content || ''));
+      setShowInlineTemplatePicker(isContentEmpty(currentNoteContent || ''));
     } else {
       setShowInlineTemplatePicker(false);
     }
-  }, [currentNote?.id, currentNote?.content]);
+  }, [currentNoteId, currentNoteContent]);
 
   // Handle template selection for empty note
   const handleTemplateSelect = async (templateId: string) => {
@@ -855,7 +858,7 @@ export function Editor() {
     } catch (error) {
       console.error('[Editor] Content update error:', error);
     }
-  }, [editor, currentNote?.id]);
+  }, [editor, currentNoteId, currentNote?.externalRev]);
 
   // Resolve wiki-link existence once the note is loaded so stale links render
   // with the `wiki-link-missing` style and live ones with `wiki-link-exists`.
@@ -864,7 +867,7 @@ export function Editor() {
   // typical notes have a handful of wiki links.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    if (!currentNote) return;
+    if (!currentNoteId) return;
 
     const raf = requestAnimationFrame(() => {
       if (!isMountedRef.current || !editor || editor.isDestroyed) return;
@@ -904,7 +907,7 @@ export function Editor() {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [editor, currentNote?.id, notes]);
+  }, [editor, currentNoteId, notes]);
 
   // Auto-save hook
   useAutoSave();
@@ -1010,6 +1013,8 @@ export function Editor() {
 
       {/* Tab bar - only show when there are open tabs */}
       {openTabs.length > 0 && <TabBar />}
+
+      <ExternalChangeBanner />
 
       {/* Editor */}
       <div

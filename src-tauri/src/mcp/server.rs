@@ -300,6 +300,30 @@ mod tests {
     }
 
     #[test]
+    fn write_note_preserves_existing_frontmatter() {
+        let root = temp_forge("frontmatter-write");
+        fs::write(
+            root.join("notes/colored.md"),
+            "---\ncolor: blue\ntags:\n- kept\n---\nold body",
+        )
+        .unwrap();
+
+        let response = ToolContext::new(root.clone(), true, false).call(
+            "write_note",
+            &json!({"path":"notes/colored.md","content":"new body"}),
+        );
+        assert_eq!(response["isError"], false);
+
+        let raw = fs::read_to_string(root.join("notes/colored.md")).unwrap();
+        let parsed = crate::frontmatter::parse_note(&raw);
+        assert_eq!(parsed.color.as_deref(), Some("blue"));
+        assert!(parsed.extra.contains_key("tags"));
+        assert_eq!(parsed.body, "new body");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn rejects_traversal_and_locked_notes() {
         let root = temp_forge("security");
         fs::write(root.join("notes/secret.md.locked"), "ciphertext").unwrap();

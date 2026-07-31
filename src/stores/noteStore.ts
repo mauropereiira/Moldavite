@@ -31,6 +31,7 @@ interface NoteState {
 
   // Security - tracks temporarily unlocked notes for auto-lock feature
   unlockedNotes: Set<string>;
+  externallyChanged: Set<string>;
 
   // Actions
   setNotes: (notes: NoteFile[]) => void;
@@ -46,6 +47,9 @@ interface NoteState {
   closeTab: (noteId: string) => void;
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
+  applyExternalContent: (noteId: string, content: string) => void;
+  markExternallyChanged: (noteId: string) => void;
+  clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
   removeTabByPath: (notePath: string) => void;
   pinTab: (noteId: string) => { success: boolean; message?: string };
@@ -85,6 +89,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   selectedWeek: null,
   recentNoteIds: loadRecentNotes(),
   unlockedNotes: new Set<string>(),
+  externallyChanged: new Set<string>(),
 
   /**
    * Replaces the entire notes list.
@@ -236,6 +241,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (tabIndex < 0) return state;
 
       const newTabs = state.openTabs.filter((t) => t.id !== noteId);
+      const externallyChanged = new Set(state.externallyChanged);
+      externallyChanged.delete(noteId);
 
       let newActiveId: string | null = null;
       let newCurrentNote: Note | null = null;
@@ -255,6 +262,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         openTabs: newTabs,
         activeTabId: newActiveId,
         currentNote: newCurrentNote,
+        externallyChanged,
       };
     }),
 
@@ -292,6 +300,45 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
+  applyExternalContent: (noteId, content) =>
+    set((state) => {
+      const openTabs = state.openTabs.map((tab) =>
+        tab.id === noteId
+          ? {
+              ...tab,
+              content,
+              updatedAt: new Date(),
+              externalRev: (tab.externalRev ?? 0) + 1,
+            }
+          : tab
+      );
+      const externallyChanged = new Set(state.externallyChanged);
+      externallyChanged.delete(noteId);
+      return {
+        openTabs,
+        currentNote:
+          state.activeTabId === noteId
+            ? openTabs.find((tab) => tab.id === noteId) || null
+            : state.currentNote,
+        externallyChanged,
+      };
+    }),
+
+  markExternallyChanged: (noteId) =>
+    set((state) => {
+      const externallyChanged = new Set(state.externallyChanged);
+      externallyChanged.add(noteId);
+      return { externallyChanged };
+    }),
+
+  clearExternallyChanged: (noteId) =>
+    set((state) => {
+      if (!state.externallyChanged.has(noteId)) return state;
+      const externallyChanged = new Set(state.externallyChanged);
+      externallyChanged.delete(noteId);
+      return { externallyChanged };
+    }),
+
   /** Moves every persisted/in-memory reference from a note's old path to its new path. */
   renameNoteReferences: (oldPath, newPath, newTitle) =>
     set((state) => {
@@ -302,6 +349,9 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const recentNoteIds = state.recentNoteIds.map((id) => (id === oldPath ? newPath : id));
       const unlockedNotes = new Set(
         [...state.unlockedNotes].map((id) => (id === oldPath ? newPath : id))
+      );
+      const externallyChanged = new Set(
+        [...state.externallyChanged].map((id) => (id === oldPath ? newPath : id))
       );
       const activeTabId = state.activeTabId === oldPath ? newPath : state.activeTabId;
       const currentNote = activeTabId
@@ -328,6 +378,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         currentNote,
         recentNoteIds,
         unlockedNotes,
+        externallyChanged,
       };
     }),
 

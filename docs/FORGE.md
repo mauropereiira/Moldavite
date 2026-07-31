@@ -138,9 +138,11 @@ external edit:
 
 Conflict copies are ordinary Markdown notes. A simultaneous collision in the
 same minute receives a numeric suffix such as `(2)` so an earlier copy is never
-overwritten. This protection applies to saves made through Moldavite after it
-has read the note; a program writing Forge files directly is responsible for
-its own concurrency behavior.
+overwritten. When an external writer changes an open note, a clean Moldavite
+buffer reloads automatically. A dirty buffer stays untouched and shows a thin
+banner: **Keep my version** saves the buffer and preserves the disk version as a
+conflict copy; **Use disk version** preserves the buffer as a conflict copy and
+then reloads the disk content. Neither side is silently discarded.
 
 ## Agent-ready files
 

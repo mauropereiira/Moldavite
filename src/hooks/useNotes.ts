@@ -22,6 +22,7 @@ import {
   ensureDirectories,
   listNotes,
   readNote,
+  readNoteWithMeta,
   writeNote,
   deleteNote,
   createNote as createNoteFile,
@@ -86,7 +87,7 @@ export function useNotes() {
       if (isEmpty) {
         if (existsInList) {
           try {
-            await deleteNote(filename, true, false);
+            await deleteNote(filename, true, false, { guarded: true });
             const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
             setNotes(updatedNotes);
           } catch (error) {
@@ -116,7 +117,7 @@ export function useNotes() {
       if (isEmpty) {
         if (existsInList) {
           try {
-            await deleteNote(filename, false, true);
+            await deleteNote(filename, false, true, { guarded: true });
             const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
             setNotes(updatedNotes);
           } catch (error) {
@@ -256,6 +257,32 @@ export function useNotes() {
       // Get fresh notes from store to avoid stale closure
       const currentNotes = getState().notes;
 
+      const openVirtualOrRacedNote = async () => {
+        const result = await readNoteWithMeta(filename, true, false);
+        const virtualFile: NoteFile = {
+          name: filename,
+          path: filename,
+          isDaily: true,
+          isWeekly: false,
+          date: dateStr,
+          isLocked: false,
+        };
+        if (!result.content) {
+          setCurrentNote(filenameToNote(virtualFile, ''));
+          return;
+        }
+
+        const realFile = { ...virtualFile, path: `daily/${filename}` };
+        const latestNotes = getState().notes;
+        if (!latestNotes.some((note) => note.isDaily && note.date === dateStr)) {
+          setNotes([...latestNotes, realFile]);
+        }
+        const htmlContent = isHtmlContent(result.content)
+          ? result.content
+          : markdownToHtml(result.content);
+        setCurrentNote(filenameToNote(realFile, htmlContent));
+      };
+
       // Check if note exists
       const existingNote = currentNotes.find((n) => n.isDaily && n.date === dateStr);
 
@@ -290,31 +317,10 @@ export function useNotes() {
             await loadNote(noteFile);
           } catch (error) {
             console.error('[useNotes] Failed to create daily note from template:', error);
-            // Fall back to creating virtual note
-            const noteFile: NoteFile = {
-              name: filename,
-              path: filename,
-              isDaily: true,
-              isWeekly: false,
-              date: dateStr,
-              isLocked: false,
-            };
-            const note = filenameToNote(noteFile, '');
-            setCurrentNote(note);
+            await openVirtualOrRacedNote();
           }
         } else {
-          // Create virtual note in memory (don't create file yet)
-          // File will be created by auto-save when user types content
-          const noteFile: NoteFile = {
-            name: filename,
-            path: filename,
-            isDaily: true,
-            isWeekly: false,
-            date: dateStr,
-            isLocked: false,
-          };
-          const note = filenameToNote(noteFile, '');
-          setCurrentNote(note);
+          await openVirtualOrRacedNote();
         }
       }
     },
@@ -338,6 +344,32 @@ export function useNotes() {
 
       // Get fresh notes from store to avoid stale closure
       const currentNotes = getState().notes;
+
+      const openVirtualOrRacedNote = async () => {
+        const result = await readNoteWithMeta(filename, false, true);
+        const virtualFile: NoteFile = {
+          name: filename,
+          path: `weekly/${filename}`,
+          isDaily: false,
+          isWeekly: true,
+          week: weekStr,
+          isLocked: false,
+        };
+        if (!result.content) {
+          setCurrentNote(filenameToNote(virtualFile, ''));
+          return;
+        }
+
+        const realFile = { ...virtualFile, path: `weekly/${filename}` };
+        const latestNotes = getState().notes;
+        if (!latestNotes.some((note) => note.isWeekly && note.week === weekStr)) {
+          setNotes([...latestNotes, realFile]);
+        }
+        const htmlContent = isHtmlContent(result.content)
+          ? result.content
+          : markdownToHtml(result.content);
+        setCurrentNote(filenameToNote(realFile, htmlContent));
+      };
 
       // Check if note exists
       const existingNote = currentNotes.find((n) => n.isWeekly && n.week === weekStr);
@@ -376,31 +408,10 @@ export function useNotes() {
             await loadNote(noteFile);
           } catch (error) {
             console.error('[useNotes] Failed to create weekly note from template:', error);
-            // Fall back to creating virtual note
-            const noteFile: NoteFile = {
-              name: filename,
-              path: `weekly/${filename}`,
-              isDaily: false,
-              isWeekly: true,
-              week: weekStr,
-              isLocked: false,
-            };
-            const note = filenameToNote(noteFile, '');
-            setCurrentNote(note);
+            await openVirtualOrRacedNote();
           }
         } else {
-          // Create virtual note in memory (don't create file yet)
-          // File will be created by auto-save when user types content
-          const noteFile: NoteFile = {
-            name: filename,
-            path: `weekly/${filename}`,
-            isDaily: false,
-            isWeekly: true,
-            week: weekStr,
-            isLocked: false,
-          };
-          const note = filenameToNote(noteFile, '');
-          setCurrentNote(note);
+          await openVirtualOrRacedNote();
         }
       }
     },
@@ -418,6 +429,7 @@ export function useNotes() {
       try {
         setIsLoading(true);
         const filename = await createNoteFile(title, folderPath || undefined);
+        await readNoteWithMeta(filename, false, false);
         const noteFile: NoteFile = {
           name: filename.split('/').pop() || filename,
           path: `notes/${filename}`,

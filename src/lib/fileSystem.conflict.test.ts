@@ -15,6 +15,8 @@ vi.mock('./ipc', () => ({
 }));
 
 import {
+  deleteNote,
+  getLastPersistedMarkdown,
   lockNote,
   readNote,
   readNoteWithMeta,
@@ -104,6 +106,52 @@ describe('external-edit conflict hash threading', () => {
 
     await writeNote('meta.md', 'edited', false, false);
     expect(lastCallArgs('write_note').baseHash).toBe('hash-meta');
+  });
+
+  it('tracks the last persisted Markdown after reads and writes', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'read_note') {
+        return { content: 'disk body', color: null, contentHash: 'hash-disk' };
+      }
+      return { contentHash: 'hash-written', conflictCopy: null };
+    });
+
+    await readNote('persisted.md', false, false);
+    expect(getLastPersistedMarkdown('persisted.md', false, false)).toBe('disk body');
+
+    await writeNote('persisted.md', 'saved body', false, false);
+    expect(getLastPersistedMarkdown('persisted.md', false, false)).toBe('saved body');
+  });
+
+  it('passes the last-read hash for guarded deletes and forgets it only on success', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'read_note') {
+        return { content: 'body', color: null, contentHash: 'delete-base' };
+      }
+      return undefined;
+    });
+
+    await readNote('guarded-delete.md', true, false);
+    await deleteNote('guarded-delete.md', true, false, { guarded: true });
+
+    expect(lastCallArgs('delete_note').baseHash).toBe('delete-base');
+    expect(getLastPersistedMarkdown('guarded-delete.md', true, false)).toBeUndefined();
+  });
+
+  it('keeps persisted bookkeeping when a guarded delete is refused', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'read_note') {
+        return { content: 'body', color: null, contentHash: 'refused-base' };
+      }
+      if (command === 'delete_note') throw new Error('changed on disk');
+      return undefined;
+    });
+
+    await readNote('refused-delete.md', false, true);
+    await expect(deleteNote('refused-delete.md', false, true, { guarded: true })).rejects.toThrow(
+      'changed on disk'
+    );
+    expect(getLastPersistedMarkdown('refused-delete.md', false, true)).toBe('body');
   });
 
   it('surfaces the conflict copy returned by the backend', async () => {

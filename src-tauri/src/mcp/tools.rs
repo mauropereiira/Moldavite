@@ -318,7 +318,15 @@ impl ToolContext {
         if !path.exists() {
             return Err("Note does not exist; use create_note first".to_string());
         }
-        write_atomic(&path, content.as_bytes(), Some(0o600))?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|error| format!("Failed to read note before writing: {error}"))?;
+        let parsed = crate::frontmatter::parse_note(&raw);
+        let serialized = crate::frontmatter::serialize_note(
+            parsed.color.as_deref(),
+            &parsed.extra,
+            content,
+        );
+        write_atomic(&path, serialized.as_bytes(), Some(0o600))?;
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "written": true }))
     }

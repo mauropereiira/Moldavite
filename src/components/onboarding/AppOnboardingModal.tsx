@@ -35,7 +35,14 @@ import {
 } from 'lucide-react';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { getNotesDirectory, setNotesDirectory } from '@/lib/fileSystem';
+import { useNoteStore } from '@/stores/noteStore';
+import {
+  ensureDirectories,
+  getNotesDirectory,
+  listNotes,
+  setActiveForge,
+  setForgesRoot,
+} from '@/lib/fileSystem';
 
 /**
  * Bump this when adding new feature pages so existing users see them once.
@@ -199,8 +206,11 @@ export function AppOnboardingModal() {
         title: 'Select Forge Directory',
       });
       if (selected && typeof selected === 'string') {
-        await setNotesDirectory(selected);
-        setForgePath(selected);
+        await setForgesRoot(selected);
+        await setActiveForge('Default');
+        setForgePath(await getNotesDirectory());
+        await ensureDirectories();
+        useNoteStore.getState().setNotes(await listNotes());
       }
     } catch (err) {
       setPickError(String(err));
@@ -418,8 +428,8 @@ function ForgeStep({
         className="text-sm leading-relaxed mb-4 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Your Forge is the folder where every note is stored as a plain .md file. You can keep the
-        default or pick anywhere you like.
+        This folder becomes the location of your Forges, with a Default Forge created inside it.
+        Every note stays a plain .md file.
       </p>
 
       <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>

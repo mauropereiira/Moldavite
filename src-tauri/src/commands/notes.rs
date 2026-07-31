@@ -85,6 +85,18 @@ fn conflict_copy_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
+fn conflict_copy_destination(path: &Path, stamp: &str) -> Result<(PathBuf, String), String> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let name = generate_unique_filename(dir, &format!("{} (conflict {})", stem, stamp), "md");
+    Ok((dir.join(&name), name))
+}
+
 /// Test wrapper with an injectable timestamp.
 #[cfg(test)]
 fn preserve_conflict_copy_at(
@@ -122,18 +134,43 @@ fn preserve_conflict_copy_unlocked(
     if sha256_hex(&disk_body) == base || disk_body == new_content {
         return Ok(None);
     }
-    let dir = path
-        .parent()
-        .ok_or_else(|| "Invalid note path".to_string())?;
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| "Invalid note path".to_string())?;
-    let conflict_name =
-        generate_unique_filename(dir, &format!("{} (conflict {})", stem, stamp), "md");
+    let (conflict_path, conflict_name) = conflict_copy_destination(path, stamp)?;
     // Preserve the disk version byte-for-byte (frontmatter included).
-    write_atomic(&dir.join(&conflict_name), raw.as_bytes(), Some(0o600))?;
+    write_atomic(&conflict_path, raw.as_bytes(), Some(0o600))?;
     Ok(Some((conflict_name, disk_body)))
+}
+
+#[cfg(test)]
+fn preserve_buffer_copy_at(path: &Path, content: &str, stamp: &str) -> Result<String, String> {
+    let _guard = conflict_copy_lock()
+        .lock()
+        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+    preserve_buffer_copy_unlocked(path, content, stamp)
+}
+
+fn preserve_buffer_copy_unlocked(
+    path: &Path,
+    content: &str,
+    stamp: &str,
+) -> Result<String, String> {
+    let (conflict_path, conflict_name) = conflict_copy_destination(path, stamp)?;
+    write_atomic(&conflict_path, content.as_bytes(), Some(0o600))?;
+    Ok(conflict_name)
+}
+
+fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    if let Some(base) = base_hash {
+        let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        let body = frontmatter::parse_note(&raw).body;
+        if sha256_hex(&body) != base {
+            return Err("Note changed on disk since it was last read — not deleting".to_string());
+        }
+    }
+    fs::remove_file(path).map_err(|e| e.to_string())?;
+    Ok(true)
 }
 
 /// Serialize conflict detection, frontmatter preservation, and the replacing
@@ -482,6 +519,7 @@ pub(crate) fn delete_note(
     filename: String,
     is_daily: bool,
     is_weekly: bool,
+    base_hash: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     // Prevent path traversal attacks; standalone notes may include a folder path.
@@ -499,14 +537,59 @@ pub(crate) fn delete_note(
 
     let path = dir.join(&filename);
 
-    if path.exists() {
-        fs::remove_file(&path).map_err(|e| e.to_string())?;
-    }
+    delete_note_at(&path, base_hash.as_deref())?;
     index.remove_note(&index_key(&filename));
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
     Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn preserve_buffer_copy(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+    content: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+    recent: State<'_, Arc<RecentWrites>>,
+) -> Result<String, String> {
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+        return Err("Invalid filename".to_string());
+    }
+
+    let dir = if is_weekly {
+        get_weekly_dir()
+    } else if is_daily {
+        get_daily_dir()
+    } else {
+        get_standalone_dir()
+    };
+    let path = dir.join(&filename);
+    validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
+
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+    let conflict_name = {
+        let _guard = conflict_copy_lock()
+            .lock()
+            .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+        preserve_buffer_copy_unlocked(&path, &content, &stamp)?
+    };
+    let conflict_path = path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?
+        .join(&conflict_name);
+    recent.record(&conflict_path);
+    index.update_note(&conflict_name, &content);
+
+    let relative = match filename.rsplit_once('/') {
+        Some((folder, _)) => format!("{}/{}", folder, conflict_name),
+        None => conflict_name,
+    };
+    crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &relative, is_daily, is_weekly,
+    ));
+    Ok(relative)
 }
 
 #[tauri::command]
@@ -1061,6 +1144,39 @@ mod tests {
     }
 
     #[test]
+    fn guarded_delete_removes_matching_disk_body() {
+        let tmp = TempDir::new("guarded-delete-match");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "---\ncolor: blue\n---\nbody").unwrap();
+
+        assert_eq!(delete_note_at(&path, Some(&sha256_hex("body"))), Ok(true));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn guarded_delete_rejects_changed_disk_body() {
+        let tmp = TempDir::new("guarded-delete-mismatch");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external body").unwrap();
+
+        assert_eq!(
+            delete_note_at(&path, Some(&sha256_hex("previous body"))),
+            Err("Note changed on disk since it was last read — not deleting".to_string())
+        );
+        assert_eq!(fs::read_to_string(&path).unwrap(), "external body");
+    }
+
+    #[test]
+    fn unguarded_delete_keeps_legacy_behavior() {
+        let tmp = TempDir::new("unguarded-delete");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "external body").unwrap();
+
+        assert_eq!(delete_note_at(&path, None), Ok(true));
+        assert!(!path.exists());
+    }
+
+    #[test]
     fn conflict_filename_is_uniquified_with_counter() {
         let tmp = TempDir::new("unique");
         let path = tmp.path().join("note.md");
@@ -1086,6 +1202,26 @@ mod tests {
         assert_eq!(
             fs::read_to_string(tmp.path().join(&second)).unwrap(),
             "external two"
+        );
+    }
+
+    #[test]
+    fn preserved_buffer_copy_uses_unique_conflict_names() {
+        let tmp = TempDir::new("buffer-copy-unique");
+        let path = tmp.path().join("note.md");
+
+        let first = preserve_buffer_copy_at(&path, "first buffer", STAMP).unwrap();
+        let second = preserve_buffer_copy_at(&path, "second buffer", STAMP).unwrap();
+
+        assert_eq!(first, format!("note (conflict {}).md", STAMP));
+        assert_eq!(second, format!("note (conflict {}) (2).md", STAMP));
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(first)).unwrap(),
+            "first buffer"
+        );
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(second)).unwrap(),
+            "second buffer"
         );
     }
 

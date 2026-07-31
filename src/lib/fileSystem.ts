@@ -591,6 +591,7 @@ export interface NoteWriteResult {
  * `noteWritesInFlight` lets that transition drain already-started writes.
  */
 const noteBaseHashes = new Map<string, string>();
+const lastPersistedMarkdown = new Map<string, string>();
 const lockedNoteWrites = new Set<string>();
 const noteWritesInFlight = new Map<string, Set<Promise<NoteWriteResult>>>();
 
@@ -607,7 +608,17 @@ function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): str
 
 /** Drop the recorded base hash for a note (after delete/rename/move). */
 function forgetNoteBaseHash(filename: string, isDaily: boolean, isWeekly: boolean): void {
-  noteBaseHashes.delete(noteHashKey(filename, isDaily, isWeekly));
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  noteBaseHashes.delete(key);
+  lastPersistedMarkdown.delete(key);
+}
+
+export function getLastPersistedMarkdown(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): string | undefined {
+  return lastPersistedMarkdown.get(noteHashKey(filename, isDaily, isWeekly));
 }
 
 /**
@@ -647,7 +658,9 @@ export async function readNoteWithMeta(
 ): Promise<NoteReadResult> {
   const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
   // Remember what we read so the next save can detect external edits.
-  noteBaseHashes.set(noteHashKey(filename, isDaily, isWeekly), result.contentHash);
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  noteBaseHashes.set(key, result.contentHash);
+  lastPersistedMarkdown.set(key, result.content);
   return result;
 }
 
@@ -696,6 +709,7 @@ export async function writeNote(
     const result = await write;
     // What we just wrote is the new base for the next conflict check.
     noteBaseHashes.set(key, result.contentHash);
+    lastPersistedMarkdown.set(key, content);
     return result;
   } finally {
     writes.delete(write);
@@ -712,10 +726,26 @@ export async function writeNote(
 export async function deleteNote(
   filename: string,
   isDaily: boolean,
-  isWeekly: boolean = false
+  isWeekly: boolean = false,
+  opts?: { guarded?: boolean }
 ): Promise<void> {
-  await invoke('delete_note', { filename, isDaily, isWeekly });
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  await invoke('delete_note', {
+    filename,
+    isDaily,
+    isWeekly,
+    baseHash: opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null,
+  });
   forgetNoteBaseHash(filename, isDaily, isWeekly);
+}
+
+export async function preserveBufferCopy(
+  filename: string,
+  content: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<string> {
+  return await invoke('preserve_buffer_copy', { filename, content, isDaily, isWeekly });
 }
 
 /**
@@ -994,6 +1024,14 @@ export async function getNotesDirectory(): Promise<string> {
  */
 export async function setNotesDirectory(newPath: string): Promise<void> {
   await invoke('set_notes_directory', { newPath });
+}
+
+export async function setForgesRoot(path: string): Promise<string> {
+  return await invoke('set_forges_root', { path });
+}
+
+export async function setActiveForge(name: string): Promise<string> {
+  return await invoke('set_active_forge', { name });
 }
 
 /**

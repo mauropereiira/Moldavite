@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::commands::forges::scaffold_forge;
 use crate::frontmatter;
 use crate::paths::{get_metadata_path, get_notes_dir, DEFAULT_FORGE_NAME};
 use crate::persist::{read_config, write_config};
@@ -38,6 +39,10 @@ pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
     };
 
     if !legacy_dir.is_dir() {
+        let default_forge = legacy_dir.join(DEFAULT_FORGE_NAME);
+        if let Err(e) = scaffold_forge(&default_forge) {
+            log::warn!("[forge migration] failed to scaffold Default Forge: {}", e);
+        }
         cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
         cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
         cfg.notes_directory = None;
@@ -50,6 +55,10 @@ pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
         .any(|s| legacy_dir.join(s).is_dir());
 
     if !has_forge_layout {
+        let default_forge = legacy_dir.join(DEFAULT_FORGE_NAME);
+        if let Err(e) = scaffold_forge(&default_forge) {
+            log::warn!("[forge migration] failed to scaffold Default Forge: {}", e);
+        }
         cfg.forges_root = Some(legacy_dir.to_string_lossy().to_string());
         cfg.active_forge = Some(DEFAULT_FORGE_NAME.to_string());
         cfg.notes_directory = None;
@@ -95,6 +104,59 @@ pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
         "[forge migration] wrapped legacy Forge into {:?}",
         default_forge
     );
+    Ok(true)
+}
+
+pub(crate) fn adopt_stray_root_layout() -> Result<bool, String> {
+    let cfg = read_config();
+    let Some(root) = cfg.forges_root.as_deref().filter(|root| !root.is_empty()) else {
+        return Ok(false);
+    };
+    let Some(active) = cfg
+        .active_forge
+        .as_deref()
+        .filter(|active| !active.is_empty())
+    else {
+        return Ok(false);
+    };
+    adopt_stray_root_layout_at(Path::new(root), active)
+}
+
+pub(crate) fn adopt_stray_root_layout_at(root: &Path, active: &str) -> Result<bool, String> {
+    let forge = root.join(active);
+    if forge.exists()
+        || !["daily", "notes", "weekly"]
+            .iter()
+            .any(|entry| root.join(entry).is_dir())
+    {
+        return Ok(false);
+    }
+
+    fs::create_dir_all(&forge)
+        .map_err(|e| format!("Failed to create active Forge for stray layout: {}", e))?;
+    for entry in [
+        "daily",
+        "notes",
+        "weekly",
+        "templates",
+        "images",
+        ".trash",
+        ".note-metadata.json",
+    ] {
+        let source = root.join(entry);
+        if !source.exists() {
+            continue;
+        }
+        let destination = forge.join(entry);
+        if let Err(e) = fs::rename(&source, &destination) {
+            log::warn!(
+                "[forge migration] failed to move {:?} → {:?}: {}",
+                source,
+                destination,
+                e
+            );
+        }
+    }
     Ok(true)
 }
 
@@ -207,6 +269,16 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
 mod tests {
     use super::*;
 
+    fn temp_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "moldavite-{label}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
     #[test]
     fn resolve_rejects_traversal() {
         let base = PathBuf::from("/tmp/forge");
@@ -226,5 +298,72 @@ mod tests {
             resolve_note_path(&base, "daily/2024-01-01.md"),
             Some(base.join("daily/2024-01-01.md"))
         );
+    }
+
+    #[test]
+    fn adopts_stray_root_layout_and_preserves_files() {
+        let root = temp_root("adopt-strays");
+        fs::create_dir_all(root.join("daily")).unwrap();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::create_dir_all(root.join("templates")).unwrap();
+        fs::write(root.join("daily/2026-07-31.md"), "daily").unwrap();
+        fs::write(root.join("notes/idea.md"), "idea").unwrap();
+        fs::write(root.join(".note-metadata.json"), "{}").unwrap();
+
+        assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(true));
+        assert_eq!(
+            fs::read_to_string(root.join("Default/daily/2026-07-31.md")).unwrap(),
+            "daily"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("Default/notes/idea.md")).unwrap(),
+            "idea"
+        );
+        assert!(root.join("Default/templates").is_dir());
+        assert!(root.join("Default/.note-metadata.json").is_file());
+        assert!(!root.join("daily").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn existing_active_forge_leaves_strays_untouched() {
+        let root = temp_root("adopt-existing");
+        fs::create_dir_all(root.join("Default")).unwrap();
+        fs::create_dir_all(root.join("daily")).unwrap();
+        fs::write(root.join("daily/keep.md"), "keep").unwrap();
+
+        assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(false));
+        assert_eq!(fs::read_to_string(root.join("daily/keep.md")).unwrap(), "keep");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn adoption_leaves_sibling_forges_untouched() {
+        let root = temp_root("adopt-sibling");
+        fs::create_dir_all(root.join("daily")).unwrap();
+        fs::create_dir_all(root.join("Work/notes")).unwrap();
+        fs::write(root.join("Work/notes/project.md"), "project").unwrap();
+
+        assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(true));
+        assert_eq!(
+            fs::read_to_string(root.join("Work/notes/project.md")).unwrap(),
+            "project"
+        );
+        assert!(root.join("Work").is_dir());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn adoption_is_idempotent() {
+        let root = temp_root("adopt-idempotent");
+        fs::create_dir_all(root.join("weekly")).unwrap();
+
+        assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(true));
+        assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(false));
+
+        let _ = fs::remove_dir_all(&root);
     }
 }
