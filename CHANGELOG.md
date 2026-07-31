@@ -4,6 +4,8 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-07-31
+
 ### Fixed
 
 - **Fresh installs always have a usable Default Forge.** Startup now scaffolds a missing active Forge, adopts note folders accidentally created at the Forges root, and lets an unpinned MCP session repair a missing active Forge without weakening strict `--forge` selection.
