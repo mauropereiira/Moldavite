@@ -55,14 +55,23 @@ fn resolve_forge(requested: Option<&str>) -> Result<PathBuf, String> {
     let name = requested
         .map(str::to_owned)
         .unwrap_or_else(crate::paths::get_active_forge_name);
-    resolve_forge_at(&crate::paths::get_forges_root(), &name, explicit)
+    resolve_forge_at(
+        &crate::paths::get_forges_root(),
+        &name,
+        explicit,
+        crate::migration::adopt_stray_root_layout,
+    )
 }
 
-fn resolve_forge_at(
+fn resolve_forge_at<F>(
     forges_root: &std::path::Path,
     name: &str,
     explicit: bool,
-) -> Result<PathBuf, String> {
+    adopt_strays: F,
+) -> Result<PathBuf, String>
+where
+    F: FnOnce() -> Result<bool, String>,
+{
     if !crate::validation::is_safe_filename(name) {
         return Err("Invalid Forge name".to_string());
     }
@@ -77,8 +86,13 @@ fn resolve_forge_at(
         return Err("Refusing to use a symlinked Forge".to_string());
     }
     if !root.is_dir() {
-        crate::commands::forges::scaffold_forge(&root)?;
-        eprintln!("Created missing active Forge '{name}' at {}", root.display());
+        // MCP-first installs leave the default config implicit; GUI startup
+        // persists forgesRoot/activeForge through the normal migration path.
+        adopt_strays()?;
+        if !root.is_dir() {
+            crate::commands::forges::scaffold_forge(&root)?;
+            eprintln!("Created missing active Forge '{name}' at {}", root.display());
+        }
     }
     Ok(root)
 }
@@ -115,7 +129,7 @@ mod tests {
         let root = temp_root("pinned-missing");
 
         assert_eq!(
-            resolve_forge_at(&root, "Missing", true),
+            resolve_forge_at(&root, "Missing", true, || Ok(false)),
             Err("Forge 'Missing' does not exist".to_string())
         );
         assert!(!root.join("Missing").exists());
@@ -124,11 +138,31 @@ mod tests {
     #[test]
     fn unpinned_missing_forge_is_scaffolded() {
         let root = temp_root("unpinned-missing");
-        let forge = resolve_forge_at(&root, "Default", false).unwrap();
+        let forge = resolve_forge_at(&root, "Default", false, || Ok(false)).unwrap();
 
         for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
             assert!(forge.join(sub).is_dir(), "missing {sub}");
         }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn unpinned_missing_forge_adopts_strays_before_scaffolding() {
+        let root = temp_root("unpinned-adoption");
+        std::fs::create_dir_all(root.join("daily")).unwrap();
+        std::fs::write(root.join("daily/stray.md"), "preserved").unwrap();
+
+        let forge = resolve_forge_at(&root, "Default", false, || {
+            crate::migration::adopt_stray_root_layout_at(&root, "Default")
+        })
+        .unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(forge.join("daily/stray.md")).unwrap(),
+            "preserved"
+        );
+        assert!(!root.join("daily").exists());
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -144,7 +178,7 @@ mod tests {
         symlink(&target, root.join("Default")).unwrap();
 
         assert_eq!(
-            resolve_forge_at(&root, "Default", false),
+            resolve_forge_at(&root, "Default", false, || Ok(false)),
             Err("Refusing to use a symlinked Forge".to_string())
         );
 

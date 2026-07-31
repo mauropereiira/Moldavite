@@ -107,7 +107,7 @@ pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn adopt_stray_root_layout() -> Result<bool, String> {
+pub(crate) fn adopt_stray_root_layout() -> Result<bool, String> {
     let cfg = read_config();
     let Some(root) = cfg.forges_root.as_deref().filter(|root| !root.is_empty()) else {
         return Ok(false);
@@ -122,7 +122,7 @@ pub fn adopt_stray_root_layout() -> Result<bool, String> {
     adopt_stray_root_layout_at(Path::new(root), active)
 }
 
-fn adopt_stray_root_layout_at(root: &Path, active: &str) -> Result<bool, String> {
+pub(crate) fn adopt_stray_root_layout_at(root: &Path, active: &str) -> Result<bool, String> {
     let forge = root.join(active);
     if forge.exists()
         || !["daily", "notes", "weekly"]
