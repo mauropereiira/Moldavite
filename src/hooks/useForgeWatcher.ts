@@ -1,13 +1,23 @@
 /**
  * Frontend reconciliation for external Forge filesystem events.
- * Event bursts coalesce into a note-list refresh; the active note body is never
- * reloaded here because doing so could overwrite unsaved editor state.
+ * Event bursts coalesce into a note-list refresh. Open note bodies reconcile
+ * independently: clean buffers reload, while dirty buffers remain untouched
+ * and surface an explicit external-change decision.
  */
 
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { listNotes } from '@/lib';
+import {
+  getLastPersistedMarkdown,
+  htmlToMarkdown,
+  isHtmlContent,
+  listNotes,
+  markdownToHtml,
+  readNoteWithMeta,
+} from '@/lib';
+import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
 import { useNoteStore } from '@/stores';
+import type { Note } from '@/types';
 
 /**
  * Payload emitted by the backend `forge:changed` event.
@@ -21,13 +31,72 @@ interface ForgeChangePayload {
   relPath: string;
 }
 
+interface NoteAddress {
+  filename: string;
+  isDaily: boolean;
+  isWeekly: boolean;
+  stem?: string;
+}
+
+function noteAddress(relPath: string): NoteAddress | null {
+  const daily = relPath.match(/^daily\/([^/]+)\.md$/);
+  if (daily) {
+    return { filename: `${daily[1]}.md`, isDaily: true, isWeekly: false, stem: daily[1] };
+  }
+  const weekly = relPath.match(/^weekly\/([^/]+)\.md$/);
+  if (weekly) {
+    return { filename: `${weekly[1]}.md`, isDaily: false, isWeekly: true, stem: weekly[1] };
+  }
+  if (relPath.startsWith('notes/') && relPath.endsWith('.md')) {
+    return {
+      filename: relPath.slice('notes/'.length),
+      isDaily: false,
+      isWeekly: false,
+    };
+  }
+  return null;
+}
+
+function matchingOpenTab(relPath: string, address: NoteAddress, tabs: Note[]): Note | undefined {
+  if (address.isDaily) {
+    return tabs.find((tab) => tab.isDaily && tab.date === address.stem);
+  }
+  if (address.isWeekly) {
+    return tabs.find((tab) => tab.isWeekly && tab.week === address.stem);
+  }
+  return tabs.find((tab) => !tab.isDaily && !tab.isWeekly && tab.id === relPath);
+}
+
+export async function reconcileExternalNoteChange(relPath: string): Promise<void> {
+  const address = noteAddress(relPath);
+  if (!address) return;
+
+  const state = useNoteStore.getState();
+  const tab = matchingOpenTab(relPath, address, state.openTabs);
+  if (!tab) return;
+
+  const lastPersisted = getLastPersistedMarkdown(
+    address.filename,
+    address.isDaily,
+    address.isWeekly
+  );
+  const dirty =
+    getPendingAutosaveNoteId() === tab.id || htmlToMarkdown(tab.content) !== (lastPersisted ?? '');
+  if (dirty) {
+    state.markExternallyChanged(tab.id);
+    return;
+  }
+
+  const result = await readNoteWithMeta(address.filename, address.isDaily, address.isWeekly);
+  const html = isHtmlContent(result.content) ? result.content : markdownToHtml(result.content);
+  useNoteStore.getState().applyExternalContent(tab.id, html);
+  resetAutosaveBaseline(tab.id, html);
+}
+
 /**
  * Subscribes to backend `forge:changed` events. When something on disk
  * changes outside of Moldavite (Obsidian, an editor, a script…), we
- * reconcile by re-listing notes. We deliberately don't reload the active
- * note's body here — that would clobber unsaved edits — but the path is
- * available in the payload if a future enhancement wants to surface a
- * "this note changed externally" prompt.
+ * reconcile the list and any semantically matching open tab.
  */
 export function useForgeWatcher(): void {
   const setNotes = useNoteStore((s) => s.setNotes);
@@ -39,7 +108,10 @@ export function useForgeWatcher(): void {
 
     const subscribe = async () => {
       try {
-        const off = await listen<ForgeChangePayload>('forge:changed', () => {
+        const off = await listen<ForgeChangePayload>('forge:changed', (event) => {
+          void reconcileExternalNoteChange(event.payload.relPath).catch((err) => {
+            console.error('[useForgeWatcher] note reconciliation failed:', err);
+          });
           // Coalesce bursts: a folder rename can fan out to many events.
           if (refreshTimer.current !== null) {
             clearTimeout(refreshTimer.current);

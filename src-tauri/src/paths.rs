@@ -79,10 +79,7 @@ pub(crate) fn get_notes_dir() -> PathBuf {
         config.active_forge.as_deref(),
     ) {
         if !root.is_empty() && !name.is_empty() {
-            let path = PathBuf::from(root).join(name);
-            if path.exists() {
-                return path;
-            }
+            return PathBuf::from(root).join(name);
         }
     }
     // Back-compat: legacy `notes_directory` field.

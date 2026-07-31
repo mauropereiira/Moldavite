@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::backlinks_index::BacklinksIndex;
 use crate::forge_watcher::{self, RecentWrites, WatcherHandle};
-use crate::paths::{get_active_forge_name, get_forges_root};
+use crate::paths::{get_active_forge_name, get_forges_root, DEFAULT_FORGE_NAME};
 use crate::persist::{read_config, write_config};
 use crate::types::ForgeInfo;
 use crate::validation::is_safe_filename;
@@ -68,6 +68,25 @@ pub(crate) fn scaffold_forge(path: &Path) -> Result<(), String> {
         let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o700));
     }
     Ok(())
+}
+
+fn ensure_forge_at(path: &Path) -> Result<PathBuf, String> {
+    if fs::symlink_metadata(path)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err("Refusing to use a symlinked Forge".to_string());
+    }
+    if !path.is_dir() {
+        scaffold_forge(path)?;
+    }
+    Ok(path.to_path_buf())
+}
+
+pub(crate) fn ensure_active_forge() -> Result<PathBuf, String> {
+    let root = get_forges_root();
+    let name = get_active_forge_name();
+    ensure_forge_at(&root.join(name))
 }
 
 #[tauri::command]
@@ -237,10 +256,17 @@ pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
     }
     let canonical = match new_root.canonicalize() {
         Ok(p) => p,
-        Err(_) => new_root
-            .parent()
-            .and_then(|p| p.canonicalize().ok())
-            .unwrap_or_else(|| new_root.clone()),
+        Err(_) => {
+            let parent = new_root
+                .parent()
+                .ok_or_else(|| "Path must have a parent directory".to_string())?
+                .canonicalize()
+                .map_err(|e| format!("Failed to resolve parent directory: {}", e))?;
+            let name = new_root
+                .file_name()
+                .ok_or_else(|| "Path must name a directory".to_string())?;
+            parent.join(name)
+        }
     };
     let path_str = canonical.to_string_lossy().to_lowercase();
     let forbidden = [
@@ -268,9 +294,11 @@ pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
         return Err("Forges root must be in your home folder or on an external volume".to_string());
     }
 
-    fs::create_dir_all(&new_root).map_err(|e| format!("Failed to create root: {}", e))?;
+    fs::create_dir_all(&canonical).map_err(|e| format!("Failed to create root: {}", e))?;
+    ensure_forge_at(&canonical.join(DEFAULT_FORGE_NAME))?;
     let mut cfg = read_config();
     cfg.forges_root = Some(canonical.to_string_lossy().to_string());
+    cfg.notes_directory = None;
     write_config(&cfg)?;
     Ok(canonical.to_string_lossy().to_string())
 }
@@ -341,5 +369,49 @@ mod tests {
             assert!(tmp.join(sub).is_dir(), "missing {}", sub);
         }
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn ensure_forge_scaffolds_missing_path() {
+        let tmp = std::env::temp_dir().join(format!(
+            "moldavite-ensure-forge-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        assert_eq!(ensure_forge_at(&tmp), Ok(tmp.clone()));
+        for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
+            assert!(tmp.join(sub).is_dir(), "missing {}", sub);
+        }
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ensure_forge_rejects_symlink_without_creating_target() {
+        use std::os::unix::fs::symlink;
+
+        let base = std::env::temp_dir().join(format!(
+            "moldavite-ensure-forge-symlink-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let target = base.join("target");
+        let forge = base.join("Default");
+        fs::create_dir_all(&base).unwrap();
+        symlink(&target, &forge).unwrap();
+
+        assert_eq!(
+            ensure_forge_at(&forge),
+            Err("Refusing to use a symlinked Forge".to_string())
+        );
+        assert!(!target.exists());
+
+        let _ = fs::remove_dir_all(&base);
     }
 }

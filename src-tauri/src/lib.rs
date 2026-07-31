@@ -81,7 +81,8 @@ use commands::misc::{
 };
 use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
-    fix_note_permissions, list_notes, move_note, read_note, rename_note, write_note,
+    fix_note_permissions, list_notes, move_note, preserve_buffer_copy, read_note, rename_note,
+    write_note,
 };
 use commands::plugins::{
     install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
@@ -223,6 +224,12 @@ pub fn run() {
             if let Err(e) = migration::migrate_legacy_single_forge_to_multi() {
                 log::warn!("[forge] multi-Forge migration error: {}", e);
             }
+            if let Err(e) = migration::adopt_stray_root_layout() {
+                log::warn!("[forge] stray root layout migration error: {}", e);
+            }
+            if let Err(e) = commands::forges::ensure_active_forge() {
+                log::warn!("[forge] active Forge bootstrap error: {}", e);
+            }
             // Run sidecar-metadata → frontmatter migration once. Idempotent,
             // safe to call on every launch.
             match migration::migrate_metadata_to_frontmatter() {
@@ -272,6 +279,7 @@ pub fn run() {
             read_note,
             write_note,
             delete_note,
+            preserve_buffer_copy,
             create_note,
             duplicate_note,
             export_single_note,

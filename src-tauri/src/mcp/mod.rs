@@ -51,14 +51,36 @@ pub fn run_from_env() -> Result<(), String> {
 }
 
 fn resolve_forge(requested: Option<&str>) -> Result<PathBuf, String> {
+    let explicit = requested.is_some();
     let name = requested
         .map(str::to_owned)
         .unwrap_or_else(crate::paths::get_active_forge_name);
-    if !crate::validation::is_safe_filename(&name) {
+    resolve_forge_at(&crate::paths::get_forges_root(), &name, explicit)
+}
+
+fn resolve_forge_at(
+    forges_root: &std::path::Path,
+    name: &str,
+    explicit: bool,
+) -> Result<PathBuf, String> {
+    if !crate::validation::is_safe_filename(name) {
         return Err("Invalid Forge name".to_string());
     }
-    let root = crate::paths::get_forges_root().join(&name);
-    validate_forge_root(&name, root)
+    let root = forges_root.join(name);
+    if explicit {
+        return validate_forge_root(name, root);
+    }
+    if std::fs::symlink_metadata(&root)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err("Refusing to use a symlinked Forge".to_string());
+    }
+    if !root.is_dir() {
+        crate::commands::forges::scaffold_forge(&root)?;
+        eprintln!("Created missing active Forge '{name}' at {}", root.display());
+    }
+    Ok(root)
 }
 
 fn validate_forge_root(name: &str, root: PathBuf) -> Result<PathBuf, String> {
@@ -72,4 +94,60 @@ fn validate_forge_root(name: &str, root: PathBuf) -> Result<PathBuf, String> {
         return Err(format!("Forge '{name}' does not exist"));
     }
     Ok(root)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "moldavite-mcp-{label}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn pinned_missing_forge_errors() {
+        let root = temp_root("pinned-missing");
+
+        assert_eq!(
+            resolve_forge_at(&root, "Missing", true),
+            Err("Forge 'Missing' does not exist".to_string())
+        );
+        assert!(!root.join("Missing").exists());
+    }
+
+    #[test]
+    fn unpinned_missing_forge_is_scaffolded() {
+        let root = temp_root("unpinned-missing");
+        let forge = resolve_forge_at(&root, "Default", false).unwrap();
+
+        for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
+            assert!(forge.join(sub).is_dir(), "missing {sub}");
+        }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_forge_errors_before_resolution() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_root("symlink");
+        let target = root.join("target");
+        std::fs::create_dir_all(&target).unwrap();
+        symlink(&target, root.join("Default")).unwrap();
+
+        assert_eq!(
+            resolve_forge_at(&root, "Default", false),
+            Err("Refusing to use a symlinked Forge".to_string())
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

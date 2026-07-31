@@ -19,7 +19,11 @@ import {
   notifyConflictCopy,
   LockedNoteWriteError,
 } from '@/lib';
-import { registerAutosaveFlush } from '@/lib/autosaveFlush';
+import {
+  registerAutosaveBaselineReset,
+  registerAutosaveFlush,
+  registerAutosavePendingProbe,
+} from '@/lib/autosaveFlush';
 import type { Note, NoteFile } from '@/types';
 
 /**
@@ -78,16 +82,14 @@ export function useAutoSave() {
             // Content is empty - delete the file if it exists
             if (existsInList) {
               try {
-                await deleteNote(filename, true, false);
+                await deleteNote(filename, true, false, { guarded: true });
+                const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
+                setNotes(updatedNotes);
+                if (dateStr) removeTaskStatus(dateStr);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete failed:', deleteError);
               }
-              // Remove from notes list
-              const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
-              setNotes(updatedNotes);
-            }
-            // Remove task status for this date
-            if (dateStr) {
+            } else if (dateStr) {
               removeTaskStatus(dateStr);
             }
           } else {
@@ -123,13 +125,12 @@ export function useAutoSave() {
             // Content is empty - delete the file if it exists
             if (existsInList) {
               try {
-                await deleteNote(filename, false, true);
+                await deleteNote(filename, false, true, { guarded: true });
+                const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
+                setNotes(updatedNotes);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete weekly note failed:', deleteError);
               }
-              // Remove from notes list
-              const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
-              setNotes(updatedNotes);
             }
           } else {
             // Content is not empty - save and add to list if needed
@@ -184,6 +185,24 @@ export function useAutoSave() {
 
   // Expose the flush so a Forge switch can await it before reloading the window.
   useEffect(() => registerAutosaveFlush(flushPending), [flushPending]);
+
+  const pendingProbe = useCallback(
+    () => (timeoutRef.current !== null ? (pendingRef.current?.id ?? null) : null),
+    []
+  );
+  useEffect(() => registerAutosavePendingProbe(pendingProbe), [pendingProbe]);
+
+  const resetBaseline = useCallback((noteId: string, content: string) => {
+    if (pendingRef.current?.id === noteId) {
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      pendingRef.current = null;
+    }
+    if (lastNoteIdRef.current === noteId) {
+      lastContentRef.current = content;
+    }
+  }, []);
+  useEffect(() => registerAutosaveBaselineReset(resetBaseline), [resetBaseline]);
 
   useEffect(() => {
     if (!currentNote) {
