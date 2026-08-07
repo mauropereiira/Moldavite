@@ -4,6 +4,8 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-08-07
+
 ### Fixed
 
 - **Notes an agent writes to no longer ask which version to keep.** A note you had merely opened, without typing a word, could show the "changed on disk" banner on every external write. Moldavite compared the editor's copy against the raw file in a way that made ordinary Markdown — a `_word_` here, a list marker there — look like an unsaved edit forever. Untouched notes now reload quietly, and the banner is back to meaning what it says: you have edits of your own that would conflict.
