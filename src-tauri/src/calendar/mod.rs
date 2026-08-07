@@ -21,9 +21,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "macos")]
 pub use apple::CalendarPermission;
 
-/// Non-macOS builds still need the type for the shared status shape, even
-/// though nothing ever produces a value other than `NotDetermined`.
+/// Non-macOS builds still need the type so `CalendarSourceStatus` keeps one
+/// shape across platforms, but nothing off macOS ever constructs a variant —
+/// `permission` is always `None` there. The variants exist to keep the wire
+/// format identical for the frontend's `CalendarPermission` union, so
+/// `dead_code` is expected rather than a sign of something unused.
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub enum CalendarPermission {
     NotDetermined,
