@@ -13,9 +13,8 @@ use std::path::{Path, PathBuf};
 
 use crate::paths::get_notes_dir;
 use crate::persist::write_atomic;
+use crate::secrets::{KeychainSecretStore, SecretStore};
 use crate::validation::validate_path_within_base;
-
-const KEYRING_SERVICE: &str = "Moldavite";
 
 /// Absolute path to the active Forge's `.plugins` directory.
 pub(crate) fn plugins_dir() -> PathBuf {
@@ -51,46 +50,8 @@ fn secret_account(plugin_id: &str, key: &str) -> Result<String, String> {
     Ok(format!("plugin:{plugin_id}:{key}"))
 }
 
-trait PluginSecretStore {
-    fn get(&self, account: &str) -> Result<Option<String>, String>;
-    fn set(&self, account: &str, value: &str) -> Result<(), String>;
-    fn delete(&self, account: &str) -> Result<(), String>;
-}
-
-struct KeychainSecretStore;
-
-impl KeychainSecretStore {
-    fn entry(account: &str) -> Result<keyring::Entry, String> {
-        keyring::Entry::new(KEYRING_SERVICE, account)
-            .map_err(|e| format!("could not access plugin secret: {e}"))
-    }
-}
-
-impl PluginSecretStore for KeychainSecretStore {
-    fn get(&self, account: &str) -> Result<Option<String>, String> {
-        match Self::entry(account)?.get_password() {
-            Ok(value) => Ok(Some(value)),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(format!("could not read plugin secret: {e}")),
-        }
-    }
-
-    fn set(&self, account: &str, value: &str) -> Result<(), String> {
-        Self::entry(account)?
-            .set_password(value)
-            .map_err(|e| format!("could not save plugin secret: {e}"))
-    }
-
-    fn delete(&self, account: &str) -> Result<(), String> {
-        match Self::entry(account)?.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(format!("could not delete plugin secret: {e}")),
-        }
-    }
-}
-
 fn secret_get_with(
-    store: &impl PluginSecretStore,
+    store: &impl SecretStore,
     plugin_id: &str,
     key: &str,
 ) -> Result<Option<String>, String> {
@@ -98,7 +59,7 @@ fn secret_get_with(
 }
 
 fn secret_set_with(
-    store: &impl PluginSecretStore,
+    store: &impl SecretStore,
     plugin_id: &str,
     key: &str,
     value: &str,
@@ -107,7 +68,7 @@ fn secret_set_with(
 }
 
 fn secret_delete_with(
-    store: &impl PluginSecretStore,
+    store: &impl SecretStore,
     plugin_id: &str,
     key: &str,
 ) -> Result<(), String> {
@@ -527,7 +488,7 @@ mod tests {
     #[derive(Default)]
     struct MemorySecretStore(RefCell<HashMap<String, String>>);
 
-    impl PluginSecretStore for MemorySecretStore {
+    impl SecretStore for MemorySecretStore {
         fn get(&self, account: &str) -> Result<Option<String>, String> {
             Ok(self.0.borrow().get(account).cloned())
         }

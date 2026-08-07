@@ -115,10 +115,11 @@
       </p>
       <ul>
         <li>
-          Daily-note settings from <code>.obsidian/daily-notes.json</code> are detected when present.
-          Formats made from <code>YYYY</code>, <code>MM</code>, and <code>DD</code> with
-          <code>-</code>, <code>_</code>, <code>.</code>, or <code>/</code> separators are normalized to
-          <code>daily/YYYY-MM-DD.md</code>; names that do not parse remain standalone notes.
+          Daily-note settings from <code>.obsidian/daily-notes.json</code> are detected when
+          present. Formats made from <code>YYYY</code>, <code>MM</code>, and <code>DD</code> with
+          <code>-</code>, <code>_</code>, <code>.</code>, or <code>/</code> separators are
+          normalized to <code>daily/YYYY-MM-DD.md</code>; names that do not parse remain standalone
+          notes.
         </li>
         <li>
           Other Markdown notes retain their folder structure with filesystem-safe, collision-deduped
@@ -131,9 +132,9 @@
           <code>images/</code> and rewritten to relative Markdown image paths.
         </li>
         <li>
-          <code>.obsidian/</code>, <code>.trash/</code>, hidden items, Canvas files, and symlinks are
-          never imported. Unreferenced attachments and unresolved embeds remain listed in the final
-          report; unresolved embed text is left in the note.
+          <code>.obsidian/</code>, <code>.trash/</code>, hidden items, Canvas files, and symlinks
+          are never imported. Unreferenced attachments and unresolved embeds remain listed in the
+          final report; unresolved embed text is left in the note.
         </li>
       </ul>
 
@@ -374,11 +375,31 @@
         overwriting one another.
       </p>
 
-      <h3>Apple Calendar</h3>
+      <h3>Calendars</h3>
       <p>
-        The right panel can show a month and Apple Calendar events through native EventKit. macOS
-        asks for permission first. Calendar access is read-only: Moldavite does not create or edit
-        events, and it does not upload them.
+        The right panel can show a month and your events from two sources. Both are read-only:
+        Moldavite never creates, edits, or deletes an event, and never writes one into a note by
+        itself. Connect either or both in <strong>Settings → Calendar</strong>, then tick the
+        individual calendars you want on the timeline.
+      </p>
+      <ul>
+        <li>
+          <strong>Apple Calendar</strong> — native EventKit, macOS only. macOS asks for permission
+          the first time, and nothing leaves your machine.
+        </li>
+        <li>
+          <strong>Google Calendar</strong> — available on every platform. Connecting opens your
+          browser for Google's consent screen and returns to a local port; Moldavite asks only for
+          the read-only calendar scope. The refresh token is stored in your system keychain, never
+          in a note or a settings file. <strong>Disconnect</strong> removes it, and you can also
+          revoke access from your
+          <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
+        </li>
+      </ul>
+      <p>
+        If one source fails — expired Google access, say — the timeline still shows the other and
+        reports the failure above the grid rather than going blank. What each connection sends is
+        listed in the <a href="privacy.html">Privacy Policy</a>.
       </p>
 
       <h2 id="updates">Staying up to date</h2>
@@ -629,6 +650,7 @@
           <a href="index.html">Home</a>
           <a href="guide.html">User Guide</a>
           <a href="plugins.html">Plugin Development</a>
+          <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
         </nav>
         <p class="footer-meta">

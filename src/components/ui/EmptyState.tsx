@@ -245,12 +245,14 @@ export function NoEventsEmptyState() {
   );
 }
 
+/**
+ * Which sources are offered depends on the platform and the build, so the
+ * caller supplies the buttons rather than this component assuming one.
+ */
 export function ConnectCalendarEmptyState({
-  onConnect,
-  isConnecting,
+  actions,
 }: {
-  onConnect: () => void;
-  isConnecting: boolean;
+  actions: { label: string; onClick: () => void; variant?: 'primary' | 'secondary' }[];
 }) {
   return (
     <EmptyState
@@ -273,16 +275,10 @@ export function ConnectCalendarEmptyState({
       message="View your daily schedule alongside your notes"
       features={[
         'See all your events at a glance',
-        'Works with iCloud, Google & Exchange',
-        'Completely private - stays on your Mac',
+        'Read-only — Moldavite never changes an event',
+        'Add or remove sources any time in Settings',
       ]}
-      actions={[
-        {
-          label: isConnecting ? 'Connecting...' : 'Enable Calendar Access',
-          onClick: onConnect,
-          variant: 'primary',
-        },
-      ]}
+      actions={actions}
       variant="card"
       iconColor="text-blue-400 dark:text-blue-500"
     />

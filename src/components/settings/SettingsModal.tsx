@@ -14,7 +14,7 @@
  * - **Editor** (`EditorSection`)         — defaults, formatting, writing aids
  * - **Features** (`FeaturesSection`)     — editor / navigation / right-panel
  * - **Sidebar** (`SidebarSection`)       — visibility, sort, panel widths
- * - **Calendar** (`CalendarSection`)     — macOS Calendar.app integration
+ * - **Calendar** (`CalendarSection`)     — Apple and Google calendar sources
  * - **AI & Agents** (`AgentsSection`)    — agent-ready Forge (AGENTS.md)
  * - **Templates** (`SettingsTemplates`)  — template management
  * - **Data** (`SettingsData`)            — bulk import / export actions

@@ -206,13 +206,16 @@ Writing one? See [docs/PLUGINS.md](docs/PLUGINS.md).
   agent tool
 - Encrypted whole-vault export, plus settings export as JSON
 - Trash holds deleted notes for 7 days with read-only previews
-- Apple Calendar access is read-only and permission-gated
+- Calendar access is read-only for both sources: Apple is permission-gated
+  through EventKit, Google through a `calendar.readonly` OAuth scope you grant
+  and can revoke. Events are drawn and discarded, never written to disk
 
 **Every network call Moldavite makes:** a signed update check ~15 seconds after
 launch and once a day while open; the plugin registry from GitHub when you press
-Browse; a semantic model from Hugging Face after you opt in; and plugin requests
-to hosts you approved by name. Publishing a note to WordPress is an action you
-take, not a background behaviour.
+Browse; a semantic model from Hugging Face after you opt in; Google Calendar
+while a Google account is connected; and plugin requests to hosts you approved
+by name. Publishing a note to WordPress is an action you take, not a background
+behaviour. Full detail: [Privacy Policy](https://mauropereiira.github.io/Moldavite/privacy.html).
 
 ## Architecture
 
@@ -228,16 +231,18 @@ flowchart TB
         PS["persist::write_atomic"]
         VA["validation · wiki · backlinks index"]
     end
-    subgraph OS["macOS"]
-        SW["Swift bridge → EventKit"]
-        KC["Keychain"]
+    subgraph OS["Operating system"]
+        SW["Swift bridge → EventKit<br/>macOS only"]
+        KC["Keychain / credential store"]
     end
+    GC["Google Calendar API<br/>read-only, OAuth"]
     DISK[("Your Forge<br/>plain Markdown")]
 
     FE -- "Tauri IPC (invoke)" --> BE
     BE --> PS --> DISK
     BE --> SW
     BE --> KC
+    BE -- "HTTPS, when connected" --> GC
 
     MCP["Same binary + --mcp<br/>headless, no GUI"] --> VA
     WORKER["Plugin Workers<br/>plugin:// scheme"] -. "host-enforced RPC" .-> CM
@@ -262,6 +267,8 @@ src-tauri/
 ├── src/persist.rs       # config/trash IO + write_atomic
 ├── src/validation.rs    # path-safety checks
 ├── src/encryption.rs    # AES-GCM + Argon2 note locking
+├── src/secrets.rs       # OS credential store (plugins + calendar accounts)
+├── src/calendar/        # source dispatch, apple (EventKit), google (REST + OAuth)
 └── src-swift/           # Swift bridge for Calendar
 ```
 

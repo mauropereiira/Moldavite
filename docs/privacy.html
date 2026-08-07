@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Moldavite</title>
+    <meta
+      name="description"
+      content="How Moldavite handles your data: notes stay on your device, there is no account or telemetry, and every network connection the app can make is listed."
+    />
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+    </script>
+    <script src="site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="nav-inner">
+        <div class="brand-wrap">
+          <a href="index.html" class="brand">
+            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
+            Moldavite
+          </a>
+          <span class="version-badge">Open source</span>
+        </div>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+          aria-controls="nav"
+        >
+          Menu
+        </button>
+        <nav class="nav-links" id="nav" aria-label="Primary">
+          <a href="index.html">Home</a>
+          <a href="guide.html">User Guide</a>
+          <a href="plugins.html">Plugins</a>
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+            >Download</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <section class="docs-hero">
+      <span class="version-badge">Privacy</span>
+      <h1>Privacy Policy</h1>
+      <p>
+        Moldavite is a local-first desktop app. Your notes live in ordinary files on your own
+        computer, and there is no Moldavite account, server, or analytics to send them to.
+      </p>
+    </section>
+
+    <main class="docs-body" id="main">
+      <nav class="docs-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#summary">Summary</a>
+        <a href="#what-we-collect">What Moldavite collects</a>
+        <a href="#your-notes">Your notes and where they live</a>
+        <a href="#network">Every network connection</a>
+        <a href="#calendar">Calendar access</a>
+        <a href="#google-limited-use">Google API Limited Use</a>
+        <a href="#credentials">Credentials and secrets</a>
+        <a href="#plugins">Plugins</a>
+        <a href="#children">Children</a>
+        <a href="#changes">Changes to this policy</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <h2 id="summary">Summary</h2>
+      <p>
+        Moldavite does not operate a service that receives your data. There is no sign-up, no hosted
+        sync, no analytics, and no telemetry. The developer has no access to your notes, your
+        calendar, or any credential you give the app. Everything below is detail on that one fact.
+      </p>
+      <div class="callout">
+        <span class="callout-title">No data controller relationship for your content</span>
+        <p>
+          Because your notes and connected-account data never reach a server operated by Moldavite,
+          the developer never becomes a processor or controller of that content. The services you
+          connect to — Google, WordPress.com, your own hosts — handle data under their own policies.
+        </p>
+      </div>
+
+      <h2 id="what-we-collect">What Moldavite collects</h2>
+      <p>Nothing. Specifically, the app does not collect, transmit, or store on any server:</p>
+      <ul>
+        <li>the contents, titles, tags, or file names of your notes</li>
+        <li>usage analytics, event tracking, crash reports, or feature telemetry</li>
+        <li>your IP address, device identifiers, or an advertising profile</li>
+        <li>your calendar events, or the account they came from</li>
+        <li>any password, token, or application password you enter</li>
+      </ul>
+      <p>
+        Moldavite has no account system, so there is nothing to sign up for and no profile to
+        delete.
+      </p>
+
+      <h2 id="your-notes">Your notes and where they live</h2>
+      <p>
+        Notes are plain Markdown files with optional YAML frontmatter, written inside a Forge
+        directory you choose — by default under <code>~/Documents/Moldavite/</code>. You can open,
+        move, back up, or delete them with any other tool, with or without Moldavite installed.
+      </p>
+      <ul>
+        <li>
+          <strong>Note locking</strong> encrypts individual notes on disk with AES-256-GCM and
+          Argon2 key derivation. The passphrase is never stored and never leaves your machine; if
+          you lose it, the note cannot be recovered by anyone, including the developer.
+        </li>
+        <li>
+          <strong>Local semantic search</strong> is opt-in. After a one-time model download it runs
+          entirely offline; note text is embedded on your own machine and the index stays inside the
+          Forge.
+        </li>
+        <li>
+          <strong>Trash</strong> retains deleted notes locally for 7 days before permanent removal.
+        </li>
+        <li>
+          <strong>Exports and backups</strong> are written where you point them. Encrypted exports
+          use a passphrase only you hold.
+        </li>
+      </ul>
+      <p>
+        If you place a Forge inside a folder synchronised by iCloud Drive, Dropbox, or a similar
+        service, that service receives your files under its own privacy policy. That is your choice
+        to make, and Moldavite is not involved in it.
+      </p>
+
+      <h2 id="network">Every network connection</h2>
+      <p>
+        This is the complete list of outbound connections the app can make. Each is either triggered
+        by an action you take or, in the case of update checks, disclosed here and limited to
+        version information.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Connection</th>
+              <th>When</th>
+              <th>What is sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Update check (GitHub)</td>
+              <td>About 15 seconds after launch and once a day while open</td>
+              <td>A request for the signed release manifest. No note data, no identifier.</td>
+            </tr>
+            <tr>
+              <td>Plugin registry (GitHub)</td>
+              <td>Only when you press Browse in the plugin settings</td>
+              <td>A request for the registry file and the plugin you choose to install.</td>
+            </tr>
+            <tr>
+              <td>Semantic model download (Hugging Face)</td>
+              <td>Once, after you opt in to semantic search</td>
+              <td>A request for the model files. No note data.</td>
+            </tr>
+            <tr>
+              <td>Google Calendar</td>
+              <td>Only while a Google account is connected</td>
+              <td>An access token and a date range. See below.</td>
+            </tr>
+            <tr>
+              <td>Plugin requests</td>
+              <td>When a plugin you installed runs</td>
+              <td>
+                Only to hosts named in the plugin manifest and approved by you, and only what that
+                plugin sends.
+              </td>
+            </tr>
+            <tr>
+              <td>Publishing to WordPress</td>
+              <td>Only when you publish a note</td>
+              <td>The note you chose to publish, to the site you configured.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="calendar">Calendar access</h2>
+      <p>
+        Moldavite can display events from Apple Calendar and from Google Calendar alongside your
+        notes. Both are <strong>read-only</strong>. The app never creates, edits, or deletes an
+        event, and it never writes calendar content into your notes on its own.
+      </p>
+      <ul>
+        <li>
+          <strong>Apple Calendar</strong> is read through macOS EventKit after you grant permission
+          in the system dialog. Nothing leaves your machine.
+        </li>
+        <li>
+          <strong>Google Calendar</strong> is read through the Google Calendar API after you
+          explicitly connect an account. Moldavite requests one scope,
+          <code>https://www.googleapis.com/auth/calendar.readonly</code>, which is the narrowest
+          scope that allows reading events.
+        </li>
+      </ul>
+      <p>
+        Google calendar data is fetched for the date range you are viewing, held in memory to draw
+        the timeline, and discarded. It is not written to disk, not indexed for search, not included
+        in exports, and not sent anywhere other than between your computer and Google.
+      </p>
+      <p>
+        You can disconnect at any time from <strong>Settings → Calendar</strong>, which deletes the
+        stored token from your system keychain. You can also revoke Moldavite's access from your
+        <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>,
+        which invalidates it regardless of what is on your machine.
+      </p>
+
+      <h2 id="google-limited-use">Google API Limited Use</h2>
+      <p>
+        Moldavite's use of information received from Google APIs adheres to the
+        <a
+          href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes"
+          >Google API Services User Data Policy</a
+        >, including the Limited Use requirements. Concretely:
+      </p>
+      <ul>
+        <li>Google Calendar data is used only to display your events inside the app.</li>
+        <li>It is never transferred to anyone, because it never leaves your device.</li>
+        <li>It is never used for advertising, and never sold.</li>
+        <li>
+          No human reads it. There is no server-side component and the developer has no way to
+          access it.
+        </li>
+        <li>It is not used to train any machine learning or AI model.</li>
+      </ul>
+
+      <h2 id="credentials">Credentials and secrets</h2>
+      <p>
+        Tokens and passwords are stored in your operating system's credential store — the Keychain
+        on macOS, Credential Manager on Windows, the Secret Service on Linux — under the service
+        name <code>Moldavite</code>. They are never written into notes, settings files, exports, or
+        logs.
+      </p>
+      <p>
+        The Google connection stores a refresh token there and keeps the short-lived access token in
+        memory only. Disconnecting removes the refresh token.
+      </p>
+
+      <h2 id="plugins">Plugins</h2>
+      <p>
+        Plugins run in a sandboxed worker with no network access and no direct system access by
+        default. A plugin must declare the exact hosts it wants to reach and the capabilities it
+        wants to use, and you approve that list before it runs. Consent is bound to a hash of the
+        plugin's code, so any change re-prompts.
+      </p>
+      <p>
+        A plugin you approve can send data to the hosts you approved. Moldavite enforces the
+        boundary; it does not vet what a third-party plugin does inside it. Install plugins you
+        trust, and read the permission sheet.
+      </p>
+
+      <h2 id="children">Children</h2>
+      <p>
+        Moldavite is a general-purpose notes application and is not directed at children. It
+        collects no personal information from anyone, including children.
+      </p>
+
+      <h2 id="changes">Changes to this policy</h2>
+      <p>
+        If the app gains a capability that changes what leaves your device, this page changes in the
+        same release, and the network table above is kept exhaustive. Material changes are also
+        noted in the changelog.
+      </p>
+      <p><strong>Last updated:</strong> 7 August 2026</p>
+
+      <h2 id="contact">Contact</h2>
+      <p>
+        Questions about this policy, or about how the app handles something not covered here, can be
+        raised as an issue on
+        <a href="https://github.com/mauropereiira/Moldavite/issues">GitHub</a>. Moldavite is open
+        source under the MIT License, so every claim on this page can be checked against the
+        <a href="https://github.com/mauropereiira/Moldavite">source code</a>.
+      </p>
+
+      <div class="next-links">
+        <a href="guide.html">
+          <span class="label">More detail</span>
+          <span class="title">Read the user guide →</span>
+        </a>
+        <a href="https://github.com/mauropereiira/Moldavite">
+          <span class="label">Verify it</span>
+          <span class="title">Read the source on GitHub →</span>
+        </a>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="guide.html">User Guide</a>
+          <a href="plugins.html">Plugin Development</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+        </nav>
+        <p class="footer-meta">
+          Documentation · Made by
+          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

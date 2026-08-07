@@ -32,7 +32,7 @@
 - Built-in MCP stdio server (v1.6): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks
 
 ### Platform
-- Apple Calendar (EventKit, read-only, permission-gated) in right panel + timeline
+- Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS keychain). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
 - Signed + notarized releases and minisign-verified auto-updates. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check; automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, keyboard shortcut overlay (⌘?), settings modal with focus trap
 
