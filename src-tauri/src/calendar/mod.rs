@@ -213,12 +213,21 @@ fn apple_events(
         })
         .collect();
 
+    // "Nothing selected" and "nothing of ours selected" are different answers.
+    // Keying the everything-case off `wanted` conflated them, so ticking only a
+    // Google calendar still returned every Apple calendar. Match the rule
+    // `google_events` uses: an empty selection means all, a selection that
+    // excludes this source means none.
+    if !calendar_ids.is_empty() && wanted.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let single = if wanted.len() == 1 { Some(wanted[0]) } else { None };
     let raw = apple::get_events(start_date, end_date, single)?;
 
     Ok(raw
         .into_iter()
-        .filter(|e| wanted.is_empty() || wanted.contains(&e.calendar_id.as_str()))
+        .filter(|e| calendar_ids.is_empty() || wanted.contains(&e.calendar_id.as_str()))
         .map(|e| CalendarEvent {
             id: namespace_id(CalendarSource::Apple, &e.id),
             source: CalendarSource::Apple,
@@ -300,13 +309,23 @@ fn local_day_bounds(start_date: &str, end_date: &str) -> Result<(String, String)
     let start = parse(start_date)?;
     let end = parse(end_date)?;
 
-    let start_dt = Local
-        .from_local_datetime(&start.and_hms_opt(0, 0, 0).unwrap())
-        .earliest()
+    // Local midnight does not exist on a spring-forward that lands at 00:00 —
+    // Santiago, Asunción, Beirut, Tehran and Havana all do this. Erroring there
+    // would cost the user every Google event for that day, so walk forward to
+    // the first hour that does exist. The Swift bridge already rolls forward
+    // the same way, so the two sources stay aligned.
+    let start_dt = (0..=3)
+        .find_map(|hour| {
+            start
+                .and_hms_opt(hour, 0, 0)
+                .and_then(|naive| Local.from_local_datetime(&naive).earliest())
+        })
         .ok_or_else(|| format!("Invalid local start time for {start_date}"))?;
-    let end_dt = Local
-        .from_local_datetime(&end.and_hms_opt(23, 59, 59).unwrap())
-        .latest()
+    let end_dt = (0..=3)
+        .find_map(|back| {
+            end.and_hms_opt(23 - back, 59, 59)
+                .and_then(|naive| Local.from_local_datetime(&naive).latest())
+        })
         .ok_or_else(|| format!("Invalid local end time for {end_date}"))?;
 
     Ok((start_dt.to_rfc3339(), end_dt.to_rfc3339()))
@@ -341,10 +360,24 @@ async fn google_events(
     };
 
     let mut events = Vec::new();
+    let mut failures: Vec<String> = Vec::new();
     for calendar in selected {
-        let page = google::list_events(&calendar.id, &time_min, &time_max)
-            .await
-            .map_err(|e| e.message())?;
+        // One calendar that 404s or 403s — a shared calendar the owner deleted,
+        // a subscription that lost access — must not cost the user every other
+        // Google calendar. Collect and carry on, the same way a failing source
+        // does not take the other source down.
+        let page = match google::list_events(&calendar.id, &time_min, &time_max).await {
+            Ok(page) => page,
+            Err(e) => {
+                let name = if calendar.summary.is_empty() {
+                    calendar.id.clone()
+                } else {
+                    calendar.summary.clone()
+                };
+                failures.push(format!("{name}: {}", e.message()));
+                continue;
+            }
+        };
         for e in page {
             let (Some(start), Some(end)) = (e.start_value(), e.end_value()) else {
                 continue;
@@ -374,6 +407,12 @@ async fn google_events(
         }
     }
 
+    // Every calendar failed and none produced events: report it rather than
+    // pretending the account is simply empty.
+    if events.is_empty() && !failures.is_empty() {
+        return Err(failures.join("; "));
+    }
+
     Ok(events)
 }
 
@@ -392,9 +431,29 @@ pub async fn list_sources() -> Vec<CalendarSourceStatus> {
     vec![apple_status(), google]
 }
 
+/// Absolute instant for ordering, across the formats the two sources use:
+/// RFC3339 with any offset, or a bare `yyyy-MM-dd` for an all-day event.
+/// Anything unparseable sorts last rather than panicking.
+fn event_instant(start: &str) -> i64 {
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(start) {
+        return dt.timestamp();
+    }
+    NaiveDate::parse_from_str(start, "%Y-%m-%d")
+        .ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .and_then(|naive| Local.from_local_datetime(&naive).earliest())
+        .map(|dt| dt.timestamp())
+        .unwrap_or(i64::MAX)
+}
+
+/// Merge the calendar lists. A source that fails is left out rather than
+/// failing the call: propagating meant one transient Google error emptied the
+/// whole list, and on a fresh launch that hides the calendar picker entirely.
 pub async fn list_all_calendars() -> Result<Vec<CalendarInfo>, String> {
-    let mut calendars = apple_calendars()?;
-    calendars.extend(google_calendars().await?);
+    let mut calendars = apple_calendars().unwrap_or_default();
+    if let Ok(google) = google_calendars().await {
+        calendars.extend(google);
+    }
     Ok(calendars)
 }
 
@@ -424,7 +483,11 @@ pub async fn fetch_events(
         }),
     }
 
-    events.sort_by(|a, b| a.start.cmp(&b.start));
+    // Sort on the instant, not the text. Apple emits UTC (`…Z`) and Google
+    // emits the calendar's own offset, so comparing the strings puts an 09:00
+    // event in +03:00 after a 07:00Z event even though it happens two hours
+    // earlier. All-day values are bare dates, which parse as local midnight.
+    events.sort_by_key(|e| event_instant(&e.start));
     CalendarFetchResult { events, errors }
 }
 
@@ -483,6 +546,39 @@ mod tests {
         let (min, max) = local_day_bounds("2026-08-07", "2026-08-08").unwrap();
         assert!(min.starts_with("2026-08-07T00:00:00"));
         assert!(max.starts_with("2026-08-08T23:59:59"));
+    }
+
+    #[test]
+    fn orders_across_the_two_time_formats_by_instant() {
+        // Apple emits UTC, Google emits the calendar's own offset. Compared as
+        // text the +03:00 event looks later; it is actually two hours earlier.
+        let apple = event_instant("2026-08-07T07:00:00Z");
+        let google = event_instant("2026-08-07T09:00:00+03:00");
+        assert!(google < apple, "instant ordering should ignore the offset text");
+        assert!("2026-08-07T07:00:00Z" < "2026-08-07T09:00:00+03:00");
+    }
+
+    #[test]
+    fn an_all_day_value_orders_as_local_midnight() {
+        let all_day = event_instant("2026-08-07");
+        let same_day_morning = event_instant(
+            &Local
+                .from_local_datetime(
+                    &NaiveDate::from_ymd_opt(2026, 8, 7)
+                        .unwrap()
+                        .and_hms_opt(9, 0, 0)
+                        .unwrap(),
+                )
+                .earliest()
+                .unwrap()
+                .to_rfc3339(),
+        );
+        assert!(all_day < same_day_morning);
+    }
+
+    #[test]
+    fn an_unparseable_start_sorts_last_instead_of_panicking() {
+        assert_eq!(event_instant("not a date"), i64::MAX);
     }
 
     #[test]

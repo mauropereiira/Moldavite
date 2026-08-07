@@ -37,6 +37,7 @@ export function CalendarSection() {
     permissionStatus,
     sources,
     isConnectingGoogle,
+    connectError,
     calendars,
     selectedCalendarIds,
     calendarEnabled,
@@ -212,9 +213,9 @@ export function CalendarSection() {
           </>
         ) : (
           <>
-            {google.error && (
+            {(connectError || google.error) && (
               <p className="text-xs" style={{ color: 'var(--error)' }}>
-                {google.error}
+                {connectError ?? google.error}
               </p>
             )}
             <button

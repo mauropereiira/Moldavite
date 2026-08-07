@@ -71,8 +71,16 @@ export function TimelineView() {
         const { events } = await fetchCalendarEvents(yesterdayStr, todayStr, selectedCalendarIds);
 
         if (!cancelled) {
-          setTodayEvents(events.filter((e) => e.start.startsWith(todayStr)));
-          setYesterdayEvents(events.filter((e) => e.start.startsWith(yesterdayStr)));
+          // Bucket on the parsed instant, not the leading characters. Apple
+          // serialises in UTC and Google in the calendar's own offset, so the
+          // text prefix is not the local date: a 21:00 event in New York
+          // starts "<tomorrow>T01:00:00Z" and would vanish from both buckets,
+          // while yesterday's 21:00 would surface under Today. `parseISO`
+          // reads a bare `yyyy-MM-dd` as local midnight, so Google's all-day
+          // values still land on the right day.
+          const localDay = (e: CalendarEvent) => format(parseISO(e.start), 'yyyy-MM-dd');
+          setTodayEvents(events.filter((e) => localDay(e) === todayStr));
+          setYesterdayEvents(events.filter((e) => localDay(e) === yesterdayStr));
         }
       } catch {
         // No calendar source available in this build — silently skip.

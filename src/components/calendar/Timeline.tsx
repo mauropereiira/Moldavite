@@ -382,6 +382,8 @@ export function Timeline() {
     lastSynced,
     calendarEnabled,
     refreshIntervalMinutes,
+    selectedCalendarIds,
+    showAllDayEvents,
     fetchEvents,
     checkPermission,
   } = useCalendarStore();
@@ -393,12 +395,23 @@ export function Timeline() {
     checkPermission();
   }, [checkPermission]);
 
-  // Fetch events when the date or the set of connected sources changes
+  // Refetch when the date, the connected sources, the calendar selection, or
+  // the all-day preference changes. Leaving the last two out meant ticking a
+  // calendar in Settings did nothing visible until the next poll — up to the
+  // full refresh interval away. Both re-reads usually hit the range cache, so
+  // this is instant rather than another round trip.
   useEffect(() => {
     if (anyConnected && calendarEnabled) {
       fetchEvents(selectedDate);
     }
-  }, [selectedDate, anyConnected, calendarEnabled, fetchEvents]);
+  }, [
+    selectedDate,
+    anyConnected,
+    calendarEnabled,
+    selectedCalendarIds,
+    showAllDayEvents,
+    fetchEvents,
+  ]);
 
   // Poll while the app is open. EventKit is local and cheap, but Google is a
   // rate-limited remote API, so the interval is a user setting rather than a

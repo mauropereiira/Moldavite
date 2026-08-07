@@ -45,6 +45,9 @@ function cacheKey(startDate: string, endDate: string, calendarIds: string[]): st
   return `${startDate}|${endDate}|${[...calendarIds].sort().join(',')}`;
 }
 
+/** Monotonic id so a slow fetch cannot overwrite a newer one. */
+let latestRequestId = 0;
+
 interface CalendarState {
   // Apple permission state
   permissionStatus: CalendarPermission;
@@ -54,6 +57,8 @@ interface CalendarState {
   // Source connections
   sources: CalendarSourceStatus[];
   isConnectingGoogle: boolean;
+  /** Failure from the connect flow itself. Shown in Settings, never over the timeline. */
+  connectError: string | null;
 
   // Events state
   events: CalendarEvent[];
@@ -125,6 +130,7 @@ export const useCalendarStore = create<CalendarState>()(
       isRequestingPermission: false,
       sources: [],
       isConnectingGoogle: false,
+      connectError: null,
       events: [],
       isLoadingEvents: false,
       eventsError: null,
@@ -214,14 +220,18 @@ export const useCalendarStore = create<CalendarState>()(
         try {
           const status = await connectGoogleCalendar();
           eventCache.clear();
-          set({ isConnectingGoogle: false });
+          set({ isConnectingGoogle: false, connectError: null });
           await get().refreshSources();
           return status.connected;
         } catch (error) {
           console.error('Google Calendar connection failed:', error);
+          // Deliberately not `eventsError`: that field replaces the whole
+          // timeline pane, so cancelling a Google consent used to hide every
+          // Apple event behind a red error panel. A connection problem belongs
+          // next to the connect button, in Settings.
           set({
             isConnectingGoogle: false,
-            eventsError: error instanceof Error ? error.message : String(error),
+            connectError: error instanceof Error ? error.message : String(error),
           });
           return false;
         }
@@ -265,19 +275,35 @@ export const useCalendarStore = create<CalendarState>()(
         if (!opts?.force) {
           const hit = eventCache.get(key);
           if (hit && Date.now() - hit.at < CALENDAR_EVENTS_CACHE_DURATION) {
+            // Errors belong to the range that produced them. Leaving them set
+            // would carry a failure banner from another day over a good result.
             set({
               events: showAllDayEvents ? hit.events : hit.events.filter((e) => !e.isAllDay),
+              sourceErrors: [],
+              eventsError: null,
               isLoadingEvents: false,
             });
             return;
           }
         }
 
+        // A slow network fetch must not overwrite a newer one. Clicking through
+        // dates resolves out of order easily now that a request can take
+        // seconds; without this the grid can show one day under another's
+        // header.
+        const requestId = ++latestRequestId;
         set({ isLoadingEvents: true, eventsError: null });
 
         try {
           const result = await fetchCalendarEvents(startDate, endDate, selectedCalendarIds);
-          eventCache.set(key, { events: result.events, at: Date.now() });
+          if (requestId !== latestRequestId) return;
+
+          // Only cache a complete answer. Caching a partially-failed fetch
+          // pins the gap in place for the whole TTL, so a source that recovers
+          // seconds later still looks down until the cache expires.
+          if (result.errors.length === 0) {
+            eventCache.set(key, { events: result.events, at: Date.now() });
+          }
 
           set({
             events: showAllDayEvents ? result.events : result.events.filter((e) => !e.isAllDay),
@@ -287,6 +313,7 @@ export const useCalendarStore = create<CalendarState>()(
           });
         } catch (error) {
           console.error('Failed to fetch events:', error);
+          if (requestId !== latestRequestId) return;
           set({
             eventsError: error instanceof Error ? error.message : 'Failed to fetch events',
             isLoadingEvents: false,
@@ -343,10 +370,10 @@ export const useCalendarStore = create<CalendarState>()(
        * Controls whether all-day events are displayed.
        * @param show - True to show all-day events
        */
-      setShowAllDayEvents: (show) => {
-        eventCache.clear();
-        set({ showAllDayEvents: show });
-      },
+      // The cache holds unfiltered events and both read paths apply this
+      // filter, so clearing it here would force a needless network round trip
+      // for a purely local preference.
+      setShowAllDayEvents: (show) => set({ showAllDayEvents: show }),
 
       /**
        * How often connected sources are polled while the app is open. Apple is
