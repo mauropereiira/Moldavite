@@ -4,6 +4,10 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Folder and note counts come back after you hover a row.** Hovering a sidebar row once left its `⋯` options button stuck on screen, and since that button sits on top of the count badge, the count stayed hidden for the rest of the session.
+
 ## [1.7.4] - 2026-08-07
 
 ### Fixed

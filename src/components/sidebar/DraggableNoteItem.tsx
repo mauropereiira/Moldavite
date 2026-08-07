@@ -144,6 +144,9 @@ function DraggableNoteItemImpl({
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
+          // Clear the inline opacity set on enter; an inline style outranks the
+          // classes above, so leaving it behind pins the button visible.
+          e.currentTarget.style.opacity = '';
         }}
         aria-label="Note options"
       >
