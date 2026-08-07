@@ -128,6 +128,24 @@ pub struct CalendarFetchResult {
 
 const NO_TITLE: &str = "(No title)";
 
+/// One shared HTTP client for every Google call.
+///
+/// `reqwest::Client` owns the connection pool, so building one per request —
+/// which a paginated fetch across several calendars does a lot of — throws away
+/// keep-alive and pays a fresh TLS handshake every time. A request timeout
+/// belongs here too: without one a stalled connection hangs the fetch forever.
+fn http_client() -> reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_default()
+        })
+        .clone()
+}
+
 // ---------------------------------------------------------------- Apple
 
 #[cfg(target_os = "macos")]

@@ -34,6 +34,10 @@ const CALLBACK_TIMEOUT: Duration = Duration::from_secs(300);
 /// round trip and an error the user would see.
 const EXPIRY_MARGIN: Duration = Duration::from_secs(60);
 
+/// How often the non-blocking accept loop re-checks for a connection. Short
+/// enough that consent feels instant, long enough not to spin a core.
+const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
 pub const CLIENT_ID: Option<&str> = option_env!("MOLDAVITE_GOOGLE_CLIENT_ID");
 pub const CLIENT_SECRET: Option<&str> = option_env!("MOLDAVITE_GOOGLE_CLIENT_SECRET");
 
@@ -209,9 +213,19 @@ const CALLBACK_PAGE: &str = "<!doctype html><meta charset=\"utf-8\"><title>Molda
 
 /// Bind a loopback listener and wait for Google to redirect the browser to it.
 /// Returns the parsed callback, or an error on timeout.
-fn await_callback(listener: TcpListener) -> Result<Callback, String> {
+///
+/// Anything on the machine can connect to a loopback port, so a request is only
+/// treated as our redirect when it carries the `state` we generated. Without
+/// that check any local process could end the flow early by sending a bare
+/// `?error=`, and the user would see a failure they did not cause. Google
+/// echoes `state` on success and on error alike, so requiring it costs nothing.
+///
+/// The accept loop is non-blocking because a blocking `accept()` would park
+/// here forever when the user abandons the consent tab — the deadline below is
+/// only enforceable if we get to re-check it.
+fn await_callback(listener: TcpListener, expected_state: &str) -> Result<Callback, String> {
     listener
-        .set_nonblocking(false)
+        .set_nonblocking(true)
         .map_err(|e| format!("could not configure callback listener: {e}"))?;
 
     let deadline = Instant::now() + CALLBACK_TIMEOUT;
@@ -221,12 +235,19 @@ fn await_callback(listener: TcpListener) -> Result<Callback, String> {
         if Instant::now() >= deadline {
             return Err("Timed out waiting for Google to redirect back.".into());
         }
-        let (mut stream, _) = listener
-            .accept()
-            .map_err(|e| format!("callback connection failed: {e}"))?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(10)))
-            .ok();
+
+        let (mut stream, _) = match listener.accept() {
+            Ok(pair) => pair,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(ACCEPT_POLL_INTERVAL);
+                continue;
+            }
+            Err(e) => return Err(format!("callback connection failed: {e}")),
+        };
+        // The accepted socket can inherit the listener's non-blocking flag, and
+        // the read below expects to block until the request line arrives.
+        stream.set_nonblocking(false).ok();
+        stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
 
         let mut line = String::new();
         if BufReader::new(
@@ -241,6 +262,9 @@ fn await_callback(listener: TcpListener) -> Result<Callback, String> {
         }
 
         let callback = parse_callback(&line);
+        if callback.state.as_deref() != Some(expected_state) {
+            continue;
+        }
         if callback.code.is_none() && callback.error.is_none() {
             continue;
         }
@@ -257,7 +281,7 @@ fn await_callback(listener: TcpListener) -> Result<Callback, String> {
 }
 
 async fn post_token(params: &[(&str, &str)]) -> Result<TokenResponse, String> {
-    let response = reqwest::Client::new()
+    let response = super::http_client()
         .post(TOKEN_ENDPOINT)
         .form(params)
         .send()
@@ -298,15 +322,29 @@ pub async fn connect(app: &tauri::AppHandle) -> Result<AccessToken, String> {
     // shell plugin is already a dependency and the opener plugin would add one
     // plus a capability entry for a single call site. Revisit if the app adopts
     // the opener plugin for other reasons.
+    //
+    // Known residual exposure: this shells out to `/usr/bin/open <url>` on
+    // macOS, so the authorization URL — including `state` and `code_challenge`
+    // — is briefly visible in the process argument list to any process running
+    // as the same user. An attacker who already has same-user code execution
+    // could race that window and complete consent against their own Google
+    // account, leaving this app connected to it. The payoff is arbitrary text
+    // in the timeline (the account address is shown in Settings, event links
+    // are Google-generated, and nothing of the user's is exposed), and such an
+    // attacker can already write directly into the vault. Closing it properly
+    // means launching the browser without a child process — NSWorkspace via
+    // the existing Swift bridge is the likely route.
     #[allow(deprecated)]
     app.shell()
         .open(&url, None)
         .map_err(|e| format!("could not open your browser: {e}"))?;
 
-    // Blocking accept on a worker thread so the async runtime stays free.
-    let callback = tauri::async_runtime::spawn_blocking(move || await_callback(listener))
-        .await
-        .map_err(|e| format!("callback task failed: {e}"))??;
+    // Accept on a worker thread so the async runtime stays free.
+    let expected_state = state.clone();
+    let callback =
+        tauri::async_runtime::spawn_blocking(move || await_callback(listener, &expected_state))
+            .await
+            .map_err(|e| format!("callback task failed: {e}"))??;
 
     if let Some(error) = callback.error {
         return Err(if error == "access_denied" {
@@ -415,6 +453,33 @@ mod tests {
     fn ignores_a_request_with_no_query() {
         assert_eq!(parse_callback("GET / HTTP/1.1"), Callback::default());
         assert_eq!(parse_callback("garbage"), Callback::default());
+    }
+
+    /// The accept loop only acts on a request whose `state` matches the one we
+    /// generated. Anything on the machine can reach a loopback port, so without
+    /// this a stray `?error=` would abort a flow the user did not cancel.
+    #[test]
+    fn a_foreign_request_is_not_mistaken_for_our_redirect() {
+        let ours = "expected-state";
+
+        let forged_error = parse_callback("GET /?error=access_denied HTTP/1.1");
+        assert_ne!(forged_error.state.as_deref(), Some(ours));
+
+        let forged_code = parse_callback("GET /?code=attacker&state=wrong HTTP/1.1");
+        assert_ne!(forged_code.state.as_deref(), Some(ours));
+
+        let real = parse_callback("GET /?code=ours&state=expected-state HTTP/1.1");
+        assert_eq!(real.state.as_deref(), Some(ours));
+        assert_eq!(real.code.as_deref(), Some("ours"));
+    }
+
+    #[test]
+    fn a_cancelled_consent_still_carries_our_state() {
+        // Google echoes `state` on the error redirect too, which is what makes
+        // requiring it safe rather than a way to miss a real cancellation.
+        let cb = parse_callback("GET /?error=access_denied&state=expected-state HTTP/1.1");
+        assert_eq!(cb.state.as_deref(), Some("expected-state"));
+        assert_eq!(cb.error.as_deref(), Some("access_denied"));
     }
 
     #[test]

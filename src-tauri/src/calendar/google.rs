@@ -17,6 +17,8 @@ use super::oauth::{self, AccessToken};
 const CALENDAR_LIST_URL: &str = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 const EVENTS_BASE: &str = "https://www.googleapis.com/calendar/v3/calendars";
 const PAGE_SIZE: u32 = 250;
+/// Backstop on the pagination loop; see `list_events`.
+const MAX_PAGES: u32 = 40;
 
 /// Distinguishes "the token expired, retry" from "the user must reconnect", so
 /// the UI can prompt for consent instead of showing a dead-end error.
@@ -76,7 +78,7 @@ async fn token() -> Result<String, GoogleError> {
 }
 
 async fn get_json(url: &str) -> Result<serde_json::Value, GoogleError> {
-    let client = reqwest::Client::new();
+    let client = super::http_client();
 
     for attempt in 0..2 {
         let bearer = token().await?;
@@ -269,6 +271,10 @@ pub async fn list_events(
 ) -> Result<Vec<GoogleEvent>, GoogleError> {
     let mut all = Vec::new();
     let mut page_token: Option<String> = None;
+    // A page token that never changes, or a server that keeps handing one back,
+    // would otherwise loop until the process dies. At 250 events per page this
+    // covers a range far larger than the timeline ever requests.
+    let mut pages_left = MAX_PAGES;
 
     loop {
         let mut url = format!(
@@ -285,9 +291,12 @@ pub async fn list_events(
         let (events, next) = parse_events_page(&body);
         all.extend(events);
 
+        pages_left -= 1;
         match next {
-            Some(token) => page_token = Some(token),
-            None => break,
+            Some(token) if pages_left > 0 && Some(&token) != page_token.as_ref() => {
+                page_token = Some(token)
+            }
+            _ => break,
         }
     }
 
