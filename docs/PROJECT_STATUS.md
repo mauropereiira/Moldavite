@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** July 16, 2026 (post-v1.7.0 development)
+**Last Updated:** August 7, 2026 (v1.8.0)
 **Status:** Shipping — signed/notarized releases with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -47,10 +47,10 @@
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
-- Frontend: vitest — 259 tests across 40 files (stores, lib, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, plugin RPC/manifest/registry/UI)
-- Backend: cargo test — 187 tests incl. stress suite, Obsidian conversion/path-safety, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, and strict deep-link routing suites
-- Bundle budget enforced via `npm run check:size` (within budget as of v1.7.0)
-- ESLint: 0 errors, 18 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
+- Frontend: vitest — 383 tests across 48 files (stores, lib, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, external-write reconciliation, calendar store migration, plugin RPC/manifest/registry/UI)
+- Backend: cargo test — 247 tests incl. stress suite, Obsidian conversion/path-safety, conflict-copy, semantic-index, MCP, plugin install/hash/secret validation, strict deep-link routing, and calendar source dispatch / PKCE / Google response mapping suites
+- Bundle budget enforced via `npm run check:size` (within budget as of v1.8.0)
+- ESLint: 0 errors, 16 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
@@ -59,13 +59,21 @@
 - ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
 - No automatic scheduled backups (manual + encrypted export exist).
 - No multi-window support.
+- **MCP write tools have no conflict detection** ([#37](https://github.com/mauropereiira/Moldavite/issues/37)) — unlike the GUI save path they replace a note body unconditionally, so two agents can clobber each other with no conflict copy.
+- **`Editor.tsx` has no test harness** ([#38](https://github.com/mauropereiira/Moldavite/issues/38)) — the only significant component without one.
+- **Self-write suppression is a 500ms timing window** ([#39](https://github.com/mauropereiira/Moldavite/issues/39)) — a slow disk can make the app read its own save as an external change.
+- **Externally created Forges need a QuickSwitcher pass or relaunch to appear** ([#36](https://github.com/mauropereiira/Moldavite/issues/36)) — `forges:changed` is emitted with no frontend listener.
+- **Two stress tests assert a wall-clock budget** ([#44](https://github.com/mauropereiira/Moldavite/issues/44)) — they can flake under CI load.
+- **Google Calendar is not brand-verified yet** — consent shows the unverified-app interstitial and there is a 100-user cap until Google completes review.
 
 ## Roadmap (in priority order)
-1. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
-2. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
-3. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-4. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
-5. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
+1. **Conflict-safe MCP writes** ([#37](https://github.com/mauropereiira/Moldavite/issues/37)) — extend the base-hash guard the GUI already uses to the MCP write tools. Silent loss between two agents is the most consequential open bug.
+2. **Google brand verification** — needs the now-live `privacy.html`, a homepage, and a Search Console-verified authorized domain. Removes the unverified-app warning and the 100-user cap.
+3. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
+4. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
+5. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
+6. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
+7. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
 Staying a *note app*: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.
