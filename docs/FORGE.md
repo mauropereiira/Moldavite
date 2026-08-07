@@ -139,10 +139,12 @@ external edit:
 Conflict copies are ordinary Markdown notes. A simultaneous collision in the
 same minute receives a numeric suffix such as `(2)` so an earlier copy is never
 overwritten. When an external writer changes an open note, a clean Moldavite
-buffer reloads automatically. A dirty buffer stays untouched and shows a thin
-banner: **Keep my version** saves the buffer and preserves the disk version as a
-conflict copy; **Use disk version** preserves the buffer as a conflict copy and
-then reloads the disk content. Neither side is silently discarded.
+buffer reloads in place, keeping your scroll position and cursor — so a note an
+agent writes to repeatedly stays readable and never asks you anything. Only a
+buffer with your own unsaved edits shows a thin banner: **Keep my version**
+saves the buffer and preserves the disk version as a conflict copy; **Use disk
+version** preserves the buffer as a conflict copy and then reloads the disk
+content. Neither side is silently discarded.
 
 ## Agent-ready files
 

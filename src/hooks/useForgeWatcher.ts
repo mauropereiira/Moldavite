@@ -80,8 +80,19 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
     address.isDaily,
     address.isWeekly
   );
+  // The buffer holds `markdownToHtml(disk)` after TipTap normalised it, so
+  // `htmlToMarkdown(buffer)` is a round-tripped string. Comparing that against
+  // the raw disk Markdown reports every note whose Markdown does not survive
+  // the round trip — different bullet markers, emphasis delimiters, escaping —
+  // as dirty forever, and an untouched note then gets a conflict prompt on
+  // every external write. Put both sides through the same lossy pipeline so
+  // only real edits diverge.
+  const persistedNormalized =
+    lastPersisted === undefined ? undefined : htmlToMarkdown(markdownToHtml(lastPersisted));
   const dirty =
-    getPendingAutosaveNoteId() === tab.id || htmlToMarkdown(tab.content) !== (lastPersisted ?? '');
+    getPendingAutosaveNoteId() === tab.id ||
+    persistedNormalized === undefined ||
+    htmlToMarkdown(tab.content) !== persistedNormalized;
   if (dirty) {
     state.markExternallyChanged(tab.id);
     return;

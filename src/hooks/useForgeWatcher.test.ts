@@ -83,6 +83,32 @@ describe('external Forge watcher reconciliation', () => {
     unregisterProbe();
   });
 
+  it('reloads an untouched tab whose Markdown does not survive the HTML round trip', async () => {
+    // `_hi_` renders to <em>hi</em>, which Turndown writes back as `*hi*`
+    // (emDelimiter). Comparing the round-tripped buffer against the raw disk
+    // string used to report this untouched note as dirty on every agent write.
+    invokeMock.mockResolvedValueOnce({
+      content: 'a _lossy_ line',
+      color: null,
+      contentHash: 'old-hash',
+    });
+    await readNoteWithMeta('2026-07-31.md', true, false);
+    const tab = dailyTab(markdownToHtml('a _lossy_ line'));
+    useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
+    invokeMock.mockResolvedValueOnce({
+      content: 'agent body',
+      color: null,
+      contentHash: 'new-hash',
+    });
+    const unregisterProbe = registerAutosavePendingProbe(() => null);
+
+    await reconcileExternalNoteChange('daily/2026-07-31.md');
+
+    expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(false);
+    expect(useNoteStore.getState().currentNote?.content).toContain('agent body');
+    unregisterProbe();
+  });
+
   it('treats a queued debounce as dirty even when HTML matches persisted Markdown', async () => {
     invokeMock.mockResolvedValueOnce({
       content: 'same body',
