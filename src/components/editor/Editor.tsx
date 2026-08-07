@@ -806,6 +806,15 @@ export function Editor() {
     return () => editorHandle.setEditor(null);
   }, [editor]);
 
+  // Identity of the last content application, so an external reload can be
+  // told apart from a note switch. Both run through the effect below, but only
+  // a switch should jump to the top and drop the cursor.
+  const lastAppliedRef = React.useRef<{
+    editor: TiptapEditor | null;
+    noteId: string | null;
+    externalRev: number | undefined;
+  }>({ editor: null, noteId: null, externalRev: undefined });
+
   React.useEffect(() => {
     const note = currentNoteRef.current;
 
@@ -819,6 +828,20 @@ export function Editor() {
       return;
     }
 
+    const previous = lastAppliedRef.current;
+    // Same editor instance, same note, only the external revision moved: an
+    // agent, sync tool, or another editor rewrote this file while it sat open.
+    const isExternalReload =
+      !!note &&
+      previous.editor === editor &&
+      previous.noteId === currentNoteId &&
+      previous.externalRev !== note.externalRev;
+    lastAppliedRef.current = {
+      editor,
+      noteId: currentNoteId ?? null,
+      externalRev: note?.externalRev,
+    };
+
     try {
       if (note) {
         // Use a microtask to ensure React has finished its commit phase
@@ -826,6 +849,16 @@ export function Editor() {
           try {
             // Double-check mounted and editor state before DOM operations
             if (isMountedRef.current && editor && !editor.isDestroyed) {
+              // An external reload swaps the body out from under whoever is
+              // reading it, so hold their scroll position and cursor. A note
+              // switch keeps the original behaviour: top of the note, no
+              // selection carried over from the previous one.
+              const scrollTop = isExternalReload ? (scrollContainerRef.current?.scrollTop ?? 0) : 0;
+              const selection = isExternalReload
+                ? { from: editor.state.selection.from, to: editor.state.selection.to }
+                : null;
+              const keepFocus = isExternalReload && editor.isFocused;
+
               // Clear and set content, then blur to clear any selection.
               // emitUpdate:false because TipTap v3 defaults it to true, which
               // made merely *opening* a note fire onUpdate -> autosave and
@@ -833,10 +866,16 @@ export function Editor() {
               // it cannot represent (Markdown tables, say) was flattened on
               // disk without the user typing a thing.
               editor.commands.setContent(note.content || '', { emitUpdate: false });
-              editor.commands.blur();
-              // Reset scroll position to top
+              if (selection) {
+                // setTextSelection clamps out-of-range positions itself, which
+                // matters when the external edit shortened the note.
+                editor.commands.setTextSelection(selection);
+              }
+              if (!keepFocus) {
+                editor.commands.blur();
+              }
               if (scrollContainerRef.current) {
-                scrollContainerRef.current.scrollTop = 0;
+                scrollContainerRef.current.scrollTop = scrollTop;
               }
             }
           } catch (error) {
