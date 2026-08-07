@@ -4,6 +4,8 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-07
+
 ### Added
 
 - **Google Calendar, alongside Apple Calendar.** Connect a Google account in Settings → Calendar and its events appear in the timeline next to your notes. Access is read-only and asks for the narrowest scope Google offers; Moldavite never creates or changes an event. Consent happens in your browser and the token is kept in your system keychain, never in a note or a settings file, and **Disconnect** removes it.
