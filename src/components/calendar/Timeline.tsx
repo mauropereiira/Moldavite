@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { format, isToday } from 'date-fns';
 import { useCalendarStore } from '@/stores/calendarStore';
-import { useNoteStore } from '@/stores';
+import { useNoteStore, useSettingsStore } from '@/stores';
 import type { CalendarEvent } from '@/types';
 import { Clock, RefreshCw, AlertCircle, Lock, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
@@ -195,15 +195,32 @@ function PermissionDeniedState() {
   );
 }
 
-// Connect prompt for unauthenticated state
+// Connect prompt for the no-source-connected state
 export function ConnectCalendarPrompt() {
-  const { requestPermission, isRequestingPermission, permissionStatus } = useCalendarStore();
+  const { requestPermission, isRequestingPermission, permissionStatus, sources } =
+    useCalendarStore();
+  const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
+  const setActiveSettingsTab = useSettingsStore((s) => s.setActiveSettingsTab);
 
-  const handleEnableAccess = async () => {
-    await requestPermission();
-  };
+  const apple = sources.find((s) => s.source === 'apple');
 
-  // Show denied state if permission was denied
+  // The System Settings deep link and the EventKit permission dance are Apple's
+  // alone. Where EventKit does not exist — Windows, Linux — the only way to get
+  // events is to connect an account, so send the user to Settings instead.
+  if (!apple?.available) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-2">
+        <ConnectCalendarEmptyState
+          onConnect={() => {
+            setActiveSettingsTab('calendar');
+            setIsSettingsOpen(true);
+          }}
+          isConnecting={false}
+        />
+      </div>
+    );
+  }
+
   if (permissionStatus === 'Denied' || permissionStatus === 'Restricted') {
     return <PermissionDeniedState />;
   }
@@ -211,7 +228,9 @@ export function ConnectCalendarPrompt() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-2">
       <ConnectCalendarEmptyState
-        onConnect={handleEnableAccess}
+        onConnect={() => {
+          void requestPermission();
+        }}
         isConnecting={isRequestingPermission}
       />
     </div>
@@ -329,30 +348,48 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
 export function Timeline() {
   const { selectedDate } = useNoteStore();
   const {
-    isAuthorized,
+    sources,
     events,
     isLoadingEvents,
     eventsError,
+    sourceErrors,
     lastSynced,
     calendarEnabled,
+    refreshIntervalMinutes,
     fetchEvents,
     checkPermission,
   } = useCalendarStore();
 
-  // Check permission status on mount
+  const anyConnected = sources.some((s) => s.available && s.connected);
+
+  // Check source state on mount
   useEffect(() => {
     checkPermission();
   }, [checkPermission]);
 
-  // Fetch events when date changes
+  // Fetch events when the date or the set of connected sources changes
   useEffect(() => {
-    if (isAuthorized && calendarEnabled) {
+    if (anyConnected && calendarEnabled) {
       fetchEvents(selectedDate);
     }
-  }, [selectedDate, isAuthorized, calendarEnabled, fetchEvents]);
+  }, [selectedDate, anyConnected, calendarEnabled, fetchEvents]);
 
-  // Not authorized - show connect prompt
-  if (!isAuthorized) {
+  // Poll while the app is open. EventKit is local and cheap, but Google is a
+  // rate-limited remote API, so the interval is a user setting rather than a
+  // constant.
+  useEffect(() => {
+    if (!anyConnected || !calendarEnabled) return;
+    const id = window.setInterval(
+      () => {
+        void fetchEvents(selectedDate, undefined, { force: true });
+      },
+      refreshIntervalMinutes * 60 * 1000
+    );
+    return () => window.clearInterval(id);
+  }, [anyConnected, calendarEnabled, refreshIntervalMinutes, selectedDate, fetchEvents]);
+
+  // Nothing connected - show connect prompt
+  if (!anyConnected) {
     return <ConnectCalendarPrompt />;
   }
 
@@ -371,7 +408,7 @@ export function Timeline() {
   }
 
   const handleRefresh = () => {
-    fetchEvents(selectedDate);
+    fetchEvents(selectedDate, undefined, { force: true });
   };
 
   // Format the header date
@@ -410,6 +447,21 @@ export function Timeline() {
           <RefreshCw className={`w-3.5 h-3.5 ${isLoadingEvents ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      {/* One source failing must not hide the events that did load, so this is
+          a notice above the grid rather than a replacement for it. */}
+      {sourceErrors.length > 0 && (
+        <div
+          className="px-3 py-1.5 text-[10px]"
+          style={{ color: 'var(--error)', borderBottom: '1px solid var(--border-default)' }}
+        >
+          {sourceErrors.map((e) => (
+            <div key={e.source}>
+              {e.source === 'google' ? 'Google Calendar' : 'Apple Calendar'}: {e.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       {isLoadingEvents && events.length === 0 ? (

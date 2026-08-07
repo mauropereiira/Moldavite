@@ -4,6 +4,13 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Google Calendar, alongside Apple Calendar.** Connect a Google account in Settings → Calendar and its events appear in the timeline next to your notes. Access is read-only and asks for the narrowest scope Google offers; Moldavite never creates or changes an event. Consent happens in your browser and the token is kept in your system keychain, never in a note or a settings file, and **Disconnect** removes it.
+- **Pick exactly which calendars you see.** The single calendar dropdown is now a checkbox list covering every connected account, with a refresh interval you control. If one account fails, the timeline still shows the other and says what went wrong instead of going blank.
+- **The calendar works beyond macOS.** Google Calendar brings the timeline and calendar settings to Windows and Linux, which previously had no calendar at all.
+- **A privacy policy on the website**, listing every network connection the app can make.
+
 ## [1.7.4] - 2026-08-07
 
 ### Fixed

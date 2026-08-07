@@ -148,7 +148,7 @@ export function FeaturesSection() {
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Timeline Widget
                 </span>
-                <InfoTooltip text="Shows your daily schedule with events from Apple Calendar (requires Calendar access)." />
+                <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
               </div>
               <Toggle
                 enabled={settings.showTimelineWidget}

@@ -3,7 +3,10 @@ import { Calendar, Settings, ChevronRight, X } from 'lucide-react';
 import { useCalendarStore } from '@/stores/calendarStore';
 
 export function CalendarOnboardingModal() {
-  const { isAuthorized, hasSeenOnboarding, setHasSeenOnboarding } = useCalendarStore();
+  const { sources, hasSeenOnboarding, setHasSeenOnboarding } = useCalendarStore();
+  // Any connected source earns the walkthrough, not just EventKit — on
+  // Windows and Linux, Google is the only source there is.
+  const isAuthorized = sources.some((s) => s.available && s.connected);
   const [step, setStep] = useState(0);
 
   // Only show if authorized and hasn't seen onboarding
@@ -20,7 +23,7 @@ export function CalendarOnboardingModal() {
       icon: <Settings className="w-12 h-12 text-blue-500" />,
       title: 'Customize Your Calendar',
       description:
-        'Go to Settings → Calendar to choose which calendar to display, toggle all-day events, and more.',
+        'Go to Settings → Calendar to connect accounts, choose which calendars to display, toggle all-day events, and more.',
     },
   ];
 

@@ -1,9 +1,13 @@
 //! Safe Rust wrappers around the macOS EventKit Swift bridge.
 //!
-//! This module owns the FFI boundary and JSON decoding for calendar data.
-//! Swift owns returned C strings; every non-null pointer is reclaimed exactly
-//! once with `CString::from_raw`, and malformed bridge output becomes an error
-//! rather than crossing into the command layer.
+//! This module owns the FFI boundary and JSON decoding for Apple calendar
+//! data. Swift owns returned C strings; every non-null pointer is reclaimed
+//! exactly once with `CString::from_raw`, and malformed bridge output becomes
+//! an error rather than crossing into the command layer.
+//!
+//! The types here mirror the Swift payload exactly. Mapping them onto the
+//! source-agnostic shapes — including id namespacing — is `super`'s job, so
+//! the FFI contract stays readable next to the Swift that produces it.
 
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, CString};
@@ -44,9 +48,10 @@ impl From<i32> for CalendarPermission {
     }
 }
 
+/// One calendar exactly as the Swift bridge reports it.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CalendarInfo {
+pub struct RawCalendar {
     pub id: String,
     pub title: String,
     pub color: String,
@@ -56,9 +61,10 @@ pub struct CalendarInfo {
     pub allows_modify: bool,
 }
 
+/// One event exactly as the Swift bridge reports it.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CalendarEvent {
+pub struct RawEvent {
     pub id: String,
     pub title: String,
     pub start: String,
@@ -75,21 +81,17 @@ pub struct CalendarEvent {
     pub url: String,
 }
 
-/// Get current calendar permission status
 /// Return the current EventKit authorization state reported by Swift.
 pub fn get_permission_status() -> CalendarPermission {
     let status = unsafe { check_calendar_permission() };
     CalendarPermission::from(status)
 }
 
-/// Request calendar access permission
-/// Returns true if permission was granted
 /// Request EventKit access and return whether the resulting state is authorized.
 pub fn request_permission() -> bool {
     unsafe { request_calendar_permission() }
 }
 
-/// Check if calendar access is authorized
 /// Return whether calendar access is currently authorized without prompting.
 pub fn is_authorized() -> bool {
     matches!(
@@ -118,9 +120,8 @@ fn parse_swift_json<T: serde::de::DeserializeOwned>(json_str: &str, what: &str) 
     }
 }
 
-/// Fetch all available calendars
 /// Fetch all visible calendars, rejecting null or malformed bridge responses.
-pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
+pub fn get_calendars() -> Result<Vec<RawCalendar>, String> {
     let json_ptr = unsafe { fetch_calendars() };
     if json_ptr.is_null() {
         return Err("Failed to fetch calendars".to_string());
@@ -136,32 +137,25 @@ pub fn get_calendars() -> Result<Vec<CalendarInfo>, String> {
     parse_swift_json(&json_str, "calendars")
 }
 
-/// Fetch events for a date range
 /// Fetch events in the date range understood by the Swift bridge.
 pub fn get_events(
     start_date: &str,
     end_date: &str,
     calendar_id: Option<&str>,
-) -> Result<Vec<CalendarEvent>, String> {
+) -> Result<Vec<RawEvent>, String> {
     let start_cstring =
         CString::new(start_date).map_err(|e| format!("Invalid start date: {}", e))?;
     let end_cstring = CString::new(end_date).map_err(|e| format!("Invalid end date: {}", e))?;
 
-    let calendar_id_cstring = calendar_id
-        .and_then(|id| CString::new(id).ok());
+    let calendar_id_cstring = calendar_id.and_then(|id| CString::new(id).ok());
 
     let calendar_id_ptr = calendar_id_cstring
         .as_ref()
         .map(|cs| cs.as_ptr())
         .unwrap_or(std::ptr::null());
 
-    let json_ptr = unsafe {
-        fetch_events(
-            start_cstring.as_ptr(),
-            end_cstring.as_ptr(),
-            calendar_id_ptr,
-        )
-    };
+    let json_ptr =
+        unsafe { fetch_events(start_cstring.as_ptr(), end_cstring.as_ptr(), calendar_id_ptr) };
 
     if json_ptr.is_null() {
         return Err("Failed to fetch events".to_string());

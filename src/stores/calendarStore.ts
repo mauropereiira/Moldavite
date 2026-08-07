@@ -1,40 +1,75 @@
 /**
- * Calendar authorization, calendar selection, event cache, and loading state.
- * Event results are keyed by the requested range and expire; permission state is
- * authoritative over cached events, while selected calendar ids are user preference.
+ * Calendar source connections, calendar selection, event cache, and loading
+ * state.
+ *
+ * Events can come from macOS EventKit and from Google, and the backend merges
+ * them behind one call. Two consequences shape this store: a fetch reports
+ * per-source failures instead of failing as a whole, so one dead source never
+ * blanks the timeline; and calendar ids are namespaced by source, so the
+ * selection is a plain list of opaque ids rather than anything Apple-shaped.
+ *
+ * `permissionStatus` / `isAuthorized` remain Apple-only — EventKit is the only
+ * source with an OS permission model. Google's state lives in `sources`.
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CalendarEvent, CalendarInfo, CalendarPermission } from '@/types';
+import type {
+  CalendarEvent,
+  CalendarInfo,
+  CalendarPermission,
+  CalendarSourceError,
+  CalendarSourceStatus,
+} from '@/types';
 import {
   isCalendarAuthorized,
   getCalendarPermission,
   requestCalendarPermission,
   fetchCalendarEvents,
   listCalendars,
+  listCalendarSources,
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
 } from '@/lib/calendar';
+import { CALENDAR_EVENTS_CACHE_DURATION } from '@/lib/constants';
 import { format } from 'date-fns';
 
+/**
+ * Range results, held outside the store because they are derived data with a
+ * TTL rather than state anyone should subscribe to. Cleared whenever the
+ * selection, a connection, or the all-day preference changes.
+ */
+const eventCache = new Map<string, { events: CalendarEvent[]; at: number }>();
+
+function cacheKey(startDate: string, endDate: string, calendarIds: string[]): string {
+  return `${startDate}|${endDate}|${[...calendarIds].sort().join(',')}`;
+}
+
 interface CalendarState {
-  // Permission state
+  // Apple permission state
   permissionStatus: CalendarPermission;
   isAuthorized: boolean;
   isRequestingPermission: boolean;
+
+  // Source connections
+  sources: CalendarSourceStatus[];
+  isConnectingGoogle: boolean;
 
   // Events state
   events: CalendarEvent[];
   isLoadingEvents: boolean;
   eventsError: string | null;
+  sourceErrors: CalendarSourceError[];
   lastSynced: Date | null;
 
   // Calendars
   calendars: CalendarInfo[];
-  selectedCalendarId: string | null;
+  selectedCalendarIds: string[];
 
   // Settings
   calendarEnabled: boolean;
   showAllDayEvents: boolean;
+  refreshIntervalMinutes: number;
 
   // Onboarding
   hasSeenOnboarding: boolean;
@@ -42,13 +77,43 @@ interface CalendarState {
   // Actions
   checkPermission: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
-  fetchEvents: (date: Date) => Promise<void>;
+  refreshSources: () => Promise<void>;
+  connectGoogle: () => Promise<boolean>;
+  disconnectGoogle: () => Promise<void>;
+  fetchEvents: (start: Date, end?: Date, opts?: { force?: boolean }) => Promise<void>;
   fetchCalendars: () => Promise<void>;
-  setSelectedCalendarId: (id: string | null) => void;
+  toggleCalendarSelected: (id: string) => void;
+  setSelectedCalendarIds: (ids: string[]) => void;
   setCalendarEnabled: (enabled: boolean) => void;
   setShowAllDayEvents: (show: boolean) => void;
+  setRefreshIntervalMinutes: (minutes: number) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
   clearEvents: () => void;
+}
+
+/** Any source the user has actually connected. */
+function hasConnectedSource(sources: CalendarSourceStatus[]): boolean {
+  return sources.some((s) => s.available && s.connected);
+}
+
+/**
+ * v0 stored a single `selectedCalendarId` holding a bare EventKit id, with
+ * `null` meaning "all calendars". Ids carry a source prefix now, so carry the
+ * choice forward as `apple:<id>` and let `null` become the empty list, which
+ * still means all.
+ *
+ * Exported for tests: an upgrade that silently dropped the user's calendar
+ * choice would look like the app forgetting a setting, which is exactly the
+ * kind of regression a migration is supposed to prevent.
+ */
+export function migrateCalendarState(persisted: unknown, version: number): Record<string, unknown> {
+  const state = (persisted ?? {}) as Record<string, unknown>;
+  if (version === 0) {
+    const legacy = state.selectedCalendarId;
+    state.selectedCalendarIds = typeof legacy === 'string' && legacy ? [`apple:${legacy}`] : [];
+    delete state.selectedCalendarId;
+  }
+  return state;
 }
 
 export const useCalendarStore = create<CalendarState>()(
@@ -58,45 +123,45 @@ export const useCalendarStore = create<CalendarState>()(
       permissionStatus: 'NotDetermined',
       isAuthorized: false,
       isRequestingPermission: false,
+      sources: [],
+      isConnectingGoogle: false,
       events: [],
       isLoadingEvents: false,
       eventsError: null,
+      sourceErrors: [],
       lastSynced: null,
       calendars: [],
-      selectedCalendarId: null,
+      selectedCalendarIds: [],
       calendarEnabled: true,
       showAllDayEvents: true,
+      refreshIntervalMinutes: 15,
       hasSeenOnboarding: false,
 
       /**
-       * Checks the current calendar permission status and fetches calendars if authorized.
+       * Checks the current macOS calendar permission and refreshes source state.
        */
       checkPermission: async () => {
         try {
           const status = await getCalendarPermission();
           const authorized = await isCalendarAuthorized();
           set({ permissionStatus: status, isAuthorized: authorized });
-
-          // If authorized, fetch calendars
-          if (authorized) {
-            await get().fetchCalendars();
-          }
-        } catch (error) {
-          console.error('Failed to check permission:', error);
+        } catch {
+          // Non-macOS builds have no EventKit commands at all; that is not an
+          // error, it just means Apple is not an available source here.
           set({ permissionStatus: 'NotDetermined', isAuthorized: false });
         }
+        await get().refreshSources();
       },
 
       /**
-       * Requests calendar access permission from the user.
-       * Includes a small delay to ensure the app window is focused before showing the system dialog.
-       * Fetches calendars if permission is granted.
+       * Requests macOS calendar access from the user.
+       * Includes a small delay so the app window is focused before the system
+       * dialog appears.
        * @returns True if permission was granted
        */
       requestPermission: async () => {
         set({ isRequestingPermission: true });
         try {
-          // Small delay to ensure window is focused before system dialog appears
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           const granted = await requestCalendarPermission();
@@ -107,9 +172,9 @@ export const useCalendarStore = create<CalendarState>()(
             isRequestingPermission: false,
           });
 
-          // Fetch calendars if granted
           if (granted) {
-            await get().fetchCalendars();
+            eventCache.clear();
+            await get().refreshSources();
           }
 
           return granted;
@@ -121,32 +186,102 @@ export const useCalendarStore = create<CalendarState>()(
       },
 
       /**
-       * Fetches calendar events for a specific date.
-       * Respects calendar enabled setting and filters based on all-day event preference.
-       * @param date - The date to fetch events for
+       * Reloads per-source availability and connection state, and the calendar
+       * list when anything is connected.
        */
-      fetchEvents: async (date: Date) => {
-        const { calendarEnabled, selectedCalendarId, showAllDayEvents, isAuthorized } = get();
+      refreshSources: async () => {
+        try {
+          const sources = await listCalendarSources();
+          set({ sources });
+          if (hasConnectedSource(sources)) {
+            await get().fetchCalendars();
+          } else {
+            set({ calendars: [] });
+          }
+        } catch (error) {
+          console.error('Failed to list calendar sources:', error);
+          set({ sources: [] });
+        }
+      },
 
-        if (!calendarEnabled || !isAuthorized) {
+      /**
+       * Runs the Google OAuth flow. The browser handoff happens in Rust, so
+       * this resolves only once the user finishes or abandons consent.
+       * @returns True if an account was connected
+       */
+      connectGoogle: async () => {
+        set({ isConnectingGoogle: true });
+        try {
+          const status = await connectGoogleCalendar();
+          eventCache.clear();
+          set({ isConnectingGoogle: false });
+          await get().refreshSources();
+          return status.connected;
+        } catch (error) {
+          console.error('Google Calendar connection failed:', error);
+          set({
+            isConnectingGoogle: false,
+            eventsError: error instanceof Error ? error.message : String(error),
+          });
+          return false;
+        }
+      },
+
+      /**
+       * Disconnects Google and drops its calendars from the selection, so a
+       * later reconnect does not silently restore a stale choice.
+       */
+      disconnectGoogle: async () => {
+        try {
+          await disconnectGoogleCalendar();
+        } catch (error) {
+          console.error('Google Calendar disconnect failed:', error);
+        }
+        eventCache.clear();
+        set((state) => ({
+          selectedCalendarIds: state.selectedCalendarIds.filter((id) => !id.startsWith('google:')),
+          events: state.events.filter((e) => e.source !== 'google'),
+        }));
+        await get().refreshSources();
+      },
+
+      /**
+       * Fetches events for a date range across every connected source.
+       * @param start - First day of the range
+       * @param end - Last day of the range; defaults to `start`
+       * @param opts - `force` bypasses the TTL cache (the manual refresh button)
+       */
+      fetchEvents: async (start: Date, end?: Date, opts?: { force?: boolean }) => {
+        const { calendarEnabled, selectedCalendarIds, showAllDayEvents, sources } = get();
+
+        if (!calendarEnabled || !hasConnectedSource(sources)) {
           return;
+        }
+
+        const startDate = format(start, 'yyyy-MM-dd');
+        const endDate = format(end ?? start, 'yyyy-MM-dd');
+        const key = cacheKey(startDate, endDate, selectedCalendarIds);
+
+        if (!opts?.force) {
+          const hit = eventCache.get(key);
+          if (hit && Date.now() - hit.at < CALENDAR_EVENTS_CACHE_DURATION) {
+            set({
+              events: showAllDayEvents ? hit.events : hit.events.filter((e) => !e.isAllDay),
+              isLoadingEvents: false,
+            });
+            return;
+          }
         }
 
         set({ isLoadingEvents: true, eventsError: null });
 
         try {
-          const dateStr = format(date, 'yyyy-MM-dd');
-          const events = await fetchCalendarEvents(
-            dateStr,
-            dateStr,
-            selectedCalendarId || undefined
-          );
-
-          // Filter all-day events if disabled
-          const filteredEvents = showAllDayEvents ? events : events.filter((e) => !e.isAllDay);
+          const result = await fetchCalendarEvents(startDate, endDate, selectedCalendarIds);
+          eventCache.set(key, { events: result.events, at: Date.now() });
 
           set({
-            events: filteredEvents,
+            events: showAllDayEvents ? result.events : result.events.filter((e) => !e.isAllDay),
+            sourceErrors: result.errors,
             isLoadingEvents: false,
             lastSynced: new Date(),
           });
@@ -160,27 +295,43 @@ export const useCalendarStore = create<CalendarState>()(
       },
 
       /**
-       * Fetches the list of available calendars from the user's Calendar.app.
-       * Automatically selects the first calendar if none is selected.
+       * Reloads the calendar list and drops selections whose calendar no longer
+       * exists, so a removed calendar cannot silently filter everything out.
        */
       fetchCalendars: async () => {
         try {
           const calendars = await listCalendars();
-          // Select first calendar if none selected
-          set({
+          const live = new Set(calendars.map((c) => c.id));
+          set((state) => ({
             calendars,
-            selectedCalendarId: get().selectedCalendarId || calendars[0]?.id || null,
-          });
+            selectedCalendarIds: state.selectedCalendarIds.filter((id) => live.has(id)),
+          }));
         } catch (error) {
           console.error('Failed to fetch calendars:', error);
         }
       },
 
       /**
-       * Sets which calendar to display events from.
-       * @param id - Calendar ID, or null for all calendars
+       * Adds or removes one calendar from the selection.
+       * @param id - Namespaced calendar id
        */
-      setSelectedCalendarId: (id) => set({ selectedCalendarId: id }),
+      toggleCalendarSelected: (id) => {
+        eventCache.clear();
+        set((state) => ({
+          selectedCalendarIds: state.selectedCalendarIds.includes(id)
+            ? state.selectedCalendarIds.filter((c) => c !== id)
+            : [...state.selectedCalendarIds, id],
+        }));
+      },
+
+      /**
+       * Replaces the selection outright. An empty list means every calendar.
+       * @param ids - Namespaced calendar ids
+       */
+      setSelectedCalendarIds: (ids) => {
+        eventCache.clear();
+        set({ selectedCalendarIds: ids });
+      },
 
       /**
        * Enables or disables calendar integration.
@@ -192,7 +343,17 @@ export const useCalendarStore = create<CalendarState>()(
        * Controls whether all-day events are displayed.
        * @param show - True to show all-day events
        */
-      setShowAllDayEvents: (show) => set({ showAllDayEvents: show }),
+      setShowAllDayEvents: (show) => {
+        eventCache.clear();
+        set({ showAllDayEvents: show });
+      },
+
+      /**
+       * How often connected sources are polled while the app is open. Apple is
+       * local and cheap; Google is rate-limited, which is what this bounds.
+       * @param minutes - Refresh interval
+       */
+      setRefreshIntervalMinutes: (minutes) => set({ refreshIntervalMinutes: minutes }),
 
       /**
        * Marks the onboarding as seen.
@@ -201,16 +362,23 @@ export const useCalendarStore = create<CalendarState>()(
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
 
       /**
-       * Clears all loaded events and sync timestamp.
+       * Clears all loaded events, cached ranges, and the sync timestamp.
        */
-      clearEvents: () => set({ events: [], lastSynced: null }),
+      clearEvents: () => {
+        eventCache.clear();
+        set({ events: [], sourceErrors: [], lastSynced: null });
+      },
     }),
     {
       name: 'moldavite-calendar',
+      version: 1,
+      migrate: (persisted, version) =>
+        migrateCalendarState(persisted, version) as unknown as CalendarState,
       partialize: (state) => ({
         calendarEnabled: state.calendarEnabled,
         showAllDayEvents: state.showAllDayEvents,
-        selectedCalendarId: state.selectedCalendarId,
+        selectedCalendarIds: state.selectedCalendarIds,
+        refreshIntervalMinutes: state.refreshIntervalMinutes,
         hasSeenOnboarding: state.hasSeenOnboarding,
       }),
     }

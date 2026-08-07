@@ -17,9 +17,11 @@
 // MODULE DECLARATIONS
 // =============================================================================
 
-/// macOS calendar integration (EventKit)
-#[cfg(target_os = "macos")]
+/// Calendar integration: Apple (EventKit, macOS) and Google (REST, all platforms)
 mod calendar;
+
+/// OS credential store, shared by plugins and calendar accounts
+mod secrets;
 
 /// Core encryption logic (AES-256-GCM)
 mod encryption;
@@ -57,8 +59,9 @@ pub(crate) mod wiki;
 #[cfg(test)]
 mod stress_test;
 
+use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};
 #[cfg(target_os = "macos")]
-use calendar::{CalendarEvent, CalendarInfo, CalendarPermission};
+use calendar::CalendarPermission;
 
 use commands::backlinks::{create_note_from_link, get_backlinks, scan_note_links};
 use commands::export_import::{
@@ -103,40 +106,57 @@ use commands::trash::{
     restore_note, restore_note_from_folder, trash_folder, trash_note,
 };
 
-// Apple Calendar (EventKit) Commands - macOS only
+// Calendar Commands
+//
+// The three EventKit permission commands stay macOS-only because they wrap an
+// Apple-specific authorization model. Everything else dispatches across sources
+// and compiles everywhere, so Google Calendar works on Windows and Linux too.
 
 #[cfg(target_os = "macos")]
 #[tauri::command]
 fn get_calendar_permission() -> CalendarPermission {
-    calendar::get_permission_status()
+    calendar::apple::get_permission_status()
 }
 
 #[cfg(target_os = "macos")]
 #[tauri::command]
 fn request_calendar_permission() -> bool {
-    calendar::request_permission()
+    calendar::apple::request_permission()
 }
 
 #[cfg(target_os = "macos")]
 #[tauri::command]
 fn is_calendar_authorized() -> bool {
-    calendar::is_authorized()
+    calendar::apple::is_authorized()
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
-fn fetch_calendar_events(
+async fn list_calendar_sources() -> Result<Vec<CalendarSourceStatus>, String> {
+    Ok(calendar::list_sources().await)
+}
+
+#[tauri::command]
+async fn fetch_calendar_events(
     start_date: String,
     end_date: String,
-    calendar_id: Option<String>,
-) -> Result<Vec<CalendarEvent>, String> {
-    calendar::get_events(&start_date, &end_date, calendar_id.as_deref())
+    calendar_ids: Vec<String>,
+) -> Result<CalendarFetchResult, String> {
+    Ok(calendar::fetch_events(&start_date, &end_date, &calendar_ids).await)
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
-fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
-    calendar::get_calendars()
+async fn list_calendars() -> Result<Vec<CalendarInfo>, String> {
+    calendar::list_all_calendars().await
+}
+
+#[tauri::command]
+async fn google_calendar_connect(app: tauri::AppHandle) -> Result<CalendarSourceStatus, String> {
+    calendar::connect_google(&app).await
+}
+
+#[tauri::command]
+fn google_calendar_disconnect() -> Result<(), String> {
+    calendar::disconnect_google()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -367,17 +387,18 @@ pub fn run() {
             import_settings_json,
             // Image handling
             save_image,
-            // Apple Calendar (EventKit) commands - macOS only
+            // Calendar: EventKit permission is macOS-only, the rest is cross-platform
             #[cfg(target_os = "macos")]
             get_calendar_permission,
             #[cfg(target_os = "macos")]
             request_calendar_permission,
             #[cfg(target_os = "macos")]
             is_calendar_authorized,
-            #[cfg(target_os = "macos")]
+            list_calendar_sources,
             fetch_calendar_events,
-            #[cfg(target_os = "macos")]
-            list_calendars
+            list_calendars,
+            google_calendar_connect,
+            google_calendar_disconnect
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

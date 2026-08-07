@@ -53,6 +53,13 @@ tauri-plugin-deep-link = "2"
 
 bincode = "1.3"
 
+# Google Calendar REST + OAuth token exchange. rustls keeps this off the system
+# TLS stack; this is the only outbound HTTP the Rust process makes.
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls",
+] }
+
 [target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
 # Semantic (vector) search — fully local ONNX inference. ort-sys does not
 # publish prebuilt ONNX Runtime binaries for Intel macOS, so that target keeps

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, FileText, X } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
-import { safeInvoke as invoke } from '@/lib/ipc';
 import { useNoteStore, useTimelineStore } from '@/stores';
+import { useCalendarStore } from '@/stores/calendarStore';
 import { useNotes } from '@/hooks';
 import { readNote, noteFileBackendPath } from '@/lib';
-import type { CalendarEvent, CalendarPermission, NoteFile } from '@/types';
+import { fetchCalendarEvents, listCalendarSources } from '@/lib/calendar';
+import type { CalendarEvent, NoteFile } from '@/types';
 
 type BucketId = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'earlier';
 
@@ -44,17 +45,21 @@ export function TimelineView() {
   // (we don't have an fs-mtime exposed by the backend — see report).
   const buckets = useMemo(() => bucketNotes(notes), [notes]);
 
-  // Kick off calendar-event fetch. If the permission probe fails for any
-  // reason (non-macOS, user denied, etc.), stay silent — the spec explicitly
-  // forbids nagging the user from the Timeline.
+  // Kick off calendar-event fetch. This goes through the calendar library
+  // rather than invoking directly, so it sees every connected source and
+  // honours the calendar selection — a direct invoke would have shown Apple
+  // events only once Google existed. One range covers both days.
+  //
+  // Failures stay silent: the spec forbids nagging the user from the Timeline,
+  // and an unconnected or unavailable source is not an error here.
   useEffect(() => {
     let cancelled = false;
 
     const loadEvents = async () => {
       try {
-        const permission = await invoke<CalendarPermission>('get_calendar_permission');
+        const sources = await listCalendarSources();
         if (cancelled) return;
-        if (permission !== 'Authorized' && permission !== 'FullAccess') return;
+        if (!sources.some((s) => s.available && s.connected)) return;
 
         const today = new Date();
         const yesterday = new Date(today);
@@ -62,25 +67,15 @@ export function TimelineView() {
         const todayStr = format(today, 'yyyy-MM-dd');
         const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
 
-        const [todays, yests] = await Promise.all([
-          invoke<CalendarEvent[]>('fetch_calendar_events', {
-            startDate: todayStr,
-            endDate: todayStr,
-            calendarId: null,
-          }),
-          invoke<CalendarEvent[]>('fetch_calendar_events', {
-            startDate: yesterdayStr,
-            endDate: yesterdayStr,
-            calendarId: null,
-          }),
-        ]);
+        const { selectedCalendarIds } = useCalendarStore.getState();
+        const { events } = await fetchCalendarEvents(yesterdayStr, todayStr, selectedCalendarIds);
 
         if (!cancelled) {
-          setTodayEvents(todays);
-          setYesterdayEvents(yests);
+          setTodayEvents(events.filter((e) => e.start.startsWith(todayStr)));
+          setYesterdayEvents(events.filter((e) => e.start.startsWith(yesterdayStr)));
         }
       } catch {
-        // Non-macOS build, or calendar plugin unavailable — silently skip.
+        // No calendar source available in this build — silently skip.
       }
     };
 
