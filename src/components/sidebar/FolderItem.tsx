@@ -213,6 +213,11 @@ export function FolderItem({
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'transparent';
+            // Clear the inline opacity set on enter. An inline style outranks
+            // the classes above, so leaving it behind pins the button visible
+            // for good — and since it sits on top of the note count, the count
+            // is never seen again either.
+            e.currentTarget.style.opacity = '';
           }}
           aria-label="Folder options"
         >
