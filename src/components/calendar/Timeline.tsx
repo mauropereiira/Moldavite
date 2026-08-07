@@ -197,42 +197,68 @@ function PermissionDeniedState() {
 
 // Connect prompt for the no-source-connected state
 export function ConnectCalendarPrompt() {
-  const { requestPermission, isRequestingPermission, permissionStatus, sources } =
-    useCalendarStore();
+  const {
+    requestPermission,
+    isRequestingPermission,
+    permissionStatus,
+    sources,
+    connectGoogle,
+    isConnectingGoogle,
+  } = useCalendarStore();
   const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
   const setActiveSettingsTab = useSettingsStore((s) => s.setActiveSettingsTab);
 
   const apple = sources.find((s) => s.source === 'apple');
+  const google = sources.find((s) => s.source === 'google');
+  const appleBlocked = permissionStatus === 'Denied' || permissionStatus === 'Restricted';
 
-  // The System Settings deep link and the EventKit permission dance are Apple's
-  // alone. Where EventKit does not exist — Windows, Linux — the only way to get
-  // events is to connect an account, so send the user to Settings instead.
-  if (!apple?.available) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-2">
-        <ConnectCalendarEmptyState
-          onConnect={() => {
-            setActiveSettingsTab('calendar');
-            setIsSettingsOpen(true);
-          }}
-          isConnecting={false}
-        />
-      </div>
-    );
+  // Offer every source this build actually has rather than assuming Apple.
+  // Picking one for the user was wrong on macOS (where both exist) and
+  // impossible on Windows and Linux (where only Google does).
+  const actions: { label: string; onClick: () => void; variant?: 'primary' | 'secondary' }[] = [];
+
+  if (apple?.available && !apple.connected && !appleBlocked) {
+    actions.push({
+      label: isRequestingPermission ? 'Connecting…' : 'Connect Apple Calendar',
+      onClick: () => void requestPermission(),
+      variant: 'primary',
+    });
+  }
+  if (google?.available && !google.connected) {
+    actions.push({
+      label: isConnectingGoogle ? 'Waiting for your browser…' : 'Connect Google Calendar',
+      onClick: () => void connectGoogle(),
+      variant: actions.length === 0 ? 'primary' : 'secondary',
+    });
   }
 
-  if (permissionStatus === 'Denied' || permissionStatus === 'Restricted') {
+  // Apple denied at the OS level and nothing else to offer: the only way out is
+  // System Settings, so keep the dedicated instructions for that case.
+  if (actions.length === 0 && appleBlocked) {
     return <PermissionDeniedState />;
+  }
+
+  // Nothing connectable from here — a build with no EventKit and no Google
+  // credentials. Settings explains why rather than leaving a dead button.
+  if (actions.length === 0) {
+    actions.push({
+      label: 'Open Calendar Settings',
+      onClick: () => {
+        setActiveSettingsTab('calendar');
+        setIsSettingsOpen(true);
+      },
+      variant: 'primary',
+    });
   }
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-2">
-      <ConnectCalendarEmptyState
-        onConnect={() => {
-          void requestPermission();
-        }}
-        isConnecting={isRequestingPermission}
-      />
+      <ConnectCalendarEmptyState actions={actions} />
+      {appleBlocked && (
+        <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
+          Apple Calendar access was denied in System Settings.
+        </p>
+      )}
     </div>
   );
 }
