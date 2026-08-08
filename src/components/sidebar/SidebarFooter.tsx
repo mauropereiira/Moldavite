@@ -122,22 +122,24 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
         <button
           type="button"
           onClick={onSettings}
-          className="relative flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
+          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
           style={iconBtnStyle}
           onMouseEnter={handleIconEnter}
           onMouseLeave={handleIconLeave}
           title="Settings (⌘,)"
           aria-label={hasPendingUpdate ? 'Open settings (update available)' : 'Open settings'}
         >
-          <SettingsIcon aria-hidden="true" className="w-4 h-4" />
+          <span className="relative flex">
+            <SettingsIcon aria-hidden="true" className="w-4 h-4" />
+            {hasPendingUpdate && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 rounded-full"
+                style={{ width: '6px', height: '6px', backgroundColor: 'var(--update-dot)' }}
+              />
+            )}
+          </span>
           <span>Settings</span>
-          {hasPendingUpdate && (
-            <span
-              aria-hidden="true"
-              className="absolute top-1 right-1.5 rounded-full"
-              style={{ width: '7px', height: '7px', backgroundColor: 'var(--accent-primary)' }}
-            />
-          )}
         </button>
         <button
           type="button"

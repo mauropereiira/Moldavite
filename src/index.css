@@ -117,6 +117,9 @@
   --warning: #c9a227;
   --warning-muted: #f7f0d8;
   --status-error: #d4651a;
+  /* Pending-update dot. Defined once and never re-declared per theme so the
+     badge reads as the same alert red in every theme. */
+  --update-dot: #e5484d;
 
   /* ===== INTERACTIVE ===== */
   --hover-overlay: rgba(26, 61, 46, 0.05);

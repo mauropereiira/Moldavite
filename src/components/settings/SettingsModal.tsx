@@ -290,7 +290,7 @@ export function SettingsModal() {
                       style={{
                         width: '7px',
                         height: '7px',
-                        backgroundColor: 'var(--accent-primary)',
+                        backgroundColor: 'var(--update-dot)',
                       }}
                     />
                   )}
