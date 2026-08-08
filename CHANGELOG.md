@@ -4,6 +4,10 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The "update available" dot sits on the Settings gear and is always red.** It used to float in the corner of the whole Settings button, far from the icon it was flagging, and it took its colour from the active theme's accent, so in some themes the alert dot was the same green, purple, or blue as everything else. It now hangs off the gear like a notification badge and stays alert red in every theme.
+
 ## [1.8.0] - 2026-08-07
 
 ### Added
