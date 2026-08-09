@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="bg-glow" cx="70%" cy="24%" r="90%">
+      <stop stop-color="#243324" />
+      <stop offset=".46" stop-color="#101510" />
+      <stop offset="1" stop-color="#07090a" />
+    </radialGradient>
+    <linearGradient id="title-gradient" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#9dc183" />
+      <stop offset=".5" stop-color="#c9a227" />
+      <stop offset="1" stop-color="#b7d6a0" />
+    </linearGradient>
+    <linearGradient id="glass-border" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#e8e6df" stop-opacity=".42" />
+      <stop offset=".34" stop-color="#9dc183" stop-opacity=".08" />
+      <stop offset=".74" stop-color="#c9a227" stop-opacity=".12" />
+      <stop offset="1" stop-color="#e8e6df" stop-opacity=".3" />
+    </linearGradient>
+    <linearGradient id="gem-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#b7d6a0" />
+      <stop offset="1" stop-color="#4e7346" />
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n" />
+      <feComponentTransfer in="n" result="a"><feFuncA type="linear" slope="0.05" /></feComponentTransfer>
+      <feComposite in="a" in2="SourceGraphic" operator="in" result="t" />
+      <feBlend in="SourceGraphic" in2="t" mode="soft-light" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg-glow)" />
+
+  <!-- container hairlines, echoing the site -->
+  <line x1="86" y1="0" x2="86" y2="630" stroke="#e8e6df" stroke-opacity=".07" />
+  <line x1="1114" y1="0" x2="1114" y2="630" stroke="#e8e6df" stroke-opacity=".07" />
+
+  <!-- glass panel -->
+  <rect x="86" y="66" width="1028" height="498" rx="30" fill="#e8e6df" fill-opacity=".012" />
+  <rect x="86.7" y="66.7" width="1026.6" height="496.6" rx="29.3" fill="none" stroke="url(#glass-border)" stroke-width="1.4" />
+
+  <!-- brand row -->
+  <g transform="translate(126 110)">
+    <rect x="0" y="-16" width="30" height="30" rx="9" fill="#0e130e" stroke="#9dc183" stroke-opacity=".35" />
+    <path d="M15 -10 L23 -1 L15 8 L7 -1 Z" fill="url(#gem-gradient)" fill-opacity=".92" />
+    <text x="46" y="6" fill="#e8e6df" font-family="Georgia, serif" font-size="25">Moldavite</text>
+  </g>
+  <line x1="126" y1="148" x2="1074" y2="148" stroke="#e8e6df" stroke-opacity=".08" />
+
+  <!-- headline block -->
+  <g transform="translate(126 214)" filter="url(#grain)">
+    <text fill="#9dc183" font-family="monospace" font-size="13" letter-spacing="3">LOCAL MARKDOWN NOTES FOR MACOS</text>
+    <text y="86" fill="#e8e6df" font-family="Georgia, serif" font-size="76">Notes that</text>
+    <text y="168" fill="url(#title-gradient)" font-family="Georgia, serif" font-size="76" font-style="italic">stay yours.</text>
+  </g>
+
+  <text x="126" y="452" fill="#e8e6df" fill-opacity=".64" font-family="monospace" font-size="17">Plain Markdown · Local search · Built-in MCP server</text>
+
+  <!-- install line -->
+  <g transform="translate(126 492)">
+    <rect x="0" y="0" width="612" height="44" rx="12" fill="#e8e6df" fill-opacity=".03" stroke="#c9a227" stroke-opacity=".22" />
+    <text x="18" y="29" fill="#c9a227" font-family="monospace" font-size="15">brew install --cask mauropereiira/moldavite/moldavite</text>
+  </g>
+
+  <!-- graph mark: linked notes, echoing the app's graph view -->
+  <g transform="translate(910 330)" stroke="#9dc183" stroke-opacity=".5" fill="none">
+    <line x1="0" y1="-96" x2="78" y2="-30" />
+    <line x1="0" y1="-96" x2="-78" y2="-24" />
+    <line x1="78" y1="-30" x2="46" y2="72" />
+    <line x1="-78" y1="-24" x2="-40" y2="78" />
+    <line x1="46" y1="72" x2="-40" y2="78" />
+    <line x1="0" y1="-96" x2="46" y2="72" />
+    <line x1="-78" y1="-24" x2="78" y2="-30" />
+    <line x1="0" y1="4" x2="0" y2="-96" stroke-opacity=".3" />
+    <line x1="0" y1="4" x2="78" y2="-30" stroke-opacity=".3" />
+    <line x1="0" y1="4" x2="-78" y2="-24" stroke-opacity=".3" />
+    <line x1="0" y1="4" x2="46" y2="72" stroke-opacity=".3" />
+    <line x1="0" y1="4" x2="-40" y2="78" stroke-opacity=".3" />
+  </g>
+  <g transform="translate(910 330)" fill="url(#gem-gradient)">
+    <circle cx="0" cy="-96" r="9" />
+    <circle cx="78" cy="-30" r="8" />
+    <circle cx="-78" cy="-24" r="8" />
+    <circle cx="46" cy="72" r="8" />
+    <circle cx="-40" cy="78" r="8" />
+    <circle cx="0" cy="4" r="13" fill="#c9a227" fill-opacity=".9" />
+  </g>
+
+  <text x="1074" y="524" text-anchor="end" fill="#e8e6df" fill-opacity=".4" font-family="monospace" font-size="14">mauropereiira/Moldavite</text>
+</svg>
