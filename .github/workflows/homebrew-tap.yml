@@ -1,0 +1,152 @@
+name: Update Homebrew tap
+
+# Bumps Casks/moldavite.rb in mauropereiira/homebrew-moldavite after a release
+# has finished uploading its DMGs.
+#
+# This deliberately does not trigger on `release: published`. The release is
+# created with draft:false before any build starts, so that event fires minutes
+# before the DMGs exist.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release tag or bare version (v1.8.1 or 1.8.1)'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag or bare version (v1.8.1 or 1.8.1)'
+        required: true
+        type: string
+
+concurrency:
+  group: homebrew-tap
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_REPO: ${{ github.repository }}
+      TAP_OWNER: mauropereiira
+      TAP_NAME: moldavite
+      TAP_REPO: mauropereiira/homebrew-moldavite
+      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_ANALYTICS: 1
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_ENV_HINTS: 1
+
+    steps:
+      - name: Resolve version
+        id: v
+        env:
+          RAW_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${RAW_VERSION#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$RAW_VERSION' is not a vX.Y.Z tag or X.Y.Z version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for both macOS DMGs
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          arm="Moldavite_${VERSION}_aarch64.dmg"
+          intel="Moldavite_${VERSION}_x64.dmg"
+          for attempt in $(seq 1 20); do
+            names="$(gh release view "$TAG" --repo "$SOURCE_REPO" --json assets --jq '.assets[].name' || true)"
+            if grep -qxF "$arm" <<<"$names" && grep -qxF "$intel" <<<"$names"; then
+              echo "Both DMGs present (attempt $attempt)."
+              exit 0
+            fi
+            echo "Waiting for DMG assets (attempt $attempt/20)..."
+            sleep 15
+          done
+          echo "::error::$arm and/or $intel never appeared on release $TAG"
+          exit 1
+
+      - name: Verify the DMGs are downloadable
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/dmg"
+          mkdir -p "$dir"
+          gh release download "$TAG" --repo "$SOURCE_REPO" --dir "$dir" --clobber \
+            --pattern "Moldavite_${VERSION}_aarch64.dmg" \
+            --pattern "Moldavite_${VERSION}_x64.dmg"
+          shasum -a 256 "$dir/Moldavite_${VERSION}_aarch64.dmg" "$dir/Moldavite_${VERSION}_x64.dmg"
+
+      - name: Tap the cask repository
+        run: brew tap "${TAP_OWNER}/${TAP_NAME}" "https://github.com/${TAP_REPO}"
+
+      - name: Bump the cask
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          tap_dir="$(brew --repository "${TAP_OWNER}/${TAP_NAME}")"
+          cd "$tap_dir"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          current="$(grep -m1 -E '^  version "' Casks/moldavite.rb | sed -E 's/.*"(.*)".*/\1/')"
+          if [ "$current" = "$VERSION" ]; then
+            echo "Cask already at $VERSION; nothing to do."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          # bump-cask-pr understands multi-arch sha256 and re-styles the file.
+          brew bump-cask-pr \
+            --write-only \
+            --commit \
+            --no-audit \
+            --no-browse \
+            --version "$VERSION" \
+            "${TAP_OWNER}/${TAP_NAME}/moldavite"
+          git --no-pager show --stat HEAD
+
+      - name: Validate before pushing
+        if: env.SKIP != '1'
+        run: |
+          set -euo pipefail
+          brew style "${TAP_OWNER}/${TAP_NAME}"
+          brew audit --cask --strict --online --arch all "${TAP_OWNER}/${TAP_NAME}/moldavite"
+
+      - name: Push to the tap
+        if: env.SKIP != '1'
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          tap_dir="$(brew --repository "${TAP_OWNER}/${TAP_NAME}")"
+          cd "$tap_dir"
+          git remote set-url origin "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git"
+          git push origin HEAD:main
+          git remote set-url origin "https://github.com/${TAP_REPO}.git"
+
+      - name: Summary
+        if: always()
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          {
+            echo "### Homebrew tap"
+            echo
+            echo "- Version: \`${VERSION}\`"
+            echo "- Tap: https://github.com/${TAP_REPO}"
+            echo "- Skipped (already current): \`${SKIP:-0}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

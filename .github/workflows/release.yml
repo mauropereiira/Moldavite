@@ -134,3 +134,14 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
           updaterJsonPreferNsis: true
+
+  # Bump the Homebrew cask once every matrix leg has finished uploading.
+  # `always()` so a Windows failure does not block a tap bump whose macOS
+  # DMGs are already published.
+  update-homebrew-tap:
+    needs: [create-release, build-tauri]
+    if: ${{ always() && needs.create-release.result == 'success' }}
+    uses: ./.github/workflows/homebrew-tap.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit

@@ -4,6 +4,10 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Install with Homebrew.** `brew install --cask mauropereiira/moldavite/moldavite` fetches the signed, notarized DMG for your architecture and verifies its checksum. It also links the app binary onto your `PATH`, so connecting an AI tool is now `claude mcp add moldavite -- moldavite --mcp` instead of the full bundle path. The cask is marked as self-updating, so Homebrew stays out of the way of Moldavite's own updater.
+
 ### Fixed
 
 - **The app could abort while building a note's backlinks.** The snippet shown under a backlink was cut out using byte positions, so a note containing an accented letter, an arrow, an emoji, or any other multi-byte character within about fifty characters of a `[[wiki link]]` would kill the process outright with no error and no warning. Vaults written in plain ASCII never saw it. The context window now snaps to character boundaries.

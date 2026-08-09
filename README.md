@@ -11,87 +11,87 @@
 <p align="center">
   <a href="https://github.com/mauropereiira/Moldavite/releases/latest"><img src="https://img.shields.io/github/v/release/mauropereiira/Moldavite?style=flat-square&color=9dc183&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-10.15%2B-2d5a3d?style=flat-square&logo=apple&logoColor=white" alt="macOS 10.15+">
-  <img src="https://img.shields.io/badge/Tauri_2-24C8D8?style=flat-square" alt="Tauri 2">
   <img src="https://img.shields.io/badge/license-MIT-c9a227?style=flat-square" alt="MIT">
 </p>
 
 <p align="center">
   <a href="https://mauropereiira.github.io/Moldavite/">Website</a> ·
   <a href="https://mauropereiira.github.io/Moldavite/guide.html">User Guide</a> ·
-  <a href="docs/PLUGINS.md">Plugin API</a> ·
+  <a href="https://github.com/mauropereiira/moldavite-skills">Agent Skills</a> ·
+  <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew tap</a> ·
   <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/demo.gif" alt="Jumping between notes with the quick switcher, following wiki links, and opening the graph view" width="900">
 </p>
 
 ---
 
-Moldavite is a local-first notes app for macOS. Everything you write is stored as
-plain Markdown in a folder you own — no account, no sync service, no telemetry.
-It also ships an MCP server, so the AI tools you already use can read your notes
-directly on your machine, with writes switched off until you decide otherwise.
+Moldavite is a notes app for macOS. Your notes are plain Markdown files in a
+folder you own. There is no account and no sync service.
 
-The name is a mineral: a green glass formed fifteen million years ago when a
-meteorite struck what is now Bavaria, fusing earth and sky into something new.
-That is roughly what a good notes app does with a stray thought.
-
-## Why it's different
-
-- **Your data is a folder, not a database.** Open it in Finder, sync it with any
-  tool you trust, put it in git, edit it in another app. Moldavite reads the
-  changes back.
-- **Agents are first-class, and fenced in.** A built-in MCP server exposes four
-  read tools by default; the three write tools stay off until you turn them on.
-- **The network story is short and checkable.** Update checks, an opt-in model
-  download, and the plugin registry when you press Browse. That's the list.
+Open that folder in Finder, put it in git, edit it in another app, and Moldavite
+picks up the change. It also runs an MCP server, so Claude and other AI tools can
+read your notes on your machine. Read tools are on by default. Writing stays off
+until you switch it on.
 
 ## Install
 
-**[Download the latest release →](https://github.com/mauropereiira/Moldavite/releases/latest)**
+```sh
+brew install --cask mauropereiira/moldavite/moldavite
+```
+
+Or [download the latest release](https://github.com/mauropereiira/Moldavite/releases/latest)
+and drag it to Applications:
 
 | Mac | File |
 |-----|------|
 | Apple Silicon | `Moldavite_x.x.x_aarch64.dmg` |
 | Intel | `Moldavite_x.x.x_x64.dmg` |
 
-Builds are signed, notarized, and updated in place via minisign-verified
-auto-update. Requires macOS 10.15 or later.
+Builds are signed and notarized, so macOS opens them without a warning. Requires
+macOS 10.15 or later. Updates install themselves after a minisign check.
 
-## The Forge
+## What it looks like
 
-A **Forge** is a vault: an ordinary directory holding ordinary files. You can
-keep as many as you like and switch between them, each with its own plugins,
-search index, and window state.
+<img src="docs/screenshots/editor.png" alt="Moldavite editing a note, with the note list, folders, and calendar visible" width="900">
 
-```
-~/Documents/Moldavite/<ForgeName>/
-├── daily/         # YYYY-MM-DD.md — created on demand, removed when emptied
-├── weekly/        # YYYY-Www.md
-├── notes/         # standalone notes, nested folders supported
-├── templates/     # custom templates (JSON)
-├── images/        # pasted and inserted images
-├── .trash/        # 7-day retention + metadata.json
-└── .plugins/      # installed plugins (<id>/manifest.json + plugin.js)
-```
+Notes, folders and daily notes on the left, the editor in the middle, your
+calendar on the right.
 
-Notes are Markdown with optional YAML frontmatter. Frontmatter keys Moldavite
-doesn't recognize are preserved, so metadata written by another tool survives a
-save here.
+<img src="docs/screenshots/search.png" alt="Searching notes, with matches highlighted in context" width="900">
 
-**Every write is atomic** — temp file, fsync, rename, with `0600` permissions
-applied before the file becomes visible. A crash or a full disk cannot leave you
-with half a note. If a file changed on disk while you had unsaved edits, the disk
-version is preserved as a timestamped conflict copy instead of being overwritten.
+Search reads every note in the Forge and shows you the line that matched.
 
-## AI and agents
+<img src="docs/screenshots/graph.png" alt="The graph view, with linked notes clustered and one node selected" width="900">
 
-The app binary doubles as an MCP server. There is no separate daemon to install
-and nothing leaves your machine.
+The graph is built from your `[[wiki links]]`. Links that point nowhere yet stay
+visible as hollow nodes instead of disappearing.
 
-```bash
+<img src="docs/screenshots/mcp.png" alt="The AI and Agents settings panel, showing the MCP setup command and the write-tools switch" width="900">
+
+Settings has one panel for the whole agent story: the setup command for your
+client, and the switch that decides whether agents can write.
+
+## Connect your AI
+
+The app binary is also the MCP server. There is no separate daemon, and nothing
+leaves your machine.
+
+```sh
 claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp
 ```
 
-Settings → AI & Agents generates that line with the correct path for your Mac.
-Add `--forge "Work"` to point a client at a specific Forge.
+If you installed with Homebrew, `moldavite` is already on your `PATH`:
+
+```sh
+claude mcp add moldavite -- moldavite --mcp
+```
+
+Settings → AI & Agents generates the right line for Claude Code, Claude Desktop,
+Cursor, or any stdio MCP client. Add `--forge "Work"` to pin a client to one
+Forge instead of following whichever Forge is open.
 
 | Tool | Does | Default |
 |------|------|---------|
@@ -103,210 +103,86 @@ Add `--forge "Work"` to point a client at a specific Forge.
 | `write_note` | Replace a note's contents | **Off** |
 | `append_to_daily_note` | Append to today's note | **Off** |
 
-```mermaid
-flowchart LR
-    C["MCP client<br/>Claude Code · Claude Desktop · Cursor"]
-    C -- "JSON-RPC 2.0 over stdio" --> S["moldavite --mcp"]
-    S --> V{"Path valid?<br/>Note unlocked?"}
-    V -- "no" --> X["Refused"]
-    V -- "yes" --> T{"Tool kind"}
-    T -- "read" --> R["list · read · search · backlinks"]
-    T -- "write" --> G{"Writes enabled<br/>in Settings?"}
-    G -- "no" --> X
-    G -- "yes" --> W["create · write · append"]
-    R --> F[("Your Forge")]
-    W --> F
+Turn the write tools off again and they vanish from the tool list mid-session.
+Locked notes are excluded from all seven.
+
+Some agents read files directly and never speak MCP. For those, one click writes an `AGENTS.md`
+describing your Forge's conventions, plus a `.gitignore` for the directories the
+app manages itself.
+
+**[Moldavite Skills](https://github.com/mauropereiira/moldavite-skills)** teach an
+agent how to use all of this. They follow the Agent Skills spec, so they work in
+Claude Code, Codex, and OpenCode:
+
+```sh
+/plugin marketplace add mauropereiira/moldavite-skills
+/plugin install moldavite@moldavite-skills
 ```
 
-For agents that just read files rather than speak MCP, one click writes an
-`AGENTS.md` describing your Forge's conventions, plus a `.gitignore` for the
-directories the app manages itself.
+## The Forge
 
-## Semantic search
-
-Opt in and your notes are indexed locally so you can search by meaning rather
-than keyword, with a **Related** list of five notes under whatever you're
-reading. Choose from three embedding models:
-
-| Model | Good for |
-|-------|----------|
-| `all-MiniLM-L6-v2` *(default)* | Small, fast, English |
-| BGE small English v1.5 | Higher quality English |
-| Multilingual E5 small | Non-English vaults |
-
-The model downloads once from Hugging Face after a prompt naming it and its
-size. Everything after that runs offline on your Mac. Locked notes are never
-indexed. **Requires Apple Silicon** — Intel Macs get keyword search.
-
-## Writing and linking
-
-- TipTap rich-text editor over Markdown-on-disk: headings, task lists, code,
-  resizable images, highlights, alignment, slash commands, pinnable tabs
-- `[[Wiki links]]` and `[[Display|target]]`, with unresolved links visibly distinct
-- **Renaming a note rewrites every inbound link vault-wide** and keeps your open
-  tabs, recents, and selection pointed at the right file
-- Backlinks panel, `#tags` with global rename, folders, templates with
-  `{{date}}` / `{{time}}` / `{{day_of_week}}`
-- A force-directed graph where linked components cluster and orphans stay at the
-  periphery — draggable, zoomable, with broken links shown rather than dropped
-- Quick switcher and command palette on `⌘P`; every shortcut on `⌘?`
-
-## Plugins
-
-Plugins run in a per-plugin Web Worker with no DOM, no network globals, and no
-Tauri IPC. Everything a plugin can do crosses an RPC bridge the host enforces,
-and consent is pinned to a SHA-256 hash of the manifest plus code — change either
-and you are asked again.
-
-```mermaid
-flowchart LR
-    subgraph WK["Web Worker · one per plugin"]
-        P["plugin.js"]
-    end
-    subgraph HOST["Host · Rust + app"]
-        B["RPC bridge<br/>permission check per call"]
-        CMD["Commands · editor · toasts"]
-        NOTE["Unlocked note reads"]
-        NET["HTTPS to approved exact hosts"]
-        KC["macOS Keychain<br/>namespaced per plugin"]
-    end
-    P <-- "postMessage" --> B
-    B --> CMD
-    B --> NOTE
-    B --> NET
-    B --> KC
-```
-
-| Capability | Requires consent |
-|------------|------------------|
-| Register commands, read/replace editor selection, toasts | No |
-| Read unlocked note metadata and Markdown | Yes |
-| HTTPS to named hosts (individually revocable) | Yes |
-| Secrets in the macOS Keychain | Yes |
-| Host-rendered prompt forms | Yes |
-| DOM, `fetch`, WebSockets, Tauri IPC, other plugins' secrets, locked notes | **Never available** |
-
-Install from Settings → Plugins, or from the
-[website directory](https://mauropereiira.github.io/Moldavite/plugins.html) via
-`moldavite://plugin/<id>` links — which open the entry and show its permissions
-rather than installing silently. Downloads are pinned to the registry repository
-and Rust verifies both SHA-256 hashes before an atomic install. Enabling a plugin
-is always a separate step.
-
-The first-party **Publish to WordPress** plugin is a worked example: it publishes
-and updates drafts using Application Passwords.
-
-Writing one? See [docs/PLUGINS.md](docs/PLUGINS.md).
-
-## Privacy and safety
-
-- No account system, no hosted notes service, no analytics, no telemetry
-- Individual notes can be locked with AES-256-GCM + Argon2, rate-limited unlock,
-  and auto-relock; locked notes are excluded from search, indexing, and every
-  agent tool
-- Encrypted whole-vault export, plus settings export as JSON
-- Trash holds deleted notes for 7 days with read-only previews
-- Calendar access is read-only for both sources: Apple is permission-gated
-  through EventKit, Google through a `calendar.readonly` OAuth scope you grant
-  and can revoke. Events are drawn and discarded, never written to disk
-
-**Every network call Moldavite makes:** a signed update check ~15 seconds after
-launch and once a day while open; the plugin registry from GitHub when you press
-Browse; a semantic model from Hugging Face after you opt in; Google Calendar
-while a Google account is connected; and plugin requests to hosts you approved
-by name. Publishing a note to WordPress is an action you take, not a background
-behaviour. Full detail: [Privacy Policy](https://mauropereiira.github.io/Moldavite/privacy.html).
-
-## Architecture
-
-```mermaid
-flowchart TB
-    subgraph FE["Frontend · React + TypeScript"]
-        ED["TipTap editor<br/>WikiLink · Tag · SlashCommands"]
-        SB["Sidebar · Graph · Timeline · Settings"]
-        ST["Zustand stores"]
-    end
-    subgraph BE["Backend · Rust + Tauri 2"]
-        CM["Commands<br/>notes · search · trash · forges · plugins"]
-        PS["persist::write_atomic"]
-        VA["validation · wiki · backlinks index"]
-    end
-    subgraph OS["Operating system"]
-        SW["Swift bridge → EventKit<br/>macOS only"]
-        KC["Keychain / credential store"]
-    end
-    GC["Google Calendar API<br/>read-only, OAuth"]
-    DISK[("Your Forge<br/>plain Markdown")]
-
-    FE -- "Tauri IPC (invoke)" --> BE
-    BE --> PS --> DISK
-    BE --> SW
-    BE --> KC
-    BE -- "HTTPS, when connected" --> GC
-
-    MCP["Same binary + --mcp<br/>headless, no GUI"] --> VA
-    WORKER["Plugin Workers<br/>plugin:// scheme"] -. "host-enforced RPC" .-> CM
-```
-
-The same binary serves three entrypoints: the GUI, a headless MCP server
-(`--mcp`, selected before Tauri initializes), and the `moldavite://` deep-link
-handler for plugin installs.
+A **Forge** is a vault. It is an ordinary directory holding ordinary files, and
+you can keep as many as you like:
 
 ```
-src/
-├── components/   # editor, sidebar, calendar, graph, settings, plugins, updates…
-├── hooks/        # useNotes, useAutoSave, useFolders, useAutoLock…
-├── stores/       # Zustand + localStorage persistence
-└── lib/          # fileSystem.ts (IPC + Markdown conversion), plugins/, validation
-
-src-tauri/
-├── src/lib.rs           # command registration, plugin:// scheme, app setup
-├── src/main.rs          # entrypoint; picks MCP mode before Tauri starts
-├── src/mcp/             # stdio JSON-RPC protocol, tool schemas, dispatch
-├── src/commands/        # by domain: notes, search, forges, plugins, locking…
-├── src/persist.rs       # config/trash IO + write_atomic
-├── src/validation.rs    # path-safety checks
-├── src/encryption.rs    # AES-GCM + Argon2 note locking
-├── src/secrets.rs       # OS credential store (plugins + calendar accounts)
-├── src/calendar/        # source dispatch, apple (EventKit), google (REST + OAuth)
-└── src-swift/           # Swift bridge for Calendar
+~/Documents/Moldavite/<ForgeName>/
+├── daily/         # YYYY-MM-DD.md, created on demand, removed when emptied
+├── weekly/        # YYYY-Www.md
+├── notes/         # standalone notes, nested folders supported
+├── templates/     # custom templates (JSON)
+├── images/        # pasted and inserted images
+├── .trash/        # 7-day retention
+└── .plugins/      # installed plugins
 ```
 
-## Build from source
+Every write is atomic. A crash or a full disk cannot leave you with half a note.
+If a file changed on disk while you had unsaved edits, the disk version is kept
+as a timestamped conflict copy.
 
-```bash
-git clone https://github.com/mauropereiira/Moldavite.git
-cd Moldavite
-npm install
-npm run tauri dev
-```
+## What else it does
 
-Requires Node.js 18+, Rust 1.77+, and Xcode Command Line Tools.
+- **Writing.** Rich-text editing over Markdown-on-disk: headings, task lists,
+  code, resizable images, slash commands, pinnable tabs.
+- **Linking.** `[[Wiki links]]` and `[[Display|target]]`. Renaming a note
+  rewrites every inbound link across the vault and keeps your open tabs pointed
+  at the right file.
+- **Finding.** Backlinks panel, `#tags` with global rename, folders, and a quick
+  switcher on `⌘P`. Search is a live scan, which is comfortable to roughly a
+  thousand notes.
+- **Semantic search.** Optional. Pick one of three embedding models, approve the
+  download, and everything after that runs offline. Apple Silicon only; Intel
+  Macs get keyword search.
+- **Locking.** Individual notes encrypt with AES-256-GCM and Argon2, with
+  rate-limited unlock and auto-relock. Locked notes stay out of search, indexing,
+  and every agent tool.
+- **Calendar.** Apple Calendar through EventKit and Google Calendar through a
+  read-only OAuth scope. Events are drawn and discarded. Moldavite never creates
+  or changes one.
+- **Plugins.** Each runs in its own Web Worker with no DOM, no network globals,
+  and no Tauri IPC. Consent is pinned to a hash of the plugin's code, so any
+  change asks you again. See [docs/PLUGINS.md](docs/PLUGINS.md).
+- **Moving in and out.** One-time Obsidian vault import, ZIP and encrypted
+  exports, per-note Markdown and PDF export.
 
-```bash
-npm test                     # frontend tests (vitest)
-cd src-tauri && cargo test    # backend tests, incl. stress suite
-npm run lint                 # ESLint
-npm run check:size           # bundle-size budget
-npm run tauri build          # production DMG + .app
-```
+## Privacy
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and pull request
-expectations, and [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for what's
-shipped, what's known-broken, and what's next.
+No account system, no hosted notes service, no analytics, no telemetry.
 
-## Known limits
+Moldavite makes five network calls, all of them on purpose: a signed update check
+about fifteen seconds after launch and once a day while open; the plugin registry
+from GitHub when you press Browse; a semantic model from Hugging Face after you
+opt in; Google Calendar while a Google account is connected; and plugin requests
+to hosts you approved by name.
 
-- Search is a live directory scan per query — fine to roughly a thousand notes.
-  A persistent index is the next major piece of work.
-- The plugin API has note reads but no note writes and no UI panels yet.
-- All note metadata is held in memory; there is no pagination.
-- No automatic scheduled backups yet (manual and encrypted export exist).
-- No multi-window support.
+Publishing a note to WordPress is an action you take. Full detail in the
+[Privacy Policy](https://mauropereiira.github.io/Moldavite/privacy.html).
 
-## Stack
+## Contributing
 
-React · TypeScript · TipTap · Tauri 2 · Rust · Swift · Vite
+[CONTRIBUTING.md](CONTRIBUTING.md) has the setup, commands, and conventions.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit
+together. [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) tracks what ships,
+what is broken, and what is next.
 
 ---
 
