@@ -18,6 +18,7 @@
   <a href="https://mauropereiira.github.io/Moldavite/">Website</a> ·
   <a href="https://mauropereiira.github.io/Moldavite/guide.html">User Guide</a> ·
   <a href="https://github.com/mauropereiira/moldavite-skills">Agent Skills</a> ·
+  <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew tap</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
