@@ -121,6 +121,26 @@ pub(crate) fn rewrite_links_for_rename(
     }
 }
 
+/// Largest char boundary at or below `i`. The context window below is sized in
+/// bytes, so without this a multi-byte character straddling the edge would make
+/// the slice panic and abort the process.
+fn floor_char_boundary(s: &str, mut i: usize) -> usize {
+    i = i.min(s.len());
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
+}
+
+/// Smallest char boundary at or above `i`.
+fn ceil_char_boundary(s: &str, mut i: usize) -> usize {
+    i = i.min(s.len());
+    while i < s.len() && !s.is_char_boundary(i) {
+        i += 1;
+    }
+    i
+}
+
 pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
     // Try both with and without pipe syntax
     let search_patterns = vec![
@@ -130,15 +150,15 @@ pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
 
     for search in search_patterns {
         if let Some(pos) = content.find(&search) {
-            let start = pos.saturating_sub(50);
-            let end = (pos + search.len() + 50).min(content.len());
+            let start = floor_char_boundary(content, pos.saturating_sub(50));
+            let end = ceil_char_boundary(content, pos + search.len() + 50);
 
             // Find the actual end of the link
             let actual_end = if search.ends_with('|') {
                 // Find the closing ]]
                 content[pos..]
                     .find("]]")
-                    .map(|p| (pos + p + 2 + 50).min(content.len()))
+                    .map(|p| ceil_char_boundary(content, pos + p + 2 + 50))
                     .unwrap_or(end)
             } else {
                 end
@@ -275,5 +295,28 @@ mod tests {
     #[test]
     fn get_link_context_returns_empty_when_missing() {
         assert_eq!(get_link_context("no matches here", "Nowhere"), "");
+    }
+
+    #[test]
+    fn get_link_context_survives_multibyte_chars_at_the_window_edge() {
+        // The window is sized in bytes. Walk a multi-byte character across both
+        // edges so a boundary-unsafe slice would panic on at least one offset.
+        for pad in 0..80 {
+            let before = format!("{}{}", "✦".repeat(pad), "a".repeat(pad));
+            let after = format!("{}{}", "a".repeat(pad), "✦".repeat(pad));
+            let content = format!("{before}[[Target]]{after}");
+            let context = get_link_context(&content, "Target");
+            assert!(context.contains("[[Target]]"), "lost the link at pad {pad}");
+
+            // The piped form is matched on its display half, so search "Target".
+            let piped = format!("{before}[[Target|other-note]]{after}");
+            assert!(get_link_context(&piped, "Target").contains("[[Target|other-note]]"));
+        }
+    }
+
+    #[test]
+    fn get_link_context_handles_multibyte_immediately_around_the_link() {
+        let content = format!("{}[[Target]]{}", "é".repeat(200), "→".repeat(200));
+        assert!(get_link_context(&content, "Target").contains("[[Target]]"));
     }
 }

@@ -4,6 +4,10 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The app could abort while building a note's backlinks.** The snippet shown under a backlink was cut out using byte positions, so a note containing an accented letter, an arrow, an emoji, or any other multi-byte character within about fifty characters of a `[[wiki link]]` would kill the process outright with no error and no warning. Vaults written in plain ASCII never saw it. The context window now snaps to character boundaries.
+
 ## [1.8.1] - 2026-08-08
 
 ### Fixed
