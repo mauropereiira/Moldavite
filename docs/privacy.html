@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Privacy Policy — Moldavite</title>
+    <meta name="theme-color" content="#07090a" />
+    <title>Moldavite Privacy Policy</title>
     <meta
       name="description"
       content="How Moldavite handles your data: notes stay on your device, there is no account or telemetry, and every network connection the app can make is listed."
@@ -15,32 +16,34 @@
     </script>
     <script src="site.js" defer></script>
   </head>
-  <body>
+  <body class="docs-page">
     <a class="skip-link" href="#main">Skip to content</a>
+    <div class="site-guides" aria-hidden="true"></div>
     <header class="site-header">
-      <div class="nav-inner">
-        <div class="brand-wrap">
-          <a href="index.html" class="brand">
-            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
-            Moldavite
-          </a>
-          <span class="version-badge">Open source</span>
-        </div>
+      <div class="nav-inner liquid-glass">
+        <a href="index.html" class="brand" aria-label="Moldavite home">
+          <img src="icon.png" alt="" aria-hidden="true" width="28" height="28" />
+          <span>Moldavite</span>
+        </a>
         <button
           class="nav-toggle"
           type="button"
-          aria-label="Toggle navigation"
+          aria-label="Open navigation"
           aria-expanded="false"
-          aria-controls="nav"
+          aria-controls="site-nav"
         >
-          Menu
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
         </button>
-        <nav class="nav-links" id="nav" aria-label="Primary">
+        <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html">Home</a>
-          <a href="guide.html">User Guide</a>
+          <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
+          <a href="privacy.html" aria-current="page">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+          <a
+            href="https://github.com/mauropereiira/Moldavite/releases/latest"
+            class="nav-cta"
             >Download</a
           >
         </nav>
@@ -56,7 +59,7 @@
       </p>
     </section>
 
-    <main class="docs-body" id="main">
+    <main class="docs-body" id="main" tabindex="-1">
       <nav class="docs-toc" aria-label="On this page">
         <strong>On this page</strong>
         <a href="#summary">Summary</a>
@@ -82,8 +85,8 @@
         <span class="callout-title">No data controller relationship for your content</span>
         <p>
           Because your notes and connected-account data never reach a server operated by Moldavite,
-          the developer never becomes a processor or controller of that content. The services you
-          connect to — Google, WordPress.com, your own hosts — handle data under their own policies.
+          the developer never becomes a processor or controller of that content. Google,
+          WordPress.com, and hosts you connect handle data under their own policies.
         </p>
       </div>
 
@@ -104,7 +107,7 @@
       <h2 id="your-notes">Your notes and where they live</h2>
       <p>
         Notes are plain Markdown files with optional YAML frontmatter, written inside a Forge
-        directory you choose — by default under <code>~/Documents/Moldavite/</code>. You can open,
+        directory you choose. The default root is <code>~/Documents/Moldavite/</code>. You can open,
         move, back up, or delete them with any other tool, with or without Moldavite installed.
       </p>
       <ul>
@@ -204,9 +207,9 @@
         </li>
       </ul>
       <p>
-        Google calendar data is fetched for the date range you are viewing, held in memory to draw
-        the timeline, and discarded. It is not written to disk, not indexed for search, not included
-        in exports, and not sent anywhere other than between your computer and Google.
+        Google calendar data is fetched for the date range you are viewing and held in memory while
+        Moldavite draws the timeline. It stays out of disk storage, search indexes, and exports.
+        Network transport is limited to your computer and Google.
       </p>
       <p>
         You can disconnect at any time from <strong>Settings → Calendar</strong>, which deletes the
@@ -236,10 +239,8 @@
 
       <h2 id="credentials">Credentials and secrets</h2>
       <p>
-        Tokens and passwords are stored in your operating system's credential store — the Keychain
-        on macOS, Credential Manager on Windows, the Secret Service on Linux — under the service
-        name <code>Moldavite</code>. They are never written into notes, settings files, exports, or
-        logs.
+        Tokens and passwords are stored in the macOS Keychain under the service name
+        <code>Moldavite</code>. They are never written into notes, settings files, exports, or logs.
       </p>
       <p>
         The Google connection stores a refresh token there and keeps the short-lived access token in
@@ -271,7 +272,7 @@
         same release, and the network table above is kept exhaustive. Material changes are also
         noted in the changelog.
       </p>
-      <p><strong>Last updated:</strong> 7 August 2026</p>
+      <p><strong>Last updated:</strong> 9 August 2026</p>
 
       <h2 id="contact">Contact</h2>
       <p>
@@ -296,18 +297,23 @@
 
     <footer class="site-footer">
       <div class="footer-inner">
+        <a href="index.html" class="footer-brand" aria-label="Moldavite home">
+          <img src="icon.png" alt="" aria-hidden="true" width="26" height="26" />
+          <span>Moldavite</span>
+        </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
-          <a href="guide.html">User Guide</a>
-          <a href="plugins.html">Plugin Development</a>
+          <a href="guide.html">Guide</a>
+          <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
         </nav>
-        <p class="footer-meta">
-          Documentation · Made by
-          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
-          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-        </p>
+        <div class="footer-ecosystem">
+          <a href="https://github.com/mauropereiira/moldavite-skills">Skills</a>
+          <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew</a>
+          <a href="https://github.com/mauropereiira/Moldavite">Source</a>
+        </div>
+        <p class="footer-meta">Made by Mauro Pereira · MIT License</p>
       </div>
     </footer>
   </body>

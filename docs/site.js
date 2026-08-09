@@ -1,39 +1,73 @@
 (function () {
   'use strict';
 
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var videoObserver = null;
 
   function prefersReducedMotion() {
-    return reduceMotion.matches;
+    return motionPreference.matches;
   }
-
-  /* ---------------------------------------------------------------------
-     Navigation
-     --------------------------------------------------------------------- */
 
   function setupNavigation() {
     var toggle = document.querySelector('.nav-toggle');
     var nav = document.querySelector('.nav-links');
     if (!toggle || !nav) return;
 
+    function closeNavigation(returnFocus) {
+      nav.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Open navigation');
+      if (returnFocus) toggle.focus();
+    }
+
     toggle.addEventListener('click', function () {
-      var open = nav.classList.toggle('is-open');
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var willOpen = !nav.classList.contains('is-open');
+      nav.classList.toggle('is-open', willOpen);
+      toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      toggle.setAttribute('aria-label', willOpen ? 'Close navigation' : 'Open navigation');
     });
 
     nav.addEventListener('click', function (event) {
-      if (event.target.tagName === 'A') {
-        nav.classList.remove('is-open');
-        toggle.setAttribute('aria-expanded', 'false');
+      if (event.target.closest('a')) closeNavigation(false);
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!nav.classList.contains('is-open')) return;
+      if (nav.contains(event.target) || toggle.contains(event.target)) return;
+      closeNavigation(false);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && nav.classList.contains('is-open')) {
+        closeNavigation(true);
       }
     });
+
+    var desktop = window.matchMedia('(min-width: 901px)');
+    var resetAtDesktop = function (event) {
+      if (event.matches) closeNavigation(false);
+    };
+    if (desktop.addEventListener) desktop.addEventListener('change', resetAtDesktop);
+    else desktop.addListener(resetAtDesktop);
   }
 
-  /* ---------------------------------------------------------------------
-     Scroll reveals
-     --------------------------------------------------------------------- */
+  function prepareDocumentReveals() {
+    document
+      .querySelectorAll('.docs-hero, .docs-toc, .docs-body > h2, .docs-body > .callout, .next-links')
+      .forEach(function (element) {
+        element.classList.add('reveal');
+      });
+  }
 
   function setupReveals() {
+    prepareDocumentReveals();
+
+    document.querySelectorAll('.reveal-group').forEach(function (group) {
+      Array.prototype.forEach.call(group.children, function (child, index) {
+        child.style.setProperty('--i', index);
+      });
+    });
+
     var targets = document.querySelectorAll('.reveal, .reveal-group');
     if (!targets.length) return;
 
@@ -52,7 +86,7 @@
           observer.unobserve(entry.target);
         });
       },
-      { rootMargin: '0px 0px -12% 0px', threshold: 0.12 }
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.08 }
     );
 
     targets.forEach(function (target) {
@@ -60,30 +94,27 @@
     });
   }
 
-  /* ---------------------------------------------------------------------
-     Video: only play what is on screen, and never autoplay under
-     reduced-motion — the poster frame carries the meaning instead.
-     --------------------------------------------------------------------- */
+  function pauseVideos() {
+    document.querySelectorAll('video[data-autoplay]').forEach(function (video) {
+      video.removeAttribute('autoplay');
+      video.pause();
+    });
+  }
 
-  function setupVideos() {
+  function startVideoObserver() {
+    if (videoObserver) videoObserver.disconnect();
+    videoObserver = null;
+    pauseVideos();
+
     var videos = document.querySelectorAll('video[data-autoplay]');
-    if (!videos.length) return;
+    if (!videos.length || prefersReducedMotion() || !('IntersectionObserver' in window)) return;
 
-    if (prefersReducedMotion()) {
-      videos.forEach(function (video) {
-        video.removeAttribute('autoplay');
-        video.pause();
-      });
-      return;
-    }
-
-    if (!('IntersectionObserver' in window)) return;
-
-    var observer = new IntersectionObserver(
+    videoObserver = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
           var video = entry.target;
-          if (entry.isIntersecting) {
+          video.dataset.inView = entry.isIntersecting ? 'true' : 'false';
+          if (entry.isIntersecting && !document.hidden) {
             var attempt = video.play();
             if (attempt && attempt.catch) attempt.catch(function () {});
           } else {
@@ -91,150 +122,80 @@
           }
         });
       },
-      { threshold: 0.2 }
+      { rootMargin: '80px 0px', threshold: 0.22 }
     );
 
     videos.forEach(function (video) {
-      observer.observe(video);
+      videoObserver.observe(video);
     });
   }
 
-  /* ---------------------------------------------------------------------
-     Signature: one note, two truths.
+  function setupVideos() {
+    startVideoObserver();
 
-     The rich editor and the plain Markdown file are the same note. On first
-     view the panel plays that argument through once by itself, then hands
-     control to the reader.
-     --------------------------------------------------------------------- */
+    var handleMotionChange = function () {
+      startVideoObserver();
+      if (prefersReducedMotion()) pauseVideos();
+    };
 
-  function setupDuality() {
-    var root = document.querySelector('[data-duality]');
-    if (!root) return;
-
-    var tabs = Array.prototype.slice.call(root.querySelectorAll('.duality-tab'));
-    var panels = Array.prototype.slice.call(root.querySelectorAll('.duality-panel'));
-    var path = root.querySelector('.duality-path');
-    if (!tabs.length || !panels.length) return;
-
-    var timers = [];
-    var autoplayed = false;
-
-    function show(name) {
-      tabs.forEach(function (tab) {
-        tab.setAttribute('aria-selected', tab.dataset.view === name ? 'true' : 'false');
-      });
-      panels.forEach(function (panel) {
-        panel.dataset.active = panel.dataset.view === name ? 'true' : 'false';
-      });
-      var active = tabs.filter(function (tab) {
-        return tab.dataset.view === name;
-      })[0];
-      if (path && active && active.dataset.path) path.textContent = active.dataset.path;
+    if (motionPreference.addEventListener) {
+      motionPreference.addEventListener('change', handleMotionChange);
+    } else {
+      motionPreference.addListener(handleMotionChange);
     }
 
-    function cancelAutoplay() {
-      timers.forEach(clearTimeout);
-      timers = [];
-    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden || prefersReducedMotion()) {
+        pauseVideos();
+        return;
+      }
 
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        cancelAutoplay();
-        show(tab.dataset.view);
+      document.querySelectorAll('video[data-autoplay][data-in-view="true"]').forEach(function (video) {
+        var attempt = video.play();
+        if (attempt && attempt.catch) attempt.catch(function () {});
       });
     });
-
-    root.addEventListener('keydown', function (event) {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-      var current = tabs.findIndex(function (tab) {
-        return tab.getAttribute('aria-selected') === 'true';
-      });
-      var next = event.key === 'ArrowRight' ? current + 1 : current - 1;
-      if (next < 0) next = tabs.length - 1;
-      if (next >= tabs.length) next = 0;
-      cancelAutoplay();
-      show(tabs[next].dataset.view);
-      tabs[next].focus();
-      event.preventDefault();
-    });
-
-    show(root.dataset.defaultView || tabs[0].dataset.view);
-
-    // The autoplay sequence only makes sense once both panels have something
-    // to show; opt out until the editor recording is in place.
-    if (root.dataset.autoplay === 'off') return;
-    if (prefersReducedMotion() || !('IntersectionObserver' in window)) return;
-
-    var observer = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting || autoplayed) return;
-          autoplayed = true;
-          observer.disconnect();
-          timers.push(
-            setTimeout(function () {
-              show('source');
-            }, 2200)
-          );
-          timers.push(
-            setTimeout(function () {
-              show('editor');
-            }, 5400)
-          );
-        });
-      },
-      { threshold: 0.45 }
-    );
-
-    observer.observe(root);
   }
-
-  /* ---------------------------------------------------------------------
-     Copy buttons
-     --------------------------------------------------------------------- */
 
   function setupCopyButtons() {
     document.querySelectorAll('[data-copy-target]').forEach(function (button) {
       button.addEventListener('click', function () {
         var target = document.getElementById(button.getAttribute('data-copy-target'));
         if (!target) return;
-        var value = target.textContent;
+
+        var value = target.textContent.trim();
         var original = button.textContent;
 
-        function done(label) {
+        function showResult(label) {
           button.textContent = label;
-          setTimeout(function () {
+          window.setTimeout(function () {
             button.textContent = original;
           }, 1600);
+        }
+
+        function selectText() {
+          var selection = window.getSelection();
+          var range = document.createRange();
+          range.selectNodeContents(target);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          showResult('Press Cmd+C');
         }
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(value).then(
             function () {
-              done('Copied');
+              showResult('Copied');
             },
-            function () {
-              done('Press ⌘C');
-            }
+            selectText
           );
           return;
         }
 
-        var selection = window.getSelection();
-        var range = document.createRange();
-        range.selectNodeContents(target);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        done('Press ⌘C');
+        selectText();
       });
     });
   }
-
-  /* ---------------------------------------------------------------------
-     Plugin directory — the registry URL is pinned, every entry is validated
-     before it is rendered, and a failed fetch falls back to the static
-     markup already in the page.
-     --------------------------------------------------------------------- */
 
   function text(parent, tag, className, value) {
     var element = document.createElement(tag);
@@ -285,18 +246,20 @@
         .join(' ')
         .toLowerCase()
     );
+
     var heading = document.createElement('div');
     heading.className = 'directory-card-heading';
     text(heading, 'h3', '', plugin.name);
-    text(heading, 'span', 'directory-version', 'v' + plugin.version + ' · ' + plugin.author);
+    text(heading, 'span', 'directory-version', 'By ' + plugin.author);
     card.appendChild(heading);
     text(card, 'p', 'directory-description', plugin.description);
 
     var permissions = document.createElement('div');
     permissions.className = 'directory-permissions';
     permissions.setAttribute('aria-label', 'Permissions');
-    if (plugin.permissions.length === 0)
+    if (plugin.permissions.length === 0) {
       text(permissions, 'span', 'directory-chip', 'No extra permissions');
+    }
     plugin.permissions.forEach(function (permission) {
       text(permissions, 'span', 'directory-chip', permission);
     });
@@ -304,23 +267,30 @@
       text(permissions, 'span', 'directory-chip directory-host', 'host: ' + host);
     });
     card.appendChild(permissions);
+
     var install = document.createElement('div');
     install.className = 'directory-install';
     var installLink = text(install, 'a', 'directory-install-button', 'Install in Moldavite');
     installLink.setAttribute('href', 'moldavite://plugin/' + plugin.id);
+
     var hint = document.createElement('span');
-    hint.appendChild(document.createTextNode('App not installed? '));
-    var downloadLink = text(hint, 'a', '', 'Download here');
-    downloadLink.setAttribute('href', 'index.html');
+    hint.appendChild(document.createTextNode('Need the app? '));
+    var downloadLink = text(hint, 'a', '', 'Download Moldavite');
+    downloadLink.setAttribute(
+      'href',
+      'https://github.com/mauropereiira/Moldavite/releases/latest'
+    );
     hint.appendChild(document.createTextNode('.'));
     install.appendChild(hint);
     card.appendChild(install);
+
     return card;
   }
 
   function loadPluginDirectory() {
     var directory = document.querySelector('[data-plugin-directory]');
     if (!directory) return;
+
     var status = document.querySelector('[data-registry-status]');
     var search = document.querySelector('[data-plugin-search]');
     var count = document.querySelector('[data-plugin-count]');
@@ -333,6 +303,7 @@
       var terms = query ? query.split(/\s+/) : [];
       var cards = Array.prototype.slice.call(directory.querySelectorAll('.directory-card'));
       var visible = 0;
+
       cards.forEach(function (card) {
         var searchable = card.getAttribute('data-plugin-search-text') || '';
         var matches = terms.every(function (term) {
@@ -341,6 +312,7 @@
         card.hidden = !matches;
         if (matches) visible += 1;
       });
+
       if (count) {
         count.textContent = query
           ? visible + ' of ' + cards.length + ' plugins'
@@ -366,14 +338,21 @@
         ) {
           throw new Error('unexpected registry format');
         }
+
         var plugins = registry.plugins.filter(validRegistryEntry);
         if (plugins.length === 0) throw new Error('no valid registry entries');
+
         var fragment = document.createDocumentFragment();
         plugins.forEach(function (plugin) {
           fragment.appendChild(pluginCard(plugin));
         });
         directory.replaceChildren(fragment);
-        if (status) status.textContent = 'Live directory · ' + plugins.length + ' plugins';
+        if (status) {
+          status.textContent =
+            'Live directory · ' +
+            plugins.length +
+            (plugins.length === 1 ? ' plugin' : ' plugins');
+        }
         filterDirectory();
       })
       .catch(function () {
@@ -384,7 +363,6 @@
   setupNavigation();
   setupReveals();
   setupVideos();
-  setupDuality();
   setupCopyButtons();
   loadPluginDirectory();
 })();
