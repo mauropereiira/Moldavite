@@ -63,6 +63,7 @@ import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hoo
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml, processAndSaveImage } from '@/lib';
+import { looksLikeMarkdown } from '@/lib/markdownPaste';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
@@ -129,6 +130,8 @@ export function Editor() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // Ref for image file handler (to break circular dependency with useEditor)
   const handleImageFileRef = useRef<((file: File) => Promise<void>) | null>(null);
+  // Ref for paste commands, whose handler is created inside useEditor.
+  const editorRef = useRef<TiptapEditor | null>(null);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -723,8 +726,9 @@ export function Editor() {
           class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
           spellcheck: spellCheck ? 'true' : 'false',
         },
-        handlePaste: (_view, event) => {
-          const items = event.clipboardData?.items;
+        handlePaste: (view, event) => {
+          const clipboard = event.clipboardData;
+          const items = clipboard?.items;
           if (!items) return false;
 
           for (const item of items) {
@@ -737,7 +741,22 @@ export function Editor() {
               }
             }
           }
-          return false;
+
+          const text = clipboard.getData('text/plain');
+          if (!looksLikeMarkdown(text)) return false;
+
+          const html = markdownToHtml(text);
+          const pasteEditor = editorRef.current;
+          if (!html || !pasteEditor || pasteEditor.isDestroyed) return false;
+
+          const { from, to } = view.state.selection;
+          const inserted = pasteEditor.commands.insertContentAt({ from, to }, html, {
+            updateSelection: true,
+          });
+          if (!inserted) return false;
+
+          event.preventDefault();
+          return true;
         },
         handleDrop: (_view, event) => {
           const files = event.dataTransfer?.files;
@@ -757,6 +776,7 @@ export function Editor() {
     },
     [tagsEnabled]
   ); // Recreate editor when tagsEnabled changes
+  editorRef.current = editor;
 
   // Handle image file from paste or drop
   const handleImageFile = useCallback(

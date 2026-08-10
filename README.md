@@ -142,7 +142,8 @@ as a timestamped conflict copy.
 ## What else it does
 
 - **Writing.** Rich-text editing over Markdown-on-disk: headings, task lists,
-  code, resizable images, slash commands, pinnable tabs.
+  code, resizable images, slash commands, pinnable tabs, and formatted paste
+  for recognizable raw Markdown.
 - **Linking.** `[[Wiki links]]` and `[[Display|target]]`. Renaming a note
   rewrites every inbound link across the vault and keeps your open tabs pointed
   at the right file.
