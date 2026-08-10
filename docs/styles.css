@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
 :root {
   --void: #07090a;
   --void-soft: #0b0f0d;
@@ -9,8 +7,8 @@
   --sage-deep: #4e7346;
   --gold: #c9a227;
   --paper: #e8e6df;
-  --paper-dim: rgba(232, 230, 223, 0.68);
-  --paper-faint: rgba(232, 230, 223, 0.42);
+  --paper-dim: rgba(232, 230, 223, 0.74);
+  --paper-faint: rgba(232, 230, 223, 0.56);
   --rule: rgba(232, 230, 223, 0.1);
   --rule-strong: rgba(232, 230, 223, 0.18);
   --glass: rgba(255, 255, 255, 0.022);
@@ -21,8 +19,8 @@
     sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --container: 1180px;
-  --reading: 820px;
+  --container: min(94vw, 2200px);
+  --measure: 68ch;
   --gutter: clamp(1.1rem, 4vw, 2.5rem);
   --section-y: clamp(5.5rem, 10vw, 9rem);
   --radius: 22px;
@@ -147,6 +145,11 @@ figure {
   margin-top: 0;
 }
 
+p,
+figcaption {
+  max-width: var(--measure);
+}
+
 h1,
 h2 {
   font-family: var(--font-display);
@@ -269,7 +272,7 @@ main:focus {
 }
 
 .container {
-  max-width: calc(var(--reading) + (2 * var(--gutter)));
+  max-width: calc(var(--measure) + (2 * var(--gutter)));
 }
 
 .landing-section {
@@ -319,7 +322,7 @@ main:focus {
   position: absolute;
   z-index: 0;
   top: 10%;
-  left: max(2vw, calc(50% - 43rem));
+  left: max(var(--gutter), calc(50% - (var(--container) / 2)));
   color: rgba(157, 193, 131, 0.055);
   font-family: var(--font-display);
   font-size: clamp(14rem, 32vw, 34rem);
@@ -330,7 +333,7 @@ main:focus {
 }
 
 .section-watermark.is-right {
-  right: max(2vw, calc(50% - 42rem));
+  right: max(var(--gutter), calc(50% - (var(--container) / 2)));
   left: auto;
   color: rgba(201, 162, 39, 0.038);
 }
@@ -1341,7 +1344,7 @@ main:focus {
 }
 
 .plugin-footer > p {
-  max-width: 57rem;
+  max-width: var(--measure);
   margin: 0;
   color: var(--paper-dim);
 }
@@ -1419,7 +1422,7 @@ main:focus {
 }
 
 .privacy-foot p {
-  max-width: 52rem;
+  max-width: var(--measure);
   margin: 0;
   color: var(--paper-dim);
   font-size: 0.9rem;
@@ -1515,6 +1518,7 @@ main:focus {
 
 .footer-meta {
   grid-column: 1 / -1;
+  max-width: none;
   margin: 0;
   color: var(--paper-faint);
   font-family: var(--font-mono);
@@ -1528,7 +1532,7 @@ main:focus {
 .docs-hero {
   position: relative;
   z-index: 1;
-  max-width: calc(var(--reading) + (2 * var(--gutter)));
+  max-width: calc(var(--container) + (2 * var(--gutter)));
   margin-inline: auto;
   padding: clamp(5rem, 10vw, 8rem) var(--gutter) clamp(2.8rem, 6vw, 4.5rem);
 }
@@ -1562,7 +1566,7 @@ main:focus {
 .docs-body {
   position: relative;
   z-index: 1;
-  max-width: calc(var(--reading) + (2 * var(--gutter)));
+  max-width: calc(var(--container) + (2 * var(--gutter)));
   margin-inline: auto;
   padding: 0 var(--gutter) clamp(4rem, 10vw, 8rem);
 }
@@ -1628,7 +1632,7 @@ main:focus {
 }
 
 .docs-body p {
-  max-width: 70ch;
+  max-width: var(--measure);
 }
 
 .docs-body strong {
@@ -1638,6 +1642,7 @@ main:focus {
 
 .docs-body ul,
 .docs-body ol {
+  max-width: var(--measure);
   padding-left: 1.25rem;
 }
 
@@ -1659,7 +1664,7 @@ main:focus {
 }
 
 .docs-body pre {
-  max-width: 100%;
+  max-width: min(100%, var(--measure));
   margin: 1.5rem 0;
   padding: 1.25rem 1.35rem;
   overflow-x: auto;
@@ -1695,6 +1700,7 @@ main:focus {
 }
 
 .callout {
+  max-width: var(--measure);
   margin: 1.8rem 0;
   padding: 1.25rem 1.35rem;
   border: 1px solid rgba(157, 193, 131, 0.13);
@@ -1731,6 +1737,7 @@ main:focus {
 }
 
 .method-list {
+  max-width: var(--measure);
   margin: 1.5rem 0;
 }
 
@@ -1770,6 +1777,7 @@ main:focus {
 
 .next-links {
   display: grid;
+  max-width: var(--measure);
   margin-top: 3.5rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
@@ -1983,6 +1991,56 @@ main:focus {
     opacity 0.82s var(--ease),
     transform 0.82s var(--ease);
   transition-delay: calc(var(--i, 0) * 80ms);
+}
+
+@media (min-width: 1360px) {
+  .install-grid {
+    max-width: 90rem;
+    margin-inline: auto;
+    gap: clamp(1.5rem, 3vw, 3.5rem);
+  }
+
+  .screenshot-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(1rem, 1.5vw, 1.75rem);
+  }
+
+  .screenshot-card:nth-child(n) {
+    grid-column: auto;
+  }
+
+  .network-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .network-list li,
+  .network-list li:nth-child(2n) {
+    padding: 1.55rem 1.4rem;
+    border-right: 1px solid var(--rule);
+  }
+
+  .network-list li:nth-child(3n + 1) {
+    padding-left: 0;
+  }
+
+  .network-list li:nth-child(3n) {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .docs-toc {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .plugin-directory {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1700px) {
+  .plugin-directory {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1120px) {
