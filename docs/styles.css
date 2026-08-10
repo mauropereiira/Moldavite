@@ -100,6 +100,7 @@ video,
 svg {
   display: block;
   max-width: 100%;
+  height: auto;
 }
 
 button,
@@ -1998,8 +1999,6 @@ main:focus {
 
 @media (min-width: 1360px) {
   .install-grid {
-    max-width: 90rem;
-    margin-inline: auto;
     gap: clamp(1.5rem, 3vw, 3.5rem);
   }
 
