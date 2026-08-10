@@ -1536,7 +1536,7 @@ main:focus {
 .docs-hero {
   position: relative;
   z-index: 1;
-  max-width: calc(var(--container) + (2 * var(--gutter)));
+  max-width: calc(62rem + (2 * var(--gutter)));
   margin-inline: auto;
   padding: clamp(5rem, 10vw, 8rem) var(--gutter) clamp(2.8rem, 6vw, 4.5rem);
 }
@@ -1570,7 +1570,10 @@ main:focus {
 .docs-body {
   position: relative;
   z-index: 1;
-  max-width: calc(var(--container) + (2 * var(--gutter)));
+  /* A documentation page is one reading column, centred. The landing page is
+     full width; these are not. Pinning 68ch of prose to the left of a 2200px
+     block left most of the page empty. */
+  max-width: calc(62rem + (2 * var(--gutter)));
   margin-inline: auto;
   padding: 0 var(--gutter) clamp(4rem, 10vw, 8rem);
 }
@@ -1636,7 +1639,7 @@ main:focus {
 }
 
 .docs-body p {
-  max-width: var(--measure);
+  max-width: none;
 }
 
 .docs-body strong {
@@ -1646,7 +1649,7 @@ main:focus {
 
 .docs-body ul,
 .docs-body ol {
-  max-width: var(--measure);
+  max-width: none;
   padding-left: 1.25rem;
 }
 
