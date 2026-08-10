@@ -3,44 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Using Moldavite — User Guide</title>
+    <meta name="theme-color" content="#07090a" />
+    <title>Moldavite User Guide</title>
+    <meta property="og:title" content="Using Moldavite" />
+    <meta property="og:description" content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mauropereiira.github.io/Moldavite/guide.html" />
+    <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS with a built-in MCP server." />
+    <meta property="og:site_name" content="Moldavite" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Using Moldavite" />
+    <meta name="twitter:description" content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools." />
+    <meta name="twitter:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
+    <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/guide.html" />
     <meta
       name="description"
       content="The Moldavite user guide: Forges, Obsidian import, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, updates, conflicts, and privacy."
     />
-    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="icon" href="favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
     <script>
       document.documentElement.classList.add('has-js');
     </script>
     <script src="site.js" defer></script>
   </head>
-  <body>
+  <body class="docs-page">
     <a class="skip-link" href="#main">Skip to content</a>
+    <div class="site-guides" aria-hidden="true"></div>
     <header class="site-header">
-      <div class="nav-inner">
-        <div class="brand-wrap">
-          <a href="index.html" class="brand">
-            <img src="icon.png" alt="" aria-hidden="true" width="30" height="30" />
-            Moldavite
-          </a>
-          <span class="version-badge">Open source</span>
-        </div>
+      <div class="nav-inner liquid-glass">
+        <a href="index.html" class="brand" aria-label="Moldavite home">
+          <img src="icon.png" alt="" aria-hidden="true" width="28" height="28" />
+          <span>Moldavite</span>
+        </a>
         <button
           class="nav-toggle"
           type="button"
-          aria-label="Toggle navigation"
+          aria-label="Open navigation"
           aria-expanded="false"
-          aria-controls="nav"
+          aria-controls="site-nav"
         >
-          Menu
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
         </button>
-        <nav class="nav-links" id="nav" aria-label="Primary">
+        <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html">Home</a>
-          <a href="guide.html" aria-current="page">User Guide</a>
+          <a href="guide.html" aria-current="page">Guide</a>
           <a href="plugins.html">Plugins</a>
+          <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+          <a
+            href="https://github.com/mauropereiira/Moldavite/releases/latest"
+            class="nav-cta"
             >Download</a
           >
         </nav>
@@ -51,12 +74,12 @@
       <span class="version-badge">User guide</span>
       <h1>Using Moldavite</h1>
       <p>
-        From your first Forge to local semantic search, safe sync, plugins, and a read-first bridge
-        for AI tools.
+        From your first Forge to local semantic search, external-edit safety, plugins, and a
+        read-first bridge for AI tools.
       </p>
     </section>
 
-    <main class="docs-body" id="main">
+    <main class="docs-body" id="main" tabindex="-1">
       <nav class="docs-toc" aria-label="On this page">
         <strong>On this page</strong>
         <a href="#getting-started">Getting started</a>
@@ -64,7 +87,7 @@
         <a href="#editor">Editor, links, and graph</a>
         <a href="#organization">Organization and search</a>
         <a href="#semantic-search">Local semantic search</a>
-        <a href="#safety">Safety, privacy, and sync</a>
+        <a href="#safety">Safety, privacy, and external edits</a>
         <a href="#updates">Staying up to date</a>
         <a href="#plugins">Plugins and WordPress</a>
         <a href="#agents">AI agents and AGENTS.md</a>
@@ -72,6 +95,13 @@
       </nav>
 
       <h2 id="getting-started">Getting started</h2>
+      <p>Install Moldavite with Homebrew:</p>
+      <pre><code>brew install --cask mauropereiira/moldavite/moldavite</code></pre>
+      <p>
+        If you prefer a disk image, open the
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">latest release</a>,
+        download the macOS DMG, and move Moldavite to Applications.
+      </p>
       <p>
         A <strong>Forge</strong> is a vault directory. Forges normally live side by side under the
         Forges root at <code>~/Documents/Moldavite/</code>, although onboarding lets you choose a
@@ -80,20 +110,20 @@
       </p>
       <ul>
         <li>
-          <strong>Multiple Forges</strong> — keep Work, Personal, or other vaults separate and
+          <strong>Multiple Forges</strong>: keep Work, Personal, or other vaults separate and
           switch from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher
           action. Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
         </li>
         <li>
-          <strong>Daily notes</strong> — <em>Today</em> opens the current date and creates its file
+          <strong>Daily notes</strong>: <em>Today</em> opens the current date and creates its file
           when needed. Empty daily notes are removed automatically; images count as content.
         </li>
         <li>
-          <strong>Weekly notes</strong> — select a calendar week to open its ISO-week note. Empty
+          <strong>Weekly notes</strong>: select a calendar week to open its ISO-week note. Empty
           weekly notes are also cleaned up.
         </li>
         <li>
-          <strong>Standalone notes</strong> — create regular notes under <code>notes/</code>,
+          <strong>Standalone notes</strong>: create regular notes under <code>notes/</code>,
           including nested folders. Folders can be created, renamed, and reorganized from the
           sidebar.
         </li>
@@ -230,26 +260,26 @@
       </p>
       <ul>
         <li>
-          <strong>Quick switcher</strong> — press <kbd>⌘</kbd> <kbd>P</kbd> to open a note, run an
+          <strong>Quick switcher</strong>: press <kbd>⌘</kbd> <kbd>P</kbd> to open a note, run an
           app action, repeat a recent search, switch Forges, or invoke a plugin command.
         </li>
         <li>
-          <strong>Keyword search</strong> — full-text search with snippets across unlocked,
+          <strong>Keyword search</strong>: full-text search with snippets across unlocked,
           non-trashed notes.
         </li>
         <li>
-          <strong>Folders</strong> — a drag-and-drop tree for standalone notes when hierarchy helps.
+          <strong>Folders</strong>: a drag-and-drop tree for standalone notes when hierarchy helps.
         </li>
-        <li><strong>Colors</strong> — assign a sidebar color to individual notes.</li>
+        <li><strong>Colors</strong>: assign a sidebar color to individual notes.</li>
         <li>
-          <strong>Tabs and pinning</strong> — reorder open tabs and pin up to five frequent notes.
+          <strong>Tabs and pinning</strong>: reorder open tabs and pin up to five frequent notes.
         </li>
         <li>
-          <strong>Timeline</strong> — browse notes grouped into Today, Yesterday, This Week, This
+          <strong>Timeline</strong>: browse notes grouped into Today, Yesterday, This Week, This
           Month, and Earlier.
         </li>
         <li>
-          <strong>Shortcut help</strong> — press <kbd>⌘</kbd> <kbd>?</kbd> for the current shortcut
+          <strong>Shortcut help</strong>: press <kbd>⌘</kbd> <kbd>?</kbd> for the current shortcut
           list.
         </li>
       </ul>
@@ -323,7 +353,7 @@
         index data lives at <code>&lt;Forge&gt;/.index/</code>.
       </p>
 
-      <h2 id="safety">Safety, privacy, and sync</h2>
+      <h2 id="safety">Safety, privacy, and external edits</h2>
       <p>
         Moldavite has no hosted note service, accounts, analytics, or telemetry. Notes stay in the
         directory you choose. The app still has explicit network paths: signed update checks,
@@ -332,23 +362,23 @@
       </p>
       <ul>
         <li>
-          <strong>Atomic writes</strong> — note and app-data saves use a temporary file, flush, and
+          <strong>Atomic writes</strong>: note and app-data saves use a temporary file, flush, and
           rename so a mid-save crash cannot leave a truncated destination.
         </li>
         <li>
-          <strong>Trash</strong> — deleted notes remain available with previews for seven days
+          <strong>Trash</strong>: deleted notes remain available with previews for seven days
           before automatic cleanup.
         </li>
         <li>
-          <strong>Note locking</strong> — encrypted <code>.md.locked</code> files use AES-256-GCM
+          <strong>Note locking</strong>: encrypted <code>.md.locked</code> files use AES-256-GCM
           with Argon2 key derivation, rate-limited unlock, and optional auto-lock.
         </li>
         <li>
-          <strong>Backups and export</strong> — export Markdown, plaintext, PDF, full ZIP archives,
+          <strong>Backups and export</strong>: export Markdown, plaintext, PDF, full ZIP archives,
           or password-protected encrypted archives. Nested and weekly notes retain their folders.
         </li>
         <li>
-          <strong>Signed updates</strong> — update artifacts are cryptographically verified before
+          <strong>Signed updates</strong>: update artifacts are cryptographically verified before
           installation, and the app shows release notes afterwards.
         </li>
       </ul>
@@ -371,8 +401,8 @@
         </li>
       </ol>
       <p>
-        Simultaneous conflict copies in the same minute receive a numeric suffix instead of
-        overwriting one another.
+        Simultaneous conflict copies in the same minute receive a numeric suffix, which prevents
+        one copy from overwriting another.
       </p>
 
       <h3>Calendars</h3>
@@ -384,29 +414,29 @@
       </p>
       <ul>
         <li>
-          <strong>Apple Calendar</strong> — native EventKit, macOS only. macOS asks for permission
+          <strong>Apple Calendar</strong>: native EventKit on macOS. The system asks for permission
           the first time, and nothing leaves your machine.
         </li>
         <li>
-          <strong>Google Calendar</strong> — available on every platform. Connecting opens your
-          browser for Google's consent screen and returns to a local port; Moldavite asks only for
-          the read-only calendar scope. The refresh token is stored in your system keychain, never
-          in a note or a settings file. <strong>Disconnect</strong> removes it, and you can also
+          <strong>Google Calendar</strong>: connecting opens your browser for Google's consent
+          screen and returns to a local port. Moldavite asks only for the read-only calendar scope.
+          The refresh token is stored in your macOS Keychain and stays outside notes and settings
+          files. <strong>Disconnect</strong> removes it, and you can also
           revoke access from your
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
         </li>
       </ul>
       <p>
-        If one source fails — expired Google access, say — the timeline still shows the other and
-        reports the failure above the grid rather than going blank. What each connection sends is
-        listed in the <a href="privacy.html">Privacy Policy</a>.
+        If one source fails, the timeline keeps the available source visible and reports the error
+        above the grid. What each connection sends is listed in the
+        <a href="privacy.html">Privacy Policy</a>.
       </p>
 
       <h2 id="updates">Staying up to date</h2>
       <p>
         Moldavite checks for updates silently about once a day, including when you return focus to
         the app after a day. When an update is pending, a small accent dot appears on the sidebar
-        Settings gear and on the About tab—no popup interrupts your work.
+        Settings gear and on the About tab. No popup interrupts your work.
       </p>
       <p>
         Open <strong>Settings → About</strong> to install the pending update. You can also check
@@ -421,7 +451,7 @@
         changes.
       </p>
       <p>
-        Plugin API v2 can expose active-editor HTML, trusted prompt forms, unlocked note reads,
+        The current plugin API can expose active-editor HTML, trusted prompt forms, unlocked note reads,
         host-performed HTTPS to exact approved hosts, and plugin-namespaced macOS Keychain secrets.
         <strong>It does not provide note-write methods or custom panels.</strong> See the
         <a href="plugins.html">complete author guide</a> for the exact API and security model.
@@ -477,8 +507,8 @@
       </ol>
       <p>
         The first publish creates a draft. Publishing the same Forge-relative note path again
-        updates the mapped post instead of creating a duplicate. Configuration and the path-to-post
-        map live in the plugin's Keychain namespace, not in the Forge.
+        updates the mapped post and avoids a duplicate. Configuration and the path-to-post map live
+        in the plugin's Keychain namespace and stay outside the Forge.
       </p>
       <div class="callout warn">
         <span class="callout-title">WordPress.com support boundary</span>
@@ -635,7 +665,7 @@
       <div class="next-links">
         <a href="plugins.html">
           <span class="label">For builders</span>
-          <span class="title">Read the complete Plugin API v2 guide →</span>
+          <span class="title">Read the complete plugin guide →</span>
         </a>
         <a href="https://github.com/mauropereiira/Moldavite/releases/latest">
           <span class="label">Ready?</span>
@@ -646,18 +676,31 @@
 
     <footer class="site-footer">
       <div class="footer-inner">
+        <a href="index.html" class="footer-brand" aria-label="Moldavite home">
+          <img
+            src="icon.png"
+            alt=""
+            aria-hidden="true"
+            width="26"
+            height="26"
+            loading="lazy"
+            decoding="async"
+          />
+          <span>Moldavite</span>
+        </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
-          <a href="guide.html">User Guide</a>
-          <a href="plugins.html">Plugin Development</a>
+          <a href="guide.html">Guide</a>
+          <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
         </nav>
-        <p class="footer-meta">
-          Documentation · Made by
-          <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License ·
-          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-        </p>
+        <div class="footer-ecosystem">
+          <a href="https://github.com/mauropereiira/moldavite-skills">Skills</a>
+          <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew</a>
+          <a href="https://github.com/mauropereiira/Moldavite">Source</a>
+        </div>
+        <p class="footer-meta">Made by Mauro Pereira · MIT License</p>
       </div>
     </footer>
   </body>
