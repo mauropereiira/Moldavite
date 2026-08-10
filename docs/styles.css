@@ -14,10 +14,10 @@
   --glass: rgba(255, 255, 255, 0.022);
   --glass-strong: rgba(13, 19, 15, 0.72);
 
-  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui,
-    sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-code: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: var(--font-body);
 
   --container: min(94vw, 2200px);
   --measure: 68ch;
@@ -51,6 +51,7 @@ body {
   color: var(--paper);
   font-family: var(--font-body);
   font-size: 1rem;
+  font-weight: 400;
   line-height: 1.65;
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
@@ -153,21 +154,20 @@ figcaption {
 h1,
 h2 {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 800;
   letter-spacing: -0.035em;
 }
 
 h3,
 h4 {
-  font-weight: 500;
-  letter-spacing: -0.018em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 code,
-kbd,
-pre,
-samp {
-  font-family: var(--font-mono);
+pre {
+  font-family: var(--font-code);
 }
 
 p code,
@@ -294,7 +294,7 @@ main:focus {
 .card-label {
   margin-bottom: 1rem;
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.69rem;
   font-weight: 500;
   letter-spacing: 0.15em;
@@ -326,8 +326,9 @@ main:focus {
   color: rgba(157, 193, 131, 0.055);
   font-family: var(--font-display);
   font-size: clamp(14rem, 32vw, 34rem);
+  font-weight: 900;
   line-height: 0.8;
-  letter-spacing: -0.1em;
+  letter-spacing: -0.04em;
   pointer-events: none;
   filter: url('#section-grain');
 }
@@ -339,29 +340,25 @@ main:focus {
 }
 
 .site-header {
-  position: sticky;
+  position: relative;
   z-index: 100;
-  top: 0;
-  padding: 1rem var(--gutter) 0;
+  width: 100%;
+  padding-inline: var(--gutter);
+  border-bottom: 1px solid var(--rule);
+  background: rgba(7, 9, 10, 0.72);
 }
 
 .nav-inner {
+  position: relative;
   display: flex;
   width: min(var(--container), 100%);
-  min-height: 3.55rem;
+  min-height: 4.5rem;
   margin-inline: auto;
-  padding: 0.48rem 0.48rem 0.48rem 1rem;
+  padding-block: 0.7rem;
   align-items: center;
   justify-content: space-between;
   gap: 1.2rem;
   overflow: visible;
-  border-radius: 999px;
-  background: rgba(7, 9, 10, 0.72);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.08),
-    0 18px 52px -25px rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
 }
 
 .brand,
@@ -373,6 +370,7 @@ main:focus {
   color: var(--paper);
   font-family: var(--font-display);
   font-size: 1.28rem;
+  font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -397,6 +395,7 @@ main:focus {
 .nav-links a {
   color: var(--paper-dim);
   font-size: 0.86rem;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -511,7 +510,7 @@ main:focus {
   align-items: center;
   gap: 0.6rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.13em;
@@ -541,6 +540,7 @@ main:focus {
   max-width: 9ch;
   margin-bottom: 1.5rem;
   font-size: clamp(4.1rem, 8.4vw, 7.45rem);
+  letter-spacing: -0.04em;
   line-height: 0.84;
   text-wrap: balance;
 }
@@ -664,7 +664,7 @@ main:focus {
 .platform-note {
   margin: 0;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.69rem;
   letter-spacing: 0.045em;
 }
@@ -705,7 +705,7 @@ main:focus {
 .window-bar strong {
   margin-inline: auto;
   padding-right: 2.6rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.62rem;
   font-weight: 400;
   letter-spacing: 0.08em;
@@ -734,7 +734,7 @@ main:focus {
 .graph-clip figcaption {
   margin: 0.68rem 0.35rem 0.12rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.66rem;
   letter-spacing: 0.04em;
 }
@@ -747,7 +747,7 @@ main:focus {
   align-items: center;
   gap: 0.75rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.64rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -785,6 +785,7 @@ main:focus {
   color: rgba(232, 230, 223, 0.17);
   font-family: var(--font-display);
   font-size: 3rem;
+  font-weight: 800;
   line-height: 1;
 }
 
@@ -795,7 +796,8 @@ main:focus {
   color: var(--paper);
   font-family: var(--font-display);
   font-size: clamp(1.9rem, 3vw, 2.6rem);
-  font-weight: 400;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -831,7 +833,7 @@ main:focus {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.025);
   color: var(--paper-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.62rem;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -849,7 +851,7 @@ main:focus {
   align-items: center;
   gap: 0.35rem;
   color: var(--sage-bright);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.72rem;
   letter-spacing: 0.025em;
   text-decoration: underline;
@@ -893,7 +895,7 @@ main:focus {
 .sandbox-capabilities article > span,
 .app-details article > span {
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.67rem;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -983,7 +985,7 @@ main:focus {
   align-items: center;
   gap: 0.6rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 0.66rem;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -1059,7 +1061,8 @@ main:focus {
   color: var(--paper);
   font-family: var(--font-display);
   font-size: clamp(1.55rem, 3vw, 2.25rem);
-  font-weight: 400;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .table-heading > p {
@@ -1097,7 +1100,7 @@ main:focus {
 
 .tool-table th {
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.62rem;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -1120,7 +1123,7 @@ main:focus {
   justify-content: center;
   border: 1px solid;
   border-radius: 999px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.59rem;
   font-weight: 500;
   letter-spacing: 0.09em;
@@ -1160,7 +1163,7 @@ main:focus {
 
 .agent-ready-note > span {
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.7rem;
 }
 
@@ -1260,7 +1263,7 @@ main:focus {
 
 .feature-number {
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.63rem;
 }
 
@@ -1396,7 +1399,7 @@ main:focus {
 
 .network-list li > span {
   color: var(--gold);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.62rem;
   letter-spacing: 0.08em;
 }
@@ -1521,7 +1524,7 @@ main:focus {
   max-width: none;
   margin: 0;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.64rem;
   letter-spacing: 0.04em;
   text-align: center;
@@ -1542,7 +1545,7 @@ main:focus {
   display: inline-flex;
   margin-bottom: 1.2rem;
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -1586,7 +1589,7 @@ main:focus {
   grid-column: 1 / -1;
   margin-bottom: 0.35rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.64rem;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -1619,9 +1622,9 @@ main:focus {
 .docs-body h4 {
   margin: 2.2rem 0 0.65rem;
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.71rem;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -1688,7 +1691,7 @@ main:focus {
 
 .docs-body th {
   color: var(--paper);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.63rem;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -1725,7 +1728,7 @@ main:focus {
   display: block;
   margin-bottom: 0.52rem;
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.65rem;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -1754,7 +1757,7 @@ main:focus {
   margin-bottom: 0.4rem;
   overflow-wrap: anywhere;
   color: var(--sage-bright) !important;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 0.78rem;
 }
 
@@ -1771,7 +1774,7 @@ main:focus {
   border-radius: 999px;
   background: rgba(157, 193, 131, 0.07);
   color: var(--sage);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.63rem;
 }
 
@@ -1803,7 +1806,7 @@ main:focus {
   display: block;
   margin-bottom: 0.4rem;
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.62rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1850,7 +1853,7 @@ main:focus {
 .directory-count,
 .directory-status {
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.63rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1880,7 +1883,7 @@ main:focus {
 }
 
 .directory-toolbar a {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.68rem;
 }
 
@@ -1909,7 +1912,7 @@ main:focus {
 
 .directory-version {
   color: var(--paper-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.63rem;
 }
 
@@ -1932,7 +1935,7 @@ main:focus {
   border: 1px solid var(--rule);
   border-radius: 999px;
   color: var(--paper-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 0.59rem;
 }
 
@@ -2102,7 +2105,6 @@ main:focus {
 
   html:not(.has-js) .nav-inner {
     flex-wrap: wrap;
-    border-radius: 24px;
   }
 
   html:not(.has-js) .nav-links {
@@ -2204,13 +2206,8 @@ main:focus {
     font-size: 0.96rem;
   }
 
-  .site-header {
-    padding-top: 0.7rem;
-  }
-
   .nav-inner {
     min-height: 3.2rem;
-    padding-left: 0.75rem;
   }
 
   .brand {
