@@ -2000,13 +2000,11 @@ main:focus {
     gap: clamp(1.5rem, 3vw, 3.5rem);
   }
 
+  /* Deliberately no column override here. These are 1760x1124 landscape
+     captures of the app; four across squeezes each into an illegible
+     sliver. The base 12-column rule keeps them two per row at every width. */
   .screenshot-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: clamp(1rem, 1.5vw, 1.75rem);
-  }
-
-  .screenshot-card:nth-child(n) {
-    grid-column: auto;
   }
 
   .network-list {
@@ -2171,7 +2169,7 @@ main:focus {
   }
 
   .screenshot-card:nth-child(n) {
-    grid-column: span 6;
+    grid-column: 1 / -1;
   }
 
   .plugin-footer {
