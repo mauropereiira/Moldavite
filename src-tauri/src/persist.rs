@@ -21,6 +21,55 @@ lazy_static! {
     static ref COUNTER_SUFFIX_RE: Regex = Regex::new(r"^(.+) \((\d+)\)$").unwrap();
 }
 
+#[cfg(windows)]
+const WINDOWS_RENAME_RETRY_DELAYS: [std::time::Duration; 4] = [
+    std::time::Duration::from_millis(10),
+    std::time::Duration::from_millis(25),
+    std::time::Duration::from_millis(50),
+    std::time::Duration::from_millis(100),
+];
+
+#[cfg(windows)]
+const WINDOWS_RENAME_BUSY_MESSAGE: &str =
+    "File is busy. Wait for syncing or antivirus scanning to finish, then try again.";
+
+// MoveFileExW can report a non-delete-sharing handle with either code.
+#[cfg(windows)]
+fn is_transient_windows_rename_error(error: &std::io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(5) | Some(32))
+}
+
+#[cfg(windows)]
+fn retry_windows_rename(
+    mut rename: impl FnMut() -> std::io::Result<()>,
+    mut sleep: impl FnMut(std::time::Duration),
+) -> std::io::Result<()> {
+    // Scanners and sync clients normally release handles within tens of
+    // milliseconds. Four front-loaded waits give five total attempts while
+    // bounding deliberate backoff to 185 ms.
+    let mut delays = WINDOWS_RENAME_RETRY_DELAYS.into_iter();
+    loop {
+        match rename() {
+            Ok(()) => return Ok(()),
+            Err(error) if is_transient_windows_rename_error(&error) => {
+                let Some(delay) = delays.next() else {
+                    return Err(std::io::Error::new(
+                        error.kind(),
+                        WINDOWS_RENAME_BUSY_MESSAGE,
+                    ));
+                };
+                sleep(delay);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+#[cfg(windows)]
+fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
+    retry_windows_rename(|| fs::rename(from, to), std::thread::sleep)
+}
+
 /// Atomically replace `path` after a same-directory temp write and file `fsync`.
 ///
 /// On Unix, `mode` is applied to the temporary file before rename, so the
@@ -57,7 +106,14 @@ pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> R
         let _ = mode;
         file.write_all(contents)?;
         file.sync_all()?;
-        fs::rename(&tmp_path, path)
+        #[cfg(windows)]
+        {
+            rename_with_retry(&tmp_path, path)
+        }
+        #[cfg(not(windows))]
+        {
+            fs::rename(&tmp_path, path)
+        }
     })();
 
     if result.is_err() {
@@ -241,6 +297,102 @@ mod tests {
         let tmp = TempDir::new("atomic-noparent");
         let path = tmp.path().join("nope").join("note.md");
         assert!(write_atomic(&path, b"x", None).is_err());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn write_atomic_retries_a_real_windows_sharing_violation() {
+        use std::fs::OpenOptions;
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::Duration;
+
+        const FILE_SHARE_READ: u32 = 0x0000_0001;
+        const FILE_SHARE_WRITE: u32 = 0x0000_0002;
+
+        let tmp = TempDir::new("atomic-sharing-violation");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "before").unwrap();
+
+        // Omitting FILE_SHARE_DELETE makes MoveFileExW unable to replace the
+        // destination until this handle closes.
+        let blocking_handle = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+            .open(&path)
+            .unwrap();
+
+        let probe_path = tmp.path().join("probe.md");
+        fs::write(&probe_path, "probe").unwrap();
+        let probe_error = fs::rename(&probe_path, &path).unwrap_err();
+        assert!(
+            matches!(probe_error.raw_os_error(), Some(5) | Some(32)),
+            "expected a Windows sharing violation, got {probe_error:?}"
+        );
+        assert!(probe_path.exists());
+        fs::remove_file(probe_path).unwrap();
+
+        let (started_tx, started_rx) = mpsc::channel();
+        let releaser = thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            thread::sleep(Duration::from_millis(50));
+            drop(blocking_handle);
+        });
+        started_rx.recv().unwrap();
+
+        let result = write_atomic(&path, b"after", None);
+        releaser.join().unwrap();
+        result.unwrap();
+        assert_eq!(fs::read_to_string(path).unwrap(), "after");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_rename_does_not_retry_a_permanent_error() {
+        use std::cell::Cell;
+
+        let tmp = TempDir::new("atomic-missing-parent");
+        let source = tmp.path().join("source.md");
+        let missing_destination = tmp.path().join("missing").join("note.md");
+        fs::write(&source, "content").unwrap();
+
+        let attempts = Cell::new(0);
+        let sleeps = Cell::new(0);
+        let error = retry_windows_rename(
+            || {
+                attempts.set(attempts.get() + 1);
+                fs::rename(&source, &missing_destination)
+            },
+            |_| sleeps.set(sleeps.get() + 1),
+        )
+        .unwrap_err();
+
+        assert!(!is_transient_windows_rename_error(&error));
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(sleeps.get(), 0);
+        assert!(source.exists());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_rename_exhaustion_returns_actionable_error() {
+        use std::cell::Cell;
+
+        let attempts = Cell::new(0);
+        let sleeps = Cell::new(0);
+        let error = retry_windows_rename(
+            || {
+                attempts.set(attempts.get() + 1);
+                Err(std::io::Error::from_raw_os_error(32))
+            },
+            |_| sleeps.set(sleeps.get() + 1),
+        )
+        .unwrap_err();
+
+        assert_eq!(attempts.get(), WINDOWS_RENAME_RETRY_DELAYS.len() + 1);
+        assert_eq!(sleeps.get(), WINDOWS_RENAME_RETRY_DELAYS.len());
+        assert_eq!(error.to_string(), WINDOWS_RENAME_BUSY_MESSAGE);
     }
 
     #[test]
