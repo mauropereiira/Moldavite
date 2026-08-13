@@ -17,13 +17,13 @@ use crate::backlinks_index::BacklinksIndex;
 use crate::encryption;
 use crate::paths::get_notes_dir;
 use crate::security;
-use crate::validation::{is_safe_filename, is_safe_note_path};
+use crate::validation::{is_safe_existing_filename, is_safe_existing_note_path};
 
 fn is_valid_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
     if is_daily || is_weekly {
-        is_safe_filename(filename)
+        is_safe_existing_filename(filename)
     } else {
-        is_safe_note_path(filename)
+        is_safe_existing_note_path(filename)
     }
 }
 
@@ -392,6 +392,59 @@ mod tests {
         )
         .unwrap();
         assert!(root.join("daily/2026-07-26.md.locked").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn legacy_nonportable_note_can_be_locked_and_restored() {
+        let root = temp_forge("legacy-name");
+        let folder = root.join("notes/Q3: Roadmap.");
+        fs::create_dir_all(&folder).unwrap();
+        let relative = "Q3: Roadmap./Reports..md";
+        let plaintext = "legacy note body";
+        fs::write(folder.join("Reports..md"), plaintext).unwrap();
+        let index = BacklinksIndex::new();
+
+        lock_note_in(
+            &root,
+            relative.into(),
+            "portable password".into(),
+            false,
+            false,
+            &index,
+        )
+        .unwrap();
+        assert!(!folder.join("Reports..md").exists());
+        assert!(folder.join("Reports..md.locked").is_file());
+        assert_eq!(
+            unlock_note_in(
+                &root,
+                relative.into(),
+                "portable password".into(),
+                false,
+                false,
+            )
+            .unwrap(),
+            plaintext
+        );
+
+        permanently_unlock_note_in(
+            &root,
+            relative.into(),
+            "portable password".into(),
+            false,
+            false,
+            &index,
+            Some(&resolver),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(folder.join("Reports..md")).unwrap(),
+            plaintext
+        );
+        assert!(!folder.join("Reports..md.locked").exists());
 
         fs::remove_dir_all(root).unwrap();
     }

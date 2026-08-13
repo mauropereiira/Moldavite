@@ -16,6 +16,11 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: (...args: unknown[]) => openDialog(...args),
 }));
 
+const joinPath = vi.fn((...paths: string[]) => Promise.resolve(paths.join('/')));
+vi.mock('@tauri-apps/api/path', () => ({
+  join: (...paths: string[]) => joinPath(...paths),
+}));
+
 const exportSingleNote = vi.fn();
 const exportNoteAsPlaintext = vi.fn();
 const exportNoteToPdf = vi.fn();
@@ -70,6 +75,7 @@ beforeEach(() => {
   exportNoteAsPlaintext.mockReset().mockResolvedValue('');
   exportNoteToPdf.mockReset().mockResolvedValue('');
   readNote.mockReset().mockResolvedValue('# body');
+  joinPath.mockClear();
   useNoteSelectionStore.getState().clear();
 });
 
@@ -93,6 +99,11 @@ describe('BulkExportModal note addressing', () => {
 });
 
 describe('BulkExportModal destination filenames', () => {
+  it('delegates destination construction to the platform path API', async () => {
+    await exportSelection('markdown', [rootNote]);
+    expect(joinPath).toHaveBeenCalledWith('/tmp/out', 'roadmap.md');
+  });
+
   it('keeps same-named notes in different folders from overwriting each other', async () => {
     await exportSelection('markdown', [folderNote, rootNote]);
     const destinations = exportSingleNote.mock.calls.map((c) => c[1]);

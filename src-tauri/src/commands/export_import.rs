@@ -18,7 +18,9 @@ use zip::ZipArchive;
 use crate::encryption;
 use crate::paths::get_notes_dir;
 use crate::types::ImportResult;
-use crate::validation::{validate_path_within_base, validate_user_export_path};
+use crate::validation::{
+    has_safe_relative_path_syntax, validate_path_within_base, validate_user_export_path,
+};
 
 // Zip-bomb / malicious archive guardrails. Chosen to comfortably cover a
 // very large real vault (tens of thousands of notes + images) while still
@@ -32,18 +34,7 @@ const MAX_TOTAL_UNCOMPRESSED_SIZE: u64 = 2 * 1024 * 1024 * 1024; // 2 GB total
 /// (which some Windows-created ZIPs use and that our `parts.len() != 2` split
 /// on `/` would silently accept).
 fn is_acceptable_entry_name(name: &str) -> bool {
-    if name.is_empty() || name.contains('\0') || name.contains('\\') {
-        return false;
-    }
-    if name.starts_with('/') {
-        return false;
-    }
-    // Reject Windows drive letters like "C:" at the start.
-    let bytes = name.as_bytes();
-    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
-        return false;
-    }
-    true
+    has_safe_relative_path_syntax(name)
 }
 
 fn validated_archive_destination(notes_dir: &Path, name: &str) -> Option<(String, PathBuf)> {

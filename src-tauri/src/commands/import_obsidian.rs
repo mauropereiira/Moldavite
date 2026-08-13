@@ -18,7 +18,7 @@ use tauri::{AppHandle, Emitter};
 use crate::commands::forges::{create_forge, looks_like_forge, scaffold_forge};
 use crate::paths::get_forges_root;
 use crate::persist::write_atomic;
-use crate::validation::{is_safe_filename, validate_path_within_base};
+use crate::validation::{is_safe_filename, sanitize_path_segment, validate_path_within_base};
 
 pub(crate) const OBSIDIAN_IMPORT_PROGRESS_EVENT: &str = "obsidian-import://progress";
 const PROGRESS_INTERVAL: usize = 10;
@@ -1113,39 +1113,6 @@ fn safe_destination_path(forge_root: &Path, relative: &Path) -> Result<PathBuf, 
     Ok(destination)
 }
 
-fn sanitize_path_segment(raw: &str, fallback: &str) -> String {
-    let mut sanitized = String::with_capacity(raw.len());
-    for character in raw.trim().chars() {
-        if character.is_control()
-            || matches!(
-                character,
-                '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
-            )
-        {
-            sanitized.push('-');
-        } else {
-            sanitized.push(character);
-        }
-    }
-    while sanitized.contains("..") {
-        sanitized = sanitized.replace("..", "-");
-    }
-    let sanitized = sanitized.trim().trim_matches('.').trim().to_string();
-    let mut sanitized = if sanitized.is_empty() {
-        fallback.to_string()
-    } else {
-        sanitized
-    };
-    if sanitized.chars().count() > 180 {
-        sanitized = sanitized.chars().take(180).collect();
-    }
-    if !is_safe_filename(&sanitized) {
-        fallback.to_string()
-    } else {
-        sanitized
-    }
-}
-
 fn sanitize_extension(raw: &str) -> String {
     let sanitized: String = raw
         .chars()
@@ -1497,6 +1464,12 @@ mod tests {
         let sanitized = sanitize_path_segment("..evil", "Untitled");
         assert!(is_safe_filename(&sanitized));
         assert!(!sanitized.contains(".."));
+    }
+
+    #[test]
+    fn reserved_device_stems_use_import_fallback_names() {
+        assert_eq!(sanitize_path_segment("NUL", "Untitled"), "Untitled");
+        assert_eq!(sanitize_path_segment("COM1", "Attachment"), "Attachment");
     }
 
     #[cfg(unix)]

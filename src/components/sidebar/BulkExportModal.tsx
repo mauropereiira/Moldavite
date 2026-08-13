@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { join } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   exportSingleNote,
@@ -83,11 +84,6 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
       return raw.replace(/[\\/:*?"<>|]/g, '_');
     };
 
-    // Compose absolute path within the chosen folder. We only support POSIX
-    // separators here because Moldavite is macOS-only today; the existing
-    // backend already uses '/' joins.
-    const join = (base: string, name: string) => `${base}/${name}`;
-
     let succeeded = 0;
     const failures: string[] = [];
 
@@ -102,17 +98,19 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
       // unrelated root note shares that basename.
       const backendPath = noteFileBackendPath(note);
       try {
+        const extension = format === 'markdown' ? 'md' : format === 'plaintext' ? 'txt' : 'pdf';
+        const destination = await join(folder, `${stem}.${extension}`);
         if (format === 'markdown') {
           await exportSingleNote(
             backendPath,
-            join(folder, `${stem}.md`),
+            destination,
             note.isDaily || false,
             note.isWeekly || false
           );
         } else if (format === 'plaintext') {
           await exportNoteAsPlaintext(
             backendPath,
-            join(folder, `${stem}.txt`),
+            destination,
             note.isDaily || false,
             note.isWeekly || false
           );
@@ -124,7 +122,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           // in. (If a note uses heavy formatting that needs Tiptap parsing,
           // the per-note PDF path from the editor remains available.)
           const md = await readNote(backendPath, note.isDaily || false, note.isWeekly || false);
-          await exportNoteToPdf(stem, md, join(folder, `${stem}.pdf`), {
+          await exportNoteToPdf(stem, md, destination, {
             pageSize,
             margin,
           });

@@ -323,6 +323,59 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn legacy_nonportable_notes_remain_addressable_but_cannot_be_created() {
+        let root = temp_forge("legacy-paths");
+        let legacy_folder = root.join("notes/Q3: Roadmap.");
+        fs::create_dir_all(&legacy_folder).unwrap();
+        fs::write(legacy_folder.join("Reports..md"), "legacy body").unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+        let legacy_path = "notes/Q3: Roadmap./Reports..md";
+
+        let read = context.call("read_note", &json!({"path": legacy_path}));
+        assert_eq!(read["isError"], false);
+        assert_eq!(read["structuredContent"]["content"], "legacy body");
+
+        let write = context.call(
+            "write_note",
+            &json!({"path": legacy_path, "content": "saved body"}),
+        );
+        assert_eq!(write["isError"], false);
+        assert_eq!(
+            fs::read_to_string(legacy_folder.join("Reports..md")).unwrap(),
+            "saved body"
+        );
+
+        let listed = context.call("list_notes", &json!({"folder": "notes/Q3: Roadmap."}));
+        assert_eq!(listed["isError"], false);
+        assert_eq!(listed["structuredContent"]["notes"][0]["path"], legacy_path);
+
+        let valid_in_legacy_parent = context.call(
+            "create_note",
+            &json!({"path": "notes/Q3: Roadmap./Portable.md", "content": "new"}),
+        );
+        assert_eq!(valid_in_legacy_parent["isError"], false);
+
+        for invalid_path in [
+            "notes/Q3: Roadmap./New: Note.md",
+            "notes/New: Folder/Portable.md",
+            "notes/Reports..md",
+        ] {
+            let rejected = context.call(
+                "create_note",
+                &json!({"path": invalid_path, "content": "must not exist"}),
+            );
+            assert_eq!(rejected["isError"], true);
+            assert!(rejected["structuredContent"]["error"]
+                .as_str()
+                .unwrap()
+                .contains("Invalid note path"));
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn write_note_with_matching_base_hash_reports_no_conflict_copy() {
         let root = temp_forge("matching-base-hash");

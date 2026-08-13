@@ -18,7 +18,9 @@ use crate::paths::{
 };
 use crate::persist::{read_trash_metadata, write_trash_metadata};
 use crate::types::{TrashMetadata, TrashedNote, TrashedNoteMetadata};
-use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
+use crate::validation::{
+    is_safe_existing_filename, is_safe_existing_note_path, validate_path_within_base,
+};
 
 fn next_trash_id() -> String {
     static LAST_ID: AtomicI64 = AtomicI64::new(0);
@@ -115,9 +117,9 @@ fn restore_item_on_disk(
         standalone_dir
     };
     let valid_original_path = if item.is_daily {
-        is_safe_filename(&item.original_path)
+        is_safe_existing_filename(&item.original_path)
     } else {
-        is_safe_note_path(&item.original_path)
+        is_safe_existing_note_path(&item.original_path)
     };
     if !valid_original_path {
         return Err("Invalid original path in trash metadata".to_string());
@@ -138,8 +140,7 @@ fn restore_item_on_disk(
             }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                fs::create_dir(&current)
-                    .map_err(|e| format!("Failed to create directory: {e}"))?;
+                fs::create_dir(&current).map_err(|e| format!("Failed to create directory: {e}"))?;
             }
             Err(error) => return Err(format!("Failed to inspect restore directory: {error}")),
         }
@@ -150,6 +151,49 @@ fn restore_item_on_disk(
     Ok(destination)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn trash_note_on_disk(
+    source_dir: &std::path::Path,
+    trash_dir: &std::path::Path,
+    filename: &str,
+    bare_filename: bool,
+    is_daily: bool,
+    id: &str,
+    trashed_at: i64,
+) -> Result<TrashedNoteMetadata, String> {
+    let valid_source = if bare_filename {
+        is_safe_existing_filename(filename)
+    } else {
+        is_safe_existing_note_path(filename)
+    };
+    if !valid_source {
+        return Err("Invalid filename".to_string());
+    }
+
+    let source_path = source_dir.join(filename);
+    validate_path_within_base(&source_path, source_dir)
+        .map_err(|_| "Invalid filename".to_string())?;
+    if !source_path.is_file() {
+        return Err("Note does not exist".to_string());
+    }
+
+    let trash_path = trash_dir.join(trash_item_filename(id, filename));
+    validate_path_within_base(&trash_path, trash_dir)
+        .map_err(|_| "Invalid trash destination".to_string())?;
+    fs::rename(&source_path, &trash_path)
+        .map_err(|error| format!("Failed to move to trash: {error}"))?;
+
+    Ok(TrashedNoteMetadata {
+        id: id.to_string(),
+        filename: filename.to_string(),
+        original_path: filename.to_string(),
+        is_daily,
+        is_folder: false,
+        contained_files: Vec::new(),
+        trashed_at,
+    })
+}
+
 #[tauri::command]
 pub(crate) fn trash_note(
     filename: String,
@@ -157,11 +201,6 @@ pub(crate) fn trash_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    // Prevent path traversal attacks (rejects .., /, \, absolute paths, null bytes)
-    if !is_safe_filename(&filename) {
-        return Err("Invalid filename".to_string());
-    }
-
     let source_dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -170,36 +209,33 @@ pub(crate) fn trash_note(
         get_standalone_dir()
     };
 
-    let source_path = source_dir.join(&filename);
-    if !source_path.exists() {
-        return Err("Note does not exist".to_string());
-    }
-
     // Generate unique ID for trash item
     let id = next_trash_id();
 
     // Create trash directory if needed
     ensure_trash_dir()?;
 
-    // Move file to trash with unique name to avoid conflicts
-    let trash_filename = trash_item_filename(&id, &filename);
-    let trash_path = get_trash_dir().join(&trash_filename);
-    fs::rename(&source_path, &trash_path).map_err(|e| format!("Failed to move to trash: {}", e))?;
+    let trash_dir = get_trash_dir();
+    let item = trash_note_on_disk(
+        &source_dir,
+        &trash_dir,
+        &filename,
+        is_daily || is_weekly,
+        is_daily,
+        &id,
+        chrono::Utc::now().timestamp(),
+    )?;
 
     // Update metadata
     let mut metadata = read_trash_metadata();
-    metadata.items.push(TrashedNoteMetadata {
-        id: id.clone(),
-        filename: filename.clone(),
-        original_path: filename.clone(),
-        is_daily,
-        is_folder: false,
-        contained_files: Vec::new(),
-        trashed_at: chrono::Utc::now().timestamp(),
-    });
+    metadata.items.push(item);
     write_trash_metadata(&metadata)?;
 
-    index.remove_note(&filename);
+    let index_name = std::path::Path::new(&filename)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(&filename);
+    index.remove_note(index_name);
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
@@ -505,7 +541,7 @@ fn trash_folder_on_disk(
     id: &str,
     trashed_at: i64,
 ) -> Result<TrashedNoteMetadata, String> {
-    if !is_safe_note_path(path) {
+    if !is_safe_existing_note_path(path) {
         return Err("Invalid folder path".to_string());
     }
 
@@ -598,7 +634,7 @@ pub(crate) fn restore_note_from_folder(
     note_filename: String,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    if !is_safe_filename(&note_filename) {
+    if !is_safe_existing_note_path(&note_filename) {
         return Err("Invalid note filename".to_string());
     }
     let mut metadata = read_trash_metadata();
@@ -739,6 +775,31 @@ mod tests {
         assert!(!long.ends_with([' ', '.']));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn legacy_nonportable_note_can_be_trashed_and_restored() {
+        let tmp = TempDir::new("legacy-note");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let notes = tmp.0.join("notes");
+        let folder = notes.join("Q3: Roadmap.");
+        fs::create_dir_all(&folder).unwrap();
+        let relative = "Q3: Roadmap./Reports..md";
+        fs::write(folder.join("Reports..md"), "legacy body").unwrap();
+
+        let metadata =
+            trash_note_on_disk(&notes, &trash, relative, false, false, "legacy-id", 123).unwrap();
+        assert!(!notes.join(relative).exists());
+        assert_eq!(
+            fs::read_to_string(trash_item_path(&trash, &metadata)).unwrap(),
+            "legacy body"
+        );
+
+        let restored = restore_item_on_disk(&trash, &daily, &notes, &metadata).unwrap();
+        assert_eq!(restored, notes.join(relative));
+        assert_eq!(fs::read_to_string(restored).unwrap(), "legacy body");
+    }
+
     #[test]
     fn rapid_trash_ids_are_unique_and_monotonic() {
         let ids: Vec<i64> = (0..1000)
@@ -824,13 +885,10 @@ mod tests {
         fs::create_dir_all(&outside).unwrap();
         fs::write(outside.join("keep.md"), "keep").unwrap();
 
-        assert!(
-            trash_folder_on_disk(&notes, &trash, outside.to_str().unwrap(), "bad", 0).is_err()
-        );
+        assert!(trash_folder_on_disk(&notes, &trash, outside.to_str().unwrap(), "bad", 0).is_err());
         assert!(outside.join("keep.md").exists());
 
-        let metadata =
-            trash_folder_on_disk(&notes, &trash, "Projects/Deep", "valid", 123).unwrap();
+        let metadata = trash_folder_on_disk(&notes, &trash, "Projects/Deep", "valid", 123).unwrap();
         assert_eq!(metadata.original_path, "Projects/Deep");
         assert_eq!(metadata.contained_files, vec!["note.md"]);
         assert!(!notes.join("Projects/Deep").exists());

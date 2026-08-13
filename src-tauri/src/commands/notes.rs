@@ -19,16 +19,71 @@ use crate::frontmatter;
 use crate::paths::{file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir};
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
-use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
+use crate::validation::{
+    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename, sanitize_path_segment,
+    validate_path_within_base, MAX_PORTABLE_FILENAME_LENGTH,
+};
 
 /// Standalone notes may live in folders and are addressed by a notes/-relative
 /// path; daily and weekly notes are always addressed by a bare filename.
-fn is_valid_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
+fn is_valid_existing_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
     if is_daily || is_weekly {
-        is_safe_filename(filename)
+        is_safe_existing_filename(filename)
     } else {
-        is_safe_note_path(filename)
+        is_safe_existing_note_path(filename)
     }
+}
+
+fn is_valid_new_note_ref(dir: &Path, filename: &str, is_daily: bool, is_weekly: bool) -> bool {
+    if is_daily || is_weekly {
+        return is_safe_filename(filename);
+    }
+    if !is_safe_existing_note_path(filename) {
+        return false;
+    }
+
+    let mut current = dir.to_path_buf();
+    let mut components = filename.split('/').peekable();
+    while let Some(component) = components.next() {
+        if components.peek().is_none() {
+            return is_safe_filename(component);
+        }
+        current.push(component);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink()
+                    || !metadata.is_dir()
+                    || !is_safe_existing_filename(component)
+                {
+                    return false;
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if !is_safe_filename(component) {
+                    return false;
+                }
+            }
+            Err(_) => return false,
+        }
+    }
+    false
+}
+
+fn portable_derived_stem(stem: &str, suffix: &str) -> String {
+    let sanitized = sanitize_path_segment(stem, "Untitled");
+    let available = MAX_PORTABLE_FILENAME_LENGTH.saturating_sub(suffix.chars().count());
+    let base: String = sanitized.chars().take(available).collect();
+    format!("{base}{suffix}")
+}
+
+fn validate_note_rename(old_filename: &str, new_filename: &str) -> Result<(), String> {
+    if !is_safe_existing_filename(old_filename) {
+        return Err("Invalid current filename".to_string());
+    }
+    if !is_safe_filename(new_filename) {
+        return Err("Invalid new filename".to_string());
+    }
+    Ok(())
 }
 
 /// The backlinks index is keyed by bare filename, so folder-relative refs
@@ -93,7 +148,9 @@ fn conflict_copy_destination(path: &Path, stamp: &str) -> Result<(PathBuf, Strin
         .file_stem()
         .and_then(|s| s.to_str())
         .ok_or_else(|| "Invalid note path".to_string())?;
-    let name = generate_unique_filename(dir, &format!("{} (conflict {})", stem, stamp), "md");
+    let suffix = format!(" (conflict {stamp})");
+    let base = portable_derived_stem(stem, &suffix);
+    let name = generate_unique_filename(dir, &base, "md");
     Ok((dir.join(&name), name))
 }
 
@@ -171,6 +228,24 @@ fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> 
     }
     fs::remove_file(path).map_err(|e| e.to_string())?;
     Ok(true)
+}
+
+fn read_note_at(path: &Path) -> Result<NoteRead, String> {
+    if !path.exists() {
+        return Ok(NoteRead {
+            content: String::new(),
+            color: None,
+            content_hash: sha256_hex(""),
+        });
+    }
+
+    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let parsed = frontmatter::parse_note(&raw);
+    Ok(NoteRead {
+        content_hash: sha256_hex(&parsed.body),
+        content: parsed.body,
+        color: parsed.color,
+    })
 }
 
 /// Serialize conflict detection, frontmatter preservation, and the replacing
@@ -410,7 +485,7 @@ pub(crate) fn read_note(
     is_weekly: bool,
 ) -> Result<NoteRead, String> {
     // Prevent path traversal attacks; standalone notes may include a folder path.
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -423,22 +498,10 @@ pub(crate) fn read_note(
     };
 
     let path = dir.join(&filename);
-
-    if !path.exists() {
-        return Ok(NoteRead {
-            content: String::new(),
-            color: None,
-            content_hash: sha256_hex(""),
-        });
+    if !path.exists() && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly) {
+        return Err("Invalid filename".to_string());
     }
-
-    let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let parsed = frontmatter::parse_note(&raw);
-    Ok(NoteRead {
-        content_hash: sha256_hex(&parsed.body),
-        content: parsed.body,
-        color: parsed.color,
-    })
+    read_note_at(&path)
 }
 
 // Tauri command parameters map 1:1 to the IPC payload; grouping them into a
@@ -460,7 +523,7 @@ pub(crate) fn write_note(
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<NoteWriteResult, String> {
     // Prevent path traversal attacks; standalone notes may include a folder path.
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -473,6 +536,14 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
+    let mut locked_name = path.as_os_str().to_os_string();
+    locked_name.push(".locked");
+    if !path.exists()
+        && !PathBuf::from(locked_name).exists()
+        && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly)
+    {
+        return Err("Invalid filename".to_string());
+    }
     // External-edit conflict safety: if the disk copy changed since the
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
@@ -523,7 +594,7 @@ pub(crate) fn delete_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     // Prevent path traversal attacks; standalone notes may include a folder path.
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -554,7 +625,7 @@ pub(crate) fn preserve_buffer_copy(
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<String, String> {
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
 
@@ -599,8 +670,7 @@ pub(crate) fn create_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
     let base_dir = get_standalone_dir();
-    let (filename, relative_path) =
-        create_note_in(&base_dir, &title, folder_path.as_deref())?;
+    let (filename, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
     index.update_note(&filename, "");
     Ok(relative_path)
 }
@@ -614,7 +684,7 @@ fn create_note_in(
         return Err("Invalid title".to_string());
     }
     if let Some(folder) = folder_path {
-        if !is_safe_note_path(folder) {
+        if !is_safe_existing_note_path(folder) {
             return Err("Invalid folder path".to_string());
         }
     }
@@ -624,8 +694,7 @@ fn create_note_in(
         None => base_dir.to_path_buf(),
     };
     if folder_path.is_some() {
-        validate_path_within_base(&dir, base_dir)
-            .map_err(|_| "Invalid folder path".to_string())?;
+        validate_path_within_base(&dir, base_dir).map_err(|_| "Invalid folder path".to_string())?;
     }
 
     // Ensure the folder exists
@@ -654,7 +723,7 @@ pub(crate) fn duplicate_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
     // Determine source directory
@@ -676,10 +745,20 @@ pub(crate) fn duplicate_note(
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
     // Generate new filename with " (copy)" suffix
-    let base_name = filename.trim_end_matches(".md");
-    let new_base = format!("{} (copy)", base_name);
-    let new_filename = generate_unique_filename(&dir, &new_base, "md");
-    let new_path = dir.join(&new_filename);
+    let source_parent = source_path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let source_stem = source_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    let new_base = portable_derived_stem(source_stem, " (copy)");
+    let new_leaf = generate_unique_filename(source_parent, &new_base, "md");
+    let new_path = source_parent.join(&new_leaf);
+    let new_filename = match filename.rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/{new_leaf}"),
+        None => new_leaf,
+    };
 
     // Write content to new file
     write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
@@ -702,7 +781,7 @@ pub(crate) fn export_single_note(
     is_daily: bool,
     is_weekly: bool,
 ) -> Result<String, String> {
-    if !is_safe_filename(&filename) {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
     // Determine source directory
@@ -755,9 +834,7 @@ pub(crate) fn rename_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    if !is_safe_filename(&old_filename) || !is_safe_filename(&new_filename) {
-        return Err("Invalid filename".to_string());
-    }
+    validate_note_rename(&old_filename, &new_filename)?;
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -934,11 +1011,11 @@ fn move_note_in(
     note_path: &str,
     to_folder: Option<&str>,
 ) -> Result<(String, String, String, PathBuf), String> {
-    if !is_safe_note_path(note_path) {
+    if !is_safe_existing_note_path(note_path) {
         return Err("Invalid note path".to_string());
     }
     if let Some(folder) = to_folder {
-        if !is_safe_note_path(folder) {
+        if !is_safe_existing_note_path(folder) {
             return Err("Invalid folder path".to_string());
         }
     }
@@ -1346,7 +1423,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(is_safe_filename(&name));
-        assert!(is_safe_note_path(&name));
+        assert!(crate::validation::is_safe_note_path(&name));
     }
 
     #[test]
@@ -1381,9 +1458,7 @@ mod tests {
         fs::create_dir_all(&projects).unwrap();
 
         assert!(create_note_in(&notes, "/tmp/escaped", None).is_err());
-        assert!(
-            create_note_in(&notes, "Safe title", Some(tmp.path().to_str().unwrap())).is_err()
-        );
+        assert!(create_note_in(&notes, "Safe title", Some(tmp.path().to_str().unwrap())).is_err());
         assert!(!tmp.path().join("escaped.md").exists());
 
         let (filename, relative) =
@@ -1405,9 +1480,7 @@ mod tests {
         fs::write(outside.join("keep.md"), "keep").unwrap();
 
         assert!(move_note_in(&notes, outside.join("keep.md").to_str().unwrap(), None).is_err());
-        assert!(
-            move_note_in(&notes, "Projects/note.md", Some(outside.to_str().unwrap())).is_err()
-        );
+        assert!(move_note_in(&notes, "Projects/note.md", Some(outside.to_str().unwrap())).is_err());
         assert!(outside.join("keep.md").exists());
         assert!(notes.join("Projects/note.md").exists());
 
@@ -1491,8 +1564,94 @@ mod tests {
         .unwrap();
         assert_eq!(fixed, files.len() as u32);
         for path in files {
-            assert_eq!(fs::metadata(path).unwrap().permissions().mode() & 0o777, 0o600);
+            assert_eq!(
+                fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
         }
+    }
+
+    #[test]
+    fn existing_and_new_note_names_use_different_validation_contracts() {
+        for legacy in ["Q3: Roadmap.md", "Reports..md"] {
+            assert!(is_valid_existing_note_ref(legacy, false, false));
+            assert!(!is_valid_new_note_ref(Path::new("."), legacy, false, false));
+            assert_eq!(
+                validate_note_rename("current.md", legacy),
+                Err("Invalid new filename".to_string())
+            );
+        }
+        assert!(validate_note_rename("Q3: Roadmap.md", "Roadmap.md").is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn legacy_nonportable_note_can_be_read_saved_and_conflict_copied() {
+        let tmp = TempDir::new("legacy-read-save");
+        let notes = tmp.path().join("notes");
+        let folder = notes.join("Q3: Roadmap.");
+        fs::create_dir_all(&folder).unwrap();
+        let path = folder.join("Reports..md");
+        fs::write(&path, "---\ncolor: blue\n---\noriginal").unwrap();
+
+        let relative = "Q3: Roadmap./Reports..md";
+        assert!(is_valid_existing_note_ref(relative, false, false));
+        assert!(!is_valid_new_note_ref(&notes, relative, false, false));
+
+        let read = read_note_at(&path).unwrap();
+        assert_eq!(read.content, "original");
+        assert_eq!(read.color.as_deref(), Some("blue"));
+
+        save_note_with_conflict(&path, Some(&read.content_hash), "saved", Some("green")).unwrap();
+        let saved = read_note_at(&path).unwrap();
+        assert_eq!(saved.content, "saved");
+        assert_eq!(saved.color.as_deref(), Some("green"));
+
+        fs::write(&path, "external").unwrap();
+        let (conflict_name, disk_body) =
+            save_note_with_conflict(&path, Some(&sha256_hex("saved")), "mine", None)
+                .unwrap()
+                .expect("external edit must create a conflict copy");
+        assert_eq!(disk_body, "external");
+        assert!(is_safe_filename(&conflict_name));
+        assert_eq!(
+            fs::read_to_string(folder.join(conflict_name)).unwrap(),
+            "external"
+        );
+        assert_eq!(read_note_at(&path).unwrap().content, "mine");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn new_note_creation_allows_legacy_parent_but_rejects_legacy_leaf() {
+        let tmp = TempDir::new("legacy-parent-create");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Q3: Roadmap.")).unwrap();
+
+        assert!(is_valid_new_note_ref(
+            &notes,
+            "Q3: Roadmap./Portable title.md",
+            false,
+            false
+        ));
+        assert!(!is_valid_new_note_ref(
+            &notes,
+            "New: Folder/Portable title.md",
+            false,
+            false
+        ));
+
+        let (_, relative) = create_note_in(&notes, "Portable title", Some("Q3: Roadmap.")).unwrap();
+        assert_eq!(relative, "Q3: Roadmap./Portable title.md");
+
+        assert_eq!(
+            create_note_in(&notes, "Q3: Roadmap", None),
+            Err("Invalid title".to_string())
+        );
+        assert_eq!(
+            create_note_in(&notes, "Reports.", None),
+            Err("Invalid title".to_string())
+        );
     }
 
     #[test]

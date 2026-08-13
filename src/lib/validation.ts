@@ -49,7 +49,25 @@ export function isValidImageUrl(url: string): boolean {
 export const MAX_NOTE_TITLE_LENGTH = 100;
 
 /** Pattern for valid note titles: letters, numbers, spaces, hyphens only */
-const VALID_NOTE_TITLE_PATTERN = /^[a-zA-Z0-9\s-]+$/;
+const VALID_NOTE_TITLE_PATTERN = /^[a-zA-Z0-9 -]+$/;
+
+/** Maximum portable length for one folder path component */
+export const MAX_FOLDER_NAME_LENGTH = 180;
+
+function hasWindowsIllegalFilenameCharacter(name: string): boolean {
+  return [...name].some(
+    (character) => character.charCodeAt(0) <= 0x1f || '/\\:*?"<>|'.includes(character)
+  );
+}
+
+/**
+ * Windows reserves device names before the first extension. Apply this on
+ * every platform so a synced Forge remains usable on Windows.
+ */
+function isWindowsReservedName(name: string): boolean {
+  const stem = name.split('.', 1)[0].toUpperCase();
+  return /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/.test(stem);
+}
 
 /**
  * Validates a note name (strict mode - matches backend filename generation)
@@ -58,23 +76,7 @@ const VALID_NOTE_TITLE_PATTERN = /^[a-zA-Z0-9\s-]+$/;
  * @returns True if the note name is valid
  */
 export function isValidNoteName(name: string): boolean {
-  const trimmed = name.trim();
-
-  if (!trimmed) {
-    return false;
-  }
-
-  if (trimmed.length > MAX_NOTE_TITLE_LENGTH) {
-    return false;
-  }
-
-  // Block path traversal
-  if (trimmed.includes('..')) {
-    return false;
-  }
-
-  // Only allow letters, numbers, spaces, and hyphens
-  return VALID_NOTE_TITLE_PATTERN.test(trimmed);
+  return getNoteTitleError(name) === null;
 }
 
 /**
@@ -98,8 +100,50 @@ export function getNoteTitleError(name: string): string | null {
     return 'Title cannot contain ".."';
   }
 
+  if (isWindowsReservedName(trimmed)) {
+    return 'Title cannot use a Windows reserved name';
+  }
+
   if (!VALID_NOTE_TITLE_PATTERN.test(trimmed)) {
     return 'Title can only contain letters, numbers, spaces, and hyphens';
+  }
+
+  return null;
+}
+
+/**
+ * Gets a specific error for a new folder name. Existing on-disk folder names
+ * are not passed through this validator so legacy macOS names remain visible.
+ */
+export function getFolderNameError(name: string): string | null {
+  const trimmed = name.trim();
+
+  if (!trimmed) {
+    return 'Folder name cannot be empty';
+  }
+
+  if ([...trimmed].length > MAX_FOLDER_NAME_LENGTH) {
+    return `Folder name must be ${MAX_FOLDER_NAME_LENGTH} characters or less`;
+  }
+
+  if (isWindowsReservedName(trimmed)) {
+    return 'Folder name is reserved by Windows';
+  }
+
+  if (trimmed.endsWith('.')) {
+    return 'Folder name cannot end with a dot';
+  }
+
+  if (trimmed.startsWith('.')) {
+    return 'Folder name cannot start with a dot';
+  }
+
+  if (trimmed.includes('..')) {
+    return 'Folder name cannot contain ".."';
+  }
+
+  if (hasWindowsIllegalFilenameCharacter(trimmed)) {
+    return 'Folder name contains characters that Windows does not allow';
   }
 
   return null;
