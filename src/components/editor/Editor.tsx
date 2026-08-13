@@ -728,11 +728,18 @@ export function Editor() {
         },
         handlePaste: (view, event) => {
           const clipboard = event.clipboardData;
-          const items = clipboard?.items;
-          if (!items) return false;
+          if (!clipboard) return false;
 
+          const items = clipboard.items;
+          let hasImage = false;
+
+          // Images are claimed before the text/html check below. Copying a
+          // picture from a browser puts both an image and its <img> markup on
+          // the clipboard, and letting the markup win would embed a remote URL
+          // instead of saving the file into the Forge.
           for (const item of items) {
             if (item.type.startsWith('image/')) {
+              hasImage = true;
               event.preventDefault();
               const file = item.getAsFile();
               if (file && handleImageFileRef.current) {
@@ -741,13 +748,29 @@ export function Editor() {
               }
             }
           }
+          // An image that produced no file is still an image paste. Falling
+          // through would hand its text flavour to the Markdown branch.
+          if (hasImage) return true;
+
+          // Rich text is ProseMirror's job. This branch is only for clipboards
+          // carrying plain text alone.
+          if (clipboard.getData('text/html')) return false;
+
+          const pasteEditor = editorRef.current;
+          if (
+            !pasteEditor ||
+            pasteEditor.isDestroyed ||
+            pasteEditor.isActive('codeBlock') ||
+            pasteEditor.isActive('code')
+          ) {
+            return false;
+          }
 
           const text = clipboard.getData('text/plain');
           if (!looksLikeMarkdown(text)) return false;
 
           const html = markdownToHtml(text);
-          const pasteEditor = editorRef.current;
-          if (!html || !pasteEditor || pasteEditor.isDestroyed) return false;
+          if (!html) return false;
 
           const { from, to } = view.state.selection;
           const inserted = pasteEditor.commands.insertContentAt({ from, to }, html, {

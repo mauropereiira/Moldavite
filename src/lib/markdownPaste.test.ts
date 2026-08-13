@@ -18,11 +18,12 @@ describe('looksLikeMarkdown', () => {
     ['fenced code block', '```ts\nconst value = 1;\n```'],
     ['blockquote', '> quote'],
     ['bold', 'This is **bold** text.'],
+    ['underscore bold', 'This is __bold__ text.'],
     ['italic', 'This is *italic* text.'],
     ['strikethrough', 'This is ~~removed~~ text.'],
     ['inline code', 'Use `code` here.'],
     ['Markdown link', '[Link](https://example.com)'],
-    ['horizontal rule', '---'],
+    ['horizontal rule in a Markdown document', '**Section**\n\n---'],
     ['wiki link', 'See [[Note]].'],
     ['aliased wiki link', 'See [[Display|Target]].'],
     [
@@ -46,6 +47,12 @@ describe('looksLikeMarkdown', () => {
     ['level-four heading', '#### Heading'],
     ['level-five heading', '##### Heading'],
     ['level-six heading', '###### Heading'],
+    ['dunder method', 'def __init__(self, x):'],
+    ['JavaScript template literal', 'const greeting = `hello there`;'],
+    // A lone `---` is also Moldavite's frontmatter delimiter, so it no longer opts into conversion.
+    ['lone horizontal rule', '---'],
+    ['YAML frontmatter block', '---\ntitle: My Note\n---'],
+    ['raw Moldavite note', '---\ntitle: My Note\n---\n\n# Markdown body'],
   ])('rejects %s', (_name, text) => {
     expect(looksLikeMarkdown(text)).toBe(false);
   });
