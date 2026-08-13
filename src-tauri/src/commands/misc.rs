@@ -110,14 +110,26 @@ pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
     // the policy. The target dir may not exist yet, so fall back to the parent.
     let canonical_candidate = match new_dir.canonicalize() {
         Ok(p) => p,
-        Err(_) => match (
-            new_dir.parent().and_then(|p| p.canonicalize().ok()),
-            new_dir.file_name(),
-        ) {
-            (Some(parent), Some(name)) => parent.join(name),
-            _ => new_dir.clone(),
-        },
+        Err(_) => {
+            let parent = new_dir
+                .parent()
+                .ok_or_else(|| "Path must have a parent directory".to_string())?
+                .canonicalize()
+                .map_err(|e| format!("Failed to resolve parent directory: {}", e))?;
+            let name = new_dir
+                .file_name()
+                .ok_or_else(|| "Path must name a directory".to_string())?;
+            parent.join(name)
+        }
     };
+    if canonical_candidate.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::CurDir | std::path::Component::ParentDir
+        )
+    }) {
+        return Err("Path must not contain . or .. components".to_string());
+    }
     crate::commands::forges::validate_storage_location(
         &canonical_candidate,
         crate::commands::forges::StorageLocationKind::NotesDirectory,

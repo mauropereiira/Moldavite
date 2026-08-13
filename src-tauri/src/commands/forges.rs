@@ -283,6 +283,32 @@ fn normalize_windows_path(path: &Path) -> String {
         .to_lowercase()
 }
 
+fn windows_path_has_valid_shape(path: &Path) -> bool {
+    let path = strip_windows_verbatim_prefix(path)
+        .to_string_lossy()
+        .replace('/', "\\");
+    if path
+        .split('\\')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        return false;
+    }
+
+    let bytes = path.as_bytes();
+    let is_drive_absolute =
+        bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'\\';
+    if is_drive_absolute {
+        return true;
+    }
+
+    let Some(share) = path.strip_prefix(r"\\") else {
+        return false;
+    };
+    let mut components = share.split('\\');
+    components.next().is_some_and(|server| !server.is_empty())
+        && components.next().is_some_and(|share| !share.is_empty())
+}
+
 fn windows_path_is_within(candidate: &str, root: &str) -> bool {
     candidate == root
         || candidate
@@ -337,10 +363,10 @@ fn system_directory_error(kind: StorageLocationKind, platform: LocationPlatform)
             "Cannot use system directories for notes storage".to_string()
         }
         (StorageLocationKind::ForgesRoot, LocationPlatform::Windows) => {
-            "Forges root cannot be inside Windows or Program Files".to_string()
+            "Forges root cannot be inside Windows system directories".to_string()
         }
         (StorageLocationKind::NotesDirectory, LocationPlatform::Windows) => {
-            "Notes directory cannot be inside Windows or Program Files".to_string()
+            "Notes directory cannot be inside Windows system directories".to_string()
         }
         (StorageLocationKind::ForgesRoot, LocationPlatform::Linux) => {
             "Forges root cannot be inside Linux system directories".to_string()
@@ -383,11 +409,36 @@ fn validate_storage_location_for_platform(
             }
         }
         LocationPlatform::Windows => {
+            if !windows_path_has_valid_shape(candidate) {
+                return Err(match kind {
+                    StorageLocationKind::ForgesRoot => {
+                        "Forges root must be an absolute drive or UNC path without . or .. components"
+                            .to_string()
+                    }
+                    StorageLocationKind::NotesDirectory => {
+                        "Notes directory must be an absolute drive or UNC path without . or .. components"
+                            .to_string()
+                    }
+                });
+            }
+
             let candidate = normalize_windows_path(candidate);
-            if windows_system_directories.iter().any(|root| {
-                let root = normalize_windows_path(root);
-                !root.is_empty() && windows_path_is_within(&candidate, &root)
-            }) {
+            const BASELINE_SYSTEM_DIRECTORIES: &[&str] = &[
+                r"C:\Windows",
+                r"C:\Program Files",
+                r"C:\Program Files (x86)",
+                r"C:\ProgramData",
+            ];
+            let is_system_directory = BASELINE_SYSTEM_DIRECTORIES
+                .iter()
+                .map(|root| normalize_windows_path(Path::new(root)))
+                .chain(
+                    windows_system_directories
+                        .iter()
+                        .map(|root| normalize_windows_path(root)),
+                )
+                .any(|root| !root.is_empty() && windows_path_is_within(&candidate, &root));
+            if is_system_directory {
                 return Err(system_directory_error(kind, platform));
             }
         }
@@ -428,11 +479,16 @@ pub(crate) fn validate_storage_location(
 ) -> Result<PathBuf, String> {
     let candidate = strip_windows_verbatim_prefix(candidate);
     let canonical_home = dirs::home_dir().map(|home| home.canonicalize().unwrap_or(home));
-    let system_directories: Vec<PathBuf> = ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)"]
-        .iter()
-        .filter_map(std::env::var_os)
-        .map(PathBuf::from)
-        .collect();
+    let system_directories: Vec<PathBuf> = [
+        "SystemRoot",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramData",
+    ]
+    .iter()
+    .filter_map(std::env::var_os)
+    .map(PathBuf::from)
+    .collect();
     let platform = if cfg!(target_os = "windows") {
         LocationPlatform::Windows
     } else if cfg!(target_os = "macos") {
@@ -636,15 +692,10 @@ mod tests {
 
     #[test]
     fn windows_storage_policy_accepts_non_system_drive() {
-        let system_directories = vec![
-            PathBuf::from(r"C:\Windows"),
-            PathBuf::from(r"C:\Program Files"),
-            PathBuf::from(r"C:\Program Files (x86)"),
-        ];
         assert!(validate_storage_location_for_platform(
             Path::new(r"D:\Notes"),
             None,
-            &system_directories,
+            &[],
             LocationPlatform::Windows,
             StorageLocationKind::ForgesRoot,
         )
@@ -652,7 +703,7 @@ mod tests {
         assert!(validate_storage_location_for_platform(
             Path::new(r"\\server\share\Moldavite"),
             None,
-            &system_directories,
+            &[],
             LocationPlatform::Windows,
             StorageLocationKind::NotesDirectory,
         )
@@ -660,11 +711,35 @@ mod tests {
         assert!(validate_storage_location_for_platform(
             Path::new(r"C:\Program Files-old\Moldavite"),
             None,
-            &system_directories,
+            &[],
             LocationPlatform::Windows,
             StorageLocationKind::ForgesRoot,
         )
         .is_ok());
+    }
+
+    #[test]
+    fn windows_storage_policy_rejects_unresolved_traversal() {
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"D:\missing-parent\..\Notes"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::NotesDirectory,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn windows_storage_policy_uses_baseline_when_environment_is_absent() {
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"C:\Windows\System32"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_err());
     }
 
     #[test]
