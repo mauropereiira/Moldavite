@@ -45,6 +45,12 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Local-only build-time credentials. src-tauri/.cargo/config.toml carries the
+# development Google OAuth client via Cargo's [env]; release builds read it from
+# Actions secrets instead. It already documents itself as uncommitted — this is
+# the line that actually makes that true.
+src-tauri/.cargo/
+
 # TypeScript
 *.tsbuildinfo
 
@@ -57,3 +63,7 @@ AGENTS.md
 AGENTS.local.md
 sdd/
 docs/superpowers/
+.agents/
+.qwen/
+.playwright-mcp/
+skills-lock.json

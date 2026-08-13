@@ -209,12 +209,19 @@ fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
     let file = zip
         .finish()
         .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+    // The archive holds every note, so the 0600 set at create time is re-asserted
+    // here: finish() rewrites the file and can widen the mode back to the umask.
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         file.set_permissions(fs::Permissions::from_mode(0o600))
             .map_err(|e| format!("Failed to secure ZIP file: {}", e))?;
     }
+    // Windows has no POSIX mode bits; the file inherits the target directory's
+    // ACL. Dropped explicitly so the handle closes here on every platform rather
+    // than reading as an unused binding.
+    #[cfg(not(unix))]
+    drop(file);
 
     Ok(())
 }
