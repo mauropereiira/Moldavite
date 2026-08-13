@@ -8,6 +8,13 @@
 //! addition to generous upper bounds; timing thresholds are regression alarms,
 //! not performance benchmarks.
 
+/// Upper bound for the timing assertions in this module. These are
+/// order-of-magnitude alarms, not benchmarks: the operations they guard run in
+/// tens of milliseconds locally, so a breach means something regressed by a
+/// factor of hundreds. Five seconds was tight enough that a loaded or throttled
+/// CI machine tripped it on healthy code, and a test that cries wolf gets muted.
+const REGRESSION_BUDGET_SECS: u64 = 30;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -78,7 +85,7 @@ fn stress_search_over_1000_note_vault() {
     assert_eq!(results.len(), 10, "expected exactly the 10 seeded matches");
     eprintln!("[stress] search over 1000 notes took {elapsed:?}");
     assert!(
-        elapsed.as_secs() < 5,
+        elapsed.as_secs() < REGRESSION_BUDGET_SECS,
         "search over 1000 notes took {elapsed:?} — order-of-magnitude regression"
     );
 }
@@ -178,5 +185,9 @@ fn stress_rewrite_links_across_large_corpus() {
     );
     // note i links to (i+para)%1000 for para 0..8 — several notes link to 42.
     assert!(touched > 0, "expected at least one note to link to note-42");
-    assert!(started.elapsed().as_secs() < 5);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed.as_secs() < REGRESSION_BUDGET_SECS,
+        "link rewrite across 500 notes took {elapsed:?} — order-of-magnitude regression"
+    );
 }
