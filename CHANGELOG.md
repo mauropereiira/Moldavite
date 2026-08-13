@@ -12,6 +12,7 @@ All notable changes to Moldavite are documented here.
 
 - **New Forges appear while the Forge switcher is open.** A Forge created outside Moldavite, whether by an agent, the Obsidian importer, or anything else writing to your Forges folder, only joined the list the next time you opened it. The list now refreshes when Moldavite sees the new Forge on disk.
 - **The app could abort while building a note's backlinks.** The snippet shown under a backlink was cut out using byte positions, so a note containing an accented letter, an arrow, an emoji, or any other multi-byte character within about fifty characters of a `[[wiki link]]` would kill the process outright with no error and no warning. Vaults written in plain ASCII never saw it. The context window now snaps to character boundaries.
+- **Malformed trash metadata no longer breaks trash operations on Windows.** A persisted record containing an absolute Windows path left backslashes and a drive-letter colon in Moldavite's internal trash filename, which NTFS rejects before the app can validate the restore destination. Trash storage names are now made NTFS-safe, while existing valid trashed items keep their filenames.
 
 ## [1.8.1] - 2026-08-08
 
