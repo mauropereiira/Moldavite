@@ -6,6 +6,7 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- **Pasted Markdown keeps its formatting.** Pasting recognizable raw Markdown into the editor now inserts formatted note content through Moldavite's existing conversion pipeline, while ordinary text, rich text, and image paste keep their existing behavior.
 - **Install with Homebrew.** `brew install --cask mauropereiira/moldavite/moldavite` fetches the signed, notarized DMG for your architecture and verifies its checksum. It also links the app binary onto your `PATH`, so connecting an AI tool is now `claude mcp add moldavite -- moldavite --mcp` instead of the full bundle path. The cask is marked as self-updating, so Homebrew stays out of the way of Moldavite's own updater.
 
 ### Fixed
