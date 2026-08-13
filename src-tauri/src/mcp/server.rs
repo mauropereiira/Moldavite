@@ -324,6 +324,149 @@ mod tests {
     }
 
     #[test]
+    fn write_note_with_matching_base_hash_reports_no_conflict_copy() {
+        let root = temp_forge("matching-base-hash");
+        let note_path = root.join("notes/matching.md");
+        fs::write(&note_path, "---\ncolor: blue\n---\ndisk body").unwrap();
+        let base_hash = crate::commands::notes::sha256_hex("disk body");
+
+        let response = ToolContext::new(root.clone(), true, false).call(
+            "write_note",
+            &json!({
+                "path": "notes/matching.md",
+                "content": "agent body",
+                "baseHash": base_hash
+            }),
+        );
+
+        assert_eq!(response["isError"], false);
+        assert_eq!(response["structuredContent"]["written"], true);
+        assert!(response["structuredContent"]["conflictCopy"].is_null());
+        let raw = fs::read_to_string(&note_path).unwrap();
+        assert_eq!(crate::frontmatter::parse_note(&raw).body, "agent body");
+        assert_eq!(fs::read_dir(root.join("notes")).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn write_note_with_mismatched_base_hash_reports_preserved_copy() {
+        let root = temp_forge("mismatched-base-hash");
+        let note_path = root.join("notes/conflicted.md");
+        let disk_version = "---\ncolor: green\ntags: [kept]\n---\nexternal body";
+        fs::write(&note_path, disk_version).unwrap();
+        let stale_hash = crate::commands::notes::sha256_hex("original body");
+
+        let response = ToolContext::new(root.clone(), true, false).call(
+            "write_note",
+            &json!({
+                "path": "notes/conflicted.md",
+                "content": "agent body",
+                "baseHash": stale_hash
+            }),
+        );
+
+        assert_eq!(response["isError"], false);
+        assert_eq!(response["structuredContent"]["written"], true);
+        let conflict_name = response["structuredContent"]["conflictCopy"]
+            .as_str()
+            .expect("conflict response should name the preserved copy");
+        let written = fs::read_to_string(&note_path).unwrap();
+        assert_eq!(crate::frontmatter::parse_note(&written).body, "agent body");
+        assert_eq!(
+            fs::read_to_string(root.join("notes").join(conflict_name)).unwrap(),
+            disk_version
+        );
+        assert_eq!(fs::read_dir(root.join("notes")).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn write_note_without_base_hash_keeps_legacy_overwrite_behavior() {
+        let root = temp_forge("absent-base-hash");
+        let note_path = root.join("notes/legacy.md");
+        fs::write(&note_path, "disk body").unwrap();
+
+        let response = ToolContext::new(root.clone(), true, false).call(
+            "write_note",
+            &json!({"path": "notes/legacy.md", "content": "agent body"}),
+        );
+
+        assert_eq!(response["isError"], false);
+        assert_eq!(fs::read_to_string(&note_path).unwrap(), "agent body");
+        assert_eq!(fs::read_dir(root.join("notes")).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn read_note_body_hash_round_trips_into_write_note() {
+        let root = temp_forge("read-hash-roundtrip");
+        let note_path = root.join("notes/roundtrip.md");
+        let raw = "---\ncolor: purple\ncustom: kept\n---\ndisk body";
+        fs::write(&note_path, raw).unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+
+        let read = context.call("read_note", &json!({"path": "notes/roundtrip.md"}));
+        assert_eq!(read["isError"], false);
+        assert_eq!(read["structuredContent"]["content"], raw);
+        let content_hash = read["structuredContent"]["contentHash"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            content_hash,
+            crate::commands::notes::sha256_hex("disk body")
+        );
+        assert_ne!(content_hash, crate::commands::notes::sha256_hex(raw));
+
+        let write = context.call(
+            "write_note",
+            &json!({
+                "path": "notes/roundtrip.md",
+                "content": "agent body",
+                "baseHash": content_hash
+            }),
+        );
+
+        assert_eq!(write["isError"], false);
+        let written = fs::read_to_string(&note_path).unwrap();
+        let parsed = crate::frontmatter::parse_note(&written);
+        assert_eq!(parsed.body, "agent body");
+        assert_eq!(parsed.color.as_deref(), Some("purple"));
+        assert!(parsed.extra.contains_key("custom"));
+        assert_eq!(fs::read_dir(root.join("notes")).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn write_note_description_documents_optional_base_hash_and_conflict_response() {
+        let root = temp_forge("base-hash-schema");
+        let tools = ToolContext::new(root.clone(), true, false).tool_definitions();
+        let write_note = tools
+            .iter()
+            .find(|tool| tool["name"] == "write_note")
+            .unwrap();
+
+        assert_eq!(
+            write_note["inputSchema"]["properties"]["baseHash"]["type"],
+            "string"
+        );
+        assert!(write_note["description"]
+            .as_str()
+            .unwrap()
+            .contains("baseHash"));
+        assert!(write_note["description"]
+            .as_str()
+            .unwrap()
+            .contains("conflictCopy"));
+        assert!(!write_note["inputSchema"]["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field.as_str() == Some("baseHash")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn rejects_traversal_and_locked_notes() {
         let root = temp_forge("security");
         fs::write(root.join("notes/secret.md.locked"), "ciphertext").unwrap();

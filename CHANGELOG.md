@@ -10,6 +10,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Agents had no way to notice that a note changed between reading and writing it.** The MCP read tool returned no version hash, so a second agent or the open app could update the same note and then have its work silently replaced by an older agent's write. Reads now return a content hash that an agent can send back with its next write. If the note body has changed by then, Moldavite preserves that disk version as a sibling conflict copy before saving the agent's version. Existing integrations can omit the hash and keep their previous behavior.
 - **New Forges appear while the Forge switcher is open.** A Forge created outside Moldavite, whether by an agent, the Obsidian importer, or anything else writing to your Forges folder, only joined the list the next time you opened it. The list now refreshes when Moldavite sees the new Forge on disk.
 - **The app could abort while building a note's backlinks.** The snippet shown under a backlink was cut out using byte positions, so a note containing an accented letter, an arrow, an emoji, or any other multi-byte character within about fifty characters of a `[[wiki link]]` would kill the process outright with no error and no warning. Vaults written in plain ASCII never saw it. The context window now snaps to character boundaries.
 

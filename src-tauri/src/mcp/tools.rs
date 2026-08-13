@@ -15,6 +15,7 @@ use chrono::{Local, NaiveDate};
 use serde_json::{json, Value};
 use walkdir::WalkDir;
 
+use crate::commands::notes::{save_note_with_conflict, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
 use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
@@ -151,7 +152,10 @@ impl ToolContext {
         let path = self.checked_existing_note(forge_root, &rel)?;
         let content =
             fs::read_to_string(&path).map_err(|error| format!("Failed to read note: {error}"))?;
-        Ok(json!({ "path": rel, "content": content }))
+        // Conflict detection compares note bodies, so expose a hash in that same
+        // space while keeping the raw MCP content response wire-compatible.
+        let content_hash = sha256_hex(&crate::frontmatter::parse_note(&content).body);
+        Ok(json!({ "path": rel, "content": content, "contentHash": content_hash }))
     }
 
     fn list_notes(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
@@ -276,6 +280,8 @@ impl ToolContext {
         Ok(json!({ "path": rel, "created": true }))
     }
 
+    /// This append-only contract intentionally carries no base hash. A concurrent
+    /// full-file write can still interleave with its read-modify-write sequence.
     fn append_to_daily_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let content = required_string(arguments, "content")?;
         let date = match arguments.get("date") {
@@ -311,6 +317,7 @@ impl ToolContext {
     fn write_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let rel = validated_note_path(required_string(arguments, "path")?)?;
         let content = required_string(arguments, "content")?;
+        let base_hash = optional_string(arguments, "baseHash")?;
         let path = self.prepare_note_destination(forge_root, &rel)?;
         if locked_path(&path).exists() {
             return Err("Refusing to write a locked note".to_string());
@@ -318,17 +325,10 @@ impl ToolContext {
         if !path.exists() {
             return Err("Note does not exist; use create_note first".to_string());
         }
-        let raw = fs::read_to_string(&path)
-            .map_err(|error| format!("Failed to read note before writing: {error}"))?;
-        let parsed = crate::frontmatter::parse_note(&raw);
-        let serialized = crate::frontmatter::serialize_note(
-            parsed.color.as_deref(),
-            &parsed.extra,
-            content,
-        );
-        write_atomic(&path, serialized.as_bytes(), Some(0o600))?;
+        let conflict_copy = save_note_with_conflict(&path, base_hash, content, None)?
+            .map(|(conflict_name, _)| conflict_name);
         self.note_changed(forge_root, &rel);
-        Ok(json!({ "path": rel, "written": true }))
+        Ok(json!({ "path": rel, "written": true, "conflictCopy": conflict_copy }))
     }
 
     fn checked_existing_note(&self, forge_root: &Path, rel: &str) -> Result<PathBuf, String> {
@@ -373,7 +373,7 @@ fn write_tool_definitions() -> Vec<Value> {
     vec![
         tool("create_note", "Create a new Markdown note. Refuses to overwrite an existing or locked note.", content_path_schema()),
         tool("append_to_daily_note", "Append Markdown to a daily note, creating it when absent. Defaults to today's local date.", json!({"type":"object","properties":{"content":{"type":"string","description":"Markdown to append."},"date":{"type":"string","format":"date","description":"Optional YYYY-MM-DD date; defaults to today."}},"required":["content"],"additionalProperties":false})),
-        tool("write_note", "Fully replace an existing unlocked Markdown note. Refuses missing and locked notes.", content_path_schema()),
+        tool("write_note", "Fully replace an existing unlocked Markdown note. Pass read_note's contentHash as baseHash to preserve a changed disk version as a conflict copy before replacement. The response's conflictCopy is that sibling filename when a conflict was preserved, or null after a clean write. Omitting baseHash keeps legacy overwrite behavior. Refuses missing and locked notes.", content_path_schema()),
     ]
 }
 
@@ -387,7 +387,7 @@ fn note_path_schema(required: bool) -> Value {
 }
 
 fn content_path_schema() -> Value {
-    json!({"type":"object","properties":{"path":{"type":"string","description":"Forge-relative .md note path."},"content":{"type":"string","description":"Complete Markdown file content."}},"required":["path","content"],"additionalProperties":false})
+    json!({"type":"object","properties":{"path":{"type":"string","description":"Forge-relative .md note path."},"content":{"type":"string","description":"Complete Markdown file content."},"baseHash":{"type":"string","description":"For write_note, the contentHash returned by read_note. Omit it to keep legacy overwrite behavior."}},"required":["path","content"],"additionalProperties":false})
 }
 
 fn tool_result(value: Value, is_error: bool) -> Value {
@@ -404,6 +404,14 @@ fn required_string<'a>(arguments: &'a Value, name: &str) -> Result<&'a str, Stri
         .get(name)
         .and_then(Value::as_str)
         .ok_or_else(|| format!("{name} must be a string"))
+}
+
+fn optional_string<'a>(arguments: &'a Value, name: &str) -> Result<Option<&'a str>, String> {
+    match arguments.get(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value)),
+        Some(_) => Err(format!("{name} must be a string")),
+    }
 }
 
 fn optional_u32(arguments: &Value, name: &str) -> Result<Option<u32>, String> {
