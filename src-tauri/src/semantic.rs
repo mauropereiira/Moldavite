@@ -1366,7 +1366,10 @@ mod tests {
             1000
         );
         eprintln!("[stress] semantic build over 1000 notes took {elapsed:?}");
-        assert!(elapsed.as_secs() < 10, "semantic build took {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
+            "semantic build took {elapsed:?}"
+        );
     }
 
     #[test]
