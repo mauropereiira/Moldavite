@@ -16,7 +16,7 @@ import {
   readNoteWithMeta,
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
-import { useNoteStore } from '@/stores';
+import { useForgeStore, useNoteStore } from '@/stores';
 import type { Note } from '@/types';
 
 /**
@@ -105,17 +105,53 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
 }
 
 /**
- * Subscribes to backend `forge:changed` events. When something on disk
- * changes outside of Moldavite (Obsidian, an editor, a script…), we
- * reconcile the list and any semantically matching open tab.
+ * Subscribes to backend `forge:changed` and `forges:changed` events. When
+ * something on disk changes outside of Moldavite (Obsidian, an editor, a
+ * script…), we reconcile the note list, Forge list, and any semantically
+ * matching open tab.
  */
 export function useForgeWatcher(): void {
   const setNotes = useNoteStore((s) => s.setNotes);
   const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenForge: (() => void) | undefined;
+    let unlistenForges: (() => void) | undefined;
     let cancelled = false;
+    let notesRefreshPending = false;
+    let forgesRefreshPending = false;
+
+    const scheduleRefresh = () => {
+      // Coalesce bursts: a folder rename can fan out to many events.
+      if (refreshTimer.current !== null) {
+        clearTimeout(refreshTimer.current);
+      }
+      refreshTimer.current = window.setTimeout(() => {
+        refreshTimer.current = null;
+        const shouldRefreshNotes = notesRefreshPending;
+        const shouldRefreshForges = forgesRefreshPending;
+        notesRefreshPending = false;
+        forgesRefreshPending = false;
+
+        if (shouldRefreshNotes) {
+          listNotes()
+            .then((notes) => {
+              if (!cancelled) setNotes(notes);
+            })
+            .catch((err) => {
+              console.error('[useForgeWatcher] refresh failed:', err);
+            });
+        }
+        if (shouldRefreshForges) {
+          void useForgeStore
+            .getState()
+            .loadForges()
+            .catch((err) => {
+              console.error('[useForgeWatcher] Forge-list refresh failed:', err);
+            });
+        }
+      }, 200);
+    };
 
     const subscribe = async () => {
       try {
@@ -123,25 +159,23 @@ export function useForgeWatcher(): void {
           void reconcileExternalNoteChange(event.payload.relPath).catch((err) => {
             console.error('[useForgeWatcher] note reconciliation failed:', err);
           });
-          // Coalesce bursts: a folder rename can fan out to many events.
-          if (refreshTimer.current !== null) {
-            clearTimeout(refreshTimer.current);
-          }
-          refreshTimer.current = window.setTimeout(() => {
-            refreshTimer.current = null;
-            listNotes()
-              .then((notes) => {
-                if (!cancelled) setNotes(notes);
-              })
-              .catch((err) => {
-                console.error('[useForgeWatcher] refresh failed:', err);
-              });
-          }, 200);
+          notesRefreshPending = true;
+          scheduleRefresh();
         });
         if (cancelled) {
           off();
         } else {
-          unlisten = off;
+          unlistenForge = off;
+        }
+
+        const offForges = await listen<ForgeChangePayload>('forges:changed', () => {
+          forgesRefreshPending = true;
+          scheduleRefresh();
+        });
+        if (cancelled) {
+          offForges();
+        } else {
+          unlistenForges = offForges;
         }
       } catch (err) {
         console.error('[useForgeWatcher] subscribe failed:', err);
@@ -156,7 +190,8 @@ export function useForgeWatcher(): void {
         clearTimeout(refreshTimer.current);
         refreshTimer.current = null;
       }
-      if (unlisten) unlisten();
+      if (unlistenForge) unlistenForge();
+      if (unlistenForges) unlistenForges();
     };
   }, [setNotes]);
 }
