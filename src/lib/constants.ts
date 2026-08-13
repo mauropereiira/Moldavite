@@ -81,7 +81,6 @@ export const TOAST_DURATION_LONG = 5000;
 
 // Calendar
 export const CALENDAR_EVENTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-export const CALENDAR_DEFAULT_TIME_RANGE = 7; // days
 
 // Validation
 export const MAX_NOTE_NAME_LENGTH = 255; // characters
@@ -95,7 +94,6 @@ export const ERROR_NOTE_SAVE_FAILED = 'Failed to save note';
 export const ERROR_NOTE_LOAD_FAILED = 'Failed to load note';
 export const ERROR_NOTE_DELETE_FAILED = 'Failed to delete note';
 export const ERROR_TEMPLATE_NOT_FOUND = 'Template not found';
-export const ERROR_CALENDAR_PERMISSION_DENIED = 'Calendar access denied';
 
 // Success messages
 export const SUCCESS_NOTE_CREATED = 'Note created';
