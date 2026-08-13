@@ -1,11 +1,13 @@
 /** Worker-host lifecycle and untrusted-message routing regression coverage. */
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 
 vi.mock('@/lib/ipc', () => ({ safeInvoke: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: vi.fn() }));
 
 const workerHarness = vi.hoisted(() => {
   type WorkerEvent = MessageEvent | { message?: string };
@@ -38,6 +40,7 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('1
 import { loadEnabledPlugins, unloadPlugin } from './host';
 
 const mockInvoke = vi.mocked(safeInvoke);
+const mockConvertFileSrc = vi.mocked(convertFileSrc);
 const plugin = {
   id: 'crashy',
   manifestRaw: {
@@ -78,6 +81,8 @@ function useGrantedPluginHarness() {
     usePluginStore.setState({ grants: {} });
     usePluginStore.getState().grant('crashy', '1.0.0', 'hash');
     mockInvoke.mockResolvedValue([plugin]);
+    mockConvertFileSrc.mockReset();
+    mockConvertFileSrc.mockReturnValue('http://plugin.localhost/');
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, text: vi.fn().mockResolvedValue('plugin code') })
@@ -90,6 +95,16 @@ function useGrantedPluginHarness() {
     vi.useRealTimers();
   });
 }
+
+describe('plugin source loading', () => {
+  useGrantedPluginHarness();
+
+  it("uses Tauri's Windows custom-protocol URL", async () => {
+    await loadWorker();
+    expect(mockConvertFileSrc).toHaveBeenCalledWith('', 'plugin');
+    expect(fetch).toHaveBeenCalledWith('http://plugin.localhost/crashy/plugin.js');
+  });
+});
 
 describe('plugin worker invocation lifecycle', () => {
   useGrantedPluginHarness();

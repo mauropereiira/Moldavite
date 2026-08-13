@@ -171,7 +171,15 @@ pub fn run() {
     let backlinks_index = Arc::new(BacklinksIndex::new());
     let recent_writes = Arc::new(forge_watcher::RecentWrites::new());
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // This must remain the first desktop plugin so a secondary process exits
+    // before any other plugin setup. Its `deep-link` feature forwards the
+    // process argv through the existing `on_open_url` handler.
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|_, _, _| {}));
+
+    builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())

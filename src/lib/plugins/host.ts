@@ -10,6 +10,7 @@
 
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import {
   MAX_COMMAND_ID_LENGTH,
   MAX_COMMAND_LABEL_LENGTH,
@@ -91,7 +92,8 @@ const runtimes = new Map<string, PluginRuntime>();
 const INVOCATION_TIMEOUT_MS = 30_000;
 
 async function fetchPluginSource(pluginId: string): Promise<string> {
-  const url = `plugin://localhost/${pluginId}/plugin.js`;
+  // Convert only the base because convertFileSrc percent-encodes path separators.
+  const url = new URL(`${pluginId}/plugin.js`, convertFileSrc('', 'plugin')).href;
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`fetch ${url} failed with status ${resp.status}`);
   return await resp.text();

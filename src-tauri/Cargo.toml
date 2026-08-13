@@ -60,6 +60,10 @@ reqwest = { version = "0.12", default-features = false, features = [
   "rustls-tls",
 ] }
 
+[target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
+# 2.4.x requires Tauri 2.10; keep this aligned with the app's Tauri 2.9.x line.
+tauri-plugin-single-instance = { version = "=2.3.7", features = ["deep-link"] }
+
 [target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
 # Semantic (vector) search — fully local ONNX inference. ort-sys does not
 # publish prebuilt ONNX Runtime binaries for Intel macOS, so that target keeps
