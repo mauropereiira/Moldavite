@@ -43,7 +43,7 @@ fn index_key(filename: &str) -> String {
 /// SHA-256 hex digest of a note body. The frontend keeps the hash from its
 /// last read and sends it back on save so we can tell whether the disk copy
 /// changed underneath it (external editor, sync tool, git…).
-fn sha256_hex(content: &str) -> String {
+pub(crate) fn sha256_hex(content: &str) -> String {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
@@ -176,7 +176,7 @@ fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> 
 /// Serialize conflict detection, frontmatter preservation, and the replacing
 /// write as one operation. This prevents concurrent saves from both observing
 /// the same old disk version and then silently overwriting one another.
-fn save_note_with_conflict(
+pub(crate) fn save_note_with_conflict(
     path: &Path,
     base_hash: Option<&str>,
     content: &str,
