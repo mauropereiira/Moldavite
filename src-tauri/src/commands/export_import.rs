@@ -703,7 +703,10 @@ mod tests {
             "week 53"
         );
         eprintln!("[stress] 500-note ZIP round trip took {elapsed:?}");
-        assert!(elapsed.as_secs() < 15, "ZIP round trip took {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
+            "ZIP round trip took {elapsed:?}"
+        );
     }
 
     #[test]

@@ -741,9 +741,10 @@ mod tests {
             10
         );
         eprintln!("[stress] MCP search over 1000 notes took {elapsed:?}");
-        // Order-of-magnitude alarm, not a benchmark; mirrors
-        // stress_test::REGRESSION_BUDGET_SECS, see the rationale there.
-        assert!(elapsed.as_secs() < 30, "MCP search took {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
+            "MCP search took {elapsed:?}"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

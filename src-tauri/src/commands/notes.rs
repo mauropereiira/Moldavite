@@ -1544,6 +1544,9 @@ mod tests {
             "ciphertext containing [[café]] must stay byte-identical"
         );
         eprintln!("[stress] rewrote 550 foldered Unicode backlinks in {elapsed:?}");
-        assert!(elapsed.as_secs() < 30, "link rewrite took {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
+            "link rewrite took {elapsed:?}"
+        );
     }
 }
