@@ -10,6 +10,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **New Forges appear while the Forge switcher is open.** A Forge created outside Moldavite, whether by an agent, the Obsidian importer, or anything else writing to your Forges folder, only joined the list the next time you opened it. The list now refreshes when Moldavite sees the new Forge on disk.
 - **The app could abort while building a note's backlinks.** The snippet shown under a backlink was cut out using byte positions, so a note containing an accented letter, an arrow, an emoji, or any other multi-byte character within about fifty characters of a `[[wiki link]]` would kill the process outright with no error and no warning. Vaults written in plain ASCII never saw it. The context window now snaps to character boundaries.
 
 ## [1.8.1] - 2026-08-08
@@ -56,7 +57,7 @@ All notable changes to Moldavite are documented here.
 - **A note that starts with an image is no longer mangled.** Such notes were mistaken for old-format HTML, so every heading and list below the image turned into plain text and the next save made it permanent.
 - **Locking a note inside a folder locks that note.** Lock, unlock, and permanent unlock addressed notes by filename only, so a note in a folder resolved to the vault root — which could encrypt a different note of the same name.
 - **Renaming a tag and bulk export now cover notes inside folders.** Both addressed notes by filename alone, so they skipped folder notes or acted on a same-named note at the root.
-- **New Forges appear without restarting.** A Forge created outside the window — by an agent, the Obsidian importer, or anything writing to your Forges folder — stayed invisible until relaunch.
+- **New Forges appear when you open the Forge switcher.** A Forge created outside the window, whether by an agent, the Obsidian importer, or anything writing to your Forges folder, now appears the next time you open the switcher instead of staying invisible until relaunch.
 - **Agents follow the Forge you switch to.** An MCP session pinned the Forge at startup, so after switching in the app, agent writes silently went to the previous vault and still reported success.
 - **Locking a note removes it from backlinks immediately.** A locked note's title and a line from its body stayed visible in the backlinks panel until restart. Permanently unlocking a note now restores its links right away.
 - **"Delete all notes" deletes all of them.** It skipped weekly notes, every note inside a folder, and locked notes, while still emptying the sidebar — so the app looked empty over notes that were still on disk.
