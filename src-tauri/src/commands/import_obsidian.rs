@@ -1386,11 +1386,17 @@ mod tests {
     }
 
     fn import_fixture(source: &Path, forge: &Path) -> Result<ObsidianImportReport, String> {
+        // Match the production entry point. Windows canonicalization adds a
+        // `\\?\` prefix, so a canonical child does not start with an otherwise
+        // equivalent non-canonical source path during containment checks.
+        let source = source
+            .canonicalize()
+            .map_err(|error| format!("Could not resolve test vault: {error}"))?;
         scaffold_forge(forge)?;
-        let scan = scan_vault(source)?;
-        let daily = read_daily_notes_config(source);
+        let scan = scan_vault(&source)?;
+        let daily = read_daily_notes_config(&source);
         let plan = plan_notes(&scan.notes, &daily.effective)?;
-        import_prepared_vault(source, forge, "Imported", scan, daily, plan, |_, _| {})
+        import_prepared_vault(&source, forge, "Imported", scan, daily, plan, |_, _| {})
     }
 
     #[test]
@@ -1564,8 +1570,10 @@ mod tests {
         let source = tmp.path().join("source");
         let forges = tmp.path().join("forges");
         fs::create_dir_all(&forges).unwrap();
-        write_fixture(&source.join("A:B.md"), b"one");
-        write_fixture(&source.join("A?B.md"), b"two");
+        // `:` and `?` cannot exist in Windows filenames. These portable names
+        // still collide after the sanitizer replaces `..` with `-`.
+        write_fixture(&source.join("A..B.md"), b"one");
+        write_fixture(&source.join("A-B.md"), b"two");
         write_fixture(&source.join("one/photo.png"), b"one");
         write_fixture(&source.join("two/photo.png"), b"two");
         write_fixture(&source.join("view.canvas"), b"{}");

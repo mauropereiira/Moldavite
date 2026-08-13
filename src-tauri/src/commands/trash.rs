@@ -33,12 +33,70 @@ fn next_trash_id() -> String {
     }
 }
 
+fn trash_item_filename(id: &str, original_path: &str) -> String {
+    #[cfg(windows)]
+    {
+        // Valid Windows note paths contain none of these characters, so their
+        // existing trash filenames are unchanged. Only malformed persisted
+        // metadata needs the NTFS-safe mapping.
+        windows_safe_trash_item_filename(id, original_path)
+    }
+    #[cfg(not(windows))]
+    {
+        // Colons and backslashes are legal filename characters on Unix. Keep
+        // the original mapping there so existing trash remains addressable.
+        format!("{}_{}", id, original_path.replace('/', "_"))
+    }
+}
+
+#[cfg(any(windows, test))]
+fn windows_safe_trash_item_filename(id: &str, original_path: &str) -> String {
+    const MAX_WINDOWS_FILENAME_UNITS: usize = 255;
+
+    let flatten = |value: &str| {
+        value
+            .chars()
+            .map(|character| {
+                if character.is_control()
+                    || matches!(
+                        character,
+                        '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+                    )
+                {
+                    '_'
+                } else {
+                    character
+                }
+            })
+            .collect::<String>()
+    };
+    let mut filename = format!("{}_{}", flatten(id), flatten(original_path));
+
+    if filename.encode_utf16().count() > MAX_WINDOWS_FILENAME_UNITS {
+        let mut units = 0;
+        filename = filename
+            .chars()
+            .take_while(|character| {
+                let next = units + character.len_utf16();
+                if next > MAX_WINDOWS_FILENAME_UNITS {
+                    false
+                } else {
+                    units = next;
+                    true
+                }
+            })
+            .collect();
+    }
+    if matches!(filename.chars().last(), Some(' ' | '.')) {
+        filename.pop();
+        filename.push('_');
+    }
+
+    filename
+}
+
 fn trash_item_path(trash_dir: &std::path::Path, item: &TrashedNoteMetadata) -> std::path::PathBuf {
-    trash_dir.join(format!(
-        "{}_{}",
-        item.id,
-        item.original_path.replace('/', "_")
-    ))
+    trash_dir.join(trash_item_filename(&item.id, &item.original_path))
 }
 
 fn restore_item_on_disk(
@@ -124,7 +182,7 @@ pub(crate) fn trash_note(
     ensure_trash_dir()?;
 
     // Move file to trash with unique name to avoid conflicts
-    let trash_filename = format!("{}_{}", id, filename.replace('/', "_"));
+    let trash_filename = trash_item_filename(&id, &filename);
     let trash_path = get_trash_dir().join(&trash_filename);
     fs::rename(&source_path, &trash_path).map_err(|e| format!("Failed to move to trash: {}", e))?;
 
@@ -196,9 +254,9 @@ pub(crate) fn read_trashed_note(trash_id: String) -> Result<String, String> {
         return Ok(String::new());
     }
 
-    let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
-    let trash_path = get_trash_dir().join(&trash_filename);
-    validate_path_within_base(&trash_path, &get_trash_dir())?;
+    let trash_dir = get_trash_dir();
+    let trash_path = trash_item_path(&trash_dir, item);
+    validate_path_within_base(&trash_path, &trash_dir)?;
 
     if !trash_path.exists() {
         return Err("Trash file not found on disk".to_string());
@@ -320,8 +378,7 @@ pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
     let item = &metadata.items[item_index];
 
     // Build trash file/folder path and delete
-    let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
-    let trash_path = get_trash_dir().join(&trash_filename);
+    let trash_path = trash_item_path(&get_trash_dir(), item);
 
     if trash_path.exists() {
         if item.is_folder {
@@ -342,11 +399,11 @@ pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn empty_trash() -> Result<(), String> {
     let metadata = read_trash_metadata();
+    let trash_dir = get_trash_dir();
 
     // Delete all files and folders
     for item in &metadata.items {
-        let trash_filename = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
-        let trash_path = get_trash_dir().join(&trash_filename);
+        let trash_path = trash_item_path(&trash_dir, item);
         if trash_path.exists() {
             if item.is_folder {
                 let _ = fs::remove_dir_all(&trash_path);
@@ -472,7 +529,7 @@ fn trash_folder_on_disk(
         .and_then(|s| s.to_str())
         .unwrap_or(path)
         .to_string();
-    let trash_filename = format!("{}_{}", id, path.replace('/', "_"));
+    let trash_filename = trash_item_filename(id, path);
     let trash_path = trash_dir.join(&trash_filename);
     validate_path_within_base(&trash_path, trash_dir)
         .map_err(|_| "Invalid trash destination".to_string())?;
@@ -556,8 +613,7 @@ pub(crate) fn restore_note_from_folder(
     let item = &metadata.items[item_index];
 
     // Build trash folder path
-    let trash_folder_name = format!("{}_{}", item.id, item.original_path.replace('/', "_"));
-    let trash_folder_path = get_trash_dir().join(&trash_folder_name);
+    let trash_folder_path = trash_item_path(&get_trash_dir(), item);
 
     if !trash_folder_path.exists() {
         return Err("Trashed folder not found on disk".to_string());
@@ -648,6 +704,39 @@ mod tests {
             contained_files: Vec::new(),
             trashed_at,
         }
+    }
+
+    #[test]
+    fn valid_trash_items_keep_the_legacy_storage_name() {
+        assert_eq!(
+            trash_item_filename("123", "Projects/Deep/note.md"),
+            "123_Projects_Deep_note.md"
+        );
+    }
+
+    #[test]
+    fn windows_trash_storage_names_flatten_untrusted_metadata() {
+        assert_eq!(
+            windows_safe_trash_item_filename("7", r"C:\Users\Mauro\note.md"),
+            "7_C__Users_Mauro_note.md"
+        );
+
+        let invalid = windows_safe_trash_item_filename(
+            r#"bad:id\part"#,
+            "bad/name<with>|invalid?chars*.\u{0001}",
+        );
+        assert!(!invalid.chars().any(|character| {
+            character.is_control()
+                || matches!(
+                    character,
+                    '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+                )
+        }));
+
+        let long_path = format!(r"C:\{}.", "a".repeat(300));
+        let long = windows_safe_trash_item_filename("8", &long_path);
+        assert!(long.encode_utf16().count() <= 255);
+        assert!(!long.ends_with([' ', '.']));
     }
 
     #[test]
