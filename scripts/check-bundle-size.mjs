@@ -24,7 +24,10 @@ const BUDGETS = [
   // The bundled CHANGELOG.md (?raw) lives in its own chunk so release-notes
   // content doesn't count against the app-code budget and can grow per release.
   // gzip bumped for the v1.6 release-notes section (What's New content ships in this chunk).
-  { pattern: /^changelog-.*\.js$/, rawKb: 48, gzipKb: 16 },
+  // Bumped for the v1.9 round: this chunk is prose, so it grows once per entry
+  // and the only way to hold a line here is to write fewer or worse release
+  // notes. Measured 40.2 KB raw / 16.1 KB gz on main at the time of the bump.
+  { pattern: /^changelog-.*\.js$/, rawKb: 64, gzipKb: 22 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
 ];
 
