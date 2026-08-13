@@ -72,7 +72,7 @@ fn resolve_forge_at<F>(
 where
     F: FnOnce() -> Result<bool, String>,
 {
-    if !crate::validation::is_safe_filename(name) {
+    if !crate::validation::is_safe_existing_filename(name) {
         return Err("Invalid Forge name".to_string());
     }
     let root = forges_root.join(name);
@@ -86,12 +86,18 @@ where
         return Err("Refusing to use a symlinked Forge".to_string());
     }
     if !root.is_dir() {
+        if !crate::validation::is_safe_filename(name) {
+            return Err("Invalid Forge name".to_string());
+        }
         // MCP-first installs leave the default config implicit; GUI startup
         // persists forgesRoot/activeForge through the normal migration path.
         adopt_strays()?;
         if !root.is_dir() {
             crate::commands::forges::scaffold_forge(&root)?;
-            eprintln!("Created missing active Forge '{name}' at {}", root.display());
+            eprintln!(
+                "Created missing active Forge '{name}' at {}",
+                root.display()
+            );
         }
     }
     Ok(root)
@@ -143,6 +149,25 @@ mod tests {
         for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
             assert!(forge.join(sub).is_dir(), "missing {sub}");
         }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_legacy_forge_is_addressable_but_not_scaffolded() {
+        let root = temp_root("legacy-name");
+        std::fs::create_dir_all(root.join("Q3: Roadmap")).unwrap();
+
+        assert_eq!(
+            resolve_forge_at(&root, "Q3: Roadmap", true, || Ok(false)).unwrap(),
+            root.join("Q3: Roadmap")
+        );
+        assert_eq!(
+            resolve_forge_at(&root, "Reports.", false, || Ok(false)),
+            Err("Invalid Forge name".to_string())
+        );
+        assert!(!root.join("Reports.").exists());
 
         let _ = std::fs::remove_dir_all(&root);
     }

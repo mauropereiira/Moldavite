@@ -18,7 +18,7 @@ import {
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
-import { getNoteTitleError } from '@/lib';
+import { getFolderNameError, getNoteTitleError } from '@/lib';
 import { PasswordModal } from '@/components/ui';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { useToast } from '@/hooks/useToast';
@@ -411,11 +411,16 @@ export function Sidebar() {
   };
 
   const handleCreateFolder = async () => {
-    if (newFolderName.trim()) {
-      await createNewFolder(newFolderName.trim());
-      setNewFolderName('');
-      setIsCreatingFolder(false);
+    const name = newFolderName.trim();
+    const error = getFolderNameError(name);
+    if (error) {
+      toast.error(error);
+      return;
     }
+
+    await createNewFolder(name);
+    setNewFolderName('');
+    setIsCreatingFolder(false);
   };
 
   const handleFolderContextMenu = (e: React.MouseEvent, folder: FolderInfo) =>
@@ -430,8 +435,17 @@ export function Sidebar() {
   };
 
   const handleRenameFolderSubmit = async () => {
-    if (folderToRename && renameFolderName.trim() && renameFolderName !== folderToRename.name) {
-      await renameExistingFolder(folderToRename.path, renameFolderName.trim());
+    if (!folderToRename) return;
+
+    const name = renameFolderName.trim();
+    const error = getFolderNameError(name);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    if (name !== folderToRename.name) {
+      await renameExistingFolder(folderToRename.path, name);
     }
     setFolderToRename(null);
     setRenameFolderName('');

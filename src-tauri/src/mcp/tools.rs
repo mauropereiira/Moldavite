@@ -18,7 +18,10 @@ use walkdir::WalkDir;
 use crate::commands::notes::{save_note_with_conflict, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
-use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
+use crate::validation::{
+    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    validate_path_within_base,
+};
 
 const WRITE_DISABLED: &str =
     "MCP writes are disabled. Enable Settings → AI & Agents → Allow agents to write.";
@@ -148,7 +151,7 @@ impl ToolContext {
     }
 
     fn read_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
-        let rel = validated_note_path(required_string(arguments, "path")?)?;
+        let rel = validated_existing_note_path(required_string(arguments, "path")?)?;
         let path = self.checked_existing_note(forge_root, &rel)?;
         let content =
             fs::read_to_string(&path).map_err(|error| format!("Failed to read note: {error}"))?;
@@ -161,7 +164,7 @@ impl ToolContext {
     fn list_notes(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
         let folder = match arguments.get("folder") {
             None | Some(Value::Null) => None,
-            Some(Value::String(folder)) => Some(validated_folder(folder)?),
+            Some(Value::String(folder)) => Some(validated_existing_folder(folder)?),
             Some(_) => return Err("folder must be a string".to_string()),
         };
         let mut notes = Vec::new();
@@ -204,7 +207,7 @@ impl ToolContext {
     }
 
     fn get_backlinks(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
-        let target_rel = validated_note_path(required_string(arguments, "path")?)?;
+        let target_rel = validated_existing_note_path(required_string(arguments, "path")?)?;
         self.checked_existing_note(forge_root, &target_rel)?;
         let target_filename = Path::new(&target_rel)
             .file_name()
@@ -266,7 +269,7 @@ impl ToolContext {
     }
 
     fn create_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
-        let rel = validated_note_path(required_string(arguments, "path")?)?;
+        let rel = validated_new_note_path(required_string(arguments, "path")?)?;
         let content = required_string(arguments, "content")?;
         let path = self.prepare_note_destination(forge_root, &rel)?;
         if locked_path(&path).exists() {
@@ -315,16 +318,12 @@ impl ToolContext {
     }
 
     fn write_note(&self, forge_root: &Path, arguments: &Value) -> Result<Value, String> {
-        let rel = validated_note_path(required_string(arguments, "path")?)?;
+        let rel = validated_existing_note_path(required_string(arguments, "path")?)?;
         let content = required_string(arguments, "content")?;
         let base_hash = optional_string(arguments, "baseHash")?;
-        let path = self.prepare_note_destination(forge_root, &rel)?;
-        if locked_path(&path).exists() {
-            return Err("Refusing to write a locked note".to_string());
-        }
-        if !path.exists() {
-            return Err("Note does not exist; use create_note first".to_string());
-        }
+        // Resolve through the permissive existing-note check: a note already on
+        // disk may carry a name we would refuse to create today.
+        let path = self.checked_existing_note(forge_root, &rel)?;
         let conflict_copy = save_note_with_conflict(&path, base_hash, content, None)?
             .map(|(conflict_name, _)| conflict_name);
         self.note_changed(forge_root, &rel);
@@ -425,32 +424,50 @@ fn optional_u32(arguments: &Value, name: &str) -> Result<Option<u32>, String> {
     }
 }
 
-fn validated_note_path(path: &str) -> Result<String, String> {
+fn note_path_parts(path: &str) -> Result<(&str, &str), String> {
     let Some((top, rest)) = path.split_once('/') else {
         return Err("Invalid note path; expected daily/, weekly/, or notes/".to_string());
     };
-    if !is_safe_filename(top)
-        || !matches!(top, "daily" | "weekly" | "notes")
-        || !(if top == "notes" {
-            is_safe_note_path(rest)
-        } else {
-            is_safe_filename(rest)
-        })
-        || !rest.ends_with(".md")
-    {
+    if !matches!(top, "daily" | "weekly" | "notes") || !rest.ends_with(".md") {
+        return Err("Invalid note path".to_string());
+    }
+    Ok((top, rest))
+}
+
+fn validated_existing_note_path(path: &str) -> Result<String, String> {
+    let (top, rest) = note_path_parts(path)?;
+    let valid = if top == "notes" {
+        is_safe_existing_note_path(rest)
+    } else {
+        is_safe_existing_filename(rest)
+    };
+    if !valid {
         return Err("Invalid note path".to_string());
     }
     Ok(path.to_string())
 }
 
-fn validated_folder(folder: &str) -> Result<String, String> {
+fn validated_new_note_path(path: &str) -> Result<String, String> {
+    let (top, rest) = note_path_parts(path)?;
+    let valid = if top == "notes" {
+        is_safe_existing_note_path(rest) && rest.rsplit('/').next().is_some_and(is_safe_filename)
+    } else {
+        is_safe_filename(rest)
+    };
+    if !valid {
+        return Err("Invalid note path".to_string());
+    }
+    Ok(path.to_string())
+}
+
+fn validated_existing_folder(folder: &str) -> Result<String, String> {
     if is_safe_filename(folder) && matches!(folder, "daily" | "weekly" | "notes") {
         return Ok(folder.to_string());
     }
     let Some((top, rest)) = folder.split_once('/') else {
         return Err("Invalid folder path".to_string());
     };
-    if top != "notes" || !is_safe_filename(top) || !is_safe_note_path(rest) {
+    if top != "notes" || !is_safe_existing_note_path(rest) {
         return Err("Invalid folder path".to_string());
     }
     Ok(folder.to_string())
@@ -477,10 +494,16 @@ fn ensure_directory_tree(base: &Path, destination: &Path) -> Result<(), String> 
     let mut current = base.to_path_buf();
     for component in relative.components() {
         let name = component.as_os_str().to_string_lossy();
-        if !is_safe_filename(&name) {
+        let next = current.join(component);
+        let valid_name = if next.exists() {
+            is_safe_existing_filename(&name)
+        } else {
+            is_safe_filename(&name)
+        };
+        if !valid_name {
             return Err("Invalid note path".to_string());
         }
-        current.push(component);
+        current = next;
         if current.exists() {
             let metadata = fs::symlink_metadata(&current)
                 .map_err(|error| format!("Failed to inspect note folder: {error}"))?;

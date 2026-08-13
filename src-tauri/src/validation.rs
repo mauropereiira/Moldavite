@@ -9,47 +9,133 @@
 use std::fs;
 use std::path::Path;
 
-/// Accept only one non-empty filename component with no traversal or NUL bytes.
+/// Portable cap used by the Obsidian importer and all interactive name checks.
+pub(crate) const MAX_PORTABLE_FILENAME_LENGTH: usize = 180;
+
+/// Return whether a filename stem is a reserved Windows device name.
+///
+/// Keep this rule platform-independent. A Forge created or synced on another
+/// platform must remain usable when it is later opened on Windows.
+pub(crate) fn is_windows_reserved(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    if matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL") {
+        return true;
+    }
+
+    let bytes = upper.as_bytes();
+    bytes.len() == 4 && matches!(&bytes[..3], b"COM" | b"LPT") && matches!(bytes[3], b'1'..=b'9')
+}
+
+/// Windows reserves device names before the first extension, including names
+/// with multiple extensions such as `NUL.tar.gz`.
+fn has_windows_reserved_stem(filename: &str) -> bool {
+    is_windows_reserved(filename.split('.').next().unwrap_or(filename))
+}
+
+/// Apply the importer's established path-segment normalization rules.
+fn normalized_path_segment(raw: &str) -> String {
+    let mut sanitized = String::with_capacity(raw.len());
+    for character in raw.trim().chars() {
+        if character.is_control()
+            || matches!(
+                character,
+                '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'
+            )
+        {
+            sanitized.push('-');
+        } else {
+            sanitized.push(character);
+        }
+    }
+    while sanitized.contains("..") {
+        sanitized = sanitized.replace("..", "-");
+    }
+    sanitized.trim().trim_matches('.').trim().to_string()
+}
+
+/// Sanitize one imported path segment with the importer's established
+/// replacement, trimming, fallback, and length behavior. Portable validation
+/// additionally sends Windows device stems through the existing fallback.
+pub(crate) fn sanitize_path_segment(raw: &str, fallback: &str) -> String {
+    let normalized = normalized_path_segment(raw);
+    let mut sanitized = if normalized.is_empty() {
+        fallback.to_string()
+    } else {
+        normalized
+    };
+    if sanitized.chars().count() > MAX_PORTABLE_FILENAME_LENGTH {
+        sanitized = sanitized
+            .chars()
+            .take(MAX_PORTABLE_FILENAME_LENGTH)
+            .collect();
+    }
+    if !is_safe_filename(&sanitized) {
+        fallback.to_string()
+    } else {
+        sanitized
+    }
+}
+
+/// Reject a Windows drive prefix at the start of an otherwise relative path.
+fn has_windows_drive_prefix(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+/// Accept the lexical shape shared by relative note paths and ZIP entry names.
+pub(crate) fn has_safe_relative_path_syntax(path: &str) -> bool {
+    !path.is_empty()
+        && !path.contains('\0')
+        && !path.contains('\\')
+        && !path.starts_with('/')
+        && !has_windows_drive_prefix(path)
+}
+
+/// Accept one existing filename component without applying newer portability rules.
+///
+/// Use this only to address a path that came from a trusted on-disk listing. It
+/// deliberately keeps legacy macOS names containing `:` or trailing dots usable.
+pub(crate) fn is_safe_existing_filename(filename: &str) -> bool {
+    !filename.is_empty()
+        && !matches!(filename, "." | "..")
+        && !filename.starts_with('/')
+        && !filename.starts_with('\\')
+        && !filename.contains('/')
+        && !filename.contains('\\')
+        && !filename.contains('\0')
+        && !has_windows_drive_prefix(filename)
+}
+
+/// Accept one new portable filename component.
 pub(crate) fn is_safe_filename(filename: &str) -> bool {
-    // Reject empty filenames
-    if filename.is_empty() {
-        return false;
-    }
+    is_safe_existing_filename(filename)
+        && normalized_path_segment(filename) == filename
+        && filename
+            .split('.')
+            .next()
+            .is_some_and(|stem| stem.chars().count() <= MAX_PORTABLE_FILENAME_LENGTH)
+        && !has_windows_reserved_stem(filename)
+}
 
-    // Reject path traversal attempts
-    if filename.contains("..") {
-        return false;
-    }
-
-    // Reject absolute paths
-    if filename.starts_with('/') || filename.starts_with('\\') {
-        return false;
-    }
-
-    // Reject paths with directory separators
-    if filename.contains('/') || filename.contains('\\') {
-        return false;
-    }
-
-    // Reject null bytes
-    if filename.contains('\0') {
-        return false;
-    }
-
-    true
+/// Accept an existing visible slash-separated path without applying newer
+/// portability rules to its components.
+///
+/// This is only for reading, deleting, or moving paths obtained from an on-disk
+/// listing. New destinations must use [`is_safe_note_path`].
+pub(crate) fn is_safe_existing_note_path(path: &str) -> bool {
+    has_safe_relative_path_syntax(path)
+        && path
+            .split('/')
+            .all(|part| !part.is_empty() && !part.starts_with('.'))
 }
 
 /// Accept a visible slash-separated path relative to the standalone notes root.
 ///
-/// Each component must be non-empty and non-hidden; backslashes, absolute paths,
-/// NUL bytes, and `..` components are rejected so internal trees and atomic
-/// temporary files cannot be addressed.
+/// Each component must be non-empty, non-hidden, and portable to Windows;
+/// backslashes, absolute paths, drive letters, NUL bytes, and `..` components
+/// are rejected so internal trees and atomic temporary files cannot be addressed.
 pub(crate) fn is_safe_note_path(path: &str) -> bool {
-    if path.is_empty() || path.contains('\0') || path.contains('\\') || path.starts_with('/') {
-        return false;
-    }
-    path.split('/')
-        .all(|part| !part.is_empty() && !part.starts_with('.'))
+    is_safe_existing_note_path(path) && path.split('/').all(is_safe_filename)
 }
 
 /// Require an existing destination parent inside `base_dir` with no symlink hop.
@@ -101,6 +187,70 @@ pub(crate) fn validate_path_within_base(dest_path: &Path, base_dir: &Path) -> Re
     Ok(())
 }
 
+/// Compare Windows paths case-insensitively with a component boundary.
+///
+/// This stays available on every platform so the Windows blocklist logic can
+/// be unit-tested without relying on a Windows filesystem.
+#[cfg(any(windows, test))]
+fn windows_path_is_within(path: &Path, protected: &Path) -> bool {
+    fn normalize(path: &Path) -> String {
+        let normalized = path.to_string_lossy().replace('\\', "/").to_lowercase();
+        normalized
+            .strip_prefix("//?/")
+            .unwrap_or(&normalized)
+            .trim_end_matches('/')
+            .to_string()
+    }
+
+    let path = normalize(path);
+    let protected = normalize(protected);
+    if protected.is_empty() {
+        return false;
+    }
+    path == protected
+        || path
+            .strip_prefix(&protected)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+#[cfg(windows)]
+fn windows_protected_export_paths() -> Vec<std::path::PathBuf> {
+    let mut paths: Vec<std::path::PathBuf> = [
+        "SystemRoot",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramW6432",
+    ]
+    .iter()
+    .filter_map(std::env::var_os)
+    .filter(|value| !value.is_empty())
+    .map(std::path::PathBuf::from)
+    .collect();
+
+    if let Some(app_data) = std::env::var_os("APPDATA").filter(|value| !value.is_empty()) {
+        paths.push(
+            std::path::PathBuf::from(app_data)
+                .join("Microsoft/Windows/Start Menu/Programs/Startup"),
+        );
+    }
+
+    paths
+        .into_iter()
+        .map(|path| path.canonicalize().unwrap_or(path))
+        .collect()
+}
+
+fn path_is_within(path: &Path, protected: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        windows_path_is_within(path, protected)
+    }
+    #[cfg(not(windows))]
+    {
+        path.starts_with(protected)
+    }
+}
+
 /// Accept an absolute export file path with the required extension outside protected locations.
 ///
 /// The parent must already exist; system trees, security-sensitive home
@@ -141,6 +291,15 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
             return Err("Cannot write to system directories".to_string());
         }
     }
+    #[cfg(windows)]
+    {
+        if windows_protected_export_paths()
+            .iter()
+            .any(|protected| windows_path_is_within(&canonical_parent, protected))
+        {
+            return Err("Cannot write into a protected directory".to_string());
+        }
+    }
     if let Some(home) = dirs::home_dir() {
         if let Ok(home_canon) = home.canonicalize() {
             let forbidden_subpaths = [
@@ -158,7 +317,7 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
             ];
             for sub in &forbidden_subpaths {
                 let denied = home_canon.join(sub);
-                if canonical_parent.starts_with(&denied) {
+                if path_is_within(&canonical_parent, &denied) {
                     return Err("Cannot write into a protected directory".to_string());
                 }
             }
@@ -245,6 +404,45 @@ mod tests {
     }
 
     #[test]
+    fn windows_reserved_names_are_case_insensitive_and_bounded() {
+        for stem in ["CON", "prn", "Aux", "nul", "COM1", "com9", "LPT1", "lpt9"] {
+            assert!(is_windows_reserved(stem), "{stem} must be reserved");
+        }
+        for stem in ["CONSOLE", "COM", "COM0", "COM10", "LPT0", "LPT10", "NULLED"] {
+            assert!(!is_windows_reserved(stem), "{stem} must remain valid");
+        }
+
+        assert!(!is_safe_filename("NUL"));
+        assert!(!is_safe_filename("nul.md"));
+        assert!(!is_safe_filename("COM1.tar.gz"));
+        assert!(is_safe_filename("COM10.md"));
+        assert!(is_safe_filename(&format!(
+            "{}.md",
+            "a".repeat(MAX_PORTABLE_FILENAME_LENGTH)
+        )));
+    }
+
+    #[test]
+    fn shared_path_segment_sanitizer_keeps_import_rules() {
+        assert_eq!(
+            sanitize_path_segment("  Q3: Roadmap.  ", "Untitled"),
+            "Q3- Roadmap"
+        );
+        assert_eq!(
+            sanitize_path_segment("..bad\\name\u{7}", "Untitled"),
+            "-bad-name-"
+        );
+        assert_eq!(sanitize_path_segment(".", "Untitled"), "Untitled");
+        assert_eq!(sanitize_path_segment("NUL", "Untitled"), "Untitled");
+        assert_eq!(sanitize_path_segment("COM1", "Attachment"), "Attachment");
+
+        let overlong = "é".repeat(MAX_PORTABLE_FILENAME_LENGTH + 1);
+        let sanitized = sanitize_path_segment(&overlong, "Untitled");
+        assert_eq!(sanitized.chars().count(), MAX_PORTABLE_FILENAME_LENGTH);
+        assert_eq!(sanitized, "é".repeat(MAX_PORTABLE_FILENAME_LENGTH));
+    }
+
+    #[test]
     fn safe_note_path_accepts_bare_and_folder_relative_names() {
         assert!(is_safe_note_path("foo.md"));
         assert!(is_safe_note_path("Projects/foo.md"));
@@ -266,16 +464,91 @@ mod tests {
         assert!(!is_safe_note_path("a/b\0.md"));
     }
 
+    #[test]
+    fn safe_note_path_rejects_drive_letters_and_nonportable_components() {
+        assert!(!has_safe_relative_path_syntax("C:/x.md"));
+        assert!(!has_safe_relative_path_syntax("z:notes/x.md"));
+        assert!(!is_safe_note_path("C:/x.md"));
+        assert!(!is_safe_note_path("Q3: Roadmap.md"));
+        assert!(!is_safe_note_path("Reports./x.md"));
+        assert!(!is_safe_note_path("Projects/NUL.md"));
+        assert!(is_safe_note_path("Drive C/roadmap.md"));
+    }
+
+    #[test]
+    fn existing_path_validation_keeps_legacy_names_addressable() {
+        assert!(is_safe_existing_filename("Q3: Roadmap.md"));
+        assert!(is_safe_existing_filename("Reports..md"));
+        assert!(is_safe_existing_note_path("Q3: Roadmap.md"));
+        assert!(is_safe_existing_note_path("Reports./x.md"));
+        assert!(!is_safe_existing_note_path("C:/x.md"));
+        assert!(!is_safe_existing_note_path("../x.md"));
+    }
+
+    #[test]
+    fn windows_export_blocklist_is_case_insensitive_and_component_aware() {
+        let protected = [
+            PathBuf::from(r"C:\Windows"),
+            PathBuf::from(r"C:\Program Files"),
+            PathBuf::from(
+                r"C:\Users\Test\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup",
+            ),
+        ];
+
+        assert!(windows_path_is_within(
+            Path::new(r"c:\WINDOWS\System32"),
+            &protected[0]
+        ));
+        assert!(windows_path_is_within(
+            Path::new(r"C:\PROGRAM FILES\Moldavite"),
+            &protected[1]
+        ));
+        assert!(windows_path_is_within(
+            Path::new(
+                r"C:\Users\Test\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup",
+            ),
+            &protected[2]
+        ));
+        assert!(!windows_path_is_within(
+            Path::new(r"C:\Windows.old"),
+            &protected[0]
+        ));
+        assert!(!windows_path_is_within(
+            Path::new(r"C:\Program Files Backup\Moldavite"),
+            &protected[1]
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn user_export_path_rejects_actual_windows_system_root() {
+        let system_root = std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .expect("Windows test runner must define SystemRoot");
+        let destination = system_root.join("moldavite-validation-test.json");
+        let error = validate_user_export_path(&destination, "json").unwrap_err();
+        assert!(error.contains("protected"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn user_export_path_rejects_unix_system_prefix() {
+        let error =
+            validate_user_export_path(Path::new("/usr/moldavite-validation-test.json"), "json")
+                .unwrap_err();
+        assert!(error.contains("system directories"));
+    }
+
     #[cfg(unix)]
     #[test]
     fn path_within_base_rejects_symlink_leaf_and_accepts_regular_or_missing_leaf() {
         use std::os::unix::fs::symlink;
 
         let dir = tmp_dir("symlink-leaf");
-        let outside = dir
-            .parent()
-            .unwrap()
-            .join(format!("{}-outside", dir.file_name().unwrap().to_string_lossy()));
+        let outside = dir.parent().unwrap().join(format!(
+            "{}-outside",
+            dir.file_name().unwrap().to_string_lossy()
+        ));
         fs::write(&outside, "secret").unwrap();
 
         let link = dir.join("leak.md");

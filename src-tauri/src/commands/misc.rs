@@ -227,7 +227,18 @@ pub(crate) fn set_note_color(
     color_id: Option<String>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<(), String> {
-    let abs = resolve_note_path(&note_path).ok_or_else(|| "Invalid note path".to_string())?;
+    let (category, relative) = note_path
+        .split_once('/')
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    if !matches!(category, "daily" | "weekly" | "notes")
+        || !crate::validation::is_safe_existing_note_path(relative)
+    {
+        return Err("Invalid note path".to_string());
+    }
+    let notes_dir = get_notes_dir();
+    let abs = notes_dir.join(category).join(relative);
+    crate::validation::validate_path_within_base(&abs, &notes_dir)
+        .map_err(|_| "Invalid note path".to_string())?;
 
     // Locked notes can't carry frontmatter (they're encrypted blobs).
     if abs
@@ -237,20 +248,21 @@ pub(crate) fn set_note_color(
     {
         return Err("Cannot set color on locked note".to_string());
     }
+    let mut locked_name = abs.as_os_str().to_os_string();
+    locked_name.push(".locked");
+    if PathBuf::from(locked_name).exists() {
+        return Err("Cannot set color on locked note".to_string());
+    }
+    if !abs.is_file() {
+        return Err("Note not found".to_string());
+    }
 
     let existing = fs::read_to_string(&abs).unwrap_or_default();
     let parsed = frontmatter::parse_note(&existing);
     let new_color = color_id.filter(|c| !c.is_empty() && c != "default");
-    let new_content = frontmatter::serialize_note(
-        new_color.as_deref(),
-        &parsed.extra,
-        &parsed.body,
-    );
+    let new_content =
+        frontmatter::serialize_note(new_color.as_deref(), &parsed.extra, &parsed.body);
 
-    // Make sure the directory exists before we write.
-    if let Some(parent) = abs.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
     crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600))?;
     recent.record(&abs);
 

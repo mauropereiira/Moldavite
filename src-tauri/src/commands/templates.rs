@@ -11,19 +11,32 @@ use std::path::{Path, PathBuf};
 use crate::paths::{
     ensure_templates_dir, get_daily_dir, get_standalone_dir, get_templates_dir, get_weekly_dir,
 };
-use crate::validation::{is_safe_filename, is_safe_note_path, validate_path_within_base};
 use crate::templates_data::{
     generate_template_id, get_default_templates, replace_template_variables,
 };
 use crate::types::{SaveTemplateInput, Template};
+use crate::validation::{
+    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    validate_path_within_base,
+};
 
-fn validated_template_path(templates_dir: &Path, id: &str) -> Result<PathBuf, String> {
-    if !is_safe_filename(id) || generate_template_id(id) != id {
+fn validated_existing_template_path(templates_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    if !is_safe_existing_filename(id) || generate_template_id(id) != id {
         return Err("Invalid template id".to_string());
     }
     let path = templates_dir.join(format!("{}.json", id));
     validate_path_within_base(&path, templates_dir)
         .map_err(|_| "Invalid template id".to_string())?;
+    Ok(path)
+}
+
+fn validated_new_template_path(templates_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    if !is_safe_filename(id) || generate_template_id(id) != id {
+        return Err("Invalid template name".to_string());
+    }
+    let path = templates_dir.join(format!("{}.json", id));
+    validate_path_within_base(&path, templates_dir)
+        .map_err(|_| "Invalid template name".to_string())?;
     Ok(path)
 }
 
@@ -62,7 +75,7 @@ pub(crate) fn get_template(id: String) -> Result<Template, String> {
     // Check custom templates
     ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = validated_template_path(&templates_dir, &id)?;
+    let template_path = validated_existing_template_path(&templates_dir, &id)?;
 
     if template_path.exists() {
         let content = fs::read_to_string(&template_path).map_err(|e| e.to_string())?;
@@ -79,11 +92,14 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
 
     let id = generate_template_id(&input.name);
     let templates_dir = get_templates_dir()?;
-    let template_path = templates_dir.join(format!("{}.json", id));
+    let template_path = validated_new_template_path(&templates_dir, &id)?;
 
     // Check if template with this ID already exists
     if template_path.exists() {
-        return Err(format!("A template with the name '{}' already exists", input.name));
+        return Err(format!(
+            "A template with the name '{}' already exists",
+            input.name
+        ));
     }
 
     // Check if trying to overwrite a default template
@@ -117,7 +133,7 @@ pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Te
 
     ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = validated_template_path(&templates_dir, &id)?;
+    let template_path = validated_existing_template_path(&templates_dir, &id)?;
 
     if !template_path.exists() {
         return Err(format!("Template '{}' not found", id));
@@ -148,7 +164,7 @@ pub(crate) fn delete_template(id: String) -> Result<(), String> {
 
     ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
-    let template_path = validated_template_path(&templates_dir, &id)?;
+    let template_path = validated_existing_template_path(&templates_dir, &id)?;
 
     if template_path.exists() {
         fs::remove_file(&template_path).map_err(|e| e.to_string())?;
@@ -180,13 +196,22 @@ mod tests {
             "My Template",
             "not--a-slug",
         ] {
-            assert!(validated_template_path(&templates_dir, malicious).is_err());
+            assert!(validated_existing_template_path(&templates_dir, malicious).is_err());
         }
 
         let id = generate_template_id("My Template");
-        let path = validated_template_path(&templates_dir, &id).unwrap();
+        let path = validated_existing_template_path(&templates_dir, &id).unwrap();
         assert_eq!(id, "my-template");
         assert_eq!(path, templates_dir.join("my-template.json"));
+
+        assert_eq!(
+            validated_existing_template_path(&templates_dir, "nul").unwrap(),
+            templates_dir.join("nul.json")
+        );
+        assert_eq!(
+            validated_new_template_path(&templates_dir, "nul"),
+            Err("Invalid template name".to_string())
+        );
 
         let _ = fs::remove_dir_all(templates_dir);
     }
@@ -212,7 +237,12 @@ pub(crate) fn create_note_from_template(
     let valid = if is_daily || is_weekly {
         is_safe_filename(&filename)
     } else {
-        is_safe_note_path(&filename)
+        let (parent, leaf) = filename
+            .rsplit_once('/')
+            .map_or((None, filename.as_str()), |(parent, leaf)| {
+                (Some(parent), leaf)
+            });
+        parent.map_or(true, is_safe_existing_note_path) && is_safe_filename(leaf)
     };
     if !valid {
         return Err("Invalid filename".to_string());
@@ -232,6 +262,13 @@ pub(crate) fn create_note_from_template(
     }
 
     let path = dir.join(&filename);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    if !parent.is_dir() {
+        return Err("Destination folder does not exist".to_string());
+    }
+    validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
 
     if path.exists() {
         return Err("A note with this name already exists".to_string());

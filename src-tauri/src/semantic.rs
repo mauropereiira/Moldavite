@@ -617,8 +617,9 @@ pub(crate) fn note_rel_path(filename: &str, is_daily: bool, is_weekly: bool) -> 
 }
 
 /// Validate a forge-relative note path coming from the frontend or from an
-/// index entry: must live under `daily/`, `weekly/` or `notes/`, and each
-/// component must be safe (no traversal, no hidden components).
+/// index entry: must live under `daily/`, `weekly/` or `notes/`, and remain
+/// lexically confined. Legacy names on disk stay indexable even when newer
+/// portability rules would reject creating them.
 pub(crate) fn is_valid_note_index_path(path: &str) -> bool {
     let Some((top, rest)) = path.split_once('/') else {
         return false;
@@ -626,7 +627,7 @@ pub(crate) fn is_valid_note_index_path(path: &str) -> bool {
     if !matches!(top, "daily" | "weekly" | "notes") {
         return false;
     }
-    crate::validation::is_safe_note_path(rest)
+    crate::validation::is_safe_existing_note_path(rest)
 }
 
 // =============================================================================
@@ -1536,6 +1537,7 @@ mod tests {
         assert!(is_valid_note_index_path("daily/2026-07-12.md"));
         assert!(is_valid_note_index_path("weekly/2026-W28.md"));
         assert!(is_valid_note_index_path("notes/Projects/x.md"));
+        assert!(is_valid_note_index_path("notes/Q3: Roadmap./Reports..md"));
         assert!(!is_valid_note_index_path("notes/../escape.md"));
         assert!(!is_valid_note_index_path(".trash/x.md"));
         assert!(!is_valid_note_index_path(".index/embeddings.v1.bin"));
