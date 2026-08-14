@@ -553,7 +553,7 @@ pub(crate) fn write_note(
             Some((conflict_name, disk_body)) => {
                 if let Some(parent) = path.parent() {
                     // The copy is our own write — suppress the watcher echo.
-                    recent.record(&parent.join(&conflict_name));
+                    recent.record(&parent.join(&conflict_name), &sha256_hex(&disk_body));
                 }
                 index.update_note(&conflict_name, &disk_body);
                 // Echo back the same folder-relative shape we were addressed with.
@@ -566,7 +566,8 @@ pub(crate) fn write_note(
             None => None,
         };
 
-    recent.record(&path);
+    let content_hash = sha256_hex(&content);
+    recent.record(&path, &content_hash);
 
     // The backlinks index only cares about the body, not frontmatter.
     index.update_note(&index_key(&filename), &content);
@@ -580,7 +581,7 @@ pub(crate) fn write_note(
     }
 
     Ok(NoteWriteResult {
-        content_hash: sha256_hex(&content),
+        content_hash,
         conflict_copy,
     })
 }
@@ -650,7 +651,8 @@ pub(crate) fn preserve_buffer_copy(
         .parent()
         .ok_or_else(|| "Invalid note path".to_string())?
         .join(&conflict_name);
-    recent.record(&conflict_path);
+    let conflict_body = frontmatter::parse_note(&content).body;
+    recent.record(&conflict_path, &sha256_hex(&conflict_body));
     index.update_note(&conflict_name, &content);
 
     let relative = match filename.rsplit_once('/') {

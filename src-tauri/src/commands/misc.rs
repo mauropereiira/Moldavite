@@ -255,7 +255,7 @@ pub(crate) fn set_note_color(
         frontmatter::serialize_note(new_color.as_deref(), &parsed.extra, &parsed.body);
 
     crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600))?;
-    recent.record(&abs);
+    recent.record(&abs, &crate::commands::notes::sha256_hex(&parsed.body));
 
     Ok(())
 }
