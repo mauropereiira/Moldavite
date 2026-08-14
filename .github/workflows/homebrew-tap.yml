@@ -126,15 +126,29 @@ jobs:
           brew style "${TAP_OWNER}/${TAP_NAME}"
           brew audit --cask --strict --online --arch all "${TAP_OWNER}/${TAP_NAME}/moldavite"
 
+      # Pushes with a deploy key rather than a personal access token. The key is
+      # write-scoped to the tap repository and nothing else, so a leak cannot
+      # reach any other repo or the account, which a PAT with Contents:write
+      # could not promise as narrowly.
       - name: Push to the tap
         if: env.SKIP != '1'
         env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
         run: |
           set -euo pipefail
+          key_file="$(mktemp)"
+          # Remove the key even if the push fails, so it never outlives the step.
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          # IdentitiesOnly stops ssh offering any agent key ahead of this one.
+          # accept-new trusts github.com on first contact: runners are ephemeral
+          # so there is no stored key to compare against, and pinning a host key
+          # here would break silently whenever GitHub rotates one.
+          export GIT_SSH_COMMAND="ssh -i $key_file -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
           tap_dir="$(brew --repository "${TAP_OWNER}/${TAP_NAME}")"
           cd "$tap_dir"
-          git remote set-url origin "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git"
+          git remote set-url origin "git@github.com:${TAP_REPO}.git"
           git push origin HEAD:main
           git remote set-url origin "https://github.com/${TAP_REPO}.git"
 
