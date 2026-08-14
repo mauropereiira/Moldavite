@@ -252,6 +252,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
             <button
               key={item.title}
               className={`slash-command-item ${index === selectedIndex ? 'selected' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => selectItem(index)}
               onMouseEnter={() => setSelectedIndex(index)}
             >

@@ -2,6 +2,8 @@ import { Extension } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
 import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 
+export const tagSuggestionPluginKey = new PluginKey('tagSuggestion');
+
 /**
  * TipTap extension that provides autocomplete suggestions when typing # for tags.
  * Shows a dropdown of existing tags as the user types.
@@ -16,7 +18,7 @@ export const TagSuggestion = Extension.create({
         allowSpaces: false, // Tags don't have spaces
         startOfLine: false,
         allowedPrefixes: [' ', '\n', '\t', null], // Only trigger after whitespace or start
-        pluginKey: new PluginKey('tagSuggestion'),
+        pluginKey: tagSuggestionPluginKey,
       } as Partial<SuggestionOptions>,
     };
   },
