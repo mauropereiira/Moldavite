@@ -11,6 +11,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Inter and Merriweather now work as editor fonts.** Both typefaces were blocked and silently fell back to the default. They now ship with the app, so both work offline and neither fetches anything from a third party.
 - **Keyboard shortcut labels now match your operating system.** Moldavite keeps the familiar Command, Option, Control, and Shift notation on macOS, while Windows and Linux now show Ctrl, Alt, and Shift shortcuts joined with plus signs.
 - **Notes inside folders can be renamed.** Moldavite validated their folder-relative addresses as bare filenames, so every rename stopped at "Invalid filename" as soon as the note lived below `notes/`. Foldered notes now keep their relative path during the rename, and inbound `[[wiki links]]` follow the new note name.
 - **An external edit can no longer disappear just after Moldavite saves the same note.** The watcher used a fixed half-second silence period after each app write, so an editor, sync client, or agent writing during what remained of that period could have its real change mistaken for Moldavite's own echo. The watcher now suppresses an event only when the file body still matches the content Moldavite wrote.
