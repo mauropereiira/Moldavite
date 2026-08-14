@@ -20,7 +20,7 @@ flowchart TB
     end
     subgraph OS["Operating system"]
         SW["Swift bridge → EventKit<br/>macOS only"]
-        KC["Keychain / credential store"]
+        KC["OS credential store"]
     end
     GC["Google Calendar API<br/>read-only, OAuth"]
     DISK[("Your Forge<br/>plain Markdown")]
@@ -80,7 +80,7 @@ flowchart LR
         CMD["Commands · editor · toasts"]
         NOTE["Unlocked note reads"]
         NET["HTTPS to approved exact hosts"]
-        KC["macOS Keychain<br/>namespaced per plugin"]
+        KC["OS credential store<br/>namespaced per plugin"]
     end
     P <-- "postMessage" --> B
     B --> CMD
@@ -99,11 +99,15 @@ either re-prompts the user.
 | Register commands, read/replace editor selection, toasts | No |
 | Read unlocked note metadata and Markdown | Yes |
 | HTTPS to named hosts (individually revocable) | Yes |
-| Secrets in the macOS Keychain | Yes |
+| Secrets in the OS credential store | Yes |
 | Host-rendered prompt forms | Yes |
 | DOM, `fetch`, WebSockets, Tauri IPC, other plugins' secrets, locked notes | **Never available** |
 
 The full authoring surface is in [PLUGINS.md](PLUGINS.md).
+
+The `keyring` backend stores secrets in the macOS Keychain on macOS and Windows
+Credential Manager on Windows. Plugin account names remain isolated within the
+same `Moldavite` service on either platform.
 
 ## Source layout
 

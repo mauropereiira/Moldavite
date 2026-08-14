@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://github.com/mauropereiira/Moldavite/releases/latest"><img src="https://img.shields.io/github/v/release/mauropereiira/Moldavite?style=flat-square&color=9dc183&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-10.15%2B-2d5a3d?style=flat-square&logo=apple&logoColor=white" alt="macOS 10.15+">
+  <img src="https://img.shields.io/badge/Windows-supported-2d5a3d?style=flat-square&logo=windows&logoColor=white" alt="Windows supported">
   <img src="https://img.shields.io/badge/license-MIT-c9a227?style=flat-square" alt="MIT">
 </p>
 
@@ -28,15 +29,19 @@
 
 ---
 
-Moldavite is a notes app for macOS. Your notes are plain Markdown files in a
-folder you own. There is no account and no sync service.
+Moldavite is a notes app for macOS and Windows. Your notes are plain Markdown
+files in a folder you own. There is no account and no sync service.
 
-Open that folder in Finder, put it in git, edit it in another app, and Moldavite
-picks up the change. It also runs an MCP server, so Claude and other AI tools can
-read your notes on your machine. Read tools are on by default. Writing stays off
-until you switch it on.
+Open that folder in Finder or File Explorer, put it in git, edit it in another
+app, and Moldavite picks up the change. It also runs an MCP server, so Claude and
+other AI tools can read your notes on your machine. Read tools are on by default.
+Writing stays off until you switch it on.
 
 ## Install
+
+### macOS
+
+Install with Homebrew:
 
 ```sh
 brew install --cask mauropereiira/moldavite/moldavite
@@ -50,8 +55,23 @@ and drag it to Applications:
 | Apple Silicon | `Moldavite_x.x.x_aarch64.dmg` |
 | Intel | `Moldavite_x.x.x_x64.dmg` |
 
-Builds are signed and notarized, so macOS opens them without a warning. Requires
-macOS 10.15 or later. Updates install themselves after a minisign check.
+macOS builds are signed and notarized. Requires macOS 10.15 or later. Updates
+install themselves after a minisign check.
+
+### Windows
+
+[Download the latest release](https://github.com/mauropereiira/Moldavite/releases/latest)
+and run one of these x64 installers:
+
+| Installer | File |
+|-----------|------|
+| Setup executable (recommended) | `Moldavite_x.x.x_x64-setup.exe` |
+| Windows Installer package | `Moldavite_x.x.x_x64_en-US.msi` |
+
+The Windows installers are not Authenticode-signed, so SmartScreen may show a
+warning. If you downloaded Moldavite from the official release page, choose
+**More info**, then **Run anyway**. In-app updates are signed and verified before
+installation.
 
 ## What it looks like
 
@@ -93,6 +113,9 @@ Settings → AI & Agents generates the right line for Claude Code, Claude Deskto
 Cursor, or any stdio MCP client. Add `--forge "Work"` to pin a client to one
 Forge instead of following whichever Forge is open.
 
+On Windows, use the command generated in Settings so the client gets the exact
+path to your installed executable.
+
 | Tool | Does | Default |
 |------|------|---------|
 | `list_notes` | Enumerate notes and locked-note placeholders, optionally by folder | On |
@@ -125,7 +148,7 @@ A **Forge** is a vault. It is an ordinary directory holding ordinary files, and
 you can keep as many as you like:
 
 ```
-~/Documents/Moldavite/<ForgeName>/
+<Documents>/Moldavite/<ForgeName>/
 ├── daily/         # YYYY-MM-DD.md, created on demand, removed when emptied
 ├── weekly/        # YYYY-Www.md
 ├── notes/         # standalone notes, nested folders supported
@@ -148,11 +171,11 @@ as a timestamped conflict copy.
   rewrites every inbound link across the vault and keeps your open tabs pointed
   at the right file.
 - **Finding.** Backlinks panel, `#tags` with global rename, folders, and a quick
-  switcher on `⌘P`. Search is a live scan, which is comfortable to roughly a
-  thousand notes.
+  switcher on `⌘P` (macOS) or `Ctrl+P` (Windows). Search is a live scan, which is
+  comfortable to roughly a thousand notes.
 - **Semantic search.** Optional. Pick one of three embedding models, approve the
-  download, and everything after that runs offline. Apple Silicon only; Intel
-  Macs get keyword search.
+  download, and everything after that runs offline. Windows and Apple Silicon
+  builds include semantic search; Intel Macs get keyword search.
 - **Locking.** Individual notes encrypt with AES-256-GCM and Argon2, with
   rate-limited unlock and auto-relock. Locked notes stay out of search, indexing,
   and every agent tool.
@@ -169,13 +192,12 @@ as a timestamped conflict copy.
 
 No account system, no hosted notes service, no analytics, no telemetry.
 
-Moldavite makes five network calls, all of them on purpose: a signed update check
-about fifteen seconds after launch and once a day while open; the plugin registry
-from GitHub when you press Browse; a semantic model from Hugging Face after you
-opt in; Google Calendar while a Google account is connected; and plugin requests
-to hosts you approved by name.
-
-Publishing a note to WordPress is an action you take. Full detail in the
+Moldavite has six ways to reach the network, all of them on purpose: a signed
+update check about fifteen seconds after launch and once a day while open; the
+plugin registry from GitHub when you press Browse; a semantic model from Hugging
+Face after you opt in; Google Calendar while a Google account is connected;
+plugin requests to hosts you approved by name; and publishing a note to WordPress
+when you choose that action. Full detail in the
 [Privacy Policy](https://mauropereiira.github.io/Moldavite/privacy.html).
 
 ## Contributing

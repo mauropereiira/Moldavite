@@ -4,24 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#07090a" />
-    <title>Moldavite | Local-first Markdown notes for macOS</title>
+    <title>Moldavite | Local-first Markdown notes for macOS and Windows</title>
     <meta property="og:title" content="Moldavite" />
-    <meta property="og:description" content="Notes that stay yours. Plain Markdown on your Mac, local search, and a built-in MCP server for the AI tools you choose." />
+    <meta property="og:description" content="Notes that stay yours. Plain Markdown on your computer, local search, and a built-in MCP server for the AI tools you choose." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mauropereiira.github.io/Moldavite/" />
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS with a built-in MCP server." />
+    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server." />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Moldavite" />
-    <meta name="twitter:description" content="Notes that stay yours. Plain Markdown on your Mac, local search, and a built-in MCP server for the AI tools you choose." />
+    <meta name="twitter:description" content="Notes that stay yours. Plain Markdown on your computer, local search, and a built-in MCP server for the AI tools you choose." />
     <meta name="twitter:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/" />
     <meta
       name="description"
-      content="Moldavite is a private, local-first Markdown notes app for macOS with local search, a built-in MCP server, and sandboxed plugins."
+      content="Moldavite is a private, local-first Markdown notes app for macOS and Windows with local search, a built-in MCP server, and sandboxed plugins."
     />
     <link rel="icon" href="favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -114,12 +114,12 @@
           <div class="hero-copy reveal">
             <p class="eyebrow">
               <span class="eyebrow-dot" aria-hidden="true"></span>
-              Local Markdown notes for macOS
+              Local Markdown notes for macOS and Windows
             </p>
             <h1 id="hero-title">Notes that <span class="gradient-headline">stay yours.</span></h1>
             <p class="hero-lede">
-              Moldavite keeps every note as a Markdown file on your Mac, with local search and a
-              built-in bridge for the AI tools you choose.
+              Moldavite keeps every note as a Markdown file on your computer, with local search and
+              a built-in bridge for the AI tools you choose.
             </p>
             <div class="hero-actions">
               <a
@@ -129,11 +129,11 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M10 2v10m0 0 4-4m-4 4L6 8M3 15v2h14v-2" />
                 </svg>
-                Download for Mac
+                Download Moldavite
               </a>
-              <a href="#install" class="button-secondary liquid-glass">Install with Homebrew</a>
+              <a href="#install" class="button-secondary liquid-glass">Installation options</a>
             </div>
-            <p class="platform-note">Apple Silicon and Intel Mac · Free and MIT licensed</p>
+            <p class="platform-note">macOS and Windows · Free and MIT licensed</p>
           </div>
 
           <figure class="hero-demo liquid-glass reveal">
@@ -173,8 +173,10 @@
         <div class="container-wide">
           <div class="section-heading reveal">
             <p class="section-kicker">Install</p>
-            <h2 class="section-title" id="install-title">Choose the path that fits your Mac.</h2>
-            <p class="section-sub">Both routes install the same signed and notarized app.</p>
+            <h2 class="section-title" id="install-title">Choose how you want to install.</h2>
+            <p class="section-sub">
+              Use Homebrew or a signed and notarized DMG on macOS, or an x64 installer on Windows.
+            </p>
           </div>
 
           <div class="install-grid reveal-group">
@@ -211,6 +213,23 @@
               >
               <p class="card-footnote">Updates are verified inside the app before installation.</p>
             </article>
+
+            <article class="install-card liquid-glass">
+              <div class="card-index" aria-hidden="true">03</div>
+              <p class="card-label">Windows</p>
+              <h3>Run the EXE or MSI</h3>
+              <p>Open the latest release and download the x64 setup EXE or Windows Installer package.</p>
+              <a
+                href="https://github.com/mauropereiira/Moldavite/releases/latest"
+                class="button-primary compact"
+                >Open the latest release</a
+              >
+              <p class="card-footnote">
+                The installer is not Authenticode-signed, so SmartScreen may warn you. Choose
+                <strong>More info</strong>, then <strong>Run anyway</strong> if you downloaded it
+                from the official release page.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -222,8 +241,8 @@
             <p class="section-kicker">Your files</p>
             <h2 class="section-title" id="files-title">Your notes are just files.</h2>
             <p class="section-sub">
-              A Forge is a folder you can open in Finder. Git and other Markdown tools can use it
-              too.
+              A Forge is a folder you can open in Finder or File Explorer. Git and other Markdown
+              tools can use it too.
             </p>
           </div>
 
@@ -433,7 +452,7 @@
           <div class="section-heading reveal">
             <p class="section-kicker">Inside the app</p>
             <h2 class="section-title" id="screenshots-title">A clear view of the work.</h2>
-            <p class="section-sub">Real screens from the current macOS app.</p>
+            <p class="section-sub">Real screens from Moldavite.</p>
           </div>
 
           <div class="screenshot-grid reveal-group">
@@ -545,8 +564,8 @@
                   <h3>Semantic search is local and opt-in</h3>
                   <p>
                     Choose one of three models after a clear download prompt. Indexing and queries
-                    then run on your Mac. Semantic search requires Apple Silicon, while Intel Macs
-                    keep keyword search.
+                    then run on your computer. Windows and Apple Silicon builds include semantic
+                    search, while Intel Macs keep keyword search.
                   </p>
                 </div>
               </article>
@@ -615,7 +634,7 @@
               </article>
               <article>
                 <span>Private secrets</span>
-                <p>Use a plugin-specific namespace in the macOS Keychain.</p>
+                <p>Use a plugin-specific namespace in the OS credential store.</p>
               </article>
               <article>
                 <span>Current boundary</span>
@@ -712,9 +731,9 @@
           <div class="cta-panel liquid-glass reveal">
             <div class="cta-orbit" aria-hidden="true"></div>
             <p class="section-kicker">Free and open source</p>
-            <h2 class="section-title" id="cta-title">Start with a folder on your Mac.</h2>
+            <h2 class="section-title" id="cta-title">Start with a folder you own.</h2>
             <p>
-              Keep your Markdown files on your Mac. Connect more tools when they fit your work.
+              Keep your Markdown files on your computer. Connect more tools when they fit your work.
             </p>
             <div class="hero-actions">
               <a
