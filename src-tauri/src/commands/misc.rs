@@ -60,8 +60,7 @@ pub(crate) fn rescan_forge(
     Ok(())
 }
 
-/// Open the Forge directory in the system file browser. macOS: Finder.
-/// Other platforms: best-effort no-op (returns Ok with a log warning).
+/// Open the Forge directory in the system file browser.
 #[tauri::command]
 pub(crate) fn open_forge_in_finder() -> Result<(), String> {
     let dir = get_notes_dir();
@@ -78,11 +77,17 @@ pub(crate) fn open_forge_in_finder() -> Result<(), String> {
         Ok(())
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        log::info!("[forge] open_forge_in_finder is a no-op on this platform");
+        std::process::Command::new("explorer.exe")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("failed to open Explorer: {}", e))?;
         Ok(())
     }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    Err("Opening the Forge directory is not supported on this platform".to_string())
 }
 
 /// Set a new notes directory and move all existing notes
@@ -105,45 +110,31 @@ pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
     // the policy. The target dir may not exist yet, so fall back to the parent.
     let canonical_candidate = match new_dir.canonicalize() {
         Ok(p) => p,
-        Err(_) => new_dir
-            .parent()
-            .and_then(|p| p.canonicalize().ok())
-            .unwrap_or_else(|| new_dir.clone()),
-    };
-    let path_str = canonical_candidate.to_string_lossy().to_lowercase();
-    let forbidden_prefixes = [
-        "/system",
-        "/usr",
-        "/bin",
-        "/sbin",
-        "/etc",
-        "/var",
-        "/private/var",
-        "/private/etc",
-        "/library",
-        "/applications",
-        "/cores",
-        "/dev",
-        "/tmp",
-        "/private/tmp",
-    ];
-
-    for prefix in &forbidden_prefixes {
-        if path_str.starts_with(prefix) {
-            return Err("Cannot use system directories for notes storage".to_string());
+        Err(_) => {
+            let parent = new_dir
+                .parent()
+                .ok_or_else(|| "Path must have a parent directory".to_string())?
+                .canonicalize()
+                .map_err(|e| format!("Failed to resolve parent directory: {}", e))?;
+            let name = new_dir
+                .file_name()
+                .ok_or_else(|| "Path must name a directory".to_string())?;
+            parent.join(name)
         }
+    };
+    if canonical_candidate.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::CurDir | std::path::Component::ParentDir
+        )
+    }) {
+        return Err("Path must not contain . or .. components".to_string());
     }
-
-    // Must be under the current user's home directory or /Volumes. The old
-    // policy allowed `/Users/` (any user's home) — tighten to this user's home.
-    let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-    let canonical_home = home_dir.canonicalize().unwrap_or(home_dir.clone());
-    let is_valid_location = canonical_candidate.starts_with(&canonical_home)
-        || canonical_candidate.starts_with("/Volumes/");
-
-    if !is_valid_location {
-        return Err("Notes directory must be in your home folder or on an external volume".to_string());
-    }
+    crate::commands::forges::validate_storage_location(
+        &canonical_candidate,
+        crate::commands::forges::StorageLocationKind::NotesDirectory,
+    )?;
+    let new_dir = crate::commands::forges::strip_windows_verbatim_prefix(&new_dir);
 
     // Create the new directory structure
     fs::create_dir_all(&new_dir).map_err(|e| format!("Failed to create new directory: {}", e))?;
@@ -174,7 +165,7 @@ pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
 
     // Update the config
     let mut config = read_config();
-    config.notes_directory = Some(new_path);
+    config.notes_directory = Some(new_dir.to_string_lossy().to_string());
     write_config(&config)?;
 
     // After successful copy, remove old files

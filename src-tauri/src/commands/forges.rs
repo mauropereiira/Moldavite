@@ -248,6 +248,264 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum StorageLocationKind {
+    ForgesRoot,
+    NotesDirectory,
+}
+
+#[derive(Clone, Copy)]
+enum LocationPlatform {
+    MacOs,
+    Windows,
+    Linux,
+}
+
+pub(crate) fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+    let value = path.to_string_lossy();
+    if value
+        .get(..8)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(r"\\?\UNC\"))
+    {
+        return PathBuf::from(format!(r"\\{}", &value[8..]));
+    }
+    if let Some(without_prefix) = value.strip_prefix(r"\\?\") {
+        return PathBuf::from(without_prefix);
+    }
+    path.to_path_buf()
+}
+
+fn normalize_windows_path(path: &Path) -> String {
+    strip_windows_verbatim_prefix(path)
+        .to_string_lossy()
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_lowercase()
+}
+
+fn windows_path_has_valid_shape(path: &Path) -> bool {
+    let path = strip_windows_verbatim_prefix(path)
+        .to_string_lossy()
+        .replace('/', "\\");
+    if path
+        .split('\\')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        return false;
+    }
+
+    let bytes = path.as_bytes();
+    let is_drive_absolute =
+        bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'\\';
+    if is_drive_absolute {
+        return true;
+    }
+
+    let Some(share) = path.strip_prefix(r"\\") else {
+        return false;
+    };
+    let mut components = share.split('\\');
+    components.next().is_some_and(|server| !server.is_empty())
+        && components.next().is_some_and(|share| !share.is_empty())
+}
+
+fn windows_path_is_within(candidate: &str, root: &str) -> bool {
+    candidate == root
+        || candidate
+            .strip_prefix(root)
+            .is_some_and(|suffix| suffix.starts_with('\\'))
+}
+
+fn macos_forbidden_prefixes(kind: StorageLocationKind) -> &'static [&'static str] {
+    const FORGES_ROOT: &[&str] = &[
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/private/etc",
+        "/library",
+        "/applications",
+        "/cores",
+        "/dev",
+    ];
+    const NOTES_DIRECTORY: &[&str] = &[
+        "/system",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/private/var",
+        "/private/etc",
+        "/library",
+        "/applications",
+        "/cores",
+        "/dev",
+        "/tmp",
+        "/private/tmp",
+    ];
+
+    match kind {
+        StorageLocationKind::ForgesRoot => FORGES_ROOT,
+        StorageLocationKind::NotesDirectory => NOTES_DIRECTORY,
+    }
+}
+
+fn system_directory_error(kind: StorageLocationKind, platform: LocationPlatform) -> String {
+    match (kind, platform) {
+        (StorageLocationKind::ForgesRoot, LocationPlatform::MacOs) => {
+            "Cannot use system directories".to_string()
+        }
+        (StorageLocationKind::NotesDirectory, LocationPlatform::MacOs) => {
+            "Cannot use system directories for notes storage".to_string()
+        }
+        (StorageLocationKind::ForgesRoot, LocationPlatform::Windows) => {
+            "Forges root cannot be inside Windows system directories".to_string()
+        }
+        (StorageLocationKind::NotesDirectory, LocationPlatform::Windows) => {
+            "Notes directory cannot be inside Windows system directories".to_string()
+        }
+        (StorageLocationKind::ForgesRoot, LocationPlatform::Linux) => {
+            "Forges root cannot be inside Linux system directories".to_string()
+        }
+        (StorageLocationKind::NotesDirectory, LocationPlatform::Linux) => {
+            "Notes directory cannot be inside Linux system directories".to_string()
+        }
+    }
+}
+
+fn validate_storage_location_for_platform(
+    candidate: &Path,
+    home: Option<&Path>,
+    windows_system_directories: &[PathBuf],
+    platform: LocationPlatform,
+    kind: StorageLocationKind,
+) -> Result<(), String> {
+    match platform {
+        LocationPlatform::MacOs => {
+            let path_str = candidate.to_string_lossy().to_lowercase();
+            if macos_forbidden_prefixes(kind)
+                .iter()
+                .any(|prefix| path_str.starts_with(prefix))
+            {
+                return Err(system_directory_error(kind, platform));
+            }
+
+            let home = home.ok_or("Could not determine home directory")?;
+            if !candidate.starts_with(home) && !candidate.starts_with("/Volumes/") {
+                return Err(match kind {
+                    StorageLocationKind::ForgesRoot => {
+                        "Forges root must be in your home folder or on an external volume"
+                            .to_string()
+                    }
+                    StorageLocationKind::NotesDirectory => {
+                        "Notes directory must be in your home folder or on an external volume"
+                            .to_string()
+                    }
+                });
+            }
+        }
+        LocationPlatform::Windows => {
+            if !windows_path_has_valid_shape(candidate) {
+                return Err(match kind {
+                    StorageLocationKind::ForgesRoot => {
+                        "Forges root must be an absolute drive or UNC path without . or .. components"
+                            .to_string()
+                    }
+                    StorageLocationKind::NotesDirectory => {
+                        "Notes directory must be an absolute drive or UNC path without . or .. components"
+                            .to_string()
+                    }
+                });
+            }
+
+            let candidate = normalize_windows_path(candidate);
+            const BASELINE_SYSTEM_DIRECTORIES: &[&str] = &[
+                r"C:\Windows",
+                r"C:\Program Files",
+                r"C:\Program Files (x86)",
+                r"C:\ProgramData",
+            ];
+            let is_system_directory = BASELINE_SYSTEM_DIRECTORIES
+                .iter()
+                .map(|root| normalize_windows_path(Path::new(root)))
+                .chain(
+                    windows_system_directories
+                        .iter()
+                        .map(|root| normalize_windows_path(root)),
+                )
+                .any(|root| !root.is_empty() && windows_path_is_within(&candidate, &root));
+            if is_system_directory {
+                return Err(system_directory_error(kind, platform));
+            }
+        }
+        LocationPlatform::Linux => {
+            const FORBIDDEN: &[&str] = &[
+                "/usr", "/bin", "/sbin", "/etc", "/boot", "/proc", "/sys", "/dev",
+            ];
+            if FORBIDDEN.iter().any(|root| candidate.starts_with(root)) {
+                return Err(system_directory_error(kind, platform));
+            }
+
+            let home = home.ok_or("Could not determine home directory")?;
+            let is_valid_location = candidate.starts_with(home)
+                || ["/mnt", "/media", "/run/media"]
+                    .iter()
+                    .any(|root| candidate.starts_with(root));
+            if !is_valid_location {
+                return Err(match kind {
+                    StorageLocationKind::ForgesRoot => {
+                        "Forges root must be in your home folder or under /mnt, /media, or /run/media"
+                            .to_string()
+                    }
+                    StorageLocationKind::NotesDirectory => {
+                        "Notes directory must be in your home folder or under /mnt, /media, or /run/media"
+                            .to_string()
+                    }
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn validate_storage_location(
+    candidate: &Path,
+    kind: StorageLocationKind,
+) -> Result<PathBuf, String> {
+    let candidate = strip_windows_verbatim_prefix(candidate);
+    let canonical_home = dirs::home_dir().map(|home| home.canonicalize().unwrap_or(home));
+    let system_directories: Vec<PathBuf> = [
+        "SystemRoot",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramData",
+    ]
+    .iter()
+    .filter_map(std::env::var_os)
+    .map(PathBuf::from)
+    .collect();
+    let platform = if cfg!(target_os = "windows") {
+        LocationPlatform::Windows
+    } else if cfg!(target_os = "macos") {
+        LocationPlatform::MacOs
+    } else {
+        LocationPlatform::Linux
+    };
+    validate_storage_location_for_platform(
+        &candidate,
+        canonical_home.as_deref(),
+        &system_directories,
+        platform,
+        kind,
+    )?;
+    Ok(candidate)
+}
+
 #[tauri::command]
 pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
     let new_root = PathBuf::from(&path);
@@ -268,31 +526,7 @@ pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
             parent.join(name)
         }
     };
-    let path_str = canonical.to_string_lossy().to_lowercase();
-    let forbidden = [
-        "/system",
-        "/usr",
-        "/bin",
-        "/sbin",
-        "/etc",
-        "/var",
-        "/private/var",
-        "/private/etc",
-        "/library",
-        "/applications",
-        "/cores",
-        "/dev",
-    ];
-    for f in &forbidden {
-        if path_str.starts_with(f) {
-            return Err("Cannot use system directories".to_string());
-        }
-    }
-    let home = dirs::home_dir().ok_or("Could not determine home directory")?;
-    let canonical_home = home.canonicalize().unwrap_or(home.clone());
-    if !canonical.starts_with(&canonical_home) && !canonical.starts_with("/Volumes/") {
-        return Err("Forges root must be in your home folder or on an external volume".to_string());
-    }
+    let canonical = validate_storage_location(&canonical, StorageLocationKind::ForgesRoot)?;
 
     fs::create_dir_all(&canonical).map_err(|e| format!("Failed to create root: {}", e))?;
     ensure_forge_at(&canonical.join(DEFAULT_FORGE_NAME))?;
@@ -413,5 +647,183 @@ mod tests {
         assert!(!target.exists());
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn macos_storage_policy_is_unchanged() {
+        let home = Path::new("/Users/mauro");
+        assert!(validate_storage_location_for_platform(
+            Path::new("/Users/mauro/Documents/Moldavite"),
+            Some(home),
+            &[],
+            LocationPlatform::MacOs,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_ok());
+        assert!(validate_storage_location_for_platform(
+            Path::new("/Volumes/External/Moldavite"),
+            Some(home),
+            &[],
+            LocationPlatform::MacOs,
+            StorageLocationKind::NotesDirectory,
+        )
+        .is_ok());
+        assert_eq!(
+            validate_storage_location_for_platform(
+                Path::new("/System/Library/Moldavite"),
+                Some(home),
+                &[],
+                LocationPlatform::MacOs,
+                StorageLocationKind::ForgesRoot,
+            ),
+            Err("Cannot use system directories".to_string())
+        );
+        assert_eq!(
+            validate_storage_location_for_platform(
+                Path::new("/Users/someone-else/Moldavite"),
+                Some(home),
+                &[],
+                LocationPlatform::MacOs,
+                StorageLocationKind::NotesDirectory,
+            ),
+            Err("Notes directory must be in your home folder or on an external volume".to_string())
+        );
+    }
+
+    #[test]
+    fn windows_storage_policy_accepts_non_system_drive() {
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"D:\Notes"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_ok());
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"\\server\share\Moldavite"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::NotesDirectory,
+        )
+        .is_ok());
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"C:\Program Files-old\Moldavite"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn windows_storage_policy_rejects_unresolved_traversal() {
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"D:\missing-parent\..\Notes"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::NotesDirectory,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn windows_storage_policy_uses_baseline_when_environment_is_absent() {
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"C:\Windows\System32"),
+            None,
+            &[],
+            LocationPlatform::Windows,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn windows_storage_policy_rejects_system_directories() {
+        let system_directories = vec![
+            PathBuf::from(r"D:\Windows"),
+            PathBuf::from(r"D:\Program Files"),
+            PathBuf::from(r"D:\Program Files (x86)"),
+        ];
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"\\?\D:\WINDOWS\System32"),
+            None,
+            &system_directories,
+            LocationPlatform::Windows,
+            StorageLocationKind::ForgesRoot,
+        )
+        .is_err());
+        assert!(validate_storage_location_for_platform(
+            Path::new(r"D:\Program Files\Moldavite"),
+            None,
+            &system_directories,
+            LocationPlatform::Windows,
+            StorageLocationKind::NotesDirectory,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn linux_storage_policy_accepts_home_and_mount_points() {
+        let home = Path::new("/home/mauro");
+        for candidate in [
+            "/home/mauro/Documents/Moldavite",
+            "/mnt/storage/Moldavite",
+            "/media/mauro/drive/Moldavite",
+            "/run/media/mauro/drive/Moldavite",
+        ] {
+            assert!(validate_storage_location_for_platform(
+                Path::new(candidate),
+                Some(home),
+                &[],
+                LocationPlatform::Linux,
+                StorageLocationKind::ForgesRoot,
+            )
+            .is_ok());
+        }
+    }
+
+    #[test]
+    fn linux_storage_policy_rejects_system_and_other_trees() {
+        let home = Path::new("/home/mauro");
+        assert_eq!(
+            validate_storage_location_for_platform(
+                Path::new("/usr/local/share/Moldavite"),
+                Some(home),
+                &[],
+                LocationPlatform::Linux,
+                StorageLocationKind::ForgesRoot,
+            ),
+            Err("Forges root cannot be inside Linux system directories".to_string())
+        );
+        assert_eq!(
+            validate_storage_location_for_platform(
+                Path::new("/srv/Moldavite"),
+                Some(home),
+                &[],
+                LocationPlatform::Linux,
+                StorageLocationKind::NotesDirectory,
+            ),
+            Err(
+                "Notes directory must be in your home folder or under /mnt, /media, or /run/media"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn strips_windows_verbatim_prefix() {
+        assert_eq!(
+            strip_windows_verbatim_prefix(Path::new(r"\\?\C:\Users\me\Documents\Moldavite")),
+            PathBuf::from(r"C:\Users\me\Documents\Moldavite")
+        );
+        assert_eq!(
+            strip_windows_verbatim_prefix(Path::new(r"\\?\UNC\server\share\Moldavite")),
+            PathBuf::from(r"\\server\share\Moldavite")
+        );
     }
 }

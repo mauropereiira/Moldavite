@@ -37,6 +37,8 @@ import {
 import type { ImportResult } from '@/lib';
 import { InfoTooltip, Toggle } from '../common';
 
+const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+
 export function GeneralSection() {
   const settings = useSettingsStore();
   const { setNotes, setCurrentNote } = useNoteStore();
@@ -96,7 +98,7 @@ export function GeneralSection() {
     try {
       await openForgeInFinder();
     } catch (error) {
-      console.error('[Settings] Failed to open Forge in Finder:', error);
+      console.error('[Settings] Failed to open Forge in file browser:', error);
       setStatusMessage({ type: 'error', text: String(error) });
     }
   };
@@ -375,7 +377,7 @@ export function GeneralSection() {
             }}
           >
             <ExternalLink aria-hidden="true" className="w-4 h-4" />
-            Open Forge in Finder
+            {isWindows ? 'Show in Explorer' : 'Open Forge in Finder'}
           </button>
           <button
             onClick={handleRescan}
