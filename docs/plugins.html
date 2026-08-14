@@ -12,7 +12,7 @@
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS with a built-in MCP server." />
+    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server." />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Building Moldavite Plugins" />
@@ -21,7 +21,7 @@
     <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/plugins.html" />
     <meta
       name="description"
-      content="The Moldavite plugin author guide: manifests, permissions, commands, editor access, note reads, trusted prompts, exact-host HTTPS, Keychain secrets, consent, and distribution."
+      content="The Moldavite plugin author guide: manifests, permissions, commands, editor access, note reads, trusted prompts, exact-host HTTPS, OS credential-store secrets, consent, and distribution."
     />
     <link rel="icon" href="favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -75,7 +75,7 @@
       <h1>Building Plugins</h1>
       <p>
         Add sandboxed commands with narrow, host-enforced access to the editor, unlocked Markdown,
-        approved HTTPS hosts, trusted forms, and plugin-owned Keychain secrets.
+        approved HTTPS hosts, trusted forms, and plugin-owned OS credential-store secrets.
       </p>
     </section>
 
@@ -252,7 +252,9 @@
         <li>Add a current manifest and a default <code>register(api)</code> export.</li>
         <li>Open or reopen <strong>Settings → Plugins</strong>.</li>
         <li>Enable the plugin and review the permission sheet.</li>
-        <li>Run its commands from <kbd>⌘</kbd> <kbd>P</kbd> or the editor slash menu.</li>
+        <li>
+          Run its commands from <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>P</kbd> or the editor slash menu.
+        </li>
       </ol>
       <p>
         There is no build or package requirement. A dependency-free <code>plugin.js</code> works as
@@ -283,7 +285,7 @@
   ],
   <span class="f">"instructions"</span>: [
     <span class="s">"Enable the plugin and approve its permissions."</span>,
-    <span class="s">"Press `Cmd+P` and run **Configure publisher** first."</span>,
+    <span class="s">"Press `Cmd/Ctrl+P` and run **Configure publisher** first."</span>,
     <span class="s">"Open a note, then run **Publish active note…**."</span>
   ]
 }</code></pre>
@@ -703,7 +705,7 @@ api.commands.<span class="f">add</span>({
         non-text responses also include <code>bodyBase64</code>.
       </p>
 
-      <h3>Keychain secrets</h3>
+      <h3>OS credential-store secrets</h3>
       <div class="method-list">
         <div class="method-card">
           <p class="method-signature">
@@ -718,7 +720,7 @@ api.commands.<span class="f">add</span>({
             <span class="permission-pill">secrets</span>
           </p>
           <p class="method-description">
-            Stores a string in this plugin's macOS Keychain namespace.
+            Stores a string in this plugin's OS credential-store namespace.
           </p>
         </div>
         <div class="method-card">
@@ -735,11 +737,12 @@ api.commands.<span class="f">add</span>({
   <span class="k">await</span> api.secrets.<span class="f">delete</span>(<span class="s">'api-token'</span>);
 }</code></pre>
       <p>
-        The Keychain service is <code>Moldavite</code>. The host constructs the account as
+        The credential-store service is <code>Moldavite</code>. The host constructs the account as
         <code>plugin:&lt;plugin-id&gt;:&lt;key&gt;</code>, so a worker cannot choose another
-        plugin's namespace. Keys are 1–128 characters, begin with a letter or digit, and then use
-        letters, digits, dots, underscores, or hyphens. Secret values are never listed or included
-        in Forge, settings, plugin, ZIP, or encrypted-backup exports.
+        plugin's namespace. macOS stores these entries in Keychain; Windows uses Credential Manager.
+        Keys are 1–128 characters, begin with a letter or digit, and then use letters, digits, dots,
+        underscores, or hyphens. Secret values are never listed or included in Forge, settings,
+        plugin, ZIP, or encrypted-backup exports.
       </p>
 
       <h2 id="consent">Permissions, consent, and failure behavior</h2>
@@ -777,7 +780,7 @@ api.commands.<span class="f">add</span>({
             </tr>
             <tr>
               <td><code>secrets</code></td>
-              <td>Read, write, and delete this plugin's Keychain entries.</td>
+              <td>Read, write, and delete this plugin's OS credential-store entries.</td>
             </tr>
           </tbody>
         </table>
@@ -821,7 +824,7 @@ api.commands.<span class="f">add</span>({
           sends the live editor HTML to <code>/wp-json/wp/v2/posts</code> as a draft.
         </li>
         <li>
-          A Keychain-backed Forge-path-to-post-id map makes later publishes of the same path use
+          An OS credential-store-backed Forge-path-to-post-id map makes later publishes of the same path use
           <code>PUT</code> to update the existing post. The success notification includes the edit
           URL.
         </li>
@@ -864,9 +867,9 @@ api.commands.<span class="f">add</span>({
         </li>
         <li>
           Uninstalling in Settings deletes the plugin folder and forgets its consent/runtime-host
-          grant. Keychain secrets remain because plugin secret keys are intentionally hidden from
-          enumeration. Provide a reset command that calls <code>secrets.delete</code> for every
-          known key when users need credential cleanup before uninstalling.
+          grant. OS credential-store secrets remain because plugin secret keys are intentionally
+          hidden from enumeration. Provide a reset command that calls <code>secrets.delete</code>
+          for every known key when users need credential cleanup before uninstalling.
         </li>
         <li>
           Test cancellation, missing notes, locked-note rejection, denied/revoked hosts, non-2xx
@@ -880,7 +883,7 @@ api.commands.<span class="f">add</span>({
         <code>app</code>, <code>commands</code>, <code>editor</code>, and
         <code>ui.toast</code> surface, with <code>api.app.apiVersion === 1</code>. They do not need
         a source or manifest migration. Use <code>"apiVersion": 2</code> for trusted prompts,
-        Forge note reads, networking, and Keychain secrets.
+        Forge note reads, networking, and OS credential-store secrets.
       </p>
 
       <div class="next-links">

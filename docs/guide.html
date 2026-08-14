@@ -12,7 +12,7 @@
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS with a built-in MCP server." />
+    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server." />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Using Moldavite" />
@@ -95,6 +95,7 @@
       </nav>
 
       <h2 id="getting-started">Getting started</h2>
+      <h3>macOS</h3>
       <p>Install Moldavite with Homebrew:</p>
       <pre><code>brew install --cask mauropereiira/moldavite/moldavite</code></pre>
       <p>
@@ -102,10 +103,20 @@
         <a href="https://github.com/mauropereiira/Moldavite/releases/latest">latest release</a>,
         download the macOS DMG, and move Moldavite to Applications.
       </p>
+      <h3>Windows</h3>
       <p>
-        A <strong>Forge</strong> is a vault directory. Forges normally live side by side under the
-        Forges root at <code>~/Documents/Moldavite/</code>, although onboarding lets you choose a
-        different root. Inside each Forge, notes are ordinary Markdown files organized into
+        Open the
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">latest release</a>
+        and download <code>Moldavite_x.x.x_x64-setup.exe</code> (recommended) or
+        <code>Moldavite_x.x.x_x64_en-US.msi</code>. The installers are not
+        Authenticode-signed, so SmartScreen may warn you. If you downloaded Moldavite from the
+        official release page, choose <strong>More info</strong>, then
+        <strong>Run anyway</strong>.
+      </p>
+      <p>
+        A <strong>Forge</strong> is a vault directory. Forges normally live side by side under a
+        <code>Moldavite</code> folder in Documents, although onboarding lets you choose a different
+        root. Inside each Forge, notes are ordinary Markdown files organized into
         <code>daily/</code>, <code>weekly/</code>, and <code>notes/</code>.
       </p>
       <ul>
@@ -260,8 +271,8 @@
       </p>
       <ul>
         <li>
-          <strong>Quick switcher</strong>: press <kbd>⌘</kbd> <kbd>P</kbd> to open a note, run an
-          app action, repeat a recent search, switch Forges, or invoke a plugin command.
+          <strong>Quick switcher</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>P</kbd> to open a
+          note, run an app action, repeat a recent search, switch Forges, or invoke a plugin command.
         </li>
         <li>
           <strong>Keyword search</strong>: full-text search with snippets across unlocked,
@@ -279,8 +290,8 @@
           Month, and Earlier.
         </li>
         <li>
-          <strong>Shortcut help</strong>: press <kbd>⌘</kbd> <kbd>?</kbd> for the current shortcut
-          list.
+          <strong>Shortcut help</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>?</kbd> for the
+          current shortcut list.
         </li>
       </ul>
 
@@ -292,15 +303,15 @@
         <strong>Settings → AI &amp; Agents</strong>.
       </p>
       <p>
-        Semantic search requires Apple Silicon on macOS. Intel Macs keep the full keyword search,
-        and MCP <code>search_notes</code> transparently uses keyword mode.
+        Windows builds include semantic search. On macOS it requires Apple Silicon; Intel Macs keep
+        the full keyword search, and MCP <code>search_notes</code> transparently uses keyword mode.
       </p>
 
       <h3>Choose a transparent local model</h3>
       <p>
         Before the first download, Moldavite's consent dialog names the selected model and its
         approximate size. The model is cached in the app data directory, never in a Forge. Notes are
-        embedded on your Mac; locked notes are never read or indexed.
+        embedded on your computer; locked notes are never read or indexed.
       </p>
       <div class="table-scroll">
         <table>
@@ -420,8 +431,9 @@
         <li>
           <strong>Google Calendar</strong>: connecting opens your browser for Google's consent
           screen and returns to a local port. Moldavite asks only for the read-only calendar scope.
-          The refresh token is stored in your macOS Keychain and stays outside notes and settings
-          files. <strong>Disconnect</strong> removes it, and you can also
+          The refresh token is stored in the OS credential store (macOS Keychain or Windows
+          Credential Manager) and stays outside notes and settings files.
+          <strong>Disconnect</strong> removes it, and you can also
           revoke access from your
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
         </li>
@@ -452,7 +464,7 @@
       </p>
       <p>
         The current plugin API can expose active-editor HTML, trusted prompt forms, unlocked note reads,
-        host-performed HTTPS to exact approved hosts, and plugin-namespaced macOS Keychain secrets.
+        host-performed HTTPS to exact approved hosts, and plugin-namespaced OS credential-store secrets.
         <strong>It does not provide note-write methods or custom panels.</strong> See the
         <a href="plugins.html">complete author guide</a> for the exact API and security model.
       </p>
@@ -508,7 +520,7 @@
       <p>
         The first publish creates a draft. Publishing the same Forge-relative note path again
         updates the mapped post and avoids a duplicate. Configuration and the path-to-post map live
-        in the plugin's Keychain namespace and stay outside the Forge.
+        in the plugin's OS credential-store namespace and stay outside the Forge.
       </p>
       <div class="callout warn">
         <span class="callout-title">WordPress.com support boundary</span>
@@ -553,12 +565,15 @@
       <p>
         The normal Moldavite app binary becomes a local stdio MCP server when launched with
         <code>--mcp</code>. It does not initialize the GUI and does not open a network listener.
-        Settings resolves the exact binary path on your Mac and provides copy-ready snippets for
+        Settings resolves the exact binary path on your computer and provides copy-ready snippets for
         each supported client; use those generated snippets whenever possible.
       </p>
 
       <h3>Claude Code</h3>
-      <p>Run the generated command in a terminal. A standard app installation looks like this:</p>
+      <p>
+        Run the generated command in a terminal. The examples below show a standard macOS app
+        installation; on Windows, use the generated snippets so the path matches your installer.
+      </p>
       <pre><code>claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</code></pre>
 
       <h3>Claude Desktop</h3>
@@ -669,7 +684,7 @@
         </a>
         <a href="https://github.com/mauropereiira/Moldavite/releases/latest">
           <span class="label">Ready?</span>
-          <span class="title">Download Moldavite for Mac →</span>
+          <span class="title">Download Moldavite →</span>
         </a>
       </div>
     </main>

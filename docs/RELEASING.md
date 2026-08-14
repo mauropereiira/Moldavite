@@ -1,8 +1,10 @@
 # Releasing Moldavite
 
-Moldavite ships signed + notarized macOS (Apple Silicon + Intel) and Windows
-builds via GitHub Actions, and updates existing installs through the Tauri
-updater. This is the end-to-end release process.
+Moldavite ships signed and notarized macOS builds (Apple Silicon and Intel) and
+unsigned Windows builds via GitHub Actions. Every platform's updater artifacts,
+including Windows, are signed with `TAURI_SIGNING_PRIVATE_KEY` so the updater can
+verify their integrity. Windows installers are not Authenticode-signed, so
+Windows may show a SmartScreen warning. This is the end-to-end release process.
 
 ## 1. Prepare the release branch
 
@@ -31,7 +33,8 @@ updater. This is the end-to-end release process.
 3. The tag push triggers `.github/workflows/release.yml`, which:
    - creates a GitHub Release whose body is the extracted `CHANGELOG.md`
      section for this version,
-   - builds, signs, and notarizes macOS aarch64 + x86_64 and Windows,
+   - builds macOS aarch64 + x86_64 and Windows installers, signs and notarizes
+     the macOS builds, and signs updater artifacts for every platform,
    - uploads artifacts and generates `latest.json` (the updater manifest),
    - bumps `Casks/moldavite.rb` in
      [mauropereiira/homebrew-moldavite](https://github.com/mauropereiira/homebrew-moldavite)
@@ -45,7 +48,7 @@ instead.
 ## 3. Verify
 
 - Confirm the Release has the DMGs, the `.exe`/`.msi`, and `latest.json`.
-- Open an older install → it should detect the update within ~5s (or via
+- Open an older install → it should detect the update after about 15s (or via
   Settings → About → Check for Updates), download, install, and relaunch.
 - On relaunch, the "What's New" popup shows this version's notes.
 - Confirm the tap commit landed, then
@@ -72,7 +75,7 @@ Two failure modes worth recognising:
 |---|---|
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | Developer ID signing cert (base64 .p12) |
 | `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Apple notarization |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater artifact signing |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater artifact signing on every platform (not Windows Authenticode code signing) |
 | `HOMEBREW_TAP_TOKEN` | Fine-grained PAT, `Contents: read and write` on `mauropereiira/homebrew-moldavite` only. Nothing else. |
 
 ## Updater key rotation
