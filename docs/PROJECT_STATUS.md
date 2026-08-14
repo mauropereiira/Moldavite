@@ -1,7 +1,7 @@
 # Moldavite — Project Status
 
 **Last Updated:** August 14, 2026
-**Status:** Shipping on macOS and Windows, with in-app auto-update since v1.3.1
+**Status:** Shipping on macOS, and on Windows in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
 > real bug is found (see "Documentation Maintenance" in CLAUDE.md).
@@ -33,7 +33,7 @@
 - Built-in MCP stdio server (v1.6): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks. Reads return a content hash that write tools can use to preserve a changed disk version as a conflict copy
 
 ### Platform
-- Windows is a supported release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed
+- Windows is a beta release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed and the platform stays beta until it is not
 - Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS credential store). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check; automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows), settings modal with focus trap
