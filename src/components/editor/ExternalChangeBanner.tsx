@@ -10,6 +10,7 @@ import {
 } from '@/lib/fileSystem';
 import { flushPendingAutosave, resetAutosaveBaseline } from '@/lib/autosaveFlush';
 import { useNoteStore } from '@/stores/noteStore';
+import { ConfirmDialog } from '@/components/ui';
 
 export function ExternalChangeBanner() {
   const currentNote = useNoteStore((state) => state.currentNote);
@@ -26,6 +27,7 @@ export function ExternalChangeBanner() {
       : currentNote.id.startsWith('notes/')
         ? currentNote.id.slice('notes/'.length)
         : `${currentNote.title}.md`;
+  const client = externallyChanged.get(currentNote.id);
 
   const keepBuffer = async () => {
     setIsResolving(true);
@@ -62,35 +64,18 @@ export function ExternalChangeBanner() {
   };
 
   return (
-    <div
-      className="flex items-center justify-between gap-3 px-4 py-2 text-sm border-b"
-      style={{
-        backgroundColor: 'var(--warning-muted)',
-        borderColor: 'var(--warning)',
-        color: 'var(--text-primary)',
-      }}
-      role="status"
-      aria-live="polite"
-    >
-      <span>This note changed on disk.</span>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          className="btn btn-sm focus-ring"
-          disabled={isResolving}
-          onClick={() => void keepBuffer()}
-        >
-          Keep my version
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary focus-ring"
-          disabled={isResolving}
-          onClick={() => void handleUseDisk()}
-        >
-          Use disk version
-        </button>
-      </div>
-    </div>
+    <ConfirmDialog
+      title={client ? `${client} wants to change this note.` : 'This note changed on disk.'}
+      message={
+        client
+          ? "You have unsaved edits. Accepting replaces them with the agent's version."
+          : 'You have unsaved edits. Using the disk version replaces them.'
+      }
+      confirmLabel={client ? 'Accept' : 'Use disk version'}
+      cancelLabel={client ? 'Keep mine' : 'Keep my version'}
+      busy={isResolving}
+      onConfirm={() => void handleUseDisk()}
+      onCancel={() => void keepBuffer()}
+    />
   );
 }

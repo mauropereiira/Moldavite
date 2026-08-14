@@ -121,6 +121,12 @@ fn handle_request(context: &ToolContext, request: Value) -> Option<Value> {
     let params = request.get("params").cloned().unwrap_or_else(|| json!({}));
     match method {
         "initialize" => {
+            context.set_client_name(
+                params
+                    .get("clientInfo")
+                    .and_then(|client_info| client_info.get("name"))
+                    .and_then(Value::as_str),
+            );
             let requested = params
                 .get("protocolVersion")
                 .and_then(Value::as_str)
@@ -321,6 +327,55 @@ mod tests {
         assert_eq!(parsed.body, "new body");
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn initialized_client_is_recorded_with_the_mcp_write_body_hash() {
+        let root = temp_forge("agent-write-marker");
+        let spool = root.with_extension("agent-writes");
+        fs::write(root.join("notes/marked.md"), "old body").unwrap();
+        let context = ToolContext::new(root.clone(), true, false)
+            .with_agent_write_spool(spool.clone());
+        let input = request(
+            1,
+            "initialize",
+            json!({
+                "protocolVersion": "2025-06-18",
+                "clientInfo": {"name": "Claude Code", "version": "1"}
+            }),
+        ) + &request(
+            2,
+            "tools/call",
+            json!({
+                "name": "write_note",
+                "arguments": {
+                    "path": "notes/marked.md",
+                    "content": "---\ntags: [agent]\n---\nagent body"
+                }
+            }),
+        );
+
+        let responses = run(input, context);
+
+        assert_eq!(responses[1]["result"]["isError"], false);
+        let info = crate::agent_writes::take_agent_write_from(
+            &spool,
+            &root,
+            "notes/marked.md",
+            &crate::commands::notes::sha256_hex("agent body"),
+        )
+        .expect("MCP write should leave a matching attribution marker");
+        assert_eq!(info.client.as_deref(), Some("Claude Code"));
+        assert!(crate::agent_writes::take_agent_write_from(
+            &spool,
+            &root,
+            "notes/marked.md",
+            &crate::commands::notes::sha256_hex("agent body")
+        )
+        .is_none());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(spool).unwrap();
     }
 
     #[cfg(unix)]
