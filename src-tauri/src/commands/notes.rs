@@ -247,6 +247,24 @@ pub(crate) fn save_note_with_conflict(
     content: &str,
     color: Option<&str>,
 ) -> Result<Option<(String, String)>, String> {
+    save_note_with_conflict_using(path, base_hash, content, color, |path, serialized| {
+        write_atomic(path, serialized.as_bytes(), Some(0o600))
+    })
+}
+
+/// Variant used by MCP attribution. The callback runs exactly once with the
+/// final serialized note while the conflict lock is still held, immediately
+/// before the replacing write that it owns.
+pub(crate) fn save_note_with_conflict_using<F>(
+    path: &Path,
+    base_hash: Option<&str>,
+    content: &str,
+    color: Option<&str>,
+    write: F,
+) -> Result<Option<(String, String)>, String>
+where
+    F: FnOnce(&Path, &str) -> Result<(), String>,
+{
     let _guard = conflict_copy_lock()
         .lock()
         .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
@@ -261,7 +279,7 @@ pub(crate) fn save_note_with_conflict(
         None => parsed_existing.color.as_deref(),
     };
     let serialized = frontmatter::serialize_note(resolved_color, &parsed_existing.extra, content);
-    write_atomic(path, serialized.as_bytes(), Some(0o600))?;
+    write(path, &serialized)?;
     Ok(conflict)
 }
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLastPersistedMarkdown, markdownToHtml, readNoteWithMeta } from '@/lib/fileSystem';
 import { registerAutosaveBaselineReset, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
 import { useNoteStore } from '@/stores/noteStore';
+import { useToastStore } from '@/stores/toastStore';
 import type { Note } from '@/types';
 
 const invokeMock = vi.fn();
@@ -30,12 +31,13 @@ beforeEach(() => {
     openTabs: [],
     activeTabId: null,
     currentNote: null,
-    externallyChanged: new Set(),
+    externallyChanged: new Map(),
   });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe('external Forge watcher reconciliation', () => {
-  it('replaces a clean tab, refreshes persistence state, and resets autosave baseline', async () => {
+  it('silently applies an attributed clean change, resets the baseline, and names the client in a toast', async () => {
     invokeMock.mockResolvedValueOnce({ content: 'old body', color: null, contentHash: 'old-hash' });
     await readNoteWithMeta('2026-07-31.md', true, false);
     const tab = dailyTab(markdownToHtml('old body'));
@@ -45,6 +47,7 @@ describe('external Forge watcher reconciliation', () => {
       color: null,
       contentHash: 'new-hash',
     });
+    invokeMock.mockResolvedValueOnce({ client: 'Claude Code' });
     const reset = vi.fn();
     const unregisterReset = registerAutosaveBaselineReset(reset);
     const unregisterProbe = registerAutosavePendingProbe(() => null);
@@ -57,11 +60,19 @@ describe('external Forge watcher reconciliation', () => {
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(false);
     expect(getLastPersistedMarkdown('2026-07-31.md', true, false)).toBe('agent body');
     expect(reset).toHaveBeenCalledWith(tab.id, current?.content);
+    expect(useToastStore.getState().toasts[0]).toMatchObject({
+      type: 'success',
+      message: 'Claude Code updated this note.',
+    });
+    expect(invokeMock).toHaveBeenLastCalledWith('take_agent_write', {
+      relPath: 'daily/2026-07-31.md',
+      contentHash: 'new-hash',
+    });
     unregisterProbe();
     unregisterReset();
   });
 
-  it('leaves a dirty standalone buffer and its stale hash untouched', async () => {
+  it('leaves a dirty standalone buffer untouched and records the attributed client', async () => {
     invokeMock.mockResolvedValueOnce({ content: 'old body', color: null, contentHash: 'old-hash' });
     await readNoteWithMeta('folder/note.md', false, false);
     const tab: Note = {
@@ -73,13 +84,47 @@ describe('external Forge watcher reconciliation', () => {
     };
     useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
     const unregisterProbe = registerAutosavePendingProbe(() => null);
+    invokeMock.mockResolvedValueOnce({
+      content: 'agent body',
+      color: null,
+      contentHash: 'agent-hash',
+    });
+    invokeMock.mockResolvedValueOnce({ client: 'Claude Code' });
 
     await reconcileExternalNoteChange('notes/folder/note.md');
 
     expect(useNoteStore.getState().currentNote?.content).toBe(tab.content);
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(true);
+    expect(useNoteStore.getState().externallyChanged.get(tab.id)).toBe('Claude Code');
     expect(getLastPersistedMarkdown('folder/note.md', false, false)).toBe('old body');
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledTimes(3);
+    unregisterProbe();
+  });
+
+  it('uses generic attribution for a dirty change without a matching marker', async () => {
+    invokeMock.mockResolvedValueOnce({ content: 'old body', color: null, contentHash: 'old-hash' });
+    await readNoteWithMeta('folder/note.md', false, false);
+    const tab: Note = {
+      ...dailyTab(markdownToHtml('my edit')),
+      id: 'notes/folder/note.md',
+      title: 'note',
+      isDaily: false,
+      date: undefined,
+    };
+    useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
+    const unregisterProbe = registerAutosavePendingProbe(() => null);
+    invokeMock.mockResolvedValueOnce({
+      content: 'external body',
+      color: null,
+      contentHash: 'external-hash',
+    });
+    invokeMock.mockResolvedValueOnce(null);
+
+    await reconcileExternalNoteChange('notes/folder/note.md');
+
+    expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(true);
+    expect(useNoteStore.getState().externallyChanged.get(tab.id)).toBeNull();
+    expect(getLastPersistedMarkdown('folder/note.md', false, false)).toBe('old body');
     unregisterProbe();
   });
 
@@ -100,6 +145,7 @@ describe('external Forge watcher reconciliation', () => {
       color: null,
       contentHash: 'new-hash',
     });
+    invokeMock.mockResolvedValueOnce(null);
     const unregisterProbe = registerAutosavePendingProbe(() => null);
 
     await reconcileExternalNoteChange('daily/2026-07-31.md');
@@ -126,11 +172,17 @@ describe('external Forge watcher reconciliation', () => {
     };
     useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
     const unregisterProbe = registerAutosavePendingProbe(() => tab.id);
+    invokeMock.mockResolvedValueOnce({
+      content: 'same body',
+      color: null,
+      contentHash: 'incoming-hash',
+    });
+    invokeMock.mockResolvedValueOnce(null);
 
     await reconcileExternalNoteChange('weekly/2026-W31.md');
 
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(true);
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledTimes(3);
     unregisterProbe();
   });
 });

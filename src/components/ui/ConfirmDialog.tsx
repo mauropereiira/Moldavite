@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   /** Styles the confirm button as destructive (red). */
   danger?: boolean;
+  busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,6 +23,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   danger = false,
+  busy = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -30,19 +32,19 @@ export function ConfirmDialog({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !busy) {
         e.stopPropagation();
         onCancel();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, [busy, onCancel]);
 
   return (
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
-      onClick={onCancel}
+      onClick={() => !busy && onCancel()}
     >
       <div
         ref={dialogRef}
@@ -64,12 +66,13 @@ export function ConfirmDialog({
           {message}
         </p>
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="btn focus-ring">
+          <button onClick={onCancel} className="btn focus-ring" disabled={busy}>
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             autoFocus
+            disabled={busy}
             className={danger ? 'btn btn-danger focus-ring' : 'btn btn-primary focus-ring'}
           >
             {confirmLabel}

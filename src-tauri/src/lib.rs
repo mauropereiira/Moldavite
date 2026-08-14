@@ -44,6 +44,9 @@ pub mod mcp;
 /// Filesystem watcher (notify) that emits `forge:changed` events.
 pub(crate) mod forge_watcher;
 
+/// Best-effort attribution for note writes made through MCP.
+pub(crate) mod agent_writes;
+
 // Refactored domain modules.
 pub(crate) mod backlinks_index;
 pub(crate) mod commands;
@@ -290,6 +293,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            agent_writes::take_agent_write,
             ensure_directories,
             get_app_binary_path,
             get_mcp_writes_enabled,

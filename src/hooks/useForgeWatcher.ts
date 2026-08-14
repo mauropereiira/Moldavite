@@ -8,15 +8,18 @@
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
+  type AgentWriteInfo,
   getLastPersistedMarkdown,
   htmlToMarkdown,
   isHtmlContent,
   listNotes,
   markdownToHtml,
+  readNoteSnapshot,
   readNoteWithMeta,
+  takeAgentWrite,
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
-import { useForgeStore, useNoteStore } from '@/stores';
+import { useForgeStore, useNoteStore, useToastStore } from '@/stores';
 import type { Note } from '@/types';
 
 /**
@@ -67,6 +70,11 @@ function matchingOpenTab(relPath: string, address: NoteAddress, tabs: Note[]): N
   return tabs.find((tab) => !tab.isDaily && !tab.isWeekly && tab.id === relPath);
 }
 
+function attributedClient(info: AgentWriteInfo | null): string | undefined {
+  const client = info?.client?.trim();
+  return client || undefined;
+}
+
 export async function reconcileExternalNoteChange(relPath: string): Promise<void> {
   const address = noteAddress(relPath);
   if (!address) return;
@@ -94,7 +102,16 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
     persistedNormalized === undefined ||
     htmlToMarkdown(tab.content) !== persistedNormalized;
   if (dirty) {
-    state.markExternallyChanged(tab.id);
+    let client: string | undefined;
+    try {
+      // This read must not advance the save baseline. Keep mine relies on the
+      // older hash to preserve this incoming disk version as a conflict copy.
+      const incoming = await readNoteSnapshot(address.filename, address.isDaily, address.isWeekly);
+      client = attributedClient(await takeAgentWrite(relPath, incoming.contentHash));
+    } catch {
+      // A disk read or marker failure still presents the generic safe choice.
+    }
+    state.markExternallyChanged(tab.id, client);
     return;
   }
 
@@ -102,6 +119,13 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
   const html = isHtmlContent(result.content) ? result.content : markdownToHtml(result.content);
   useNoteStore.getState().applyExternalContent(tab.id, html);
   resetAutosaveBaseline(tab.id, html);
+  const client = attributedClient(await takeAgentWrite(relPath, result.contentHash));
+  useToastStore
+    .getState()
+    .addToast(
+      'success',
+      client ? `${client} updated this note.` : 'This note was updated on disk.'
+    );
 }
 
 /**

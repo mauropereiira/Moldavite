@@ -1,4 +1,5 @@
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { DependencyList } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Editor as TiptapEditor } from '@tiptap/core';
@@ -97,7 +98,6 @@ vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
 vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => null }));
 vi.mock('./LinkModal', () => ({ LinkModal: () => null }));
 vi.mock('./ImageModal', () => ({ ImageModal: () => null }));
-vi.mock('./ExternalChangeBanner', () => ({ ExternalChangeBanner: () => null }));
 vi.mock('@/components/backlinks', () => ({ BacklinksPanel: () => null }));
 vi.mock('@/components/templates/EmptyNoteTemplatePicker', () => ({
   EmptyNoteTemplatePicker: () => null,
@@ -113,8 +113,11 @@ import {
   useSettingsStore,
   useTagStore,
   useThemeStore,
+  useToastStore,
 } from '@/stores';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import { registerAutosaveFlush } from '@/lib/autosaveFlush';
+import { notifyConflictCopy, readNoteWithMeta, writeNote } from '@/lib';
 
 const rangeGetClientRects = Object.getOwnPropertyDescriptor(
   window.Range.prototype,
@@ -207,13 +210,14 @@ beforeEach(() => {
     isLoading: false,
     isSaving: false,
     unlockedNotes: new Set(),
-    externallyChanged: new Set(),
+    externallyChanged: new Map(),
   });
   useSettingsStore.setState({ spellCheck: true, tagsEnabled: true });
   useThemeStore.setState({ theme: 'light', baseMode: 'light' });
   useNoteColorsStore.setState({ colors: {}, isLoading: false });
   useTagStore.setState({ allTags: new Map(), selectedTags: [], selectedTag: null });
   usePluginCommandStore.getState().clear();
+  useToastStore.setState({ toasts: [] });
 });
 
 describe('Editor content synchronization', () => {
@@ -311,5 +315,84 @@ describe('Editor content synchronization', () => {
       expect(editor.isFocused).toBe(false);
       expect(window.getSelection()?.rangeCount).toBe(0);
     });
+  });
+});
+
+describe('Editor external change decisions', () => {
+  it('names the attributed agent in the dirty-note prompt', () => {
+    const currentNote = note('notes/first.md', '<p>My unsaved edit</p>');
+    setOpenNotes(currentNote);
+    useNoteStore.setState({
+      externallyChanged: new Map([[currentNote.id, 'Claude Code']]),
+    });
+
+    render(<Editor />);
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Claude Code wants to change this note.');
+    expect(
+      screen.getByText("You have unsaved edits. Accepting replaces them with the agent's version.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep mine' })).toBeInTheDocument();
+  });
+
+  it('keeps the generic dirty-note wording when no marker matched', () => {
+    const currentNote = note('notes/first.md', '<p>My unsaved edit</p>');
+    setOpenNotes(currentNote);
+    useNoteStore.setState({
+      externallyChanged: new Map([[currentNote.id, null]]),
+    });
+
+    render(<Editor />);
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('This note changed on disk.');
+    expect(screen.getByRole('button', { name: 'Use disk version' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep my version' })).toBeInTheDocument();
+  });
+
+  it('keeps mine through the existing autosave path and surfaces its conflict copy', async () => {
+    const user = userEvent.setup();
+    safeInvoke.mockImplementation(async (command: string) => {
+      if (command === 'read_note') {
+        return { content: 'disk body', color: null, contentHash: 'disk-hash' };
+      }
+      if (command === 'write_note') {
+        return {
+          contentHash: 'mine-hash',
+          conflictCopy: 'first (conflict 2026-08-14 1200).md',
+        };
+      }
+      if (command === 'list_notes') return [];
+      return undefined;
+    });
+    await readNoteWithMeta('first.md', false, false);
+    const currentNote = note('notes/first.md', '<p>My unsaved edit</p>');
+    setOpenNotes(currentNote);
+    useNoteStore.setState({
+      externallyChanged: new Map([[currentNote.id, 'Claude Code']]),
+    });
+    const unregisterFlush = registerAutosaveFlush(async () => {
+      notifyConflictCopy(await writeNote('first.md', 'My unsaved edit', false, false));
+    });
+    render(<Editor />);
+
+    await user.click(screen.getByRole('button', { name: 'Keep mine' }));
+
+    await waitFor(() => {
+      expect(safeInvoke).toHaveBeenCalledWith('write_note', {
+        filename: 'first.md',
+        content: 'My unsaved edit',
+        isDaily: false,
+        isWeekly: false,
+        color: null,
+        baseHash: 'disk-hash',
+      });
+    });
+    expect(useNoteStore.getState().externallyChanged.has(currentNote.id)).toBe(false);
+    expect(useToastStore.getState().toasts[0]).toMatchObject({
+      type: 'warning',
+      message: expect.stringContaining('first (conflict 2026-08-14 1200).md'),
+    });
+    unregisterFlush();
   });
 });

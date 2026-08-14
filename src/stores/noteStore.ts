@@ -31,7 +31,7 @@ interface NoteState {
 
   // Security - tracks temporarily unlocked notes for auto-lock feature
   unlockedNotes: Set<string>;
-  externallyChanged: Set<string>;
+  externallyChanged: Map<string, string | null>;
 
   // Actions
   setNotes: (notes: NoteFile[]) => void;
@@ -48,7 +48,7 @@ interface NoteState {
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
-  markExternallyChanged: (noteId: string) => void;
+  markExternallyChanged: (noteId: string, client?: string) => void;
   clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
   removeTabByPath: (notePath: string) => void;
@@ -89,7 +89,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   selectedWeek: null,
   recentNoteIds: loadRecentNotes(),
   unlockedNotes: new Set<string>(),
-  externallyChanged: new Set<string>(),
+  externallyChanged: new Map<string, string | null>(),
 
   /**
    * Replaces the entire notes list.
@@ -241,7 +241,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (tabIndex < 0) return state;
 
       const newTabs = state.openTabs.filter((t) => t.id !== noteId);
-      const externallyChanged = new Set(state.externallyChanged);
+      const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
 
       let newActiveId: string | null = null;
@@ -312,7 +312,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
             }
           : tab
       );
-      const externallyChanged = new Set(state.externallyChanged);
+      const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
       return {
         openTabs,
@@ -324,17 +324,17 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
-  markExternallyChanged: (noteId) =>
+  markExternallyChanged: (noteId, client) =>
     set((state) => {
-      const externallyChanged = new Set(state.externallyChanged);
-      externallyChanged.add(noteId);
+      const externallyChanged = new Map(state.externallyChanged);
+      externallyChanged.set(noteId, client ?? null);
       return { externallyChanged };
     }),
 
   clearExternallyChanged: (noteId) =>
     set((state) => {
       if (!state.externallyChanged.has(noteId)) return state;
-      const externallyChanged = new Set(state.externallyChanged);
+      const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
       return { externallyChanged };
     }),
@@ -350,8 +350,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const unlockedNotes = new Set(
         [...state.unlockedNotes].map((id) => (id === oldPath ? newPath : id))
       );
-      const externallyChanged = new Set(
-        [...state.externallyChanged].map((id) => (id === oldPath ? newPath : id))
+      const externallyChanged = new Map(
+        [...state.externallyChanged].map(
+          ([id, client]) => [id === oldPath ? newPath : id, client] as const
+        )
       );
       const activeTabId = state.activeTabId === oldPath ? newPath : state.activeTabId;
       const currentNote = activeTabId

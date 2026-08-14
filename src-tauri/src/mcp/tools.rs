@@ -9,13 +9,13 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use chrono::{Local, NaiveDate};
 use serde_json::{json, Value};
 use walkdir::WalkDir;
 
-use crate::commands::notes::{save_note_with_conflict, sha256_hex};
+use crate::commands::notes::{save_note_with_conflict_using, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
 use crate::validation::{
@@ -32,6 +32,8 @@ pub(super) struct ToolContext {
     write_gate: Arc<dyn Fn() -> bool + Send + Sync>,
     semantic_root: PathBuf,
     semantic_ready: bool,
+    agent_write_spool: Option<PathBuf>,
+    client_name: Arc<RwLock<Option<String>>>,
 }
 
 impl ToolContext {
@@ -43,6 +45,8 @@ impl ToolContext {
             write_gate: Arc::new(move || writes_enabled),
             semantic_root,
             semantic_ready,
+            agent_write_spool: None,
+            client_name: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -62,6 +66,8 @@ impl ToolContext {
             }),
             semantic_root,
             semantic_ready,
+            agent_write_spool: crate::agent_writes::spool_dir(),
+            client_name: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -76,6 +82,8 @@ impl ToolContext {
             write_gate,
             semantic_root,
             semantic_ready: false,
+            agent_write_spool: None,
+            client_name: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -89,7 +97,29 @@ impl ToolContext {
             write_gate: Arc::new(move || writes_enabled),
             semantic_root: PathBuf::new(),
             semantic_ready: false,
+            agent_write_spool: None,
+            client_name: Arc::new(RwLock::new(None)),
         }
+    }
+
+    #[cfg(test)]
+    pub(super) fn with_agent_write_spool(mut self, spool: PathBuf) -> Self {
+        self.agent_write_spool = Some(spool);
+        self
+    }
+
+    pub(super) fn set_client_name(&self, client_name: Option<&str>) {
+        let client_name = client_name
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string);
+        if let Ok(mut stored) = self.client_name.write() {
+            *stored = client_name;
+        }
+    }
+
+    fn client_name(&self) -> Option<String> {
+        self.client_name.read().ok()?.clone()
     }
 
     fn writes_enabled(&self) -> bool {
@@ -278,7 +308,9 @@ impl ToolContext {
         if path.exists() {
             return Err("Note already exists; use write_note to replace it".to_string());
         }
-        write_atomic(&path, content.as_bytes(), Some(0o600))?;
+        self.write_agent_note(forge_root, &rel, content, || {
+            write_atomic(&path, content.as_bytes(), Some(0o600))
+        })?;
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "created": true }))
     }
@@ -312,7 +344,9 @@ impl ToolContext {
             existing.push('\n');
         }
         existing.push_str(content);
-        write_atomic(&path, existing.as_bytes(), Some(0o600))?;
+        self.write_agent_note(forge_root, &rel, &existing, || {
+            write_atomic(&path, existing.as_bytes(), Some(0o600))
+        })?;
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "created": created }))
     }
@@ -324,10 +358,44 @@ impl ToolContext {
         // Resolve through the permissive existing-note check: a note already on
         // disk may carry a name we would refuse to create today.
         let path = self.checked_existing_note(forge_root, &rel)?;
-        let conflict_copy = save_note_with_conflict(&path, base_hash, content, None)?
-            .map(|(conflict_name, _)| conflict_name);
+        let conflict_copy = save_note_with_conflict_using(
+            &path,
+            base_hash,
+            content,
+            None,
+            |path, serialized| {
+                self.write_agent_note(forge_root, &rel, serialized, || {
+                    write_atomic(path, serialized.as_bytes(), Some(0o600))
+                })
+            },
+        )?
+        .map(|(conflict_name, _)| conflict_name);
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "written": true, "conflictCopy": conflict_copy }))
+    }
+
+    fn write_agent_note<T, F>(
+        &self,
+        forge_root: &Path,
+        rel_path: &str,
+        raw_content: &str,
+        write: F,
+    ) -> Result<T, String>
+    where
+        F: FnOnce() -> Result<T, String>,
+    {
+        let Some(spool) = self.agent_write_spool.as_deref() else {
+            return write();
+        };
+        let client_name = self.client_name();
+        crate::agent_writes::write_with_marker_at(
+            spool,
+            forge_root,
+            rel_path,
+            raw_content,
+            client_name.as_deref(),
+            write,
+        )
     }
 
     fn checked_existing_note(&self, forge_root: &Path, rel: &str) -> Result<PathBuf, String> {

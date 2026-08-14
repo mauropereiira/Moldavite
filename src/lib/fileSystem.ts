@@ -570,6 +570,10 @@ export interface NoteReadResult {
   contentHash: string;
 }
 
+export interface AgentWriteInfo {
+  client: string | null;
+}
+
 /**
  * Result shape returned by `write_note`. `contentHash` is the hash of the
  * body just written (stored as the new conflict-detection base).
@@ -656,12 +660,40 @@ export async function readNoteWithMeta(
   isDaily: boolean,
   isWeekly: boolean = false
 ): Promise<NoteReadResult> {
-  const result = await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+  const result = await readNoteSnapshot(filename, isDaily, isWeekly);
   // Remember what we read so the next save can detect external edits.
   const key = noteHashKey(filename, isDaily, isWeekly);
   noteBaseHashes.set(key, result.contentHash);
   lastPersistedMarkdown.set(key, result.content);
   return result;
+}
+
+/**
+ * Read the current disk body without advancing the save-conflict baseline.
+ * Dirty-buffer reconciliation needs the incoming hash for attribution while
+ * retaining the older hash that lets Keep mine preserve the disk version.
+ */
+export async function readNoteSnapshot(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<NoteReadResult> {
+  return await invoke<NoteReadResult>('read_note', { filename, isDaily, isWeekly });
+}
+
+/**
+ * Consume one matching MCP attribution marker. Marker loss and every spool or
+ * IPC error are normal fallbacks to generic external-change wording.
+ */
+export async function takeAgentWrite(
+  relPath: string,
+  contentHash: string
+): Promise<AgentWriteInfo | null> {
+  try {
+    return await invoke<AgentWriteInfo | null>('take_agent_write', { relPath, contentHash });
+  } catch {
+    return null;
+  }
 }
 
 /**

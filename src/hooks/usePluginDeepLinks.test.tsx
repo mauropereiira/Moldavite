@@ -81,7 +81,7 @@ beforeEach(() => {
     currentNote: null,
     recentNoteIds: [],
     unlockedNotes: new Set(),
-    externallyChanged: new Set(),
+    externallyChanged: new Map(),
     isLoading: false,
     isSaving: false,
   });
