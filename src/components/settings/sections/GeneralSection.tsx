@@ -35,9 +35,8 @@ import {
   listNotes,
 } from '@/lib';
 import type { ImportResult } from '@/lib';
+import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { InfoTooltip, Toggle } from '../common';
-
-const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
 
 export function GeneralSection() {
   const settings = useSettingsStore();
@@ -377,7 +376,7 @@ export function GeneralSection() {
             }}
           >
             <ExternalLink aria-hidden="true" className="w-4 h-4" />
-            {isWindows ? 'Show in Explorer' : 'Open Forge in Finder'}
+            {CURRENT_PLATFORM === 'windows' ? 'Show in Explorer' : 'Open Forge in Finder'}
           </button>
           <button
             onClick={handleRescan}

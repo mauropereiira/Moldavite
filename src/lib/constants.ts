@@ -4,6 +4,8 @@
  * filesystem names remain authoritative where they overlap.
  */
 
+import { formatShortcut } from './shortcuts';
+
 // Application metadata
 export const APP_NAME = 'Moldavite';
 export const APP_VERSION = '1.0.0';
@@ -56,17 +58,17 @@ export const WIKI_LINK_TRIGGER_CHAR = '[';
 export const WIKI_LINK_PATTERN = /\[\[([^\]]+)\]\]/g;
 
 // Keyboard shortcuts
-export const SHORTCUT_SETTINGS = 'Cmd+,';
-export const SHORTCUT_NEW_NOTE = 'Cmd+N';
-export const SHORTCUT_THEME_TOGGLE = 'Cmd+Shift+L';
-export const SHORTCUT_TEMPLATE_PICKER = 'Cmd+T';
-export const SHORTCUT_BOLD = 'Cmd+B';
-export const SHORTCUT_ITALIC = 'Cmd+I';
-export const SHORTCUT_UNDERLINE = 'Cmd+U';
-export const SHORTCUT_LINK = 'Cmd+K';
-export const SHORTCUT_HIGHLIGHT = 'Cmd+Shift+H';
-export const SHORTCUT_UNDO = 'Cmd+Z';
-export const SHORTCUT_REDO = 'Cmd+Shift+Z';
+export const SHORTCUT_SETTINGS = formatShortcut('Cmd+,');
+export const SHORTCUT_NEW_NOTE = formatShortcut('Cmd+N');
+export const SHORTCUT_THEME_TOGGLE = formatShortcut('Cmd+Shift+L');
+export const SHORTCUT_TEMPLATE_PICKER = formatShortcut('Cmd+T');
+export const SHORTCUT_BOLD = formatShortcut('Cmd+B');
+export const SHORTCUT_ITALIC = formatShortcut('Cmd+I');
+export const SHORTCUT_UNDERLINE = formatShortcut('Cmd+U');
+export const SHORTCUT_LINK = formatShortcut('Cmd+K');
+export const SHORTCUT_HIGHLIGHT = formatShortcut('Cmd+Shift+H');
+export const SHORTCUT_UNDO = formatShortcut('Cmd+Z');
+export const SHORTCUT_REDO = formatShortcut('Cmd+Shift+Z');
 
 // Animation durations (milliseconds)
 export const ANIMATION_DURATION_FAST = 150;

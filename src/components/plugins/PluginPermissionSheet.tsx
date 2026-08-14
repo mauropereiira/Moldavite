@@ -7,6 +7,7 @@
 import { createPortal } from 'react-dom';
 import { ShieldAlert, X } from 'lucide-react';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
+import { formatShortcut } from '@/lib/shortcuts';
 
 export interface PluginPermissionSheetProps {
   manifest: {
@@ -205,13 +206,14 @@ export function PluginPermissionSheet({
                   ))}
                 </ul>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Run these from the command palette (⌘P) or by typing / in a note.
+                  Run these from the command palette ({formatShortcut('⌘P')}) or by typing / in a
+                  note.
                 </p>
               </>
             ) : (
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Enable this plugin to use its commands — they appear in the command palette (⌘P) and
-                the / slash menu.
+                Enable this plugin to use its commands — they appear in the command palette (
+                {formatShortcut('⌘P')}) and the / slash menu.
               </p>
             )}
           </div>

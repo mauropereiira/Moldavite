@@ -9,8 +9,9 @@
  * action. When adding a new shortcut, register it here FIRST, then wire the
  * `id` handler in `useKeyboardShortcuts.ts` (or wherever the listener lives).
  *
- * Key caps use the macOS glyphs (`⌘`, `⇧`, `⌥`, `⌃`). The hook matches on
- * `metaKey || ctrlKey` so shortcuts Just Work on Windows/Linux too.
+ * Registry keys use macOS glyphs as the canonical binding notation. Display
+ * labels pass through `formatShortcut`, which preserves that notation on macOS
+ * and renders conventional Ctrl/Alt/Shift labels on Windows and Linux.
  * Registry ids are stable coordination keys: help text and handler dispatch must
  * be updated together whenever an entry is added or removed.
  */
@@ -41,6 +42,51 @@ export interface Shortcut {
   keys: string[];
   description: string;
   category: ShortcutCategory;
+}
+
+export type AppPlatform = 'macos' | 'windows' | 'linux';
+
+const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+
+/** The desktop platform reported by the webview. */
+export const CURRENT_PLATFORM: AppPlatform = userAgent.includes('Windows')
+  ? 'windows'
+  : userAgent.includes('Mac')
+    ? 'macos'
+    : 'linux';
+
+const NON_MAC_MODIFIERS: Record<string, string> = {
+  Cmd: 'Ctrl',
+  '⌘': 'Ctrl',
+  '⌥': 'Alt',
+  '⌃': 'Ctrl',
+  '⇧': 'Shift',
+};
+
+/** Format canonical shortcut notation for the current desktop platform. */
+export function formatShortcut(
+  shortcut: string | readonly string[],
+  platform: AppPlatform = CURRENT_PLATFORM
+): string {
+  if (typeof shortcut === 'string' && platform === 'macos') return shortcut;
+
+  let keys: string[];
+  if (typeof shortcut !== 'string') {
+    keys = [...shortcut];
+  } else if (shortcut.includes('+')) {
+    keys = shortcut.split('+');
+  } else {
+    keys = [];
+    let remaining = shortcut;
+    while (remaining && NON_MAC_MODIFIERS[remaining[0]]) {
+      keys.push(remaining[0]);
+      remaining = remaining.slice(1);
+    }
+    if (remaining) keys.push(remaining);
+  }
+
+  if (platform === 'macos') return keys.join('');
+  return keys.map((key) => NON_MAC_MODIFIERS[key] ?? key).join('+');
 }
 
 export const SHORTCUTS: Shortcut[] = [

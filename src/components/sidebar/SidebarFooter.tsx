@@ -9,6 +9,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface SidebarFooterProps {
   onToday: () => void;
@@ -112,7 +113,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
           onMouseLeave={(e) => {
             if (!isGraphOpen) handleIconLeave(e);
           }}
-          title="Graph view (⌘⇧G)"
+          title={`Graph view (${formatShortcut('⌘⇧G')})`}
           aria-pressed={isGraphOpen}
           aria-label="Toggle graph view"
         >
@@ -126,7 +127,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
           style={iconBtnStyle}
           onMouseEnter={handleIconEnter}
           onMouseLeave={handleIconLeave}
-          title="Settings (⌘,)"
+          title={`Settings (${formatShortcut('⌘,')})`}
           aria-label={hasPendingUpdate ? 'Open settings (update available)' : 'Open settings'}
         >
           <span className="relative flex">

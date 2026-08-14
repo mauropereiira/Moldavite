@@ -8,6 +8,7 @@ import { Puzzle, X } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 import type { PluginManifest, PluginManifestCommand } from '@/lib/plugins/types';
+import { formatShortcut } from '@/lib/shortcuts';
 
 export interface PluginAboutDialogProps {
   manifest: PluginManifest;
@@ -192,7 +193,7 @@ export function PluginAboutDialog({
                   Enable the plugin and review its requested permissions.
                 </li>
                 <li className="text-sm pl-1" style={{ color: 'var(--text-secondary)' }}>
-                  Open the command palette with <code>Cmd+P</code>
+                  Open the command palette with <code>{formatShortcut('Cmd+P')}</code>
                   {commands.length > 0 ? ` and choose ${commands[0].label}.` : '.'}
                 </li>
               </ol>
