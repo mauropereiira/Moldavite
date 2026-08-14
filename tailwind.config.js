@@ -54,7 +54,15 @@ export default {
       fontFamily: {
         sans: ['DM Sans', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         serif: ['Instrument Serif', 'Georgia', 'serif'],
-        mono: ['Space Mono', 'Geist Mono', 'SF Mono', 'Menlo', 'monospace'],
+        mono: [
+          'Space Mono',
+          'Geist Mono',
+          'SF Mono',
+          'Menlo',
+          'Cascadia Mono',
+          'Consolas',
+          'monospace',
+        ],
       },
       borderRadius: {
         'te-sm': '2px',
