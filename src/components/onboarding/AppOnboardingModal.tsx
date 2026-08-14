@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Link2,
 } from 'lucide-react';
+import { formatShortcut } from '@/lib/shortcuts';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -234,12 +235,12 @@ export function AppOnboardingModal() {
       {
         icon: <Network className="w-5 h-5" aria-hidden="true" />,
         title: 'Graph view',
-        body: 'See how your notes connect (⌘⇧G).',
+        body: `See how your notes connect (${formatShortcut('⌘⇧G')}).`,
       },
       {
         icon: <Search className="w-5 h-5" aria-hidden="true" />,
         title: 'Quick switcher',
-        body: 'Jump to any note instantly (⌘P).',
+        body: `Jump to any note instantly (${formatShortcut('⌘P')}).`,
       },
     ],
     []

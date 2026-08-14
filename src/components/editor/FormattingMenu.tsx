@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
+import { formatShortcut } from '@/lib/shortcuts';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 
@@ -95,21 +96,21 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             icon={<Bold className="w-4 h-4" />}
           >
             Bold
-            <span className="ml-auto text-xs text-gray-400">⌘B</span>
+            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘B')}</span>
           </DropdownItem>
           <DropdownItem
             onClick={() => editor.chain().focus().toggleItalic().run()}
             icon={<Italic className="w-4 h-4" />}
           >
             Italic
-            <span className="ml-auto text-xs text-gray-400">⌘I</span>
+            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘I')}</span>
           </DropdownItem>
           <DropdownItem
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             icon={<UnderlineIcon className="w-4 h-4" />}
           >
             Underline
-            <span className="ml-auto text-xs text-gray-400">⌘U</span>
+            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘U')}</span>
           </DropdownItem>
           <DropdownItem
             onClick={() => editor.chain().focus().toggleStrike().run()}
@@ -204,7 +205,7 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
           <DropdownLabel>Insert</DropdownLabel>
           <DropdownItem onClick={handleLink} icon={<LinkIcon className="w-4 h-4" />}>
             Link
-            <span className="ml-auto text-xs text-gray-400">⌘K</span>
+            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘K')}</span>
           </DropdownItem>
           <DropdownItem onClick={handleImage} icon={<ImageIcon className="w-4 h-4" />}>
             Image

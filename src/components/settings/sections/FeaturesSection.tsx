@@ -3,6 +3,7 @@
  */
 
 import { useSettingsStore } from '@/stores';
+import { formatShortcut } from '@/lib/shortcuts';
 import { InfoTooltip, Toggle } from '../common';
 
 export function FeaturesSection() {
@@ -76,9 +77,11 @@ export function FeaturesSection() {
         <div className="flex items-center justify-between py-2">
           <div className="flex items-center gap-1">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Quick Switcher (⌘P)
+              Quick Switcher ({formatShortcut('⌘P')})
             </span>
-            <InfoTooltip text="Press ⌘P to open a search dialog. Type to fuzzy-search all notes and quickly jump to any note." />
+            <InfoTooltip
+              text={`Press ${formatShortcut('⌘P')} to open a search dialog. Type to fuzzy-search all notes and quickly jump to any note.`}
+            />
           </div>
           <Toggle
             enabled={settings.quickSwitcherEnabled}

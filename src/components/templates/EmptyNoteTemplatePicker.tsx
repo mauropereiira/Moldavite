@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
+import { formatShortcut } from '@/lib/shortcuts';
 import { TemplateCard } from './TemplateCard';
 
 interface EmptyNoteTemplatePickerProps {
@@ -62,7 +63,7 @@ export function EmptyNoteTemplatePicker({
       <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
         or press{' '}
         <kbd className="px-2 py-0.5 rounded-full text-xs font-medium bg-moldavite-200 dark:bg-moldavite-700 text-moldavite-700 dark:text-moldavite-200">
-          Cmd+T
+          {formatShortcut('Cmd+T')}
         </kbd>
       </p>
     </div>

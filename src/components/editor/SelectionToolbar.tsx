@@ -16,6 +16,7 @@ import {
   AlignCenter,
   AlignRight,
 } from 'lucide-react';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface SelectionToolbarProps {
   editor: Editor;
@@ -107,21 +108,21 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`toolbar-button ${editor.isActive('bold') ? 'toolbar-button-active' : ''}`}
-        title="Bold (⌘B)"
+        title={`Bold (${formatShortcut('⌘B')})`}
       >
         <Bold className="w-4 h-4" />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={`toolbar-button ${editor.isActive('italic') ? 'toolbar-button-active' : ''}`}
-        title="Italic (⌘I)"
+        title={`Italic (${formatShortcut('⌘I')})`}
       >
         <Italic className="w-4 h-4" />
       </button>
       <button
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         className={`toolbar-button ${editor.isActive('underline') ? 'toolbar-button-active' : ''}`}
-        title="Underline (⌘U)"
+        title={`Underline (${formatShortcut('⌘U')})`}
       >
         <UnderlineIcon className="w-4 h-4" />
       </button>
@@ -140,7 +141,7 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       <button
         onClick={onInsertLink}
         className={`toolbar-button ${editor.isActive('link') ? 'toolbar-button-active' : ''}`}
-        title="Link (⌘K)"
+        title={`Link (${formatShortcut('⌘K')})`}
       >
         <LinkIcon className="w-4 h-4" />
       </button>

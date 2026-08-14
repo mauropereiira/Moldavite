@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Editor } from '@tiptap/react';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface ToolbarProps {
   editor: Editor | null;
@@ -80,7 +81,7 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive('bold')}
-        title="Bold (⌘B)"
+        title={`Bold (${formatShortcut('⌘B')})`}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z" />
@@ -90,7 +91,7 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         isActive={editor.isActive('italic')}
-        title="Italic (⌘I)"
+        title={`Italic (${formatShortcut('⌘I')})`}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z" />
@@ -100,7 +101,7 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         isActive={editor.isActive('underline')}
-        title="Underline (⌘U)"
+        title={`Underline (${formatShortcut('⌘U')})`}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z" />
@@ -211,7 +212,11 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarDivider />
 
       {/* Links and media */}
-      <ToolbarButton onClick={addLink} isActive={editor.isActive('link')} title="Add Link (⌘K)">
+      <ToolbarButton
+        onClick={addLink}
+        isActive={editor.isActive('link')}
+        title={`Add Link (${formatShortcut('⌘K')})`}
+      >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
         </svg>
@@ -262,7 +267,7 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
-        title="Undo (⌘Z)"
+        title={`Undo (${formatShortcut('⌘Z')})`}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
@@ -272,7 +277,7 @@ export function Toolbar({ editor }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
-        title="Redo (⌘⇧Z)"
+        title={`Redo (${formatShortcut('⌘⇧Z')})`}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />

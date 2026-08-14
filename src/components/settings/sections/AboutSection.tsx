@@ -8,6 +8,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
 import { getReleaseNotes } from '@/lib/releaseNotes';
+import { formatShortcut } from '@/lib/shortcuts';
 import { ShortcutRow } from '../common';
 
 function SoftwareUpdatesSection() {
@@ -259,14 +260,14 @@ export function AboutSection() {
           Keyboard Shortcuts
         </h4>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <ShortcutRow keys={['⌘', ',']} description="Settings" />
-          <ShortcutRow keys={['⌘', 'T']} description="Template" />
-          <ShortcutRow keys={['⌘', 'B']} description="Bold" />
-          <ShortcutRow keys={['⌘', 'I']} description="Italic" />
-          <ShortcutRow keys={['⌘', 'U']} description="Underline" />
-          <ShortcutRow keys={['⌘', 'K']} description="Link" />
-          <ShortcutRow keys={['⌘', 'Z']} description="Undo" />
-          <ShortcutRow keys={['⌘', '⇧', 'Z']} description="Redo" />
+          <ShortcutRow keys={[formatShortcut('⌘,')]} description="Settings" />
+          <ShortcutRow keys={[formatShortcut('⌘T')]} description="Template" />
+          <ShortcutRow keys={[formatShortcut('⌘B')]} description="Bold" />
+          <ShortcutRow keys={[formatShortcut('⌘I')]} description="Italic" />
+          <ShortcutRow keys={[formatShortcut('⌘U')]} description="Underline" />
+          <ShortcutRow keys={[formatShortcut('⌘K')]} description="Link" />
+          <ShortcutRow keys={[formatShortcut('⌘Z')]} description="Undo" />
+          <ShortcutRow keys={[formatShortcut('⌘⇧Z')]} description="Redo" />
         </div>
       </div>
     </div>

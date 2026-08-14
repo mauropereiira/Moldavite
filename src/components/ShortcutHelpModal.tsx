@@ -5,6 +5,7 @@ import {
   SHORTCUTS,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  formatShortcut,
   type Shortcut,
   type ShortcutCategory,
 } from '@/lib/shortcuts';
@@ -122,30 +123,19 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
                       <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         {s.description}
                       </span>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {s.keys.map((k, idx) => (
-                          <span key={`${s.id}-${idx}`} className="flex items-center gap-1">
-                            <kbd
-                              className="px-2 py-0.5 text-xs font-mono font-medium"
-                              style={{
-                                backgroundColor: 'var(--bg-elevated)',
-                                border: '1px solid var(--border-default)',
-                                borderRadius: 'var(--radius-sm)',
-                                color: 'var(--text-primary)',
-                                minWidth: '1.5rem',
-                                textAlign: 'center',
-                              }}
-                            >
-                              {k}
-                            </kbd>
-                            {idx < s.keys.length - 1 && (
-                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                +
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
+                      <kbd
+                        className="px-2 py-0.5 text-xs font-mono font-medium flex-shrink-0"
+                        style={{
+                          backgroundColor: 'var(--bg-elevated)',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'var(--text-primary)',
+                          minWidth: '1.5rem',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {formatShortcut(s.keys)}
+                      </kbd>
                     </li>
                   ))}
                 </ul>
@@ -171,7 +161,7 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            Esc
+            {formatShortcut('Esc')}
           </kbd>{' '}
           to close
         </div>

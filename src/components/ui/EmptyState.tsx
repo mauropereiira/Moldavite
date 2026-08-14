@@ -1,5 +1,6 @@
 import React, { RefAttributes } from 'react';
 import { LucideIcon, LucideProps, Link2, Trash2, Share2 } from 'lucide-react';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface EmptyStateAction {
   label: string;
@@ -174,7 +175,7 @@ export function WelcomeEmptyState({
           variant: 'outline',
         },
       ]}
-      hint="Press ⌘N to create a note"
+      hint={`Press ${formatShortcut('⌘N')} to create a note`}
       iconColor="text-blue-400 dark:text-blue-500"
     />
   );
