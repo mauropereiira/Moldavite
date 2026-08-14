@@ -76,16 +76,6 @@ fn portable_derived_stem(stem: &str, suffix: &str) -> String {
     format!("{base}{suffix}")
 }
 
-fn validate_note_rename(old_filename: &str, new_filename: &str) -> Result<(), String> {
-    if !is_safe_existing_filename(old_filename) {
-        return Err("Invalid current filename".to_string());
-    }
-    if !is_safe_filename(new_filename) {
-        return Err("Invalid new filename".to_string());
-    }
-    Ok(())
-}
-
 /// The backlinks index is keyed by bare filename, so folder-relative refs
 /// must be reduced to their final component before touching the index.
 fn index_key(filename: &str) -> String {
@@ -827,6 +817,43 @@ pub(crate) fn export_single_note(
     Ok(destination)
 }
 
+fn note_ref_stem(filename: &str) -> &str {
+    let name = filename.rsplit('/').next().unwrap_or(filename);
+    name.strip_suffix(".md").unwrap_or(name)
+}
+
+fn rename_note_in(
+    dir: &Path,
+    old_filename: &str,
+    new_filename: &str,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<PathBuf, String> {
+    // The old name addresses something already on disk, so it uses the
+    // permissive rules; the new name is being created and must be portable.
+    if !is_valid_existing_note_ref(old_filename, is_daily, is_weekly)
+        || !is_valid_new_note_ref(dir, new_filename, is_daily, is_weekly)
+    {
+        return Err("Invalid filename".to_string());
+    }
+
+    let old_path = dir.join(old_filename);
+    let new_path = dir.join(new_filename);
+
+    if !old_path.exists() {
+        return Err("Note not found".to_string());
+    }
+    validate_path_within_base(&old_path, dir)?;
+    validate_path_within_base(&new_path, dir)?;
+
+    if new_path.exists() {
+        return Err("A note with this name already exists".to_string());
+    }
+
+    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+    Ok(new_path)
+}
+
 /// Rename a note and rewrite inbound wiki-link targets after the disk rename succeeds.
 #[tauri::command]
 pub(crate) fn rename_note(
@@ -836,7 +863,6 @@ pub(crate) fn rename_note(
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    validate_note_rename(&old_filename, &new_filename)?;
     let dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -845,26 +871,25 @@ pub(crate) fn rename_note(
         get_standalone_dir()
     };
 
-    let old_path = dir.join(&old_filename);
-    let new_path = dir.join(&new_filename);
-
-    if !old_path.exists() {
-        return Err("Note not found".to_string());
-    }
-
-    if new_path.exists() {
-        return Err("A note with this name already exists".to_string());
-    }
-
-    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+    let new_path = rename_note_in(
+        &dir,
+        &old_filename,
+        &new_filename,
+        is_daily,
+        is_weekly,
+    )?;
 
     let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
-    index.rename_note(&old_filename, &new_filename, &content_after_rename);
+    index.rename_note(
+        &index_key(&old_filename),
+        &index_key(&new_filename),
+        &content_after_rename,
+    );
 
     // A rename must not break inbound [[links]]: rewrite targets that
     // resolved to the old name in every other note.
-    let old_stem = old_filename.trim_end_matches(".md");
-    let new_stem = new_filename.trim_end_matches(".md");
+    let old_stem = note_ref_stem(&old_filename);
+    let new_stem = note_ref_stem(&new_filename);
     rewrite_inbound_links(old_stem, new_stem, &index);
 
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
@@ -1453,6 +1478,130 @@ mod tests {
     }
 
     #[test]
+    fn rename_note_inside_folder_keeps_its_folder_relative_path() {
+        let tmp = TempDir::new("rename-foldered");
+        let folder = tmp.path().join("Projects");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("old-name.md"), "body").unwrap();
+
+        let renamed = rename_note_in(
+            tmp.path(),
+            "Projects/old-name.md",
+            "Projects/new-name.md",
+            false,
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(renamed, folder.join("new-name.md"));
+        assert_eq!(fs::read_to_string(renamed).unwrap(), "body");
+        assert!(!folder.join("old-name.md").exists());
+    }
+
+    #[test]
+    fn rename_note_inside_folder_rewrites_inbound_wiki_links_by_name() {
+        let tmp = TempDir::new("rename-foldered-links");
+        let notes = tmp.path().join("notes");
+        let folder = notes.join("Projects");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("meeting-notes.md"), "# Meeting notes").unwrap();
+        fs::write(
+            notes.join("inbound.md"),
+            "See [[Meeting Notes]] and [[agenda|meeting-notes]].",
+        )
+        .unwrap();
+
+        rename_note_in(
+            &notes,
+            "Projects/meeting-notes.md",
+            "Projects/q3-planning.md",
+            false,
+            false,
+        )
+        .unwrap();
+        let index = Arc::new(BacklinksIndex::new());
+        rewrite_inbound_links_in_roots(
+            std::slice::from_ref(&notes),
+            note_ref_stem("Projects/meeting-notes.md"),
+            note_ref_stem("Projects/q3-planning.md"),
+            &index,
+            Some(&crate::wiki::note_name_to_filename),
+        );
+
+        assert_eq!(
+            fs::read_to_string(notes.join("inbound.md")).unwrap(),
+            "See [[q3-planning]] and [[agenda|q3-planning]]."
+        );
+    }
+
+    #[test]
+    fn rename_daily_note_rejects_a_separator() {
+        let tmp = TempDir::new("rename-daily-separator");
+        fs::write(tmp.path().join("2026-08-14.md"), "daily").unwrap();
+
+        let result = rename_note_in(
+            tmp.path(),
+            "2026-08-14.md",
+            "Archive/2026-08-15.md",
+            true,
+            false,
+        );
+
+        assert_eq!(result, Err("Invalid filename".to_string()));
+        assert!(tmp.path().join("2026-08-14.md").exists());
+    }
+
+    #[test]
+    fn rename_note_rejects_an_existing_destination() {
+        let tmp = TempDir::new("rename-existing");
+        fs::write(tmp.path().join("old.md"), "old").unwrap();
+        fs::write(tmp.path().join("existing.md"), "existing").unwrap();
+
+        let result = rename_note_in(
+            tmp.path(),
+            "old.md",
+            "existing.md",
+            false,
+            false,
+        );
+
+        assert_eq!(
+            result,
+            Err("A note with this name already exists".to_string())
+        );
+        assert_eq!(fs::read_to_string(tmp.path().join("old.md")).unwrap(), "old");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join("existing.md")).unwrap(),
+            "existing"
+        );
+    }
+
+    #[test]
+    fn rename_uses_existing_path_rules_only_for_the_old_name() {
+        let tmp = TempDir::new("rename-existing-path-rules");
+        fs::write(tmp.path().join("legacy..name.md"), "legacy").unwrap();
+
+        rename_note_in(
+            tmp.path(),
+            "legacy..name.md",
+            "current-name.md",
+            false,
+            false,
+        )
+        .unwrap();
+        let result = rename_note_in(
+            tmp.path(),
+            "current-name.md",
+            "new..name.md",
+            false,
+            false,
+        );
+
+        assert_eq!(result, Err("Invalid filename".to_string()));
+        assert!(tmp.path().join("current-name.md").exists());
+    }
+
+    #[test]
     fn create_note_rejects_absolute_inputs_and_accepts_valid_nested_folder() {
         let tmp = TempDir::new("create-validation");
         let notes = tmp.path().join("notes");
@@ -1578,12 +1727,8 @@ mod tests {
         for legacy in ["Q3: Roadmap.md", "Reports..md"] {
             assert!(is_valid_existing_note_ref(legacy, false, false));
             assert!(!is_valid_new_note_ref(Path::new("."), legacy, false, false));
-            assert_eq!(
-                validate_note_rename("current.md", legacy),
-                Err("Invalid new filename".to_string())
-            );
         }
-        assert!(validate_note_rename("Q3: Roadmap.md", "Roadmap.md").is_ok());
+        assert!(is_valid_existing_note_ref("Q3: Roadmap.md", false, false));
     }
 
     #[cfg(unix)]
