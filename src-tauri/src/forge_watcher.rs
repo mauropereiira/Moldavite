@@ -4,10 +4,11 @@
 //! note file is created, modified, or removed by an external process, and a
 //! `forges:changed` event when a direct child Forge is added, removed, or renamed.
 //!
-//! Writes performed by Moldavite itself are short-circuited via a recent-write
-//! ignore list so the UI doesn't double-refresh after its own saves.
-//! Ignore entries are short-lived hints, not durable state; paths are normalized
-//! relative to the watched Forge and hidden/internal files never emit events.
+//! Writes performed by Moldavite itself are short-circuited when the file body
+//! still matches the hash recorded after the write, so the UI doesn't
+//! double-refresh after its own saves. Entries are short-lived hints, not
+//! durable state; paths are normalized relative to the watched Forge and
+//! hidden/internal files never emit events.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,16 +20,24 @@ use notify_debouncer_mini::new_debouncer;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
+use crate::commands::notes::sha256_hex;
+use crate::frontmatter;
 use crate::paths::{get_forges_root, get_notes_dir};
 
-/// How long after a self-write to ignore an event for that path.
-const SELF_WRITE_IGNORE_MS: u64 = 500;
+/// Self-write entries only need to survive filesystem and debouncer latency.
+/// Content equality decides suppression; this ceiling only bounds retention.
+const SELF_WRITE_MAX_AGE: Duration = Duration::from_secs(30);
 
-/// Records writes Moldavite itself initiated, keyed by absolute path. Events
-/// for paths in this map (within `SELF_WRITE_IGNORE_MS`) are dropped.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RecentWrite {
+    recorded_at: Instant,
+    content_hash: String,
+}
+
+/// Records writes Moldavite itself initiated, keyed by absolute path.
 #[derive(Debug, Default)]
 pub struct RecentWrites {
-    inner: Mutex<HashMap<PathBuf, Instant>>,
+    inner: Mutex<HashMap<PathBuf, RecentWrite>>,
 }
 
 impl RecentWrites {
@@ -36,13 +45,19 @@ impl RecentWrites {
         Self::default()
     }
 
-    /// Record that we just wrote `path`. Subsequent watcher events within
-    /// the ignore window will be dropped.
-    pub fn record(&self, path: &Path) {
+    /// Record the logical body hash written to `path`. Watcher events are
+    /// suppressed only while the current on-disk body still has this hash.
+    pub fn record(&self, path: &Path, content_hash: &str) {
         if let Ok(mut map) = self.inner.lock() {
-            map.insert(path.to_path_buf(), Instant::now());
+            map.insert(
+                path.to_path_buf(),
+                RecentWrite {
+                    recorded_at: Instant::now(),
+                    content_hash: content_hash.to_string(),
+                },
+            );
             // Opportunistic GC.
-            map.retain(|_, t| t.elapsed() < Duration::from_secs(5));
+            map.retain(|_, write| write.recorded_at.elapsed() < SELF_WRITE_MAX_AGE);
         }
     }
 
@@ -55,14 +70,45 @@ impl RecentWrites {
         }
     }
 
-    /// Returns true if `path` was written by us very recently.
-    pub fn is_recent(&self, path: &Path) -> bool {
-        if let Ok(map) = self.inner.lock() {
-            if let Some(t) = map.get(path) {
-                return t.elapsed() < Duration::from_millis(SELF_WRITE_IGNORE_MS);
+    /// Returns true only when `path` still contains the body we wrote.
+    /// Read failures and mismatches evict the hint so external changes flow
+    /// through instead of being hidden behind stale self-write state.
+    pub fn matches_current_content(&self, path: &Path) -> bool {
+        let recorded = {
+            let Ok(mut map) = self.inner.lock() else {
+                return false;
+            };
+            let Some(recorded) = map.get(path).cloned() else {
+                return false;
+            };
+            if recorded.recorded_at.elapsed() >= SELF_WRITE_MAX_AGE {
+                map.remove(path);
+                return false;
+            }
+            recorded
+        };
+
+        let current_hash = match std::fs::read_to_string(path) {
+            Ok(raw) => sha256_hex(&frontmatter::parse_note(&raw).body),
+            Err(_) => {
+                self.evict_if_unchanged(path, &recorded);
+                return false;
+            }
+        };
+        if current_hash == recorded.content_hash {
+            true
+        } else {
+            self.evict_if_unchanged(path, &recorded);
+            false
+        }
+    }
+
+    fn evict_if_unchanged(&self, path: &Path, recorded: &RecentWrite) {
+        if let Ok(mut map) = self.inner.lock() {
+            if map.get(path) == Some(recorded) {
+                map.remove(path);
             }
         }
-        false
     }
 }
 
@@ -190,7 +236,10 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                             log::warn!("[forge watcher] Forge-list emit failed: {}", e);
                         }
                     } else if let Some(rel) = rel_path(&root_for_thread, &path) {
-                        if recent_for_thread.is_recent(&path) || !is_relevant(&rel) {
+                        if !is_relevant(&rel) {
+                            continue;
+                        }
+                        if recent_for_thread.matches_current_content(&path) {
                             continue;
                         }
                         let payload = ForgeChange {
@@ -237,7 +286,35 @@ impl Drop for WatcherHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::PathBuf;
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "moldavite-watcher-{tag}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     #[test]
     fn relevant_filters_dotfiles_and_trash() {
@@ -279,16 +356,60 @@ mod tests {
     }
 
     #[test]
-    fn recent_writes_within_window() {
-        let r = RecentWrites::new();
-        let p = PathBuf::from("/tmp/x.md");
-        r.record(&p);
-        assert!(r.is_recent(&p));
+    fn matching_self_write_is_suppressed() {
+        let tmp = TempDir::new("matching");
+        let path = tmp.path().join("note.md");
+        crate::persist::write_atomic(
+            &path,
+            b"---\ncolor: blue\n---\nwritten body",
+            Some(0o600),
+        )
+        .unwrap();
+        let recent = RecentWrites::new();
+        recent.record(&path, &sha256_hex("written body"));
+
+        assert!(recent.matches_current_content(&path));
     }
 
     #[test]
-    fn recent_writes_unknown_path_is_not_recent() {
-        let r = RecentWrites::new();
-        assert!(!r.is_recent(Path::new("/tmp/never.md")));
+    fn changed_content_is_delivered() {
+        let tmp = TempDir::new("changed");
+        let path = tmp.path().join("note.md");
+        crate::persist::write_atomic(&path, b"written body", Some(0o600)).unwrap();
+        let recent = RecentWrites::new();
+        recent.record(&path, &sha256_hex("written body"));
+        crate::persist::write_atomic(&path, b"external body", Some(0o600)).unwrap();
+
+        assert!(!recent.matches_current_content(&path));
+        assert!(!recent.inner.lock().unwrap().contains_key(&path));
+    }
+
+    #[test]
+    fn missing_file_is_delivered_and_evicted() {
+        let tmp = TempDir::new("missing");
+        let path = tmp.path().join("missing.md");
+        let recent = RecentWrites::new();
+        recent.record(&path, &sha256_hex("written body"));
+
+        assert!(!recent.matches_current_content(&path));
+        assert!(!recent.inner.lock().unwrap().contains_key(&path));
+    }
+
+    #[test]
+    fn expired_entry_is_delivered_and_evicted() {
+        let tmp = TempDir::new("expired");
+        let path = tmp.path().join("note.md");
+        crate::persist::write_atomic(&path, b"written body", Some(0o600)).unwrap();
+        let recent = RecentWrites::new();
+        recent.inner.lock().unwrap().insert(
+            path.clone(),
+            RecentWrite {
+                recorded_at: Instant::now() - SELF_WRITE_MAX_AGE - Duration::from_secs(1),
+                content_hash: sha256_hex("written body"),
+            },
+        );
+
+        assert!(!recent.matches_current_content(&path));
+        assert!(!recent.inner.lock().unwrap().contains_key(&path));
     }
 }
