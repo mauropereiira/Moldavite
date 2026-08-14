@@ -13,7 +13,11 @@ import { slugifyNoteName } from '@/lib/fileSystem';
 import { isContentEmpty } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
-import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
+import {
+  exitSuggestion,
+  type SuggestionProps,
+  type SuggestionKeyDownProps,
+} from '@tiptap/suggestion';
 import tippy, { Instance } from 'tippy.js';
 
 /**
@@ -43,6 +47,9 @@ import {
 } from './extensions';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
+import { tagSuggestionPluginKey } from './extensions/TagSuggestion';
+import { wikiLinkSuggestionPluginKey } from './extensions/WikiLinkSuggestion';
+import { slashCommandsPluginKey } from './extensions/SlashCommands';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ConfirmDialog } from '@/components/ui';
@@ -326,9 +333,9 @@ export function Editor() {
                 suggestion: {
                   char: '#',
                   allowSpaces: false,
-                  // See the WikiLinkSuggestion note: a note body ending in a
-                  // tag would otherwise pop this open the moment the note is
-                  // opened, with nothing to dismiss it.
+                  // Only start while the editor has focus. Once open, keep the
+                  // plugin active until Escape or onBlur explicitly exits it.
+                  // The list buttons preserve focus until their clicks insert.
                   allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
                     isActive === true || editor.isFocused,
                   items: ({ query }: { query: string }) => {
@@ -399,11 +406,6 @@ export function Editor() {
 
                       onKeyDown(props: SuggestionKeyDownProps) {
                         try {
-                          if (props.event.key === 'Escape') {
-                            popup?.[0]?.hide();
-                            return true;
-                          }
-
                           return (
                             (component?.ref as SuggestionListHandle | null)?.onKeyDown(
                               props.event
@@ -454,11 +456,9 @@ export function Editor() {
             // on a single '[' makes the query keep the second bracket
             // ("[Menta"), which can never match a note name.
             allowSpaces: true,
-            // Opening a note restores the selection at the end of the document.
-            // If the body ends in a tag or a link, that alone would activate the
-            // suggestion and leave a popup on screen the user never asked for.
-            // Only start while the editor has focus; `isActive` keeps an open
-            // popup alive so clicking one of its items still works.
+            // Only start while the editor has focus. Once open, keep the plugin
+            // active until Escape or onBlur explicitly exits it. The list buttons
+            // preserve focus until their clicks insert.
             allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
               isActive === true || editor.isFocused,
             items: ({ query }: { query: string }) => {
@@ -520,11 +520,6 @@ export function Editor() {
 
                 onKeyDown(props: SuggestionKeyDownProps) {
                   try {
-                    if (props.event.key === 'Escape') {
-                      popup?.[0]?.hide();
-                      return true;
-                    }
-
                     return (
                       (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) ||
                       false
@@ -582,6 +577,7 @@ export function Editor() {
             char: '/',
             allowSpaces: false,
             startOfLine: true,
+            // Match the tag and wiki-link lifecycle above.
             allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
               isActive === true || editor.isFocused,
             items: ({ query }: { query: string }) => {
@@ -647,11 +643,6 @@ export function Editor() {
 
                 onKeyDown(props: SuggestionKeyDownProps) {
                   try {
-                    if (props.event.key === 'Escape') {
-                      popup?.[0]?.hide();
-                      return true;
-                    }
-
                     return (
                       (component?.ref as SuggestionListHandle | null)?.onKeyDown(props.event) ||
                       false
@@ -709,6 +700,11 @@ export function Editor() {
         } catch (error) {
           console.error('[Editor] onUpdate error:', error);
         }
+      },
+      onBlur: ({ editor }) => {
+        exitSuggestion(editor.view, tagSuggestionPluginKey);
+        exitSuggestion(editor.view, wikiLinkSuggestionPluginKey);
+        exitSuggestion(editor.view, slashCommandsPluginKey);
       },
       onDestroy: () => {
         // Clean up any pending operations when editor is destroyed

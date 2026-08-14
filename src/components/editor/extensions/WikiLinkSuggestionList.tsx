@@ -81,6 +81,7 @@ export const WikiLinkSuggestionList = forwardRef<
         <button
           key={item.name}
           className={`wiki-link-suggestion-item ${index === selectedIndex ? 'selected' : ''}`}
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => selectItem(index)}
         >
           <div className="wiki-link-suggestion-icon">
