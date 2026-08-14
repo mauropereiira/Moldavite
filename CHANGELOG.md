@@ -11,6 +11,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Notes inside folders can be renamed.** Moldavite validated their folder-relative addresses as bare filenames, so every rename stopped at "Invalid filename" as soon as the note lived below `notes/`. Foldered notes now keep their relative path during the rename, and inbound `[[wiki links]]` follow the new note name.
 - **An external edit can no longer disappear just after Moldavite saves the same note.** The watcher used a fixed half-second silence period after each app write, so an editor, sync client, or agent writing during what remained of that period could have its real change mistaken for Moldavite's own echo. The watcher now suppresses an event only when the file body still matches the content Moldavite wrote.
 - **Forge folders now open in Windows Explorer.** The Settings button did nothing on Windows and used a Finder label. It now opens Explorer safely, uses the platform's label, and surfaces unsupported-platform errors.
 - **Forges can now live on safe Windows drives and network shares.** A macOS-only policy rejected secondary drives, mapped drives, and UNC shares while leaving system folders unprotected. Windows now accepts those locations, blocks its environment-defined Windows and Program Files directories, and removes `\\?\` from displayed paths.
