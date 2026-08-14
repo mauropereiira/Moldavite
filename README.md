@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/mauropereiira/Moldavite/releases/latest"><img src="https://img.shields.io/github/v/release/mauropereiira/Moldavite?style=flat-square&color=9dc183&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-10.15%2B-2d5a3d?style=flat-square&logo=apple&logoColor=white" alt="macOS 10.15+">
-  <img src="https://img.shields.io/badge/Windows-supported-2d5a3d?style=flat-square&logo=windows&logoColor=white" alt="Windows supported">
+  <img src="https://img.shields.io/badge/Windows-beta-8a6d1f?style=flat-square&logo=windows&logoColor=white" alt="Windows beta">
   <img src="https://img.shields.io/badge/license-MIT-c9a227?style=flat-square" alt="MIT">
 </p>
 
@@ -29,8 +29,8 @@
 
 ---
 
-Moldavite is a notes app for macOS and Windows. Your notes are plain Markdown
-files in a folder you own. There is no account and no sync service.
+Moldavite is a notes app for macOS, and for Windows in beta. Your notes are
+plain Markdown files in a folder you own. There is no account and no sync service.
 
 Open that folder in Finder or File Explorer, put it in git, edit it in another
 app, and Moldavite picks up the change. It also runs an MCP server, so Claude and
