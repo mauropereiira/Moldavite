@@ -11,6 +11,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Copied note URLs now open their note.** Note links were accepted by the clipboard but ignored when Moldavite received them. They now open root notes, foldered notes, daily notes, and weekly notes in the existing editor tab flow, while missing or locked notes produce a visible error.
 - **Tag, wiki-link, and slash-command suggestions no longer get stuck after the editor loses focus.** Once a suggestion menu had opened, clicking elsewhere or switching notes could leave it floating above the app, and Escape only hid it without closing its editor state. Suggestion menus now close completely on blur or Escape, while mouse selection keeps the editor focused until the chosen item is inserted.
 - **Inter and Merriweather now work as editor fonts.** Both typefaces were blocked and silently fell back to the default. They now ship with the app, so both work offline and neither fetches anything from a third party.
 - **Keyboard shortcut labels now match your operating system.** Moldavite keeps the familiar Command, Option, Control, and Shift notation on macOS, while Windows and Linux now show Ctrl, Alt, and Shift shortcuts joined with plus signs.

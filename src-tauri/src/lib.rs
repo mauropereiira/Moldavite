@@ -222,7 +222,7 @@ pub fn run() {
         })
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
-        .manage(deep_link::PendingPluginInstallLinks::default())
+        .manage(deep_link::PendingDeepLinks::default())
         .setup(move |app| {
             // Register before WebView hydration. Live URLs wake the frontend;
             // cold-start URLs remain queued until React drains them.
@@ -289,7 +289,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            deep_link::take_pending_plugin_install_links,
+            deep_link::take_pending_deep_links,
             ensure_directories,
             get_app_binary_path,
             get_mcp_writes_enabled,
