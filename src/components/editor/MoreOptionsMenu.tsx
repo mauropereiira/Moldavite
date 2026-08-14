@@ -26,6 +26,7 @@ import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
+import { noteDeepLink } from '@/hooks/usePluginDeepLinks';
 
 const RenameNoteModal = lazy(() =>
   import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal }))
@@ -60,15 +61,8 @@ export function MoreOptionsMenu({
   const handleCopyUrl = async () => {
     if (!currentNote) return;
 
-    const filename =
-      currentNote.isDaily && currentNote.date
-        ? `${currentNote.date}.md`
-        : `${currentNote.title}.md`;
-
-    const link = `moldavite://note/${encodeURIComponent(filename)}`;
-
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(noteDeepLink(currentNote));
       onShowToast?.('URL copied');
     } catch (error) {
       console.error('[MoreOptionsMenu] Failed to copy URL:', error);
