@@ -232,6 +232,33 @@ describe('Editor content synchronization', () => {
     });
   });
 
+  it('keeps your place when the editor is rebuilt under the same note', async () => {
+    const currentNote = note('notes/first.md', '<p>abcdefghi</p>');
+    const { editor, scrollContainer } = await renderEditor(currentNote);
+
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>abcdefghi</p>'));
+    editor.commands.setTextSelection({ from: 3, to: 7 });
+    scrollContainer.scrollTop = 140;
+
+    // Toggling a setting in the useEditor dep list swaps the editor instance.
+    // The note and its external revision are unchanged, so this is not a note
+    // switch and must not throw the reader back to the top.
+    act(() => {
+      useSettingsStore.setState({ tagsEnabled: false });
+    });
+
+    await waitFor(() => expect(tiptapHarness.editor).not.toBe(editor));
+    const rebuilt = tiptapHarness.editor as TiptapEditor;
+    await waitFor(() => expect(rebuilt.getHTML()).toBe('<p>abcdefghi</p>'));
+
+    // Scroll lives on a container outside the editor, so it survives the swap.
+    // The cursor does not: the effect reads selection from the new instance,
+    // and the old one is already gone by then. Scroll is the reported symptom.
+    const container = document.querySelector('.editor-paper');
+    if (!(container instanceof HTMLElement)) throw new Error('no scroll container');
+    expect(container.scrollTop).toBe(140);
+  });
+
   it('preserves scroll position and selection during an external reload', async () => {
     const currentNote = note('notes/first.md', '<p>abcdefghi</p>');
     const { editor, scrollContainer } = await renderEditor(currentNote);

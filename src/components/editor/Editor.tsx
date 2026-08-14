@@ -868,13 +868,17 @@ export function Editor() {
     }
 
     const previous = lastAppliedRef.current;
-    // Same editor instance, same note, only the external revision moved: an
-    // agent, sync tool, or another editor rewrote this file while it sat open.
-    const isExternalReload =
-      !!note &&
-      previous.editor === editor &&
-      previous.noteId === currentNoteId &&
-      previous.externalRev !== note.externalRev;
+    // The reader keeps their place unless they actually moved to a different
+    // note. Two things reach here without being a switch: an external reload,
+    // where an agent or sync tool rewrote the file while it sat open, and an
+    // editor rebuild, where TipTap is recreated because a setting in its
+    // dependency list changed. Both leave the reader on the same note, so
+    // neither should throw them back to the top.
+    const isSameNote = !!note && previous.noteId !== null && previous.noteId === currentNoteId;
+    // Selection can only be carried across an external reload. On a rebuild the
+    // instance below is a fresh one and the old editor's selection is already
+    // gone, so there is nothing to read back.
+    const isExternalReload = isSameNote && previous.editor === editor;
     lastAppliedRef.current = {
       editor,
       noteId: currentNoteId ?? null,
@@ -892,7 +896,7 @@ export function Editor() {
               // reading it, so hold their scroll position and cursor. A note
               // switch keeps the original behaviour: top of the note, no
               // selection carried over from the previous one.
-              const scrollTop = isExternalReload ? (scrollContainerRef.current?.scrollTop ?? 0) : 0;
+              const scrollTop = isSameNote ? (scrollContainerRef.current?.scrollTop ?? 0) : 0;
               const selection = isExternalReload
                 ? { from: editor.state.selection.from, to: editor.state.selection.to }
                 : null;
