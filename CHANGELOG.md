@@ -2,10 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [1.9.0] - 2026-08-14
 
 ### Added
 
+- **Windows is a supported platform.** It shipped as experimental in December 2025 and was never promoted, because nothing verified it: no job compiled Moldavite for Windows until a release had already been tagged. Every change now runs the full Rust test suite and a linter with warnings denied on Windows before it can merge, and the round of fixes below came out of turning that on. Installers are still unsigned, so Windows may warn you once when you run one.
 - **Pasted Markdown keeps its formatting.** Pasting recognizable raw Markdown into the editor now inserts formatted note content through Moldavite's existing conversion pipeline, while ordinary text, rich text, and image paste keep their existing behavior.
 - **Install with Homebrew.** `brew install --cask mauropereiira/moldavite/moldavite` fetches the signed, notarized DMG for your architecture and verifies its checksum. It also links the app binary onto your `PATH`, so connecting an AI tool is now `claude mcp add moldavite -- moldavite --mcp` instead of the full bundle path. The cask is marked as self-updating, so Homebrew stays out of the way of Moldavite's own updater.
 
