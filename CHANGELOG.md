@@ -2,6 +2,13 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.0.2] - 2026-08-15
+
+### Fixed
+
+- **The graph's heading was cut in half by the icon rail.** The graph opened as a full-window surface starting at the very left edge, underneath the rail, so its title rendered as ".ph" instead of "Graph". It now begins where the rail ends — and reclaims that space when the rail is switched off or hidden by focus mode. Leaving the rail uncovered also keeps it clickable, which is how you get out of the graph.
+- **The Windows installer showed a stock icon.** Downloading the setup `.exe` gave you a generic globe rather than Moldavite's mark. The installed app's icon was always correct; this is the installer's own.
+
 ## [2.0.1] - 2026-08-15
 
 ### Fixed

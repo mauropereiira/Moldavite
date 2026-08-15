@@ -752,8 +752,15 @@ export function GraphView() {
     // No `app-overlay` entrance here: its scale transform would be baked into
     // the canvas' backing-store size. The galaxy entrance is this surface's.
     <div
-      className="fixed inset-0 z-[9998] flex flex-col"
-      style={{ backgroundColor: 'var(--bg-base)' }}
+      className="fixed inset-y-0 right-0 z-[9998] flex flex-col"
+      style={{
+        backgroundColor: 'var(--bg-base)',
+        // Start clear of the icon rail rather than under it: the rail sits in
+        // normal flow at z-10000, so `inset-0` put this surface's first 48px
+        // behind it and the "Graph" heading rendered as ".ph". Leaving the
+        // rail exposed also keeps it usable, which is how you leave the graph.
+        left: 'var(--rail-width)',
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="graph-view-title"

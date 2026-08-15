@@ -173,6 +173,18 @@ describe('GraphView canvas', () => {
     vi.restoreAllMocks();
   });
 
+  // The icon rail sits in normal flow at z-10000, so a `fixed inset-0`
+  // surface is painted underneath it and loses its first 48px — which is how
+  // the heading shipped reading ".ph" in 2.0.0. The offset has to come from
+  // --rail-width rather than a hardcoded 48, or the graph leaves a dead strip
+  // when the rail is switched off or hidden by focus mode.
+  it('starts clear of the icon rail, and reclaims the space when it is gone', async () => {
+    const view = await openGraph();
+    const surface = view.container.querySelector('[aria-labelledby="graph-view-title"]');
+    expect(surface).not.toBeNull();
+    expect((surface as HTMLElement).style.left).toBe('var(--rail-width)');
+  });
+
   it('pans freely past the old visible-margin clamp', async () => {
     const view = await openGraph();
     settleAndFit(view);

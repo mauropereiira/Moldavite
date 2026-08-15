@@ -106,6 +106,14 @@ export function Layout() {
   const sidebarVisible = indexMode === 'pinned' && !isSidebarHidden;
   const rightPanelVisible = agendaMode === 'pinned' && !isRightPanelHidden;
 
+  // Publish the rail's presence so full-window surfaces outside this tree —
+  // the graph is mounted at the App root, not inside the content area — can
+  // start clear of it. See `--rail-width` in index.css.
+  useEffect(() => {
+    document.documentElement.classList.toggle('has-icon-rail', showIconRail);
+    return () => document.documentElement.classList.remove('has-icon-rail');
+  }, [showIconRail]);
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"

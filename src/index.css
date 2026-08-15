@@ -1837,6 +1837,24 @@ time,
   display: none;
 }
 
+/* How far a full-window surface must start from the left to clear the icon
+   rail. The rail sits in normal flow at z-10000, so anything using
+   `position: fixed; inset: 0` is painted underneath it and loses its first
+   48px — which is how the graph's title arrived reading ".ph".
+   Zero by default, so a surface that reads this is correct even when the
+   rail is switched off or hidden by focus mode. */
+:root {
+  --rail-width: 0px;
+}
+
+html.has-icon-rail {
+  --rail-width: 48px;
+}
+
+html.has-icon-rail.focus-mode {
+  --rail-width: 0px;
+}
+
 /* ===========================================
    COMPACT MODE
    =========================================== */
