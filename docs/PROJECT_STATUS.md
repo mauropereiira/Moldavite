@@ -55,7 +55,8 @@
 - `plugin://` scheme loader with path-traversal rejection; `withGlobalTauri` off; shell:open scoped to https
 - Per-plugin sandboxed Web Worker has no DOM, network globals, or Tauri IPC; curated postMessage RPC permissions are enforced host-side
 - Author guide: docs/PLUGINS.md
-- Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
+- Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support. WordPress.com Simple sites cannot use Application Passwords and are covered instead by the built-in publisher below, which is why the plugin's limitation is no longer the product's.
+- Built-in WordPress.com publishing (not a plugin): editor-footer button, authorization-code OAuth over the `moldavite://oauth/wordpress` custom scheme with a state check and a 10-minute window, token in the OS credential store, account-wide `global` scope because no narrower WordPress.com scope spans sites, site list filtered to `publish_posts`, and draft create/update keyed per `siteId:notePath`. The button is absent, not disabled, in a build without credentials.
 
 ## Test & Quality Status
 

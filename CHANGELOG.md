@@ -2,6 +2,16 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **Connecting WordPress.com now covers every site on your account, so the footer's site picker can actually switch between them.** The first release asked only for posts and media access, which reads as the careful choice and is not: WordPress.com answers that request with a token good for a *single* site, chosen on their consent screen. The picker then had one entry and nothing to pick, and moving a note to a different blog meant disconnecting and connecting again. Account-wide access is the only scope WordPress.com offers that spans sites. The trade is visible and worth stating plainly: the consent screen now lists nine permissions instead of two, including your profile, comments and categories. Moldavite still calls nothing but the posts and media endpoints — that breadth is WordPress.com's granularity, not a change in what the app does. If you connected before this release, disconnect and connect again to see all your sites.
+
+### Fixed
+
+- **A WordPress.com sign-in arriving while the app was still starting could crash it.** macOS launches Moldavite to deliver the callback, so on a cold start the callback can arrive before the app has finished setting up. Looking for the pending sign-in at that moment took the whole process down instead of finding nothing. There is no sign-in in progress on a cold start by definition, so the callback is now declined the same way any other unsolicited one is.
+
 ## [2.1.0] - 2026-08-15
 
 ### Added
