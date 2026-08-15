@@ -106,6 +106,53 @@ describe('WordPressMenu', () => {
     expect(publish.mock.calls[0][0]).toMatchObject({ existingPostId: 42 });
   });
 
+  // An Automattic account has a couple of hundred sites. Unfiltered, the menu
+  // was taller than the screen and the site you wanted was unreachable.
+  it('filters a long site list by name or URL, and keeps the menu open while typing', async () => {
+    status.mockResolvedValue({ available: true, connected: true, error: null });
+    sites.mockResolvedValue([
+      { id: 1, name: 'Team Prisma', url: 'https://prisma.example.com' },
+      { id: 2, name: 'Team Voltron', url: 'https://voltron.example.com' },
+      { id: 3, name: 'Woo Happiness', url: 'https://woo.example.com' },
+      { id: 4, name: 'VIP P2', url: 'https://vip.example.com' },
+      { id: 5, name: 'Trials', url: 'https://trials.example.com' },
+      { id: 6, name: 'Biz test', url: 'https://mauropereirabiztest.wpcomstaging.com' },
+    ]);
+
+    render(<WordPressMenu />);
+    await waitFor(() => expect(sites).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'WordPress' }));
+
+    const search = await screen.findByLabelText('Search sites');
+    await userEvent.type(search, 'voltron');
+
+    // Typing must not dismiss the menu — the whole point of the filter.
+    expect(screen.getByLabelText('Search sites')).toBeInTheDocument();
+    expect(screen.getByText('Team Voltron')).toBeInTheDocument();
+    expect(screen.queryByText('Team Prisma')).not.toBeInTheDocument();
+
+    // Sites are found by their host too: the name rarely matches the domain.
+    await userEvent.clear(search);
+    await userEvent.type(search, 'wpcomstaging');
+    expect(screen.getByText('Biz test')).toBeInTheDocument();
+    expect(screen.queryByText('Woo Happiness')).not.toBeInTheDocument();
+  });
+
+  it('offers no search box for a handful of sites', async () => {
+    status.mockResolvedValue({ available: true, connected: true, error: null });
+    sites.mockResolvedValue([
+      { id: 1, name: 'Main blog', url: 'https://a.com' },
+      { id: 2, name: 'Side blog', url: 'https://b.com' },
+    ]);
+
+    render(<WordPressMenu />);
+    await waitFor(() => expect(sites).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'WordPress' }));
+
+    expect(await screen.findByText('Main blog')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search sites')).not.toBeInTheDocument();
+  });
+
   // Signing out of one account must not leave its post ids behind to be
   // written over a different account's posts.
   it('forgets the site and post map on disconnect', async () => {

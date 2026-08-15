@@ -9,13 +9,19 @@
  * publishes to your chosen site and lets you change which one.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
+import { Dropdown, DropdownItem, DropdownDivider, DropdownSearch } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { htmlToMarkdown } from '@/lib';
 import { WORDPRESS_AUTH_EVENT, type WordPressAuthResult } from '@/lib/wordpress';
+
+/** Above this many sites, the list needs filtering more than it needs brevity. */
+const SEARCH_THRESHOLD = 5;
+
+/** Rows shown before the list scrolls. */
+const VISIBLE_SITES = 3;
 
 interface WordPressMenuProps {
   onShowToast?: (message: string) => void;
@@ -44,6 +50,8 @@ export function WordPressMenu({
     settleAuth,
   } = useWordPressStore();
 
+  const [query, setQuery] = useState('');
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -60,9 +68,28 @@ export function WordPressMenu({
     };
   }, [settleAuth, onShowToast, onShowError]);
 
+  // An Automattic account carries a couple of hundred sites, so the unfiltered
+  // list ran off the top and bottom of the screen and nothing could be reached
+  // without scrolling past it. Matching the URL as well as the name matters:
+  // plenty of sites read as "Team Something" but are found by their subdomain.
+  const needle = query.trim().toLowerCase();
+  const matches = useMemo(
+    () =>
+      needle
+        ? sites.filter(
+            (site) =>
+              site.name.toLowerCase().includes(needle) || site.url.toLowerCase().includes(needle)
+          )
+        : sites,
+    [sites, needle]
+  );
+
   if (!available) return null;
 
   const chosenSite = sites.find((site) => site.id === chosenSiteId) ?? null;
+  // Below this, the list is short enough to read at a glance and a search box
+  // is just another thing between you and the site you wanted.
+  const showSearch = sites.length > SEARCH_THRESHOLD;
 
   const handlePublish = async () => {
     if (!currentNote) return;
@@ -105,11 +132,33 @@ export function WordPressMenu({
           {sites.length > 1 && (
             <>
               <DropdownDivider />
-              {sites.map((site) => (
-                <DropdownItem key={site.id} onClick={() => chooseSite(site.id)}>
-                  {site.id === chosenSiteId ? `✓ ${site.name}` : site.name}
-                </DropdownItem>
-              ))}
+              {showSearch && (
+                <DropdownSearch
+                  value={query}
+                  onChange={setQuery}
+                  label="Search sites"
+                  placeholder={`Search ${sites.length} sites…`}
+                />
+              )}
+              {/* Roughly three rows, so the menu stays a menu instead of a
+                  column the height of the screen. The cut-off row at the
+                  bottom edge is deliberate: it is what tells you to scroll. */}
+              <div
+                className="overflow-y-auto"
+                style={{ maxHeight: `${VISIBLE_SITES * 34 + 12}px` }}
+              >
+                {matches.length === 0 ? (
+                  <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    No sites match “{query.trim()}”
+                  </div>
+                ) : (
+                  matches.map((site) => (
+                    <DropdownItem key={site.id} onClick={() => chooseSite(site.id)}>
+                      {site.id === chosenSiteId ? `✓ ${site.name}` : site.name}
+                    </DropdownItem>
+                  ))
+                )}
+              </div>
             </>
           )}
           <DropdownDivider />

@@ -86,6 +86,11 @@ export function Dropdown({
           }}
         >
           {React.Children.map(children, (child) => {
+            // A filter box is not a choice. Closing the menu when it is clicked
+            // would make it impossible to focus, let alone type in.
+            if (React.isValidElement(child) && child.type === DropdownSearch) {
+              return child;
+            }
             if (React.isValidElement(child)) {
               return React.cloneElement(child as React.ReactElement<{ onClick?: () => void }>, {
                 onClick: () => {
@@ -142,6 +147,46 @@ export function DropdownItem({
       {icon && <span className="w-4 h-4 flex-shrink-0">{icon}</span>}
       {children}
     </button>
+  );
+}
+
+/**
+ * A filter box that lives inside a menu without dismissing it.
+ *
+ * `Dropdown` closes on any child's click so that picking an item works without
+ * every caller wiring it up. That is wrong for a text field: the first click to
+ * focus it would shut the menu. `Dropdown` skips the close handler for this
+ * component specifically, which is why it has to be its own type rather than a
+ * plain `<input>` passed as a child.
+ */
+export function DropdownSearch({
+  value,
+  onChange,
+  placeholder,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  label: string;
+}) {
+  return (
+    <div className="px-2 pb-1" onClick={(event) => event.stopPropagation()}>
+      <input
+        type="text"
+        value={value}
+        aria-label={label}
+        placeholder={placeholder}
+        autoFocus
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full px-2 py-1 text-sm focus-ring"
+        style={{
+          background: 'var(--bg-base)',
+          border: '1px solid var(--border-muted)',
+          color: 'var(--text-primary)',
+        }}
+      />
+    </div>
   );
 }
 
