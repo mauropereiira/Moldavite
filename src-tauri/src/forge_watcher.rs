@@ -403,12 +403,8 @@ mod tests {
     fn matching_self_write_is_suppressed() {
         let tmp = TempDir::new("matching");
         let path = tmp.path().join("note.md");
-        crate::persist::write_atomic(
-            &path,
-            b"---\ncolor: blue\n---\nwritten body",
-            Some(0o600),
-        )
-        .unwrap();
+        crate::persist::write_atomic(&path, b"---\ncolor: blue\n---\nwritten body", Some(0o600))
+            .unwrap();
         let recent = RecentWrites::new();
         recent.record(&path, &sha256_hex("written body"));
 
