@@ -61,7 +61,10 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
   return (
     <>
       <Dropdown
-        position="center"
+        // Right-aligned like every other footer menu. Centred, this one hung
+        // half its width past the trigger, and the trigger sits near the right
+        // edge of the window — so the shortcut column ran off-screen unread.
+        position="right"
         openDirection={openDirection}
         trigger={
           <button className="toolbar-button" title="Formatting" aria-label="Formatting">
