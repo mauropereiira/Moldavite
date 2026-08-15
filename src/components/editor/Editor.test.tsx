@@ -67,18 +67,28 @@ vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: (path: string) => convertFileSrc(path),
 }));
 
+// Stable across renders so a test can assert what the shortcut handlers do,
+// not merely that they exist.
+const shortcutSpies = vi.hoisted(() => ({
+  createNote: vi.fn(),
+  options: { current: null as null | Record<string, unknown> },
+}));
+
 vi.mock('@/hooks', () => ({
   useAutoSave: vi.fn(),
-  useKeyboardShortcuts: () => ({
-    showTemplatePicker: false,
-    handleTemplateSelect: vi.fn(),
-    handleTemplatePickerClose: vi.fn(),
-    openTemplatePicker: vi.fn(),
-  }),
+  useKeyboardShortcuts: (options: Record<string, unknown>) => {
+    shortcutSpies.options.current = options;
+    return {
+      showTemplatePicker: false,
+      handleTemplateSelect: vi.fn(),
+      handleTemplatePickerClose: vi.fn(),
+      openTemplatePicker: vi.fn(),
+    };
+  },
   useNotes: () => ({
     deleteCurrentNote: vi.fn(),
     loadDailyNote: vi.fn(),
-    createNote: vi.fn(),
+    createNote: shortcutSpies.createNote,
     loadNote: vi.fn(),
     renameNote: vi.fn(),
   }),
@@ -250,6 +260,22 @@ describe('Editor layout settings', () => {
     expect(screen.queryByTestId('note-header')).not.toBeInTheDocument();
     expect(screen.queryByTestId('backlinks-panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('editor-footer')).not.toBeInTheDocument();
+  });
+
+  // ⌘N was wired to `() => { /* Will be handled by parent */ }`. No parent ever
+  // did, and the hook calls it as `onNewNote?.()`, so the keypress was consumed
+  // and silently discarded — while the welcome screen advertised ⌘N under the
+  // wordmark. Asserting the handler exists would have passed against the bug;
+  // this asserts it actually creates a note.
+  it('wires ⌘N to note creation rather than an empty stub', async () => {
+    shortcutSpies.createNote.mockClear();
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+
+    const onNewNote = shortcutSpies.options.current?.onNewNote as (() => void) | undefined;
+    expect(onNewNote).toBeTypeOf('function');
+
+    onNewNote?.();
+    expect(shortcutSpies.createNote).toHaveBeenCalled();
   });
 
   it('shows the tab bar only when more than one tab needs managing', async () => {
