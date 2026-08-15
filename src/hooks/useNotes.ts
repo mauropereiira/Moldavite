@@ -18,6 +18,7 @@ import {
   useTaskStatusStore,
   useToastStore,
 } from '@/stores';
+import { useWordPressStore } from '@/stores/wordpressStore';
 import {
   ensureDirectories,
   listNotes,
@@ -553,6 +554,7 @@ export function useNotes() {
         useNoteColorsStore.getState().renameColor(oldPath, newPath);
         useNoteSelectionStore.getState().rename(oldPath, newPath);
         useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+        useWordPressStore.getState().notePathChanged(oldPath, newPath);
         useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

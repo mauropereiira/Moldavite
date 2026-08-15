@@ -15,7 +15,21 @@ import { Dropdown, DropdownItem, DropdownDivider, DropdownSearch } from '@/compo
 import { useNoteStore } from '@/stores';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { htmlToMarkdown } from '@/lib';
-import { WORDPRESS_AUTH_EVENT, type WordPressAuthResult } from '@/lib/wordpress';
+import {
+  WORDPRESS_AUTH_EVENT,
+  type WordPressAuthResult,
+  type WordPressSite,
+} from '@/lib/wordpress';
+
+/**
+ * Names are not identity. "Site Title" is the WordPress.com default and shows
+ * up repeatedly across a large account, so two rows could read identically and
+ * publish to different blogs. The host is what actually tells them apart.
+ */
+const siteLabel = (site: WordPressSite) => {
+  const host = site.url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  return site.name && site.name !== host ? `${site.name} · ${host}` : host;
+};
 
 /** Above this many sites, the list needs filtering more than it needs brevity. */
 const SEARCH_THRESHOLD = 5;
@@ -126,8 +140,14 @@ export function WordPressMenu({
 
       {connected && (
         <>
-          <DropdownItem onClick={() => void handlePublish()} disabled={!currentNote || !chosenSite}>
-            {chosenSite ? `Publish to ${chosenSite.name}` : 'Choose a site first'}
+          <DropdownItem
+            onClick={() => void handlePublish()}
+            // Without `publishing`, reopening the menu mid-publish and clicking
+            // again sends a second create — neither call has a post id yet, so
+            // you get two drafts and only the later one stays mapped.
+            disabled={!currentNote || !chosenSite || publishing}
+          >
+            {chosenSite ? `Publish to ${siteLabel(chosenSite)}` : 'Choose a site first'}
           </DropdownItem>
           {sites.length > 1 && (
             <>
@@ -154,7 +174,7 @@ export function WordPressMenu({
                 ) : (
                   matches.map((site) => (
                     <DropdownItem key={site.id} onClick={() => chooseSite(site.id)}>
-                      {site.id === chosenSiteId ? `✓ ${site.name}` : site.name}
+                      {site.id === chosenSiteId ? `✓ ${siteLabel(site)}` : siteLabel(site)}
                     </DropdownItem>
                   ))
                 )}

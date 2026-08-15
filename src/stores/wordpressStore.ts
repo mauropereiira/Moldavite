@@ -42,9 +42,25 @@ interface WordPressState {
   settleAuth: (result: { connected: boolean; error: string | null }) => void;
 
   postsByNote: Record<string, number>;
+  /**
+   * Follow a note to its new path so its published post follows too.
+   *
+   * The key contains the note's path, which is mutable. Without this, renaming
+   * a published note stranded its mapping — and worse, a *new* note later
+   * taking the old path inherited it, so publishing that new note would
+   * overwrite the old note's post. `publish` deliberately preserves a live
+   * post's status, so that could rewrite something already public.
+   */
+  notePathChanged: (oldPath: string, newPath: string) => void;
 }
 
 const postKey = (siteId: number, notePath: string) => `${siteId}:${notePath}`;
+
+/** Split a `${siteId}:${notePath}` key. Note paths may contain `:`. */
+const splitPostKey = (key: string): { siteId: string; notePath: string } => {
+  const colon = key.indexOf(':');
+  return { siteId: key.slice(0, colon), notePath: key.slice(colon + 1) };
+};
 
 export const useWordPressStore = create<WordPressState>()(
   persist(
@@ -123,6 +139,22 @@ export const useWordPressStore = create<WordPressState>()(
       },
 
       chooseSite: (siteId) => set({ chosenSiteId: siteId }),
+
+      notePathChanged: (oldPath, newPath) =>
+        set((state) => {
+          const moved: Record<string, number> = {};
+          let changed = false;
+          for (const [key, postId] of Object.entries(state.postsByNote)) {
+            const { siteId, notePath } = splitPostKey(key);
+            if (notePath === oldPath) {
+              moved[`${siteId}:${newPath}`] = postId;
+              changed = true;
+            } else {
+              moved[key] = postId;
+            }
+          }
+          return changed ? { postsByNote: moved } : state;
+        }),
 
       publish: async (note) => {
         const siteId = get().chosenSiteId;
