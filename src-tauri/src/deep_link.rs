@@ -101,6 +101,17 @@ where
     let state = app.state::<PendingDeepLinks>();
     for url in urls {
         let url = url.as_ref();
+
+        // The WordPress.com callback is handled entirely in Rust and is never
+        // queued: it carries an authorization code, and nothing that can be
+        // exchanged for an account token belongs in the webview. It is also
+        // checked against the state this process generated, because any local
+        // process can ask the OS to open a `moldavite://` URL.
+        if crate::wordpress::oauth::parse_callback(url).is_some() {
+            crate::wordpress::handle_callback(app, url.to_owned());
+            continue;
+        }
+
         let Some(request) = request_from_url(url) else {
             log::info!("[deep-link] ignored unsupported URL: {url}");
             continue;

@@ -47,6 +47,9 @@ pub(crate) mod forge_watcher;
 /// Best-effort attribution for note writes made through MCP.
 pub(crate) mod agent_writes;
 
+/// Publish a note to WordPress.com over an account the user signs in to.
+pub(crate) mod wordpress;
+
 // Refactored domain modules.
 pub(crate) mod backlinks_index;
 pub(crate) mod commands;
@@ -106,6 +109,9 @@ use commands::templates::{
 use commands::trash::{
     cleanup_old_trash, empty_trash, list_trash, permanently_delete_trash, read_trashed_note,
     restore_note, restore_note_from_folder, trash_folder, trash_note,
+};
+use wordpress::{
+    wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
 };
 
 // Calendar Commands
@@ -281,6 +287,7 @@ pub fn run() {
                 Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
             }
             app.manage(watcher_slot);
+            wordpress::init(app.handle());
             // If the user already enabled semantic search, load/reconcile the
             // index in the background (the model was downloaded during the
             // original explicit enable; this only re-downloads if the cache
@@ -292,6 +299,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            wordpress_status,
+            wordpress_connect,
+            wordpress_disconnect,
+            wordpress_sites,
+            wordpress_publish,
             agent_writes::take_agent_write,
             ensure_directories,
             get_app_binary_path,
