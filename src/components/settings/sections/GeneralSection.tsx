@@ -26,7 +26,8 @@ import type { AutoLockTimeout } from '@/stores';
 import {
   clearAllNotes,
   getNotesDirectory,
-  setNotesDirectory,
+  getForgesRoot,
+  setForgesRoot,
   exportNotes,
   importNotes,
   exportEncryptedBackup,
@@ -59,6 +60,7 @@ export function GeneralSection() {
   const [confirmText, setConfirmText] = useState('');
   const [isClearing, setIsClearing] = useState(false);
   const [notesDirectory, setNotesDirectoryState] = useState('');
+  const [forgesRoot, setForgesRootState] = useState('');
   const [isChangingDir, setIsChangingDir] = useState(false);
   const [isRescanning, setIsRescanning] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -79,9 +81,11 @@ export function GeneralSection() {
   const [pendingEncryptedImportPath, setPendingEncryptedImportPath] = useState<string | null>(null);
   const [encryptedImportMerge, setEncryptedImportMerge] = useState(true);
 
-  // Fetch current notes directory on mount
+  // Both paths on mount: the active Forge answers "where are my notes right
+  // now", the root is what the Change button actually repoints.
   useEffect(() => {
     getNotesDirectory().then(setNotesDirectoryState).catch(console.error);
+    getForgesRoot().then(setForgesRootState).catch(console.error);
   }, []);
 
   // Clear status message after 3 seconds
@@ -116,23 +120,34 @@ export function GeneralSection() {
     }
   };
 
+  /**
+   * Repoint Moldavite at a different Forges root. It does not move files, and
+   * the copy beside it says so.
+   *
+   * This used to call `set_notes_directory`, which promised to move the Forge
+   * and instead destroyed part of it: it copied only the immediate files of
+   * `daily/`, `notes/` and `templates/` — skipping `weekly/`, `images/`,
+   * `.trash/`, `.plugins/` and every nested folder — then deleted the
+   * originals, and wrote a config field that `get_notes_dir` no longer reads.
+   * The app reopened the same Forge with those notes gone, under a toast
+   * reading "Forge moved successfully!".
+   */
   const handleChangeDirectory = async () => {
     try {
       setIsChangingDir(true);
       const selected = await open({
         directory: true,
-        title: 'Select Forge Directory',
+        title: 'Select Forges Folder',
       });
 
       if (selected && typeof selected === 'string') {
-        await setNotesDirectory(selected);
-        setNotesDirectoryState(selected);
-        setStatusMessage({ type: 'success', text: 'Forge moved successfully!' });
-        // Refresh notes list
+        const resolved = await setForgesRoot(selected);
+        setForgesRootState(resolved);
+        setStatusMessage({ type: 'success', text: `Now looking for Forges in ${resolved}` });
         window.location.reload();
       }
     } catch (error) {
-      console.error('[Settings] Failed to change Forge directory:', error);
+      console.error('[Settings] Failed to change Forges folder:', error);
       setStatusMessage({ type: 'error', text: String(error) });
     } finally {
       setIsChangingDir(false);
@@ -343,12 +358,12 @@ export function GeneralSection() {
 
         <div>
           <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-            Forge location
+            Forges folder
           </label>
           <div className="flex items-center gap-2">
             <input
               type="text"
-              value={notesDirectory}
+              value={forgesRoot}
               readOnly
               className="flex-1 px-3 py-2 text-sm"
               style={{
@@ -370,12 +385,19 @@ export function GeneralSection() {
               }}
             >
               <FolderOpen aria-hidden="true" className="w-4 h-4" />
-              {isChangingDir ? 'Moving...' : 'Change'}
+              {isChangingDir ? 'Switching...' : 'Change'}
             </button>
           </div>
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Plain .md files. Sync, back up, or open in any other tool. Existing notes will be moved
-            if you change this.
+            Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
+            <span className="font-mono break-all" style={{ color: 'var(--text-tertiary)' }}>
+              {notesDirectory}
+            </span>
+            .
+          </p>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+            Changing this points Moldavite at a different folder — it does not move your files. To
+            relocate a Forge, quit Moldavite, move the folder yourself, then point it here.
           </p>
         </div>
 

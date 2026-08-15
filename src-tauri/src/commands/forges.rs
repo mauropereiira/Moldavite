@@ -258,6 +258,16 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
 #[derive(Clone, Copy)]
 pub(crate) enum StorageLocationKind {
     ForgesRoot,
+    /// Validation rules for a single Forge directory rather than the root that
+    /// holds them all — chiefly, refusing to sit a Forge inside a system or
+    /// cloud-managed location.
+    ///
+    /// Nothing in the app constructs this today: its only caller was
+    /// `set_notes_directory`, removed in 2.0 for fragmenting Forges. The rules
+    /// and their tests are kept because they are the specification any future
+    /// Forge-mover has to satisfy, and rewriting them from memory later is how
+    /// a guard comes back weaker than it went out.
+    #[allow(dead_code)]
     NotesDirectory,
 }
 

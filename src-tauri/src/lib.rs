@@ -82,7 +82,7 @@ use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlo
 use commands::mcp_settings::{get_app_binary_path, get_mcp_writes_enabled, set_mcp_writes_enabled};
 use commands::misc::{
     ensure_directories, get_all_note_colors, get_note_color, get_notes_directory,
-    open_forge_in_finder, rescan_forge, save_image, set_note_color, set_notes_directory,
+    open_forge_in_finder, rescan_forge, save_image, set_note_color,
     write_binary_file,
 };
 use commands::notes::{
@@ -366,7 +366,6 @@ pub fn run() {
             get_note_graph,
             // Directory management commands
             get_notes_directory,
-            set_notes_directory,
             rescan_forge,
             open_forge_in_finder,
             // Forge-root whitelisted files (AGENTS.md, .gitignore)
