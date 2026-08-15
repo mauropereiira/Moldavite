@@ -33,13 +33,7 @@
       content="Moldavite is a private, local-first Markdown notes app for macOS and Windows with local search, a built-in MCP server, and sandboxed plugins."
     />
     <link rel="icon" href="favicon.png" />
-    <link
-      rel="preload"
-      href="fonts/Geist-Variable.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link
       rel="preload"
       href="fonts/GeistMono-Variable.woff2"
@@ -50,8 +44,22 @@
     <link rel="stylesheet" href="styles.css" />
     <script>
       document.documentElement.classList.add('has-js');
+      // Restore a saved dark choice before the first paint. site.js does this
+      // too, but it is deferred, so a returning dark-mode visitor would get a
+      // frame of cream first. Inline and render-blocking on purpose: it is two
+      // lines, against a flash on every single load.
+      // Cream stays the default — this reads an explicit choice and nothing
+      // else. There is deliberately no prefers-color-scheme anywhere.
+      try {
+        if (localStorage.getItem('moldavite-site-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        /* localStorage throws in some privacy modes; cream is a fine fallback */
+      }
     </script>
     <script src="site.js" defer></script>
+    <script src="demo.js" defer></script>
   </head>
   <body class="home-page">
     <a class="skip-link" href="#main">Skip to content</a>
@@ -84,6 +92,9 @@
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark">
+            <span class="theme-toggle-mark" aria-hidden="true"></span>
+          </button>
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
             >Download</a
           >
@@ -93,6 +104,7 @@
 
     <main id="main" tabindex="-1">
       <section class="hero" aria-labelledby="hero-title">
+        <canvas class="sky" data-sky aria-hidden="true"></canvas>
         <div class="container-wide hero-inner reveal">
           <h1 id="hero-title" class="hero-wordmark" aria-label="Moldavite">
             <svg viewBox="0 0 4129.2 822.5" aria-hidden="true" focusable="false">
@@ -133,43 +145,90 @@
         </div>
       </section>
 
-      <section class="product-preview" aria-label="Moldavite product preview">
+      <section class="landing-section demo-section" id="demo" aria-labelledby="demo-title">
         <div class="container-wide">
-          <figure class="hero-demo reveal">
-            <div class="hero-demo-screen">
-              <img
-                class="hero-demo-animated"
-                src="screenshots/demo.gif"
-                alt="Moldavite opening notes with the quick switcher and moving into graph view"
-                width="900"
-                height="576"
-                decoding="async"
-                fetchpriority="high"
+          <div class="section-heading reveal">
+            <p class="section-kicker">Try it here</p>
+            <h2 class="section-title" id="demo-title">Write a note. Keep the file.</h2>
+            <p class="section-sub">
+              This editor runs in your browser. Nothing is uploaded and nothing is saved anywhere.
+              Write something, download it, and drop the file into your Forge — it opens in
+              Moldavite because it was a Markdown file the whole time.
+            </p>
+          </div>
+
+          <div class="demo reveal" data-demo>
+            <div class="demo-paper">
+              <label class="visually-hidden" for="demo-note-title">Note title</label>
+              <input
+                id="demo-note-title"
+                class="demo-title-input"
+                type="text"
+                value="Impact glass"
+                maxlength="80"
+                spellcheck="false"
+                autocomplete="off"
+                data-demo-title
               />
-              <img
-                class="hero-demo-static"
-                src="screenshots/editor.png"
-                alt="Moldavite editor with a Forge sidebar and calendar timeline"
-                width="1760"
-                height="1124"
-                decoding="async"
-              />
+              <label class="visually-hidden" for="demo-note-body">Note</label>
+              <textarea
+                id="demo-note-body"
+                class="demo-body"
+                rows="12"
+                spellcheck="false"
+                data-demo-body
+              >
+## Where the name comes from
+
+Moldavite is a natural glass, formed roughly 15 million years ago when a meteorite struck what is now southern Germany. The heat threw molten rock far enough that it cooled in the air on the way down, and landed as green glass.
+
+- One impact, one material
+- Found in only a few places on Earth
+- Older than the idea of writing anything down
+
+A [[wiki link]] points at another note. **Bold** and *italic* behave the way you would expect, because none of this is a special format — it is only Markdown, and it stays that way on your disk.
+</textarea
+              >
             </div>
-            <figcaption>An 18-second tour through a Forge.</figcaption>
-          </figure>
-          <div class="preview-meta reveal">
-            <p class="eyebrow">Local Markdown notes for macOS and Windows</p>
-            <p class="platform-note">macOS, and Windows in beta · Free and MIT licensed</p>
-            <div class="preview-links">
-              <a href="#install" class="text-link">Installation options</a>
-              <a class="scroll-cue" href="#install">
-                <span>Start here</span>
-                <svg viewBox="0 0 16 20" aria-hidden="true">
-                  <path d="M8 1v16m0 0 5-5m-5 5-5-5" />
-                </svg>
-              </a>
+
+            <div class="demo-footer">
+              <p class="demo-hint" data-demo-hint>
+                Downloads as <code data-demo-filename>impact-glass.md</code>. Move it into
+                <code>Moldavite/&lt;your Forge&gt;/notes/</code> and it appears next launch.
+              </p>
+              <button type="button" class="button-primary" data-demo-download>
+                Download the file
+              </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="landing-section claims-section" aria-label="What Moldavite is">
+        <div class="container-wide">
+          <ul class="claims reveal-group">
+            <li>
+              <h3>Plain Markdown</h3>
+              <p>
+                Every note is a <code>.md</code> file in a folder you pick. Sync it, back it up, or
+                open it in any other editor. Nothing is trapped in a database.
+              </p>
+            </li>
+            <li>
+              <h3>Search that stays home</h3>
+              <p>
+                Full-text and semantic search both run on your machine. No note is uploaded to be
+                indexed, and there is no account to make.
+              </p>
+            </li>
+            <li>
+              <h3>The AI tools you choose</h3>
+              <p>
+                A built-in MCP server lets Claude Code and other clients read your notes, and write
+                only when you allow it.
+              </p>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -239,508 +298,6 @@
                 from the official release page.
               </p>
             </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section files-section" id="files" aria-labelledby="files-title">
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Your files</p>
-            <h2 class="section-title" id="files-title">Your notes are just files.</h2>
-            <p class="section-sub">
-              A Forge is a folder you can open in Finder or File Explorer. Git and other Markdown
-              tools can use it too.
-            </p>
-          </div>
-
-          <div class="files-layout">
-            <div class="file-ledger reveal">
-              <article>
-                <span>Forge</span>
-                <div>
-                  <h3>One folder holds the whole workspace</h3>
-                  <p>
-                    Daily, weekly, and standalone notes live beside images and templates. Each Forge
-                    keeps its own plugins and local search index.
-                  </p>
-                </div>
-              </article>
-              <article>
-                <span>Markdown</span>
-                <div>
-                  <h3>Every note remains readable</h3>
-                  <p>
-                    Notes use plain Markdown with optional YAML frontmatter. Moldavite preserves
-                    frontmatter keys from other tools when it saves.
-                  </p>
-                </div>
-              </article>
-              <article>
-                <span>Atomic saves</span>
-                <div>
-                  <h3>Each write lands as a complete file</h3>
-                  <p>
-                    Moldavite writes a temporary file, flushes it, applies owner-only permissions,
-                    and renames it into place.
-                  </p>
-                </div>
-              </article>
-              <p class="section-note">
-                A Forge can live in iCloud Drive, Dropbox, Syncthing, or git. Disk changes reload
-                clean notes, while active edits get a clear conflict choice and a preserved copy.
-              </p>
-            </div>
-
-            <div class="clip-stack reveal">
-              <figure class="clip-card clip-card-main">
-                <video
-                  data-autoplay
-                  muted
-                  loop
-                  playsinline
-                  preload="metadata"
-                  poster="media/forge-poster.jpg"
-                  aria-label="Switching between Forges in Moldavite"
-                >
-                  <source src="media/forge.webm" type="video/webm" />
-                  <source src="media/forge.mp4" type="video/mp4" />
-                </video>
-                <figcaption>Switch between separate Forges from the sidebar.</figcaption>
-              </figure>
-              <figure class="clip-card clip-card-small">
-                <video
-                  data-autoplay
-                  muted
-                  loop
-                  playsinline
-                  preload="metadata"
-                  poster="media/editor-poster.jpg"
-                  aria-label="Writing and formatting a Markdown note in Moldavite"
-                >
-                  <source src="media/editor.webm" type="video/webm" />
-                  <source src="media/editor.mp4" type="video/mp4" />
-                </video>
-                <figcaption>Write in the editor while Markdown stays on disk.</figcaption>
-              </figure>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section agents-section" id="agents" aria-labelledby="agents-title">
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Connect your AI</p>
-            <h2 class="section-title" id="agents-title">Give your tools a local way in.</h2>
-            <p class="section-sub">
-              The app binary includes an MCP server. It runs as a local process and reads the active
-              Forge through seven narrow tools.
-            </p>
-          </div>
-
-          <div class="agent-intro-grid reveal-group">
-            <article class="terminal-card">
-              <div class="terminal-bar">
-                <span><i aria-hidden="true"></i> MCP setup</span>
-                <button
-                  class="copy-button"
-                  type="button"
-                  data-copy-target="mcp-command"
-                  aria-live="polite"
-                >
-                  Copy
-                </button>
-              </div>
-              <pre><code id="mcp-command">claude mcp add moldavite -- moldavite --mcp</code></pre>
-              <p>
-                The Homebrew cask puts <code>moldavite</code> on your PATH. Settings also provides
-                client-specific snippets with the full app path.
-              </p>
-            </article>
-
-            <article class="skills-card">
-              <p class="card-label">Companion project</p>
-              <h3>Start with the skills pack</h3>
-              <p>
-                The companion pack gives skill-capable AI clients practical workflows for a
-                Moldavite Forge. Each skill works with the same local file model.
-              </p>
-              <div class="skills-links">
-                <a href="https://github.com/mauropereiira/moldavite-skills" class="text-link"
-                  >Get the skills pack <span aria-hidden="true">↗</span></a
-                >
-                <a href="https://mauropereiira.github.io/moldavite-skills/" class="text-link muted"
-                  >Read its guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </article>
-          </div>
-
-          <div class="tool-table-wrap reveal">
-            <div class="table-heading">
-              <div>
-                <p class="card-label">MCP tools</p>
-                <h3>Four reads. Three controlled writes.</h3>
-              </div>
-              <p>Write access stays off until you enable it in AI &amp; Agents settings.</p>
-            </div>
-            <div class="table-scroll">
-              <table class="tool-table">
-                <thead>
-                  <tr>
-                    <th>Access</th>
-                    <th>Tool</th>
-                    <th>What it does</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><span class="access-pill read">Read</span></td>
-                    <td><code>list_notes</code></td>
-                    <td>Lists note paths and locked-note placeholders.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill read">Read</span></td>
-                    <td><code>read_note</code></td>
-                    <td>Reads one unlocked note by its validated Forge path.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill read">Read</span></td>
-                    <td><code>search_notes</code></td>
-                    <td>Runs keyword search or the ready local semantic index.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill read">Read</span></td>
-                    <td><code>get_backlinks</code></td>
-                    <td>Finds notes that link to a selected note.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill write">Write</span></td>
-                    <td><code>create_note</code></td>
-                    <td>Creates a new Markdown note without overwriting a file.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill write">Write</span></td>
-                    <td><code>write_note</code></td>
-                    <td>Replaces the body of an existing unlocked note.</td>
-                  </tr>
-                  <tr>
-                    <td><span class="access-pill write">Write</span></td>
-                    <td><code>append_to_daily_note</code></td>
-                    <td>Appends Markdown to a daily note and creates it when needed.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="tool-table-note">
-              Locked notes are refused. Client paths are validated before every file operation.
-            </p>
-          </div>
-
-          <div class="agent-ready-note reveal">
-            <span aria-hidden="true">AGENTS.md</span>
-            <p>
-              File-capable agents can use a Forge directly. One action in Settings writes an
-              <code>AGENTS.md</code> with the folder rules and a <code>.gitignore</code> for
-              app-managed data.
-            </p>
-            <a href="guide.html#agents" class="text-link">See the agent setup</a>
-          </div>
-        </div>
-      </section>
-
-      <section
-        class="landing-section screenshots-section"
-        id="screenshots"
-        aria-labelledby="screenshots-title"
-      >
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Inside the app</p>
-            <h2 class="section-title" id="screenshots-title">A clear view of the work.</h2>
-            <p class="section-sub">Real screens from Moldavite.</p>
-          </div>
-
-          <div class="screenshot-grid reveal-group">
-            <figure class="screenshot-card is-wide">
-              <img
-                src="screenshots/editor.png"
-                alt="Moldavite editor with a Forge sidebar, open note, and calendar timeline"
-                width="1760"
-                height="1124"
-                loading="lazy"
-                decoding="async"
-              />
-              <figcaption>
-                <span>Editor</span>
-                A Forge with folders, linked mentions, and the calendar timeline visible.
-              </figcaption>
-            </figure>
-            <figure class="screenshot-card">
-              <img
-                src="screenshots/search.png"
-                alt="Moldavite keyword search results beside an open note"
-                width="1760"
-                height="1124"
-                loading="lazy"
-                decoding="async"
-              />
-              <figcaption>
-                <span>Search</span>
-                Keyword results show matching snippets beside the open note.
-              </figcaption>
-            </figure>
-            <figure class="screenshot-card">
-              <img
-                src="screenshots/graph.png"
-                alt="Moldavite graph view showing linked notes across a Forge"
-                width="1760"
-                height="1124"
-                loading="lazy"
-                decoding="async"
-              />
-              <figcaption>
-                <span>Graph</span>
-                This sample Forge maps 18 notes and 60 links.
-              </figcaption>
-            </figure>
-            <figure class="screenshot-card is-wide">
-              <img
-                src="screenshots/mcp.png"
-                alt="Moldavite AI and Agents settings with semantic search and MCP controls"
-                width="1760"
-                height="1124"
-                loading="lazy"
-                decoding="async"
-              />
-              <figcaption>
-                <span>AI &amp; Agents</span>
-                Semantic search, MCP setup, and the write-access switch share one panel.
-              </figcaption>
-            </figure>
-          </div>
-
-          <div class="app-details reveal-group">
-            <article>
-              <span>Write</span>
-              <p>Rich editing, Markdown shortcuts, tabs, slash commands, templates, and images.</p>
-            </article>
-            <article>
-              <span>Return</span>
-              <p>Daily and weekly notes, quick switching, a timeline, and read-only calendars.</p>
-            </article>
-            <article>
-              <span>Protect</span>
-              <p>
-                Locked notes, seven-day trash, manual encrypted archives, and safe Obsidian import.
-              </p>
-            </article>
-            <article>
-              <span>Maintain</span>
-              <p>Signed updates arrive quietly and show the release notes after installation.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section search-section" id="search" aria-labelledby="search-title">
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Search and graph</p>
-            <h2 class="section-title" id="search-title">Find the note. Follow the link.</h2>
-            <p class="section-sub">
-              Search scans the current Forge, while wiki-links and backlinks show how one note
-              connects to the rest.
-            </p>
-          </div>
-
-          <div class="search-layout">
-            <div class="search-copy reveal">
-              <article class="search-feature">
-                <span class="feature-number">01</span>
-                <div>
-                  <h3>Keyword search stays immediate</h3>
-                  <p>
-                    Search is a live scan designed for collections around a thousand notes. Results
-                    include snippets and exclude locked or trashed notes.
-                  </p>
-                </div>
-              </article>
-              <article class="search-feature">
-                <span class="feature-number">02</span>
-                <div>
-                  <h3>Semantic search is local and opt-in</h3>
-                  <p>
-                    Choose one of three models after a clear download prompt. Indexing and queries
-                    then run on your computer. Windows and Apple Silicon builds include semantic
-                    search, while Intel Macs keep keyword search.
-                  </p>
-                </div>
-              </article>
-              <article class="search-feature">
-                <span class="feature-number">03</span>
-                <div>
-                  <h3>Rename a note and keep its links</h3>
-                  <p>
-                    Moldavite rewrites inbound wiki-links across the Forge, updates backlinks, and
-                    keeps open tabs pointed at the renamed file.
-                  </p>
-                </div>
-              </article>
-              <a href="guide.html#semantic-search" class="text-link">Read the search guide</a>
-            </div>
-
-            <figure class="graph-clip reveal">
-              <video
-                data-autoplay
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                poster="media/graph-poster.jpg"
-                aria-label="Moldavite graph view grouping linked notes"
-              >
-                <source src="media/graph.webm" type="video/webm" />
-                <source src="media/graph.mp4" type="video/mp4" />
-              </video>
-              <figcaption>
-                Linked notes cluster together. Unlinked notes settle near the edge.
-              </figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section plugins-section" id="plugins" aria-labelledby="plugins-title">
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Plugins</p>
-            <h2 class="section-title" id="plugins-title">Each plugin gets a small sandbox.</h2>
-            <p class="section-sub">
-              Plugins run in separate Web Workers. Every useful capability crosses a bridge that
-              Moldavite controls.
-            </p>
-          </div>
-
-          <div class="sandbox-diagram reveal">
-            <div class="sandbox-core">
-              <p class="card-label">Per-plugin worker</p>
-              <h3>Code starts with a narrow runtime.</h3>
-              <p>
-                There is no DOM, raw app IPC, or browser network API inside the worker. Commands and
-                editor insertion use the host bridge. App notifications do too.
-              </p>
-            </div>
-            <div class="sandbox-capabilities">
-              <article>
-                <span>With permission</span>
-                <p>Read unlocked note metadata and Markdown.</p>
-              </article>
-              <article>
-                <span>Exact hosts</span>
-                <p>Ask the host to make HTTPS requests to approved domains.</p>
-              </article>
-              <article>
-                <span>Private secrets</span>
-                <p>Use a plugin-specific namespace in the OS credential store.</p>
-              </article>
-              <article>
-                <span>Current boundary</span>
-                <p>General note writes and custom panels sit outside the plugin API.</p>
-              </article>
-            </div>
-          </div>
-
-          <div class="plugin-footer reveal">
-            <p>
-              Consent is pinned to a hash of the manifest and plugin code. A changed file opens the
-              permission sheet again. Registry installs verify both files before they become active.
-            </p>
-            <div class="hero-actions is-start">
-              <a href="plugins.html#directory" class="button-primary compact">Browse plugins</a>
-              <a href="plugins.html#quick-start" class="button-secondary">Build a plugin</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section privacy-section" id="privacy" aria-labelledby="privacy-title">
-        <div class="container-wide">
-          <div class="privacy-heading reveal">
-            <div class="section-heading">
-              <p class="section-kicker">Privacy</p>
-              <h2 class="section-title" id="privacy-title">Every network call is listed.</h2>
-            </div>
-            <p>
-              Moldavite has no account system, hosted notes service, analytics, or telemetry. These
-              are the six ways the app can reach the network.
-            </p>
-          </div>
-
-          <ol class="network-list reveal-group">
-            <li>
-              <span>01</span>
-              <div>
-                <h3>Update check</h3>
-                <p>
-                  GitHub receives a request for the signed release manifest after launch and once a
-                  day.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span>02</span>
-              <div>
-                <h3>Plugin registry</h3>
-                <p>GitHub receives a registry request only when you open the community browser.</p>
-              </div>
-            </li>
-            <li>
-              <span>03</span>
-              <div>
-                <h3>Semantic model</h3>
-                <p>
-                  Hugging Face receives one model-file request after you opt in. Note data stays
-                  local.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span>04</span>
-              <div>
-                <h3>Google Calendar</h3>
-                <p>
-                  Google receives an access token and date range while a read-only account is
-                  connected.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span>05</span>
-              <div>
-                <h3>Approved plugin requests</h3>
-                <p>A plugin can reach exact HTTPS hosts that appear on its permission sheet.</p>
-              </div>
-            </li>
-            <li>
-              <span>06</span>
-              <div>
-                <h3>WordPress publishing</h3>
-                <p>
-                  The first-party plugin sends the selected note to the site you configured when you
-                  publish.
-                </p>
-              </div>
-            </li>
-          </ol>
-
-          <div class="privacy-foot reveal">
-            <p>
-              Apple Calendar stays inside macOS EventKit. Locked notes use AES-256-GCM encryption
-              and remain outside search, plugins, and MCP tools.
-            </p>
-            <a href="privacy.html" class="text-link">Read the complete privacy policy</a>
           </div>
         </div>
       </section>

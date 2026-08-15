@@ -11,6 +11,14 @@
   --tektite: #2e5b3c;
   --error: #b03a1a;
 
+  /* Atmosphere. site.js reads these with getComputedStyle at draw time and
+     re-reads them when the theme flips, so the sky recolours with the page
+     instead of carrying its own hardcoded palette. */
+  --star: rgba(14, 13, 10, 0.22);
+  --star-bright: rgba(14, 13, 10, 0.46);
+  --meteor: rgba(14, 13, 10, 0.5);
+  --asteroid: #0e0d0a;
+
   --font-display: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-body: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-code: var(--font-display);
@@ -22,6 +30,40 @@
   --section-y: clamp(8rem, 14vw, 15rem);
   --radius: 0;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dark is opt-in and nothing else.
+   There is deliberately no `prefers-color-scheme` rule here. The site had one
+   once, and the result was that everybody browsing on a dark-mode machine —
+   most of the audience — never saw the cream the whole identity is built on.
+   The app makes the same call for its own first launch. Cream is what you get
+   until you press the toggle; the toggle then wins and is remembered.
+
+   The same two colours, inverted. Not a grey theme: it should read as the same
+   brand after dark, not a different site. */
+:root[data-theme='dark'] {
+  --ground: #14120c;
+  --ground-sunk: #100e09;
+  --ground-lift: #1b1811;
+  --ink: #f9f6ed;
+  --ink-body: #f9f6ed;
+  --ink-mute: rgba(249, 246, 237, 0.58);
+  --ink-faint: rgba(249, 246, 237, 0.38);
+  --rule: rgba(249, 246, 237, 0.14);
+  --rule-strong: rgba(249, 246, 237, 0.26);
+  --tektite: #7fb894;
+  --error: #e08768;
+
+  /* Stars carry the night rather than fighting it, so they get brighter here
+     than their light-mode counterparts rather than merely inverted. */
+  --star: rgba(249, 246, 237, 0.3);
+  --star-bright: rgba(249, 246, 237, 0.72);
+  --meteor: rgba(249, 246, 237, 0.75);
+  --asteroid: #f9f6ed;
+
+  /* Beats the `color-scheme: light` on `html` on specificity, so form
+     controls, scrollbars and the like follow the page rather than fight it. */
+  color-scheme: dark;
 }
 
 @font-face {
@@ -209,10 +251,6 @@ main:focus {
   margin-inline: auto;
 }
 
-.container {
-  max-width: 72rem;
-}
-
 .site-header {
   position: sticky;
   z-index: 100;
@@ -379,86 +417,6 @@ main:focus {
   letter-spacing: 0.14em;
   text-decoration: none;
   text-transform: uppercase;
-}
-
-.product-preview {
-  padding-block: clamp(3rem, 7vw, 7rem) clamp(8rem, 13vw, 14rem);
-}
-
-.hero-demo {
-  width: min(100%, 75rem);
-  margin: 0 0 0 auto;
-}
-
-.hero-demo-screen {
-  border-block: 1px solid var(--rule-strong);
-}
-
-.hero-demo-screen img {
-  width: 100%;
-}
-
-.hero-demo-static {
-  display: none;
-}
-
-.hero-demo figcaption,
-.clip-card figcaption,
-.graph-clip figcaption {
-  margin-block-start: 0.8rem;
-  color: var(--ink-faint);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.preview-meta {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 1.5rem 3rem;
-  align-items: start;
-  margin-block-start: 3rem;
-  padding-block-start: 1.25rem;
-  border-block-start: 1px solid var(--rule);
-}
-
-.eyebrow,
-.platform-note {
-  margin: 0;
-  color: var(--ink-mute);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.eyebrow {
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.preview-links {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.scroll-cue {
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: center;
-  color: var(--ink-mute);
-  font-size: 0.75rem;
-  text-decoration: none;
-}
-
-.scroll-cue svg {
-  width: 0.75rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: square;
-  stroke-width: 1.25;
 }
 
 .landing-section {
@@ -668,179 +626,11 @@ main:focus {
   line-height: 1.55;
 }
 
-.files-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(24rem, 0.92fr);
-  gap: clamp(4rem, 9vw, 9rem);
-  align-items: start;
-}
-
-.file-ledger {
-  border-block-start: 1px solid var(--rule-strong);
-}
-
-.file-ledger article,
-.search-feature {
-  display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: 1.5rem;
-  padding-block: 2rem;
-  border-block-end: 1px solid var(--rule);
-}
-
-.file-ledger article > span,
-.sandbox-capabilities article > span,
-.app-details article > span {
-  color: var(--ink-faint);
-  font-family: var(--font-display);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.file-ledger h3,
-.search-feature h3 {
-  margin-block-end: 0.65rem;
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.file-ledger p,
-.search-feature p {
-  margin: 0;
-  color: var(--ink-mute);
-  font-size: 0.9rem;
-}
-
-.section-note {
-  margin-block: 2.5rem 0;
-  color: var(--ink-mute);
-  font-size: 0.85rem;
-}
-
-.clip-stack {
-  display: grid;
-  gap: clamp(2rem, 5vw, 5rem);
-}
-
-.clip-card {
-  margin: 0;
-}
-
-.clip-card video,
-.graph-clip video {
-  width: 100%;
-  border-block: 1px solid var(--rule-strong);
-}
-
-.clip-card-small {
-  width: 72%;
-  margin-inline-start: auto;
-}
-
-.agent-intro-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-block-end: clamp(5rem, 10vw, 10rem);
-  border-block: 1px solid var(--rule-strong);
-}
-
-.terminal-card,
-.skills-card {
-  min-width: 0;
-  padding: clamp(2rem, 5vw, 5rem);
-}
-
-.terminal-card {
-  padding-inline-start: 0;
-}
-
-.skills-card {
-  padding-inline-end: 0;
-  border-inline-start: 1px solid var(--rule);
-}
-
-.terminal-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-block-end: 2rem;
-}
-
-.terminal-bar > span {
-  display: inline-flex;
-  gap: 0.55rem;
-  align-items: center;
-  color: var(--ink-faint);
-  font-family: var(--font-display);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.terminal-bar i {
-  width: 0.4rem;
-  height: 0.4rem;
-  background: var(--ink);
-}
-
-.terminal-card pre {
-  max-width: 100%;
-  margin: 0;
-  padding-block: 1.25rem;
-  overflow-x: auto;
-  border-block: 1px solid var(--rule);
-  color: var(--ink);
-  font-size: 0.78rem;
-  white-space: pre-wrap;
-}
-
-.terminal-card pre code {
-  overflow-wrap: anywhere;
-}
-
 .terminal-card > p,
 .skills-card > p:not(.card-label) {
   margin-block: 1.75rem 0;
   color: var(--ink-mute);
   font-size: 0.9rem;
-}
-
-.skills-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem 1.5rem;
-  margin-block-start: 2rem;
-}
-
-.tool-table-wrap {
-  border-block: 1px solid var(--rule-strong);
-}
-
-.table-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.6fr);
-  gap: 2rem;
-  align-items: end;
-  padding-block: 2rem;
-  border-block-end: 1px solid var(--rule);
-}
-
-.table-heading h3 {
-  margin: 0.5rem 0 0;
-  font-size: clamp(1.75rem, 3vw, 3rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-.table-heading > p {
-  margin: 0;
-  color: var(--ink-mute);
-  font-size: 0.85rem;
 }
 
 .table-scroll {
@@ -853,10 +643,6 @@ main:focus {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-}
-
-.tool-table {
-  min-width: 46rem;
 }
 
 .tool-table th,
@@ -878,162 +664,8 @@ main:focus {
   text-transform: uppercase;
 }
 
-.tool-table td {
-  color: var(--ink-mute);
-  font-size: 0.82rem;
-}
-
-.tool-table td:nth-child(2) {
-  color: var(--ink);
-}
-
-.access-pill {
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.access-pill.write {
-  color: var(--ink-mute);
-}
-
-.tool-table-note {
-  margin: 0;
-  padding-block: 1.25rem;
-  color: var(--ink-faint);
-  font-size: 0.75rem;
-}
-
-.agent-ready-note {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 2rem;
-  align-items: center;
-  margin-block-start: clamp(4rem, 8vw, 8rem);
-  padding-block: 1.5rem;
-  border-block: 1px solid var(--rule-strong);
-}
-
-.agent-ready-note > span {
-  font-family: var(--font-code);
-  font-size: 0.75rem;
-  letter-spacing: 0;
-}
-
-.agent-ready-note p {
-  margin: 0;
-  color: var(--ink-mute);
-  font-size: 0.85rem;
-}
-
-.screenshot-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(3rem, 6vw, 6rem) clamp(1.5rem, 3vw, 3rem);
-}
-
-.screenshot-card {
-  grid-column: span 5;
-  min-width: 0;
-  margin: 0;
-}
-
-.screenshot-card.is-wide {
-  grid-column: span 7;
-}
-
-.screenshot-card img {
-  width: 100%;
-  border-block: 1px solid var(--rule-strong);
-}
-
-.screenshot-card figcaption {
-  display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: 1rem;
-  margin-block-start: 1rem;
-  color: var(--ink-faint);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.screenshot-card figcaption span {
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.app-details {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-block-start: clamp(6rem, 11vw, 11rem);
-  border-block: 1px solid var(--rule-strong);
-}
-
-.app-details article {
-  padding: 2rem;
-  border-inline-start: 1px solid var(--rule);
-}
-
-.app-details article:first-child {
-  padding-inline-start: 0;
-  border-inline-start: 0;
-}
-
-.app-details article:last-child {
-  padding-inline-end: 0;
-}
-
-.app-details p {
-  margin: 0.75rem 0 0;
-  color: var(--ink-mute);
-  font-size: 0.82rem;
-}
-
-.search-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(25rem, 1fr);
-  gap: clamp(4rem, 10vw, 10rem);
-  align-items: start;
-}
-
-.search-copy {
-  border-block-start: 1px solid var(--rule-strong);
-}
-
-.search-feature {
-  grid-template-columns: 3.5rem minmax(0, 1fr);
-}
-
-.feature-number {
-  color: var(--ink-faint);
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  letter-spacing: -0.015em;
-}
-
 .search-copy .text-link {
   margin-block-start: 2rem;
-}
-
-.graph-clip {
-  margin: 0;
-}
-
-.sandbox-diagram {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  border-block: 1px solid var(--rule-strong);
-}
-
-.sandbox-core {
-  padding: clamp(2rem, 5vw, 5rem);
-  padding-inline-start: 0;
 }
 
 .sandbox-core > p:not(.card-label) {
@@ -1041,113 +673,8 @@ main:focus {
   color: var(--ink-mute);
 }
 
-.sandbox-capabilities {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-inline-start: 1px solid var(--rule);
-}
-
-.sandbox-capabilities article {
-  padding: 2rem;
-  border-block-end: 1px solid var(--rule);
-  border-inline-start: 1px solid var(--rule);
-}
-
-.sandbox-capabilities article:nth-child(odd) {
-  border-inline-start: 0;
-}
-
-.sandbox-capabilities article:nth-last-child(-n + 2) {
-  border-block-end: 0;
-}
-
-.sandbox-capabilities p {
-  margin: 0.8rem 0 0;
-  color: var(--ink-mute);
-  font-size: 0.82rem;
-}
-
-.plugin-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3rem;
-  align-items: end;
-  margin-block-start: clamp(4rem, 8vw, 8rem);
-}
-
-.plugin-footer > p {
-  margin: 0;
-  color: var(--ink-mute);
-}
-
-.privacy-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.5fr);
-  gap: 4rem;
-  align-items: end;
-  margin-block-end: clamp(5rem, 9vw, 9rem);
-}
-
 .privacy-heading .section-heading {
   margin: 0;
-}
-
-.privacy-heading > p {
-  margin: 0;
-  color: var(--ink-mute);
-}
-
-.network-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  border-block-start: 1px solid var(--rule-strong);
-  list-style: none;
-}
-
-.network-list li {
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
-  gap: 1.25rem;
-  padding: 2rem;
-  border-block-end: 1px solid var(--rule);
-}
-
-.network-list li:nth-child(even) {
-  border-inline-start: 1px solid var(--rule);
-}
-
-.network-list li > span {
-  color: var(--ink-faint);
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  letter-spacing: -0.015em;
-}
-
-.network-list h3 {
-  margin-block-end: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 500;
-}
-
-.network-list p {
-  margin: 0;
-  color: var(--ink-mute);
-  font-size: 0.85rem;
-}
-
-.privacy-foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3rem;
-  align-items: end;
-  margin-block-start: 3rem;
-}
-
-.privacy-foot p {
-  margin: 0;
-  color: var(--ink-mute);
 }
 
 .final-cta {
@@ -2031,5 +1558,174 @@ main:focus {
   .has-js .reveal,
   .has-js .reveal-group > * {
     opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Atmosphere, the demo, and the claims row
+   --------------------------------------------------------------------------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The sky sits behind the hero and is never interactive. It is sized in JS
+   against devicePixelRatio; the element itself just fills its section. */
+.sky {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hero {
+  position: relative;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* The asteroid cursor styles itself from site.js rather than living here.
+   That is deliberate: it injects `cursor: none` alongside the elements it
+   creates, so a page with JS disabled never hides the pointer with nothing to
+   replace it. --asteroid above is the one hook it reads from this file. */
+
+/* Two cream discs on an ink ground, one filled — the same two colours the
+   whole design runs on, doing the work an icon would otherwise do. */
+.theme-toggle {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.theme-toggle-mark {
+  display: block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 1px solid var(--ink-mute);
+  border-radius: 999px;
+  transition:
+    background-color 120ms linear,
+    border-color 120ms linear;
+}
+
+.theme-toggle:hover .theme-toggle-mark {
+  border-color: var(--ink);
+}
+
+:root[data-theme='dark'] .theme-toggle-mark {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+/* The demo. Paper on the ground, one hairline, no card. */
+.demo {
+  margin-block-start: clamp(3rem, 6vw, 5rem);
+}
+
+.demo-paper {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid var(--rule-strong);
+  background: var(--ground-lift);
+}
+
+.demo-title-input,
+.demo-body {
+  display: block;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-body);
+  resize: none;
+}
+
+.demo-title-input {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.demo-body {
+  margin-block-start: 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  min-height: 18rem;
+  field-sizing: content;
+}
+
+.demo-title-input:focus,
+.demo-body:focus {
+  outline: none;
+}
+
+/* The paper takes the focus ring, so the caret is not boxed in while typing. */
+.demo-paper:focus-within {
+  border-color: var(--ink);
+}
+
+.demo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-block-start: 1.5rem;
+}
+
+.demo-hint {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: 0.8125rem;
+}
+
+.claims {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(2rem, 4vw, 4rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.claims h3 {
+  margin-block-end: 0.75rem;
+  font-size: 1rem;
+}
+
+.claims p {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 900px) {
+  .claims {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
