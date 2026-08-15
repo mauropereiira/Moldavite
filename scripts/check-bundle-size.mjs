@@ -61,7 +61,10 @@ const BUDGETS = [
 // Bumped 2 KB gz for 2.0: the Cream redesign merged with MCP write-consent, so
 // the attributed-agent prompt lands on top of the redesigned chrome. Raw stays
 // at 570 — only gzip crossed. Measured 566.5 KB raw / 155.2 KB gz at the bump.
-const APP_JS_BUDGET = { rawKb: 570, gzipKb: 157 };
+// Bumped 4 KB raw for the WordPress.com publishing UI: the store, the typed
+// IPC layer and the footer menu. Measured 571.2 KB raw / 156.6 KB gz at the
+// bump; gzip stayed inside 157 and is left alone.
+const APP_JS_BUDGET = { rawKb: 574, gzipKb: 157 };
 
 async function main() {
   let entries;

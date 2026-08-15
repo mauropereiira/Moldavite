@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/react';
 import { ShareMenu } from './ShareMenu';
+import { WordPressMenu } from './WordPressMenu';
 import { FormattingMenu } from './FormattingMenu';
 import { MoreOptionsMenu } from './MoreOptionsMenu';
 import { NoteColorPicker } from '@/components/ui';
@@ -85,6 +86,13 @@ export function EditorFooter({
             openDirection="up"
           />
         </div>
+
+        {/* Publish to WordPress — absent unless the build has credentials */}
+        <WordPressMenu
+          onShowToast={showToast}
+          onShowError={(message) => toast.error(message)}
+          openDirection="up"
+        />
 
         {/* Share Menu */}
         <ShareMenu onShowToast={showToast} openDirection="up" />

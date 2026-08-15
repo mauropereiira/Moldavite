@@ -2268,15 +2268,39 @@ html.has-icon-rail.focus-mode {
 }
 
 /* Links are ink, distinguished by their underline rather than colour. */
-.tiptap a {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+/* Links inside a note carry the one hue reserved for them. `--syntax-link` was
+   defined in all eight themes and consumed by nothing, so a link in prose was
+   the same colour as the text around it — and since the shared hairline rule
+   below also strips the underline until hover, an embedded link was invisible
+   until you happened to point at it.
+
+   Note content is where colour is allowed to carry meaning (see
+   DESIGN_CREAM.md); the chrome rule about rationing the accent governs the app
+   around the note, not the writing inside it. */
+.tiptap a,
+wiki-link {
+  color: var(--syntax-link);
 }
 
-.tiptap a:hover {
-  color: inherit;
+/* Colour alone is not enough to mark a link — someone who cannot separate that
+   hue from the body ink gets nothing. The hairline is therefore present at
+   rest, just quiet, and comes up to full on hover rather than being drawn from
+   nothing. Scoped to note content: the navigation controls that share the rule
+   below are standalone and already read as controls. */
+.tiptap a::after,
+wiki-link::after {
+  transform: scaleX(1);
+  opacity: 0.4;
+  transition:
+    opacity var(--dur-base) var(--ease-standard),
+    transform var(--dur-base) var(--ease-standard);
+}
+
+.tiptap a:hover::after,
+.tiptap a:focus-visible::after,
+wiki-link:hover::after,
+wiki-link:focus-visible::after {
+  opacity: 1;
 }
 
 /* Images */
@@ -3360,7 +3384,11 @@ button[aria-expanded='true'] .wn-caret {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  line-height: 1;
+  /* Was `1`, which makes the line box exactly the font size and leaves the
+     glyphs' ascenders outside it — anything clipping an ancestor then shears
+     the tops off the labels. The row is a fixed 34px with centred items, so a
+     roomier line box changes nothing about the layout. */
+  line-height: 1.6;
   text-transform: uppercase;
 }
 
