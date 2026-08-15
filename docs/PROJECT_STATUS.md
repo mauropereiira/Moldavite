@@ -9,6 +9,7 @@
 ## What's Shipped and Working
 
 ### Notes & Editing
+
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
 - TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
 - Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, and a deterministic force-directed graph whose linked components cluster while orphans stay peripheral
@@ -19,12 +20,14 @@
 - Local semantic search (v1.6; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Navigation & Welcome
+
 - The icon-rail monogram is Home: pending edits flush before it closes the active Index / Agenda / Search / Graph / Timeline surface and clears the active note, while every open tab remains available to resume
 - The welcome night sky offers a persisted, default-on asteroid cursor with weighted pointer lag, a three-dot trail, interactive-control feedback, and a single click impact ring. Settings → Layout can disable it; reduced-motion and coarse-pointer media preferences prevent it from mounting or hiding the native cursor
 
 ### Storage & Data Safety
+
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable
-- **Atomic writes everywhere** (temp + fsync + rename; 0600 before visibility), with bounded retries when Windows temporarily blocks a replace
+- **Atomic writes everywhere** (temp + fsync + rename), with bounded retries when Windows temporarily blocks a replace. Owner-only `0600` permissions are applied before the file becomes visible **on Unix**; on Windows the file inherits its directory's ACLs and no explicit owner-only guarantee is made
 - Portable note and folder name validation blocks Windows device names, illegal characters, trailing dots, and drive-relative paths before they can discard or hide data
 - Folder-relative note addressing (fixed folder-note round-trip data bug) — v1.5
 - **External-edit conflict safety** (v1.6): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
@@ -37,12 +40,14 @@
 - Built-in MCP stdio server (v1.6): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks. Reads return a content hash that write tools can use to preserve a changed disk version as a conflict copy
 
 ### Platform
+
 - Windows is a beta release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed and the platform stays beta until it is not
 - Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS credential store). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check; automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows), settings modal with focus trap
 
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 shipped 1.6.0)
+
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin OS credential-store secrets; API v1 remains compatible
 - Per-Forge enable state; permission sheet shows human-readable capabilities, manifest hosts, and runtime hosts with per-host revoke; manifest consent remains pinned to SHA-256 of raw manifest + code while runtime host consent is stored app-side
 - Every successful in-app install opens a themed manifest-sourced setup guide; an ⓘ action on each installed card reopens its description, commands, instructions, and permissions at any time
@@ -53,6 +58,7 @@
 - Bundled first-party Publish to WordPress reference plugin: Application Password verification, draft create/update keyed by Forge-relative note path, self-hosted and WordPress.com Jetpack/Atomic support; WordPress.com Simple OAuth is an explicit limitation
 
 ## Test & Quality Status
+
 - Frontend: vitest covers stores, libraries, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, external-write reconciliation, calendar store migration, and plugin RPC/manifest/registry/UI
 - Backend: cargo tests cover the stress suite, Obsidian conversion/path safety, conflict copies, semantic indexing, MCP, plugin install/hash/secret validation, strict deep-link routing, Windows path and persistence behavior, and calendar source dispatch / PKCE / Google response mapping
 - Windows CI runs clippy with warnings denied and the Rust library test suite on every PR
@@ -60,6 +66,7 @@
 - ESLint: 0 errors, 16 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
 ## Known Issues / Debt
+
 - **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
 - **Plugin API has no note writes or panels yet** — v2 adds note reads, trusted prompt forms, dynamically approved exact-host HTTPS, and OS credential-store secrets while keeping the Worker boundary narrow.
 - All note metadata held in memory (no pagination); startup daily-note scan capped at 8 concurrent reads but still O(vault age).
@@ -72,6 +79,7 @@
 - **Google Calendar is not brand-verified yet** — consent shows the unverified-app interstitial and there is a 100-user cap until Google completes review.
 
 ## Roadmap (in priority order)
+
 1. **Google brand verification** — needs the now-live `privacy.html`, a homepage, and a Search Console-verified authorized domain. Removes the unverified-app warning and the 100-user cap.
 2. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 3. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
@@ -81,4 +89,5 @@
 7. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
-Staying a *note app*: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.
+
+Staying a _note app_: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.

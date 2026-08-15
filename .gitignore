@@ -67,3 +67,6 @@ docs/superpowers/
 .qwen/
 .playwright-mcp/
 skills-lock.json
+
+# Brand working files. Deliverables are copied to docs/ deliberately.
+brand/
