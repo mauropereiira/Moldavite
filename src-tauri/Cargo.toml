@@ -1,6 +1,6 @@
 [package]
 name = "moldavite"
-version = "1.9.0"
+version = "2.0.0"
 description = "A local-first note-taking app for connected thinking"
 authors = ["Mauro Pereira"]
 license = "MIT"

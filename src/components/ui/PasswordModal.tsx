@@ -179,12 +179,12 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
     : 'var(--border-default)';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop-dark">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop-dark modal-backdrop-enter">
       {/* Backdrop */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative modal-elevated w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative modal-elevated modal-content-enter w-full max-w-md mx-4 overflow-hidden">
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
@@ -308,7 +308,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
                     {[0, 1, 2, 3].map((index) => (
                       <div
                         key={index}
-                        className="h-1 flex-1 rounded-full transition-colors"
+                        className="h-1 flex-1 transition-colors"
                         style={{
                           backgroundColor:
                             index < passwordStrength.score

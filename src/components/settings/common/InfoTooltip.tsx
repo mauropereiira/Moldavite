@@ -62,7 +62,7 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
       <button
         ref={triggerRef}
         type="button"
-        className="p-0.5 rounded-full transition-all duration-200"
+        className="p-0.5 transition-all duration-200"
         style={{ color: 'var(--text-muted)', backgroundColor: 'transparent' }}
         onMouseEnter={(e) => {
           setIsVisible(true);
@@ -81,7 +81,7 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
         aria-label="More information"
         aria-describedby={isVisible ? tooltipId : undefined}
       >
-        <Info aria-hidden="true" className="w-3.5 h-3.5" />
+        <Info aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.25} />
       </button>
       {isVisible &&
         createPortal(
@@ -95,10 +95,8 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
               left: pos.left,
               width: TOOLTIP_WIDTH,
               transform: pos.placement === 'top' ? 'translateY(-100%)' : undefined,
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-lg)',
               color: 'var(--text-secondary)',
               zIndex: 10000,
               whiteSpace: 'normal',

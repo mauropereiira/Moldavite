@@ -30,6 +30,8 @@ import {
 } from './commands';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import type { NoteFile } from '@/types';
+import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 /**
  * Fuzzy match: checks if query characters appear in order within the title.
@@ -254,6 +256,10 @@ export function QuickSwitcher() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    containerRef.current = node;
+    applyImpactOrigin(node);
+  }, []);
 
   /**
    * Compute the rendered rows + the section breakpoints used to inject
@@ -522,7 +528,11 @@ export function QuickSwitcher() {
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      // The rail's Search button toggles this surface itself. Closing on its
+      // mousedown would leave its click re-opening what the user just dismissed.
+      if (target?.closest?.('[data-surface="search"]')) return;
+      if (containerRef.current && !containerRef.current.contains(target)) {
         close();
       }
     };
@@ -536,7 +546,7 @@ export function QuickSwitcher() {
 
   return (
     <div className="quick-switcher-backdrop">
-      <div ref={containerRef} className="quick-switcher-container">
+      <div ref={setContainerRef} className="quick-switcher-container impact-surface">
         <div className="quick-switcher-input-wrapper">
           <Search className="quick-switcher-search-icon" />
           <input
@@ -551,7 +561,9 @@ export function QuickSwitcher() {
 
         <div className="quick-switcher-results">
           {rows.length === 0 ? (
-            <div className="quick-switcher-empty">No matches</div>
+            <SignatureEmptyState className="quick-switcher-empty" vertical>
+              <span>No matches</span>
+            </SignatureEmptyState>
           ) : (
             rows.map((row, index) => {
               const header = headers.get(index);

@@ -92,13 +92,19 @@ vi.mock('@/hooks/useToast', () => ({
   }),
 }));
 
-vi.mock('./EditorFooter', () => ({ EditorFooter: () => null }));
-vi.mock('./TabBar', () => ({ TabBar: () => null }));
+vi.mock('./EditorFooter', () => ({ EditorFooter: () => <footer data-testid="editor-footer" /> }));
+vi.mock('./TabBar', () => ({ TabBar: () => <div data-testid="tab-bar" /> }));
+vi.mock('./NoteHeader', () => ({ NoteHeader: () => <header data-testid="note-header" /> }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
 vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => null }));
 vi.mock('./LinkModal', () => ({ LinkModal: () => null }));
 vi.mock('./ImageModal', () => ({ ImageModal: () => null }));
-vi.mock('@/components/backlinks', () => ({ BacklinksPanel: () => null }));
+// ExternalChangeBanner is deliberately NOT mocked: it renders null unless the
+// note is in `externallyChanged`, so it is already inert for every test that
+// does not seed one — and the write-consent tests below assert its real output.
+vi.mock('@/components/backlinks', () => ({
+  BacklinksPanel: () => <aside data-testid="backlinks-panel" />,
+}));
 vi.mock('@/components/templates/EmptyNoteTemplatePicker', () => ({
   EmptyNoteTemplatePicker: () => null,
 }));
@@ -212,12 +218,52 @@ beforeEach(() => {
     unlockedNotes: new Set(),
     externallyChanged: new Map(),
   });
-  useSettingsStore.setState({ spellCheck: true, tagsEnabled: true });
+  useSettingsStore.getState().resetToDefaults();
   useThemeStore.setState({ theme: 'light', baseMode: 'light' });
   useNoteColorsStore.setState({ colors: {}, isLoading: false });
   useTagStore.setState({ allTags: new Map(), selectedTags: [], selectedTag: null });
   usePluginCommandStore.getState().clear();
   useToastStore.setState({ toasts: [] });
+});
+
+describe('Editor layout settings', () => {
+  it('removes each optional editor chrome surface when disabled', async () => {
+    const currentNote = note('notes/first.md', '<p>First note body</p>');
+    const secondNote = note('notes/second.md', '<p>Second note body</p>');
+    await renderEditor(currentNote, [secondNote]);
+
+    expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('note-header')).toBeInTheDocument();
+    expect(screen.getByTestId('backlinks-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('editor-footer')).toBeInTheDocument();
+
+    act(() => {
+      useSettingsStore.setState({
+        showTabBar: false,
+        showNoteHeader: false,
+        showBacklinksPanel: false,
+        showEditorFooter: false,
+      });
+    });
+
+    expect(screen.queryByTestId('tab-bar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('note-header')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('backlinks-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('editor-footer')).not.toBeInTheDocument();
+  });
+
+  it('shows the tab bar only when more than one tab needs managing', async () => {
+    const currentNote = note('notes/first.md', '<p>First note body</p>');
+    await renderEditor(currentNote);
+
+    expect(screen.queryByTestId('tab-bar')).not.toBeInTheDocument();
+
+    act(() => {
+      useNoteStore.getState().openTab(note('notes/second.md', '<p>Second note body</p>'), true);
+    });
+
+    expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+  });
 });
 
 describe('Editor content synchronization', () => {
@@ -310,8 +356,8 @@ describe('Editor content synchronization', () => {
       expect(scrollContainer.scrollTop).toBe(0);
     });
     expect(tiptapHarness.setTextSelectionCalls).toEqual([]);
-    expect(tiptapHarness.blurCallCount).toBe(1);
     await waitFor(() => {
+      expect(tiptapHarness.blurCallCount).toBe(1);
       expect(editor.isFocused).toBe(false);
       expect(window.getSelection()?.rangeCount).toBe(0);
     });

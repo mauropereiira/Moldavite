@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useUpdateStore } from '@/stores';
-import { Download, X, RefreshCw } from 'lucide-react';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 export function UpdateNotification() {
   const {
@@ -26,107 +26,191 @@ export function UpdateNotification() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm animate-in slide-in-from-bottom-2 fade-in duration-300">
+    <section
+      role="region"
+      aria-label={`Update ${availableVersion} available`}
+      className="update-notification-enter"
+      style={{
+        position: 'fixed',
+        right: '16px',
+        // Top-right: an update is an arrival, and the bottom-right corner is
+        // where transient toasts live. This one persists until dismissed, so
+        // it should not be mistaken for one.
+        top: '16px',
+        zIndex: 50,
+        width: 'min(360px, calc(100vw - 32px))',
+        backgroundColor: 'var(--bg-base)',
+        border: '1px solid var(--border-strong)',
+        color: 'var(--text-primary)',
+      }}
+    >
       <div
-        className="rounded-lg shadow-lg overflow-hidden"
         style={{
-          backgroundColor: 'var(--bg-elevated)',
-          border: '1px solid var(--border-default)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border-default)',
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-3"
+        <span
           style={{
-            backgroundColor: 'var(--accent-subtle)',
-            borderBottom: '1px solid var(--accent-primary)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
           }}
         >
-          <div className="flex items-center gap-2">
-            <Download className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
-            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Update Available
-            </span>
-          </div>
-          <button
-            onClick={dismiss}
-            className="p-1 rounded transition-colors hover:opacity-70"
-            aria-label="Dismiss"
+          Update available
+        </span>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss update notification"
+          style={{
+            padding: '4px 0',
+            border: 0,
+            backgroundColor: 'transparent',
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div style={{ padding: '16px' }}>
+        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+          Version{' '}
+          <span style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            {availableVersion}
+          </span>{' '}
+          is ready to install.
+        </p>
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginTop: '16px',
+              paddingTop: '12px',
+              borderTop: '1px solid var(--border-default)',
+            }}
           >
-            <X className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="px-4 py-3">
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            Version{' '}
-            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-              {availableVersion}
-            </span>{' '}
-            is ready to install.
-          </p>
-
-          {/* Error message */}
-          {error && (
-            <p className="text-xs mb-3" style={{ color: 'var(--text-error, #ef4444)' }}>
-              {error}
-            </p>
-          )}
-
-          {/* Progress bar */}
-          {downloading && (
-            <div className="mb-3">
-              <div
-                className="h-1.5 rounded overflow-hidden"
-                style={{ backgroundColor: 'var(--bg-inset)' }}
-              >
-                <div
-                  className="h-full transition-all duration-300"
-                  style={{ width: `${progress}%`, backgroundColor: 'var(--accent-primary)' }}
-                />
-              </div>
-              <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                {progress}%
-              </p>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={installUpdate}
-              disabled={downloading}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded transition-colors text-white"
+            <span
               style={{
-                backgroundColor: 'var(--accent-primary)',
-                opacity: downloading ? 0.7 : 1,
+                display: 'block',
+                marginBottom: '6px',
+                fontFamily: 'var(--font-display)',
+                fontSize: '10px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--text-error)',
               }}
             >
-              {downloading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Installing...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  Install Now
-                </>
-              )}
-            </button>
-            {!downloading && (
-              <button
-                onClick={dismiss}
-                className="px-3 py-1.5 text-sm rounded transition-colors"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Later
-              </button>
-            )}
+              Error
+            </span>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-error)' }}>{error}</p>
           </div>
+        )}
+
+        {downloading && (
+          <div style={{ marginTop: '16px' }}>
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'relative',
+                height: '1px',
+                backgroundColor: 'var(--border-default)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${progress}%`,
+                  height: '1px',
+                  backgroundColor: 'var(--text-primary)',
+                  transition: 'width var(--dur-base) var(--ease-standard)',
+                }}
+              />
+            </div>
+            <p
+              style={{
+                margin: '7px 0 0',
+                fontFamily: 'var(--font-display)',
+                fontSize: '10px',
+                letterSpacing: '0.14em',
+                textAlign: 'right',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Downloading {progress}%
+            </p>
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: '16px',
+            marginTop: '16px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--border-default)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={installUpdate}
+            disabled={downloading}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '4px 0',
+              border: 0,
+              backgroundColor: 'transparent',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-display)',
+              fontSize: '10px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              cursor: downloading ? 'default' : 'pointer',
+              opacity: downloading ? 0.6 : 1,
+            }}
+          >
+            {downloading && <DotLoader label="Installing update" />}
+            {downloading ? 'Installing…' : 'Install now'}
+          </button>
+          {!downloading && (
+            <button
+              type="button"
+              onClick={dismiss}
+              style={{
+                padding: '4px 0',
+                border: 0,
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-display)',
+                fontSize: '10px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Later
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

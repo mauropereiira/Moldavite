@@ -1050,12 +1050,9 @@ export async function getNotesDirectory(): Promise<string> {
   return await invoke('get_notes_directory');
 }
 
-/**
- * Sets a new notes directory and moves all existing notes.
- * @param newPath - The new directory path
- */
-export async function setNotesDirectory(newPath: string): Promise<void> {
-  await invoke('set_notes_directory', { newPath });
+/** Where Moldavite looks for Forges. Repoints only — it moves no files. */
+export async function getForgesRoot(): Promise<string> {
+  return await invoke('get_forges_root_path');
 }
 
 export async function setForgesRoot(path: string): Promise<string> {

@@ -15,7 +15,6 @@ use crate::frontmatter;
 use crate::paths::{
     get_daily_dir, get_images_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
 };
-use crate::persist::{read_config, write_config};
 use crate::validation::{is_safe_filename, is_safe_note_path};
 use std::sync::Arc;
 use tauri::State;
@@ -88,102 +87,6 @@ pub(crate) fn open_forge_in_finder() -> Result<(), String> {
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     Err("Opening the Forge directory is not supported on this platform".to_string())
-}
-
-/// Set a new notes directory and move all existing notes
-#[tauri::command]
-pub(crate) fn set_notes_directory(new_path: String) -> Result<(), String> {
-    let new_dir = PathBuf::from(&new_path);
-    let old_dir = get_notes_dir();
-
-    // Don't do anything if it's the same directory
-    if new_dir == old_dir {
-        return Ok(());
-    }
-
-    // Validate the path is absolute
-    if !new_dir.is_absolute() {
-        return Err("Path must be absolute".to_string());
-    }
-
-    // Canonicalize before any prefix check so `.` / `..` / symlinks can't bypass
-    // the policy. The target dir may not exist yet, so fall back to the parent.
-    let canonical_candidate = match new_dir.canonicalize() {
-        Ok(p) => p,
-        Err(_) => {
-            let parent = new_dir
-                .parent()
-                .ok_or_else(|| "Path must have a parent directory".to_string())?
-                .canonicalize()
-                .map_err(|e| format!("Failed to resolve parent directory: {}", e))?;
-            let name = new_dir
-                .file_name()
-                .ok_or_else(|| "Path must name a directory".to_string())?;
-            parent.join(name)
-        }
-    };
-    if canonical_candidate.components().any(|component| {
-        matches!(
-            component,
-            std::path::Component::CurDir | std::path::Component::ParentDir
-        )
-    }) {
-        return Err("Path must not contain . or .. components".to_string());
-    }
-    crate::commands::forges::validate_storage_location(
-        &canonical_candidate,
-        crate::commands::forges::StorageLocationKind::NotesDirectory,
-    )?;
-    let new_dir = crate::commands::forges::strip_windows_verbatim_prefix(&new_dir);
-
-    // Create the new directory structure
-    fs::create_dir_all(&new_dir).map_err(|e| format!("Failed to create new directory: {}", e))?;
-
-    // Move/copy all subdirectories (daily, notes, templates)
-    for subdir in ["daily", "notes", "templates"] {
-        let old_subdir = old_dir.join(subdir);
-        let new_subdir = new_dir.join(subdir);
-
-        if old_subdir.exists() {
-            fs::create_dir_all(&new_subdir)
-                .map_err(|e| format!("Failed to create {}: {}", subdir, e))?;
-
-            // Copy all files from old to new
-            if let Ok(entries) = fs::read_dir(&old_subdir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        let filename = path.file_name().unwrap();
-                        let dest = new_subdir.join(filename);
-                        fs::copy(&path, &dest)
-                            .map_err(|e| format!("Failed to copy file: {}", e))?;
-                    }
-                }
-            }
-        }
-    }
-
-    // Update the config
-    let mut config = read_config();
-    config.notes_directory = Some(new_dir.to_string_lossy().to_string());
-    write_config(&config)?;
-
-    // After successful copy, remove old files
-    for subdir in ["daily", "notes", "templates"] {
-        let old_subdir = old_dir.join(subdir);
-        if old_subdir.exists() {
-            if let Ok(entries) = fs::read_dir(&old_subdir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        let _ = fs::remove_file(&path);
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// Resolve a `note_path` (relative, like `daily/foo.md` or `notes/sub/x.md`)
@@ -281,12 +184,7 @@ pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String>
         {
             let p = entry.path();
             // Skip directories starting with "."
-            if entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with('.')
-                && entry.depth() > 0
-            {
+            if entry.file_name().to_string_lossy().starts_with('.') && entry.depth() > 0 {
                 continue;
             }
             if !p.is_file() {
@@ -369,13 +267,17 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     // Ensure it has a valid image extension
     let lower_filename = filename.to_lowercase();
     let valid_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
-    if !valid_extensions.iter().any(|ext| lower_filename.ends_with(ext)) {
+    if !valid_extensions
+        .iter()
+        .any(|ext| lower_filename.ends_with(ext))
+    {
         return Err("Invalid image format".to_string());
     }
 
     // Get or create images directory
     let images_dir = get_images_dir();
-    fs::create_dir_all(&images_dir).map_err(|e| format!("Failed to create images directory: {}", e))?;
+    fs::create_dir_all(&images_dir)
+        .map_err(|e| format!("Failed to create images directory: {}", e))?;
 
     // Set directory permissions
     #[cfg(unix)]
@@ -388,8 +290,13 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     // Generate unique filename with timestamp to avoid collisions
     let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f").to_string();
     let extension = filename.rsplit('.').next().unwrap_or("png");
-    let unique_filename = format!("{}_{}.{}",
-        filename.rsplit('.').next_back().map(|_| filename.trim_end_matches(&format!(".{}", extension))).unwrap_or("image"),
+    let unique_filename = format!(
+        "{}_{}.{}",
+        filename
+            .rsplit('.')
+            .next_back()
+            .map(|_| filename.trim_end_matches(&format!(".{}", extension)))
+            .unwrap_or("image"),
         timestamp,
         extension
     );
@@ -405,12 +312,13 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     };
 
     use base64::{engine::general_purpose::STANDARD, Engine};
-    let image_bytes = STANDARD.decode(base64_data)
+    let image_bytes = STANDARD
+        .decode(base64_data)
         .map_err(|e| format!("Failed to decode image data: {}", e))?;
 
     // Write the image file
-    let mut file = fs::File::create(&file_path)
-        .map_err(|e| format!("Failed to create image file: {}", e))?;
+    let mut file =
+        fs::File::create(&file_path).map_err(|e| format!("Failed to create image file: {}", e))?;
     file.write_all(&image_bytes)
         .map_err(|e| format!("Failed to write image data: {}", e))?;
 

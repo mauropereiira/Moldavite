@@ -9,10 +9,12 @@
  */
 
 import { useEffect } from 'react';
-import { Calendar, Check, Link2, Lock, RefreshCw, Unlink } from 'lucide-react';
-import { useCalendarStore } from '@/stores/calendarStore';
+import { Calendar, Check, Link2, Lock, Unlink } from 'lucide-react';
+import { hasNoConnectableCalendarSource, useCalendarStore } from '@/stores/calendarStore';
 import type { CalendarInfo, CalendarSource } from '@/types';
 import { Toggle } from '../common';
+import { DotLoader } from '@/components/ui/DotLoader';
+import { CalendarSyncComingSoon } from '@/components/calendar/CalendarSyncComingSoon';
 
 const REFRESH_INTERVALS = [5, 15, 30, 60];
 
@@ -57,13 +59,17 @@ export function CalendarSection() {
     checkPermission();
   }, [checkPermission]);
 
+  if (hasNoConnectableCalendarSource(sources)) {
+    return <CalendarSyncComingSoon />;
+  }
+
   const apple = sources.find((s) => s.source === 'apple');
   const google = sources.find((s) => s.source === 'google');
   const anyConnected = sources.some((s) => s.available && s.connected);
   const grouped = groupBySource(calendars);
 
   const panel = {
-    backgroundColor: 'var(--bg-panel)',
+    backgroundColor: 'transparent',
     borderRadius: 'var(--radius-md)',
   };
 
@@ -85,15 +91,15 @@ export function CalendarSection() {
             <div
               className="flex items-center gap-3 p-3"
               style={{
-                backgroundColor: 'rgba(90, 138, 110, 0.15)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--success)',
               }}
             >
               <div
                 aria-hidden="true"
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}
+                className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
               </div>
@@ -110,7 +116,7 @@ export function CalendarSection() {
             <div
               className="p-3"
               style={{
-                backgroundColor: 'rgba(184, 92, 92, 0.15)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--error)',
               }}
@@ -137,12 +143,12 @@ export function CalendarSection() {
             <button
               onClick={() => requestPermission()}
               disabled={isRequestingPermission}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+              style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
             >
               {isRequestingPermission ? (
                 <>
-                  <RefreshCw aria-hidden="true" className="w-4 h-4 animate-spin" />
+                  <DotLoader label="Requesting calendar permission" />
                   Requesting...
                 </>
               ) : (
@@ -176,15 +182,15 @@ export function CalendarSection() {
             <div
               className="flex items-center gap-3 p-3"
               style={{
-                backgroundColor: 'rgba(90, 138, 110, 0.15)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--success)',
               }}
             >
               <div
                 aria-hidden="true"
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(90, 138, 110, 0.2)' }}
+                className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
               </div>
@@ -201,7 +207,7 @@ export function CalendarSection() {
               onClick={() => disconnectGoogle()}
               className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: 'var(--bg-elevated)',
+                backgroundColor: 'transparent',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-secondary)',
@@ -221,12 +227,12 @@ export function CalendarSection() {
             <button
               onClick={() => connectGoogle()}
               disabled={isConnectingGoogle}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+              style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
             >
               {isConnectingGoogle ? (
                 <>
-                  <RefreshCw aria-hidden="true" className="w-4 h-4 animate-spin" />
+                  <DotLoader label="Connecting Google Calendar" />
                   Waiting for your browser...
                 </>
               ) : (
@@ -293,7 +299,7 @@ export function CalendarSection() {
                 aria-label="Refresh interval"
                 className="px-2 py-1 text-sm focus:outline-none focus:ring-2"
                 style={{
-                  backgroundColor: 'var(--bg-elevated)',
+                  backgroundColor: 'transparent',
                   border: '1px solid var(--border-default)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
@@ -343,7 +349,7 @@ export function CalendarSection() {
                       />
                       <span
                         aria-hidden="true"
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        className="settings-calendar-swatch w-2.5 h-2.5 flex-shrink-0"
                         style={{ backgroundColor: cal.color || 'var(--accent-primary)' }}
                       />
                       <span className="truncate">{cal.title}</span>

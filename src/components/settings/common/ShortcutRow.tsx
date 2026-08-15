@@ -19,7 +19,7 @@ export function ShortcutRow({ keys, description }: ShortcutRowProps) {
             key={i}
             className="px-2 py-0.5 text-xs font-mono"
             style={{
-              backgroundColor: 'var(--bg-inset)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-primary)',

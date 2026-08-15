@@ -1,17 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
-import {
-  MoreVertical,
-  Link2,
-  Copy,
-  Download,
-  FileDown,
-  FileText,
-  Trash2,
-  Info,
-  Star,
-  Pencil,
-} from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import {
@@ -236,50 +224,26 @@ export function MoreOptionsMenu({
         position="right"
         openDirection={openDirection}
         trigger={
-          <button className="toolbar-button" title="More options">
-            <MoreVertical className="w-4 h-4" />
+          <button className="toolbar-button" title="More options" aria-label="More options">
+            More
           </button>
         }
       >
-        <DropdownItem onClick={handleCopyUrl} icon={<Link2 className="w-4 h-4" />}>
-          Copy URL to note
-        </DropdownItem>
-        <DropdownItem
-          onClick={handleDuplicate}
-          icon={<Copy className="w-4 h-4" />}
-          disabled={currentNote?.isDaily}
-        >
+        <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
+        <DropdownItem onClick={handleDuplicate} disabled={currentNote?.isDaily}>
           Duplicate note
         </DropdownItem>
         {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
-          <DropdownItem
-            onClick={() => setShowRenameModal(true)}
-            icon={<Pencil className="w-4 h-4" />}
-          >
-            Rename note…
-          </DropdownItem>
+          <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
         )}
-        <DropdownItem onClick={handleExport} icon={<Download className="w-4 h-4" />}>
-          Export as Markdown
-        </DropdownItem>
-        <DropdownItem onClick={handleExportPdf} icon={<FileDown className="w-4 h-4" />}>
-          Export as PDF…
-        </DropdownItem>
-        <DropdownItem onClick={handleExportPlaintext} icon={<FileText className="w-4 h-4" />}>
-          Export as Plaintext
-        </DropdownItem>
-        <DropdownItem
-          onClick={() => setShowSaveTemplateModal(true)}
-          icon={<Star className="w-4 h-4" />}
-        >
-          Save as template
-        </DropdownItem>
+        <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
+        <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>
+        <DropdownItem onClick={handleExportPlaintext}>Export as Plaintext</DropdownItem>
+        <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>Save as template</DropdownItem>
         <DropdownDivider />
-        <DropdownItem onClick={handleShowInfo} icon={<Info className="w-4 h-4" />}>
-          Note info
-        </DropdownItem>
+        <DropdownItem onClick={handleShowInfo}>Note info</DropdownItem>
         <DropdownDivider />
-        <DropdownItem onClick={onDelete} icon={<Trash2 className="w-4 h-4" />} variant="danger">
+        <DropdownItem onClick={onDelete} variant="danger">
           Delete note
         </DropdownItem>
       </Dropdown>

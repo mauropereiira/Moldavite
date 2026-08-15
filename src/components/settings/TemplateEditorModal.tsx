@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2 } from 'lucide-react';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToast } from '@/hooks/useToast';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 interface TemplateEditorModalProps {
   isOpen: boolean;
@@ -105,17 +105,16 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
 
   return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
+      className="settings-scrim fixed inset-0 flex items-center justify-center z-[10000] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && !isSaving && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="template-editor-title"
     >
       <div
-        className="w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
+        className="settings-dialog w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-content-enter"
         style={{
-          backgroundColor: 'var(--bg-elevated)',
-          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--bg-base)',
         }}
       >
         {/* Header */}
@@ -133,14 +132,13 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="p-1 focus-ring disabled:opacity-50"
+            className="settings-close p-1 focus-ring disabled:opacity-50"
             style={{
               color: 'var(--text-muted)',
-              borderRadius: 'var(--radius-sm)',
             }}
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 
@@ -171,7 +169,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
               disabled={isSaving}
               className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--bg-panel)',
+                backgroundColor: 'transparent',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-primary)',
@@ -207,7 +205,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
               placeholder="# {{title}}&#10;&#10;Written on {{date}} at {{time}}"
               className="w-full px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 resize-none disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--bg-panel)',
+                backgroundColor: 'transparent',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-primary)',
@@ -215,13 +213,13 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
             />
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               Supported tokens:{' '}
-              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
+              <code className="px-1 rounded" style={{ backgroundColor: 'transparent' }}>
                 {'{{date}}'}
               </code>{' '}
-              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
+              <code className="px-1 rounded" style={{ backgroundColor: 'transparent' }}>
                 {'{{time}}'}
               </code>{' '}
-              <code className="px-1 rounded" style={{ backgroundColor: 'var(--bg-panel)' }}>
+              <code className="px-1 rounded" style={{ backgroundColor: 'transparent' }}>
                 {'{{title}}'}
               </code>
             </p>
@@ -243,7 +241,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
             disabled={isSaving}
             className="px-3 py-1.5 text-sm font-medium focus-ring disabled:opacity-50"
             style={{
-              backgroundColor: 'var(--bg-panel)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
@@ -255,15 +253,15 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
             type="submit"
             form="template-editor-form"
             disabled={isSaving || !name.trim()}
-            className="px-3 py-1.5 text-sm font-medium text-white focus-ring disabled:opacity-50 flex items-center gap-2"
+            className="px-3 py-1.5 text-sm font-medium focus-ring disabled:opacity-50 flex items-center gap-2"
             style={{
-              backgroundColor: 'var(--accent-primary)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
             }}
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <DotLoader label="Creating template" />
                 Saving...
               </>
             ) : (

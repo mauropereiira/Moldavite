@@ -38,6 +38,9 @@ export function useFolders() {
   const initialize = useCallback(async () => {
     try {
       const folderList = await listFolders();
+      if (!Array.isArray(folderList)) {
+        throw new Error('Invalid response from list_folders');
+      }
       setFolders(folderList);
     } catch (error) {
       console.error('Failed to load folders:', error);

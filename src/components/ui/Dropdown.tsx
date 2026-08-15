@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { applyImpactOrigin, captureImpactOrigin } from '@/lib/impactOrigin';
 
 interface DropdownProps {
   trigger: React.ReactNode;
@@ -17,7 +18,6 @@ export function Dropdown({
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // Handle click outside
   useEffect(() => {
@@ -63,20 +63,26 @@ export function Dropdown({
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
-      <div onClick={() => setIsOpen(!isOpen)} aria-expanded={isOpen} aria-haspopup="menu">
+      <div
+        onClick={(event) => {
+          if (!isOpen) captureImpactOrigin(event.currentTarget);
+          setIsOpen(!isOpen);
+        }}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+      >
         {trigger}
       </div>
 
       {isOpen && (
         <div
-          ref={menuRef}
+          ref={applyImpactOrigin}
           role="menu"
-          className={`absolute ${directionClasses} ${positionClasses[position]} z-50 min-w-[180px] py-1 modal-content-enter`}
+          className={`absolute ${directionClasses} ${positionClasses[position]} z-50 min-w-[180px] py-1 modal-content-enter impact-surface`}
           style={{
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-muted)',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-md)',
           }}
         >
           {React.Children.map(children, (child) => {

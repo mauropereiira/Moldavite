@@ -1,6 +1,6 @@
 /** Transient visibility state for the graph overlay; graph data is fetched on demand. */
 
-import { create } from 'zustand';
+import { createSurfaceStore } from './overlayStore';
 
 /**
  * Visibility store for the full-screen graph-view overlay.
@@ -9,17 +9,8 @@ import { create } from 'zustand';
  * by `GraphView` itself each time the overlay opens, so we don't pay the
  * memory cost while the overlay is closed.
  * Visibility is transient and never implies that graph data is current.
+ *
+ * The graph is one of the exclusive navigation surfaces, so `isOpen` mirrors
+ * `useOverlayStore` and opening anything else closes it.
  */
-interface GraphState {
-  isOpen: boolean;
-  open: () => void;
-  close: () => void;
-  toggle: () => void;
-}
-
-export const useGraphStore = create<GraphState>((set) => ({
-  isOpen: false,
-  open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false }),
-  toggle: () => set((state) => ({ isOpen: !state.isOpen })),
-}));
+export const useGraphStore = createSurfaceStore('graph');

@@ -102,6 +102,14 @@ function hasConnectedSource(sources: CalendarSourceStatus[]): boolean {
 }
 
 /**
+ * Every source reported by the backend is unavailable on this platform/build.
+ * An empty list is unknown state, not proof that no source can be connected.
+ */
+export function hasNoConnectableCalendarSource(sources: CalendarSourceStatus[]): boolean {
+  return sources.length > 0 && sources.every((source) => !source.available);
+}
+
+/**
  * v0 stored a single `selectedCalendarId` holding a bare EventKit id, with
  * `null` meaning "all calendars". Ids carry a source prefix now, so carry the
  * choice forward as `apple:<id>` and let `null` become the empty list, which

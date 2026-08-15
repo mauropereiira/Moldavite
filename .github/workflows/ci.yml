@@ -93,6 +93,65 @@ jobs:
         working-directory: src-tauri
         run: ${{ matrix.run }}
 
+  # `cargo test --lib` proves the library compiles; it does not prove the app
+  # builds or that an installer can be produced. Those two are exactly where
+  # Windows breaks, and until now the first check of either happened after a
+  # release tag was already pushed and the GitHub release already published.
+  #
+  # This does a real `tauri build`: frontend bundle, binary link, then MSI and
+  # NSIS generation. Updater artifacts are switched off through a config
+  # override rather than by handing CI a signing key — nothing here is
+  # distributed, and fork PRs cannot read secrets anyway.
+  #
+  # It is the slowest job in the file (fastembed fetches ONNX Runtime binaries
+  # at build time). That is the price of finding out on the PR instead of in
+  # front of users.
+  build-windows:
+    name: build-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-build-windows-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Install deps
+        run: npm ci
+
+      # The override lives in a file rather than inline JSON: this step runs
+      # under PowerShell, and quoting a JSON literal across shells is a trap.
+      - name: Build app and installers
+        run: npx tauri build --config src-tauri/tauri.ci.conf.json
+
+      # Prove the bundler actually emitted both installers. `tauri build` can
+      # succeed having produced fewer artifacts than configured, which is the
+      # failure this job exists to catch.
+      - name: Assert installers exist
+        shell: pwsh
+        run: |
+          $root = "src-tauri/target/release/bundle"
+          $msi = Get-ChildItem -Path "$root/msi" -Filter *.msi -ErrorAction SilentlyContinue
+          $nsis = Get-ChildItem -Path "$root/nsis" -Filter *-setup.exe -ErrorAction SilentlyContinue
+          if (-not $msi) { throw "No .msi produced in $root/msi" }
+          if (-not $nsis) { throw "No NSIS -setup.exe produced in $root/nsis" }
+          Write-Host "msi:  $($msi.Name)  $([math]::Round($msi.Length/1MB,1)) MB"
+          Write-Host "nsis: $($nsis.Name)  $([math]::Round($nsis.Length/1MB,1)) MB"
+
   # Windows is a shipped target but nothing verified it until a release tag was
   # already pushed, so `#[cfg(windows)]` code and every `#[cfg(unix)]`-skipped
   # test went unproven. No apt step and no Swift/EventKit here; otherwise this

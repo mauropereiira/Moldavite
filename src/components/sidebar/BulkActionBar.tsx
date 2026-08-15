@@ -1,4 +1,3 @@
-import { Download, FolderInput, Trash2, X } from 'lucide-react';
 import { useNoteSelectionStore } from '@/stores';
 
 interface BulkActionBarProps {
@@ -27,14 +26,12 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
       // inner card only so the backdrop remains transparent to clicks — the
       // sidebar's root-click handler still clears selection if the user clicks
       // anywhere outside a note row.
-      className="absolute left-1/2 -translate-x-1/2 bottom-16 z-50 flex items-center gap-2 px-3 py-2 shadow-lg select-none"
+      className="absolute left-1/2 -translate-x-1/2 bottom-16 z-50 flex items-center gap-2 px-3 py-2 select-none"
       role="toolbar"
       aria-label="Bulk note actions"
       style={{
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: 'var(--shadow-md)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -48,34 +45,29 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
       <button
         type="button"
         onClick={onMoveToFolder}
-        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
+        className="inline-flex items-center px-2 py-1 text-xs font-medium transition-colors focus-ring"
         style={{ color: 'var(--text-primary)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
       >
-        <FolderInput aria-hidden="true" className="w-3.5 h-3.5" />
         Move to folder
       </button>
       <button
         type="button"
         onClick={onExport}
-        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
+        className="inline-flex items-center px-2 py-1 text-xs font-medium transition-colors focus-ring"
         style={{ color: 'var(--text-primary)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
       >
-        <Download aria-hidden="true" className="w-3.5 h-3.5" />
         Export…
       </button>
       <button
         type="button"
         onClick={onTrash}
-        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors focus-ring"
+        className="inline-flex items-center px-2 py-1 text-xs font-medium transition-colors focus-ring"
         style={{ color: 'var(--error)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
         Trash
       </button>
       <span
@@ -85,13 +77,12 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
       <button
         type="button"
         onClick={clear}
-        className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors focus-ring"
+        className="inline-flex items-center px-2 py-1 text-xs transition-colors focus-ring"
         style={{ color: 'var(--text-muted)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
         aria-label="Clear selection"
       >
-        <X aria-hidden="true" className="w-3.5 h-3.5" />
         Clear
       </button>
     </div>

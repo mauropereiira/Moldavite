@@ -1,9 +1,8 @@
 import React from 'react';
-import { FolderPlus, Folder } from 'lucide-react';
 import { SidebarSection } from './SidebarSection';
 import { FolderTree } from './FolderTree';
-import { EmptyState } from '@/components/ui';
 import type { FolderInfo, NoteFile } from '@/types';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarFolderTreeProps {
   folders: FolderInfo[];
@@ -26,6 +25,7 @@ interface SidebarFolderTreeProps {
   onFoldersRootDragOver: (e: React.DragEvent) => void;
   onFoldersRootDragLeave: (e: React.DragEvent) => void;
   onFoldersRootDrop: (e: React.DragEvent) => void;
+  showShapeMarks?: boolean;
 }
 
 /**
@@ -58,6 +58,7 @@ export function SidebarFolderTree({
   onFoldersRootDragOver,
   onFoldersRootDragLeave,
   onFoldersRootDrop,
+  showShapeMarks = false,
 }: SidebarFolderTreeProps) {
   return (
     <SidebarSection
@@ -68,22 +69,22 @@ export function SidebarFolderTree({
       rightAction={
         <button
           onClick={onNewFolder}
-          className="p-1 transition-colors"
+          className="transition-colors"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           title="New folder"
         >
-          <FolderPlus className="w-4 h-4" />
+          New
         </button>
       }
     >
       <div
-        className="px-1 min-h-[20px] transition-colors"
+        className="px-3 min-h-[20px] transition-colors"
         style={{
-          borderRadius: 'var(--radius-sm)',
-          backgroundColor: isDragOverFoldersRoot ? 'var(--accent-subtle)' : 'transparent',
-          boxShadow: isDragOverFoldersRoot ? '0 0 0 2px var(--accent-primary)' : 'none',
+          borderBottom: `1px solid ${
+            isDragOverFoldersRoot ? 'var(--border-strong)' : 'transparent'
+          }`,
         }}
         onDragEnter={onFoldersRootDragEnter}
         onDragOver={onFoldersRootDragOver}
@@ -104,23 +105,17 @@ export function SidebarFolderTree({
             onNoteSelectionClick={onNoteSelectionClick}
             onNoteContextMenu={onNoteContextMenu}
             getNoteTags={getNoteTags}
+            showShapeMarks={showShapeMarks}
           />
         ) : (
-          <EmptyState
-            icon={Folder}
-            heading="No folders yet"
-            message="Create a folder to organize your notes."
-            actions={[
-              {
-                label: 'New Folder',
-                onClick: onNewFolder,
-                variant: 'secondary',
-                icon: FolderPlus,
-              },
-            ]}
-            variant="compact"
-            iconColor="text-gray-400 dark:text-gray-500"
-          />
+          <SignatureEmptyState className="px-3 py-2 text-xs">
+            <div>
+              <span>No folders yet.</span>{' '}
+              <button onClick={onNewFolder} style={{ color: 'var(--text-secondary)' }}>
+                New folder
+              </button>
+            </div>
+          </SignatureEmptyState>
         )}
       </div>
     </SidebarSection>

@@ -1,98 +1,42 @@
-<p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Moldavite" width="128" height="128">
-</p>
-
-<h1 align="center">Moldavite</h1>
-
-<p align="center">
-  <em>A notes app that never takes your notes.</em>
-</p>
-
-<p align="center">
-  <a href="https://github.com/mauropereiira/Moldavite/releases/latest"><img src="https://img.shields.io/github/v/release/mauropereiira/Moldavite?style=flat-square&color=9dc183&label=release" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/macOS-10.15%2B-2d5a3d?style=flat-square&logo=apple&logoColor=white" alt="macOS 10.15+">
-  <img src="https://img.shields.io/badge/Windows-beta-8a6d1f?style=flat-square&logo=windows&logoColor=white" alt="Windows beta">
-  <img src="https://img.shields.io/badge/license-MIT-c9a227?style=flat-square" alt="MIT">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
+  <img src="docs/banner-light.png" alt="Moldavite" width="100%">
+</picture>
 
 <p align="center">
   <a href="https://mauropereiira.github.io/Moldavite/">Website</a> ·
-  <a href="https://mauropereiira.github.io/Moldavite/guide.html">User Guide</a> ·
+  <a href="https://mauropereiira.github.io/Moldavite/demo.html">Try it in your browser</a> ·
+  <a href="https://mauropereiira.github.io/Moldavite/guide.html">Guide</a> ·
   <a href="https://github.com/mauropereiira/moldavite-skills">Agent Skills</a> ·
-  <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew tap</a> ·
-  <a href="CHANGELOG.md">Changelog</a>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/demo.gif" alt="Jumping between notes with the quick switcher, following wiki links, and opening the graph view" width="900">
+  <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
 </p>
 
 ---
 
-Moldavite is a notes app for macOS, and for Windows in beta. Your notes are
-plain Markdown files in a folder you own. There is no account and no sync service.
+**Notes that stay yours.** Moldavite keeps every note as a Markdown file in a
+folder you choose, on your computer. Local search, wiki-links, daily notes, a
+calendar, and a built-in MCP server for the AI tools you already use.
 
-Open that folder in Finder or File Explorer, put it in git, edit it in another
-app, and Moldavite picks up the change. It also runs an MCP server, so Claude and
-other AI tools can read your notes on your machine. Read tools are on by default.
-Writing stays off until you switch it on.
+No account. No sync service. No telemetry. If Moldavite disappeared tomorrow,
+you would still have every note, in plain text, exactly where you left it.
+
+Local-first for macOS, and for Windows in beta.
 
 ## Install
 
-### macOS
-
-Install with Homebrew:
+**macOS** — Homebrew fetches the signed, notarized build for your architecture
+and puts `moldavite` on your `PATH`:
 
 ```sh
 brew install --cask mauropereiira/moldavite/moldavite
 ```
 
-Or [download the latest release](https://github.com/mauropereiira/Moldavite/releases/latest)
-and drag it to Applications:
+Or take the DMG from [the latest release](https://github.com/mauropereiira/Moldavite/releases/latest).
 
-| Mac | File |
-|-----|------|
-| Apple Silicon | `Moldavite_x.x.x_aarch64.dmg` |
-| Intel | `Moldavite_x.x.x_x64.dmg` |
-
-macOS builds are signed and notarized. Requires macOS 10.15 or later. Updates
-install themselves after a minisign check.
-
-### Windows
-
-[Download the latest release](https://github.com/mauropereiira/Moldavite/releases/latest)
-and run one of these x64 installers:
-
-| Installer | File |
-|-----------|------|
-| Setup executable (recommended) | `Moldavite_x.x.x_x64-setup.exe` |
-| Windows Installer package | `Moldavite_x.x.x_x64_en-US.msi` |
-
-The Windows installers are not Authenticode-signed, so SmartScreen may show a
-warning. If you downloaded Moldavite from the official release page, choose
-**More info**, then **Run anyway**. In-app updates are signed and verified before
-installation.
-
-## What it looks like
-
-<img src="docs/screenshots/editor.png" alt="Moldavite editing a note, with the note list, folders, and calendar visible" width="900">
-
-Notes, folders and daily notes on the left, the editor in the middle, your
-calendar on the right.
-
-<img src="docs/screenshots/search.png" alt="Searching notes, with matches highlighted in context" width="900">
-
-Search reads every note in the Forge and shows you the line that matched.
-
-<img src="docs/screenshots/graph.png" alt="The graph view, with linked notes clustered and one node selected" width="900">
-
-The graph is built from your `[[wiki links]]`. Links that point nowhere yet stay
-visible as hollow nodes instead of disappearing.
-
-<img src="docs/screenshots/mcp.png" alt="The AI and Agents settings panel, showing the MCP setup command and the write-tools switch" width="900">
-
-Settings has one panel for the whole agent story: the setup command for your
-client, and the switch that decides whether agents can write.
+**Windows** — download `Moldavite_x.x.x_x64-setup.exe` from the same page. The
+installer is not Authenticode-signed yet, so SmartScreen will warn you once:
+choose **More info → Run anyway**. Updates delivered inside the app are
+cryptographically signed and verified before they install.
 
 ## Connect your AI
 
@@ -100,115 +44,81 @@ The app binary is also the MCP server. There is no separate daemon, and nothing
 leaves your machine.
 
 ```sh
-claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp
-```
-
-If you installed with Homebrew, `moldavite` is already on your `PATH`:
-
-```sh
 claude mcp add moldavite -- moldavite --mcp
 ```
 
-Settings → AI & Agents generates the right line for Claude Code, Claude Desktop,
-Cursor, or any stdio MCP client. Add `--forge "Work"` to pin a client to one
-Forge instead of following whichever Forge is open.
+Settings → AI & Agents generates the exact line for Claude Code, Claude Desktop,
+Cursor, or any stdio MCP client — use it on Windows, where the path differs. Add
+`--forge "Work"` to pin a client to one Forge rather than following whichever is
+open.
 
-On Windows, use the command generated in Settings so the client gets the exact
-path to your installed executable.
+| Tool                   | Does                                                               | Default |
+| ---------------------- | ------------------------------------------------------------------ | ------- |
+| `list_notes`           | Enumerate notes and locked-note placeholders, optionally by folder | On      |
+| `read_note`            | Read one unlocked note by Forge-relative path                      | On      |
+| `search_notes`         | Ranked full-text search with snippets                              | On      |
+| `get_backlinks`        | Every note linking to a given note                                 | On      |
+| `create_note`          | Create a note                                                      | **Off** |
+| `write_note`           | Replace a note's contents                                          | **Off** |
+| `append_to_daily_note` | Append to today's note                                             | **Off** |
 
-| Tool | Does | Default |
-|------|------|---------|
-| `list_notes` | Enumerate notes and locked-note placeholders, optionally by folder | On |
-| `read_note` | Read one unlocked note by Forge-relative path | On |
-| `search_notes` | Ranked full-text search with snippets | On |
-| `get_backlinks` | Every note linking to a given note | On |
-| `create_note` | Create a note | **Off** |
-| `write_note` | Replace a note's contents | **Off** |
-| `append_to_daily_note` | Append to today's note | **Off** |
+Write tools are off until you turn them on, and vanish from the tool list again
+the moment you turn them off. Locked notes are excluded from all seven. When an
+agent changes a note you have unsaved edits in, Moldavite names the agent and
+asks before replacing anything.
 
-Turn the write tools off again and they vanish from the tool list mid-session.
-Locked notes are excluded from all seven.
-
-Some agents read files directly and never speak MCP. For those, one click writes an `AGENTS.md`
-describing your Forge's conventions, plus a `.gitignore` for the directories the
-app manages itself.
-
-**[Moldavite Skills](https://github.com/mauropereiira/moldavite-skills)** teach an
-agent how to use all of this. They follow the Agent Skills spec, so they work in
-Claude Code, Codex, and OpenCode:
+**[Moldavite Skills](https://github.com/mauropereiira/moldavite-skills)** teach
+an agent how to use all of this. They follow the Agent Skills spec, so they work
+in Claude Code, Codex, and OpenCode:
 
 ```sh
 /plugin marketplace add mauropereiira/moldavite-skills
 /plugin install moldavite@moldavite-skills
 ```
 
+Agents that read files directly and never speak MCP are covered too: one click
+writes an `AGENTS.md` describing your Forge's conventions.
+
 ## The Forge
 
-A **Forge** is a vault. It is an ordinary directory holding ordinary files, and
-you can keep as many as you like:
+A Forge is a directory. Keep several and switch between them.
 
 ```
-<Documents>/Moldavite/<ForgeName>/
-├── daily/         # YYYY-MM-DD.md, created on demand, removed when emptied
-├── weekly/        # YYYY-Www.md
-├── notes/         # standalone notes, nested folders supported
-├── templates/     # custom templates (JSON)
-├── images/        # pasted and inserted images
-├── .trash/        # 7-day retention
-└── .plugins/      # installed plugins
+~/Documents/Moldavite/<Forge>/
+  daily/        YYYY-MM-DD.md
+  weekly/       YYYY-Www.md
+  notes/        everything else, subfolders and all
+  templates/
+  images/
+  .trash/       7-day retention
+  .plugins/
 ```
 
-Every write is atomic. A crash or a full disk cannot leave you with half a note.
-If a file changed on disk while you had unsaved edits, the disk version is kept
-as a timestamped conflict copy.
+Real Markdown with YAML frontmatter. Point Dropbox, iCloud, git or nothing at
+all at it. Edit the files in another editor while Moldavite is open and it
+notices.
 
 ## What else it does
 
-- **Writing.** Rich-text editing over Markdown-on-disk: headings, task lists,
-  code, resizable images, slash commands, pinnable tabs, and formatted paste
-  for recognizable raw Markdown.
-- **Linking.** `[[Wiki links]]` and `[[Display|target]]`. Renaming a note
-  rewrites every inbound link across the vault and keeps your open tabs pointed
-  at the right file.
-- **Finding.** Backlinks panel, `#tags` with global rename, folders, and a quick
-  switcher on `⌘P` (macOS) or `Ctrl+P` (Windows). Search is a live scan, which is
-  comfortable to roughly a thousand notes.
-- **Semantic search.** Optional. Pick one of three embedding models, approve the
-  download, and everything after that runs offline. Windows and Apple Silicon
-  builds include semantic search; Intel Macs get keyword search.
-- **Locking.** Individual notes encrypt with AES-256-GCM and Argon2, with
-  rate-limited unlock and auto-relock. Locked notes stay out of search, indexing,
-  and every agent tool.
-- **Calendar.** Apple Calendar through EventKit and Google Calendar through a
-  read-only OAuth scope. Events are drawn and discarded. Moldavite never creates
-  or changes one.
-- **Plugins.** Each runs in its own Web Worker with no DOM, no network globals,
-  and no Tauri IPC. Consent is pinned to a hash of the plugin's code, so any
-  change asks you again. See [docs/PLUGINS.md](docs/PLUGINS.md).
-- **Moving in and out.** One-time Obsidian vault import, ZIP and encrypted
-  exports, per-note Markdown and PDF export.
+Wiki-links with vault-wide rename, backlinks, a graph view, full-text and local
+semantic search, Apple and Google Calendar on a timeline, note locking with
+AES-256-GCM, encrypted export, a one-time Obsidian importer that copies rather
+than moves, and sandboxed plugins that run in a Worker with no network unless
+you grant it.
 
 ## Privacy
 
-No account system, no hosted notes service, no analytics, no telemetry.
-
-Moldavite has six ways to reach the network, all of them on purpose: a signed
-update check about fifteen seconds after launch and once a day while open; the
-plugin registry from GitHub when you press Browse; a semantic model from Hugging
-Face after you opt in; Google Calendar while a Google account is connected;
-plugin requests to hosts you approved by name; and publishing a note to WordPress
-when you choose that action. Full detail in the
-[Privacy Policy](https://mauropereiira.github.io/Moldavite/privacy.html).
+Every network connection the app can make is listed in
+[the privacy note](https://mauropereiira.github.io/Moldavite/privacy.html). The
+short version: update checks, and whatever you explicitly connect. Fonts are
+self-hosted, so no page or panel in the app calls a CDN. Your notes are never
+uploaded to be indexed, including by the semantic search, which runs its model
+locally.
 
 ## Contributing
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has the setup, commands, and conventions.
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the pieces fit
-together. [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) tracks what ships,
-what is broken, and what is next.
+Issues and pull requests welcome. `docs/RELEASING.md` covers the release
+process, `CLAUDE.md` the architecture, and `docs/DESIGN_CREAM.md` the design
+system. Run `npm test`, `npm run lint`, and `cargo test` before opening a PR.
 
----
-
-<p align="center">
-  <sub>Made by <a href="https://github.com/mauropereiira">Mauro Pereira</a> · MIT License</sub>
-</p>
+MIT.

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { format, isToday } from 'date-fns';
-import { useCalendarStore } from '@/stores/calendarStore';
+import { hasNoConnectableCalendarSource, useCalendarStore } from '@/stores/calendarStore';
 import { useNoteStore, useSettingsStore } from '@/stores';
 import type { CalendarEvent } from '@/types';
-import { Clock, RefreshCw, AlertCircle, Lock, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
 import { NoEventsEmptyState, ConnectCalendarEmptyState } from '@/components/ui/EmptyState';
+import { CalendarSyncComingSoon } from './CalendarSyncComingSoon';
 
 // Time grid hours (0-23)
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -110,23 +110,24 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
 // Loading state component
 function LoadingState() {
   return (
-    <div className="flex flex-col gap-2 p-4">
+    <div className="flex flex-col p-4">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse">
-          <div className="flex items-start gap-2 p-2">
+        <div
+          key={i}
+          className="animate-pulse"
+          style={{ borderBottom: '1px solid var(--border-muted)' }}
+        >
+          <div className="flex items-start gap-2 py-3">
             <div
-              className="w-2 h-2 rounded-full mt-1"
+              className="mt-1.5 h-1.5 w-1.5"
               style={{ backgroundColor: 'var(--border-default)' }}
             />
             <div className="flex-1">
               <div
-                className="h-3 rounded w-16 mb-1"
+                className="mb-1 h-3 w-3/4"
                 style={{ backgroundColor: 'var(--border-default)' }}
               />
-              <div
-                className="h-4 rounded w-3/4"
-                style={{ backgroundColor: 'var(--border-default)' }}
-              />
+              <div className="h-2 w-16" style={{ backgroundColor: 'var(--border-default)' }} />
             </div>
           </div>
         </div>
@@ -139,18 +140,22 @@ function LoadingState() {
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <AlertCircle className="w-8 h-8 mb-2" style={{ color: 'var(--error)' }} />
+      <span
+        className="mb-2 text-[10px] uppercase"
+        style={{ color: 'var(--error)', letterSpacing: '0.14em' }}
+      >
+        Sync error
+      </span>
       <p className="text-sm mb-2" style={{ color: 'var(--error)' }}>
         {error}
       </p>
       <button
         onClick={onRetry}
-        className="text-xs flex items-center gap-1 transition-colors"
-        style={{ color: 'var(--accent-primary)' }}
+        className="text-xs transition-colors"
+        style={{ color: 'var(--text-primary)', borderBottom: '1px solid currentColor' }}
         onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
         onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
-        <RefreshCw className="w-3 h-3" />
         Retry
       </button>
     </div>
@@ -170,7 +175,12 @@ function PermissionDeniedState() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-      <Lock className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)' }} />
+      <span
+        className="mb-3 text-[10px] uppercase"
+        style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
+      >
+        Calendar
+      </span>
       <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
         Calendar Access Denied
       </h3>
@@ -179,16 +189,14 @@ function PermissionDeniedState() {
       </p>
       <button
         onClick={handleOpenSettings}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
+        className="text-xs font-medium transition-colors"
         style={{
-          color: 'var(--accent-primary)',
-          backgroundColor: 'var(--accent-subtle)',
-          borderRadius: 'var(--radius-md)',
+          color: 'var(--text-primary)',
+          borderBottom: '1px solid currentColor',
         }}
         onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
         onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
-        <ExternalLink className="w-3 h-3" />
         Open Settings
       </button>
     </div>
@@ -291,24 +299,38 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
   }, [isTodaySelected]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* All-day events section */}
       {allDayEvents.length > 0 && (
-        <div className="p-2 space-y-1" style={{ borderBottom: '1px solid var(--border-default)' }}>
+        <section
+          aria-label="All-day events"
+          className="flex-shrink-0 px-3 py-2"
+          style={{
+            maxHeight: '35%',
+            overflowY: 'auto',
+            borderBottom: '1px solid var(--border-strong)',
+          }}
+        >
           <div
-            className="text-[10px] uppercase font-medium mb-1"
-            style={{ color: 'var(--text-muted)' }}
+            className="mb-1 text-[10px] uppercase"
+            style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
           >
             All Day
           </div>
-          {allDayEvents.map((event) => (
-            <AllDayEvent key={event.id} event={event} />
+          {allDayEvents.map((event, index) => (
+            <AllDayEvent key={event.id} event={event} index={index} />
           ))}
-        </div>
+        </section>
       )}
 
       {/* Scrollable time grid */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        ref={scrollContainerRef}
+        role="region"
+        aria-label="Hourly timeline"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ minHeight: '50%' }}
+      >
         <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Hour rows */}
           {HOURS.map((hour) => (
@@ -318,7 +340,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
               style={{
                 top: `${hour * HOUR_HEIGHT}px`,
                 height: `${HOUR_HEIGHT}px`,
-                borderBottom: '1px solid var(--border-default)',
+                borderBottom: '1px solid var(--border-muted)',
               }}
             >
               {/* Time label */}
@@ -327,7 +349,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
                 style={{
                   width: `${TIME_COLUMN_WIDTH}px`,
                   transform: 'translateY(-50%)',
-                  color: 'var(--text-tertiary)',
+                  color: 'var(--text-muted)',
                 }}
               >
                 {hour === 0 ? '' : format(new Date().setHours(hour, 0), 'HH:mm')}
@@ -349,12 +371,13 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           <CurrentTimeLine isToday={isTodaySelected} />
 
           {/* Event blocks */}
-          {eventsWithColumns.map((event) => (
+          {eventsWithColumns.map((event, index) => (
             <EventBlock
               key={event.id}
               event={event}
               columnIndex={event.columnIndex}
               totalColumns={event.totalColumns}
+              index={index}
             />
           ))}
 
@@ -389,6 +412,7 @@ export function Timeline() {
   } = useCalendarStore();
 
   const anyConnected = sources.some((s) => s.available && s.connected);
+  const noConnectableSource = hasNoConnectableCalendarSource(sources);
 
   // Check source state on mount
   useEffect(() => {
@@ -427,7 +451,11 @@ export function Timeline() {
     return () => window.clearInterval(id);
   }, [anyConnected, calendarEnabled, refreshIntervalMinutes, selectedDate, fetchEvents]);
 
-  // Nothing connected - show connect prompt
+  if (noConnectableSource) {
+    return <CalendarSyncComingSoon />;
+  }
+
+  // A source exists but nothing is connected - show the existing connect prompt.
   if (!anyConnected) {
     return <ConnectCalendarPrompt />;
   }
@@ -454,36 +482,44 @@ export function Timeline() {
   const headerDate = isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMM d');
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center justify-between p-3"
-        style={{ borderBottom: '1px solid var(--border-default)' }}
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: '1px solid var(--border-muted)' }}
       >
         <div>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          <h3
+            style={{
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-display)',
+              fontSize: '15px',
+              fontWeight: 400,
+              letterSpacing: 0,
+            }}
+          >
             {headerDate}
           </h3>
           {lastSynced && !isLoadingEvents && (
             <div
-              className="flex items-center gap-1 text-[10px]"
-              style={{ color: 'var(--text-muted)' }}
+              className="text-[10px] uppercase"
+              style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
             >
-              <Clock className="w-2.5 h-2.5" />
-              <span>Synced {format(lastSynced, 'h:mm a')}</span>
+              Synced {format(lastSynced, 'h:mm a')}
             </div>
           )}
         </div>
         <button
           onClick={handleRefresh}
           disabled={isLoadingEvents}
-          className="p-1.5 transition-colors"
-          style={{ borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          className="focus-ring text-xs transition-colors disabled:opacity-50"
+          style={{ color: 'var(--text-muted)', borderBottom: '1px solid currentColor' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           title={lastSynced ? `Last synced: ${format(lastSynced, 'h:mm a')}` : 'Refresh'}
+          aria-label="Sync calendar events"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoadingEvents ? 'animate-spin' : ''}`} />
+          {isLoadingEvents ? 'Syncing…' : 'Sync'}
         </button>
       </div>
 

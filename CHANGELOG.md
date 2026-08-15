@@ -2,18 +2,54 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.0.0] - 2026-08-15
+
+Moldavite has been redesigned. Not restyled — rebuilt around one idea: your
+writing is the only ink on the page, and everything else has to earn its place
+beside it.
+
+### Changed
+
+- **The app is cream and ink now.** Two colours do nearly all the work: a warm cream ground and near-black type, with a single moss green held back for one thing at a time. Borders are hairlines, elevation is a rule rather than a shadow, and nothing has a corner radius. The type is Geist Mono for anything structural — headings, labels, dates, counts — and Geist for prose. Dark mode is the same two colours inverted, so it reads as the same app after dark rather than a different one. If you had chosen a theme, Moldavite keeps it; only new installs open in cream by default.
+- **The note is the app now, and navigation is summoned rather than parked.** The Index and the Agenda are no longer columns permanently taking up room beside your writing. Press `⌘\` or `⌘⌥\` and the one you want arrives over the whole window; press it again and it goes. If you preferred the columns, Settings → Layout pins them back exactly as before. Everyone upgrading starts with both summoned, so the two halves of the frame behave the same way rather than one being parked and the other hidden.
+- **The icon is the monogram.** A cream M on an ink tile, replacing the faceted green stone. It is drawn as outlines rather than set in a typeface, so it renders identically everywhere and depends on no font being installed.
+- **The website is a different thing entirely.** The landing page is the wordmark under a drifting field of stars, with the constellations your eye can actually find in it, and a small asteroid that follows your cursor. The screenshots and the autoplaying videos are gone. In their place, at /demo.html, is a real editor: write a note in your browser, download it, drop the file into your Forge, and open it in Moldavite. There is no import step because there never needed to be one.
+
+### Added
+
+- **The graph is a star map, and it finally lets you roam.** Notes are stars whose size and brightness follow how many links they carry, and links are the hairlines drawn between them — the same night sky the welcome screen already shows. Opening it now plays that sky into focus: the field starts scattered and unwinds inward over about a second, centre first, with the links fading in once the stars have landed. The view no longer fights you. Panning is free in every direction, so you can scroll away from the graph entirely, and it no longer snaps back to centre every time you hover a note or change theme — it is framed once when you first open it and then left alone, remembering where you left it for the rest of the session. Fit view is still there when you want to start over, and double-clicking empty sky does the same thing. The note you have open is marked with a thin ring, hovering a star dims everything except its immediate neighbours, and `prefers-reduced-motion` skips the entrance entirely.
+- **The welcome screen has an optional asteroid cursor.** A small tumbling fragment trails fine-pointer movement through the night sky, grows slightly over links and controls, and leaves one quiet impact ring when you click. Settings → Layout can turn it off, and reduced-motion or touch/coarse-pointer devices always keep the native cursor.
+- **Agents now ask before replacing unsaved edits in an open note.** When Claude Code or another MCP client changes the note you are editing, Moldavite names the agent when the client reports its name and preserves whichever version you do not choose as a conflict copy. Notes without unsaved edits still update immediately and only show a small notification.
+- **The calendar says what it is doing on Windows.** Apple Calendar is macOS-only and Windows builds ship without Google credentials, so the calendar there had nothing you could connect and a Settings page that led nowhere. The month grid still works — dates, today, and your daily-note markers never needed a calendar account — and the places events would appear now say so plainly instead of implying you had configured something wrong.
+- **An update tells you it has arrived.** A quiet marker appears when a new version is ready, and the release notes you are reading now open in a window that fits the app rather than a wall of text.
+
+### Fixed
+
+- **Switching Forge stopped Moldavite noticing file changes at all.** Changing Forge shut down the watcher and started a replacement, but the replacement was discarded the instant it was created, leaving nothing watching until you restarted the app. Everything that arrives from outside went quiet: an edit from another editor, a sync client, or a note written by Claude Code through MCP. Both halves of that are fixed, with tests holding the swap in place.
+- **"Change Forge Directory" could delete notes.** It offered to move your Forge and instead copied only the loose files from three of its folders — never `weekly/`, never images, never anything inside a subfolder — deleted the originals, and then recorded the move somewhere Moldavite no longer reads, so the app reopened the same Forge with those notes missing. The button is gone. The Forge location control now points Moldavite at a different folder without touching a single file, and says so.
+- **Windows had another app's icon.** `icon.ico` was placeholder clipart — a blue letter N with a book and a fountain pen — and it survived every icon update because macOS never opens that file. Every icon now comes from one source, so this cannot happen again quietly.
+- **The Index and Agenda overlays now open reliably.** Invalid note, folder, or trash responses can no longer poison the shared sidebar state and crash either overlay, and opening no longer depends on an animation frame that may be delayed in a backgrounded window.
+- **The graph no longer traps you, and every navigation button now closes what it opened.** Index, Agenda, Graph, Timeline and Search each tracked their own open state, so opening the graph and then picking anything else left the graph on top of it, and the buttons disagreed about what a second click meant: Agenda closed, Search re-opened. Exactly one of the five is open at a time now. Clicking the button for the one you are looking at closes it, opening another switches to it, Escape closes whichever is up, and ⌘\, ⌘⌥\, ⌘⇧G and ⌘P behave the same way as the buttons — including while the Timeline has the window. The monogram at the top of the rail is now Home: it saves the pending edit, dismisses the active navigation surface, and returns to the welcome screen without closing any tabs.
+- **Sidebar browsing no longer leaves hidden tabs piling up.** Returning to a pinned note and then opening another note now reuses the existing preview tab instead of creating another one. When multiple tabs are intentionally open, the tab bar exposes close controls for every tab plus Close others and Close all.
+- **Calendar events show their duration at a glance again.** Timed and all-day events now use a full-height source-colour bar, a faint source tint, and clear start and end hairlines instead of collapsing visually into unfilled rows.
+- **Settings now belongs to the same app as the editor.** Its modal, tabs, groups, segmented choices, inputs, toggles, preset swatches, and nested dialogs now use the cream-and-ink hairline system instead of green fills, rounded cards, and shadows.
+- **Changing a setting no longer scrolls the note you are reading back to the top.** Toggling anything the editor is built from, such as tags, rebuilt the editor and Moldavite treated that as opening a different note. Your place is now kept for anything that is not actually a switch to another note.
+- **A wider note.** The editor column was fixed at a width that looked starved on a large window. It is now yours to set in Settings → Appearance, defaults to wide, and always keeps its margins on a narrow one.
+
+### Removed
+
+- **Three settings that did nothing.** Slash commands, wiki links, and the quick switcher each had a switch in Settings that no code ever read — the features were always on regardless. The switches are gone; the features are not.
+
 ## [1.9.0] - 2026-08-14
 
 ### Added
 
-- **Agents now ask before replacing unsaved edits in an open note.** When Claude Code or another MCP client changes the note you are editing, Moldavite names the agent when the client reports its name and preserves whichever version you do not choose as a conflict copy. Notes without unsaved edits still update immediately and only show a small notification.
 - **Windows support is in beta.** It shipped as experimental in December 2025 and was never promoted, because nothing verified it: no job compiled Moldavite for Windows until a release had already been tagged. Every change now runs the full Rust test suite and a linter with warnings denied on Windows before it can merge, and the round of fixes below came out of turning that on. It is beta rather than supported for one honest reason: those checks prove the code compiles and passes its tests on Windows, and nobody has yet sat in front of the app running there. Installers are also unsigned, so Windows may warn you once when you run one.
 - **Pasted Markdown keeps its formatting.** Pasting recognizable raw Markdown into the editor now inserts formatted note content through Moldavite's existing conversion pipeline, while ordinary text, rich text, and image paste keep their existing behavior.
 - **Install with Homebrew.** `brew install --cask mauropereiira/moldavite/moldavite` fetches the signed, notarized DMG for your architecture and verifies its checksum. It also links the app binary onto your `PATH`, so connecting an AI tool is now `claude mcp add moldavite -- moldavite --mcp` instead of the full bundle path. The cask is marked as self-updating, so Homebrew stays out of the way of Moldavite's own updater.
 
 ### Fixed
 
-- **Changing a setting no longer scrolls the note you are reading back to the top.** Toggling anything the editor is built from, such as tags, rebuilt the editor and Moldavite treated that as opening a different note. Your place is now kept for anything that is not actually a switch to another note.
 - **Copied note URLs now open their note.** Note links were accepted by the clipboard but ignored when Moldavite received them. They now open root notes, foldered notes, daily notes, and weekly notes in the existing editor tab flow, while missing or locked notes produce a visible error.
 - **Tag, wiki-link, and slash-command suggestions no longer get stuck after the editor loses focus.** Once a suggestion menu had opened, clicking elsewhere or switching notes could leave it floating above the app, and Escape only hid it without closing its editor state. Suggestion menus now close completely on blur or Escape, while mouse selection keeps the editor focused until the chosen item is inserted.
 - **Inter and Merriweather now work as editor fonts.** Both typefaces were blocked and silently fell back to the default. They now ship with the app, so both work offline and neither fetches anything from a third party.

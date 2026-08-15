@@ -3,20 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#07090a" />
+    <meta name="theme-color" content="#F9F6ED" />
     <title>Moldavite User Guide</title>
     <meta property="og:title" content="Using Moldavite" />
-    <meta property="og:description" content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools." />
+    <meta
+      property="og:description"
+      content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mauropereiira.github.io/Moldavite/guide.html" />
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server." />
+    <meta
+      property="og:image:alt"
+      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server."
+    />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Using Moldavite" />
-    <meta name="twitter:description" content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools." />
+    <meta
+      name="twitter:description"
+      content="From your first Forge to local search, safe sync, plugins, and a read-first bridge for AI tools."
+    />
     <meta name="twitter:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/guide.html" />
     <meta
@@ -24,25 +33,40 @@
       content="The Moldavite user guide: Forges, Obsidian import, editing, semantic search, MCP clients, agent-ready files, plugins, WordPress publishing, updates, conflicts, and privacy."
     />
     <link rel="icon" href="favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700;800;900&amp;display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="fonts/GeistMono-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <link rel="stylesheet" href="styles.css" />
     <script>
       document.documentElement.classList.add('has-js');
+      // Restore a saved dark choice before the first paint; site.js is deferred,
+      // so without this a returning visitor gets a frame of the wrong theme.
+      try {
+        if (localStorage.getItem('moldavite-site-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        /* localStorage throws in some privacy modes; cream is a fine fallback */
+      }
     </script>
     <script src="site.js" defer></script>
   </head>
   <body class="docs-page">
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="site-guides" aria-hidden="true"></div>
     <header class="site-header">
       <div class="nav-inner">
         <a href="index.html" class="brand" aria-label="Moldavite home">
-          <img src="icon.png" alt="" aria-hidden="true" width="28" height="28" />
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
           <span>Moldavite</span>
         </a>
         <button
@@ -57,13 +81,15 @@
         </button>
         <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html" aria-current="page">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-          <a
-            href="https://github.com/mauropereiira/Moldavite/releases/latest"
-            class="nav-cta"
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark">
+            <span class="theme-toggle-mark" aria-hidden="true"></span>
+          </button>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
             >Download</a
           >
         </nav>
@@ -108,10 +134,9 @@
         Open the
         <a href="https://github.com/mauropereiira/Moldavite/releases/latest">latest release</a>
         and download <code>Moldavite_x.x.x_x64-setup.exe</code> (recommended) or
-        <code>Moldavite_x.x.x_x64_en-US.msi</code>. The installers are not
-        Authenticode-signed, so SmartScreen may warn you. If you downloaded Moldavite from the
-        official release page, choose <strong>More info</strong>, then
-        <strong>Run anyway</strong>.
+        <code>Moldavite_x.x.x_x64_en-US.msi</code>. The installers are not Authenticode-signed, so
+        SmartScreen may warn you. If you downloaded Moldavite from the official release page, choose
+        <strong>More info</strong>, then <strong>Run anyway</strong>.
       </p>
       <p>
         A <strong>Forge</strong> is a vault directory. Forges normally live side by side under a
@@ -121,9 +146,9 @@
       </p>
       <ul>
         <li>
-          <strong>Multiple Forges</strong>: keep Work, Personal, or other vaults separate and
-          switch from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher
-          action. Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
+          <strong>Multiple Forges</strong>: keep Work, Personal, or other vaults separate and switch
+          from the control above sidebar search or the <em>Switch Forge…</em> quick-switcher action.
+          Recents, pinned notes, plugins, and app-managed indexes follow the current Forge.
         </li>
         <li>
           <strong>Daily notes</strong>: <em>Today</em> opens the current date and creates its file
@@ -222,13 +247,22 @@
         with real notes.
       </p>
       <ul>
-        <li>Hover a node to highlight its neighbors and connecting edges.</li>
+        <li>
+          Notes are drawn as stars, sized and brightened by how many links they carry, and the note
+          you have open wears a thin ring. Opening the graph plays the field into focus from the
+          centre outward.
+        </li>
+        <li>Hover a node to highlight its neighbors and connecting edges, dimming the rest.</li>
         <li>Drag nodes, drag empty space to pan, and use the wheel or trackpad to zoom.</li>
-        <li>Use <strong>Fit view</strong> whenever you want to recover a useful framing.</li>
+        <li>
+          Panning is free in every direction, and the graph keeps your zoom and position for the
+          rest of the session. Use <strong>Fit view</strong> — or double-click empty space — to
+          recover a useful framing.
+        </li>
         <li>
           Short springs and per-component gravity pull connected notes into visible clusters while
           isolated notes settle into peripheral rings. The bounded deterministic layout cools to a
-          stop, refits on resize, and redraws when the theme changes.
+          stop, frames itself once when you first open it, and redraws when the theme changes.
         </li>
       </ul>
 
@@ -272,7 +306,8 @@
       <ul>
         <li>
           <strong>Quick switcher</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>P</kbd> to open a
-          note, run an app action, repeat a recent search, switch Forges, or invoke a plugin command.
+          note, run an app action, repeat a recent search, switch Forges, or invoke a plugin
+          command.
         </li>
         <li>
           <strong>Keyword search</strong>: full-text search with snippets across unlocked,
@@ -377,8 +412,8 @@
           rename so a mid-save crash cannot leave a truncated destination.
         </li>
         <li>
-          <strong>Trash</strong>: deleted notes remain available with previews for seven days
-          before automatic cleanup.
+          <strong>Trash</strong>: deleted notes remain available with previews for seven days before
+          automatic cleanup.
         </li>
         <li>
           <strong>Note locking</strong>: encrypted <code>.md.locked</code> files use AES-256-GCM
@@ -412,8 +447,8 @@
         </li>
       </ol>
       <p>
-        Simultaneous conflict copies in the same minute receive a numeric suffix, which prevents
-        one copy from overwriting another.
+        Simultaneous conflict copies in the same minute receive a numeric suffix, which prevents one
+        copy from overwriting another.
       </p>
 
       <h3>Calendars</h3>
@@ -421,7 +456,11 @@
         The right panel can show a month and your events from two sources. Both are read-only:
         Moldavite never creates, edits, or deletes an event, and never writes one into a note by
         itself. Connect either or both in <strong>Settings → Calendar</strong>, then tick the
-        individual calendars you want on the timeline.
+        individual calendars you want on the timeline. On Windows there is nothing to connect yet —
+        Apple Calendar is macOS-only and Google is not yet enabled in Windows builds (<a
+          href="https://github.com/mauropereiira/Moldavite/issues/96"
+          >issue #96</a
+        >). The month grid and your daily-note markers work there regardless.
       </p>
       <ul>
         <li>
@@ -433,8 +472,7 @@
           screen and returns to a local port. Moldavite asks only for the read-only calendar scope.
           The refresh token is stored in the OS credential store (macOS Keychain or Windows
           Credential Manager) and stays outside notes and settings files.
-          <strong>Disconnect</strong> removes it, and you can also
-          revoke access from your
+          <strong>Disconnect</strong> removes it, and you can also revoke access from your
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
         </li>
       </ul>
@@ -463,8 +501,9 @@
         changes.
       </p>
       <p>
-        The current plugin API can expose active-editor HTML, trusted prompt forms, unlocked note reads,
-        host-performed HTTPS to exact approved hosts, and plugin-namespaced OS credential-store secrets.
+        The current plugin API can expose active-editor HTML, trusted prompt forms, unlocked note
+        reads, host-performed HTTPS to exact approved hosts, and plugin-namespaced OS
+        credential-store secrets.
         <strong>It does not provide note-write methods or custom panels.</strong> See the
         <a href="plugins.html">complete author guide</a> for the exact API and security model.
       </p>
@@ -565,8 +604,8 @@
       <p>
         The normal Moldavite app binary becomes a local stdio MCP server when launched with
         <code>--mcp</code>. It does not initialize the GUI and does not open a network listener.
-        Settings resolves the exact binary path on your computer and provides copy-ready snippets for
-        each supported client; use those generated snippets whenever possible.
+        Settings resolves the exact binary path on your computer and provides copy-ready snippets
+        for each supported client; use those generated snippets whenever possible.
       </p>
 
       <h3>Claude Code</h3>
@@ -692,19 +731,17 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <a href="index.html" class="footer-brand" aria-label="Moldavite home">
-          <img
-            src="icon.png"
-            alt=""
-            aria-hidden="true"
-            width="26"
-            height="26"
-            loading="lazy"
-            decoding="async"
-          />
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
           <span>Moldavite</span>
         </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>

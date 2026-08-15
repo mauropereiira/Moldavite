@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertCircle, Loader2 } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import type { Template } from '@/types/template';
 import { TemplateIcon, availableIcons } from './TemplateIcon';
 import { useToast } from '@/hooks/useToast';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 interface EditTemplateModalProps {
   isOpen: boolean;
@@ -360,7 +361,7 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <DotLoader label="Saving template changes" />
                 Saving...
               </>
             ) : (

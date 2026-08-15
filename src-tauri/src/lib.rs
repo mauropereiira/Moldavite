@@ -62,9 +62,9 @@ pub(crate) mod wiki;
 #[cfg(test)]
 mod stress_test;
 
-use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};
 #[cfg(target_os = "macos")]
 use calendar::CalendarPermission;
+use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};
 
 use commands::backlinks::{create_note_from_link, get_backlinks, scan_note_links};
 use commands::export_import::{
@@ -73,8 +73,8 @@ use commands::export_import::{
 };
 use commands::folders::{create_folder, delete_folder, list_folders, move_folder, rename_folder};
 use commands::forges::{
-    create_forge, delete_forge, get_forges_root_path, list_forges, rename_forge,
-    set_active_forge, set_forges_root,
+    create_forge, delete_forge, get_forges_root_path, list_forges, rename_forge, set_active_forge,
+    set_forges_root,
 };
 use commands::graph::get_note_graph;
 use commands::import_obsidian::{analyze_obsidian_vault, import_obsidian_vault};
@@ -82,8 +82,7 @@ use commands::locking::{is_note_locked, lock_note, permanently_unlock_note, unlo
 use commands::mcp_settings::{get_app_binary_path, get_mcp_writes_enabled, set_mcp_writes_enabled};
 use commands::misc::{
     ensure_directories, get_all_note_colors, get_note_color, get_notes_directory,
-    open_forge_in_finder, rescan_forge, save_image, set_note_color, set_notes_directory,
-    write_binary_file,
+    open_forge_in_finder, rescan_forge, save_image, set_note_color, write_binary_file,
 };
 use commands::notes::{
     clear_all_notes, create_note, delete_note, duplicate_note, export_single_note,
@@ -273,15 +272,15 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 idx.rebuild_from_disk();
             });
-            // Spawn the file watcher.
-            let watcher_handle = forge_watcher::spawn(app.handle().clone(), recent_writes.clone());
-            match watcher_handle {
-                Ok(h) => {
-                    // Keep the handle alive for the lifetime of the app.
-                    app.manage(h);
-                }
+            // Spawn the file watcher into a slot that survives Forge switches.
+            // The slot is managed unconditionally, even if this spawn fails, so
+            // a later switch still has somewhere to install its watcher.
+            let watcher_slot = forge_watcher::WatcherSlot::default();
+            match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
+                Ok(h) => watcher_slot.replace(Some(h)),
                 Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
             }
+            app.manage(watcher_slot);
             // If the user already enabled semantic search, load/reconcile the
             // index in the background (the model was downloaded during the
             // original explicit enable; this only re-downloads if the cache
@@ -366,7 +365,6 @@ pub fn run() {
             get_note_graph,
             // Directory management commands
             get_notes_directory,
-            set_notes_directory,
             rescan_forge,
             open_forge_in_finder,
             // Forge-root whitelisted files (AGENTS.md, .gitignore)
@@ -502,10 +500,10 @@ mod tests {
     #[test]
     fn validate_path_within_base_rejects_sibling() {
         let base = make_tmp_base();
-        let outside = base.parent().unwrap().join(format!(
-            "moldavite-test-outside-{}",
-            std::process::id()
-        ));
+        let outside = base
+            .parent()
+            .unwrap()
+            .join(format!("moldavite-test-outside-{}", std::process::id()));
         fs::create_dir_all(&outside).unwrap();
         let dest = outside.join("leak.md");
         let result = validate_path_within_base(&dest, &base);
@@ -550,7 +548,11 @@ mod tests {
 
         let dest = link.join("pwned.md");
         let result = validate_path_within_base(&dest, &base);
-        assert!(result.is_err(), "expected symlink rejection, got {:?}", result);
+        assert!(
+            result.is_err(),
+            "expected symlink rejection, got {:?}",
+            result
+        );
 
         fs::remove_dir_all(&base).ok();
         fs::remove_dir_all(&outside).ok();
@@ -613,8 +615,16 @@ mod tests {
         seed_notes(&base);
         let results = search_notes_content_in(&base, &base.join(".trash"), "fox", 100);
         for r in &results {
-            assert!(!r.filename.ends_with(".locked"), "locked file surfaced: {}", r.filename);
-            assert!(!r.path.starts_with(".trash"), "trash file surfaced: {}", r.path);
+            assert!(
+                !r.filename.ends_with(".locked"),
+                "locked file surfaced: {}",
+                r.filename
+            );
+            assert!(
+                !r.path.starts_with(".trash"),
+                "trash file surfaced: {}",
+                r.path
+            );
         }
         fs::remove_dir_all(&base).ok();
     }

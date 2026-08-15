@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, FileText, X } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { useNoteStore, useTimelineStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
@@ -132,23 +131,30 @@ export function TimelineView() {
       {/* Header */}
       <div
         className="flex items-center justify-between px-6 py-4"
-        style={{ borderBottom: '1px solid var(--border-default)' }}
+        style={{ borderBottom: '1px solid var(--border-muted)' }}
       >
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
-          <h2 className="text-base font-semibold">Timeline</h2>
-        </div>
+        <h2
+          style={{
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '18px',
+            fontWeight: 400,
+            letterSpacing: '-0.015em',
+          }}
+        >
+          Timeline
+        </h2>
         <button
           type="button"
           onClick={close}
-          className="p-1.5 rounded transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          className="focus-ring text-xs transition-colors"
+          style={{ color: 'var(--text-muted)', borderBottom: '1px solid currentColor' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           title="Close Timeline"
           aria-label="Close Timeline"
         >
-          <X className="w-4 h-4" />
+          Close
         </button>
       </div>
 
@@ -169,14 +175,14 @@ export function TimelineView() {
           return (
             <section key={bucket.id} className="mb-8">
               <h3
-                className="text-xs font-semibold uppercase tracking-wide mb-3"
-                style={{ color: 'var(--text-muted)' }}
+                className="mb-3 text-[10px] uppercase"
+                style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
               >
                 {bucket.label}
               </h3>
 
               {events.length > 0 && (
-                <div className="space-y-1.5 mb-2">
+                <div className="mb-2">
                   {events.map((event) => (
                     <EventPill key={event.id} event={event} />
                   ))}
@@ -216,12 +222,11 @@ function NoteRow({ note, preview, onClick }: NoteRowProps) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left px-3 py-2 rounded transition-colors flex items-start gap-3"
-      style={{ backgroundColor: 'transparent' }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      className="focus-ring flex w-full items-start py-2 text-left transition-colors"
+      style={{ borderBottom: '1px solid var(--border-muted)' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-strong)')}
+      onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-muted)')}
     >
-      <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
       <span className="flex-1 min-w-0">
         <span className="flex items-baseline gap-2">
           <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
@@ -248,19 +253,27 @@ function NoteRow({ note, preview, onClick }: NoteRowProps) {
 
 function EventPill({ event }: { event: CalendarEvent }) {
   const time = formatEventTime(event);
+  const sourceColor = event.calendarColor || 'var(--calendar-google)';
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-      style={{
-        backgroundColor: 'var(--bg-inset)',
-        color: 'var(--text-muted)',
-        border: '1px solid var(--border-muted)',
-        width: 'fit-content',
-      }}
+      className="flex items-start gap-2 py-2"
+      style={{ borderBottom: '1px solid var(--border-muted)' }}
     >
-      <Calendar className="w-3 h-3" />
-      {time && <span>{time}</span>}
-      <span className="truncate max-w-xs">{event.title || '(untitled event)'}</span>
+      <span
+        className="mt-1.5 h-1.5 w-1.5 flex-shrink-0"
+        style={{ backgroundColor: sourceColor }}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs" style={{ color: 'var(--text-secondary)' }}>
+          {event.title || '(untitled event)'}
+        </span>
+        {(time || event.location) && (
+          <span className="block truncate text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            {[time, event.location].filter(Boolean).join(' · ')}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

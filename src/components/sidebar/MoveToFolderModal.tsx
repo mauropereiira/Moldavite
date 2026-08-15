@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { X, Folder, FolderOpen, ChevronRight, Home } from 'lucide-react';
-import { EmptyState } from '@/components/ui';
 import type { FolderInfo } from '@/types';
 
 interface MoveToFolderModalProps {
@@ -36,13 +34,22 @@ function FolderOption({
   return (
     <div>
       <div
-        className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded transition-colors ${
-          isSelected
-            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+        className={`folder-row flex items-center gap-2 py-2 pr-3 cursor-pointer transition-colors${
+          isSelected ? ' folder-row-expanded' : ''
         }`}
-        style={{ paddingLeft: `${12 + level * 16}px` }}
+        style={{
+          paddingLeft: `${14 + level * 16}px`,
+        }}
         onClick={() => onSelect(folder.path)}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isSelected}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect(folder.path);
+          }
+        }}
       >
         {hasChildren && (
           <button
@@ -50,21 +57,16 @@ function FolderOption({
               e.stopPropagation();
               onToggleExpand(folder.path);
             }}
-            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+            className="p-1"
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${folder.name}`}
           >
-            <ChevronRight
-              className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-                isExpanded ? 'rotate-90' : ''
-              }`}
+            <span
+              aria-hidden="true"
+              className={`sidebar-caret ${isExpanded ? 'sidebar-caret-expanded' : ''}`}
             />
           </button>
         )}
-        {!hasChildren && <div className="w-4" />}
-        {isExpanded ? (
-          <FolderOpen className="w-4 h-4 text-yellow-500" />
-        ) : (
-          <Folder className="w-4 h-4 text-yellow-500" />
-        )}
+        {!hasChildren && <span className="w-5" aria-hidden="true" />}
         <span className="text-sm truncate">{folder.name}</span>
       </div>
 
@@ -116,40 +118,65 @@ export function MoveToFolderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 modal-backdrop-enter" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md mx-4 modal-content-enter overflow-hidden">
+      <div
+        className="absolute inset-0 modal-backdrop-dark modal-backdrop-enter"
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-md mx-4 modal-content-enter overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border-default)',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            className="text-xs transition-colors"
+            style={{ color: 'var(--text-muted)' }}
           >
-            <X className="w-5 h-5 text-gray-500" />
+            Close
           </button>
         </div>
 
         {/* Content */}
         <div className="p-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
             {bulkCount && bulkCount > 1
               ? `Select a destination for ${bulkCount} notes`
               : `Select a destination for "${(noteFilename ?? '').replace(/\.md$/, '')}"`}
           </p>
 
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-64 overflow-y-auto">
+          <div
+            className="border max-h-64 overflow-y-auto"
+            style={{ borderColor: 'var(--border-default)' }}
+          >
             {/* Root option */}
             <div
-              className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t transition-colors ${
-                selectedPath === null
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+              className={`folder-row flex items-center px-3 py-2 cursor-pointer transition-colors${
+                selectedPath === null ? ' folder-row-expanded' : ''
               }`}
+              style={{
+                color: selectedPath === null ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
               onClick={() => setSelectedPath(null)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedPath === null}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedPath(null);
+                }
+              }}
             >
-              <Home className="w-4 h-4 text-gray-500" />
               <span className="text-sm">Root (No folder)</span>
             </div>
 
@@ -167,28 +194,33 @@ export function MoveToFolderModal({
             ))}
 
             {folders.length === 0 && (
-              <EmptyState
-                icon={Folder}
-                heading="No folders yet"
-                message="Create a folder in the sidebar first, then move notes here."
-                variant="compact"
-                iconColor="text-gray-400 dark:text-gray-500"
-              />
+              <p className="px-3 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+                No folders yet. Create one in the sidebar first.
+              </p>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+        <div
+          className="flex justify-end gap-2 px-4 py-3 border-t"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium border transition-colors"
+            style={{
+              color: 'var(--text-primary)',
+              backgroundColor: 'transparent',
+              borderColor: 'var(--border-default)',
+            }}
           >
             Move
           </button>

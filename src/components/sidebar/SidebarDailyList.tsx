@@ -1,7 +1,5 @@
-import { Calendar } from 'lucide-react';
 import { SidebarSection } from './SidebarSection';
 import { DraggableNoteItem } from './DraggableNoteItem';
-import { EmptyState } from '@/components/ui';
 import type { NoteFile } from '@/types';
 
 interface SidebarDailyListProps {
@@ -54,23 +52,20 @@ export function SidebarDailyList({
         </button>
       }
     >
-      <div className="px-3 space-y-1 min-h-[20px]">
+      <div className="px-3 min-h-[20px]">
         {sorted.length === 0 ? (
-          <EmptyState
-            icon={Calendar}
-            heading="No daily notes yet"
-            message="Click Today to start journaling."
-            variant="compact"
-            iconColor="text-gray-400 dark:text-gray-500"
-          />
+          <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+            No daily notes yet. Today starts one.
+          </div>
         ) : (
-          sorted.map((note) => (
+          sorted.map((note, index) => (
             <DraggableNoteItem
               key={note.path}
               note={note}
               isActive={isNoteActive(note)}
               onClick={onNoteClick}
               onContextMenu={onNoteContextMenu}
+              index={index}
             />
           ))
         )}

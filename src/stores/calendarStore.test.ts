@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { migrateCalendarState } from './calendarStore';
+import { hasNoConnectableCalendarSource, migrateCalendarState } from './calendarStore';
 
 describe('calendar persisted-state migration', () => {
   it('namespaces a v0 single calendar selection as an Apple id', () => {
@@ -30,5 +30,43 @@ describe('calendar persisted-state migration', () => {
   it('leaves an already-migrated blob alone', () => {
     const current = { selectedCalendarIds: ['google:me@example.com', 'apple:X'] };
     expect(migrateCalendarState(current, 1)).toEqual(current);
+  });
+});
+
+describe('calendar source availability', () => {
+  it('requires a non-empty report where every source is unavailable', () => {
+    expect(hasNoConnectableCalendarSource([])).toBe(false);
+    expect(
+      hasNoConnectableCalendarSource([
+        {
+          source: 'apple',
+          available: false,
+          connected: false,
+          account: null,
+          permission: null,
+          error: 'Apple Calendar is only available on macOS.',
+        },
+        {
+          source: 'google',
+          available: false,
+          connected: false,
+          account: null,
+          permission: null,
+          error: 'Google Calendar is not available in this build.',
+        },
+      ])
+    ).toBe(true);
+    expect(
+      hasNoConnectableCalendarSource([
+        {
+          source: 'google',
+          available: true,
+          connected: false,
+          account: null,
+          permission: null,
+          error: null,
+        },
+      ])
+    ).toBe(false);
   });
 });

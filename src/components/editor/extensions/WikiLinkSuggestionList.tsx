@@ -1,5 +1,4 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { FileText, Calendar } from 'lucide-react';
 import type { NoteFile } from '@/types';
 
 export interface WikiLinkSuggestionListProps {
@@ -84,9 +83,6 @@ export const WikiLinkSuggestionList = forwardRef<
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => selectItem(index)}
         >
-          <div className="wiki-link-suggestion-icon">
-            {item.isDaily ? <Calendar className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-          </div>
           <div className="wiki-link-suggestion-text">
             <div className="wiki-link-suggestion-title">{item.name.replace('.md', '')}</div>
             {item.isDaily && <div className="wiki-link-suggestion-date">Daily note</div>}

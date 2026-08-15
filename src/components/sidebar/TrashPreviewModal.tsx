@@ -4,7 +4,6 @@ import StarterKit from '@tiptap/starter-kit';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
-import { X, Undo2, Trash2, FileText, Calendar, Folder } from 'lucide-react';
 import type { TrashedNote } from '@/types';
 
 interface TrashPreviewModalProps {
@@ -67,14 +66,6 @@ export function TrashPreviewModal({
 
   if (!note) return null;
 
-  const icon = note.isFolder ? (
-    <Folder className="w-5 h-5" style={{ color: 'var(--warning)' }} />
-  ) : note.isDaily ? (
-    <Calendar className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-  ) : (
-    <FileText className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-  );
-
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop-enter"
@@ -92,7 +83,6 @@ export function TrashPreviewModal({
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {icon}
             <h2 className="text-base font-semibold truncate">
               {note.filename.replace(/\.md$/, '')}
             </h2>
@@ -106,7 +96,6 @@ export function TrashPreviewModal({
               className="btn focus-ring flex items-center gap-1.5"
               title="Restore"
             >
-              <Undo2 className="w-4 h-4" />
               <span>Restore</span>
             </button>
             <button
@@ -117,25 +106,24 @@ export function TrashPreviewModal({
               className="btn btn-danger focus-ring flex items-center gap-1.5"
               title="Delete permanently"
             >
-              <Trash2 className="w-4 h-4" />
               <span>Delete</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 transition-colors"
-              style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              className="px-1.5 text-xs transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
               aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              Close
             </button>
           </div>
         </div>
 
         {/* Body: read-only Tiptap editor, no toolbar */}
         <div className="flex-1 overflow-y-auto p-4">
-          <EditorContent editor={editor} className="prose prose-sm max-w-none" />
+          <EditorContent editor={editor} className="max-w-none" />
         </div>
       </div>
     </div>

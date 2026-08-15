@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 use crate::backlinks_index::BacklinksIndex;
-use crate::forge_watcher::{self, RecentWrites, WatcherHandle};
+use crate::forge_watcher::{self, RecentWrites, WatcherSlot};
 use crate::paths::{get_active_forge_name, get_forges_root, DEFAULT_FORGE_NAME};
 use crate::persist::{read_config, write_config};
 use crate::types::ForgeInfo;
@@ -171,13 +171,20 @@ pub(crate) fn set_active_forge(
     write_config(&cfg)?;
 
     // Tear down old watcher and spin up a new one rooted at the new Forge.
-    if let Some(old) = app.try_state::<WatcherHandle>() {
-        old.shutdown();
+    let slot = app.try_state::<WatcherSlot>();
+    // Stop the old watcher before clearing `recent`, so an event still in
+    // flight from the previous Forge cannot repopulate it after the clear.
+    if let Some(slot) = &slot {
+        slot.replace(None);
     }
     recent.clear();
-    if let Ok(handle) = forge_watcher::spawn(app.clone(), recent.inner().clone()) {
-        // Replace the managed handle. tauri::Manager::manage replaces existing.
-        app.manage(handle);
+    match forge_watcher::spawn(app.clone(), recent.inner().clone()) {
+        Ok(handle) => {
+            if let Some(slot) = &slot {
+                slot.replace(Some(handle));
+            }
+        }
+        Err(e) => log::warn!("[forge] watcher respawn failed: {}", e),
     }
     // Rebuild the backlinks index off-thread so the UI doesn't block.
     let idx = index.inner().clone();
@@ -251,6 +258,16 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
 #[derive(Clone, Copy)]
 pub(crate) enum StorageLocationKind {
     ForgesRoot,
+    /// Validation rules for a single Forge directory rather than the root that
+    /// holds them all — chiefly, refusing to sit a Forge inside a system or
+    /// cloud-managed location.
+    ///
+    /// Nothing in the app constructs this today: its only caller was
+    /// `set_notes_directory`, removed in 2.0 for fragmenting Forges. The rules
+    /// and their tests are kept because they are the specification any future
+    /// Forge-mover has to satisfy, and rewriting them from memory later is how
+    /// a guard comes back weaker than it went out.
+    #[allow(dead_code)]
     NotesDirectory,
 }
 

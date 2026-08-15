@@ -31,13 +31,11 @@ export function CurrentTimeLine({ isToday }: CurrentTimeLineProps) {
       className="absolute left-0 right-0 z-20 pointer-events-none"
       style={{ top: `${topPosition}px` }}
     >
-      {/* Red circle on the left */}
+      {/* A single ink rule marks the current time without adding a coloured badge. */}
       <div
-        className="absolute w-2 h-2 bg-red-500 rounded-full"
-        style={{ left: '56px', top: '-3px' }}
+        className="absolute h-px"
+        style={{ left: '60px', right: '0', backgroundColor: 'var(--text-primary)' }}
       />
-      {/* Red horizontal line */}
-      <div className="absolute h-0.5 bg-red-500" style={{ left: '60px', right: '0' }} />
     </div>
   );
 }

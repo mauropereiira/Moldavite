@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
+import { applyImpactOrigin, captureImpactOrigin } from '@/lib/impactOrigin';
 
 // Moldavite-inspired color palette - crystal greens, cosmic golds, earth tones
 export const NOTE_COLORS = [
@@ -75,7 +76,10 @@ export function NoteColorPicker({
   return (
     <div ref={containerRef} className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(event) => {
+          if (!isOpen) captureImpactOrigin(event.currentTarget);
+          setIsOpen(!isOpen);
+        }}
         className="toolbar-button"
         title="Note background color"
         aria-label="Change note background color"
@@ -86,12 +90,12 @@ export function NoteColorPicker({
 
       {isOpen && (
         <div
-          className={`absolute ${openDirection === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 p-3 z-50 w-64 modal-content-enter`}
+          ref={applyImpactOrigin}
+          className={`absolute ${openDirection === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} right-0 p-3 z-50 w-64 modal-content-enter impact-surface`}
           style={{
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
           }}
         >
           <div className="section-header mb-2">Note Background</div>
@@ -115,7 +119,6 @@ export function NoteColorPicker({
                     border: isSelected
                       ? '2px solid var(--accent-primary)'
                       : '1px solid var(--border-default)',
-                    boxShadow: isSelected ? '0 0 0 2px var(--accent-subtle)' : 'none',
                     backgroundColor: isDefault ? 'var(--bg-inset)' : bgColor,
                   }}
                   title={color.name}

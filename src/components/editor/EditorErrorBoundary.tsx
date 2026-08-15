@@ -52,7 +52,10 @@ export class EditorErrorBoundary extends Component<Props, State> {
       // If we've had too many errors, show a message instead of empty div
       if (this.state.errorCount >= MAX_ERROR_COUNT) {
         return (
-          <div className="h-full flex items-center justify-center text-gray-500">
+          <div
+            className="h-full flex items-center justify-center"
+            style={{ color: 'var(--text-muted)' }}
+          >
             <p>Editor encountered an error. Try selecting a different note.</p>
           </div>
         );

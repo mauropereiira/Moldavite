@@ -44,14 +44,14 @@ export interface PresetMeta {
 export const PRESETS: PresetMeta[] = [
   {
     id: 'default',
-    label: 'Moldavite',
+    label: 'Cream',
     coverage: 'both',
     swatches: {
-      bg: '#f0f5f2',
-      surface: '#ffffff',
-      accent: '#2d5a3d',
-      text: '#0a0f0d',
-      border: '#c4d4c9',
+      bg: '#F9F6ED',
+      surface: '#FFFDF6',
+      accent: '#2E5B3C',
+      text: '#0E0D0A',
+      border: 'rgba(14, 13, 10, 0.13)',
     },
   },
   {
@@ -141,9 +141,13 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      baseMode: 'system',
+      // Cream is the identity, so it is what you get on first launch — not
+      // 'system', which would open the app inverted on any Mac set to dark and
+      // hide the palette the whole design is built around. 'system' remains
+      // available in Appearance for anyone who wants it.
+      baseMode: 'light',
       preset: 'default',
-      theme: 'system',
+      theme: 'light',
       setBaseMode: (mode) => set({ baseMode: mode, theme: mode }),
       setPreset: (preset) => set({ preset }),
       setTheme: (mode) => set({ baseMode: mode, theme: mode }),

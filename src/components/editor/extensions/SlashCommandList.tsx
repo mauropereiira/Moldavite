@@ -1,24 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from 'react';
-import {
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Code,
-  Minus,
-  Image,
-  Puzzle,
-  type LucideIcon,
-} from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 
 export interface SlashCommandItem {
   title: string;
   description: string;
-  icon: LucideIcon;
+  mark: string;
   command: (editor: Editor) => void;
   keywords?: string[];
 }
@@ -40,7 +26,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Heading 1',
     description: 'Large section heading',
-    icon: Heading1,
+    mark: 'H1',
     keywords: ['h1', 'title', 'big'],
     command: (editor) => {
       editor.chain().focus().toggleHeading({ level: 1 }).run();
@@ -49,7 +35,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Heading 2',
     description: 'Medium section heading',
-    icon: Heading2,
+    mark: 'H2',
     keywords: ['h2', 'subtitle'],
     command: (editor) => {
       editor.chain().focus().toggleHeading({ level: 2 }).run();
@@ -58,7 +44,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Heading 3',
     description: 'Small section heading',
-    icon: Heading3,
+    mark: 'H3',
     keywords: ['h3', 'small'],
     command: (editor) => {
       editor.chain().focus().toggleHeading({ level: 3 }).run();
@@ -67,7 +53,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Bullet List',
     description: 'Unordered list with bullets',
-    icon: List,
+    mark: 'List',
     keywords: ['ul', 'unordered', 'bullets'],
     command: (editor) => {
       editor.chain().focus().toggleBulletList().run();
@@ -76,7 +62,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Numbered List',
     description: 'Ordered list with numbers',
-    icon: ListOrdered,
+    mark: '1.',
     keywords: ['ol', 'ordered', 'numbers'],
     command: (editor) => {
       editor.chain().focus().toggleOrderedList().run();
@@ -85,7 +71,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Task List',
     description: 'Checklist with checkboxes',
-    icon: CheckSquare,
+    mark: 'Task',
     keywords: ['todo', 'checkbox', 'check', 'tasks'],
     command: (editor) => {
       editor.chain().focus().toggleTaskList().run();
@@ -94,7 +80,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Quote',
     description: 'Blockquote for citations',
-    icon: Quote,
+    mark: 'Quote',
     keywords: ['blockquote', 'cite'],
     command: (editor) => {
       editor.chain().focus().toggleBlockquote().run();
@@ -103,7 +89,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Code Block',
     description: 'Code with syntax highlighting',
-    icon: Code,
+    mark: 'Code',
     keywords: ['pre', 'syntax', 'programming'],
     command: (editor) => {
       editor.chain().focus().toggleCodeBlock().run();
@@ -112,7 +98,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Divider',
     description: 'Horizontal line separator',
-    icon: Minus,
+    mark: 'Rule',
     keywords: ['hr', 'horizontal', 'rule', 'line', 'separator'],
     command: (editor) => {
       editor.chain().focus().setHorizontalRule().run();
@@ -121,7 +107,7 @@ export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Image',
     description: 'Insert an image',
-    icon: Image,
+    mark: 'Image',
     keywords: ['picture', 'photo', 'img'],
     command: (editor) => {
       // Trigger image upload dialog
@@ -172,7 +158,7 @@ export function pluginSlashItem(entry: {
   return {
     title: entry.label,
     description: 'Plugin command',
-    icon: Puzzle,
+    mark: 'Plugin',
     command: () => {
       void entry.handler();
     },
@@ -247,7 +233,6 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
       <div className="slash-command-menu">
         <div className="slash-command-header">Commands</div>
         {props.items.map((item, index) => {
-          const Icon = item.icon;
           return (
             <button
               key={item.title}
@@ -256,8 +241,8 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
               onClick={() => selectItem(index)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              <div className="slash-command-icon">
-                <Icon className="w-4 h-4" />
+              <div className="slash-command-mark" aria-hidden="true">
+                {item.mark}
               </div>
               <div className="slash-command-content">
                 <div className="slash-command-title">{item.title}</div>

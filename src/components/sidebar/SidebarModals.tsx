@@ -131,12 +131,12 @@ export function SidebarModals(props: SidebarModalsProps) {
               className="input"
               style={{
                 marginBottom: titleError ? '0.5rem' : '1rem',
-                borderColor: titleError ? 'var(--status-error, #ef4444)' : undefined,
+                borderColor: titleError ? 'var(--status-error)' : undefined,
               }}
               autoFocus
             />
             {titleError && (
-              <p className="text-xs mb-4" style={{ color: 'var(--status-error, #ef4444)' }}>
+              <p className="text-xs mb-4" style={{ color: 'var(--status-error)' }}>
                 {titleError}
               </p>
             )}

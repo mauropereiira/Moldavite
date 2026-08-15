@@ -1,11 +1,1213 @@
 (function () {
   'use strict';
 
+  var THEME_STORAGE_KEY = 'moldavite-site-theme';
+  var activeTheme = readStoredTheme();
+
+  applyTheme(activeTheme, false);
+
+  var FIELD_WIDTH = 1200;
+  var FIELD_HEIGHT = 800;
+  var BACKGROUND_STAR_COUNT = 180;
+  var SKY_FRAME_INTERVAL = 1000 / 30;
+  var SKY_PIXEL_RATIO_CAP = 1.5;
+  var POINTER_PARALLAX_MAX = 4.5;
+  var POINTER_DISTURB_RADIUS = 82;
+  var POINTER_DISTURB_MAX = 5;
+  var SCROLL_PARALLAX_FAR = 0.006;
+  var SCROLL_PARALLAX_NEAR = 0.028;
+  var METEOR_CADENCE_MIN = 14000;
+  var METEOR_CADENCE_MAX = 22000;
+  var METEOR_DURATION_MIN = 900;
+  var METEOR_DURATION_MAX = 1200;
+  var ASTEROID_LERP = 0.18;
+  var ASTEROID_SIZE = 14;
+  var ASTEROID_TRAIL = [
+    { size: 4, lerp: 0.12, opacity: 0.24 },
+    { size: 3, lerp: 0.09, opacity: 0.15 },
+    { size: 2, lerp: 0.07, opacity: 0.08 },
+  ];
+  var STAR_CLUSTERS = [
+    { x: 0.16, y: 0.2, spread: 0.12 },
+    { x: 0.82, y: 0.22, spread: 0.1 },
+    { x: 0.22, y: 0.78, spread: 0.11 },
+    { x: 0.8, y: 0.75, spread: 0.13 },
+  ];
+  var CONSTELLATION_LAYOUT = {
+    Gemini: { x: -80, y: 70, width: 560, height: 360, rotation: -14 },
+    Aquarius: { x: 650, y: -45, width: 690, height: 400, rotation: 12 },
+    Libra: { x: 315, y: 535, width: 530, height: 320, rotation: -9 },
+  };
+  var CONSTELLATION_MOTION = {
+    Gemini: {
+      depth: 0.42,
+      driftX: -0.3,
+      driftY: -0.12,
+      disturbX: 0,
+      disturbY: 0,
+      reaction: 0,
+    },
+    Aquarius: {
+      depth: 0.26,
+      driftX: 0.22,
+      driftY: -0.14,
+      disturbX: 0,
+      disturbY: 0,
+      reaction: 0,
+    },
+    Libra: {
+      depth: 0.68,
+      driftX: -0.06,
+      driftY: 0.38,
+      disturbX: 0,
+      disturbY: 0,
+      reaction: 0,
+    },
+  };
+  var CONSTELLATIONS = [
+    {
+      name: 'Gemini',
+      stars: [
+        { x: 0.08, y: 0.05, m: 1.6 },
+        { x: 0.32, y: 0.12, m: 1.1 },
+        { x: 0.14, y: 0.32, m: 3.0 },
+        { x: 0.38, y: 0.38, m: 3.5 },
+        { x: 0.1, y: 0.56, m: 3.3 },
+        { x: 0.34, y: 0.62, m: 1.9 },
+        { x: 0.03, y: 0.78, m: 3.6 },
+        { x: 0.28, y: 0.85, m: 3.8 },
+      ],
+      lines: [
+        [0, 1],
+        [0, 2],
+        [2, 4],
+        [4, 6],
+        [1, 3],
+        [3, 5],
+        [5, 7],
+        [2, 3],
+      ],
+    },
+    {
+      name: 'Libra',
+      stars: [
+        { x: 0.48, y: 0.08, m: 2.6 },
+        { x: 0.18, y: 0.36, m: 2.7 },
+        { x: 0.78, y: 0.34, m: 3.9 },
+        { x: 0.42, y: 0.6, m: 3.3 },
+        { x: 0.7, y: 0.72, m: 4.1 },
+        { x: 0.08, y: 0.66, m: 4.5 },
+      ],
+      lines: [
+        [0, 1],
+        [0, 2],
+        [1, 3],
+        [2, 4],
+        [3, 4],
+        [1, 5],
+      ],
+    },
+    {
+      name: 'Aquarius',
+      stars: [
+        { x: 0.06, y: 0.26, m: 3.7 },
+        { x: 0.24, y: 0.16, m: 2.9 },
+        { x: 0.42, y: 0.28, m: 3.0 },
+        { x: 0.56, y: 0.18, m: 4.0 },
+        { x: 0.68, y: 0.34, m: 3.8 },
+        { x: 0.82, y: 0.26, m: 4.2 },
+        { x: 0.6, y: 0.56, m: 3.3 },
+        { x: 0.44, y: 0.72, m: 4.3 },
+        { x: 0.28, y: 0.86, m: 4.5 },
+      ],
+      lines: [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [4, 5],
+        [4, 6],
+        [6, 7],
+        [7, 8],
+      ],
+    },
+  ];
+  var METEOR_BANDS = [
+    { xMin: 88, xMax: 228, yMin: 50, yMax: 125, angleMin: 155, angleMax: 205 },
+    { xMin: 972, xMax: 1112, yMin: 50, yMax: 125, angleMin: -25, angleMax: 25 },
+    { xMin: 88, xMax: 228, yMin: 395, yMax: 470, angleMin: 155, angleMax: 205 },
+    { xMin: 972, xMax: 1112, yMin: 395, yMax: 470, angleMin: -25, angleMax: 25 },
+  ];
+
   var motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var coarsePointer = window.matchMedia('(pointer: coarse)');
   var videoObserver = null;
+  var animationCallbacks = [];
+  var animationFrame = 0;
+
+  function runAnimationFrame(time) {
+    var callbackCount;
+    var index;
+
+    animationFrame = 0;
+    if (document.hidden) return;
+
+    callbackCount = animationCallbacks.length;
+    for (index = 0; index < callbackCount; index += 1) {
+      animationCallbacks[index](time);
+    }
+
+    if (animationCallbacks.length) {
+      animationFrame = window.requestAnimationFrame(runAnimationFrame);
+    }
+  }
+
+  function startAnimationLoop() {
+    if (
+      animationFrame ||
+      document.hidden ||
+      !animationCallbacks.length ||
+      !window.requestAnimationFrame
+    ) {
+      return;
+    }
+    animationFrame = window.requestAnimationFrame(runAnimationFrame);
+  }
+
+  function addAnimationCallback(callback) {
+    if (animationCallbacks.indexOf(callback) === -1) animationCallbacks.push(callback);
+    startAnimationLoop();
+  }
+
+  function removeAnimationCallback(callback) {
+    var index = animationCallbacks.indexOf(callback);
+    if (index !== -1) animationCallbacks.splice(index, 1);
+    if (!animationCallbacks.length && animationFrame) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      return;
+    }
+    startAnimationLoop();
+  });
 
   function prefersReducedMotion() {
     return motionPreference.matches;
+  }
+
+  function readStoredTheme() {
+    try {
+      return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+    } catch (error) {
+      return 'light';
+    }
+  }
+
+  function storeTheme(theme) {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      // Storage can be unavailable in privacy modes. The live toggle still works.
+    }
+  }
+
+  function notifyThemeChange() {
+    var event;
+    if (typeof window.CustomEvent === 'function') {
+      event = new CustomEvent('moldavite:themechange');
+    } else {
+      event = document.createEvent('Event');
+      event.initEvent('moldavite:themechange', false, false);
+    }
+    document.dispatchEvent(event);
+  }
+
+  function applyTheme(theme, notify) {
+    var dark = theme === 'dark';
+    activeTheme = dark ? 'dark' : 'light';
+
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+
+    document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
+      button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      button.setAttribute('aria-label', dark ? 'Switch to light' : 'Switch to dark');
+    });
+
+    if (notify) notifyThemeChange();
+  }
+
+  function setupTheme() {
+    document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var nextTheme = activeTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme, true);
+        storeTheme(nextTheme);
+      });
+    });
+
+    window.addEventListener('storage', function (event) {
+      if (event.key !== THEME_STORAGE_KEY) return;
+      applyTheme(event.newValue === 'dark' ? 'dark' : 'light', true);
+    });
+  }
+
+  function createSeededRandom(seed) {
+    var state = seed >>> 0;
+
+    return function () {
+      var value;
+      state = (state + 0x6d2b79f5) >>> 0;
+      value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function smoothstep(from, to, value) {
+    var position = Math.min(1, Math.max(0, (value - from) / (to - from)));
+    return position * position * (3 - 2 * position);
+  }
+
+  function createBackgroundStars(count) {
+    var random = createSeededRandom(0x4d4f4c44);
+    var stars = [];
+
+    while (stars.length < count) {
+      var x = random();
+      var y = random();
+      var cluster;
+      var angle;
+      var distance;
+      var centreX;
+      var centreY;
+      var centreDistance;
+      var edgeStrength;
+
+      if (random() < 0.3) {
+        cluster = STAR_CLUSTERS[Math.floor(random() * STAR_CLUSTERS.length)];
+        angle = random() * Math.PI * 2;
+        distance = cluster.spread * Math.sqrt(random());
+        x = cluster.x + Math.cos(angle) * distance;
+        y = cluster.y + Math.sin(angle) * distance;
+      }
+
+      if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+
+      centreX = (x - 0.5) / 0.5;
+      centreY = (y - 0.5) / 0.5;
+      centreDistance = Math.sqrt(centreX * centreX + centreY * centreY) / Math.SQRT2;
+      edgeStrength = 0.12 + 0.88 * smoothstep(0.08, 0.86, centreDistance);
+
+      if (random() > 0.38 + edgeStrength * 0.62) continue;
+
+      stars.push({
+        x: x * FIELD_WIDTH,
+        y: y * FIELD_HEIGHT,
+        radius: 0.4 + random() * 0.8,
+        opacityOffset: edgeStrength * random() * 0.08,
+        duration: 4 + random() * 5,
+        delay: -random() * 9,
+      });
+    }
+
+    return stars;
+  }
+
+  function addBackgroundStarMotion(stars) {
+    var random = createSeededRandom(0x534b5944);
+
+    stars.forEach(function (star) {
+      var angle;
+      var depth = 0.18 + random() * 0.82;
+      var distanceX = star.x - FIELD_WIDTH / 2;
+      var distanceY = star.y - FIELD_HEIGHT / 2;
+      var speed = 0.22 + depth * 0.72;
+
+      if (Math.abs(distanceX) + Math.abs(distanceY) < 1) {
+        angle = random() * Math.PI * 2;
+      } else {
+        angle = Math.atan2(distanceY, distanceX) + (random() - 0.5) * 0.34;
+      }
+
+      star.depth = depth;
+      star.driftX = Math.cos(angle) * speed;
+      star.driftY = Math.sin(angle) * speed;
+      star.disturbX = 0;
+      star.disturbY = 0;
+      star.reaction = 0;
+      star.drawX = star.x;
+      star.drawY = star.y;
+    });
+
+    return stars;
+  }
+
+  var BACKGROUND_STARS = addBackgroundStarMotion(createBackgroundStars(BACKGROUND_STAR_COUNT));
+
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function createMeteor(now) {
+    var band = METEOR_BANDS[Math.floor(Math.random() * METEOR_BANDS.length)];
+    return {
+      x: randomBetween(band.xMin, band.xMax),
+      y: randomBetween(band.yMin, band.yMax),
+      angle: randomBetween(band.angleMin, band.angleMax),
+      length: randomBetween(68, 115),
+      depth: randomBetween(0.55, 0.95),
+      duration: randomBetween(METEOR_DURATION_MIN, METEOR_DURATION_MAX),
+      startedAt: now,
+    };
+  }
+
+  function useConstellationTransform(context, constellation, x, y) {
+    var layout = CONSTELLATION_LAYOUT[constellation.name];
+    var centreX = layout.width / 2;
+    var centreY = layout.height / 2;
+    var positionX = typeof x === 'number' ? x : layout.x;
+    var positionY = typeof y === 'number' ? y : layout.y;
+    context.translate(positionX + centreX, positionY + centreY);
+    context.rotate((layout.rotation * Math.PI) / 180);
+    context.translate(-centreX, -centreY);
+    return layout;
+  }
+
+  function setupSky() {
+    var canvas = document.querySelector('[data-sky]');
+    var context;
+    var width = 0;
+    var height = 0;
+    var pixelRatio = 1;
+    var fieldScale = 1;
+    var fieldOffsetX = 0;
+    var fieldOffsetY = 0;
+    var fieldElapsed = 0;
+    var lastSkyFrame = 0;
+    var resizeFrame = 0;
+    var meteor = null;
+    var nextMeteorAt = 0;
+    var colors = null;
+    var colorsDirty = true;
+    var lastFrameAnimated = null;
+    var running = false;
+    var pointerTargetX = 0;
+    var pointerTargetY = 0;
+    var pointerX = 0;
+    var pointerY = 0;
+    var pointerClientX = 0;
+    var pointerClientY = 0;
+    var pointerActive = false;
+    var scrollTarget = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var scrollPosition = scrollTarget;
+    var reactionApproach = 1;
+    var reactionRelease = 1;
+
+    if (!canvas || !canvas.getContext) return;
+    context = canvas.getContext('2d');
+    if (!context) return;
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.pointerEvents = 'none';
+
+    function readColors() {
+      var styles = window.getComputedStyle(document.documentElement);
+      var star = styles.getPropertyValue('--star').trim();
+      var valid;
+      colors = {
+        star: star,
+        far: styles.getPropertyValue('--star-far').trim() || star,
+        near: styles.getPropertyValue('--star-near').trim() || star,
+        bright: styles.getPropertyValue('--star-bright').trim(),
+        meteor: styles.getPropertyValue('--meteor').trim(),
+      };
+      valid = colors.star && colors.bright && colors.meteor;
+      colorsDirty = !valid;
+      return valid;
+    }
+
+    function updateFieldMetrics() {
+      fieldScale = Math.max(width / FIELD_WIDTH, height / FIELD_HEIGHT);
+      fieldOffsetX = (width - FIELD_WIDTH * fieldScale) / 2;
+      fieldOffsetY = (height - FIELD_HEIGHT * fieldScale) / 2;
+    }
+
+    function prepareField() {
+      context.translate(fieldOffsetX, fieldOffsetY);
+      context.scale(fieldScale, fieldScale);
+    }
+
+    function wrap(value, size) {
+      var result = value % size;
+      return result < 0 ? result + size : result;
+    }
+
+    function wrapBetween(value, min, max) {
+      return min + wrap(value - min, max - min);
+    }
+
+    function depthFactor(depth) {
+      return 0.25 + depth * 0.75;
+    }
+
+    function scrollFactor(depth) {
+      return SCROLL_PARALLAX_FAR + (SCROLL_PARALLAX_NEAR - SCROLL_PARALLAX_FAR) * depth;
+    }
+
+    function starColor(depth) {
+      if (depth < 0.38) return colors.far;
+      if (depth > 0.72) return colors.near;
+      return colors.star;
+    }
+
+    function updateBackgroundStar(star, animated) {
+      var elapsedSeconds = fieldElapsed / 1000;
+      var layerStrength = depthFactor(star.depth);
+      var x = star.x;
+      var y = star.y;
+      var screenX;
+      var screenY;
+      var distanceX;
+      var distanceY;
+      var distanceSquared;
+      var distance;
+      var awayX = 0;
+      var awayY = 0;
+      var targetReaction = 0;
+      var targetDisturbX = 0;
+      var targetDisturbY = 0;
+      var ease;
+
+      if (animated) {
+        x +=
+          (star.driftX * elapsedSeconds - pointerX * POINTER_PARALLAX_MAX * layerStrength) /
+          fieldScale;
+        y +=
+          (star.driftY * elapsedSeconds -
+            pointerY * POINTER_PARALLAX_MAX * layerStrength -
+            scrollPosition * scrollFactor(star.depth)) /
+          fieldScale;
+      }
+
+      x = wrap(x, FIELD_WIDTH);
+      y = wrap(y, FIELD_HEIGHT);
+      screenX = fieldOffsetX + x * fieldScale;
+      screenY = fieldOffsetY + y * fieldScale;
+
+      if (animated && pointerActive && !coarsePointer.matches) {
+        distanceX = screenX - pointerClientX;
+        distanceY = screenY - pointerClientY;
+        distanceSquared = distanceX * distanceX + distanceY * distanceY;
+
+        if (distanceSquared < POINTER_DISTURB_RADIUS * POINTER_DISTURB_RADIUS) {
+          distance = Math.sqrt(distanceSquared);
+          targetReaction = 1 - smoothstep(0, POINTER_DISTURB_RADIUS, distance);
+          if (distance > 0.01) {
+            awayX = distanceX / distance;
+            awayY = distanceY / distance;
+          } else {
+            distance = Math.sqrt(star.driftX * star.driftX + star.driftY * star.driftY) || 1;
+            awayX = star.driftX / distance;
+            awayY = star.driftY / distance;
+          }
+          targetDisturbX =
+            awayX * POINTER_DISTURB_MAX * targetReaction * (0.45 + star.depth * 0.55);
+          targetDisturbY =
+            awayY * POINTER_DISTURB_MAX * targetReaction * (0.45 + star.depth * 0.55);
+        }
+      }
+
+      if (animated) {
+        ease = targetReaction > 0 ? reactionApproach : reactionRelease;
+        star.disturbX += (targetDisturbX - star.disturbX) * ease;
+        star.disturbY += (targetDisturbY - star.disturbY) * ease;
+        star.reaction += (targetReaction - star.reaction) * ease;
+      } else {
+        star.disturbX = 0;
+        star.disturbY = 0;
+        star.reaction = 0;
+      }
+
+      star.drawX = x + star.disturbX / fieldScale;
+      star.drawY = y + star.disturbY / fieldScale;
+    }
+
+    function drawBackgroundStars(time, animated) {
+      var seconds = fieldElapsed / 1000;
+
+      BACKGROUND_STARS.forEach(function (star) {
+        var twinkle = 1;
+        var baseOpacity = 0.32 + star.opacityOffset * 2.1 + star.depth * 0.1;
+        var radius = star.radius * (0.72 + star.depth * 0.42);
+
+        updateBackgroundStar(star, animated);
+        if (animated) {
+          twinkle = 0.92 + 0.12 * Math.sin(((seconds + star.delay) / star.duration) * Math.PI * 2);
+        }
+        context.fillStyle = starColor(star.depth);
+        context.globalAlpha = Math.min(1, baseOpacity * twinkle);
+        context.beginPath();
+        context.arc(star.drawX, star.drawY, radius, 0, Math.PI * 2);
+        context.fill();
+
+        if (star.reaction > 0.01) {
+          context.fillStyle = colors.bright;
+          context.globalAlpha = star.reaction * (0.12 + star.depth * 0.18);
+          context.beginPath();
+          context.arc(star.drawX, star.drawY, radius, 0, Math.PI * 2);
+          context.fill();
+        }
+      });
+    }
+
+    function updateConstellation(constellation, animated) {
+      var layout = CONSTELLATION_LAYOUT[constellation.name];
+      var motion = CONSTELLATION_MOTION[constellation.name];
+      var elapsedSeconds = fieldElapsed / 1000;
+      var layerStrength = depthFactor(motion.depth);
+      var centreX = layout.x + layout.width / 2;
+      var centreY = layout.y + layout.height / 2;
+      var rotation = (layout.rotation * Math.PI) / 180;
+      var cosine = Math.cos(rotation);
+      var sine = Math.sin(rotation);
+      var nearestDistanceSquared = POINTER_DISTURB_RADIUS * POINTER_DISTURB_RADIUS;
+      var nearestX = 0;
+      var nearestY = 0;
+      var targetReaction = 0;
+      var targetDisturbX = 0;
+      var targetDisturbY = 0;
+      var distance;
+      var ease;
+
+      if (animated) {
+        centreX +=
+          (motion.driftX * elapsedSeconds - pointerX * POINTER_PARALLAX_MAX * layerStrength) /
+          fieldScale;
+        centreY +=
+          (motion.driftY * elapsedSeconds -
+            pointerY * POINTER_PARALLAX_MAX * layerStrength -
+            scrollPosition * scrollFactor(motion.depth)) /
+          fieldScale;
+      }
+
+      centreX = wrapBetween(centreX, -layout.width / 2, FIELD_WIDTH + layout.width / 2);
+      centreY = wrapBetween(centreY, -layout.height / 2, FIELD_HEIGHT + layout.height / 2);
+      motion.x = centreX - layout.width / 2;
+      motion.y = centreY - layout.height / 2;
+
+      if (animated && pointerActive && !coarsePointer.matches) {
+        constellation.stars.forEach(function (star) {
+          var localX = star.x * layout.width - layout.width / 2;
+          var localY = star.y * layout.height - layout.height / 2;
+          var starX = centreX + localX * cosine - localY * sine;
+          var starY = centreY + localX * sine + localY * cosine;
+          var distanceX = fieldOffsetX + starX * fieldScale - pointerClientX;
+          var distanceY = fieldOffsetY + starY * fieldScale - pointerClientY;
+          var distanceSquared = distanceX * distanceX + distanceY * distanceY;
+
+          if (distanceSquared < nearestDistanceSquared) {
+            nearestDistanceSquared = distanceSquared;
+            nearestX = distanceX;
+            nearestY = distanceY;
+          }
+        });
+
+        if (nearestDistanceSquared < POINTER_DISTURB_RADIUS * POINTER_DISTURB_RADIUS) {
+          distance = Math.sqrt(nearestDistanceSquared);
+          targetReaction = 1 - smoothstep(0, POINTER_DISTURB_RADIUS, distance);
+          if (distance < 0.01) {
+            nearestX = centreX * fieldScale + fieldOffsetX - pointerClientX;
+            nearestY = centreY * fieldScale + fieldOffsetY - pointerClientY;
+            distance = Math.sqrt(nearestX * nearestX + nearestY * nearestY) || 1;
+          }
+          targetDisturbX =
+            (nearestX / distance) * POINTER_DISTURB_MAX * 0.55 * targetReaction * layerStrength;
+          targetDisturbY =
+            (nearestY / distance) * POINTER_DISTURB_MAX * 0.55 * targetReaction * layerStrength;
+        }
+      }
+
+      if (animated) {
+        ease = targetReaction > 0 ? reactionApproach : reactionRelease;
+        motion.disturbX += (targetDisturbX - motion.disturbX) * ease;
+        motion.disturbY += (targetDisturbY - motion.disturbY) * ease;
+        motion.reaction += (targetReaction - motion.reaction) * ease;
+      } else {
+        motion.disturbX = 0;
+        motion.disturbY = 0;
+        motion.reaction = 0;
+      }
+
+      motion.drawX = motion.x + motion.disturbX / fieldScale;
+      motion.drawY = motion.y + motion.disturbY / fieldScale;
+    }
+
+    function drawConstellations(time, animated) {
+      var globalIndex = 0;
+      var seconds = fieldElapsed / 1000;
+
+      CONSTELLATIONS.forEach(function (constellation) {
+        var layout = CONSTELLATION_LAYOUT[constellation.name];
+        var motion = CONSTELLATION_MOTION[constellation.name];
+
+        updateConstellation(constellation, animated);
+        context.save();
+        useConstellationTransform(context, constellation, motion.drawX, motion.drawY);
+        context.strokeStyle = starColor(motion.depth);
+        context.globalAlpha = 0.2 + motion.depth * 0.08 + motion.reaction * 0.08;
+        context.lineWidth = 0.5 / fieldScale;
+
+        constellation.lines.forEach(function (line) {
+          var from = constellation.stars[line[0]];
+          var to = constellation.stars[line[1]];
+          context.beginPath();
+          context.moveTo(from.x * layout.width, from.y * layout.height);
+          context.lineTo(to.x * layout.width, to.y * layout.height);
+          context.stroke();
+        });
+
+        context.fillStyle = colors.bright;
+        constellation.stars.forEach(function (star) {
+          var magnitude = Math.min(4.5, Math.max(1, star.m));
+          var brightness = (4.5 - magnitude) / 3.5;
+          var radius = (1.2 + brightness * 1.2) * (0.9 + motion.depth * 0.12);
+          var duration = 4 + ((globalIndex * 7) % 11) * 0.5;
+          var delay = -globalIndex * 0.73;
+          var twinkle = 1;
+          if (animated) {
+            twinkle = 0.9 + 0.14 * Math.sin(((seconds + delay) / duration) * Math.PI * 2);
+          }
+          context.globalAlpha = Math.min(
+            1,
+            (0.28 + brightness * 0.52) * twinkle + motion.reaction * 0.14
+          );
+          context.beginPath();
+          context.arc(star.x * layout.width, star.y * layout.height, radius, 0, Math.PI * 2);
+          context.fill();
+          globalIndex += 1;
+        });
+        context.restore();
+      });
+    }
+
+    function drawMeteor(time, scale) {
+      var progress;
+      var flightOpacity;
+      var distance;
+      var radians;
+      var gradient;
+
+      if (!meteor) return;
+      progress = Math.min(1, (time - meteor.startedAt) / meteor.duration);
+      if (progress >= 1) {
+        meteor = null;
+        return;
+      }
+
+      if (progress < 0.18) flightOpacity = progress / 0.18;
+      else if (progress <= 0.62) flightOpacity = 1;
+      else flightOpacity = 1 - (progress - 0.62) / 0.38;
+
+      distance = -14 + progress * 62;
+      radians = (meteor.angle * Math.PI) / 180;
+      context.save();
+      context.translate(
+        (-pointerX * POINTER_PARALLAX_MAX * depthFactor(meteor.depth)) / fieldScale,
+        (-pointerY * POINTER_PARALLAX_MAX * depthFactor(meteor.depth) -
+          scrollPosition * scrollFactor(meteor.depth)) /
+          fieldScale
+      );
+      context.translate(
+        meteor.x + Math.cos(radians) * distance,
+        meteor.y + Math.sin(radians) * distance
+      );
+      context.rotate(radians);
+      gradient = context.createLinearGradient(-meteor.length / 2, 0, meteor.length / 2, 0);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(0.58, colors.meteor);
+      gradient.addColorStop(1, colors.meteor);
+      context.strokeStyle = gradient;
+      context.globalAlpha = Math.max(0, flightOpacity);
+      context.lineCap = 'round';
+      context.lineWidth = 0.75 / scale;
+      context.beginPath();
+      context.moveTo(-meteor.length / 2, 0);
+      context.lineTo(meteor.length / 2, 0);
+      context.stroke();
+      context.restore();
+    }
+
+    function drawSky(time, animated) {
+      if (!width || !height) return;
+      if (colorsDirty && !readColors()) return;
+
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      context.save();
+      prepareField();
+      drawBackgroundStars(time, animated);
+      drawConstellations(time, animated);
+      if (animated) drawMeteor(time, fieldScale);
+      context.restore();
+      context.globalAlpha = 1;
+      lastFrameAnimated = animated;
+    }
+
+    function scheduleMeteor(now) {
+      nextMeteorAt = now + randomBetween(METEOR_CADENCE_MIN, METEOR_CADENCE_MAX);
+    }
+
+    function tick(time) {
+      var delta;
+      var pointerEase;
+      var scrollEase;
+
+      if (document.hidden || prefersReducedMotion()) {
+        return;
+      }
+      if (lastSkyFrame && time - lastSkyFrame < SKY_FRAME_INTERVAL - 1) return;
+
+      delta = lastSkyFrame ? Math.min(50, time - lastSkyFrame) : SKY_FRAME_INTERVAL;
+      lastSkyFrame = time;
+      fieldElapsed += delta;
+      pointerEase = 1 - Math.exp(-delta / 180);
+      scrollEase = 1 - Math.exp(-delta / 120);
+      reactionApproach = 1 - Math.exp(-delta / 115);
+      reactionRelease = 1 - Math.exp(-delta / 260);
+      pointerX += (pointerTargetX - pointerX) * pointerEase;
+      pointerY += (pointerTargetY - pointerY) * pointerEase;
+      scrollPosition += (scrollTarget - scrollPosition) * scrollEase;
+
+      if (!nextMeteorAt) scheduleMeteor(time);
+      if (!meteor && time >= nextMeteorAt) {
+        meteor = createMeteor(time);
+        scheduleMeteor(time);
+      }
+      drawSky(time, true);
+    }
+
+    function stopAnimation() {
+      removeAnimationCallback(tick);
+      running = false;
+      lastSkyFrame = 0;
+      meteor = null;
+      nextMeteorAt = 0;
+    }
+
+    function startAnimation() {
+      stopAnimation();
+      if (prefersReducedMotion() || document.hidden || !window.requestAnimationFrame) {
+        pointerX = 0;
+        pointerY = 0;
+        if (lastFrameAnimated !== false) drawSky(0, false);
+        return;
+      }
+      scrollTarget = window.pageYOffset || document.documentElement.scrollTop || 0;
+      scrollPosition = scrollTarget;
+      running = true;
+      addAnimationCallback(tick);
+    }
+
+    function resize() {
+      var time = window.performance && window.performance.now ? window.performance.now() : 0;
+      width = Math.max(
+        0,
+        Math.round(window.innerWidth || document.documentElement.clientWidth || 0)
+      );
+      height = Math.max(
+        0,
+        Math.round(window.innerHeight || document.documentElement.clientHeight || 0)
+      );
+      pixelRatio = Math.max(1, Math.min(SKY_PIXEL_RATIO_CAP, window.devicePixelRatio || 1));
+      updateFieldMetrics();
+
+      if (
+        canvas.width !== Math.round(width * pixelRatio) ||
+        canvas.height !== Math.round(height * pixelRatio)
+      ) {
+        canvas.width = Math.round(width * pixelRatio);
+        canvas.height = Math.round(height * pixelRatio);
+      }
+
+      drawSky(time, running && !prefersReducedMotion() && !document.hidden);
+    }
+
+    function queueResize() {
+      if (!window.requestAnimationFrame) {
+        resize();
+        return;
+      }
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(function () {
+        resizeFrame = 0;
+        resize();
+      });
+    }
+
+    function handleMotionChange() {
+      pointerActive = false;
+      pointerTargetX = 0;
+      pointerTargetY = 0;
+      startAnimation();
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        pointerActive = false;
+        pointerTargetX = 0;
+        pointerTargetY = 0;
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
+    }
+
+    function handleThemeChange() {
+      var time = window.performance && window.performance.now ? window.performance.now() : 0;
+      colorsDirty = true;
+      if (!readColors()) return;
+      drawSky(time, running && !prefersReducedMotion() && !document.hidden);
+    }
+
+    function handlePointerMove(event) {
+      if (event.pointerType === 'touch' || coarsePointer.matches || !width || !height) return;
+      pointerClientX = event.clientX;
+      pointerClientY = event.clientY;
+      pointerTargetX = Math.max(-1, Math.min(1, (event.clientX / width - 0.5) * 2));
+      pointerTargetY = Math.max(-1, Math.min(1, (event.clientY / height - 0.5) * 2));
+      pointerActive = true;
+    }
+
+    function handlePointerLeave() {
+      pointerActive = false;
+      pointerTargetX = 0;
+      pointerTargetY = 0;
+    }
+
+    function handlePointerAvailabilityChange() {
+      if (!coarsePointer.matches) return;
+      handlePointerLeave();
+      pointerX = 0;
+      pointerY = 0;
+    }
+
+    function handleScroll() {
+      scrollTarget = window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+
+    resize();
+    startAnimation();
+    window.addEventListener('resize', queueResize, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('blur', handlePointerLeave);
+    document.addEventListener('pointerleave', handlePointerLeave);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('moldavite:themechange', handleThemeChange);
+    if (motionPreference.addEventListener) {
+      motionPreference.addEventListener('change', handleMotionChange);
+      coarsePointer.addEventListener('change', handlePointerAvailabilityChange);
+    } else {
+      motionPreference.addListener(handleMotionChange);
+      coarsePointer.addListener(handlePointerAvailabilityChange);
+    }
+  }
+
+  function isTextEntryTarget(target) {
+    var input;
+    var type;
+    if (!(target instanceof Element)) return false;
+    if (target.closest('textarea, [contenteditable="true"], [contenteditable="plaintext-only"]')) {
+      return true;
+    }
+    input = target.closest('input');
+    if (!input) return false;
+    type = (input.getAttribute('type') || 'text').toLowerCase();
+    return (
+      [
+        'button',
+        'checkbox',
+        'color',
+        'file',
+        'hidden',
+        'image',
+        'radio',
+        'range',
+        'reset',
+        'submit',
+      ].indexOf(type) === -1
+    );
+  }
+
+  function makeCursorLayer(size) {
+    var layer = document.createElement('div');
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.color = 'var(--asteroid)';
+    layer.style.height = size + 'px';
+    layer.style.left = '0';
+    layer.style.opacity = '0';
+    layer.style.pointerEvents = 'none';
+    layer.style.position = 'fixed';
+    layer.style.top = '0';
+    layer.style.width = size + 'px';
+    layer.style.willChange = 'opacity, transform';
+    layer.style.zIndex = '30000';
+    return layer;
+  }
+
+  function makeAsteroidSvg() {
+    var namespace = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(namespace, 'svg');
+    var path = document.createElementNS(namespace, 'path');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.style.display = 'block';
+    svg.style.height = '100%';
+    svg.style.transformOrigin = 'center';
+    svg.style.width = '100%';
+    svg.style.willChange = 'transform';
+    path.setAttribute('d', 'M1.4 6.2 5.8 1.3 12.1 2.5 15 7.7 12.4 13.8 6.1 14.7 1 10.4Z');
+    path.setAttribute('fill', 'currentColor');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function makeImpactSvg() {
+    var namespace = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(namespace, 'svg');
+    var circle = document.createElementNS(namespace, 'circle');
+    svg.setAttribute('viewBox', '0 0 40 40');
+    svg.style.display = 'block';
+    circle.setAttribute('cx', '20');
+    circle.setAttribute('cy', '20');
+    circle.setAttribute('r', '17');
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', 'currentColor');
+    circle.setAttribute('stroke-width', '0.75');
+    svg.appendChild(circle);
+    return svg;
+  }
+
+  function setupAsteroidCursor() {
+    var mounted = false;
+    var asteroid = null;
+    var asteroidRock = null;
+    var impact = null;
+    var cursorStyle = null;
+    var trailElements = [];
+    var target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    var position = { x: target.x, y: target.y };
+    var trail = [];
+    var pointerVisible = false;
+    var overInteractive = false;
+    var overTextEntry = false;
+    var impactState = null;
+
+    if (!('PointerEvent' in window) || !window.requestAnimationFrame) return;
+
+    function now() {
+      return window.performance && window.performance.now
+        ? window.performance.now()
+        : new Date().getTime();
+    }
+
+    function setPointerAppearance() {
+      var showAsteroid = pointerVisible && !overTextEntry && !document.hidden;
+      if (showAsteroid) document.documentElement.classList.add('asteroid-cursor-active');
+      else document.documentElement.classList.remove('asteroid-cursor-active');
+      if (asteroid) asteroid.style.opacity = showAsteroid ? '0.62' : '0';
+      trailElements.forEach(function (dot, index) {
+        dot.style.opacity = showAsteroid ? String(ASTEROID_TRAIL[index].opacity) : '0';
+      });
+    }
+
+    function updateColor() {
+      var color = window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue('--asteroid')
+        .trim();
+      if (!color) return;
+      if (asteroid) asteroid.style.color = color;
+      if (impact) impact.style.color = color;
+      trailElements.forEach(function (dot) {
+        dot.style.color = color;
+      });
+    }
+
+    function handlePointerMove(event) {
+      if (event.pointerType === 'touch') return;
+      target.x = event.clientX;
+      target.y = event.clientY;
+      pointerVisible = true;
+      overTextEntry = isTextEntryTarget(event.target);
+      overInteractive =
+        event.target instanceof Element &&
+        event.target.closest('button, a, [role="button"], [role="link"]') !== null;
+      setPointerAppearance();
+    }
+
+    function handlePointerLeave() {
+      pointerVisible = false;
+      setPointerAppearance();
+    }
+
+    function handleClick(event) {
+      if (!pointerVisible || event.detail === 0 || isTextEntryTarget(event.target)) return;
+      impactState = { x: event.clientX, y: event.clientY, startedAt: now() };
+      impact.style.opacity = '0.38';
+    }
+
+    function tick(currentTime) {
+      position.x += (target.x - position.x) * ASTEROID_LERP;
+      position.y += (target.y - position.y) * ASTEROID_LERP;
+      asteroid.style.transform =
+        'translate3d(' +
+        (position.x - ASTEROID_SIZE / 2) +
+        'px,' +
+        (position.y - ASTEROID_SIZE / 2) +
+        'px,0) scale(' +
+        (overInteractive ? 1.16 : 1) +
+        ')';
+      asteroidRock.style.transform = 'rotate(' + ((currentTime % 7000) / 7000) * 360 + 'deg)';
+
+      trail.forEach(function (dot, index) {
+        var leader = index === 0 ? position : trail[index - 1];
+        var spec = ASTEROID_TRAIL[index];
+        dot.x += (leader.x - dot.x) * spec.lerp;
+        dot.y += (leader.y - dot.y) * spec.lerp;
+        trailElements[index].style.transform =
+          'translate3d(' + (dot.x - spec.size / 2) + 'px,' + (dot.y - spec.size / 2) + 'px,0)';
+      });
+
+      if (impactState) {
+        var progress = Math.min(1, (currentTime - impactState.startedAt) / 500);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        var scale = 0.22 + eased * 0.98;
+        impact.style.opacity = String(0.38 * (1 - progress));
+        impact.style.transform =
+          'translate3d(' +
+          (impactState.x - 20) +
+          'px,' +
+          (impactState.y - 20) +
+          'px,0) scale(' +
+          scale +
+          ')';
+        if (progress >= 1) impactState = null;
+      }
+    }
+
+    function startFrame() {
+      if (!mounted || document.hidden) return;
+      addAnimationCallback(tick);
+    }
+
+    function stopFrame() {
+      removeAnimationCallback(tick);
+    }
+
+    function mount() {
+      if (mounted) return;
+      mounted = true;
+      asteroid = makeCursorLayer(ASTEROID_SIZE);
+      asteroid.setAttribute('data-asteroid-cursor', '');
+      asteroidRock = makeAsteroidSvg();
+      asteroid.appendChild(asteroidRock);
+      document.body.appendChild(asteroid);
+
+      ASTEROID_TRAIL.forEach(function (spec) {
+        var dot = makeCursorLayer(spec.size);
+        dot.setAttribute('data-asteroid-trail', '');
+        dot.style.background = 'currentColor';
+        dot.style.borderRadius = '50%';
+        document.body.appendChild(dot);
+        trailElements.push(dot);
+        trail.push({ x: target.x, y: target.y });
+      });
+
+      impact = makeCursorLayer(40);
+      impact.setAttribute('data-asteroid-impact', '');
+      impact.appendChild(makeImpactSvg());
+      document.body.appendChild(impact);
+      updateColor();
+
+      cursorStyle = document.createElement('style');
+      cursorStyle.setAttribute('data-asteroid-cursor-style', '');
+      cursorStyle.textContent =
+        'html.asteroid-cursor-active,html.asteroid-cursor-active *{cursor:none!important}' +
+        'html.asteroid-cursor-active input:not([type="button"]):not([type="checkbox"]):not([type="color"]):not([type="file"]):not([type="image"]):not([type="radio"]):not([type="range"]):not([type="reset"]):not([type="submit"]),' +
+        'html.asteroid-cursor-active textarea,html.asteroid-cursor-active [contenteditable="true"],html.asteroid-cursor-active [contenteditable="plaintext-only"]{cursor:text!important}';
+      document.head.appendChild(cursorStyle);
+
+      document.addEventListener('pointermove', handlePointerMove, { passive: true });
+      document.addEventListener('pointerleave', handlePointerLeave);
+      document.addEventListener('click', handleClick, true);
+      startFrame();
+    }
+
+    function unmount() {
+      if (!mounted) return;
+      mounted = false;
+      stopFrame();
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerleave', handlePointerLeave);
+      document.removeEventListener('click', handleClick, true);
+      document.documentElement.classList.remove('asteroid-cursor-active');
+      if (asteroid) asteroid.remove();
+      if (impact) impact.remove();
+      trailElements.forEach(function (dot) {
+        dot.remove();
+      });
+      if (cursorStyle) cursorStyle.remove();
+      asteroid = null;
+      asteroidRock = null;
+      impact = null;
+      cursorStyle = null;
+      trailElements = [];
+      trail = [];
+      pointerVisible = false;
+      impactState = null;
+    }
+
+    function updateAvailability() {
+      if (prefersReducedMotion() || coarsePointer.matches) unmount();
+      else mount();
+    }
+
+    function handleVisibilityChange() {
+      if (!mounted) return;
+      if (document.hidden) {
+        stopFrame();
+        pointerVisible = false;
+        setPointerAppearance();
+      } else {
+        startFrame();
+      }
+    }
+
+    updateAvailability();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('moldavite:themechange', updateColor);
+    if (motionPreference.addEventListener) {
+      motionPreference.addEventListener('change', updateAvailability);
+      coarsePointer.addEventListener('change', updateAvailability);
+    } else {
+      motionPreference.addListener(updateAvailability);
+      coarsePointer.addListener(updateAvailability);
+    }
+  }
+
+  function setupSafely(setup) {
+    try {
+      setup();
+    } catch (error) {
+      // Atmospheric effects are enhancements; one failure must not block the page.
+    }
   }
 
   function setupNavigation() {
@@ -53,7 +1255,9 @@
 
   function prepareDocumentReveals() {
     document
-      .querySelectorAll('.docs-hero, .docs-toc, .docs-body > h2, .docs-body > .callout, .next-links')
+      .querySelectorAll(
+        '.docs-hero, .docs-toc, .docs-body > h2, .docs-body > .callout, .next-links'
+      )
       .forEach(function (element) {
         element.classList.add('reveal');
       });
@@ -150,10 +1354,12 @@
         return;
       }
 
-      document.querySelectorAll('video[data-autoplay][data-in-view="true"]').forEach(function (video) {
-        var attempt = video.play();
-        if (attempt && attempt.catch) attempt.catch(function () {});
-      });
+      document
+        .querySelectorAll('video[data-autoplay][data-in-view="true"]')
+        .forEach(function (video) {
+          var attempt = video.play();
+          if (attempt && attempt.catch) attempt.catch(function () {});
+        });
     });
   }
 
@@ -183,12 +1389,9 @@
         }
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(value).then(
-            function () {
-              showResult('Copied');
-            },
-            selectText
-          );
+          navigator.clipboard.writeText(value).then(function () {
+            showResult('Copied');
+          }, selectText);
           return;
         }
 
@@ -276,10 +1479,7 @@
     var hint = document.createElement('span');
     hint.appendChild(document.createTextNode('Need the app? '));
     var downloadLink = text(hint, 'a', '', 'Download Moldavite');
-    downloadLink.setAttribute(
-      'href',
-      'https://github.com/mauropereiira/Moldavite/releases/latest'
-    );
+    downloadLink.setAttribute('href', 'https://github.com/mauropereiira/Moldavite/releases/latest');
     hint.appendChild(document.createTextNode('.'));
     install.appendChild(hint);
     card.appendChild(install);
@@ -349,9 +1549,7 @@
         directory.replaceChildren(fragment);
         if (status) {
           status.textContent =
-            'Live directory · ' +
-            plugins.length +
-            (plugins.length === 1 ? ' plugin' : ' plugins');
+            'Live directory · ' + plugins.length + (plugins.length === 1 ? ' plugin' : ' plugins');
         }
         filterDirectory();
       })
@@ -360,6 +1558,9 @@
       });
   }
 
+  setupSafely(setupTheme);
+  setupSafely(setupSky);
+  setupSafely(setupAsteroidCursor);
   setupNavigation();
   setupReveals();
   setupVideos();

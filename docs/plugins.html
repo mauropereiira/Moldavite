@@ -3,20 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#07090a" />
+    <meta name="theme-color" content="#F9F6ED" />
     <title>Moldavite Plugin Guide</title>
     <meta property="og:title" content="Building Moldavite Plugins" />
-    <meta property="og:description" content="Author sandboxed plugins for Moldavite with the API v2 permission model." />
+    <meta
+      property="og:description"
+      content="Author sandboxed plugins for Moldavite with the API v2 permission model."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mauropereiira.github.io/Moldavite/plugins.html" />
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server." />
+    <meta
+      property="og:image:alt"
+      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server."
+    />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Building Moldavite Plugins" />
-    <meta name="twitter:description" content="Author sandboxed plugins for Moldavite with the API v2 permission model." />
+    <meta
+      name="twitter:description"
+      content="Author sandboxed plugins for Moldavite with the API v2 permission model."
+    />
     <meta name="twitter:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/plugins.html" />
     <meta
@@ -24,25 +33,40 @@
       content="The Moldavite plugin author guide: manifests, permissions, commands, editor access, note reads, trusted prompts, exact-host HTTPS, OS credential-store secrets, consent, and distribution."
     />
     <link rel="icon" href="favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700;800;900&amp;display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="fonts/GeistMono-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <link rel="stylesheet" href="styles.css" />
     <script>
       document.documentElement.classList.add('has-js');
+      // Restore a saved dark choice before the first paint; site.js is deferred,
+      // so without this a returning visitor gets a frame of the wrong theme.
+      try {
+        if (localStorage.getItem('moldavite-site-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        /* localStorage throws in some privacy modes; cream is a fine fallback */
+      }
     </script>
     <script src="site.js" defer></script>
   </head>
   <body class="docs-page">
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="site-guides" aria-hidden="true"></div>
     <header class="site-header">
       <div class="nav-inner">
         <a href="index.html" class="brand" aria-label="Moldavite home">
-          <img src="icon.png" alt="" aria-hidden="true" width="28" height="28" />
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
           <span>Moldavite</span>
         </a>
         <button
@@ -57,13 +81,15 @@
         </button>
         <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html" aria-current="page">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
-          <a
-            href="https://github.com/mauropereiira/Moldavite/releases/latest"
-            class="nav-cta"
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark">
+            <span class="theme-toggle-mark" aria-hidden="true"></span>
+          </button>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
             >Download</a
           >
         </nav>
@@ -101,8 +127,8 @@
         directly on that plugin. Moldavite fetches the registry because you clicked the install
         link, shows the permissions before installation, and asks Rust to verify both SHA-256 hashes
         before the shared staged installer makes files visible. A newly installed plugin stays
-        disabled until you grant its permissions. Changed files always require a fresh grant.
-        You can also browse from <strong>Settings → Plugins</strong>.
+        disabled until you grant its permissions. Changed files always require a fresh grant. You
+        can also browse from <strong>Settings → Plugins</strong>.
       </p>
       <div class="directory-search">
         <label for="plugin-directory-search">Search plugins</label>
@@ -550,8 +576,8 @@ api.commands.<span class="f">add</span>({
 }</code></pre>
       <p>
         Key per-note state with <code>path</code>, since display titles can change. The current API
-        has no general note-write method. <code>insertText</code> is an explicit active-editor action
-        under the <code>editor</code> permission.
+        has no general note-write method. <code>insertText</code> is an explicit active-editor
+        action under the <code>editor</code> permission.
       </p>
 
       <h3>User interface</h3>
@@ -758,8 +784,7 @@ api.commands.<span class="f">add</span>({
             <tr>
               <td>None</td>
               <td>
-                <code>app</code>, <code>commands.add</code>, and the current
-                <code>ui.prompt</code>.
+                <code>app</code>, <code>commands.add</code>, and the current <code>ui.prompt</code>.
               </td>
             </tr>
             <tr>
@@ -824,7 +849,8 @@ api.commands.<span class="f">add</span>({
           sends the live editor HTML to <code>/wp-json/wp/v2/posts</code> as a draft.
         </li>
         <li>
-          An OS credential-store-backed Forge-path-to-post-id map makes later publishes of the same path use
+          An OS credential-store-backed Forge-path-to-post-id map makes later publishes of the same
+          path use
           <code>PUT</code> to update the existing post. The success notification includes the edit
           URL.
         </li>
@@ -882,8 +908,8 @@ api.commands.<span class="f">add</span>({
         Existing manifests with <code>"apiVersion": 1</code> remain valid and receive the original
         <code>app</code>, <code>commands</code>, <code>editor</code>, and
         <code>ui.toast</code> surface, with <code>api.app.apiVersion === 1</code>. They do not need
-        a source or manifest migration. Use <code>"apiVersion": 2</code> for trusted prompts,
-        Forge note reads, networking, and OS credential-store secrets.
+        a source or manifest migration. Use <code>"apiVersion": 2</code> for trusted prompts, Forge
+        note reads, networking, and OS credential-store secrets.
       </p>
 
       <div class="next-links">
@@ -901,19 +927,17 @@ api.commands.<span class="f">add</span>({
     <footer class="site-footer">
       <div class="footer-inner">
         <a href="index.html" class="footer-brand" aria-label="Moldavite home">
-          <img
-            src="icon.png"
-            alt=""
-            aria-hidden="true"
-            width="26"
-            height="26"
-            loading="lazy"
-            decoding="async"
-          />
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
           <span>Moldavite</span>
         </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>

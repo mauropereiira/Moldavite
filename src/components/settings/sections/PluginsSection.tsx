@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Puzzle, ExternalLink, Trash2, Download, FileCode, Globe2, RefreshCw } from 'lucide-react';
+import { Puzzle, ExternalLink, Trash2, Download, FileCode, Globe2 } from 'lucide-react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { usePluginStore, usePluginCommandStore, usePluginInstallStore } from '@/stores';
 import type { PluginInstallRequest } from '@/stores';
@@ -22,6 +22,7 @@ import {
   type CommunityPlugin,
 } from '@/lib/plugins/registry';
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
+import { DotLoader } from '@/components/ui/DotLoader';
 import { PluginAboutDialog } from '@/components/plugins/PluginAboutDialog';
 import { PluginInstallDialog } from '@/components/plugins/PluginInstallDialog';
 import { ConfirmDialog } from '@/components/ui';
@@ -262,7 +263,7 @@ export function PluginsSection() {
         <div
           className="flex-shrink-0 p-2"
           style={{
-            backgroundColor: 'var(--accent-subtle)',
+            backgroundColor: 'transparent',
             borderRadius: 'var(--radius-sm)',
             color: 'var(--accent-primary)',
           }}
@@ -277,7 +278,7 @@ export function PluginsSection() {
             Add commands to Moldavite. Plugins live in your Forge under{' '}
             <code
               style={{
-                backgroundColor: 'var(--bg-inset)',
+                backgroundColor: 'transparent',
                 padding: '1px 4px',
                 borderRadius: 'var(--radius-sm)',
               }}
@@ -294,7 +295,7 @@ export function PluginsSection() {
         <div
           className="p-6 text-center"
           style={{
-            backgroundColor: 'var(--bg-panel)',
+            backgroundColor: 'transparent',
             border: '1px dashed var(--border-default)',
             borderRadius: 'var(--radius-md)',
           }}
@@ -313,7 +314,7 @@ export function PluginsSection() {
               <div
                 key={id}
                 className="p-4 flex items-start justify-between gap-3"
-                style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+                style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -329,8 +330,8 @@ export function PluginsSection() {
                     <span
                       className="text-[10px] px-1.5 py-0.5"
                       style={{
-                        backgroundColor: 'var(--bg-inset)',
-                        color: ok ? 'var(--text-tertiary)' : 'var(--text-error, #ef4444)',
+                        backgroundColor: 'transparent',
+                        color: ok ? 'var(--text-tertiary)' : 'var(--text-error)',
                         borderRadius: 'var(--radius-sm)',
                       }}
                     >
@@ -353,7 +354,7 @@ export function PluginsSection() {
                     </p>
                   )}
                   {!ok && info.reason && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-error, #ef4444)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-error)' }}>
                       {info.reason}
                     </p>
                   )}
@@ -390,7 +391,7 @@ export function PluginsSection() {
       {/* Actions */}
       <div
         className="p-4 space-y-3"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div className="flex flex-wrap gap-2">
           <button
@@ -399,9 +400,9 @@ export function PluginsSection() {
             disabled={busy}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: 'var(--accent-primary)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
-              color: 'white',
+              color: 'var(--text-primary)',
             }}
           >
             <Download aria-hidden="true" className="w-4 h-4" />
@@ -413,7 +414,7 @@ export function PluginsSection() {
             disabled={busy}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
@@ -428,14 +429,14 @@ export function PluginsSection() {
             disabled={registryStatus === 'loading' || busy}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
             }}
           >
             {registryStatus === 'loading' ? (
-              <RefreshCw aria-hidden="true" className="w-4 h-4 animate-spin" />
+              <DotLoader label="Loading community plugins" />
             ) : (
               <Globe2 aria-hidden="true" className="w-4 h-4" />
             )}
@@ -446,7 +447,7 @@ export function PluginsSection() {
             onClick={() => openExternal(PLUGINS_DOC_URL)}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
@@ -467,7 +468,7 @@ export function PluginsSection() {
           To install a plugin manually, drop its folder into{' '}
           <code
             style={{
-              backgroundColor: 'var(--bg-inset)',
+              backgroundColor: 'transparent',
               padding: '1px 4px',
               borderRadius: 'var(--radius-sm)',
             }}
@@ -483,7 +484,7 @@ export function PluginsSection() {
           role="alert"
           className="p-4 text-sm"
           style={{
-            backgroundColor: 'var(--bg-panel)',
+            backgroundColor: 'transparent',
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
             color: 'var(--text-secondary)',
@@ -520,7 +521,7 @@ export function PluginsSection() {
             <div
               className="p-5 text-center text-sm"
               style={{
-                backgroundColor: 'var(--bg-panel)',
+                backgroundColor: 'transparent',
                 border: '1px dashed var(--border-default)',
                 borderRadius: 'var(--radius-md)',
                 color: 'var(--text-tertiary)',
@@ -539,14 +540,12 @@ export function PluginsSection() {
                     id={`community-plugin-${plugin.id}`}
                     className="p-4"
                     style={{
-                      backgroundColor: 'var(--bg-panel)',
+                      backgroundColor: 'transparent',
                       border:
                         highlightedId === plugin.id
                           ? '2px solid var(--accent-primary)'
                           : '1px solid var(--border-default)',
                       borderRadius: 'var(--radius-md)',
-                      boxShadow:
-                        highlightedId === plugin.id ? '0 0 0 3px var(--accent-subtle)' : 'none',
                     }}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -575,12 +574,12 @@ export function PluginsSection() {
                         }}
                         className="flex-shrink-0 px-3 py-1.5 text-xs font-medium focus-ring"
                         style={{
-                          backgroundColor:
-                            installState === 'installed'
-                              ? 'var(--bg-inset)'
-                              : 'var(--accent-primary)',
+                          backgroundColor: 'transparent',
                           borderRadius: 'var(--radius-sm)',
-                          color: installState === 'installed' ? 'var(--text-tertiary)' : 'white',
+                          color:
+                            installState === 'installed'
+                              ? 'var(--text-tertiary)'
+                              : 'var(--text-primary)',
                         }}
                       >
                         {installing
@@ -597,8 +596,7 @@ export function PluginsSection() {
                         <span
                           className="text-[10px] px-2 py-0.5"
                           style={{
-                            backgroundColor: 'var(--bg-inset)',
-                            borderRadius: '999px',
+                            backgroundColor: 'transparent',
                             color: 'var(--text-tertiary)',
                           }}
                         >
@@ -610,8 +608,7 @@ export function PluginsSection() {
                           key={permission}
                           className="text-[10px] px-2 py-0.5"
                           style={{
-                            backgroundColor: 'var(--accent-subtle)',
-                            borderRadius: '999px',
+                            backgroundColor: 'transparent',
                             color: 'var(--accent-primary)',
                           }}
                         >
@@ -623,8 +620,7 @@ export function PluginsSection() {
                           key={host}
                           className="text-[10px] px-2 py-0.5"
                           style={{
-                            backgroundColor: 'var(--bg-inset)',
-                            borderRadius: '999px',
+                            backgroundColor: 'transparent',
                             color: 'var(--text-secondary)',
                           }}
                         >

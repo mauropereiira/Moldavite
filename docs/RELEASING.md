@@ -66,17 +66,18 @@ Two failure modes worth recognising:
 - `Version 'X' differs from 'Y' retrieved by livecheck` — the cask version and
   the newest GitHub release disagree. Usually means a later release landed while
   this job was running. Re-run with the newer version.
-- A `403` on the push step — `HOMEBREW_TAP_TOKEN` expired. Mint a new
+- A `403` on the push step — `HOMEBREW_TAP_DEPLOY_KEY` is missing or was
+  rotated on the tap. Generate a new keypair and re-add it. Mint a new
   fine-grained PAT and update the secret.
 
 ## Required GitHub secrets
 
-| Secret | Purpose |
-|---|---|
-| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | Developer ID signing cert (base64 .p12) |
-| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Apple notarization |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater artifact signing on every platform (not Windows Authenticode code signing) |
-| `HOMEBREW_TAP_TOKEN` | Fine-grained PAT, `Contents: read and write` on `mauropereiira/homebrew-moldavite` only. Nothing else. |
+| Secret                                                            | Purpose                                                                                                                                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`                 | Developer ID signing cert (base64 .p12)                                                                                                                                   |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`                     | Apple notarization                                                                                                                                                        |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater artifact signing on every platform (not Windows Authenticode code signing)                                                                                        |
+| `HOMEBREW_TAP_DEPLOY_KEY`                                         | SSH private key of a deploy key with write access on `mauropereiira/homebrew-moldavite` only. Scoped to that one repository, and unlike a PAT it cannot be widened later. |
 
 ## Updater key rotation
 

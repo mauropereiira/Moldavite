@@ -3,7 +3,6 @@ import {
   Download,
   Upload,
   Lock,
-  Loader2,
   Shield,
   Eye,
   EyeOff,
@@ -15,6 +14,7 @@ import { exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup 
 import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 // Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
 // Forge's slot. Resolved per call, never once at module load: the active-Forge
@@ -293,7 +293,7 @@ export function SettingsData() {
   };
 
   const buttonPrimary =
-    'flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50';
+    'flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50';
   const buttonSecondary =
     'flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50';
 
@@ -302,7 +302,7 @@ export function SettingsData() {
       {/* Notes: plain ZIP export / import */}
       <div
         className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div>
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -319,12 +319,12 @@ export function SettingsData() {
             disabled={isExportingNotes}
             className={buttonPrimary}
             style={{
-              backgroundColor: 'var(--accent-primary)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
             }}
           >
             {isExportingNotes ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Exporting notes" />
             ) : (
               <Download className="w-4 h-4" />
             )}
@@ -335,14 +335,14 @@ export function SettingsData() {
             disabled={isImportingNotes}
             className={buttonSecondary}
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
             }}
           >
             {isImportingNotes ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Importing notes" />
             ) : (
               <Upload className="w-4 h-4" />
             )}
@@ -355,15 +355,15 @@ export function SettingsData() {
       <div
         className="p-4 space-y-4"
         style={{
-          backgroundColor: 'var(--bg-panel)',
+          backgroundColor: 'transparent',
           borderRadius: 'var(--radius-md)',
           border: '1px solid var(--accent-primary)',
         }}
       >
         <div className="flex items-start gap-3">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'var(--accent-subtle)' }}
+            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'transparent' }}
           >
             <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
@@ -387,12 +387,12 @@ export function SettingsData() {
             disabled={isExportingBackup}
             className={buttonPrimary}
             style={{
-              backgroundColor: 'var(--accent-primary)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
             }}
           >
             {isExportingBackup ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Exporting encrypted backup" />
             ) : (
               <Lock className="w-4 h-4" />
             )}
@@ -403,14 +403,14 @@ export function SettingsData() {
             disabled={isImportingBackup}
             className={buttonSecondary}
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
             }}
           >
             {isImportingBackup ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Importing encrypted backup" />
             ) : (
               <Upload className="w-4 h-4" />
             )}
@@ -422,12 +422,12 @@ export function SettingsData() {
       {/* Settings JSON export / import */}
       <div
         className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div className="flex items-start gap-3">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'var(--accent-subtle)' }}
+            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'transparent' }}
           >
             <SettingsIcon className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
@@ -447,12 +447,12 @@ export function SettingsData() {
             disabled={isExportingSettings}
             className={buttonPrimary}
             style={{
-              backgroundColor: 'var(--accent-primary)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
             }}
           >
             {isExportingSettings ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Exporting settings" />
             ) : (
               <Download className="w-4 h-4" />
             )}
@@ -463,14 +463,14 @@ export function SettingsData() {
             disabled={isImportingSettings}
             className={buttonSecondary}
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
             }}
           >
             {isImportingSettings ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <DotLoader label="Importing settings" />
             ) : (
               <Upload className="w-4 h-4" />
             )}
@@ -485,7 +485,7 @@ export function SettingsData() {
           <div
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-md)',
             }}
           >
@@ -500,7 +500,7 @@ export function SettingsData() {
                 onClick={() => handleImportNotes(true)}
                 className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: 'var(--bg-panel)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
                 }}
@@ -514,7 +514,7 @@ export function SettingsData() {
                 onClick={() => handleImportNotes(false)}
                 className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: 'var(--bg-panel)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
                 }}
@@ -529,7 +529,7 @@ export function SettingsData() {
               onClick={() => setPendingZipPath(null)}
               className="w-full px-3 py-1.5 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: 'var(--bg-panel)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-secondary)',
               }}
@@ -546,14 +546,14 @@ export function SettingsData() {
           <div
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-md)',
             }}
           >
             <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: 'var(--accent-subtle)' }}
+                className="w-10 h-10 flex items-center justify-center"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
@@ -579,7 +579,7 @@ export function SettingsData() {
                     placeholder="Enter password"
                     className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
                     style={{
-                      backgroundColor: 'var(--bg-panel)',
+                      backgroundColor: 'transparent',
                       border: '1px solid var(--border-default)',
                       borderRadius: 'var(--radius-sm)',
                       color: 'var(--text-primary)',
@@ -608,7 +608,7 @@ export function SettingsData() {
                   placeholder="Confirm password"
                   className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
                   style={{
-                    backgroundColor: 'var(--bg-panel)',
+                    backgroundColor: 'transparent',
                     border: '1px solid var(--border-default)',
                     borderRadius: 'var(--radius-sm)',
                     color: 'var(--text-primary)',
@@ -619,7 +619,7 @@ export function SettingsData() {
             <div
               className="p-3 mb-4"
               style={{
-                backgroundColor: 'rgba(201, 163, 103, 0.15)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--warning)',
               }}
@@ -638,7 +638,7 @@ export function SettingsData() {
                 }}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: 'var(--bg-panel)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-secondary)',
                 }}
@@ -648,9 +648,9 @@ export function SettingsData() {
               <button
                 onClick={handleEncryptedExport}
                 disabled={exportPw.length < 8 || exportPw !== exportPwConfirm}
-                className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
                 style={{
-                  backgroundColor: 'var(--accent-primary)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -667,14 +667,14 @@ export function SettingsData() {
           <div
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-md)',
             }}
           >
             <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: 'var(--accent-subtle)' }}
+                className="w-10 h-10 flex items-center justify-center"
+                style={{ backgroundColor: 'transparent' }}
               >
                 <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
@@ -700,7 +700,7 @@ export function SettingsData() {
                     placeholder="Enter password"
                     className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
                     style={{
-                      backgroundColor: 'var(--bg-panel)',
+                      backgroundColor: 'transparent',
                       border: '1px solid var(--border-default)',
                       borderRadius: 'var(--radius-sm)',
                       color: 'var(--text-primary)',
@@ -744,7 +744,7 @@ export function SettingsData() {
                 }}
                 className="px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: 'var(--bg-panel)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-secondary)',
                 }}
@@ -754,9 +754,9 @@ export function SettingsData() {
               <button
                 onClick={handleEncryptedImport}
                 disabled={importPw.length === 0}
-                className="px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
                 style={{
-                  backgroundColor: 'var(--accent-primary)',
+                  backgroundColor: 'transparent',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >

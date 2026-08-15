@@ -1,5 +1,4 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Hash } from 'lucide-react';
 
 export interface TagItem {
   name: string;
@@ -85,9 +84,6 @@ export const TagSuggestionList = forwardRef<TagSuggestionListRef, TagSuggestionL
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => selectItem(index)}
           >
-            <div className="wiki-link-suggestion-icon">
-              <Hash className="w-4 h-4" />
-            </div>
             <div className="wiki-link-suggestion-text">
               <div className="wiki-link-suggestion-title">{item.name}</div>
               <div className="wiki-link-suggestion-date">

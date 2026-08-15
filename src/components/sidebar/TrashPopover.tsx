@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Trash2, Undo2, FileText, Calendar, Folder, X, GripHorizontal } from 'lucide-react';
-import { EmptyTrashEmptyState } from '@/components/ui';
 import type { TrashedNote } from '@/types';
+import { applyImpactOrigin, impactPointFromElement } from '@/lib/impactOrigin';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 const POPOVER_WIDTH = 380;
 const POPOVER_MAX_HEIGHT = 520;
@@ -37,6 +37,13 @@ export function TrashPopover({
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const dragStateRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const setPopoverRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      popoverRef.current = node;
+      applyImpactOrigin(node, anchor ? impactPointFromElement(anchor) : null);
+    },
+    [anchor]
+  );
 
   // First-open positioning: drop the popover to the right of the sidebar
   // footer (using the anchor button as a reference), without covering it.
@@ -140,8 +147,8 @@ export function TrashPopover({
 
   return (
     <div
-      ref={popoverRef}
-      className="fixed z-[9999] flex flex-col modal-content-enter"
+      ref={setPopoverRef}
+      className="fixed z-[9999] flex flex-col modal-content-enter impact-surface"
       style={{
         left: position.left,
         top: position.top,
@@ -150,7 +157,6 @@ export function TrashPopover({
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
-        boxShadow: 'var(--shadow-md)',
         color: 'var(--text-primary)',
       }}
       role="dialog"
@@ -164,65 +170,50 @@ export function TrashPopover({
         }}
         onMouseDown={handleHeaderMouseDown}
       >
-        <div className="flex items-center gap-2">
-          <GripHorizontal
-            className="w-3.5 h-3.5"
-            style={{ color: 'var(--text-muted)', opacity: 0.6 }}
-          />
-          <Trash2 className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+        <div className="flex items-baseline gap-2">
           <h3 className="text-sm font-semibold">Trash</h3>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded"
-            style={{
-              backgroundColor: 'var(--count-badge-bg)',
-              color: 'var(--text-muted)',
-            }}
-          >
-            {trashedNotes.length}
-          </span>
+          <span className="count-badge">{trashedNotes.length}</span>
         </div>
         <button
           onClick={onClose}
-          className="p-1 transition-colors"
-          style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          className="text-xs transition-colors"
+          style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           aria-label="Close trash popover"
         >
-          <X className="w-4 h-4" />
+          Close
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {trashedNotes.length === 0 ? (
-          <EmptyTrashEmptyState />
+          <SignatureEmptyState className="px-3 py-4 text-xs">
+            <p>Trash is empty.</p>
+          </SignatureEmptyState>
         ) : (
           <ul className="divide-y" style={{ borderColor: 'var(--border-muted)' }}>
             {trashedNotes.map((note) => (
               <li
                 key={note.id}
-                className="px-3 py-2 cursor-pointer transition-colors"
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')
-                }
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                className="interactive-row px-3 py-2 cursor-pointer focus-ring"
                 onClick={() => onPreview(note)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onPreview(note);
+                  }
+                }}
               >
                 <div className="flex items-start gap-2">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {note.isFolder ? (
-                      <Folder className="w-4 h-4" style={{ color: 'var(--warning)' }} />
-                    ) : note.isDaily ? (
-                      <Calendar className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
-                    ) : (
-                      <FileText className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                    )}
-                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate font-medium">
                       {note.filename.replace(/\.md$/, '')}
                     </p>
                     <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {note.isFolder ? 'Folder · ' : note.isDaily ? 'Daily · ' : ''}
                       {daysAgo(note.daysRemaining)} · {note.daysRemaining}d left
                     </p>
                   </div>
@@ -232,37 +223,33 @@ export function TrashPopover({
                   >
                     <button
                       onClick={() => onRestore(note.id)}
-                      className="p-1 transition-colors"
-                      style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
+                      className="px-1 text-[11px] transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-                        e.currentTarget.style.color = 'var(--accent-primary)';
+                        e.currentTarget.style.color = 'var(--text-primary)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.color = 'var(--text-muted)';
                       }}
                       title="Restore"
                       aria-label="Restore"
                     >
-                      <Undo2 className="w-4 h-4" />
+                      Restore
                     </button>
                     <button
                       onClick={() => onPermanentDelete(note.id)}
-                      className="p-1 transition-colors"
-                      style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
+                      className="px-1 text-[11px] transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
                         e.currentTarget.style.color = 'var(--error)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.color = 'var(--text-muted)';
                       }}
                       title="Delete permanently"
                       aria-label="Delete permanently"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      Delete
                     </button>
                   </div>
                 </div>
