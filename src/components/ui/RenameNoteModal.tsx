@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getNoteTitleError, MAX_NOTE_TITLE_LENGTH } from '@/lib/validation';
 import type { NoteFile } from '@/types';
+import { DotLoader } from './DotLoader';
 
 interface RenameNoteModalProps {
   note: NoteFile;
@@ -114,7 +114,7 @@ export function RenameNoteModal({ note, onRename, onClose }: RenameNoteModalProp
             <button type="submit" disabled={isRenaming} className="btn btn-primary focus-ring">
               {isRenaming ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 aria-hidden="true" className="w-3.5 h-3.5 animate-spin" />
+                  <DotLoader label="Renaming note" />
                   Renaming…
                 </span>
               ) : (

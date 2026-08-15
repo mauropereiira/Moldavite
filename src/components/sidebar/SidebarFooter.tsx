@@ -1,13 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import {
-  Calendar,
-  Plus,
-  Settings as SettingsIcon,
-  Trash2,
-  AlignJustify,
-  Share2,
-} from 'lucide-react';
 import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
 import { formatShortcut } from '@/lib/shortcuts';
 
@@ -20,9 +12,7 @@ interface SidebarFooterProps {
 }
 
 /**
- * Sidebar footer with four quick-action buttons arranged in two rows:
- *   [📅 Today]  [+ New]
- *   [⚙ Settings] [🗑 Trash]
+ * Sidebar footer with typographic quick actions in two compact rows.
  * The Trash button acts as the anchor for a TrashPopover managed by the parent.
  */
 export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: SidebarFooterProps) {
@@ -38,123 +28,122 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
       .catch(() => setAppVersion('0.0.0'));
   }, []);
 
-  const iconBtnStyle = {
-    borderRadius: 'var(--radius-sm)',
+  const linkStyle = {
     color: 'var(--text-muted)',
+    fontSize: '11px',
   } as const;
 
-  const handleIconEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
+  const handleLinkEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.color = 'var(--text-primary)';
   };
-  const handleIconLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.backgroundColor = 'transparent';
+  const handleLinkLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.color = 'var(--text-muted)';
   };
 
   return (
     <div style={{ borderTop: '1px solid var(--border-default)' }}>
-      {/* Row 1: Today + New */}
-      <div className="px-3 pt-3 pb-2 grid grid-cols-2 gap-2">
+      <div
+        className="mx-3 flex items-center"
+        style={{ borderBottom: '1px solid var(--border-muted)' }}
+      >
         <button
           type="button"
           onClick={onToday}
-          className="btn btn-primary w-full py-2 focus-ring flex items-center justify-center gap-1.5"
+          className="text-link w-1/2 py-2 text-xs focus-ring transition-colors"
+          style={{ color: 'var(--text-secondary)', borderRight: '1px solid var(--border-muted)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
         >
-          <Calendar aria-hidden="true" className="w-4 h-4" />
-          <span>Today</span>
+          Today
         </button>
         <button
           type="button"
           onClick={onNewNote}
-          className="btn w-full py-2 focus-ring flex items-center justify-center gap-1.5"
+          className="text-link w-1/2 py-2 text-xs focus-ring transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
         >
-          <Plus aria-hidden="true" className="w-4 h-4" />
-          <span>New</span>
+          New
         </button>
       </div>
 
-      {/* Row 2: Timeline + Graph + Settings + Trash */}
-      <div className="px-3 pb-2 grid grid-cols-4 gap-2">
+      <div className="px-3 py-3 flex items-center justify-center gap-2">
         <button
           type="button"
           onClick={toggleTimeline}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
+          className="text-link transition-colors"
           style={{
-            ...iconBtnStyle,
-            backgroundColor: isTimelineOpen ? 'var(--hover-overlay)' : 'transparent',
-            color: isTimelineOpen ? 'var(--accent-primary)' : 'var(--text-muted)',
+            ...linkStyle,
+            color: isTimelineOpen ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: isTimelineOpen ? 500 : 400,
           }}
           onMouseEnter={(e) => {
-            if (!isTimelineOpen) handleIconEnter(e);
+            if (!isTimelineOpen) handleLinkEnter(e);
           }}
           onMouseLeave={(e) => {
-            if (!isTimelineOpen) handleIconLeave(e);
+            if (!isTimelineOpen) handleLinkLeave(e);
           }}
           title="Timeline"
           aria-pressed={isTimelineOpen}
           aria-label="Toggle timeline"
         >
-          <AlignJustify aria-hidden="true" className="w-4 h-4" />
-          <span>Timeline</span>
+          Timeline
         </button>
+        <span aria-hidden="true" style={{ color: 'var(--border-strong)', fontSize: '11px' }}>
+          ·
+        </span>
         <button
           type="button"
           onClick={toggleGraph}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
+          className="text-link transition-colors"
           style={{
-            ...iconBtnStyle,
-            backgroundColor: isGraphOpen ? 'var(--hover-overlay)' : 'transparent',
-            color: isGraphOpen ? 'var(--accent-primary)' : 'var(--text-muted)',
+            ...linkStyle,
+            color: isGraphOpen ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: isGraphOpen ? 500 : 400,
           }}
           onMouseEnter={(e) => {
-            if (!isGraphOpen) handleIconEnter(e);
+            if (!isGraphOpen) handleLinkEnter(e);
           }}
           onMouseLeave={(e) => {
-            if (!isGraphOpen) handleIconLeave(e);
+            if (!isGraphOpen) handleLinkLeave(e);
           }}
           title={`Graph view (${formatShortcut('⌘⇧G')})`}
           aria-pressed={isGraphOpen}
           aria-label="Toggle graph view"
         >
-          <Share2 aria-hidden="true" className="w-4 h-4" />
-          <span>Graph</span>
+          Graph
         </button>
+        <span aria-hidden="true" style={{ color: 'var(--border-strong)', fontSize: '11px' }}>
+          ·
+        </span>
         <button
           type="button"
           onClick={onSettings}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
-          style={iconBtnStyle}
-          onMouseEnter={handleIconEnter}
-          onMouseLeave={handleIconLeave}
+          className="text-link transition-colors"
+          style={linkStyle}
+          onMouseEnter={handleLinkEnter}
+          onMouseLeave={handleLinkLeave}
           title={`Settings (${formatShortcut('⌘,')})`}
           aria-label={hasPendingUpdate ? 'Open settings (update available)' : 'Open settings'}
         >
-          <span className="relative flex">
-            <SettingsIcon aria-hidden="true" className="w-4 h-4" />
-            {hasPendingUpdate && (
-              <span
-                aria-hidden="true"
-                className="absolute -top-0.5 -right-0.5 rounded-full"
-                style={{ width: '6px', height: '6px', backgroundColor: 'var(--update-dot)' }}
-              />
-            )}
-          </span>
-          <span>Settings</span>
+          Settings
         </button>
+        <span aria-hidden="true" style={{ color: 'var(--border-strong)', fontSize: '11px' }}>
+          ·
+        </span>
         <button
           type="button"
           ref={trashBtnRef}
           onClick={() => onTrash(trashBtnRef.current)}
-          className="flex items-center justify-center gap-1.5 py-2 text-xs transition-colors"
-          style={iconBtnStyle}
-          onMouseEnter={handleIconEnter}
-          onMouseLeave={handleIconLeave}
+          className="text-link transition-colors"
+          style={linkStyle}
+          onMouseEnter={handleLinkEnter}
+          onMouseLeave={handleLinkLeave}
           title="Trash"
           aria-label="Open trash"
         >
-          <Trash2 aria-hidden="true" className="w-4 h-4" />
-          <span>Trash</span>
+          Trash
         </button>
       </div>
 

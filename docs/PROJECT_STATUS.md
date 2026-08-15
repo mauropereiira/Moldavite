@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** August 14, 2026
+**Last Updated:** August 15, 2026
 **Status:** Shipping on macOS, and on Windows in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -17,6 +17,10 @@
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
 - Quick switcher / command palette (⌘P on macOS, Ctrl+P on Windows), backend full-text search with snippets, timeline view; opening any note yields transient Timeline/Graph views so navigation cannot remain hidden behind them
 - Local semantic search (v1.6; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
+
+### Navigation & Welcome
+- The icon-rail monogram is Home: pending edits flush before it closes the active Index / Agenda / Search / Graph / Timeline surface and clears the active note, while every open tab remains available to resume
+- The welcome night sky offers a persisted, default-on asteroid cursor with weighted pointer lag, a three-dot trail, interactive-control feedback, and a single click impact ring. Settings → Layout can disable it; reduced-motion and coarse-pointer media preferences prevent it from mounting or hiding the native cursor
 
 ### Storage & Data Safety
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable

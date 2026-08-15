@@ -3,21 +3,25 @@
  */
 
 import { useSettingsStore } from '@/stores';
-import { InfoTooltip, Toggle } from '../common';
+import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
+
+const SORT_OPTIONS = [
+  { value: 'name-asc', label: 'Name (A-Z)' },
+  { value: 'name-desc', label: 'Name (Z-A)' },
+  { value: 'modified-desc', label: 'Modified (Newest)' },
+  { value: 'modified-asc', label: 'Modified (Oldest)' },
+  { value: 'created-desc', label: 'Created (Newest)' },
+  { value: 'created-asc', label: 'Created (Oldest)' },
+] as const;
 
 export function SidebarSection() {
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
       {/* Visible Sections */}
-      <div
-        className="p-4 space-y-1"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
+      <section className="settings-section space-y-1">
         <div className="flex items-center gap-1 mb-3">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Visible Sections
-          </h3>
+          <SectionHeading>Visible Sections</SectionHeading>
           <InfoTooltip text="Choose which sections appear in the left sidebar. Hide sections you don't use." />
         </div>
 
@@ -46,98 +50,68 @@ export function SidebarSection() {
             onChange={settings.setShowBacklinksSection}
           />
         </div>
-      </div>
+      </section>
 
       {/* Sorting */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
+      <section className="settings-section">
         <div>
           <div className="flex items-center gap-1">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Sort Notes By
-            </h3>
+            <SectionHeading>Sort Notes By</SectionHeading>
             <InfoTooltip text="Choose how notes are ordered in the sidebar list. Modified sorts by last edit time." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             How notes are ordered in the sidebar
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {(
-            [
-              { value: 'name-asc', label: 'Name (A-Z)' },
-              { value: 'name-desc', label: 'Name (Z-A)' },
-              { value: 'modified-desc', label: 'Modified (Newest)' },
-              { value: 'modified-asc', label: 'Modified (Oldest)' },
-              { value: 'created-desc', label: 'Created (Newest)' },
-              { value: 'created-asc', label: 'Created (Oldest)' },
-            ] as const
-          ).map((option) => (
-            <button
-              key={option.value}
-              onClick={() => settings.setSortOption(option.value)}
-              className="px-3 py-2 text-sm font-medium transition-colors text-left"
-              style={{
-                backgroundColor:
-                  settings.sortOption === option.value
-                    ? 'var(--accent-primary)'
-                    : 'var(--bg-elevated)',
-                color: settings.sortOption === option.value ? 'white' : 'var(--text-secondary)',
-                border:
-                  settings.sortOption === option.value ? 'none' : '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <SegmentedControl
+          ariaLabel="Sort Notes By"
+          value={settings.sortOption}
+          onChange={settings.setSortOption}
+          options={SORT_OPTIONS}
+        />
+      </section>
 
       {/* Layout */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
+      <section className="settings-section">
         <div className="flex items-center gap-1">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Layout
-          </h3>
+          <SectionHeading>Layout</SectionHeading>
           <InfoTooltip text="Control the width of sidebars. Wider sidebars show more note titles, narrower gives more editor space." />
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1">
-              <label
-                htmlFor="sidebar-width-range"
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                Sidebar Width
-              </label>
-              <InfoTooltip text="Width of the left sidebar in pixels. Range: 200px (compact) to 400px (spacious)." />
+        {/* Only meaningful when the Index is a pinned column. As an overlay it
+            is full-window, and the rail is a fixed 48px — so an ungated slider
+            here is a control that silently does nothing. */}
+        {settings.indexMode === 'pinned' && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                <label
+                  htmlFor="sidebar-width-range"
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Sidebar Width
+                </label>
+                <InfoTooltip text="Width of the pinned Index column in pixels. Range: 200px (compact) to 400px (spacious)." />
+              </div>
+              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {settings.sidebarWidth}px
+              </span>
             </div>
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {settings.sidebarWidth}px
-            </span>
+            <input
+              id="sidebar-width-range"
+              type="range"
+              min="200"
+              max="400"
+              step="10"
+              value={settings.sidebarWidth}
+              onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
+              className="settings-range w-full appearance-none cursor-pointer"
+            />
           </div>
-          <input
-            id="sidebar-width-range"
-            type="range"
-            min="200"
-            max="400"
-            step="10"
-            value={settings.sidebarWidth}
-            onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
-            className="w-full h-2 rounded appearance-none cursor-pointer"
-            style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
-          />
-        </div>
+        )}
 
-        {settings.showRightPanel && (
+        {settings.agendaMode === 'pinned' && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1">
@@ -162,12 +136,11 @@ export function SidebarSection() {
               step="10"
               value={settings.rightPanelWidth}
               onChange={(e) => settings.setRightPanelWidth(Number(e.target.value))}
-              className="w-full h-2 rounded appearance-none cursor-pointer"
-              style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
+              className="settings-range w-full appearance-none cursor-pointer"
             />
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

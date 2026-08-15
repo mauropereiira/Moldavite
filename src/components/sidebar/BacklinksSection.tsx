@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link2, FileText, Calendar } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
-import { NoBacklinksEmptyState } from '@/components/ui';
 import { useNoteStore } from '@/stores';
 import { findBacklinks, readNote, noteFileBackendPath, type BacklinkInfo } from '@/lib';
 import type { NoteFile } from '@/types';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface BacklinksSectionProps {
   notes: NoteFile[];
@@ -96,37 +95,23 @@ export function BacklinksSection({
       isCollapsed={isCollapsed}
       onToggle={onToggle}
       count={backlinks.length}
-      icon={<Link2 className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />}
     >
-      <div className="px-3 space-y-0.5">
+      <div className="px-3">
         {isLoading ? (
           <div className="py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
             Scanning notes...
           </div>
         ) : backlinks.length === 0 ? (
-          <NoBacklinksEmptyState />
+          <SignatureEmptyState className="px-3 py-2 text-xs">
+            <span>No backlinks yet.</span>
+          </SignatureEmptyState>
         ) : (
           backlinks.map((backlink) => (
             <button
               key={backlink.sourcePath}
               onClick={() => handleBacklinkClick(backlink)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded transition-all sidebar-item-animated"
-              style={{
-                color: 'var(--text-secondary)',
-                backgroundColor: 'transparent',
-              }}
+              className="sidebar-item sidebar-item-animated w-full px-3 py-1.5 text-sm text-left"
             >
-              {backlink.isDaily ? (
-                <Calendar
-                  className="w-3.5 h-3.5 flex-shrink-0"
-                  style={{ color: 'var(--accent-primary)' }}
-                />
-              ) : (
-                <FileText
-                  className="w-3.5 h-3.5 flex-shrink-0"
-                  style={{ color: 'var(--text-muted)' }}
-                />
-              )}
               <span className="truncate">{backlink.sourceName}</span>
             </button>
           ))

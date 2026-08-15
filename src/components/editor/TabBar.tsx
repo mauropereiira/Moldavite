@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { X, FileText, Calendar, Pin } from 'lucide-react';
 import { useNoteStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import type { Note } from '@/types';
@@ -143,6 +142,15 @@ export function TabBar() {
           ${isDragOver ? 'tab-drag-over' : ''}
         `}
         onClick={() => handleTabClick(note.id)}
+        role="tab"
+        tabIndex={isActive ? 0 : -1}
+        aria-selected={isActive}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleTabClick(note.id);
+          }
+        }}
         title={note.title}
         draggable
         onDragStart={(e) => handleDragStart(e, index)}
@@ -152,17 +160,7 @@ export function TabBar() {
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, index)}
       >
-        {/* Icon */}
-        <span className="tab-icon">
-          {note.isDaily ? (
-            <Calendar className="w-3.5 h-3.5" />
-          ) : (
-            <FileText className="w-3.5 h-3.5" />
-          )}
-        </span>
-
-        {/* Title - only show for non-pinned tabs */}
-        {!isPinned && <span className="tab-title">{title}</span>}
+        <span className="tab-title">{title}</span>
 
         {/* Pin button - only show for non-pinned tabs */}
         {!isPinned && (
@@ -171,20 +169,17 @@ export function TabBar() {
             onClick={(e) => handlePinClick(e, note.id)}
             aria-label={`Pin ${title}`}
           >
-            <Pin className="w-3 h-3" />
+            Pin
           </button>
         )}
 
-        {/* Close button - only show for non-pinned tabs */}
-        {!isPinned && (
-          <button
-            className="tab-close"
-            onClick={(e) => handleCloseClick(e, note.id)}
-            aria-label={`Close ${title}`}
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <button
+          className="tab-close"
+          onClick={(e) => handleCloseClick(e, note.id)}
+          aria-label={`Close ${title}`}
+        >
+          <span aria-hidden="true">×</span>
+        </button>
 
         {/* For pinned tabs, show unpin on hover */}
         {isPinned && (
@@ -193,7 +188,7 @@ export function TabBar() {
             onClick={(e) => handlePinClick(e, note.id)}
             aria-label={`Unpin ${title}`}
           >
-            <Pin className="w-3 h-3" />
+            Unpin
           </button>
         )}
       </div>
@@ -214,6 +209,27 @@ export function TabBar() {
       <div className="regular-tabs">
         {regularTabs.map((note, i) => renderTab(note, pinnedTabs.length + i, false))}
       </div>
+
+      {openTabs.length > 1 && (
+        <div className="tab-actions">
+          <button
+            type="button"
+            className="tab-action"
+            onClick={() =>
+              activeTabId && openTabs.forEach((tab) => tab.id !== activeTabId && closeTab(tab.id))
+            }
+          >
+            Close others
+          </button>
+          <button
+            type="button"
+            className="tab-action"
+            onClick={() => openTabs.forEach((tab) => closeTab(tab.id))}
+          >
+            Close all
+          </button>
+        </div>
+      )}
     </div>
   );
 }

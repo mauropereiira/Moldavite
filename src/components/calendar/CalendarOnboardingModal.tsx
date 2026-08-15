@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Calendar, Settings, ChevronRight, X } from 'lucide-react';
 import { useCalendarStore } from '@/stores/calendarStore';
 
 export function CalendarOnboardingModal() {
@@ -14,13 +13,13 @@ export function CalendarOnboardingModal() {
 
   const steps = [
     {
-      icon: <Calendar className="w-12 h-12 text-blue-500" />,
+      label: 'Calendar',
       title: 'Calendar Events in Your Timeline',
       description:
         'Your calendar events now appear in the right panel alongside your daily notes. Stay on top of your schedule while you write.',
     },
     {
-      icon: <Settings className="w-12 h-12 text-blue-500" />,
+      label: 'Settings',
       title: 'Customize Your Calendar',
       description:
         'Go to Settings → Calendar to connect accounts, choose which calendars to display, toggle all-day events, and more.',
@@ -41,27 +40,35 @@ export function CalendarOnboardingModal() {
 
   return (
     <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
-      <div className="bg-white dark:bg-gray-800 rounded-md max-w-md mx-4 modal-elevated modal-content-enter overflow-hidden">
+      <div
+        className="max-w-md mx-4 modal-elevated modal-content-enter overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
+      >
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring"
+          className="absolute top-4 right-4 focus-ring text-xs transition-colors"
+          style={{ color: 'var(--text-muted)' }}
           aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          Close
         </button>
 
         <div className="p-8 text-center">
-          {/* Icon */}
-          <div className="flex justify-center mb-6">{steps[step].icon}</div>
+          <div
+            className="mb-6 text-[10px] uppercase"
+            style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
+          >
+            {steps[step].label}
+          </div>
 
           {/* Title */}
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+          <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
             {steps[step].title}
           </h2>
 
           {/* Description */}
-          <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
+          <p className="mb-8 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {steps[step].description}
           </p>
 
@@ -70,9 +77,10 @@ export function CalendarOnboardingModal() {
             {steps.map((_, i) => (
               <div
                 key={i}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  i === step ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
+                className="w-2 h-2 transition-colors"
+                style={{
+                  backgroundColor: i === step ? 'var(--text-primary)' : 'var(--border-strong)',
+                }}
               />
             ))}
           </div>
@@ -81,16 +89,21 @@ export function CalendarOnboardingModal() {
           <div className="flex justify-between items-center">
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              className="px-4 py-2 text-sm hover:text-[var(--text-secondary)] transition-colors"
+              style={{ color: 'var(--text-muted)' }}
             >
               Skip
             </button>
             <button
               onClick={handleNext}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 text-sm font-medium border hover:bg-[var(--bg-inset)] transition-colors"
+              style={{
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--bg-panel)',
+                borderColor: 'var(--border-default)',
+              }}
             >
               {step < steps.length - 1 ? 'Next' : 'Get Started'}
-              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>

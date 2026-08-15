@@ -35,6 +35,8 @@ export {
   applyFontSize,
   applyLineHeight,
   applyCompactMode,
+  applyEditorWidth,
+  applyFocusMode,
   applyFontFamily,
 } from './settingsStore';
 export type {
@@ -43,6 +45,8 @@ export type {
   DefaultNoteType,
   FontFamily,
   AutoLockTimeout,
+  ChromeMode,
+  SettingsState,
   SettingsTab,
 } from './settingsStore';
 
@@ -66,6 +70,8 @@ export type { ContentMatch, SearchMode } from './searchStore';
 export { useSemanticStore } from './semanticStore';
 export { useTimelineStore } from './timelineStore';
 export { useGraphStore } from './graphStore';
+export { useOverlayStore } from './overlayStore';
+export type { AppOverlay } from './overlayStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
 export { useQuickSwitcherStore } from './quickSwitcherStore';

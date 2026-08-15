@@ -41,8 +41,8 @@ beforeEach(() => {
     isLoading: false,
     isSaving: false,
   });
-  useTimelineStore.setState({ isOpen: false });
-  useGraphStore.setState({ isOpen: false });
+  useTimelineStore.getState().close();
+  useGraphStore.getState().close();
 });
 
 describe('useNotes navigation', () => {

@@ -32,11 +32,7 @@ import { BulkExportModal } from './BulkExportModal';
 
 // Modals that only mount on-demand — code-split to keep them out of the
 // main bundle. Tiptap + markdown-it + DOMPurify (~200 KB gz) in
-// TrashPreviewModal and the entire settings tree (~150 KB) don't need
-// to ship with the first render.
-const SettingsModal = lazy(() =>
-  import('@/components/settings').then((m) => ({ default: m.SettingsModal }))
-);
+// TrashPreviewModal does not need to ship with the first render.
 const TrashPreviewModal = lazy(() =>
   import('./TrashPreviewModal').then((m) => ({ default: m.TrashPreviewModal }))
 );
@@ -60,7 +56,18 @@ import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 
-export function Sidebar() {
+interface SidebarProps {
+  presentation?: 'panel' | 'index';
+  autoFocusSearch?: boolean;
+  onNavigate?: () => void;
+}
+
+export function Sidebar({
+  presentation = 'panel',
+  autoFocusSearch = false,
+  onNavigate,
+}: SidebarProps) {
+  const isIndex = presentation === 'index';
   const {
     notes,
     loadNote,
@@ -231,6 +238,18 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!autoFocusSearch) return;
+    let focusFrame = 0;
+    const trapFrame = window.requestAnimationFrame(() => {
+      focusFrame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    });
+    return () => {
+      window.cancelAnimationFrame(trapFrame);
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [autoFocusSearch]);
+
   // If the semantic index becomes unavailable (feature disabled, Forge
   // switch, rebuild) while the user is in semantic mode, fall back to
   // keyword search — the chips disappear along with it.
@@ -249,6 +268,7 @@ export function Sidebar() {
         handleUnlockNote(note);
       } else {
         loadNote(note);
+        onNavigate?.();
       }
     } else {
       console.error('[Sidebar] search match had no matching note in store:', path);
@@ -330,6 +350,7 @@ export function Sidebar() {
     const today = new Date();
     setSelectedDate(today);
     loadDailyNote(today);
+    onNavigate?.();
   };
 
   const isNoteActive = (note: NoteFile) => {
@@ -480,6 +501,7 @@ export function Sidebar() {
     } else {
       const inNewTab = e.metaKey || e.ctrlKey;
       loadNote(note, inNewTab);
+      onNavigate?.();
     }
   };
 
@@ -623,8 +645,8 @@ export function Sidebar() {
 
   return (
     <div
-      className="flex flex-col h-full select-none relative"
-      style={{ color: 'var(--text-primary)' }}
+      className={`flex flex-col h-full select-none relative${isIndex ? ' index-overlay-content' : ''}`}
+      style={{ color: 'var(--text-primary)', padding: isIndex ? '8px 20px 0' : undefined }}
       onClick={handleSidebarRootClick}
     >
       <SidebarModals
@@ -654,18 +676,16 @@ export function Sidebar() {
         }}
       />
 
-      {/* Settings Modal — lazy-loaded so the ~2k-line tab tree stays out of
-          the main bundle until the user opens it. */}
-      <Suspense fallback={null}>
-        <SettingsModal />
-      </Suspense>
-
       {/* Password Modal for Lock/Unlock */}
       {lock.mode && lock.noteToLock && (
         <PasswordModal
           isOpen={true}
           onClose={lock.close}
-          onSubmit={(password) => lock.submit(password, notes)}
+          onSubmit={async (password) => {
+            const opensNote = lock.mode === 'unlock';
+            await lock.submit(password, notes);
+            if (opensNote) onNavigate?.();
+          }}
           mode={lock.mode}
           noteTitle={lock.noteToLock.name.replace(/\.md$/, '')}
         />
@@ -785,85 +805,136 @@ export function Sidebar() {
             />
           )
         ) : (
-          <div className="py-2">
-            <SidebarNotesList
-              notes={displayedNotes}
-              isCollapsed={sectionsCollapsed.notes}
-              onToggleSection={() => toggleSection('notes')}
-              title={selectedTags.length > 0 ? 'Notes (filtered)' : 'Notes'}
-              count={selectedTags.length > 0 ? displayedNotes.length : unfiledNotes.length}
-              sortOption={sortOption === 'name-desc' ? 'name-desc' : 'name-asc'}
-              onSortToggle={() =>
-                setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')
-              }
-              onNewNote={() => setIsCreating(true)}
-              onNoteClick={handleSidebarNoteClick}
-              onNoteSelectionClick={handleSelectionClick}
-              onNoteContextMenu={handleContextMenu}
-              isNoteActive={isNoteActive}
-              getNoteTags={tagsEnabled ? getNoteTags : undefined}
-              isDragOverRoot={dnd.isDragOverRoot}
-              onRootDragEnter={dnd.onRootDragEnter}
-              onRootDragOver={dnd.onRootDragOver}
-              onRootDragLeave={dnd.onRootDragLeave}
-              onRootDrop={dnd.onRootDrop}
-              showEmptyState={displayedNotes.length === 0 && selectedTags.length === 0}
-              showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
-              filteredEmptyTagCount={selectedTags.length}
-            />
-
-            {showFoldersSection && (
-              <SidebarFolderTree
-                folders={folders}
-                notes={allStandaloneNotes}
-                expandedFolders={expandedFolders}
-                isCollapsed={sectionsCollapsed.folders}
-                onToggleSection={() => toggleSection('folders')}
-                onToggleFolder={toggleFolder}
-                onFolderContextMenu={handleFolderContextMenu}
-                onNewFolder={() => setIsCreatingFolder(true)}
-                onNoteDrop={handleNoteDrop}
-                onFolderDrop={handleFolderDrop}
-                isNoteActive={isNoteActive}
+          <div
+            className={isIndex ? 'app-index-grid' : 'py-2'}
+            style={
+              isIndex
+                ? {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    alignItems: 'start',
+                    gap: '28px',
+                    padding: '20px 12px 28px',
+                  }
+                : undefined
+            }
+          >
+            <div
+              className={isIndex ? 'app-overlay-section' : undefined}
+              style={isIndex ? ({ '--index': 0 } as React.CSSProperties) : undefined}
+            >
+              <SidebarNotesList
+                notes={displayedNotes}
+                isCollapsed={sectionsCollapsed.notes}
+                onToggleSection={() => toggleSection('notes')}
+                title={selectedTags.length > 0 ? 'Notes (filtered)' : 'Notes'}
+                count={selectedTags.length > 0 ? displayedNotes.length : unfiledNotes.length}
+                sortOption={sortOption === 'name-desc' ? 'name-desc' : 'name-asc'}
+                onSortToggle={() =>
+                  setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')
+                }
+                onNewNote={() => setIsCreating(true)}
                 onNoteClick={handleSidebarNoteClick}
                 onNoteSelectionClick={handleSelectionClick}
                 onNoteContextMenu={handleContextMenu}
+                isNoteActive={isNoteActive}
                 getNoteTags={tagsEnabled ? getNoteTags : undefined}
-                isDragOverFoldersRoot={dnd.isDragOverFoldersRoot}
-                onFoldersRootDragEnter={dnd.onFoldersRootDragEnter}
-                onFoldersRootDragOver={dnd.onFoldersRootDragOver}
-                onFoldersRootDragLeave={dnd.onFoldersRootDragLeave}
-                onFoldersRootDrop={dnd.onFoldersRootDrop}
+                isDragOverRoot={dnd.isDragOverRoot}
+                onRootDragEnter={dnd.onRootDragEnter}
+                onRootDragOver={dnd.onRootDragOver}
+                onRootDragLeave={dnd.onRootDragLeave}
+                onRootDrop={dnd.onRootDrop}
+                showEmptyState={displayedNotes.length === 0 && selectedTags.length === 0}
+                showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
+                filteredEmptyTagCount={selectedTags.length}
               />
+              {isIndex && backlinksEnabled && showBacklinksSection && (
+                <div style={{ marginTop: '24px' }}>
+                  <BacklinksSection
+                    notes={notes}
+                    isCollapsed={sectionsCollapsed.backlinks}
+                    onToggle={() => toggleSection('backlinks')}
+                    onNoteClick={(note) => {
+                      if (note.isLocked) {
+                        handleUnlockNote(note);
+                      } else {
+                        loadNote(note);
+                        onNavigate?.();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {showFoldersSection && (
+              <div
+                className={isIndex ? 'app-overlay-section' : undefined}
+                style={isIndex ? ({ '--index': 1 } as React.CSSProperties) : undefined}
+              >
+                <SidebarFolderTree
+                  folders={folders}
+                  notes={allStandaloneNotes}
+                  expandedFolders={expandedFolders}
+                  isCollapsed={sectionsCollapsed.folders}
+                  onToggleSection={() => toggleSection('folders')}
+                  onToggleFolder={toggleFolder}
+                  onFolderContextMenu={handleFolderContextMenu}
+                  onNewFolder={() => setIsCreatingFolder(true)}
+                  onNoteDrop={handleNoteDrop}
+                  onFolderDrop={handleFolderDrop}
+                  isNoteActive={isNoteActive}
+                  onNoteClick={handleSidebarNoteClick}
+                  onNoteSelectionClick={handleSelectionClick}
+                  onNoteContextMenu={handleContextMenu}
+                  getNoteTags={tagsEnabled ? getNoteTags : undefined}
+                  isDragOverFoldersRoot={dnd.isDragOverFoldersRoot}
+                  onFoldersRootDragEnter={dnd.onFoldersRootDragEnter}
+                  onFoldersRootDragOver={dnd.onFoldersRootDragOver}
+                  onFoldersRootDragLeave={dnd.onFoldersRootDragLeave}
+                  onFoldersRootDrop={dnd.onFoldersRootDrop}
+                  showShapeMarks={isIndex}
+                />
+              </div>
             )}
 
-            <SidebarDailyList
-              notes={dailyNotes}
-              isCollapsed={sectionsCollapsed.daily}
-              onToggleSection={() => toggleSection('daily')}
-              onNoteClick={handleSidebarNoteClick}
-              onNoteContextMenu={handleContextMenu}
-              isNoteActive={isNoteActive}
-              onOpenToday={handleTodayClick}
-            />
+            <div
+              className={isIndex ? 'app-overlay-section' : undefined}
+              style={isIndex ? ({ '--index': 2 } as React.CSSProperties) : undefined}
+            >
+              <SidebarDailyList
+                notes={dailyNotes}
+                isCollapsed={sectionsCollapsed.daily}
+                onToggleSection={() => toggleSection('daily')}
+                onNoteClick={handleSidebarNoteClick}
+                onNoteContextMenu={handleContextMenu}
+                isNoteActive={isNoteActive}
+                onOpenToday={handleTodayClick}
+              />
+            </div>
 
             {tagsEnabled && (
-              <SidebarTagList
-                allTags={allTags}
-                selectedTag={selectedTag}
-                selectedTags={selectedTags}
-                tagSearchQuery={tagSearchQuery}
-                isCollapsed={sectionsCollapsed.tags}
-                onToggle={() => toggleSection('tags')}
-                onSelectTag={setSelectedTag}
-                onToggleTag={toggleTag}
-                onClearFilter={clearTagFilter}
-                onSearchChange={setTagSearchQuery}
-                onTagsChanged={refreshNotes}
-              />
+              <div
+                className={isIndex ? 'app-overlay-section' : undefined}
+                style={isIndex ? ({ '--index': 3 } as React.CSSProperties) : undefined}
+              >
+                <SidebarTagList
+                  allTags={allTags}
+                  selectedTag={selectedTag}
+                  selectedTags={selectedTags}
+                  tagSearchQuery={tagSearchQuery}
+                  isCollapsed={sectionsCollapsed.tags}
+                  onToggle={() => toggleSection('tags')}
+                  onSelectTag={setSelectedTag}
+                  onToggleTag={toggleTag}
+                  onClearFilter={clearTagFilter}
+                  onSearchChange={setTagSearchQuery}
+                  onTagsChanged={refreshNotes}
+                />
+              </div>
             )}
 
-            {backlinksEnabled && showBacklinksSection && (
+            {!isIndex && backlinksEnabled && showBacklinksSection && (
               <BacklinksSection
                 notes={notes}
                 isCollapsed={sectionsCollapsed.backlinks}
@@ -873,6 +944,7 @@ export function Sidebar() {
                     handleUnlockNote(note);
                   } else {
                     loadNote(note);
+                    onNavigate?.();
                   }
                 }}
               />
@@ -930,7 +1002,10 @@ export function Sidebar() {
       <SidebarFooter
         onToday={handleTodayClick}
         onNewNote={() => setIsCreating(true)}
-        onSettings={() => setIsSettingsOpen(true)}
+        onSettings={() => {
+          setIsSettingsOpen(true);
+          onNavigate?.();
+        }}
         onTrash={(anchor) => setTrashPopoverAnchor((prev) => (prev ? null : anchor))}
       />
 

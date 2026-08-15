@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { X, Hash, Pencil, Search, Check } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { renameTagGlobally, isValidTag } from '@/lib';
 import { useToast } from '@/hooks/useToast';
+import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface TagsSectionProps {
   allTags: Map<string, number>;
@@ -150,105 +151,70 @@ export function TagsSection({
                 e.stopPropagation();
                 onClearFilter();
               }}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium transition-all"
+              className="text-[10px] font-medium transition-colors"
               style={{
-                color: 'var(--accent-primary)',
-                backgroundColor: 'var(--accent-subtle)',
-                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-muted)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--accent-muted)';
+                e.currentTarget.style.color = 'var(--text-primary)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--accent-subtle)';
+                e.currentTarget.style.color = 'var(--text-muted)';
               }}
               title="Clear all filters"
             >
-              <X className="w-3 h-3" />
-              {selectedTags.length}
+              Clear {selectedTags.length}
             </button>
           ) : undefined
         }
       >
         {/* Search Input */}
         <div className="px-3 pb-2">
-          <div
-            className="flex items-center gap-2 px-2 py-1.5 text-sm"
-            style={{
-              backgroundColor: 'var(--bg-inset)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-default)',
-            }}
-          >
-            <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+          <div className="relative">
             <input
               type="text"
               value={tagSearchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Filter tags..."
-              className="flex-1 bg-transparent text-sm outline-none"
-              style={{ color: 'var(--text-primary)' }}
+              className="tag-filter-input w-full bg-transparent py-1.5 pr-12 text-sm outline-none"
             />
             {tagSearchQuery && (
               <button
                 onClick={() => onSearchChange('')}
                 aria-label="Clear tag search"
-                className="p-0.5 rounded transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-colors"
                 style={{ color: 'var(--text-muted)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
               >
-                <X className="w-3 h-3" />
+                Clear
               </button>
             )}
           </div>
         </div>
 
         {/* Tags List */}
-        <div className="px-3 space-y-0.5 max-h-[240px] overflow-y-auto scrollbar-on-hover">
+        <div className="px-3 max-h-[240px] overflow-y-auto scrollbar-on-hover">
           {sortedTags.length === 0 ? (
-            <div className="py-3 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-              No tags match &quot;{tagSearchQuery}&quot;
-            </div>
+            <SignatureEmptyState className="py-3 text-center text-xs" vertical>
+              <span>No tags match &quot;{tagSearchQuery}&quot;</span>
+            </SignatureEmptyState>
           ) : (
-            sortedTags.map(([tag, count]) => {
+            sortedTags.map(([tag, count], index) => {
               const isSelected = selectedTags.includes(tag);
               return (
                 <button
                   key={tag}
                   onClick={(e) => handleTagClick(e, tag)}
                   onContextMenu={(e) => handleContextMenu(e, tag)}
-                  className="tag-filter-item w-full flex items-center gap-2 px-2 py-1.5 text-sm transition-all"
-                  style={{
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
-                    color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                  }}
+                  className={`tag-filter-item list-item-stagger w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors${
+                    isSelected ? ' tag-filter-item-selected' : ''
+                  }`}
+                  style={{ '--index': Math.min(index, 10) } as React.CSSProperties}
+                  aria-pressed={isSelected}
                 >
-                  {/* Checkbox indicator */}
-                  <div
-                    className="w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-all"
-                    style={{
-                      backgroundColor: isSelected ? 'var(--accent-primary)' : 'transparent',
-                      border: isSelected ? 'none' : '1.5px solid var(--border-strong)',
-                    }}
-                  >
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <Hash className="w-3.5 h-3.5 flex-shrink-0" style={{ opacity: 0.6 }} />
-                  <span className="flex-1 text-left truncate">{tag}</span>
-                  <span
-                    className="text-xs px-1.5 py-0.5 font-medium"
-                    style={{
-                      color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
-                      backgroundColor: isSelected
-                        ? 'rgba(90, 122, 168, 0.15)'
-                        : 'var(--count-badge-bg)',
-                      borderRadius: 'var(--radius-sm)',
-                    }}
-                  >
-                    {count}
-                  </span>
+                  <span className="flex-1 text-left truncate">#{tag}</span>
+                  <span className="count-badge">{count}</span>
                 </button>
               );
             })
@@ -259,7 +225,7 @@ export function TagsSection({
         {hasActiveFilter && (
           <div className="px-3 pt-2 pb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
             Showing notes with {selectedTags.length === 1 ? 'tag' : 'all tags'}:{' '}
-            <span style={{ color: 'var(--accent-primary)' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
               {selectedTags.map((t) => `#${t}`).join(', ')}
             </span>
           </div>
@@ -270,14 +236,14 @@ export function TagsSection({
       {contextMenu && (
         <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
           <div
-            className="absolute py-1 min-w-[140px] modal-content-enter"
+            ref={(node) => applyImpactOrigin(node, contextMenu)}
+            className="absolute py-1 min-w-[140px] modal-content-enter impact-surface"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
               backgroundColor: 'var(--bg-elevated)',
               border: '1px solid var(--border-muted)',
               borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-md)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -288,7 +254,6 @@ export function TagsSection({
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              <Pencil className="w-4 h-4" />
               Rename tag
             </button>
           </div>

@@ -10,6 +10,7 @@ import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
 import { getReleaseNotes } from '@/lib/releaseNotes';
 import { formatShortcut } from '@/lib/shortcuts';
 import { ShortcutRow } from '../common';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 function SoftwareUpdatesSection() {
   const {
@@ -26,7 +27,7 @@ function SoftwareUpdatesSection() {
   return (
     <div
       className="p-4"
-      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
     >
       <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
         Software Updates
@@ -38,7 +39,7 @@ function SoftwareUpdatesSection() {
           <div
             className="flex items-center gap-2 p-3"
             style={{
-              backgroundColor: 'var(--accent-subtle)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--accent-primary)',
             }}
@@ -61,7 +62,7 @@ function SoftwareUpdatesSection() {
           <div
             className="flex items-center gap-2 p-3"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
+              backgroundColor: 'transparent',
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border-default)',
             }}
@@ -86,7 +87,7 @@ function SoftwareUpdatesSection() {
 
         {/* Error message */}
         {error && (
-          <p className="text-xs px-3" style={{ color: 'var(--text-error, #ef4444)' }}>
+          <p className="text-xs px-3" style={{ color: 'var(--text-error)' }}>
             {error}
           </p>
         )}
@@ -96,11 +97,15 @@ function SoftwareUpdatesSection() {
           <div className="px-3">
             <div
               className="h-1.5 rounded overflow-hidden"
-              style={{ backgroundColor: 'var(--bg-inset)' }}
+              style={{ backgroundColor: 'transparent' }}
             >
               <div
                 className="h-full transition-all duration-300"
-                style={{ width: `${progress}%`, backgroundColor: 'var(--accent-primary)' }}
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: 'transparent',
+                  borderBottom: '2px solid var(--text-primary)',
+                }}
               />
             </div>
             <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-tertiary)' }}>
@@ -115,9 +120,9 @@ function SoftwareUpdatesSection() {
             <button
               onClick={installUpdate}
               disabled={downloading}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors text-white"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: 'var(--accent-primary)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 opacity: downloading ? 0.7 : 1,
               }}
@@ -131,16 +136,17 @@ function SoftwareUpdatesSection() {
               disabled={isChecking}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
               style={{
-                backgroundColor: 'var(--bg-elevated)',
+                backgroundColor: 'transparent',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-secondary)',
                 opacity: isChecking ? 0.7 : 1,
               }}
             >
-              <RefreshCw
-                aria-hidden="true"
-                className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`}
-              />
+              {isChecking ? (
+                <DotLoader label="Checking for updates" />
+              ) : (
+                <RefreshCw aria-hidden="true" className="w-4 h-4" />
+              )}
               {isChecking ? 'Checking...' : 'Check for Updates'}
             </button>
           )}
@@ -193,14 +199,22 @@ export function AboutSection() {
       {/* App Info + Update Section */}
       <div
         className="flex items-start gap-4 p-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
-        {/* Logo */}
-        <img
-          src="/logo.png"
-          alt="Moldavite Logo"
-          className="h-16 w-16 flex-shrink-0"
-          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
+        {/* Monogram, masked so it takes the active theme's ink colour */}
+        <div
+          role="img"
+          aria-label="Moldavite"
+          className="settings-brand-mark h-16 w-16 flex-shrink-0"
+          style={{
+            backgroundColor: 'var(--text-primary)',
+            WebkitMaskImage: 'url(/monogram.svg)',
+            maskImage: 'url(/monogram.svg)',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+          }}
         />
 
         <div className="flex-1 min-w-0">
@@ -209,6 +223,9 @@ export function AboutSection() {
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Moldavite is a tektite — natural glass formed by a meteorite impact, found in Bohemia.
           </p>
           <button
             type="button"
@@ -227,7 +244,7 @@ export function AboutSection() {
       {/* Onboarding Replay */}
       <div
         className="p-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
           Onboarding
@@ -240,7 +257,7 @@ export function AboutSection() {
           onClick={handleReplayOnboarding}
           className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
           style={{
-            backgroundColor: 'var(--bg-elevated)',
+            backgroundColor: 'transparent',
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-sm)',
             color: 'var(--text-secondary)',
@@ -254,7 +271,7 @@ export function AboutSection() {
       {/* Keyboard Shortcuts */}
       <div
         className="p-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
           Keyboard Shortcuts

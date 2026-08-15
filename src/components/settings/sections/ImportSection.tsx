@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { AlertTriangle, CheckCircle2, FolderOpen, Loader2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FolderOpen } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useForgeStore } from '@/stores/forgeStore';
 import { useObsidianImportStore } from '@/stores/obsidianImportStore';
 import { getForgeNameError } from '@/lib/obsidianImport';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 export function ImportSection() {
   const stage = useObsidianImportStore((state) => state.stage);
@@ -76,7 +77,7 @@ function Wizard({ chooseVault }: { chooseVault: () => Promise<void> }) {
 
   return (
     <div
-      className="fixed inset-0 z-[10000] modal-backdrop-dark flex items-center justify-center modal-backdrop-enter"
+      className="settings-scrim fixed inset-0 z-[10000] flex items-center justify-center modal-backdrop-enter"
       onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
       <div
@@ -85,15 +86,20 @@ function Wizard({ chooseVault }: { chooseVault: () => Promise<void> }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="obsidian-import-title"
-        className="obs-import-modal modal-elevated modal-content-enter"
+        className="settings-dialog obs-import-modal modal-content-enter"
       >
         <div className="flex items-start justify-between gap-4 mb-5">
           <h2 id="obsidian-import-title" className="text-lg font-semibold obs-import-title">
             {store.stage === 'summary' ? 'Import complete' : 'Import Obsidian vault'}
           </h2>
           {!importing && (
-            <button type="button" onClick={close} className="obs-import-close" aria-label="Close">
-              <X className="w-5 h-5" />
+            <button
+              type="button"
+              onClick={close}
+              className="settings-close obs-import-close"
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
             </button>
           )}
         </div>
@@ -254,7 +260,7 @@ function Wizard({ chooseVault }: { chooseVault: () => Promise<void> }) {
 function Busy({ label }: { label: string }) {
   return (
     <div className="obs-import-busy">
-      <Loader2 className="w-6 h-6 animate-spin" /> <span>{label}</span>
+      <DotLoader label={label} size={3} /> <span>{label}</span>
     </div>
   );
 }

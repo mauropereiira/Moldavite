@@ -1,8 +1,7 @@
-import { ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
 import { SidebarSection } from './SidebarSection';
 import { DraggableNoteItem } from './DraggableNoteItem';
-import { NoNotesEmptyState } from '@/components/ui';
 import type { NoteFile } from '@/types';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarNotesListProps {
   /** Notes to render — unfiled (no folderPath, not daily/weekly) */
@@ -69,54 +68,41 @@ export function SidebarNotesList({
       onToggle={onToggleSection}
       count={count}
       rightAction={
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={onSortToggle}
-            className="p-1 transition-colors"
+            className="transition-colors"
             style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
             title={sortOption === 'name-asc' ? 'Sort Z-A' : 'Sort A-Z'}
           >
-            {sortOption === 'name-asc' ? (
-              <ArrowUpAZ className="w-4 h-4" />
-            ) : (
-              <ArrowDownAZ className="w-4 h-4" />
-            )}
+            {sortOption === 'name-asc' ? 'Sort Z–A' : 'Sort A–Z'}
           </button>
           <button
             onClick={onNewNote}
-            className="p-1 transition-colors"
+            className="transition-colors"
             style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
             title="New note"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+            New
           </button>
         </div>
       }
     >
       <div
-        className="px-3 space-y-1 min-h-[20px] transition-colors"
+        className="px-3 min-h-[20px] transition-colors"
         style={{
-          borderRadius: 'var(--radius-sm)',
-          backgroundColor: isDragOverRoot ? 'var(--accent-subtle)' : 'transparent',
-          boxShadow: isDragOverRoot ? '0 0 0 2px var(--accent-primary)' : 'none',
+          borderBottom: `1px solid ${isDragOverRoot ? 'var(--border-strong)' : 'transparent'}`,
         }}
         onDragEnter={onRootDragEnter}
         onDragOver={onRootDragOver}
         onDragLeave={onRootDragLeave}
         onDrop={onRootDrop}
       >
-        {notes.map((note) => (
+        {notes.map((note, index) => (
           <DraggableNoteItem
             key={note.path}
             note={note}
@@ -125,13 +111,23 @@ export function SidebarNotesList({
             onSelectionClick={onNoteSelectionClick}
             onContextMenu={onNoteContextMenu}
             tags={getNoteTags ? getNoteTags(note.path) : undefined}
+            index={index}
           />
         ))}
-        {showEmptyState && <NoNotesEmptyState onCreateNote={onNewNote} />}
+        {showEmptyState && (
+          <SignatureEmptyState className="px-3 py-2 text-xs">
+            <div>
+              <span>No notes yet.</span>{' '}
+              <button onClick={onNewNote} style={{ color: 'var(--text-secondary)' }}>
+                Create note
+              </button>
+            </div>
+          </SignatureEmptyState>
+        )}
         {showFilteredEmptyState && (
-          <p className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-            No notes match the selected {filteredEmptyTagCount === 1 ? 'tag' : 'tags'}
-          </p>
+          <SignatureEmptyState className="px-3 py-2 text-sm">
+            <p>No notes match the selected {filteredEmptyTagCount === 1 ? 'tag' : 'tags'}</p>
+          </SignatureEmptyState>
         )}
       </div>
     </SidebarSection>

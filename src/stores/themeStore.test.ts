@@ -38,7 +38,10 @@ describe('themeStore persistence', () => {
   it('falls back to defaults when persisted state is missing', async () => {
     const { useThemeStore } = await loadStoreFresh();
     const state = useThemeStore.getState();
-    expect(state.baseMode).toBe('system');
+    // 'light', not 'system': Cream is the product's identity, so a first
+    // launch shows it regardless of the OS appearance setting.
+    expect(state.baseMode).toBe('light');
+    expect(state.theme).toBe('light');
     expect(state.preset).toBe('default');
   });
 

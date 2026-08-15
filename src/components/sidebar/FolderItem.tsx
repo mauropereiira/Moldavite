@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { ChevronRight, Folder, FolderOpen, MoreHorizontal } from 'lucide-react';
 import type { FolderInfo, NoteFile } from '@/types';
 import { DraggableNoteItem } from './DraggableNoteItem';
+import { Folder, FolderOpen } from 'lucide-react';
+import { SignatureMark } from '@/components/ui/SignatureMark';
 
 interface FolderItemProps {
   folder: FolderInfo;
@@ -18,6 +19,8 @@ interface FolderItemProps {
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
   renderChildren?: React.ReactNode;
+  showShapeMark?: boolean;
+  index?: number;
 }
 
 export function FolderItem({
@@ -35,6 +38,8 @@ export function FolderItem({
   onNoteContextMenu,
   getNoteTags,
   renderChildren,
+  showShapeMark = false,
+  index = 0,
 }: FolderItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounterRef = useRef(0);
@@ -151,52 +156,57 @@ export function FolderItem({
     >
       {/* Folder header row */}
       <div
-        className="group relative flex items-center gap-1.5 px-2 py-1.5 cursor-pointer transition-colors sidebar-item-animated"
-        style={{
-          paddingLeft: `${8 + level * 12}px`,
-          borderRadius: 'var(--radius-sm)',
-          backgroundColor: isDragOver ? 'var(--accent-subtle)' : undefined,
-          boxShadow: isDragOver ? '0 0 0 2px var(--accent-primary)' : undefined,
-        }}
+        className={`folder-row group relative flex items-center gap-2 py-1.5 pr-14 cursor-pointer transition-colors sidebar-item-animated${
+          showShapeMark ? ' list-item-stagger' : ''
+        }${isExpanded ? ' folder-row-expanded' : ''}`}
+        style={
+          {
+            paddingLeft: `${14 + level * 12}px`,
+            borderLeftColor: isDragOver ? 'var(--border-strong)' : undefined,
+            '--index': Math.min(index, 10),
+          } as React.CSSProperties
+        }
         onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
         onContextMenu={onContextMenu}
         draggable
         onDragStart={handleDragStart}
       >
-        <ChevronRight
-          className={`w-3.5 h-3.5 transition-transform duration-200 flex-shrink-0 ${
-            isExpanded ? 'rotate-90' : ''
-          }`}
-          style={{ color: 'var(--text-tertiary)' }}
+        <span
+          aria-hidden="true"
+          className={`sidebar-caret ${isExpanded ? 'sidebar-caret-expanded' : ''}`}
         />
-        <span
-          className="flex items-center justify-center w-5 h-5 flex-shrink-0"
-          style={{
-            backgroundColor: 'var(--folder-icon-bg)',
-            borderRadius: 'var(--radius-sm)',
-          }}
-        >
-          {isExpanded ? (
-            <FolderOpen className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+        {/* A real folder glyph rather than an abstract mark: in a list that
+            mixes folders, notes and tags, the icon's job is to say which kind
+            of thing this row is, and only a folder shape does that. Hairline
+            weight to match the icon rail. */}
+        {showShapeMark &&
+          (isExpanded ? (
+            <FolderOpen
+              aria-hidden="true"
+              size={13}
+              strokeWidth={1.25}
+              style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+            />
           ) : (
-            <Folder className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-          )}
-        </span>
-        <span
-          className="text-sm font-medium truncate flex-1"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {folder.name}
-        </span>
+            <Folder
+              aria-hidden="true"
+              size={13}
+              strokeWidth={1.25}
+              style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+            />
+          ))}
+        <span className="folder-label text-sm truncate flex-1">{folder.name}</span>
         {folderNotes.length > 0 && (
-          <span
-            className="text-xs px-1.5 py-0.5 group-hover:opacity-0 transition-opacity"
-            style={{
-              color: 'var(--text-muted)',
-              backgroundColor: 'var(--count-badge-bg)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
+          <span className="count-badge group-hover:opacity-0 transition-opacity">
             {folderNotes.length}
           </span>
         )}
@@ -205,14 +215,14 @@ export function FolderItem({
             e.stopPropagation();
             onContextMenu(e);
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-60 transition-all"
-          style={{ borderRadius: 'var(--radius-sm)' }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-0 group-hover:opacity-60 transition-all"
+          style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
+            e.currentTarget.style.color = 'var(--text-primary)';
             e.currentTarget.style.opacity = '1';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--text-muted)';
             // Clear the inline opacity set on enter. An inline style outranks
             // the classes above, so leaving it behind pins the button visible
             // for good — and since it sits on top of the note count, the count
@@ -221,7 +231,7 @@ export function FolderItem({
           }}
           aria-label="Folder options"
         >
-          <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+          Options
         </button>
       </div>
 
@@ -241,7 +251,7 @@ export function FolderItem({
           {/* Render child folders first */}
           {renderChildren}
           {/* Then render notes in this folder */}
-          {folderNotes.map((note) => (
+          {folderNotes.map((note, index) => (
             <DraggableNoteItem
               key={note.path}
               note={note}
@@ -251,8 +261,18 @@ export function FolderItem({
               onContextMenu={onNoteContextMenu}
               level={level + 1}
               tags={getNoteTags?.(note.path)}
+              index={index}
             />
           ))}
+          {folder.children.length === 0 && folderNotes.length === 0 && (
+            <div
+              className="flex justify-center py-2"
+              style={{ color: 'var(--text-muted)' }}
+              aria-label="Empty folder"
+            >
+              <SignatureMark />
+            </div>
+          )}
         </div>
       )}
     </div>

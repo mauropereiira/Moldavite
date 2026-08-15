@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Edit2, Trash2, AlertCircle, Loader2, Pin, PinOff, Plus } from 'lucide-react';
+import { Edit2, Trash2, AlertCircle, Pin, PinOff, Plus } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import type { Template } from '@/types/template';
 import { TemplateIcon } from './TemplateIcon';
 import { EditTemplateModal } from './EditTemplateModal';
 import { TemplateEditorModal } from '@/components/settings/TemplateEditorModal';
 import { useToast } from '@/hooks/useToast';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 interface SettingsTemplatesProps {
   onDeleteTemplate: (id: string) => Promise<void>;
@@ -216,7 +217,7 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
             className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors focus-ring"
             style={{
               backgroundColor: 'var(--accent-primary)',
-              color: 'var(--text-on-accent, #ffffff)',
+              color: 'var(--text-on-accent)',
             }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -320,10 +321,7 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
             style={{ backgroundColor: 'var(--bg-elevated)' }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div
-                className="p-2 rounded-full"
-                style={{ backgroundColor: 'rgba(212, 101, 26, 0.15)' }}
-              >
+              <div className="p-2" style={{ backgroundColor: 'rgba(212, 101, 26, 0.15)' }}>
                 <AlertCircle className="w-5 h-5" style={{ color: 'var(--error)' }} />
               </div>
               <h3
@@ -368,7 +366,7 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
               >
                 {isDeleting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <DotLoader label="Deleting template" />
                     Deleting...
                   </>
                 ) : (

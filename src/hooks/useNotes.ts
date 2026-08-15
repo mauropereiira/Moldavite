@@ -157,6 +157,9 @@ export function useNotes() {
       setIsLoading(true);
       await ensureDirectories();
       const noteFiles = await listNotes();
+      if (!Array.isArray(noteFiles)) {
+        throw new Error('Invalid response from list_notes');
+      }
       setNotes(noteFiles);
 
       // Build task status cache for daily notes (non-blocking)

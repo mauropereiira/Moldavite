@@ -35,7 +35,6 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
               backgroundColor: 'var(--bg-panel)',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--shadow-lg)',
             }}
           >
             <h1 className="text-xl font-semibold">Something went wrong</h1>

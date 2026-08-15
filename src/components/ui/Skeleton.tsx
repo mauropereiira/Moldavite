@@ -86,8 +86,13 @@ export function CalendarEventSkeleton() {
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className="rounded-md p-3 bg-gray-100 dark:bg-gray-800"
-          style={{ '--index': i - 1 } as React.CSSProperties}
+          className="rounded-md p-3"
+          style={
+            {
+              '--index': i - 1,
+              backgroundColor: 'var(--bg-inset)',
+            } as React.CSSProperties
+          }
         >
           <Skeleton variant="text" height={10} width={40} className="mb-1" />
           <Skeleton variant="text" height={14} width="70%" />

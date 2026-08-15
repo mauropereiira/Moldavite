@@ -1,18 +1,38 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { format, parseISO } from 'date-fns';
-import { MapPin } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import type { CalendarEvent } from '@/types';
 
 const HOUR_HEIGHT = 60; // pixels per hour
+const EVENT_WASH_ALPHA = 0.09;
+const EVENT_WASH_HOVER_ALPHA = 0.14;
+
+function sourceColorWash(sourceColor: string, alpha: number, fallback: string): string {
+  let resolvedColor = sourceColor.trim();
+  const variable = /^var\((--[a-zA-Z0-9-]+)\)$/.exec(resolvedColor);
+
+  if (variable && typeof window !== 'undefined') {
+    resolvedColor = window
+      .getComputedStyle(document.documentElement)
+      .getPropertyValue(variable[1])
+      .trim();
+  }
+
+  const hex = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(resolvedColor);
+  if (!hex) return fallback;
+
+  const [, red, green, blue] = hex;
+  return `rgba(${Number.parseInt(red, 16)}, ${Number.parseInt(green, 16)}, ${Number.parseInt(blue, 16)}, ${alpha})`;
+}
 
 interface EventBlockProps {
   event: CalendarEvent;
   columnIndex: number;
   totalColumns: number;
+  index?: number;
 }
 
-export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps) {
+export function EventBlock({ event, columnIndex, totalColumns, index = 0 }: EventBlockProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = async () => {
@@ -44,77 +64,104 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
   // Format time for display
   const timeDisplay = `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
 
-  // Get background color with opacity
-  const backgroundColor = event.calendarColor || '#4285f4';
+  const sourceColor = event.calendarColor || 'var(--calendar-google)';
+  const wash = sourceColorWash(
+    sourceColor,
+    showTooltip ? EVENT_WASH_HOVER_ALPHA : EVENT_WASH_ALPHA,
+    showTooltip ? 'var(--active-overlay)' : 'var(--hover-overlay)'
+  );
 
   return (
     <div
-      className={`absolute rounded overflow-hidden ${event.url ? 'cursor-pointer' : ''}`}
-      style={{
-        top: `${topPosition}px`,
-        height: `${height}px`,
-        left,
-        width,
-        borderLeft: `3px solid ${backgroundColor}`,
-        backgroundColor: `${backgroundColor}20`, // 20% opacity in light mode
-      }}
+      className={`absolute event-item-enter ${event.url ? 'cursor-pointer' : ''}`}
+      style={
+        {
+          top: `${topPosition}px`,
+          height: `${height}px`,
+          left,
+          width,
+          backgroundColor: wash,
+          borderTop: '1px solid var(--border-muted)',
+          borderBottom: '1px solid var(--border-muted)',
+          '--index': Math.min(index, 10),
+        } as CSSProperties
+      }
       onClick={handleClick}
+      role={event.url ? 'button' : undefined}
+      tabIndex={event.url ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (event.url && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          void handleClick();
+        }
+      }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Dark mode background overlay */}
-      <div
-        className="absolute inset-0 hidden dark:block"
-        style={{ backgroundColor: `${backgroundColor}30` }} // 30% opacity in dark mode
+      <span
+        className="absolute"
+        style={{ top: 0, bottom: 0, left: 0, width: '2px', backgroundColor: sourceColor }}
+        aria-hidden="true"
       />
 
       {/* Content */}
-      <div className="relative p-2 h-full flex flex-col">
-        {/* Time */}
-        <span className="text-[11px] leading-tight" style={{ color: 'var(--text-secondary)' }}>
-          {format(start, 'h:mm a')}
-        </span>
-
-        {/* Title */}
-        <div
-          className="text-xs font-medium truncate leading-tight mt-0.5"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {event.title}
-        </div>
-
-        {/* Location (if space and available) */}
-        {event.location && height > 50 && (
-          <div className="flex items-center gap-0.5 mt-0.5">
-            <MapPin className="w-2.5 h-2.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
-            <span className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
-              {event.location}
+      <div className="relative flex h-full min-w-0 items-start overflow-hidden py-1 pl-2 pr-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <span
+              className="event-title min-w-0 flex-1 truncate text-xs leading-tight"
+              style={{
+                color: showTooltip ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              {event.title}
+            </span>
+            <span
+              className="flex-shrink-0 text-[10px] leading-tight"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {format(start, 'h:mm a')}
             </span>
           </div>
-        )}
+
+          {event.location && height > 40 && (
+            <div
+              className="mt-0.5 truncate text-[10px] leading-tight"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {event.location}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tooltip on hover */}
       {showTooltip && (
         <div
-          className="absolute left-full top-0 ml-2 z-30 p-3 min-w-[200px] max-w-[280px]"
+          className="absolute left-full top-0 ml-2 z-30 p-3 min-w-[200px] max-w-[280px] modal-content-enter"
           style={{
             backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
+            border: '1px solid var(--border-muted)',
           }}
         >
-          <div className="font-medium text-sm mb-1" style={{ color: 'var(--text-primary)' }}>
-            {event.title}
-          </div>
-          <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-            {timeDisplay}
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1.5 h-1.5 w-1.5 flex-shrink-0"
+              style={{ backgroundColor: sourceColor }}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {event.title}
+              </div>
+              <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                {timeDisplay}
+              </div>
+            </div>
           </div>
           {event.location && (
-            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <MapPin className="w-3 h-3" />
-              {event.location}
+            <div className="mt-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              Location: {event.location}
             </div>
           )}
           {event.notes && (
@@ -129,8 +176,11 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
             </div>
           )}
           {event.url && (
-            <div className="mt-2 text-[10px]" style={{ color: 'var(--accent-primary)' }}>
-              Click to open in calendar
+            <div
+              className="mt-2 inline-block text-[10px]"
+              style={{ color: 'var(--text-primary)', borderBottom: '1px solid currentColor' }}
+            >
+              Open in calendar
             </div>
           )}
         </div>
@@ -142,38 +192,64 @@ export function EventBlock({ event, columnIndex, totalColumns }: EventBlockProps
 // All-day event component
 interface AllDayEventProps {
   event: CalendarEvent;
+  index?: number;
 }
 
-export function AllDayEvent({ event }: AllDayEventProps) {
+export function AllDayEvent({ event, index = 0 }: AllDayEventProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   const handleClick = async () => {
     if (event.url) {
       await open(event.url);
     }
   };
 
-  const backgroundColor = event.calendarColor || '#4285f4';
+  const sourceColor = event.calendarColor || 'var(--calendar-google)';
+  const wash = sourceColorWash(
+    sourceColor,
+    isHovered ? EVENT_WASH_HOVER_ALPHA : EVENT_WASH_ALPHA,
+    isHovered ? 'var(--active-overlay)' : 'var(--hover-overlay)'
+  );
 
   return (
     <div
-      className={`h-[30px] px-2 flex items-center ${event.url ? 'cursor-pointer hover:opacity-80' : ''}`}
-      style={{
-        backgroundColor: `${backgroundColor}30`,
-        borderLeft: `3px solid ${backgroundColor}`,
-        borderRadius: 'var(--radius-sm)',
-      }}
+      className={`event-item-enter relative flex min-h-8 items-start py-2 pl-2 ${event.url ? 'cursor-pointer' : ''}`}
+      style={
+        {
+          backgroundColor: wash,
+          borderTop: '1px solid var(--border-muted)',
+          borderBottom: '1px solid var(--border-muted)',
+          '--index': Math.min(index, 10),
+        } as CSSProperties
+      }
       onClick={handleClick}
+      role={event.url ? 'button' : undefined}
+      tabIndex={event.url ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (event.url && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          void handleClick();
+        }
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <span className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-        {event.title}
-      </span>
-      {event.location && (
+      <span
+        className="absolute"
+        style={{ top: 0, bottom: 0, left: 0, width: '2px', backgroundColor: sourceColor }}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1">
         <span
-          className="ml-2 text-[10px] truncate hidden sm:inline"
-          style={{ color: 'var(--text-muted)' }}
+          className="event-title block truncate text-xs"
+          style={{ color: isHovered ? 'var(--text-primary)' : 'var(--text-secondary)' }}
         >
-          {event.location}
+          {event.title}
         </span>
-      )}
+        <span className="block truncate text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          {event.location || 'All day'}
+        </span>
+      </span>
     </div>
   );
 }

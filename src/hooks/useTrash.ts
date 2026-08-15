@@ -34,6 +34,9 @@ export function useTrash() {
     try {
       setLoading(true);
       const items = await listTrash();
+      if (!Array.isArray(items)) {
+        throw new Error('Invalid response from list_trash');
+      }
       setTrashedNotes(items);
     } catch (error) {
       console.error('Failed to load trash:', error);

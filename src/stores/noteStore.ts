@@ -36,6 +36,8 @@ interface NoteState {
   // Actions
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
+  /** Return to the welcome screen without closing any loaded tabs. */
+  deactivateNote: () => void;
   setIsLoading: (loading: boolean) => void;
   setIsSaving: (saving: boolean) => void;
   setSelectedDate: (date: Date) => void;
@@ -112,6 +114,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       set({ currentNote: null });
     }
   },
+
+  deactivateNote: () => set({ activeTabId: null, currentNote: null }),
 
   /**
    * Sets the loading state for note operations.
@@ -195,40 +199,49 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
-      const activeTab = state.openTabs.find((t) => t.id === state.activeTabId);
-      const activeTabIsPinned = !!activeTab?.isPinned;
-
-      if (inNewTab || state.openTabs.length === 0 || activeTabIsPinned) {
-        // Open in a new tab when explicitly requested, when no tabs exist,
-        // or when the active tab is pinned (pinned tabs must not be replaced
-        // by sidebar navigation / preview-mode reuse).
+      if (inNewTab || state.openTabs.length === 0) {
+        // Explicit new tabs never consume the preview slot. The first tab has
+        // nothing available to reuse.
         const newTabs = [...state.openTabs, note];
         return {
           openTabs: newTabs,
           activeTabId: note.id,
           currentNote: note,
         };
-      } else {
-        // Replace active tab's content (single-click "preview" behavior).
-        // Only applies when the active tab is unpinned.
-        const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
-        if (activeIndex >= 0) {
-          const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
-          return {
-            openTabs: newTabs,
-            activeTabId: note.id,
-            currentNote: note,
-          };
-        } else {
-          // No active tab, open as new
-          const newTabs = [...state.openTabs, note];
-          return {
-            openTabs: newTabs,
-            activeTabId: note.id,
-            currentNote: note,
-          };
-        }
       }
+
+      const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
+      if (activeIndex >= 0 && !state.openTabs[activeIndex].isPinned) {
+        // The active unpinned tab is the current preview slot.
+        const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
+        return {
+          openTabs: newTabs,
+          activeTabId: note.id,
+          currentNote: note,
+        };
+      }
+
+      // A pinned active tab is protected, but it does not require a fresh
+      // preview every time it is revisited. Reuse the existing unpinned slot
+      // first. The same lookup repairs a stale/null activeTabId without
+      // allowing plain sidebar navigation to append indefinitely.
+      const previewIndex = state.openTabs.findIndex((tab) => !tab.isPinned);
+      if (previewIndex >= 0) {
+        const newTabs = state.openTabs.map((tab, index) => (index === previewIndex ? note : tab));
+        return {
+          openTabs: newTabs,
+          activeTabId: note.id,
+          currentNote: note,
+        };
+      }
+
+      // All surviving tabs are pinned, so a new unpinned preview is required.
+      const newTabs = [...state.openTabs, note];
+      return {
+        openTabs: newTabs,
+        activeTabId: note.id,
+        currentNote: note,
+      };
     });
   },
 
@@ -243,6 +256,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const newTabs = state.openTabs.filter((t) => t.id !== noteId);
       const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
+      localStorage.setItem(
+        namespacedKey('moldavite-pinned-tabs'),
+        JSON.stringify(newTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
+      );
 
       let newActiveId: string | null = null;
       let newCurrentNote: Note | null = null;
@@ -468,7 +485,11 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const stored = localStorage.getItem(namespacedKey('moldavite-pinned-tabs'));
       if (!stored) return;
 
-      const pinnedIds: string[] = JSON.parse(stored);
+      const pinnedIds: unknown = JSON.parse(stored);
+      // localStorage is untyped and older/corrupt values can be strings.
+      // String.prototype.includes would otherwise treat a substring as a
+      // pinned id and could mark tabs the user never pinned.
+      if (!Array.isArray(pinnedIds)) return;
       set((state) => {
         const updatedTabs = state.openTabs.map((t) => ({
           ...t,

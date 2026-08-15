@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForgeStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
+import { applyImpactOrigin, captureImpactOrigin, clearImpactOrigin } from '@/lib/impactOrigin';
 
 interface ForgeSwitcherProps {
   onManage: () => void;
@@ -31,6 +32,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
   // a window event after closing itself.
   useEffect(() => {
     const onOpen = () => {
+      clearImpactOrigin();
       void loadForges().finally(() => setOpen(true));
     };
     window.addEventListener('moldavite:open-forge-switcher', onOpen);
@@ -86,48 +88,46 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
   const label = active ?? 'Forge';
 
   return (
-    <div ref={wrapRef} className="relative px-3 pt-3">
+    <div ref={wrapRef} className="relative px-3 pt-4">
       <button
         type="button"
         // Re-list on open: the Forge list is otherwise only loaded at mount, so
         // a Forge created outside this window (an agent over MCP, the Obsidian
         // importer, or anything writing to the Forges root) stayed invisible
         // until the app was restarted.
-        onClick={() => {
+        onClick={(event) => {
+          if (!open) captureImpactOrigin(event.currentTarget);
           setOpen((v) => {
             if (!v) void loadForges().catch(() => {});
             return !v;
           });
         }}
-        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium hover:bg-[var(--bg-hover)]"
-        style={{ color: 'var(--text-primary)' }}
+        className="w-full flex items-center justify-between gap-2 px-1 pb-3 text-left"
+        style={{
+          color: 'var(--text-primary)',
+          borderBottom: '1px solid var(--border-default)',
+          fontFamily: 'var(--font-display)',
+          fontSize: '20px',
+          fontWeight: 500,
+          letterSpacing: '-0.015em',
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Switch Forge"
       >
-        <span className="truncate">{label}</span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          aria-hidden="true"
-          style={{ flexShrink: 0, opacity: 0.6 }}
-        >
-          <path
-            d="M3 4.5L6 7.5L9 4.5"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="truncate">{label}</span>
+        </span>
+        <span aria-hidden="true" className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          ↓
+        </span>
       </button>
 
       {open && (
         <div
+          ref={applyImpactOrigin}
           role="listbox"
-          className="absolute z-30 left-3 right-3 top-full mt-1 rounded-md border shadow-lg overflow-hidden"
+          className="absolute z-30 left-3 right-3 top-full mt-1 border overflow-hidden modal-content-enter impact-surface"
           style={{
             background: 'var(--bg-elevated)',
             borderColor: 'var(--border-default)',
@@ -145,7 +145,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
               role="option"
               aria-selected={f.isActive}
               onClick={() => handleSwitch(f.name)}
-              className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between hover:bg-[var(--bg-hover)]"
+              className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between"
               style={{ color: 'var(--text-primary)' }}
             >
               <span className="truncate">{f.name}</span>
@@ -172,7 +172,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
                 }}
                 placeholder="Forge name"
                 autoFocus
-                className="flex-1 px-2 py-1 text-sm rounded border bg-transparent"
+                className="flex-1 px-2 py-1 text-sm border bg-transparent"
                 style={{
                   borderColor: 'var(--border-default)',
                   color: 'var(--text-primary)',
@@ -181,10 +181,11 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
               <button
                 type="button"
                 onClick={() => void handleCreate()}
-                className="px-2 py-1 text-xs rounded"
+                className="px-2 py-1 text-xs border"
                 style={{
-                  background: 'var(--accent)',
-                  color: 'var(--accent-text, #fff)',
+                  background: 'transparent',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-primary)',
                 }}
               >
                 Create
@@ -194,10 +195,10 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-[var(--bg-hover)]"
+              className="w-full text-left px-3 py-1.5 text-sm"
               style={{ color: 'var(--text-primary)' }}
             >
-              + New Forge
+              New Forge
             </button>
           )}
 
@@ -209,7 +210,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
               setNewName('');
               onManage();
             }}
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-[var(--bg-hover)]"
+            className="w-full text-left px-3 py-1.5 text-sm"
             style={{ color: 'var(--text-primary)' }}
           >
             Manage Forges…

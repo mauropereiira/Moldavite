@@ -1,8 +1,7 @@
-import type { ReactNode } from 'react';
-import { Calendar, FileText, Sparkles } from 'lucide-react';
-import { NoSearchResultsEmptyState } from '@/components/ui';
+import type { CSSProperties } from 'react';
 import type { SearchMode } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 /**
  * Keyword / Semantic mode chips shown under the sidebar search input.
@@ -15,19 +14,17 @@ export function SearchModeChips({
   mode: SearchMode;
   onModeChange: (mode: SearchMode) => void;
 }) {
-  const chip = (target: SearchMode, label: ReactNode) => {
+  const chip = (target: SearchMode, label: string) => {
     const isActive = mode === target;
     return (
       <button
         type="button"
         onClick={() => onModeChange(target)}
         aria-pressed={isActive}
-        className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium transition-colors focus-ring"
+        className="text-[11px] transition-colors focus-ring"
         style={{
-          borderRadius: '999px',
-          border: `1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border-default)'}`,
-          backgroundColor: isActive ? 'var(--accent-subtle)' : 'transparent',
-          color: isActive ? 'var(--accent-primary)' : 'var(--text-tertiary)',
+          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+          fontWeight: isActive ? 500 : 400,
         }}
       >
         {label}
@@ -36,15 +33,12 @@ export function SearchModeChips({
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-3 pb-1" role="group" aria-label="Search mode">
+    <div className="flex items-center gap-2 px-3 pt-2 pb-1" role="group" aria-label="Search mode">
       {chip('keyword', 'Keyword')}
-      {chip(
-        'semantic',
-        <>
-          <Sparkles aria-hidden="true" className="w-3 h-3" />
-          Semantic
-        </>
-      )}
+      <span aria-hidden="true" style={{ color: 'var(--border-strong)' }}>
+        ·
+      </span>
+      {chip('semantic', 'Semantic')}
     </div>
   );
 }
@@ -84,17 +78,16 @@ export function SidebarSemanticResults({
 }: SidebarSemanticResultsProps) {
   return (
     <div className="px-3 py-2">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="section-header">
+      <div className="section-header">
+        <h2>
           {loading
             ? 'Searching...'
             : `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} by meaning`}
         </h2>
       </div>
-      <div className="space-y-1" role="listbox" aria-label="Semantic search results">
+      <div className="pt-2" role="listbox" aria-label="Semantic search results">
         {hits.map((hit, index) => {
           const isActive = index === selectedIndex;
-          const isDaily = hit.path.startsWith('daily/');
           const folder = semanticHitFolder(hit.path);
           return (
             <button
@@ -103,25 +96,13 @@ export function SidebarSemanticResults({
               aria-selected={isActive}
               onClick={() => onOpen(hit)}
               onMouseEnter={() => onSelect(index)}
-              className="w-full text-left px-2 py-1.5 rounded focus-ring sidebar-item-animated transition-colors"
-              style={{
-                backgroundColor: isActive ? 'var(--hover-overlay)' : 'transparent',
-                color: 'var(--text-primary)',
-              }}
+              className={`note-card sidebar-item-animated w-full text-left focus-ring${
+                isActive ? ' note-card-active' : ''
+              } list-item-stagger`}
+              style={{ '--index': Math.min(index, 10) } as CSSProperties}
             >
-              <span className="flex items-center gap-2 text-sm">
-                {isDaily ? (
-                  <Calendar
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: 'var(--accent-primary)' }}
-                  />
-                ) : (
-                  <FileText
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: 'var(--text-muted)' }}
-                  />
-                )}
-                <span className="truncate font-medium flex-1 min-w-0">{hit.title}</span>
+              <span className="flex items-baseline gap-2 text-sm">
+                <span className="note-card-title truncate flex-1 min-w-0">{hit.title}</span>
                 <span
                   className="text-[11px] flex-shrink-0 tabular-nums"
                   style={{ color: 'var(--text-muted)' }}
@@ -139,7 +120,14 @@ export function SidebarSemanticResults({
           );
         })}
         {!loading && hits.length === 0 && (
-          <NoSearchResultsEmptyState query={query} onClear={onClear} />
+          <SignatureEmptyState className="px-3 py-2 text-xs">
+            <div>
+              <span>No results for “{query}”.</span>{' '}
+              <button onClick={onClear} style={{ color: 'var(--text-secondary)' }}>
+                Clear search
+              </button>
+            </div>
+          </SignatureEmptyState>
         )}
       </div>
     </div>

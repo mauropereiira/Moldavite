@@ -35,6 +35,9 @@ export type ShortcutId =
   | 'nextTab'
   | 'prevTab'
   | 'toggleGraph'
+  | 'toggleSidebar'
+  | 'toggleRightPanel'
+  | 'toggleFocusMode'
   | 'clearSelection';
 
 export interface Shortcut {
@@ -151,6 +154,28 @@ export const SHORTCUTS: Shortcut[] = [
     id: 'toggleGraph',
     keys: ['⌘', '⇧', 'G'],
     description: 'Toggle graph view',
+    category: 'navigation',
+  },
+
+  // Chrome. These three are handled by ChromeShortcutHost at the app root,
+  // not by useKeyboardShortcuts — they must work with no note open, and that
+  // hook lives inside the editor tree.
+  {
+    id: 'toggleSidebar',
+    keys: ['⌘', '\\'],
+    description: 'Toggle the Index',
+    category: 'navigation',
+  },
+  {
+    id: 'toggleRightPanel',
+    keys: ['⌘', '⌥', '\\'],
+    description: 'Toggle the Agenda',
+    category: 'navigation',
+  },
+  {
+    id: 'toggleFocusMode',
+    keys: ['⌘', '.'],
+    description: 'Focus mode — hide all chrome',
     category: 'navigation',
   },
 

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { AlignLeft, AlignCenter, AlignRight, Trash2 } from 'lucide-react';
 import type { ImageAlignment } from './extensions/ResizableImage';
 
 interface ImageToolbarProps {
@@ -80,10 +79,13 @@ export function ImageToolbar({ editor }: ImageToolbarProps) {
   return (
     <div
       ref={toolbarRef}
-      className="image-toolbar"
+      className="selection-toolbar"
       style={{
+        position: 'absolute',
         top: `${position.top}px`,
         left: `${position.left}px`,
+        zIndex: 50,
+        pointerEvents: 'auto',
       }}
     >
       {/* Alignment buttons */}
@@ -91,22 +93,25 @@ export function ImageToolbar({ editor }: ImageToolbarProps) {
         onClick={() => setAlignment('left')}
         className={`toolbar-button ${currentAlignment === 'left' ? 'toolbar-button-active' : ''}`}
         title="Align left"
+        aria-label="Align image left"
       >
-        <AlignLeft className="w-4 h-4" />
+        L
       </button>
       <button
         onClick={() => setAlignment('center')}
         className={`toolbar-button ${currentAlignment === 'center' ? 'toolbar-button-active' : ''}`}
         title="Align center"
+        aria-label="Align image center"
       >
-        <AlignCenter className="w-4 h-4" />
+        C
       </button>
       <button
         onClick={() => setAlignment('right')}
         className={`toolbar-button ${currentAlignment === 'right' ? 'toolbar-button-active' : ''}`}
         title="Align right"
+        aria-label="Align image right"
       >
-        <AlignRight className="w-4 h-4" />
+        R
       </button>
 
       {/* Divider */}
@@ -117,8 +122,9 @@ export function ImageToolbar({ editor }: ImageToolbarProps) {
         onClick={deleteImage}
         className="toolbar-button toolbar-button-danger"
         title="Delete image"
+        aria-label="Delete image"
       >
-        <Trash2 className="w-4 h-4" />
+        Del
       </button>
     </div>
   );

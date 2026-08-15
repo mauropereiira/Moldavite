@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { TemplateIcon, availableIcons } from './TemplateIcon';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/useToast';
+import { DotLoader } from '@/components/ui/DotLoader';
 
 interface SaveTemplateModalProps {
   isOpen: boolean;
@@ -13,6 +14,12 @@ interface SaveTemplateModalProps {
 
 const MAX_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
+const fieldStyle = {
+  color: 'var(--text-primary)',
+  backgroundColor: 'var(--bg-panel)',
+  borderColor: 'var(--border-default)',
+  '--tw-ring-color': 'var(--focus-ring)',
+} as React.CSSProperties;
 
 export function SaveTemplateModal({
   isOpen,
@@ -115,19 +122,27 @@ export function SaveTemplateModal({
       aria-modal="true"
       aria-labelledby="save-template-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 modal-elevated modal-content-enter">
+      <div
+        className="rounded-xl w-full max-w-md mx-4 modal-elevated modal-content-enter"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <h2
             id="save-template-title"
-            className="text-lg font-semibold text-gray-900 dark:text-white"
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
           >
             Save as Template
           </h2>
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring disabled:opacity-50"
+            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)] disabled:opacity-50"
+            style={{ color: 'var(--text-muted)' }}
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -140,9 +155,10 @@ export function SaveTemplateModal({
           <div>
             <label
               htmlFor="template-name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              Template Name <span className="text-red-500">*</span>
+              Template Name <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               ref={nameInputRef}
@@ -156,19 +172,20 @@ export function SaveTemplateModal({
               placeholder="Meeting Notes Template"
               maxLength={MAX_NAME_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full px-3 py-2 text-sm border rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 disabled:opacity-50"
+              style={fieldStyle}
               aria-describedby={error ? 'template-name-error' : undefined}
               aria-invalid={!!error}
             />
             <div className="flex justify-between mt-1">
               {error ? (
-                <p id="template-name-error" className="text-xs text-red-500">
+                <p id="template-name-error" className="text-xs" style={{ color: 'var(--error)' }}>
                   {error}
                 </p>
               ) : (
                 <span />
               )}
-              <span className="text-xs text-gray-400">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {name.length}/{MAX_NAME_LENGTH}
               </span>
             </div>
@@ -178,7 +195,8 @@ export function SaveTemplateModal({
           <div>
             <label
               htmlFor="template-description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Description
             </label>
@@ -190,10 +208,11 @@ export function SaveTemplateModal({
               rows={3}
               maxLength={MAX_DESCRIPTION_LENGTH}
               disabled={isSaving}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              className="w-full px-3 py-2 text-sm border rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 resize-none disabled:opacity-50"
+              style={fieldStyle}
             />
             <div className="flex justify-end mt-1">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {description.length}/{MAX_DESCRIPTION_LENGTH}
               </span>
             </div>
@@ -203,12 +222,16 @@ export function SaveTemplateModal({
           <div>
             <label
               htmlFor="template-icon"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Icon
             </label>
             <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <div
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 <TemplateIcon icon={icon} size={16} />
               </div>
               <select
@@ -216,7 +239,8 @@ export function SaveTemplateModal({
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
                 disabled={isSaving}
-                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer disabled:opacity-50"
+                className="w-full pl-9 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 appearance-none cursor-pointer disabled:opacity-50"
+                style={fieldStyle}
               >
                 {availableIcons.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -226,7 +250,8 @@ export function SaveTemplateModal({
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <svg
-                  className="w-4 h-4 text-gray-400"
+                  className="w-4 h-4"
+                  style={{ color: 'var(--text-muted)' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -248,7 +273,11 @@ export function SaveTemplateModal({
               type="button"
               onClick={handleClose}
               disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus-ring disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-[var(--bg-inset)] transition-colors focus-ring disabled:opacity-50"
+              style={{
+                color: 'var(--text-secondary)',
+                backgroundColor: 'var(--bg-panel)',
+              }}
             >
               Cancel
             </button>
@@ -259,7 +288,7 @@ export function SaveTemplateModal({
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <DotLoader label="Saving template" />
                   Saving...
                 </>
               ) : (

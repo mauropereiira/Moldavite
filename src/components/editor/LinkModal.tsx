@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Link2, ExternalLink } from 'lucide-react';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -8,6 +7,12 @@ interface LinkModalProps {
   initialUrl?: string;
   initialText?: string;
 }
+
+const keyboardHintStyle: React.CSSProperties = {
+  color: 'var(--text-primary)',
+  backgroundColor: 'var(--bg-inset)',
+  borderColor: 'var(--border-default)',
+};
 
 export function LinkModal({
   isOpen,
@@ -97,26 +102,31 @@ export function LinkModal({
       aria-labelledby="link-modal-title"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
+        className="rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Link2 className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
+          <div>
             <h2
               id="link-modal-title"
-              className="text-xl font-semibold text-gray-900 dark:text-white"
+              className="text-xl font-semibold"
+              style={{ color: 'var(--text-primary)' }}
             >
               {initialUrl ? 'Edit Link' : 'Insert Link'}
             </h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring"
+            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
+            style={{ color: 'var(--text-muted)' }}
             aria-label="Close link modal"
           >
-            <X className="w-5 h-5" />
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 
@@ -126,12 +136,12 @@ export function LinkModal({
           <div>
             <label
               htmlFor="link-url"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              URL <span className="text-red-500">*</span>
+              URL <span style={{ color: 'var(--error)' }}>*</span>
             </label>
-            <div className="relative">
-              <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div>
               <input
                 ref={urlInputRef}
                 id="link-url"
@@ -142,17 +152,23 @@ export function LinkModal({
                   setError('');
                 }}
                 placeholder="https://example.com or /page or #section"
-                className={`w-full pl-9 pr-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none border ${
-                  error
-                    ? 'border-red-300 dark:border-red-600 focus:ring-2 focus:ring-red-500'
-                    : 'border-gray-200 dark:border-gray-600 search-input-polished'
+                className={`w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none border ${
+                  error ? 'focus:ring-2' : 'search-input-polished'
                 }`}
+                style={
+                  {
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-panel)',
+                    borderColor: error ? 'var(--error)' : 'var(--border-default)',
+                    '--tw-ring-color': error ? 'var(--error)' : 'var(--focus-ring)',
+                  } as React.CSSProperties
+                }
                 aria-invalid={error ? 'true' : 'false'}
                 aria-describedby={error ? 'link-error' : undefined}
               />
             </div>
             {error && (
-              <p id="link-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+              <p id="link-error" className="mt-1 text-sm" style={{ color: 'var(--error)' }}>
                 {error}
               </p>
             )}
@@ -162,9 +178,13 @@ export function LinkModal({
           <div>
             <label
               htmlFor="link-text"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              Display Text <span className="text-xs text-gray-500">(optional)</span>
+              Display Text{' '}
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                (optional)
+              </span>
             </label>
             <input
               id="link-text"
@@ -172,19 +192,28 @@ export function LinkModal({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Leave empty to use URL as text"
-              className="w-full px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-600 search-input-polished focus:outline-none"
+              className="w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] border search-input-polished focus:outline-none"
+              style={{
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--bg-panel)',
+                borderColor: 'var(--border-default)',
+              }}
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
               If no text is provided, the URL will be used as the display text
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div
+          className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus-ring"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
+            style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
           </button>
@@ -198,13 +227,19 @@ export function LinkModal({
 
         {/* Keyboard hints */}
         <div className="px-6 pb-4">
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
             Press{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+            <kbd
+              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+              style={keyboardHintStyle}
+            >
               Enter
             </kbd>{' '}
             to insert or{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+            <kbd
+              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+              style={keyboardHintStyle}
+            >
               Esc
             </kbd>{' '}
             to cancel

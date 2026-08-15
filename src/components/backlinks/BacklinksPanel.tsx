@@ -6,6 +6,7 @@ import { useBacklinks, type Backlink } from '@/hooks/useBacklinks';
 import { useRelatedNotes } from '@/hooks/useRelatedNotes';
 import type { SemanticHit } from '@/lib/semantic';
 import type { NoteFile } from '@/types';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 /**
  * Collapsible "Linked mentions" panel mounted below the editor scroll area,
@@ -80,7 +81,7 @@ export function BacklinksPanel() {
 
   return (
     <div
-      className="flex-shrink-0"
+      className="backlinks-panel flex-shrink-0"
       style={{ borderTop: '1px solid var(--border-default)', backgroundColor: 'var(--bg-panel)' }}
     >
       <button
@@ -114,9 +115,9 @@ export function BacklinksPanel() {
               Scanning…
             </div>
           ) : count === 0 ? (
-            <div className="py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-              No notes link here yet.
-            </div>
+            <SignatureEmptyState className="py-2 text-xs">
+              <span>No notes link here yet.</span>
+            </SignatureEmptyState>
           ) : (
             backlinks.map((bl) => (
               <BacklinkRow
@@ -173,9 +174,9 @@ export function BacklinksPanel() {
                   Searching…
                 </div>
               ) : related.length === 0 ? (
-                <div className="py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  No related notes found.
-                </div>
+                <SignatureEmptyState className="py-2 text-xs">
+                  <span>No related notes found.</span>
+                </SignatureEmptyState>
               ) : (
                 related.map((hit) => (
                   <RelatedRow key={hit.path} hit={hit} onClick={() => handleRelatedClick(hit)} />

@@ -72,8 +72,12 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
       onClick={onClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full max-w-md p-5"
-        style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
+        className="rounded-lg w-full max-w-md p-5"
+        style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-default)',
+          color: 'var(--text-primary)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
@@ -176,7 +180,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
             className="text-xs px-3 py-1.5 rounded"
             style={{
               background: 'var(--accent)',
-              color: 'var(--accent-text, #fff)',
+              color: 'var(--accent-text)',
             }}
           >
             Done

@@ -18,21 +18,19 @@ export function TemplateCard({
     <button
       onClick={onClick}
       className={`
-        w-full text-left rounded transition-all focus-ring
+        w-full text-left transition-all focus-ring border
         ${compact ? 'p-3' : 'p-4'}
-        ${selected ? 'border-2' : 'border'}
-        hover:shadow-system-md
         btn-interactive
       `}
       style={{
-        backgroundColor: selected ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
-        borderColor: selected ? 'var(--accent-primary)' : 'var(--border-primary)',
+        backgroundColor: 'transparent',
+        borderColor: selected ? 'var(--border-strong)' : 'var(--border-default)',
       }}
     >
       {/* Icon */}
       <div
         className={compact ? 'mb-2' : 'mb-3'}
-        style={{ color: selected ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+        style={{ color: selected ? 'var(--text-primary)' : 'var(--text-muted)' }}
       >
         <TemplateIcon icon={template.icon} size={compact ? 24 : 32} className="transition-colors" />
       </div>
@@ -55,11 +53,12 @@ export function TemplateCard({
       {/* Default badge */}
       {template.isDefault && (
         <span
-          className={`
-            inline-block px-2 py-0.5 rounded-full text-xs font-medium
-            bg-accent-subtle dark:bg-moldavite-600 text-accent-dark dark:text-moldavite-100
-            ${compact ? 'mt-1' : 'mt-2'}
-          `}
+          className={`inline-block px-2 py-0.5 text-xs font-medium ${compact ? 'mt-1' : 'mt-2'}`}
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-secondary)',
+          }}
         >
           Default
         </span>

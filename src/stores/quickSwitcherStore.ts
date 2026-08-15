@@ -7,11 +7,13 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { forgeNamespacedStorage, onActiveForgeChange, readNamespaced } from '@/lib/forgeStorage';
+import { useOverlayStore } from './overlayStore';
 
 const MAX_RECENT_SEARCHES = 5;
 const QUICK_SWITCHER_KEY = 'moldavite-quick-switcher';
 
 interface QuickSwitcherState {
+  /** Mirror of `useOverlayStore`'s `search` surface — never set it directly. */
   isOpen: boolean;
   /** Last successful queries the user actually executed (most-recent first). */
   recentSearches: string[];
@@ -40,9 +42,12 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
       recentSearches: [],
       pinnedNoteIds: [],
 
-      open: () => set({ isOpen: true }),
-      close: () => set({ isOpen: false }),
-      toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+      // Search is one of the exclusive navigation surfaces: opening it has to
+      // dismiss whatever else was up, and re-opening it has to close it rather
+      // than refocus a switcher that is already on screen.
+      open: () => useOverlayStore.getState().openSurface('search'),
+      close: () => useOverlayStore.getState().closeSurface('search'),
+      toggle: () => useOverlayStore.getState().toggleSurface('search'),
 
       addRecentSearch: (query) => {
         const trimmed = query.trim();
@@ -88,6 +93,15 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
     }
   )
 );
+
+// This store owns its persisted history and pins, so it can't be a plain
+// `createSurfaceStore` mirror — mirror just the visibility half instead.
+useOverlayStore.subscribe(({ activeOverlay }) => {
+  const isOpen = activeOverlay === 'search';
+  if (useQuickSwitcherStore.getState().isOpen !== isOpen) {
+    useQuickSwitcherStore.setState({ isOpen });
+  }
+});
 
 // Hydration ran at import time, when the cache could still name the Forge we
 // just switched away from. Re-read under the corrected key the moment the real
