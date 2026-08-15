@@ -141,6 +141,37 @@ Regenerate it rather than hand-editing paths.
 
 ---
 
+## Brand assets
+
+Two masters, and everything else is derived from them. **Never hand-edit a
+derived file** — regenerate it.
+
+| Master | Derives |
+| ------ | ------- |
+| `src-tauri/icons/icon-master.svg` | the entire icon set: `.icns`, `.ico`, Windows Store tiles, iOS, Android, `icon.png`, plus `public/favicon.*` and `docs/{favicon,icon}.png` |
+| `docs/og-image.svg` | `docs/og-image.png` |
+
+The app icon is **cream on ink**, not ink on cream. At 16px — favicon, menu bar,
+taskbar — the ink tile keeps its silhouette against any background while a cream
+tile dissolves into a light one. The mark sits at 56% of the tile; 50% tested
+visibly timid below 32px.
+
+```bash
+npx tauri icon src-tauri/icons/icon-master.svg   # the whole icon set
+```
+
+The remaining PNGs are rendered from the same SVGs at 1200×630 (OG), 256, 64 and
+32px. Any rasteriser works; there is deliberately no build step for four files.
+
+**This is the one that rots.** `icon.ico` shipped for months as generic blue
+"N + book + fountain pen" clipart — a placeholder that survived because macOS
+never reads `.ico` and nobody on the team ran Windows. It was six weeks older
+than every sibling file. If you touch one brand asset, regenerate all of them
+from the master and *look at the output*, including on the platform you don't
+use.
+
+---
+
 ## Structure
 
 The palette is only half of it. The layout was rebuilt too, and these rules are
