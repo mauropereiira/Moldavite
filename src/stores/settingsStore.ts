@@ -177,11 +177,27 @@ const isChromeMode = (value: unknown): value is ChromeMode =>
   value === 'overlay' || value === 'pinned' || value === 'off';
 
 /**
- * v0 stored `showSidebar` and `showRightPanel` as pin booleans. Preserve a
- * pinned choice while moving unpinned users to the new overlay default.
+ * Bring a pre-2.0 payload onto the chrome-mode frame.
  *
- * Exported for tests because silently losing a pin during hydration would
- * change the app's whole frame on upgrade.
+ * 1.9.0 had no pin concept: `showRightPanel` was the visibility of a fixed
+ * column and `showSidebar` was never persisted at all. Mapping either onto a
+ * tri-state mode is a false equivalence — and reading `showRightPanel: true`
+ * as "pinned" promotes that version's *default* into a decision the user never
+ * made, landing the Index summoned and the Agenda parked. Both halves of the
+ * frame move together instead, to the 2.0 default.
+ *
+ * `editorWidth` goes the same way: 1.9.0 persisted it while nothing read it, so
+ * a stale 'medium' nobody chose would outrank 2.0's 'wide' and hand upgraders a
+ * narrower column than a fresh install. It cannot be told apart by validity —
+ * 'medium' is a perfectly valid width — so the chrome modes discriminate
+ * instead: 2.0 always writes them and 1.9.0 never did. That also keeps this
+ * function idempotent, which matters because `merge` re-runs it on every
+ * hydration, including on payloads it has already migrated.
+ *
+ * A mode already in the payload is a real 2.0 choice and is always preserved.
+ *
+ * Exported for tests because silently changing the app's whole frame on upgrade
+ * is exactly the regression worth pinning down.
  */
 export function migrateSettingsState(
   persisted: unknown,
@@ -189,16 +205,14 @@ export function migrateSettingsState(
 ): Record<string, unknown> {
   const legacy = (persisted ?? {}) as Record<string, unknown>;
   const state = { ...legacy };
+  const predatesChromeModes = !isChromeMode(legacy.indexMode) && !isChromeMode(legacy.agendaMode);
 
-  if (!isChromeMode(state.indexMode)) {
-    state.indexMode = state.showSidebar === true ? 'pinned' : 'overlay';
-  }
-  if (!isChromeMode(state.agendaMode)) {
-    state.agendaMode = state.showRightPanel === true ? 'pinned' : 'overlay';
-  }
+  if (!isChromeMode(state.indexMode)) state.indexMode = defaultSettings.indexMode;
+  if (!isChromeMode(state.agendaMode)) state.agendaMode = defaultSettings.agendaMode;
 
   delete state.showSidebar;
   delete state.showRightPanel;
+  if (predatesChromeModes) delete state.editorWidth;
   return state;
 }
 
