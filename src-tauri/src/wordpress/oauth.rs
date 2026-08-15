@@ -197,7 +197,9 @@ pub(crate) fn begin<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
         .ok_or_else(not_configured_message)?;
     let state = random_state();
     let url = authorize_url(client_id, &state);
-    let pending = app.state::<PendingAuth>();
+    let pending = app
+        .try_state::<PendingAuth>()
+        .ok_or_else(|| "WordPress sign-in is not ready yet.".to_string())?;
     let mut slot = pending.0.lock().map_err(|e| e.to_string())?;
     // Starting a new flow abandons any previous one, so a stale state can
     // never be used to complete a different attempt.
@@ -211,7 +213,13 @@ pub(crate) fn begin<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
 /// Take the pending state if `given` matches it. Consuming on success is what
 /// makes a captured callback single-use.
 fn take_matching_state<R: Runtime>(app: &AppHandle<R>, given: &str) -> Result<(), String> {
-    let pending = app.state::<PendingAuth>();
+    // `state()` panics when nothing of the type is managed, and this runs off
+    // an OS-delivered URL: a cold start can hand us a callback before setup
+    // has registered the slot. There is no flow in progress in that case, so
+    // the callback is unsolicited by definition — refuse it, do not crash.
+    let pending = app
+        .try_state::<PendingAuth>()
+        .ok_or_else(|| "No WordPress.com sign-in was in progress.".to_string())?;
     let mut slot = pending.0.lock().map_err(|e| e.to_string())?;
     let Some(current) = slot.as_ref() else {
         return Err("No WordPress.com sign-in was in progress.".into());
