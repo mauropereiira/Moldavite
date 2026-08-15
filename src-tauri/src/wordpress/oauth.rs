@@ -38,8 +38,21 @@ pub(crate) const CALLBACK_PREFIX: &str = "moldavite://oauth/wordpress";
 const AUTHORIZE_URL: &str = "https://public-api.wordpress.com/oauth2/authorize";
 const TOKEN_URL: &str = "https://public-api.wordpress.com/oauth2/token";
 
-/// `posts` covers creating and updating; `media` is needed for images later.
-const SCOPE: &str = "posts media";
+/// Account-wide, because WordPress.com ties multi-site access to this scope
+/// and nothing narrower.
+///
+/// `posts media` is the grant this feature actually uses, and it is the one we
+/// asked for first. But WordPress.com issues a **site-scoped** token for it:
+/// the consent screen makes the user pick one site, `/me/sites` then reports
+/// only that site, and changing blogs means disconnecting and reconnecting.
+/// There is no narrow scope that spans sites — `global` is the only one that
+/// does, so the choice is account-wide access or a single-site connection.
+///
+/// The cost is visible to every user: the consent screen lists nine
+/// permissions rather than two, including profile, comments and taxonomies
+/// that this feature never touches. That is WordPress.com's granularity, not
+/// ours; we still only ever call the posts and media endpoints.
+const SCOPE: &str = "global";
 
 /// Keychain account holding the bearer token. Namespaced like the others.
 const TOKEN_ACCOUNT: &str = "wordpress:access_token";
@@ -197,7 +210,9 @@ pub(crate) fn begin<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
         .ok_or_else(not_configured_message)?;
     let state = random_state();
     let url = authorize_url(client_id, &state);
-    let pending = app.state::<PendingAuth>();
+    let pending = app
+        .try_state::<PendingAuth>()
+        .ok_or_else(|| "WordPress sign-in is not ready yet.".to_string())?;
     let mut slot = pending.0.lock().map_err(|e| e.to_string())?;
     // Starting a new flow abandons any previous one, so a stale state can
     // never be used to complete a different attempt.
@@ -211,7 +226,13 @@ pub(crate) fn begin<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
 /// Take the pending state if `given` matches it. Consuming on success is what
 /// makes a captured callback single-use.
 fn take_matching_state<R: Runtime>(app: &AppHandle<R>, given: &str) -> Result<(), String> {
-    let pending = app.state::<PendingAuth>();
+    // `state()` panics when nothing of the type is managed, and this runs off
+    // an OS-delivered URL: a cold start can hand us a callback before setup
+    // has registered the slot. There is no flow in progress in that case, so
+    // the callback is unsolicited by definition — refuse it, do not crash.
+    let pending = app
+        .try_state::<PendingAuth>()
+        .ok_or_else(|| "No WordPress.com sign-in was in progress.".to_string())?;
     let mut slot = pending.0.lock().map_err(|e| e.to_string())?;
     let Some(current) = slot.as_ref() else {
         return Err("No WordPress.com sign-in was in progress.".into());
@@ -318,8 +339,19 @@ mod tests {
         assert!(url.contains("client_id=abc123"));
         assert!(url.contains("response_type=code"));
         assert!(url.contains("redirect_uri=moldavite%3A%2F%2Foauth%2Fwordpress"));
-        assert!(url.contains("scope=posts%20media"));
+        assert!(url.contains("scope=global"));
         assert!(url.contains("state=st.ate"));
+    }
+
+    // Narrowing this scope looks like an obvious privacy win and silently
+    // breaks multi-site: WordPress.com hands back a token good for one site,
+    // `/me/sites` reports only that site, and the footer's site picker has
+    // nothing to switch between. Verified against the live consent screen —
+    // `posts media` renders a single-site selector, `global` does not. If you
+    // want to tighten this, the site picker has to go in the same change.
+    #[test]
+    fn scope_stays_account_wide_so_the_site_picker_has_sites_to_pick() {
+        assert_eq!(SCOPE, "global");
     }
 
     #[test]

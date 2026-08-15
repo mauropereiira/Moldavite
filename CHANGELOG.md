@@ -2,6 +2,17 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.1.1] - 2026-08-15
+
+### Changed
+
+- **Connecting WordPress.com now covers every site on your account, so the site picker can switch between them.** The first release asked only for posts and media, which sounds careful but returns a token valid for one site — the picker had nothing to pick, and changing blogs meant disconnecting. Account-wide access is the only WordPress.com scope that spans sites. So the consent screen now lists nine permissions instead of two; Moldavite still calls only the posts and media endpoints. If you connected before this release, disconnect and connect again to see all your sites.
+
+### Fixed
+
+- **A WordPress.com sign-in arriving while the app was still starting could crash it.** macOS launches Moldavite to deliver the callback, so on a cold start it can arrive before setup finishes. Looking for the pending sign-in at that moment took the process down instead of finding nothing. The callback is now declined, as any unsolicited one is.
+- **Removed 120 lines of unused constants.** `src/lib/constants.ts` was early scaffolding: 69 of its 70 exports had no callers. The one that did now lives beside the store that uses it.
+
 ## [2.1.0] - 2026-08-15
 
 ### Added

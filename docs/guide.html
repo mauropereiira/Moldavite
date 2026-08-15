@@ -543,7 +543,41 @@
         until you review it again.
       </p>
 
+      <h3>Publish to WordPress.com from the editor footer</h3>
+      <p>
+        If you write on WordPress.com, nothing needs installing. Open a note and select
+        <strong>WordPress</strong> in the editor footer, then <strong>Connect
+        WordPress.com…</strong>. Your browser opens, you sign in and approve, and the browser hands
+        you back to Moldavite. There is no credential to create, copy, or paste.
+      </p>
+      <p>
+        Once connected, the same button lists the sites you can publish to. Pick one and select
+        <strong>Publish</strong>. The first publish creates a draft; publishing that note again
+        updates the same draft rather than leaving another one behind. The mapping is remembered per
+        site, so the same note published to two blogs is two posts.
+      </p>
+      <p>
+        Sites you can only read are left out of the list — they look like a choice and fail on use.
+        <strong>Disconnect</strong> removes the stored token and forgets which posts came from which
+        notes. You can also revoke access from WordPress.com under Security → Connected
+        Applications.
+      </p>
+      <div class="callout">
+        <span class="callout-title">Why the consent screen asks for so much</span>
+        <p>
+          WordPress.com lists nine permissions on that screen. Moldavite uses two of them: listing
+          the sites you can publish to, and creating or updating a post. The narrower grant
+          WordPress.com offers returns a token valid for one site only, which would leave the site
+          list with nothing to switch between. See the
+          <a href="privacy.html#wordpress">privacy policy</a> for the detail.
+        </p>
+      </div>
+
       <h3>Install the first-party WordPress reference</h3>
+      <p>
+        This plugin is for <strong>self-hosted</strong> WordPress, which has no WordPress.com
+        account to sign in with. On WordPress.com, use the footer button above instead.
+      </p>
       <ol>
         <li>Open <strong>Settings → Plugins</strong>.</li>
         <li>Select <strong>Install Publish to WordPress</strong>, then enable the plugin.</li>
@@ -565,8 +599,9 @@
         <span class="callout-title">WordPress.com support boundary</span>
         <p>
           Self-hosted WordPress and WordPress.com Jetpack/Atomic sites work when they expose the
-          standard REST API and Application Passwords. WordPress.com Simple sites require OAuth with
-          a separately registered client ID and are not supported by this plugin.
+          standard REST API and Application Passwords. WordPress.com Simple sites cannot use
+          Application Passwords at all, so this plugin does not reach them — that is what the
+          built-in <strong>WordPress</strong> button in the editor footer is for.
         </p>
       </div>
 

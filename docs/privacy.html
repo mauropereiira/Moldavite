@@ -112,6 +112,7 @@
         <a href="#what-we-collect">What Moldavite collects</a>
         <a href="#your-notes">Your notes and where they live</a>
         <a href="#network">Every network connection</a>
+        <a href="#wordpress">What connecting WordPress.com grants</a>
         <a href="#calendar">Calendar access</a>
         <a href="#google-limited-use">Google API Limited Use</a>
         <a href="#credentials">Credentials and secrets</a>
@@ -227,12 +228,36 @@
             </tr>
             <tr>
               <td>Publishing to WordPress</td>
-              <td>Only when you publish a note</td>
-              <td>The note you chose to publish, to the site you configured.</td>
+              <td>Only when you publish a note, and once when you connect</td>
+              <td>
+                The note you chose to publish, to the site you chose. Connecting also asks
+                WordPress.com which sites you can publish to, so the picker can list them.
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <h2 id="wordpress">What connecting WordPress.com grants</h2>
+      <p>
+        WordPress.com's consent screen lists nine permissions — your profile, posts, comments,
+        categories and more. That is broader than what Moldavite does, and it is worth explaining
+        rather than hoping you skim it.
+      </p>
+      <p>
+        Moldavite calls two things: the endpoint that lists the sites you can publish to, and the
+        one that creates or updates a post. It never reads your profile, never touches comments,
+        and never writes a category. The breadth comes from WordPress.com's own scopes: the
+        narrower <code>posts media</code> grant returns a token valid for a single site, which
+        would leave the site picker with nothing to pick and make changing blogs a matter of
+        disconnecting and starting over. Account-wide access is the only scope that spans sites.
+      </p>
+      <p>
+        The token is stored in your operating system's credential store, never in a note or a
+        config file, and never sent anywhere except WordPress.com. Disconnecting deletes it, along
+        with the record of which posts came from which notes. You can also revoke it from
+        WordPress.com at any time, under Security → Connected Applications.
+      </p>
 
       <h2 id="calendar">Calendar access</h2>
       <p>
