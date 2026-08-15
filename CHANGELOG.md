@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.0.1] - 2026-08-15
+
+### Fixed
+
+- **The pointer went missing over the release notes.** On the welcome screen the asteroid stands in for your cursor, and the real one is hidden to make room for it. Anything opening above that screen — the What's New notes, a confirmation, Settings — left the cursor hidden while the asteroid was the wrong thing to be pointing at a dialog with. The real pointer now comes back whenever a dialog is open, and the asteroid steps aside until it closes.
+
 ## [2.0.0] - 2026-08-15
 
 Moldavite has been redesigned. Not restyled — rebuilt around one idea: your

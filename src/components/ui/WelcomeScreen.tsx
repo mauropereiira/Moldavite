@@ -196,6 +196,36 @@ function AsteroidCursor() {
       });
     };
 
+    /**
+     * The asteroid is a flourish for the welcome screen; a dialog is a task.
+     * While one is open — release notes, a confirmation, Settings — the real
+     * pointer comes back and the asteroid stands down. Without this the
+     * cursor is hidden by CSS while an arrow is what the dialog's buttons
+     * actually need, which reads as the pointer having vanished.
+     *
+     * Driven by a MutationObserver rather than the animation loop: a dialog
+     * can open under a stationary mouse, so waiting for the next pointermove
+     * would leave the cursor hidden until you happened to move it. The
+     * observer also keeps this off the per-frame path, where a repeated
+     * document-wide query would be pure waste, and it still fires when the
+     * window is backgrounded and rAF is throttled.
+     */
+    let yielded = false;
+    const syncYield = () => {
+      const modalOpen = document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
+      if (modalOpen === yielded) return;
+      yielded = modalOpen;
+      document.documentElement.classList.toggle('welcome-asteroid-yielded', modalOpen);
+      const visibility = modalOpen ? 'hidden' : 'visible';
+      asteroid.style.visibility = visibility;
+      trailRefs.current.forEach((dot) => {
+        if (dot) dot.style.visibility = visibility;
+      });
+    };
+    const overlayObserver = new MutationObserver(syncYield);
+    overlayObserver.observe(document.body, { childList: true, subtree: true });
+    syncYield();
+
     const handlePointerMove = (event: globalThis.PointerEvent) => {
       target.x = event.clientX;
       target.y = event.clientY;
@@ -238,9 +268,11 @@ function AsteroidCursor() {
 
     return () => {
       cancelAnimationFrame(frame);
+      overlayObserver.disconnect();
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('click', handleClick, true);
       document.documentElement.classList.remove('welcome-asteroid-cursor-active');
+      document.documentElement.classList.remove('welcome-asteroid-yielded');
     };
   }, []);
 

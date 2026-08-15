@@ -3536,8 +3536,13 @@ button[aria-expanded='true'] .wn-caret {
   }
 }
 
-html.welcome-asteroid-cursor-active,
-html.welcome-asteroid-cursor-active * {
+/* The asteroid replaces the pointer, so the real one is hidden — but only
+   while the pointer is over the welcome screen itself. `welcome-asteroid-yielded`
+   is set the moment it moves onto anything rendered above (release notes, a
+   dialog, Settings), because the asteroid is painted underneath those and
+   hiding the cursor there leaves nothing visible to point with. */
+html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded),
+html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   cursor: none !important;
 }
 
