@@ -130,6 +130,14 @@ jobs:
           # Tauri updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Provider credentials are read by `option_env!`, so they must be
+          # present when cargo compiles or the feature ships disabled and says
+          # so. Absent secrets resolve to empty strings, which is exactly the
+          # "not configured" path — a build without them still succeeds.
+          MOLDAVITE_WPCOM_CLIENT_ID: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_ID }}
+          MOLDAVITE_WPCOM_CLIENT_SECRET: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_SECRET }}
+          MOLDAVITE_GOOGLE_CLIENT_ID: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_ID }}
+          MOLDAVITE_GOOGLE_CLIENT_SECRET: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_SECRET }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}

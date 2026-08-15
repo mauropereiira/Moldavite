@@ -1,6 +1,6 @@
 {
   "name": "moldavite",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "A local-first note-taking app for connected thinking. Forged from cosmic impact.",
   "type": "module",
   "scripts": {
@@ -18,7 +18,8 @@
     "lint": "eslint . --ext ts,tsx",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "dev:app": "node scripts/dev-with-secrets.mjs"
   },
   "keywords": [
     "notes",

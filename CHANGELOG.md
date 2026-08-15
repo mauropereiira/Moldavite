@@ -2,6 +2,17 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.1.0] - 2026-08-15
+
+### Added
+
+- **Publish a note to WordPress.com by signing in, not by minting a password.** A WordPress button appears in the editor footer. Connect once in your browser, pick a site, and publish — the first run creates a draft and later runs update it rather than scattering new ones. Publishing until now meant opening wp-admin, creating an Application Password and pasting it back, which also could not work at all for WordPress.com Simple sites. That path remains available as a plugin for self-hosted sites, which have no WordPress.com account to sign in with. Sites you can only read are left out of the picker: they look like a choice and fail on use.
+
+### Fixed
+
+- **Links inside a note are visible without hovering them.** A link in a paragraph was the same colour as the text around it and only drew its underline when the pointer arrived, so there was nothing to tell you it was there. Links now carry the hue each theme already defined for them, and keep a quiet underline at rest that comes up on hover. Colour alone was not enough — in several themes the link hue sits very close to the body text, so anyone who cannot separate those two would still have had no signal.
+- **The editor footer no longer clips its own labels.** The row's line height was set to exactly the font size, leaving the tops of letters outside the line box.
+
 ## [2.0.2] - 2026-08-15
 
 ### Fixed
