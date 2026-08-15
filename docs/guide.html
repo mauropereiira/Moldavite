@@ -44,12 +44,20 @@
     <link rel="stylesheet" href="styles.css" />
     <script>
       document.documentElement.classList.add('has-js');
+      // Restore a saved dark choice before the first paint; site.js is deferred,
+      // so without this a returning visitor gets a frame of the wrong theme.
+      try {
+        if (localStorage.getItem('moldavite-site-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        /* localStorage throws in some privacy modes; cream is a fine fallback */
+      }
     </script>
     <script src="site.js" defer></script>
   </head>
   <body class="docs-page">
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="site-guides" aria-hidden="true"></div>
     <header class="site-header">
       <div class="nav-inner">
         <a href="index.html" class="brand" aria-label="Moldavite home">
@@ -73,10 +81,14 @@
         </button>
         <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html" aria-current="page">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
           <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark">
+            <span class="theme-toggle-mark" aria-hidden="true"></span>
+          </button>
           <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
             >Download</a
           >
@@ -725,6 +737,7 @@
         </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>

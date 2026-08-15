@@ -63,7 +63,7 @@
   </head>
   <body class="home-page">
     <a class="skip-link" href="#main">Skip to content</a>
-    <div class="site-guides" aria-hidden="true"></div>
+    <canvas class="sky" data-sky aria-hidden="true"></canvas>
 
     <header class="site-header">
       <div class="nav-inner">
@@ -88,6 +88,7 @@
         </button>
         <nav class="nav-links" id="site-nav" aria-label="Primary">
           <a href="index.html" aria-current="page">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>
@@ -104,7 +105,6 @@
 
     <main id="main" tabindex="-1">
       <section class="hero" aria-labelledby="hero-title">
-        <canvas class="sky" data-sky aria-hidden="true"></canvas>
         <div class="container-wide hero-inner reveal">
           <h1 id="hero-title" class="hero-wordmark" aria-label="Moldavite">
             <svg viewBox="0 0 4129.2 822.5" aria-hidden="true" focusable="false">
@@ -139,67 +139,11 @@
             <strong>Notes that stay yours.</strong> Moldavite keeps every note as a Markdown file on
             your computer, with local search and a built-in bridge for the AI tools you choose.
           </p>
-          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="hero-link"
-            >Download Moldavite <span aria-hidden="true">↗</span></a
-          >
-        </div>
-      </section>
-
-      <section class="landing-section demo-section" id="demo" aria-labelledby="demo-title">
-        <div class="container-wide">
-          <div class="section-heading reveal">
-            <p class="section-kicker">Try it here</p>
-            <h2 class="section-title" id="demo-title">Write a note. Keep the file.</h2>
-            <p class="section-sub">
-              This editor runs in your browser. Nothing is uploaded and nothing is saved anywhere.
-              Write something, download it, and drop the file into your Forge — it opens in
-              Moldavite because it was a Markdown file the whole time.
-            </p>
-          </div>
-
-          <div class="demo reveal" data-demo>
-            <div class="demo-paper">
-              <label class="visually-hidden" for="demo-note-title">Note title</label>
-              <input
-                id="demo-note-title"
-                class="demo-title-input"
-                type="text"
-                value="Impact glass"
-                maxlength="80"
-                spellcheck="false"
-                autocomplete="off"
-                data-demo-title
-              />
-              <label class="visually-hidden" for="demo-note-body">Note</label>
-              <textarea
-                id="demo-note-body"
-                class="demo-body"
-                rows="12"
-                spellcheck="false"
-                data-demo-body
-              >
-## Where the name comes from
-
-Moldavite is a natural glass, formed roughly 15 million years ago when a meteorite struck what is now southern Germany. The heat threw molten rock far enough that it cooled in the air on the way down, and landed as green glass.
-
-- One impact, one material
-- Found in only a few places on Earth
-- Older than the idea of writing anything down
-
-A [[wiki link]] points at another note. **Bold** and *italic* behave the way you would expect, because none of this is a special format — it is only Markdown, and it stays that way on your disk.
-</textarea
-              >
-            </div>
-
-            <div class="demo-footer">
-              <p class="demo-hint" data-demo-hint>
-                Downloads as <code data-demo-filename>impact-glass.md</code>. Move it into
-                <code>Moldavite/&lt;your Forge&gt;/notes/</code> and it appears next launch.
-              </p>
-              <button type="button" class="button-primary" data-demo-download>
-                Download the file
-              </button>
-            </div>
+          <div class="hero-actions">
+            <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="hero-link"
+              >Download Moldavite <span aria-hidden="true">↗</span></a
+            >
+            <a href="demo.html" class="hero-link hero-link-quiet">Write a note first</a>
           </div>
         </div>
       </section>
@@ -336,6 +280,7 @@ A [[wiki link]] points at another note. **Bold** and *italic* behave the way you
         </a>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
+          <a href="demo.html">Demo</a>
           <a href="guide.html">Guide</a>
           <a href="plugins.html">Plugins</a>
           <a href="privacy.html">Privacy</a>

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#F9F6ED" />
+    <title>Try Moldavite | Write a note in your browser</title>
+    <meta property="og:title" content="Moldavite" />
+    <meta
+      property="og:description"
+      content="Notes that stay yours. Plain Markdown on your computer, local search, and a built-in MCP server for the AI tools you choose."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mauropereiira.github.io/Moldavite/demo.html" />
+    <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server."
+    />
+    <meta property="og:site_name" content="Moldavite" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Moldavite" />
+    <meta
+      name="twitter:description"
+      content="Notes that stay yours. Plain Markdown on your computer, local search, and a built-in MCP server for the AI tools you choose."
+    />
+    <meta name="twitter:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
+    <link rel="canonical" href="https://mauropereiira.github.io/Moldavite/demo.html" />
+    <meta
+      name="description"
+      content="Write a note in your browser, download it as Markdown, and drop it straight into Moldavite. Nothing is uploaded."
+    />
+    <link rel="icon" href="favicon.png" />
+    <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link
+      rel="preload"
+      href="fonts/GeistMono-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add('has-js');
+      // Restore a saved dark choice before the first paint. site.js does this
+      // too, but it is deferred, so a returning dark-mode visitor would get a
+      // frame of cream first. Inline and render-blocking on purpose: it is two
+      // lines, against a flash on every single load.
+      // Cream stays the default — this reads an explicit choice and nothing
+      // else. There is deliberately no prefers-color-scheme anywhere.
+      try {
+        if (localStorage.getItem('moldavite-site-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        /* localStorage throws in some privacy modes; cream is a fine fallback */
+      }
+    </script>
+    <script src="site.js" defer></script>
+    <script src="demo.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="nav-inner">
+        <a href="index.html" class="brand" aria-label="Moldavite home">
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
+          <span>Moldavite</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Open navigation"
+          aria-expanded="false"
+          aria-controls="site-nav"
+        >
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </button>
+        <nav class="nav-links" id="site-nav" aria-label="Primary">
+          <a href="index.html">Home</a>
+          <a href="demo.html" aria-current="page">Demo</a>
+          <a href="guide.html">Guide</a>
+          <a href="plugins.html">Plugins</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="https://github.com/mauropereiira/Moldavite">GitHub</a>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark">
+            <span class="theme-toggle-mark" aria-hidden="true"></span>
+          </button>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest" class="nav-cta"
+            >Download</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="landing-section demo-section" id="demo" aria-labelledby="demo-title">
+        <div class="container-wide">
+          <div class="section-heading reveal">
+            <p class="section-kicker">Try it here</p>
+            <h2 class="section-title" id="demo-title">Write a note. Keep the file.</h2>
+            <p class="section-sub">
+              This editor runs in your browser. Nothing is uploaded and nothing is saved anywhere.
+              Write something, download it, and drop the file into your Forge — it opens in
+              Moldavite because it was a Markdown file the whole time.
+            </p>
+          </div>
+
+          <div class="demo reveal" data-demo>
+            <div class="demo-paper">
+              <label class="visually-hidden" for="demo-note-title">Note title</label>
+              <input
+                id="demo-note-title"
+                class="demo-title-input"
+                type="text"
+                value="Impact glass"
+                maxlength="80"
+                spellcheck="false"
+                autocomplete="off"
+                data-demo-title
+              />
+              <label class="visually-hidden" for="demo-note-body">Note</label>
+              <textarea
+                id="demo-note-body"
+                class="demo-body"
+                rows="12"
+                spellcheck="false"
+                data-demo-body
+              >
+## Where the name comes from
+
+Moldavite is a natural glass, formed roughly 15 million years ago when a meteorite struck what is now southern Germany. The heat threw molten rock far enough that it cooled in the air on the way down, and landed as green glass.
+
+- One impact, one material
+- Found in only a few places on Earth
+- Older than the idea of writing anything down
+
+A [[wiki link]] points at another note. **Bold** and *italic* behave the way you would expect, because none of this is a special format — it is only Markdown, and it stays that way on your disk.
+</textarea
+              >
+            </div>
+
+            <div class="demo-footer">
+              <p class="demo-hint" data-demo-hint>
+                Downloads as <code data-demo-filename>impact-glass.md</code>. Move it into
+                <code>Moldavite/&lt;your Forge&gt;/notes/</code> and it appears next launch.
+              </p>
+              <button type="button" class="button-primary" data-demo-download>
+                Download the file
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <a href="index.html" class="footer-brand" aria-label="Moldavite home">
+          <svg class="brand-mark" viewBox="0 0 1074.5 1074.5" aria-hidden="true">
+            <path
+              transform="translate(116 904.8) scale(1 -1)"
+              d="M208 426.25 421.25 65 634.5 426.25 682.5 0H805L708.75 735L421.25 260.25L133.75 735L37.5 0H160Z"
+            />
+          </svg>
+          <span>Moldavite</span>
+        </a>
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="guide.html">Guide</a>
+          <a href="plugins.html">Plugins</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
+        </nav>
+        <div class="footer-ecosystem">
+          <a href="https://github.com/mauropereiira/moldavite-skills">Skills</a>
+          <a href="https://github.com/mauropereiira/homebrew-moldavite">Homebrew</a>
+          <a href="https://github.com/mauropereiira/Moldavite">Source</a>
+        </div>
+        <p class="footer-meta">Made by Mauro Pereira · MIT License</p>
+      </div>
+    </footer>
+  </body>
+</html>

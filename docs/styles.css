@@ -15,6 +15,10 @@
      re-reads them when the theme flips, so the sky recolours with the page
      instead of carrying its own hardcoded palette. */
   --star: rgba(14, 13, 10, 0.22);
+  /* Depth. Distant stars sit back, near ones come forward, so the parallax
+     reads as depth rather than as two sheets sliding past each other. */
+  --star-far: rgba(14, 13, 10, 0.11);
+  --star-near: rgba(14, 13, 10, 0.34);
   --star-bright: rgba(14, 13, 10, 0.46);
   --meteor: rgba(14, 13, 10, 0.5);
   --asteroid: #0e0d0a;
@@ -27,9 +31,21 @@
   --container: 90rem;
   --measure: 68ch;
   --gutter: clamp(1.25rem, 4vw, 4.5rem);
-  --section-y: clamp(8rem, 14vw, 15rem);
+  /* Was clamp(8rem, 14vw, 15rem) — 240px of air between every section, which
+     read as a page that had lost its content rather than one with confidence. */
+  --section-y: clamp(5rem, 8vw, 8rem);
   --radius: 0;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* The app's motion tokens, verbatim from src/index.css. The site used one
+     easing curve of its own invention; a button that presses differently in
+     the two places is the kind of seam people feel without naming. */
+  --dur-press: 90ms;
+  --dur-micro: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease: var(--ease-standard);
 }
 
 /* Dark is opt-in and nothing else.
@@ -57,6 +73,8 @@
   /* Stars carry the night rather than fighting it, so they get brighter here
      than their light-mode counterparts rather than merely inverted. */
   --star: rgba(249, 246, 237, 0.3);
+  --star-far: rgba(249, 246, 237, 0.16);
+  --star-near: rgba(249, 246, 237, 0.52);
   --star-bright: rgba(249, 246, 237, 0.72);
   --meteor: rgba(249, 246, 237, 0.75);
   --asteroid: #f9f6ed;
@@ -234,17 +252,6 @@ main:focus {
   transform: translateY(0);
 }
 
-.site-guides {
-  position: fixed;
-  z-index: 0;
-  inset-block: 0;
-  inset-inline: 0;
-  width: min(calc(100% - (2 * var(--gutter))), var(--container));
-  margin-inline: auto;
-  border-inline: 1px solid var(--rule);
-  pointer-events: none;
-}
-
 .container-wide,
 .container {
   width: min(calc(100% - (2 * var(--gutter))), var(--container));
@@ -367,16 +374,22 @@ main:focus {
 }
 
 .hero {
+  position: relative;
   display: flex;
   min-height: calc(100svh - 5.5rem);
   align-items: center;
-  padding-block: clamp(6rem, 12vh, 10rem);
+  /* The content is vertically centred in a full-height section, so the old
+     clamp(6rem, 12vh, 10rem) was padding inside padding. Enough to keep it off
+     the edges on a short window and no more. */
+  padding-block: clamp(3rem, 6vh, 5rem);
 }
 
+/* Centred: the wordmark is the whole page, so it sits in the middle of it. */
 .hero-inner {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
 }
 
 .hero-wordmark {
@@ -391,7 +404,8 @@ main:focus {
 }
 
 .hero-lede {
-  max-width: 49rem;
+  max-width: 44rem;
+  margin-inline: auto;
   margin-block: clamp(2.75rem, 5vw, 5rem) 0;
   color: var(--ink-body);
   font-size: clamp(1rem, 1.4vw, 1.25rem);
@@ -426,10 +440,16 @@ main:focus {
 }
 
 .section-heading {
-  display: grid;
-  grid-template-columns: minmax(8rem, 0.26fr) minmax(0, 1fr);
-  gap: 1.5rem 4rem;
-  margin-block-end: clamp(5rem, 9vw, 9rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: clamp(2.5rem, 5vw, 4.5rem);
+  text-align: center;
+}
+
+.section-heading > * {
+  margin-inline: auto;
 }
 
 .section-kicker,
@@ -503,11 +523,61 @@ main:focus {
   border-color: var(--rule-strong);
 }
 
+/* Motion borrowed from the app's .btn so a press feels the same in both:
+   120ms on colour and border, and a 0.98 scale on :active. The rule under the
+   label is the affordance, so it is the thing that animates — it wipes in from
+   the left on hover rather than just changing colour. */
+.button-primary,
+.button-secondary,
+.directory-install-button,
+.hero-link,
+.text-link {
+  position: relative;
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    border-color var(--dur-micro) var(--ease-standard),
+    transform var(--dur-press) var(--ease-standard);
+}
+
+.button-primary::after,
+.button-secondary::after,
+.directory-install-button::after,
+.hero-link::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
 .button-primary:hover,
 .button-secondary:hover,
-.directory-install-button:hover {
+.directory-install-button:hover,
+.hero-link:hover {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.button-primary:hover::after,
+.button-secondary:hover::after,
+.directory-install-button:hover::after,
+.hero-link:hover::after,
+.button-primary:focus-visible::after,
+.button-secondary:focus-visible::after,
+.hero-link:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.button-primary:active,
+.button-secondary:active,
+.directory-install-button:active,
+.hero-link:active {
+  transform: scale(0.98);
 }
 
 .button-primary.compact,
@@ -1574,10 +1644,12 @@ main:focus {
   white-space: nowrap;
 }
 
-/* The sky sits behind the hero and is never interactive. It is sized in JS
-   against devicePixelRatio; the element itself just fills its section. */
+/* The sky is a page-level backdrop, fixed behind everything and never
+   interactive. site.js sizes it against devicePixelRatio and drives the drift.
+   It lives only on the home page: guide, plugins and privacy are for reading,
+   and a moving field behind long prose is a cost with no benefit. */
 .sky {
-  position: absolute;
+  position: fixed;
   z-index: 0;
   inset: 0;
   width: 100%;
@@ -1727,5 +1799,58 @@ main:focus {
   .demo-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Centred hero, quieter rhythm
+   --------------------------------------------------------------------------- */
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  margin-block-start: 2.5rem;
+}
+
+.hero-actions .hero-link {
+  margin-block-start: 0;
+}
+
+/* The second action is an alternative, not a rival to Download. */
+.hero-link-quiet {
+  border-color: var(--rule-strong);
+  color: var(--ink-mute);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.hero-link-quiet:hover {
+  color: var(--ink);
+}
+
+/* Claims read as one centred row rather than three stacked columns of prose. */
+.claims {
+  text-align: center;
+}
+
+.claims p {
+  margin-inline: auto;
+}
+
+.demo-section .demo-footer {
+  justify-content: center;
+}
+
+.demo-hint {
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .hero-actions {
+    flex-direction: column;
+    gap: 1.5rem;
   }
 }
