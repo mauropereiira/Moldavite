@@ -20,6 +20,15 @@ const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 pkg.version = version;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
+// package-lock.json — the root project's own two version fields. npm ci does
+// not fail on a stale one, which is exactly why this drifted four releases
+// behind before anyone noticed.
+const lockJsonPath = join(root, 'package-lock.json');
+const lockJson = JSON.parse(readFileSync(lockJsonPath, 'utf8'));
+lockJson.version = version;
+if (lockJson.packages?.['']) lockJson.packages[''].version = version;
+writeFileSync(lockJsonPath, JSON.stringify(lockJson, null, 2) + '\n');
+
 // tauri.conf.json
 const confPath = join(root, 'src-tauri', 'tauri.conf.json');
 const conf = JSON.parse(readFileSync(confPath, 'utf8'));
@@ -44,4 +53,6 @@ lock = lock.replace(
 );
 writeFileSync(lockPath, lock);
 
-console.log(`Bumped version to ${version} in package.json, tauri.conf.json, Cargo.toml, Cargo.lock`);
+console.log(
+  `Bumped version to ${version} in package.json, package-lock.json, tauri.conf.json, Cargo.toml, Cargo.lock`
+);
