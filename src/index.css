@@ -3395,6 +3395,16 @@ button[aria-expanded='true'] .wn-caret {
 .editor-footer-left {
   display: flex;
   align-items: center;
+  /* Yields before the action buttons do. A truncated word count still reads as
+     a word count; a truncated "WORDPRESS" reads as nothing. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.editor-footer-right {
+  flex: 0 0 auto;
 }
 
 .editor-footer-left > * {
@@ -3725,7 +3735,14 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 }
 
 .editor-footer .toolbar-button {
-  min-width: 0;
+  /* These buttons are their labels — there is no icon to fall back on, so a
+     shrunk one is not "smaller", it is unreadable. `.toolbar-button` carries
+     `overflow: hidden` for its press effect, and a flex item that shrinks past
+     its text then clips it symmetrically: COLOUR renders as "OLOU", WORDPRESS
+     as "DPR". Refusing to shrink is what keeps the labels whole; the word
+     count on the left yields instead, and it can afford to. */
+  flex: 0 0 auto;
+  min-width: max-content;
   height: 32px;
   padding: 0;
   color: var(--text-muted);
