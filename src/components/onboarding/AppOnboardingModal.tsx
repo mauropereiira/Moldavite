@@ -25,7 +25,6 @@ import {
   Edit3,
   Network,
   Search,
-  RefreshCw,
   Bot,
   Brain,
   FileText,
@@ -36,6 +35,7 @@ import {
 import { formatShortcut } from '@/lib/shortcuts';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { DotLoader } from '@/components/ui/DotLoader';
 import { useNoteStore } from '@/stores/noteStore';
 import {
   ensureDirectories,
@@ -223,24 +223,24 @@ export function AppOnboardingModal() {
   const tourTiles = useMemo(
     () => [
       {
-        icon: <PanelLeft className="w-5 h-5" aria-hidden="true" />,
-        title: 'Sidebar',
-        body: 'Notes, folders, and tags — all one click away.',
+        icon: <Edit3 className="w-5 h-5" aria-hidden="true" />,
+        title: 'Your note',
+        body: 'The note is the default surface.',
       },
       {
-        icon: <Edit3 className="w-5 h-5" aria-hidden="true" />,
-        title: 'Editor',
-        body: 'Markdown, [[wiki-links]], and slash commands.',
+        icon: <PanelLeft className="w-5 h-5" aria-hidden="true" />,
+        title: 'Index',
+        body: `${formatShortcut('⌘\\')} summons notes, folders, and tags.`,
       },
       {
         icon: <Network className="w-5 h-5" aria-hidden="true" />,
-        title: 'Graph view',
-        body: `See how your notes connect (${formatShortcut('⌘⇧G')}).`,
+        title: 'Agenda',
+        body: `${formatShortcut('⌘⌥\\')} summons your calendar and events.`,
       },
       {
         icon: <Search className="w-5 h-5" aria-hidden="true" />,
-        title: 'Quick switcher',
-        body: `Jump to any note instantly (${formatShortcut('⌘P')}).`,
+        title: 'Pin either',
+        body: 'Pin Index and Agenda as columns in Settings.',
       },
     ],
     []
@@ -250,7 +250,7 @@ export function AppOnboardingModal() {
 
   return (
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+      className="app-onboarding-scrim fixed inset-0 flex items-center justify-center z-50 modal-backdrop-enter"
       data-testid="app-onboarding-backdrop"
     >
       <div
@@ -272,7 +272,7 @@ export function AppOnboardingModal() {
             {steps.map((key, i) => (
               <div
                 key={key}
-                className="h-1.5 rounded-full transition-all"
+                className="h-1.5 transition-all"
                 style={{
                   width: i === stepIndex ? '1.5rem' : '0.5rem',
                   backgroundColor:
@@ -372,7 +372,7 @@ function WelcomeStep({ titleId }: { titleId: string }) {
   return (
     <div className="text-center">
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
+        className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
         style={{ backgroundColor: 'var(--accent-subtle)' }}
         aria-hidden="true"
       >
@@ -412,7 +412,7 @@ function ForgeStep({
   return (
     <div>
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
+        className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
         style={{ backgroundColor: 'var(--accent-subtle)' }}
         aria-hidden="true"
       >
@@ -463,7 +463,7 @@ function ForgeStep({
           }}
         >
           {isPicking ? (
-            <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <DotLoader label="Moving Forge" />
           ) : (
             <FolderOpen className="w-4 h-4" aria-hidden="true" />
           )}
@@ -561,7 +561,7 @@ function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeature
   return (
     <div>
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
+        className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
         style={{ backgroundColor: 'var(--accent-subtle)' }}
         aria-hidden="true"
       >
@@ -636,7 +636,7 @@ function AiSearchStep({ titleId }: { titleId: string }) {
   return (
     <div>
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
+        className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
         style={{ backgroundColor: 'var(--accent-subtle)' }}
         aria-hidden="true"
       >

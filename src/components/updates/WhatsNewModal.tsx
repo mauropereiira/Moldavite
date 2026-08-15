@@ -1,23 +1,32 @@
 /**
- * WhatsNewModal — shows release notes after the app updates to a new version.
+ * WhatsNewModal — shows compact release highlights after an app update.
  *
  * Always mounted (in App). On mount it compares the running version to the
  * persisted lastSeenVersion and opens itself when the running version is newer
  * and has a CHANGELOG entry (never on first launch). Re-openable from
  * Settings → About via useWhatsNewStore.open().
  */
-import { useEffect, useRef } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { useWhatsNewStore } from '@/stores/whatsNewStore';
-import { getReleaseNotes } from '@/lib/releaseNotes';
-import { shouldShowWhatsNew } from '@/lib/changelog';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
+import { SignatureMark } from '@/components/ui/SignatureMark';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { shouldShowWhatsNew } from '@/lib/changelog';
+import { getReleaseNotes } from '@/lib/releaseNotes';
+import { useWhatsNewStore } from '@/stores/whatsNewStore';
+
+const RELEASES_URL = 'https://github.com/mauropereiira/Moldavite/releases';
 
 export function WhatsNewModal() {
   const { isOpen, entry, open, close, markSeen } = useWhatsNewStore();
+  const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(dialogRef, isOpen);
+
+  const handleClose = useCallback(() => {
+    setExpandedVersion(null);
+    close();
+  }, [close]);
 
   // Launch check: show notes once per upgrade. Never blocks app startup.
   useEffect(() => {
@@ -50,96 +59,126 @@ export function WhatsNewModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      handleClose();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose, isOpen]);
+
   if (!isOpen || !entry) return null;
+
+  const headlineGroups = entry.groups.filter((group) => group.title.toLowerCase() !== 'fixed');
+  const fixedItems = entry.groups
+    .filter((group) => group.title.toLowerCase() === 'fixed')
+    .flatMap((group) => group.items);
+  const fixesExpanded = expandedVersion === entry.version;
+  const fixesLabel = `${fixedItems.length} ${fixedItems.length === 1 ? 'fix' : 'fixes'}`;
 
   return (
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) close();
+      className="wn-scrim"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) handleClose();
       }}
     >
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full max-w-md mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
-        style={{ borderRadius: 'var(--radius-md)' }}
+        className="wn-dialog wn-enter"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="whats-new-title"
+        aria-labelledby="wn-title"
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border-default)' }}
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles
-              aria-hidden="true"
-              className="w-5 h-5"
-              style={{ color: 'var(--accent-primary)' }}
-            />
+        <div className="wn-body">
+          <header className="wn-hero">
             <h2
-              id="whats-new-title"
-              className="text-lg font-semibold"
-              style={{ color: 'var(--text-primary)' }}
+              id="wn-title"
+              className="wn-version"
+              aria-label={`What's new in version ${entry.version}`}
             >
-              What&apos;s New in v{entry.version}
+              {entry.version}
             </h2>
-          </div>
-          <button
-            onClick={close}
-            className="p-1 transition-colors"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            aria-label="Close what's new"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            {entry.date && (
+              <div className="wn-date">
+                <SignatureMark size={12} />
+                <span>Released {entry.date}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleClose}
+              className="wn-close"
+              aria-label="Close what's new"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </header>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {entry.date && (
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {entry.date}
-            </p>
-          )}
-          {entry.groups.map((group) => (
-            <div key={group.title} className="space-y-2">
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>
-                {group.title}
-              </h3>
-              <ul className="space-y-1.5">
-                {group.items.map((item, i) => (
-                  <li
-                    key={i}
-                    className="text-sm flex gap-2"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    <span aria-hidden="true" style={{ color: 'var(--accent-primary)' }}>
-                      •
-                    </span>
-                    <span>{item}</span>
+          {headlineGroups.map((group) => (
+            <section key={group.title} className="wn-section">
+              <h3 className="wn-label">{group.title}</h3>
+              <ul className="wn-list">
+                {group.items.map((item, index) => (
+                  <li key={`${item.headline}-${index}`} className="wn-headline">
+                    {item.headline}
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           ))}
+
+          {fixedItems.length > 0 && (
+            <section className="wn-fixed-section">
+              <button
+                type="button"
+                className="wn-fixed-toggle"
+                onClick={() =>
+                  setExpandedVersion((current) =>
+                    current === entry.version ? null : entry.version
+                  )
+                }
+                aria-expanded={fixesExpanded}
+                aria-controls="wn-fixes"
+                aria-label={fixesLabel}
+              >
+                <span className="wn-label">Fixed</span>
+                <span className="wn-fix-count">
+                  {fixesLabel}
+                  <span className="wn-caret" aria-hidden="true" />
+                </span>
+              </button>
+              {fixesExpanded && (
+                <ul id="wn-fixes" className="wn-list wn-fixes-list">
+                  {fixedItems.map((item, index) => (
+                    <li key={`${item.headline}-${index}`} className="wn-headline">
+                      {item.headline}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex justify-end px-6 py-4 flex-shrink-0"
-          style={{ borderTop: '1px solid var(--border-default)' }}
-        >
+        <footer className="wn-footer">
           <button
-            onClick={close}
-            className="px-4 py-2 text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+            type="button"
+            onClick={() => void shellOpen(RELEASES_URL)}
+            className="wn-release-link"
           >
+            Full release notes
+          </button>
+          <button type="button" onClick={handleClose} className="wn-dismiss">
             Got it
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );

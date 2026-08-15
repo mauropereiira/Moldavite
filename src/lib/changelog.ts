@@ -6,9 +6,14 @@
  * return `null` rather than preventing application startup.
  */
 
+export interface ChangelogItem {
+  headline: string;
+  fullText: string;
+}
+
 export interface ChangelogGroup {
   title: string;
-  items: string[];
+  items: ChangelogItem[];
 }
 
 export interface ChangelogEntry {
@@ -18,9 +23,41 @@ export interface ChangelogEntry {
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const HEADLINE_MAX_LENGTH = 96;
 
 /** Remove markdown emphasis markers so notes render as safe plain text. */
 const stripEmphasis = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
+
+const truncateHeadline = (text: string): string => {
+  if (text.length <= HEADLINE_MAX_LENGTH) return text;
+
+  const available = text.slice(0, HEADLINE_MAX_LENGTH - 1);
+  const lastSpace = available.lastIndexOf(' ');
+  const cutAt = lastSpace >= HEADLINE_MAX_LENGTH / 2 ? lastSpace : available.length;
+  return `${available.slice(0, cutAt).trimEnd()}…`;
+};
+
+/**
+ * Turn one Markdown changelog bullet into both its compact display headline
+ * and its complete plain-text note. Bold lead-ins are authoritative; older or
+ * malformed bullets fall back to a bounded first sentence.
+ */
+export function parseChangelogBullet(rawText: string): ChangelogItem | null {
+  if (!rawText || typeof rawText !== 'string') return null;
+
+  const source = rawText.trim();
+  const fullText = stripEmphasis(source);
+  if (!fullText) return null;
+
+  const boldLead = source.match(/^\*\*(.+?)\*\*(?:\s|$)/)?.[1];
+  if (boldLead) {
+    const headline = stripEmphasis(boldLead);
+    if (headline) return { headline, fullText };
+  }
+
+  const firstSentence = fullText.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? fullText;
+  return { headline: truncateHeadline(firstSentence), fullText };
+}
 
 /**
  * Extract the section for `version` from a Keep-a-Changelog document.
@@ -60,7 +97,8 @@ export function parseChangelog(raw: string, version: string): ChangelogEntry | n
         current = { title: 'Changes', items: [] };
         groups.push(current);
       }
-      current.items.push(stripEmphasis(bullet[1]));
+      const item = parseChangelogBullet(bullet[1]);
+      if (item) current.items.push(item);
     }
   }
 

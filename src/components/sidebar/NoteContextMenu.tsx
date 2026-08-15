@@ -1,17 +1,5 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import {
-  Lock,
-  Unlock,
-  Trash2,
-  FolderInput,
-  Layers,
-  Copy,
-  Download,
-  FileDown,
-  FileText,
-  Pencil,
-} from 'lucide-react';
-import {
   exportSingleNote,
   exportNoteToPdf,
   exportNoteAsPlaintext,
@@ -21,6 +9,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore } from '@/stores';
 import type { NoteFile } from '@/types';
+import { applyImpactOrigin } from '@/lib/impactOrigin';
 
 interface NoteContextMenuProps {
   note: NoteFile;
@@ -36,7 +25,7 @@ interface NoteContextMenuProps {
   onClose: () => void;
 }
 
-const itemClass = 'w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors';
+const itemClass = 'w-full px-3 py-2 text-left text-sm transition-colors';
 
 function hoverIn(e: React.MouseEvent<HTMLButtonElement>) {
   e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
@@ -147,14 +136,14 @@ export function NoteContextMenu({
 
   return (
     <div
-      className="fixed z-[9999] py-1 min-w-[160px]"
+      ref={(node) => applyImpactOrigin(node, position)}
+      className="fixed z-[9999] py-1 min-w-[160px] modal-content-enter impact-surface"
       style={{
         left: position.x,
         top: position.y,
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-sm)',
-        boxShadow: 'var(--shadow-md)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -167,7 +156,6 @@ export function NoteContextMenu({
             onMouseEnter={hoverIn}
             onMouseLeave={hoverOut}
           >
-            <Unlock className="w-4 h-4" />
             View Note
           </button>
           <button
@@ -177,7 +165,6 @@ export function NoteContextMenu({
             onMouseEnter={hoverIn}
             onMouseLeave={hoverOut}
           >
-            <Unlock className="w-4 h-4" />
             Remove Lock
           </button>
         </>
@@ -189,7 +176,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <Lock className="w-4 h-4" />
           Lock Note
         </button>
       )}
@@ -204,7 +190,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <Layers className="w-4 h-4" />
           Open in New Tab
         </button>
       )}
@@ -216,7 +201,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <Copy className="w-4 h-4" />
           Duplicate
         </button>
       )}
@@ -231,7 +215,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <Pencil className="w-4 h-4" />
           Rename…
         </button>
       )}
@@ -243,7 +226,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <Download className="w-4 h-4" />
           Export as Markdown
         </button>
       )}
@@ -255,7 +237,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <FileDown className="w-4 h-4" />
           Export as PDF
         </button>
       )}
@@ -267,7 +248,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <FileText className="w-4 h-4" />
           Export as Plaintext
         </button>
       )}
@@ -279,7 +259,6 @@ export function NoteContextMenu({
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
-          <FolderInput className="w-4 h-4" />
           Move to Folder...
         </button>
       )}
@@ -294,7 +273,6 @@ export function NoteContextMenu({
         onMouseEnter={hoverIn}
         onMouseLeave={hoverOut}
       >
-        <Trash2 className="w-4 h-4" />
         Delete Note
       </button>
     </div>

@@ -1,24 +1,5 @@
 import { useState } from 'react';
 import { Editor } from '@tiptap/react';
-import {
-  Type,
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  Strikethrough,
-  Highlighter,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  ListTodo,
-  Quote,
-  Code,
-  Minus,
-  Link as LinkIcon,
-  Image as ImageIcon,
-} from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
 import { formatShortcut } from '@/lib/shortcuts';
 import { LinkModal } from './LinkModal';
@@ -83,51 +64,39 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         position="center"
         openDirection={openDirection}
         trigger={
-          <button className="toolbar-button" title="Formatting">
-            <Type className="w-4 h-4" />
+          <button className="toolbar-button" title="Formatting" aria-label="Formatting">
+            Format
           </button>
         }
       >
         <div className="max-h-80 overflow-y-auto">
           {/* Text Formatting */}
           <DropdownLabel>Text</DropdownLabel>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            icon={<Bold className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleBold().run()}>
             Bold
-            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘B')}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formatShortcut('⌘B')}
+            </span>
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            icon={<Italic className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleItalic().run()}>
             Italic
-            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘I')}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formatShortcut('⌘I')}
+            </span>
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-            icon={<UnderlineIcon className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleUnderline().run()}>
             Underline
-            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘U')}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formatShortcut('⌘U')}
+            </span>
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleStrike().run()}
-            icon={<Strikethrough className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleStrike().run()}>
             Strikethrough
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleHighlight().run()}
-            icon={<Highlighter className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleHighlight().run()}>
             Highlight
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            icon={<Code className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleCode().run()}>
             Inline Code
           </DropdownItem>
 
@@ -135,22 +104,13 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           {/* Headings */}
           <DropdownLabel>Headings</DropdownLabel>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            icon={<Heading1 className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
             Heading 1
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            icon={<Heading2 className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
             Heading 2
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            icon={<Heading3 className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
             Heading 3
           </DropdownItem>
 
@@ -158,44 +118,26 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           {/* Lists */}
           <DropdownLabel>Lists</DropdownLabel>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            icon={<List className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleBulletList().run()}>
             Bullet List
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            icon={<ListOrdered className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleOrderedList().run()}>
             Numbered List
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleTaskList().run()}
-            icon={<ListTodo className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleTaskList().run()}>
             Task List
           </DropdownItem>
           <DropdownDivider />
 
           {/* Blocks */}
           <DropdownLabel>Blocks</DropdownLabel>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            icon={<Quote className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleBlockquote().run()}>
             Quote
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            icon={<Code className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
             Code Block
           </DropdownItem>
-          <DropdownItem
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            icon={<Minus className="w-4 h-4" />}
-          >
+          <DropdownItem onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             Divider
           </DropdownItem>
 
@@ -203,13 +145,13 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           {/* Insert */}
           <DropdownLabel>Insert</DropdownLabel>
-          <DropdownItem onClick={handleLink} icon={<LinkIcon className="w-4 h-4" />}>
+          <DropdownItem onClick={handleLink}>
             Link
-            <span className="ml-auto text-xs text-gray-400">{formatShortcut('⌘K')}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formatShortcut('⌘K')}
+            </span>
           </DropdownItem>
-          <DropdownItem onClick={handleImage} icon={<ImageIcon className="w-4 h-4" />}>
-            Image
-          </DropdownItem>
+          <DropdownItem onClick={handleImage}>Image</DropdownItem>
         </div>
       </Dropdown>
 

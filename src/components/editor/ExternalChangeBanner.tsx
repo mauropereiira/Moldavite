@@ -65,8 +65,8 @@ export function ExternalChangeBanner() {
     <div
       className="flex items-center justify-between gap-3 px-4 py-2 text-sm border-b"
       style={{
-        backgroundColor: 'var(--warning-muted)',
-        borderColor: 'var(--warning)',
+        backgroundColor: 'transparent',
+        borderColor: 'var(--border-muted)',
         color: 'var(--text-primary)',
       }}
       role="status"

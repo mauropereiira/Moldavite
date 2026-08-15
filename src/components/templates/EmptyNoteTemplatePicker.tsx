@@ -55,14 +55,26 @@ export function EmptyNoteTemplatePicker({
       {onOpenAllTemplates && (
         <button
           onClick={onOpenAllTemplates}
-          className="px-4 py-1.5 text-xs font-medium rounded-full transition-colors bg-accent dark:bg-accent-dark text-white hover:bg-accent-light dark:hover:bg-accent"
+          className="px-4 py-1.5 text-xs font-medium transition-colors"
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-primary)',
+          }}
         >
           View all templates
         </button>
       )}
       <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
         or press{' '}
-        <kbd className="px-2 py-0.5 rounded-full text-xs font-medium bg-moldavite-200 dark:bg-moldavite-700 text-moldavite-700 dark:text-moldavite-200">
+        <kbd
+          className="px-2 py-0.5 text-xs font-medium"
+          style={{
+            backgroundColor: 'var(--bg-inset)',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-secondary)',
+          }}
+        >
           {formatShortcut('Cmd+T')}
         </kbd>
       </p>

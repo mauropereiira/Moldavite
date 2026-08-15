@@ -11,6 +11,7 @@
  *                                          encrypted backup, auto-lock,
  *                                          auto-save, clear-all (danger zone)
  * - **Appearance** (`AppearanceSection`) — theme, typography, layout
+ * - **Layout** (`LayoutSection`)          — navigation, editor and welcome chrome
  * - **Editor** (`EditorSection`)         — defaults, formatting, writing aids
  * - **Features** (`FeaturesSection`)     — editor / navigation / right-panel
  * - **Sidebar** (`SidebarSection`)       — visibility, sort, panel widths
@@ -53,6 +54,7 @@ import {
   Puzzle,
   Bot,
   FileInput,
+  PanelsTopLeft,
 } from 'lucide-react';
 import { SettingsData } from './SettingsData';
 import { AboutSection } from './sections/AboutSection';
@@ -65,6 +67,7 @@ import { GeneralSection } from './sections/GeneralSection';
 import { PluginsSection } from './sections/PluginsSection';
 import { AgentsSection } from './sections/AgentsSection';
 import { ImportSection } from './sections/ImportSection';
+import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
@@ -78,6 +81,7 @@ export function SettingsModal() {
   const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
     general: null,
     appearance: null,
+    layout: null,
     editor: null,
     features: null,
     sidebar: null,
@@ -121,18 +125,43 @@ export function SettingsModal() {
 
   const tabs = useMemo<{ id: SettingsTab; label: string; icon: React.ReactNode }[]>(
     () => [
-      { id: 'general', label: 'General', icon: <Settings className="w-4 h-4" /> },
-      { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
-      { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" /> },
-      { id: 'features', label: 'Features', icon: <Zap className="w-4 h-4" /> },
-      { id: 'sidebar', label: 'Sidebar', icon: <PanelLeft className="w-4 h-4" /> },
-      { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" /> },
-      { id: 'templates', label: 'Templates', icon: <FileText className="w-4 h-4" /> },
-      { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" /> },
-      { id: 'agents', label: 'AI & Agents', icon: <Bot className="w-4 h-4" /> },
-      { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
-      { id: 'import', label: 'Import', icon: <FileInput className="w-4 h-4" /> },
-      { id: 'about', label: 'About', icon: <Info className="w-4 h-4" /> },
+      {
+        id: 'general',
+        label: 'General',
+        icon: <Settings className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      {
+        id: 'appearance',
+        label: 'Appearance',
+        icon: <Palette className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      {
+        id: 'layout',
+        label: 'Layout',
+        icon: <PanelsTopLeft className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      { id: 'editor', label: 'Editor', icon: <Type className="w-4 h-4" strokeWidth={1.25} /> },
+      { id: 'features', label: 'Features', icon: <Zap className="w-4 h-4" strokeWidth={1.25} /> },
+      {
+        id: 'sidebar',
+        label: 'Sidebar',
+        icon: <PanelLeft className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      {
+        id: 'calendar',
+        label: 'Calendar',
+        icon: <Calendar className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      {
+        id: 'templates',
+        label: 'Templates',
+        icon: <FileText className="w-4 h-4" strokeWidth={1.25} />,
+      },
+      { id: 'plugins', label: 'Plugins', icon: <Puzzle className="w-4 h-4" strokeWidth={1.25} /> },
+      { id: 'agents', label: 'AI & Agents', icon: <Bot className="w-4 h-4" strokeWidth={1.25} /> },
+      { id: 'data', label: 'Data', icon: <Database className="w-4 h-4" strokeWidth={1.25} /> },
+      { id: 'import', label: 'Import', icon: <FileInput className="w-4 h-4" strokeWidth={1.25} /> },
+      { id: 'about', label: 'About', icon: <Info className="w-4 h-4" strokeWidth={1.25} /> },
     ],
     []
   );
@@ -186,14 +215,13 @@ export function SettingsModal() {
 
   return (
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
+      className="settings-scrim fixed inset-0 flex items-center justify-center z-[9999] modal-backdrop-enter"
       onClick={handleBackdropClick}
     >
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-elevated modal-content-enter"
-        style={{ borderRadius: 'var(--radius-md)' }}
+        className="settings-dialog w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-content-enter"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
@@ -212,20 +240,13 @@ export function SettingsModal() {
           </h2>
           <button
             onClick={() => settingsStore.setIsSettingsOpen(false)}
-            className="p-1 transition-colors"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
+            className="settings-close p-1 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
             aria-label="Close settings"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 
@@ -240,7 +261,7 @@ export function SettingsModal() {
             style={{
               width: '180px',
               borderRight: '1px solid var(--border-default)',
-              backgroundColor: 'var(--bg-inset)',
+              backgroundColor: 'transparent',
             }}
           >
             {tabs.map((tab, index) => {
@@ -264,21 +285,9 @@ export function SettingsModal() {
                   onKeyDown={(e) => handleTabKeyDown(e, index)}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all text-left focus-ring"
                   style={{
-                    borderRadius: 'var(--radius-sm)',
-                    color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    backgroundColor: isActive ? 'var(--accent-subtle)' : 'transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.backgroundColor = 'var(--bg-default)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    backgroundColor: 'transparent',
+                    borderLeft: `2px solid ${isActive ? 'var(--text-primary)' : 'transparent'}`,
                   }}
                 >
                   {tab.icon}
@@ -286,7 +295,7 @@ export function SettingsModal() {
                   {tab.id === 'about' && hasPendingUpdate && (
                     <span
                       aria-hidden="true"
-                      className="ml-auto rounded-full"
+                      className="settings-update-dot ml-auto"
                       style={{
                         width: '7px',
                         height: '7px',
@@ -316,6 +325,7 @@ export function SettingsModal() {
                   onPresetChange={handlePresetChange}
                 />
               )}
+              {activeTab === 'layout' && <LayoutSection />}
               {activeTab === 'editor' && <EditorSection />}
               {activeTab === 'features' && <FeaturesSection />}
               {activeTab === 'sidebar' && <SidebarSection />}

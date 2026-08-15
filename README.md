@@ -167,6 +167,12 @@ as a timestamped conflict copy.
 - **Writing.** Rich-text editing over Markdown-on-disk: headings, task lists,
   code, resizable images, slash commands, pinnable tabs, and formatted paste
   for recognizable raw Markdown.
+- **Navigation.** A Home monogram returns to the welcome screen without closing
+  tabs, while Index, Agenda, Search, Graph, and Timeline share one mutually
+  exclusive navigation surface.
+- **Welcome.** A restrained asteroid can trail fine-pointer movement through the
+  night sky and mark clicks with an impact ring. It is optional in Settings →
+  Layout and automatically stays off for reduced motion and coarse pointers.
 - **Linking.** `[[Wiki links]]` and `[[Display|target]]`. Renaming a note
   rewrites every inbound link across the vault and keeps your open tabs pointed
   at the right file.

@@ -45,7 +45,20 @@ const BUDGETS = [
 // Bumped for the graph-view overhaul (deterministic layout, LOD, fit-view).
 // Bumped for force-clustered graph physics + plugin About/instructions dialog.
 // Bumped for the community plugin browser (registry list + install states).
-const APP_JS_BUDGET = { rawKb: 544, gzipKb: 146 };
+// Bumped for the animated welcome screen's inline wordmark glyph geometry;
+// the screen is lazy-loaded, but lazy app chunks are deliberately counted here.
+// Bumped 2 KB for the permanent icon rail, modular chrome settings and the
+// persisted pin-to-mode migration. Gzip remains within the existing cap.
+// Bumped 2 KB raw / 1 KB gz for click-relative impact origins and the shared
+// outlined signature glyph used by secondary empty states.
+// Bumped 3 KB raw / 2 KB gz for the constellation renderer and month event indicators.
+// Bumped 3 KB raw for the randomized welcome meteor; gzip remains within the existing cap.
+// Bumped 2 KB raw / 1 KB gz for the exclusive active-surface coordinator that
+// Index, Agenda, Graph, Timeline and Search now share (~0.5 KB raw measured).
+// Bumped 4 KB raw / 2 KB gz for the star-map graph: per-frame galaxy entrance,
+// degree-weighted star styling and free panning. Partly offset by dropping
+// lucide-react from GraphView; measured 567.3 KB raw / 153.4 KB gz at the bump.
+const APP_JS_BUDGET = { rawKb: 570, gzipKb: 155 };
 
 async function main() {
   let entries;
@@ -84,9 +97,7 @@ async function main() {
     const line = `${name.padEnd(45)} ${rawKb.toFixed(1).padStart(8)} KB   ${gzipKb.toFixed(1).padStart(7)} KB gz`;
 
     if (rawKb > budget.rawKb || gzipKb > budget.gzipKb) {
-      failures.push(
-        `${line}   ❌ over budget (${budget.rawKb} / ${budget.gzipKb} gz)`,
-      );
+      failures.push(`${line}   ❌ over budget (${budget.rawKb} / ${budget.gzipKb} gz)`);
     } else {
       console.log(line);
     }
@@ -95,7 +106,7 @@ async function main() {
   const appLine = `${'app (index-*.js total)'.padEnd(45)} ${appRaw.toFixed(1).padStart(8)} KB   ${appGzip.toFixed(1).padStart(7)} KB gz`;
   if (appRaw > APP_JS_BUDGET.rawKb || appGzip > APP_JS_BUDGET.gzipKb) {
     failures.push(
-      `${appLine}   ❌ over budget (${APP_JS_BUDGET.rawKb} / ${APP_JS_BUDGET.gzipKb} gz)`,
+      `${appLine}   ❌ over budget (${APP_JS_BUDGET.rawKb} / ${APP_JS_BUDGET.gzipKb} gz)`
     );
   } else {
     console.log(appLine);

@@ -16,6 +16,7 @@ interface FolderTreeProps {
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
   level?: number;
+  showShapeMarks?: boolean;
 }
 
 export function FolderTree({
@@ -32,6 +33,7 @@ export function FolderTree({
   onNoteContextMenu,
   getNoteTags,
   level = 0,
+  showShapeMarks = false,
 }: FolderTreeProps) {
   if (folders.length === 0) {
     return null;
@@ -39,7 +41,7 @@ export function FolderTree({
 
   return (
     <div className="flex flex-col">
-      {folders.map((folder) => (
+      {folders.map((folder, index) => (
         <FolderItem
           key={folder.path}
           folder={folder}
@@ -55,6 +57,8 @@ export function FolderTree({
           onNoteSelectionClick={onNoteSelectionClick}
           onNoteContextMenu={onNoteContextMenu}
           getNoteTags={getNoteTags}
+          showShapeMark={showShapeMarks}
+          index={index}
           renderChildren={
             folder.children.length > 0 && (
               <FolderTree
@@ -71,6 +75,7 @@ export function FolderTree({
                 onNoteContextMenu={onNoteContextMenu}
                 getNoteTags={getNoteTags}
                 level={level + 1}
+                showShapeMarks={showShapeMarks}
               />
             )
           }

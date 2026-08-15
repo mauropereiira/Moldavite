@@ -1,21 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { BubbleMenuPlugin } from '@tiptap/extension-bubble-menu';
-import {
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  Strikethrough,
-  Link as LinkIcon,
-  ListOrdered,
-  List,
-  Quote,
-  Code,
-  Braces,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-} from 'lucide-react';
 import { formatShortcut } from '@/lib/shortcuts';
 
 interface SelectionToolbarProps {
@@ -109,29 +94,33 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`toolbar-button ${editor.isActive('bold') ? 'toolbar-button-active' : ''}`}
         title={`Bold (${formatShortcut('⌘B')})`}
+        aria-label="Bold"
       >
-        <Bold className="w-4 h-4" />
+        <span className="toolbar-label-bold">B</span>
       </button>
       <button
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={`toolbar-button ${editor.isActive('italic') ? 'toolbar-button-active' : ''}`}
         title={`Italic (${formatShortcut('⌘I')})`}
+        aria-label="Italic"
       >
-        <Italic className="w-4 h-4" />
+        <span className="toolbar-label-italic">I</span>
       </button>
       <button
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         className={`toolbar-button ${editor.isActive('underline') ? 'toolbar-button-active' : ''}`}
         title={`Underline (${formatShortcut('⌘U')})`}
+        aria-label="Underline"
       >
-        <UnderlineIcon className="w-4 h-4" />
+        <span className="toolbar-label-underline">U</span>
       </button>
       <button
         onClick={() => editor.chain().focus().toggleStrike().run()}
         className={`toolbar-button ${editor.isActive('strike') ? 'toolbar-button-active' : ''}`}
         title="Strikethrough"
+        aria-label="Strikethrough"
       >
-        <Strikethrough className="w-4 h-4" />
+        <span className="toolbar-label-strike">S</span>
       </button>
 
       {/* Divider */}
@@ -142,8 +131,9 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={onInsertLink}
         className={`toolbar-button ${editor.isActive('link') ? 'toolbar-button-active' : ''}`}
         title={`Link (${formatShortcut('⌘K')})`}
+        aria-label="Link"
       >
-        <LinkIcon className="w-4 h-4" />
+        Link
       </button>
 
       {/* Divider */}
@@ -154,15 +144,17 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={`toolbar-button ${editor.isActive('orderedList') ? 'toolbar-button-active' : ''}`}
         title="Numbered List"
+        aria-label="Numbered list"
       >
-        <ListOrdered className="w-4 h-4" />
+        1.
       </button>
       <button
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         className={`toolbar-button ${editor.isActive('bulletList') ? 'toolbar-button-active' : ''}`}
         title="Bullet List"
+        aria-label="Bullet list"
       >
-        <List className="w-4 h-4" />
+        List
       </button>
 
       {/* Divider */}
@@ -173,8 +165,9 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         className={`toolbar-button ${editor.isActive('blockquote') ? 'toolbar-button-active' : ''}`}
         title="Quote"
+        aria-label="Quote"
       >
-        <Quote className="w-4 h-4" />
+        Quote
       </button>
 
       {/* Code */}
@@ -182,15 +175,17 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={() => editor.chain().focus().toggleCode().run()}
         className={`toolbar-button ${editor.isActive('code') ? 'toolbar-button-active' : ''}`}
         title="Inline Code"
+        aria-label="Inline code"
       >
-        <Code className="w-4 h-4" />
+        Code
       </button>
       <button
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         className={`toolbar-button ${editor.isActive('codeBlock') ? 'toolbar-button-active' : ''}`}
         title="Code Block"
+        aria-label="Code block"
       >
-        <Braces className="w-4 h-4" />
+        Block
       </button>
 
       {/* Divider */}
@@ -201,22 +196,25 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         onClick={() => editor.chain().focus().setTextAlign('left').run()}
         className={`toolbar-button ${editor.isActive({ textAlign: 'left' }) ? 'toolbar-button-active' : ''}`}
         title="Align Left"
+        aria-label="Align left"
       >
-        <AlignLeft className="w-4 h-4" />
+        Left
       </button>
       <button
         onClick={() => editor.chain().focus().setTextAlign('center').run()}
         className={`toolbar-button ${editor.isActive({ textAlign: 'center' }) ? 'toolbar-button-active' : ''}`}
         title="Align Center"
+        aria-label="Align center"
       >
-        <AlignCenter className="w-4 h-4" />
+        Centre
       </button>
       <button
         onClick={() => editor.chain().focus().setTextAlign('right').run()}
         className={`toolbar-button ${editor.isActive({ textAlign: 'right' }) ? 'toolbar-button-active' : ''}`}
         title="Align Right"
+        aria-label="Align right"
       >
-        <AlignRight className="w-4 h-4" />
+        Right
       </button>
     </div>
   );

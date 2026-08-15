@@ -71,8 +71,8 @@ beforeEach(() => {
   });
   useSettingsStore.setState({ isSettingsOpen: false, activeSettingsTab: 'general' });
   usePluginInstallStore.setState({ pending: null });
-  useTimelineStore.setState({ isOpen: false });
-  useGraphStore.setState({ isOpen: false });
+  useTimelineStore.getState().close();
+  useGraphStore.getState().close();
   useToastStore.setState({ toasts: [] });
   useNoteStore.setState({
     notes: [],

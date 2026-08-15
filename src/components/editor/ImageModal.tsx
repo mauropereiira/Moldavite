@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Image as ImageIcon, AlertCircle, Loader, Upload, Link as LinkIcon } from 'lucide-react';
 import { processAndSaveImage, fileToBase64 } from '@/lib';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
@@ -10,6 +9,12 @@ interface ImageModalProps {
 }
 
 type TabType = 'file' | 'url';
+
+const keyboardHintStyle: React.CSSProperties = {
+  color: 'var(--text-primary)',
+  backgroundColor: 'var(--bg-inset)',
+  borderColor: 'var(--border-default)',
+};
 
 export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -217,31 +222,36 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
       aria-labelledby="image-modal-title"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
+        className="rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
+          <div>
             <h2
               id="image-modal-title"
-              className="text-xl font-semibold text-gray-900 dark:text-white"
+              className="text-xl font-semibold"
+              style={{ color: 'var(--text-primary)' }}
             >
               Insert Image
             </h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring"
+            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
+            style={{ color: 'var(--text-muted)' }}
             aria-label="Close image modal"
           >
-            <X className="w-5 h-5" />
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <div className="flex border-b" style={{ borderColor: 'var(--border-default)' }}>
           <button
             onClick={() => {
               setActiveTab('file');
@@ -249,12 +259,13 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               setPreviewUrl('');
             }}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'file'
-                ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              activeTab === 'file' ? 'border-b-2' : 'hover:text-[var(--text-secondary)]'
             }`}
+            style={{
+              color: activeTab === 'file' ? 'var(--accent-primary)' : 'var(--text-muted)',
+              borderColor: activeTab === 'file' ? 'var(--accent-primary)' : 'transparent',
+            }}
           >
-            <Upload className="w-4 h-4" />
             Upload File
           </button>
           <button
@@ -265,12 +276,13 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               setSelectedFile(null);
             }}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'url'
-                ? 'text-[var(--accent-primary)] border-b-2 border-[var(--accent-primary)]'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              activeTab === 'url' ? 'border-b-2' : 'hover:text-[var(--text-secondary)]'
             }`}
+            style={{
+              color: activeTab === 'url' ? 'var(--accent-primary)' : 'var(--text-muted)',
+              borderColor: activeTab === 'url' ? 'var(--accent-primary)' : 'transparent',
+            }}
           >
-            <LinkIcon className="w-4 h-4" />
             From URL
           </button>
         </div>
@@ -286,12 +298,16 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={`relative w-full h-40 rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-2 ${
-                  isDragging
-                    ? 'border-[var(--accent-primary)] bg-[var(--accent-subtle)]'
-                    : selectedFile
-                      ? 'border-[var(--accent-primary)] bg-[var(--accent-subtle)]'
-                      : 'border-gray-300 dark:border-gray-600 hover:border-[var(--accent-primary)] hover:bg-gray-50 dark:hover:bg-gray-700'
+                  isDragging || selectedFile
+                    ? ''
+                    : 'hover:border-[var(--border-strong)] hover:bg-[var(--bg-panel)]'
                 }`}
+                style={{
+                  borderColor:
+                    isDragging || selectedFile ? 'var(--accent-primary)' : 'var(--border-default)',
+                  backgroundColor:
+                    isDragging || selectedFile ? 'var(--accent-subtle)' : 'transparent',
+                }}
               >
                 <input
                   ref={fileInputRef}
@@ -302,33 +318,30 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                 />
                 {selectedFile ? (
                   <>
-                    <ImageIcon className="w-8 h-8" style={{ color: 'var(--accent-primary)' }} />
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                       {selectedFile.name}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {(selectedFile.size / 1024).toFixed(1)} KB
                     </p>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-8 h-8 text-gray-400" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                       <span className="font-medium" style={{ color: 'var(--accent-primary)' }}>
                         Click to upload
                       </span>{' '}
                       or drag and drop
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       PNG, JPG, GIF, WebP, or SVG (max 10MB)
                     </p>
                   </>
                 )}
               </div>
               {error && (
-                <div className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{error}</span>
+                <div className="mt-2 text-sm" style={{ color: 'var(--error)' }}>
+                  {error}
                 </div>
               )}
             </div>
@@ -337,9 +350,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
             <div>
               <label
                 htmlFor="image-url"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-secondary)' }}
               >
-                Image URL <span className="text-red-500">*</span>
+                Image URL <span style={{ color: 'var(--error)' }}>*</span>
               </label>
               <input
                 ref={urlInputRef}
@@ -351,21 +365,23 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                   setError('');
                 }}
                 placeholder="https://example.com/image.jpg"
-                className={`w-full px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none border ${
-                  error
-                    ? 'border-red-300 dark:border-red-600 focus:ring-2 focus:ring-red-500'
-                    : 'border-gray-200 dark:border-gray-600 search-input-polished'
+                className={`w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none border ${
+                  error ? 'focus:ring-2' : 'search-input-polished'
                 }`}
+                style={
+                  {
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-panel)',
+                    borderColor: error ? 'var(--error)' : 'var(--border-default)',
+                    '--tw-ring-color': error ? 'var(--error)' : 'var(--focus-ring)',
+                  } as React.CSSProperties
+                }
                 aria-invalid={error ? 'true' : 'false'}
                 aria-describedby={error ? 'image-error' : undefined}
               />
               {error && (
-                <div
-                  id="image-error"
-                  className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{error}</span>
+                <div id="image-error" className="mt-2 text-sm" style={{ color: 'var(--error)' }}>
+                  {error}
                 </div>
               )}
             </div>
@@ -375,9 +391,13 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           <div>
             <label
               htmlFor="image-alt"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              Alt Text <span className="text-xs text-gray-500">(optional, but recommended)</span>
+              Alt Text{' '}
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                (optional, but recommended)
+              </span>
             </label>
             <input
               id="image-alt"
@@ -385,9 +405,14 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               value={alt}
               onChange={(e) => setAlt(e.target.value)}
               placeholder="Describe the image for accessibility"
-              className="w-full px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-600 search-input-polished focus:outline-none"
+              className="w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] border search-input-polished focus:outline-none"
+              style={{
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--bg-panel)',
+                borderColor: 'var(--border-default)',
+              }}
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
               Alt text helps screen readers describe images to visually impaired users
             </p>
           </div>
@@ -395,15 +420,23 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           {/* Preview */}
           {(previewUrl || isLoading) && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Preview
               </label>
-              <div className="relative w-full h-48 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 overflow-hidden flex items-center justify-center">
+              <div
+                className="relative w-full h-48 rounded-lg border overflow-hidden flex items-center justify-center"
+                style={{
+                  backgroundColor: 'var(--bg-inset)',
+                  borderColor: 'var(--border-default)',
+                }}
+              >
                 {isLoading ? (
-                  <div className="flex flex-col items-center gap-2 text-gray-400">
-                    <Loader className="w-6 h-6 animate-spin" />
-                    <span className="text-sm">Loading preview...</span>
-                  </div>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Loading preview…
+                  </span>
                 ) : previewUrl ? (
                   <img
                     src={previewUrl}
@@ -417,10 +450,14 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div
+          className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus-ring"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
+            style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
           </button>
@@ -439,13 +476,19 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
 
         {/* Keyboard hints */}
         <div className="px-6 pb-4">
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
             Press{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+            <kbd
+              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+              style={keyboardHintStyle}
+            >
               Enter
             </kbd>{' '}
             to insert or{' '}
-            <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+            <kbd
+              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+              style={keyboardHintStyle}
+            >
               Esc
             </kbd>{' '}
             to cancel

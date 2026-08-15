@@ -1,7 +1,6 @@
 import React from 'react';
-import { FileText, Calendar } from 'lucide-react';
-import { NoSearchResultsEmptyState } from '@/components/ui';
 import type { ContentMatch } from '@/stores';
+import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -45,14 +44,14 @@ export function SidebarSearchResults({
 }: SidebarSearchResultsProps) {
   return (
     <div className="px-3 py-2">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="section-header">
+      <div className="section-header">
+        <h2>
           {loading
             ? 'Searching...'
             : `${results.length} ${results.length === 1 ? 'result' : 'results'}`}
         </h2>
       </div>
-      <div className="space-y-1" role="listbox" aria-label="Search results">
+      <div className="pt-2" role="listbox" aria-label="Search results">
         {results.map((match, index) => {
           const folder = folderDisplayName(match.folderPath);
           const isActive = index === selectedIndex;
@@ -63,25 +62,15 @@ export function SidebarSearchResults({
               aria-selected={isActive}
               onClick={() => onOpen(match)}
               onMouseEnter={() => onSelect(index)}
-              className="w-full text-left px-2 py-1.5 rounded focus-ring sidebar-item-animated transition-colors"
-              style={{
-                backgroundColor: isActive ? 'var(--hover-overlay)' : 'transparent',
-                color: 'var(--text-primary)',
-              }}
+              className={`note-card sidebar-item-animated w-full text-left focus-ring${
+                isActive ? ' note-card-active' : ''
+              } list-item-stagger`}
+              style={{ '--index': Math.min(index, 10) } as React.CSSProperties}
             >
-              <span className="flex items-center gap-2 text-sm">
-                {match.isDaily ? (
-                  <Calendar
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: 'var(--accent-primary)' }}
-                  />
-                ) : (
-                  <FileText
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: 'var(--text-muted)' }}
-                  />
-                )}
-                <span className="truncate font-medium">{match.filename.replace(/\.md$/, '')}</span>
+              <span className="flex items-baseline gap-2 text-sm">
+                <span className="note-card-title truncate">
+                  {match.filename.replace(/\.md$/, '')}
+                </span>
                 {folder && (
                   <span className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
                     in {folder}
@@ -95,7 +84,14 @@ export function SidebarSearchResults({
           );
         })}
         {!loading && results.length === 0 && (
-          <NoSearchResultsEmptyState query={query} onClear={onClear} />
+          <SignatureEmptyState className="px-3 py-2 text-xs">
+            <div>
+              <span>No results for “{query}”.</span>{' '}
+              <button onClick={onClear} style={{ color: 'var(--text-secondary)' }}>
+                Clear search
+              </button>
+            </div>
+          </SignatureEmptyState>
         )}
       </div>
     </div>

@@ -1,4 +1,3 @@
-import { Share2, Link2, FileText } from 'lucide-react';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { htmlToMarkdown } from '@/lib';
@@ -62,18 +61,14 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
       position="right"
       openDirection={openDirection}
       trigger={
-        <button className="toolbar-button" title="Share">
-          <Share2 className="w-4 h-4" />
+        <button className="toolbar-button" title="Share" aria-label="Share">
+          Share
         </button>
       }
     >
-      <DropdownItem onClick={handleCopyLink} icon={<Link2 className="w-4 h-4" />}>
-        Copy wiki link
-      </DropdownItem>
+      <DropdownItem onClick={handleCopyLink}>Copy wiki link</DropdownItem>
       <DropdownDivider />
-      <DropdownItem onClick={handleExportText} icon={<FileText className="w-4 h-4" />}>
-        Export as plain text
-      </DropdownItem>
+      <DropdownItem onClick={handleExportText}>Export as plain text</DropdownItem>
     </Dropdown>
   );
 }

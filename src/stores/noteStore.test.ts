@@ -53,6 +53,21 @@ describe('noteStore - pinned tabs', () => {
     expect(state.activeTabId).toBe('b');
   });
 
+  it('reuses the unpinned preview after opening away from a pinned active tab', () => {
+    const { openTab, pinTab } = useNoteStore.getState();
+
+    openTab(makeNote('pinned'), false);
+    pinTab('pinned');
+    openTab(makeNote('preview-one'), false);
+    openTab(makeNote('preview-two'), false);
+
+    const state = useNoteStore.getState();
+    expect(state.openTabs.map((tab) => tab.id)).toEqual(['pinned', 'preview-two']);
+    expect(state.openTabs[0].isPinned).toBe(true);
+    expect(state.openTabs[1].isPinned).not.toBe(true);
+    expect(state.activeTabId).toBe('preview-two');
+  });
+
   it('replaces active tab when it is unpinned (preview-mode behavior)', () => {
     const { openTab } = useNoteStore.getState();
 
@@ -175,5 +190,20 @@ describe('noteStore - pinned tabs are per Forge', () => {
     loadPinnedTabs();
 
     expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
+  });
+
+  it('does not treat a malformed persisted string as a list of pinned tab ids', () => {
+    rememberActiveForge('Alpha');
+    localStorage.setItem(
+      'moldavite-pinned-tabs:Alpha',
+      JSON.stringify('notes/alpha.md notes/beta.md')
+    );
+
+    const { openTab, loadPinnedTabs } = useNoteStore.getState();
+    openTab(makeNote('notes/alpha.md'), true);
+    openTab(makeNote('notes/beta.md'), true);
+    loadPinnedTabs();
+
+    expect(useNoteStore.getState().openTabs.every((tab) => !tab.isPinned)).toBe(true);
   });
 });

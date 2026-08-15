@@ -74,18 +74,26 @@ export function TemplatePickerModal({
       aria-modal="true"
       aria-labelledby="template-picker-title"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
+      <div
+        className="rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
           <h2
             id="template-picker-title"
-            className="text-xl font-semibold text-gray-900 dark:text-white"
+            className="text-xl font-semibold"
+            style={{ color: 'var(--text-primary)' }}
           >
             {title}
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded focus-ring"
+            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
+            style={{ color: 'var(--text-muted)' }}
             aria-label="Close template picker"
           >
             <X className="w-5 h-5" />
@@ -93,16 +101,23 @@ export function TemplatePickerModal({
         </div>
 
         {/* Search */}
-        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-3 border-b" style={{ borderColor: 'var(--border-default)' }}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: 'var(--text-muted)' }}
+            />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search templates..."
-              className="w-full pl-9 pr-4 py-2 text-sm rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 search-input-polished focus:outline-none"
+              className="w-full pl-9 pr-4 py-2 text-sm rounded placeholder:text-[var(--text-muted)] search-input-polished focus:outline-none"
+              style={{
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--bg-panel)',
+              }}
               aria-label="Search templates"
             />
           </div>
@@ -113,11 +128,13 @@ export function TemplatePickerModal({
           {loadError ? (
             // Error state with retry
             <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 mx-auto text-red-400 dark:text-red-500 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--error)' }} />
+              <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 Failed to load templates
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{loadError}</p>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                {loadError}
+              </p>
               <button
                 onClick={() => loadTemplates()}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white rounded btn-primary-gradient btn-elevated focus-ring"
@@ -130,7 +147,11 @@ export function TemplatePickerModal({
             // Loading skeleton
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="p-4 rounded border border-gray-200 dark:border-gray-700">
+                <div
+                  key={i}
+                  className="p-4 rounded border"
+                  style={{ borderColor: 'var(--border-default)' }}
+                >
                   <div className="skeleton w-8 h-8 rounded mb-3" />
                   <div className="skeleton h-4 w-3/4 mb-2" />
                   <div className="skeleton h-3 w-full" />
@@ -140,11 +161,11 @@ export function TemplatePickerModal({
           ) : filteredTemplates.length === 0 ? (
             // Empty state
             <div className="text-center py-12">
-              <Search className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <Search className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+              <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 No templates found
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {searchQuery
                   ? `No results for "${searchQuery}"`
                   : 'Create your first template to get started'}
@@ -158,9 +179,16 @@ export function TemplatePickerModal({
                 <div className="list-item-stagger" style={{ '--index': 0 } as React.CSSProperties}>
                   <button
                     onClick={handleBlankNote}
-                    className="w-full p-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                    className="w-full p-4 rounded border-2 border-dashed hover:border-[var(--border-strong)] hover:bg-[var(--bg-panel)] transition-colors text-left group"
+                    style={{ borderColor: 'var(--border-default)' }}
                   >
-                    <div className="w-8 h-8 mb-3 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400">
+                    <div
+                      className="w-8 h-8 mb-3 rounded flex items-center justify-center group-hover:text-[var(--text-secondary)]"
+                      style={{
+                        color: 'var(--text-muted)',
+                        backgroundColor: 'var(--bg-inset)',
+                      }}
+                    >
                       <svg
                         className="w-5 h-5"
                         fill="none"
@@ -175,10 +203,15 @@ export function TemplatePickerModal({
                         />
                       </svg>
                     </div>
-                    <h3 className="font-medium text-sm text-gray-900 dark:text-white mb-1">
+                    <h3
+                      className="font-medium text-sm mb-1"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       Blank Note
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Start from scratch
+                    </p>
                   </button>
                 </div>
               )}

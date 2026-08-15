@@ -3,8 +3,21 @@
  */
 
 import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
-import type { FontFamily, ThemePreset } from '@/stores';
-import { InfoTooltip, Toggle } from '../common';
+import type { BaseMode, FontFamily, FontSize, ThemePreset } from '@/stores';
+import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
+
+const THEME_OPTIONS: ReadonlyArray<{ value: BaseMode; label: string }> = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
+
+const FONT_SIZE_OPTIONS: ReadonlyArray<{ value: FontSize; label: string }> = [
+  { value: 'small', label: 'S' },
+  { value: 'medium', label: 'M' },
+  { value: 'large', label: 'L' },
+  { value: 'extra-large', label: 'XL' },
+];
 
 export interface AppearanceSectionProps {
   theme: 'light' | 'dark' | 'system';
@@ -22,51 +35,28 @@ export function AppearanceSection({
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
-      {/* Theme Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
+      <section className="settings-section">
         <div>
           <div className="flex items-center gap-1">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Theme
-            </h3>
+            <SectionHeading>Theme</SectionHeading>
             <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your macOS appearance setting." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Choose your preferred color scheme
           </p>
         </div>
-        <div className="flex gap-2">
-          {(['light', 'dark', 'system'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => onThemeChange(t)}
-              className="px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: theme === t ? 'var(--accent-primary)' : 'var(--bg-elevated)',
-                color: theme === t ? 'white' : 'var(--text-secondary)',
-                border: theme === t ? 'none' : '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
+        <SegmentedControl
+          ariaLabel="Theme"
+          value={theme}
+          onChange={onThemeChange}
+          options={THEME_OPTIONS}
+        />
+      </section>
 
-      {/* Color Preset Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
+      <section className="settings-section">
         <div>
           <div className="flex items-center gap-1">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Color preset
-            </h3>
+            <SectionHeading>Color preset</SectionHeading>
             <InfoTooltip text="Curated palettes layered on top of your light/dark choice. Some presets are designed for one mode only and fall back to Moldavite otherwise." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -89,15 +79,10 @@ export function AppearanceSection({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => onPresetChange(p.id)}
-                className="text-left p-3 transition-colors flex flex-col gap-2"
+                className="settings-preset-option text-left p-3 transition-colors flex flex-col gap-2"
                 style={{
-                  backgroundColor: 'var(--bg-elevated)',
-                  border: selected
-                    ? '2px solid var(--accent-primary)'
-                    : '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                  // Compensate the 1px-vs-2px border difference so cards don't jump.
-                  padding: selected ? 'calc(0.75rem - 1px)' : '0.75rem',
+                  border: '1px solid var(--border-default)',
+                  borderLeft: `2px solid ${selected ? 'var(--text-primary)' : 'transparent'}`,
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -108,9 +93,7 @@ export function AppearanceSection({
                     <span
                       className="text-[10px] px-1.5 py-0.5"
                       style={{
-                        backgroundColor: 'var(--bg-inset)',
                         color: 'var(--text-tertiary)',
-                        borderRadius: 'var(--radius-sm)',
                       }}
                     >
                       {badge}
@@ -122,11 +105,10 @@ export function AppearanceSection({
                     <span
                       key={k}
                       aria-hidden
-                      className="inline-block"
+                      className="settings-preset-swatch inline-block"
                       style={{
                         width: 18,
                         height: 18,
-                        borderRadius: 4,
                         backgroundColor: p.swatches[k],
                         border: '1px solid var(--border-muted)',
                       }}
@@ -137,50 +119,18 @@ export function AppearanceSection({
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Typography Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
-        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-          Typography
-        </h3>
+      <section className="settings-section">
+        <SectionHeading>Typography</SectionHeading>
 
-        <div>
-          <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
-            Font Size
-          </label>
-          <div className="flex gap-2">
-            {(
-              [
-                { value: 'small', label: 'S' },
-                { value: 'medium', label: 'M' },
-                { value: 'large', label: 'L' },
-                { value: 'extra-large', label: 'XL' },
-              ] as const
-            ).map((size) => (
-              <button
-                key={size.value}
-                onClick={() => settings.setFontSize(size.value)}
-                className="px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor:
-                    settings.fontSize === size.value
-                      ? 'var(--accent-primary)'
-                      : 'var(--bg-elevated)',
-                  color: settings.fontSize === size.value ? 'white' : 'var(--text-secondary)',
-                  border:
-                    settings.fontSize === size.value ? 'none' : '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                {size.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <SegmentedControl
+          label="Font Size"
+          ariaLabel="Font Size"
+          value={settings.fontSize}
+          onChange={settings.setFontSize}
+          options={FONT_SIZE_OPTIONS}
+        />
 
         <div>
           <label className="text-xs mb-2 block" style={{ color: 'var(--text-tertiary)' }}>
@@ -193,11 +143,8 @@ export function AppearanceSection({
               settings.setFontFamily(family);
               applyFontFamily(family);
             }}
-            className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            className="settings-input w-full px-0 py-2 text-sm focus:outline-none"
             style={{
-              backgroundColor: 'var(--bg-elevated)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
               color: 'var(--text-primary)',
             }}
           >
@@ -212,46 +159,14 @@ export function AppearanceSection({
             </optgroup>
           </select>
         </div>
-      </div>
+      </section>
 
-      {/* Layout Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
-      >
-        <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-          Layout
-        </h3>
+      <section className="settings-section">
+        <SectionHeading>Layout</SectionHeading>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label
-              htmlFor="appearance-sidebar-width-range"
-              className="text-xs"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              Sidebar Width
-            </label>
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {settings.sidebarWidth}px
-            </span>
-          </div>
-          <input
-            id="appearance-sidebar-width-range"
-            type="range"
-            min="200"
-            max="400"
-            step="10"
-            value={settings.sidebarWidth}
-            onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
-            className="w-full h-2 rounded appearance-none cursor-pointer"
-            style={{ backgroundColor: 'var(--bg-inset)', accentColor: 'var(--accent-primary)' }}
-          />
-          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            <span>Narrow</span>
-            <span>Wide</span>
-          </div>
-        </div>
+        {/* Sidebar width lives in Settings → Sidebar, gated on the Index
+            actually being a pinned column. It was duplicated here, so the same
+            control existed in two tabs. */}
 
         <div
           className="flex items-center justify-between pt-2"
@@ -267,7 +182,22 @@ export function AppearanceSection({
           </div>
           <Toggle enabled={settings.compactMode} onChange={settings.setCompactMode} />
         </div>
-      </div>
+
+        <div
+          className="flex items-center justify-between pt-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
+          <div>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Focus mode
+            </span>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Hide every panel at once and leave just the note. ⌘.
+            </p>
+          </div>
+          <Toggle enabled={settings.focusModeEnabled} onChange={settings.setFocusModeEnabled} />
+        </div>
+      </section>
     </div>
   );
 }

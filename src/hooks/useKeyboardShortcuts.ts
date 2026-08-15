@@ -8,8 +8,6 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
-import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
-import { useGraphStore } from '@/stores/graphStore';
 import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
@@ -43,8 +41,6 @@ export function useKeyboardShortcuts({
   const { setIsSettingsOpen } = useSettingsStore();
   const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } =
     useNoteStore();
-  const { open: openQuickSwitcher } = useQuickSwitcherStore();
-  const { toggle: toggleGraph } = useGraphStore();
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
@@ -128,14 +124,13 @@ export function useKeyboardShortcuts({
       const isMod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      // Cmd+/ (help modal) is intentionally NOT handled here — it's owned by
-      // `ShortcutHelpHost`, which mounts at the app root so the help modal
-      // is reachable even when no editor is mounted.
-      if (isMod && key === 'p') return 'quickSwitcher';
+      // Cmd+/ (help modal), Cmd+P (search) and Cmd+Shift+G (graph) are
+      // intentionally NOT handled here — they're owned by `ShortcutHelpHost`
+      // and `ChromeShortcutHost`, which mount at the app root so they stay
+      // reachable when no editor is mounted.
       if (isMod && key === ',') return 'settings';
       if (isMod && key === 'n') return 'newNote';
       if (isMod && e.shiftKey && key === 'l') return 'toggleTheme';
-      if (isMod && e.shiftKey && key === 'g') return 'toggleGraph';
       if (isMod && key === 'w') return 'closeTab';
       if (isMod && key === 't') return 'templatePicker';
       if (isMod && key === 'k') return 'insertLink';
@@ -161,10 +156,6 @@ export function useKeyboardShortcuts({
 
     const runShortcut = (id: ShortcutId, e: KeyboardEvent) => {
       switch (id) {
-        case 'quickSwitcher':
-          e.preventDefault();
-          openQuickSwitcher();
-          return;
         case 'settings':
           e.preventDefault();
           setIsSettingsOpen(true);
@@ -176,10 +167,6 @@ export function useKeyboardShortcuts({
         case 'toggleTheme':
           e.preventDefault();
           onToggleTheme?.();
-          return;
-        case 'toggleGraph':
-          e.preventDefault();
-          toggleGraph();
           return;
         case 'closeTab':
           e.preventDefault();
@@ -210,7 +197,8 @@ export function useKeyboardShortcuts({
           // focus-restore) may still want the event afterwards.
           useNoteSelectionStore.getState().clear();
           return;
-        // Shortcuts listed in SHORTCUTS but handled elsewhere (e.g. 'search').
+        // Shortcuts listed in SHORTCUTS but handled elsewhere (e.g. 'search',
+        // 'quickSwitcher' and 'toggleGraph').
         default:
           return;
       }
@@ -238,8 +226,6 @@ export function useKeyboardShortcuts({
     closeTab,
     openTabs,
     switchTab,
-    openQuickSwitcher,
-    toggleGraph,
   ]);
 
   return {

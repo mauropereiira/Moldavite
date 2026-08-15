@@ -13,6 +13,7 @@ import { useForgeStore } from '@/stores/forgeStore';
 import { useSemanticStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
+import { DotLoader } from '@/components/ui/DotLoader';
 import type { SemanticModelInfo } from '@/lib/semantic';
 import type { McpClient } from '@/lib';
 import {
@@ -26,7 +27,7 @@ import {
   setMcpWritesEnabled,
   writeForgeRootFile,
 } from '@/lib';
-import { InfoTooltip, Toggle } from '../common';
+import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 
 export function AgentsSection() {
   const forgeName = useForgeStore((s) => s.active);
@@ -90,13 +91,13 @@ export function AgentsSection() {
       {/* Explainer */}
       <div
         className="p-4 space-y-3"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div className="flex items-start gap-3">
           <div
             aria-hidden="true"
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'var(--accent-subtle)' }}
+            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'transparent' }}
           >
             <Bot className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
           </div>
@@ -118,7 +119,7 @@ export function AgentsSection() {
       {/* Make agent-ready */}
       <div
         className="p-4 space-y-4"
-        style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div>
           <div className="flex items-center gap-1">
@@ -137,8 +138,8 @@ export function AgentsSection() {
           <button
             onClick={handleMakeAgentReady}
             disabled={isWriting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
           >
             <Sparkles aria-hidden="true" className="w-4 h-4" />
             {isWriting ? 'Writing…' : 'Make this Forge agent-ready'}
@@ -250,7 +251,7 @@ function McpServerBlock() {
   return (
     <div
       className="p-4 space-y-4"
-      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
     >
       <div>
         <div className="flex items-center gap-1">
@@ -299,7 +300,7 @@ function McpServerBlock() {
               className="block overflow-x-auto break-all p-3 text-xs"
               style={{
                 color: 'var(--text-secondary)',
-                backgroundColor: 'var(--bg-inset)',
+                backgroundColor: 'transparent',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
               }}
@@ -316,39 +317,16 @@ function McpServerBlock() {
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-          MCP client
-        </p>
-        <div
-          className="flex flex-wrap gap-1 p-1"
-          role="group"
-          aria-label="MCP client"
-          style={{
-            backgroundColor: 'var(--bg-inset)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-          }}
-        >
-          {MCP_CLIENT_OPTIONS.map((option) => {
-            const selected = option.id === client;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setClient(option.id)}
-                aria-pressed={selected}
-                className="px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring"
-                style={{
-                  color: selected ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                  backgroundColor: selected ? 'var(--accent-subtle)' : 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          label="MCP client"
+          ariaLabel="MCP client"
+          value={client}
+          onChange={setClient}
+          options={MCP_CLIENT_OPTIONS.map((option) => ({
+            value: option.id,
+            label: option.label,
+          }))}
+        />
       </div>
 
       <SetupSnippet
@@ -422,7 +400,7 @@ function SetupSnippet({
         className="text-xs p-3 overflow-x-auto whitespace-pre-wrap break-all"
         style={{
           color: 'var(--text-secondary)',
-          backgroundColor: 'var(--bg-inset)',
+          backgroundColor: 'transparent',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-sm)',
         }}
@@ -501,7 +479,7 @@ function SemanticSearchBlock() {
   return (
     <div
       className="p-4 space-y-4"
-      style={{ backgroundColor: 'var(--bg-panel)', borderRadius: 'var(--radius-md)' }}
+      style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
     >
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -570,10 +548,11 @@ function SemanticSearchBlock() {
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            <RefreshCw
-              aria-hidden="true"
-              className={`w-4 h-4 ${isBuilding ? 'animate-spin' : ''}`}
-            />
+            {isBuilding ? (
+              <DotLoader label="Building semantic index" />
+            ) : (
+              <RefreshCw aria-hidden="true" className="w-4 h-4" />
+            )}
             {isBuilding ? 'Building…' : 'Rebuild index'}
           </button>
         </div>

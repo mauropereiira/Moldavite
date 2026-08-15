@@ -77,13 +77,23 @@ import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplat
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { NoteHeader } from './NoteHeader';
+import { NoteCloseButton } from './NoteCloseButton';
 
 export function Editor() {
-  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs } =
+  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs, closeTab } =
     useNoteStore();
   const currentNoteId = currentNote?.id;
   const currentNoteContent = currentNote?.content;
-  const { spellCheck, tagsEnabled } = useSettingsStore();
+  const {
+    spellCheck,
+    tagsEnabled,
+    backlinksEnabled,
+    showNoteHeader,
+    showTabBar,
+    showEditorFooter,
+    showBacklinksPanel,
+  } = useSettingsStore();
   const { theme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
   const { getTemplateContent } = useTemplates();
@@ -719,7 +729,7 @@ export function Editor() {
       },
       editorProps: {
         attributes: {
-          class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-full px-6 py-8',
+          class: 'focus:outline-none min-h-full',
           spellcheck: spellCheck ? 'true' : 'false',
         },
         handlePaste: (view, event) => {
@@ -915,7 +925,29 @@ export function Editor() {
                 editor.commands.setTextSelection(selection);
               }
               if (!keepFocus) {
-                editor.commands.blur();
+                const isNoteSwitch = previous.noteId !== null && previous.noteId !== currentNoteId;
+                if (isNoteSwitch) {
+                  // The note-keyed animation wrapper remounts EditorContent.
+                  // Let TipTap attach its existing view to that new node before
+                  // clearing focus, otherwise the attachment can restore the
+                  // previous note's focused selection after blur has run.
+                  requestAnimationFrame(() => {
+                    if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                    editor.commands.blur();
+                    requestAnimationFrame(() => {
+                      if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                      // Moving a focused ProseMirror DOM node between keyed
+                      // wrappers can detach it without a native blur event.
+                      // Reconcile TipTap's focus state after its blur command.
+                      if (editor.isFocused) {
+                        editor.view.dom.dispatchEvent(new FocusEvent('blur'));
+                      }
+                      window.getSelection()?.removeAllRanges();
+                    });
+                  });
+                } else {
+                  editor.commands.blur();
+                }
               }
               if (scrollContainerRef.current) {
                 scrollContainerRef.current.scrollTop = scrollTop;
@@ -1093,8 +1125,8 @@ export function Editor() {
         />
       )}
 
-      {/* Tab bar - only show when there are open tabs */}
-      {openTabs.length > 0 && <TabBar />}
+      {/* A single preview needs no chrome; multiple tabs must always be manageable. */}
+      {showTabBar && openTabs.length > 1 && <TabBar />}
 
       <ExternalChangeBanner />
 
@@ -1102,10 +1134,27 @@ export function Editor() {
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto editor-paper relative transition-colors duration-200"
-        style={{ backgroundColor: noteBackgroundColor || (isDark ? '#0f1512' : 'white') }}
+        style={{ backgroundColor: noteBackgroundColor || 'var(--bg-editor)' }}
       >
+        {/* Close the open note. A zero-height sticky row so it stays pinned
+            while the note scrolls, costs no layout space, and sits naturally
+            below the tab bar when that is showing. Needed because the tab bar
+            hides itself for a single tab, which otherwise leaves ⌘W as the
+            only way to close a note. */}
+        {/* Sticky rail of zero height so it costs no layout space, with the
+            button absolutely positioned inside it. The button must be out of
+            flow: a flex child of a zero-height row collapses to its padding
+            box and the label overflows below it, which misaligns the hover
+            wash from the text. */}
+        <div style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}>
+          <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
+        </div>
+
         <EditorErrorBoundary resetKey={currentNote?.id}>
-          <EditorContent editor={editor} className="h-full content-enter" />
+          {showNoteHeader && <NoteHeader note={currentNote} />}
+          <div key={currentNote.id} className="h-full note-switch-enter">
+            <EditorContent editor={editor} className="h-full" />
+          </div>
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
           {editor && !editor.isDestroyed && (
             <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
@@ -1145,17 +1194,22 @@ export function Editor() {
         )}
       </div>
 
-      {/* Backlinks panel sits below the editor scroll area, above the footer. */}
-      <BacklinksPanel />
+      {/* Backlinks panel sits below the editor scroll area, above the footer.
+          Gated on backlinksEnabled: the setting previously governed only the
+          sidebar section, so turning backlinks "off" still left this panel
+          costing 32-64px of every note. */}
+      {backlinksEnabled && showBacklinksPanel && <BacklinksPanel />}
 
       {/* Footer with save status, toolbar, and word count */}
-      <EditorFooter
-        editor={editor}
-        onDelete={handleDeleteClick}
-        isSaving={isSaving}
-        showSaveSuccess={showSaveSuccess}
-        onRenameNote={renameNote}
-      />
+      {showEditorFooter && (
+        <EditorFooter
+          editor={editor}
+          onDelete={handleDeleteClick}
+          isSaving={isSaving}
+          showSaveSuccess={showSaveSuccess}
+          onRenameNote={renameNote}
+        />
+      )}
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}
       <TemplatePickerModal

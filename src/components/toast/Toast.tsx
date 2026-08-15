@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Toast as ToastType } from '../../stores/toastStore';
 
+const TOAST_EXIT_MS = 120;
+
 interface ToastProps {
   toast: ToastType;
   onDismiss: (id: string) => void;
@@ -21,7 +23,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
     if (isExiting) {
       const timer = setTimeout(() => {
         onDismiss(toast.id);
-      }, 200); // Match exit animation duration
+      }, TOAST_EXIT_MS);
 
       return () => clearTimeout(timer);
     }
@@ -50,12 +52,13 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
     <div
       className={`
         pointer-events-auto flex flex-col min-w-72 max-w-96
-        rounded-md border-l-4 shadow-lg overflow-hidden
+        rounded-md overflow-hidden
         ${isExiting ? 'toast-exit-new' : 'toast-enter-new'}
       `}
       style={{
         backgroundColor: accentMuted,
-        borderLeftColor: accent,
+        border: '1px solid var(--border-default)',
+        borderLeft: `4px solid ${accent}`,
         color: accent,
       }}
       role="alert"

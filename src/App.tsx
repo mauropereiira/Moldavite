@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   Layout,
   ToastContainer,
@@ -9,6 +9,7 @@ import {
 } from './components';
 import { QuickSwitcher } from './components/quick-switcher';
 import { ShortcutHelpHost } from './components/ShortcutHelpModal';
+import { ChromeShortcutHost } from './components/ChromeShortcutHost';
 import { GraphView } from './components/graph';
 import { PluginDialogHostLoader } from './components/plugins/PluginDialogHostLoader';
 import {
@@ -18,6 +19,8 @@ import {
   applyFontSize,
   applyLineHeight,
   applyCompactMode,
+  applyEditorWidth,
+  applyFocusMode,
   applyFontFamily,
   useNoteColorsStore,
   useSemanticStore,
@@ -25,9 +28,13 @@ import {
 import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
 
+const SettingsModal = lazy(() =>
+  import('./components/settings').then((module) => ({ default: module.SettingsModal }))
+);
+
 function App() {
   const { theme, preset } = useThemeStore();
-  const { fontSize, fontFamily, lineHeight, compactMode } = useSettingsStore();
+  const { fontSize, fontFamily, lineHeight, compactMode, focusModeEnabled, editorWidth } = useSettingsStore();
   const { loadColors } = useNoteColorsStore();
 
   // Auto-lock: Monitor inactivity and re-lock notes after timeout
@@ -91,6 +98,14 @@ function App() {
     applyCompactMode(compactMode);
   }, [compactMode]);
 
+  useEffect(() => {
+    applyEditorWidth(editorWidth);
+  }, [editorWidth]);
+
+  useEffect(() => {
+    applyFocusMode(focusModeEnabled);
+  }, [focusModeEnabled]);
+
   return (
     <>
       <Layout />
@@ -102,6 +117,10 @@ function App() {
       <QuickSwitcher />
       <GraphView />
       <ShortcutHelpHost />
+      <ChromeShortcutHost />
+      <Suspense fallback={null}>
+        <SettingsModal />
+      </Suspense>
       <PluginDialogHostLoader />
     </>
   );

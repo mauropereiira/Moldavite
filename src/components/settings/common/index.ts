@@ -4,3 +4,7 @@ export { InfoTooltip } from './InfoTooltip';
 export type { InfoTooltipProps } from './InfoTooltip';
 export { ShortcutRow } from './ShortcutRow';
 export type { ShortcutRowProps } from './ShortcutRow';
+export { SectionHeading } from './SectionHeading';
+export type { SectionHeadingProps } from './SectionHeading';
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';

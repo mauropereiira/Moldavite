@@ -14,14 +14,14 @@ use crate::persist::read_config;
 pub(crate) fn get_config_path() -> PathBuf {
     dirs::config_dir()
         .expect("Could not find config directory")
-        .join("Moldavite")
+        .join("Moldavite Cream")
         .join("config.json")
 }
 
 pub(crate) fn get_default_notes_dir() -> PathBuf {
     dirs::document_dir()
         .expect("Could not find Documents directory")
-        .join("Moldavite")
+        .join("Moldavite Cream")
 }
 
 /// Default name for the Forge that legacy single-Forge users get migrated
@@ -47,7 +47,7 @@ pub(crate) fn get_forges_root() -> PathBuf {
     }
     dirs::document_dir()
         .expect("Could not find Documents directory")
-        .join("Moldavite")
+        .join("Moldavite Cream")
 }
 
 /// Returns the active Forge name (a directory under `forges_root`).

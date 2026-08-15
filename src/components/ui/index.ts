@@ -21,3 +21,4 @@ export { PasswordModal } from './PasswordModal';
 export { ConfirmDialog } from './ConfirmDialog';
 export { NoteColorPicker, NOTE_COLORS, getNoteBackgroundColor } from './NoteColorPicker';
 export type { NoteColorId } from './NoteColorPicker';
+export { SignatureEmptyState, SignatureMark } from './SignatureMark';
