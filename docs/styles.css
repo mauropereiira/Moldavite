@@ -11,20 +11,10 @@
   --tektite: #2e5b3c;
   --error: #b03a1a;
 
-  --void: var(--ground);
-  --void-soft: var(--ground-sunk);
-  --void-raised: var(--ground-lift);
-  --sage: var(--ink);
-  --sage-bright: var(--ink-body);
-  --sage-deep: var(--tektite);
-  --paper: var(--ink-body);
-  --paper-dim: var(--ink-mute);
-  --paper-faint: var(--ink-faint);
-
-  --font-display: 'Jost', Futura, 'Century Gothic', sans-serif;
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-mono: var(--font-code);
+  --font-display: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-body: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-code: var(--font-display);
+  --font-mono: var(--font-display);
 
   --container: 90rem;
   --measure: 68ch;
@@ -35,34 +25,18 @@
 }
 
 @font-face {
-  font-family: 'Jost';
-  src: url('fonts/jost-latin-wght-normal.woff2') format('woff2');
+  font-family: 'Geist';
+  src: url('fonts/Geist-Variable.woff2') format('woff2');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'DM Sans';
-  src: url('fonts/dm-sans-latin-400-normal.woff2') format('woff2');
+  font-family: 'Geist Mono';
+  src: url('fonts/GeistMono-Variable.woff2') format('woff2');
   font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'DM Sans';
-  src: url('fonts/dm-sans-latin-500-normal.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'DM Sans';
-  src: url('fonts/dm-sans-latin-700-normal.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 700;
+  font-weight: 100 900;
   font-display: swap;
 }
 
@@ -89,7 +63,7 @@ body {
   font-size: 1rem;
   font-weight: 400;
   line-height: 1.65;
-  letter-spacing: -0.008em;
+  letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -171,17 +145,18 @@ h4 {
 
 h1,
 h2 {
-  letter-spacing: -0.055em;
+  letter-spacing: -0.02em;
 }
 
 h3,
 h4 {
-  letter-spacing: -0.025em;
+  letter-spacing: -0.015em;
 }
 
 code,
 pre {
   font-family: var(--font-code);
+  letter-spacing: 0;
 }
 
 p code,
@@ -261,9 +236,10 @@ main:focus {
   align-items: center;
   gap: 0.7rem;
   color: var(--ink);
+  font-family: var(--font-display);
   font-size: 0.875rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   text-decoration: none;
 }
 
@@ -288,9 +264,10 @@ main:focus {
   position: relative;
   padding-block: 0.35rem;
   color: var(--ink-mute);
+  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-decoration: none;
   text-transform: uppercase;
 }
@@ -396,9 +373,10 @@ main:focus {
   padding-block-end: 0.35rem;
   border-block-end: 1px solid var(--ink);
   color: var(--ink);
+  font-family: var(--font-display);
   font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-decoration: none;
   text-transform: uppercase;
 }
@@ -453,8 +431,9 @@ main:focus {
 
 .eyebrow {
   color: var(--ink);
+  font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -499,9 +478,10 @@ main:focus {
 .card-label {
   margin: 0;
   color: var(--ink-mute);
+  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.14em;
   line-height: 1.4;
   text-transform: uppercase;
 }
@@ -625,6 +605,7 @@ main:focus {
   font-family: var(--font-display);
   font-size: 2.5rem;
   font-weight: 300;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
@@ -634,6 +615,7 @@ main:focus {
   margin-block: 0.75rem 1rem;
   font-size: clamp(1.75rem, 2.6vw, 2.5rem);
   font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1.05;
 }
 
@@ -666,9 +648,10 @@ main:focus {
   border-block-end: 1px solid var(--rule-strong);
   background: transparent;
   color: var(--ink-mute);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -709,9 +692,10 @@ main:focus {
 .sandbox-capabilities article > span,
 .app-details article > span {
   color: var(--ink-faint);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -790,9 +774,10 @@ main:focus {
   gap: 0.55rem;
   align-items: center;
   color: var(--ink-faint);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -848,6 +833,7 @@ main:focus {
   margin: 0.5rem 0 0;
   font-size: clamp(1.75rem, 3vw, 3rem);
   font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1.05;
 }
 
@@ -885,9 +871,10 @@ main:focus {
 .tool-table th,
 .docs-body th {
   color: var(--ink-faint);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -902,9 +889,10 @@ main:focus {
 
 .access-pill {
   color: var(--ink);
+  font-family: var(--font-display);
   font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -932,6 +920,7 @@ main:focus {
 .agent-ready-note > span {
   font-family: var(--font-code);
   font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .agent-ready-note p {
@@ -973,8 +962,9 @@ main:focus {
 
 .screenshot-card figcaption span {
   color: var(--ink);
+  font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -1024,6 +1014,7 @@ main:focus {
   color: var(--ink-faint);
   font-family: var(--font-display);
   font-size: 1.25rem;
+  letter-spacing: -0.015em;
 }
 
 .search-copy .text-link {
@@ -1131,6 +1122,7 @@ main:focus {
   color: var(--ink-faint);
   font-family: var(--font-display);
   font-size: 1.25rem;
+  letter-spacing: -0.015em;
 }
 
 .network-list h3 {
@@ -1228,9 +1220,10 @@ main:focus {
   display: block;
   margin-block-end: 2.5rem;
   color: var(--ink-mute);
+  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -1271,8 +1264,9 @@ main:focus {
 .docs-toc strong {
   margin-block-end: 0.5rem;
   color: var(--ink);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -1344,6 +1338,7 @@ main:focus {
   border-block: 1px solid var(--rule-strong);
   font-family: var(--font-code);
   font-size: 0.76em;
+  letter-spacing: 0;
 }
 
 .docs-body pre {
@@ -1396,9 +1391,10 @@ main:focus {
   display: block;
   margin-block-end: 0.45rem;
   color: var(--ink);
+  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -1424,6 +1420,7 @@ main:focus {
   color: var(--ink);
   font-family: var(--font-code);
   font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .method-description {
@@ -1437,6 +1434,7 @@ main:focus {
   color: var(--ink-mute);
   font-family: var(--font-code);
   font-size: 0.72rem;
+  letter-spacing: 0;
 }
 
 .next-links {
@@ -1462,15 +1460,17 @@ main:focus {
 
 .next-links .label {
   color: var(--ink-faint);
+  font-family: var(--font-display);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .next-links .title {
   font-family: var(--font-display);
   font-size: 1.25rem;
+  letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
@@ -1512,6 +1512,12 @@ main:focus {
 .directory-status {
   color: var(--ink-faint);
   font-size: 0.7rem;
+}
+
+.directory-search label,
+.directory-count {
+  font-family: var(--font-display);
+  letter-spacing: 0;
 }
 
 .directory-search label {
@@ -1568,11 +1574,14 @@ main:focus {
 .directory-card-heading h3 {
   margin: 0;
   font-size: 1.75rem;
+  letter-spacing: -0.02em;
 }
 
 .directory-version {
   color: var(--ink-faint);
+  font-family: var(--font-display);
   font-size: 0.7rem;
+  letter-spacing: 0;
 }
 
 .directory-description {
@@ -1593,6 +1602,7 @@ main:focus {
   color: var(--ink-mute);
   font-family: var(--font-code);
   font-size: 0.68rem;
+  letter-spacing: 0;
 }
 
 .directory-chip.directory-host {
@@ -1629,25 +1639,20 @@ main:focus {
   opacity: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #14120c;
-    --ground-sunk: #14120c;
-    --ground-lift: #14120c;
-    --ink: #f9f6ed;
-    --ink-body: #f9f6ed;
-    --ink-mute: rgba(249, 246, 237, 0.58);
-    --ink-faint: rgba(249, 246, 237, 0.38);
-    --rule: rgba(249, 246, 237, 0.13);
-    --rule-strong: rgba(249, 246, 237, 0.24);
-  }
-
-  html {
-    color-scheme: dark;
+@media (min-width: 54.167rem) {
+  .docs-body h3 {
+    letter-spacing: -0.02em;
   }
 }
 
-@media (max-width: 1180px) {
+/* The hanging TOC above sits in the left margin via `margin-left: -18rem`, so
+   it needs the viewport to be wide enough for that overhang to land on-screen.
+   Measured left edge of `.docs-toc`: 1280px -> -32px (clipped off-screen),
+   1366px -> 11px, 1440px -> 48px. This breakpoint used to be 1180px, which put
+   1280px laptops — one of the most common widths there is — in the gap with
+   the contents list half outside the window. Anything under 1440px gets the
+   stacked grid instead. */
+@media (max-width: 1439px) {
   .docs-toc {
     position: static;
     float: none;

@@ -120,6 +120,11 @@ requests and that is a privacy commitment, not a preference.** Never add a
 Both faces are vendored as woff2 in `public/fonts/` — no `@fontsource` package,
 no CDN. Two files, one family, zero dependencies.
 
+**The website uses the same two files**, copied to `docs/fonts/`. It ran on Jost
+and DM Sans for a while after the app had moved, which cost nothing measurable
+and made the site read as a different product from the thing it was selling.
+Same colours were not enough; the voice has to match too.
+
 The pairing is deliberately technical rather than pretty: mono for anything
 structural (headings, section labels, dates, counts, tab titles) and Geist for
 prose and UI. Mono numerals are the reason counts and dates don't reflow while
@@ -208,7 +213,7 @@ typographically correct and looked starved on a wide window; don't put it back
 as a constant.
 
 **Type carries hierarchy.** With no fills, radii or shadows left to lean on,
-size, weight, tracking and space are the only tools. Headings are Jost at
+size, weight, tracking and space are the only tools. Headings are Geist Mono at
 28/21/17px with `-0.01em` tracking and asymmetric margins (~1.6em above, 0.5em
 below) so they bind to the text they introduce.
 
