@@ -13,7 +13,6 @@
  * - `fileSystem` - File operations (notes, folders, encryption)
  * - `templates` - Template management utilities
  * - `validation` - Input validation and password strength
- * - `constants` - Application constants
  * - `tags` - Tag parsing and management
  *
  * @module lib
@@ -25,6 +24,5 @@ export * from './semantic';
 export * from './noteConflicts';
 export * from './templates';
 export * from './validation';
-export * from './constants';
 export * from './tags';
 export * from './backlinks';

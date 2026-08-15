@@ -31,8 +31,10 @@ import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
 } from '@/lib/calendar';
-import { CALENDAR_EVENTS_CACHE_DURATION } from '@/lib/constants';
 import { format } from 'date-fns';
+
+/** How long a fetched range stays usable before it is refetched. */
+const CALENDAR_EVENTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Range results, held outside the store because they are derived data with a
