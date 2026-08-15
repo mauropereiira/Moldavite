@@ -273,15 +273,15 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 idx.rebuild_from_disk();
             });
-            // Spawn the file watcher.
-            let watcher_handle = forge_watcher::spawn(app.handle().clone(), recent_writes.clone());
-            match watcher_handle {
-                Ok(h) => {
-                    // Keep the handle alive for the lifetime of the app.
-                    app.manage(h);
-                }
+            // Spawn the file watcher into a slot that survives Forge switches.
+            // The slot is managed unconditionally, even if this spawn fails, so
+            // a later switch still has somewhere to install its watcher.
+            let watcher_slot = forge_watcher::WatcherSlot::default();
+            match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
+                Ok(h) => watcher_slot.replace(Some(h)),
                 Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
             }
+            app.manage(watcher_slot);
             // If the user already enabled semantic search, load/reconcile the
             // index in the background (the model was downloaded during the
             // original explicit enable; this only re-downloads if the cache

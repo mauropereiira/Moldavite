@@ -283,6 +283,50 @@ impl Drop for WatcherHandle {
     }
 }
 
+/// The one piece of managed state that holds the current watcher.
+///
+/// Switching Forge has to retire one watcher and install another, and Tauri
+/// gives no way to re-manage a value: `Manager::manage` inserts *only* when
+/// nothing of that type is managed yet and is a silent no-op otherwise
+/// (`StateManager::set` returns a `bool` nobody is obliged to read), while
+/// `Manager::unmanage` is deprecated as unsafe. Handing the new handle
+/// straight to `manage` therefore dropped it on the floor — and because
+/// `Drop` shuts the thread down, that killed the replacement outright and
+/// left the dead original in place. One Forge switch and nothing was watched
+/// at all until the app restarted.
+///
+/// Tauri's own guidance for this is to manage a `Mutex<Option<T>>` once and
+/// swap the value inside it. That is all this is.
+#[derive(Default)]
+pub struct WatcherSlot(std::sync::Mutex<Option<WatcherHandle>>);
+
+impl WatcherSlot {
+    /// Stop whatever is watching now and install `next` in its place.
+    ///
+    /// Dropping the old handle would stop it anyway; stopping it explicitly
+    /// keeps the ordering legible. A poisoned lock is recovered rather than
+    /// propagated — a panic elsewhere should not silently disable file
+    /// watching for the rest of the session.
+    pub fn replace(&self, next: Option<WatcherHandle>) {
+        let mut slot = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(old) = slot.take() {
+            old.shutdown();
+        }
+        *slot = next;
+    }
+
+    /// Whether a watcher is currently installed. Test-only: nothing in the app
+    /// asks, it exists so the swap can be asserted on rather than inferred.
+    #[cfg(test)]
+    pub fn is_watching(&self) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .is_some()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -411,5 +455,66 @@ mod tests {
 
         assert!(!recent.matches_current_content(&path));
         assert!(!recent.inner.lock().unwrap().contains_key(&path));
+    }
+
+    /// A handle with no thread behind it, so the stop signal can be observed
+    /// directly instead of inferred from a live watcher.
+    fn stub_handle() -> (WatcherHandle, std::sync::mpsc::Receiver<()>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        (
+            WatcherHandle {
+                _join: None,
+                stop: Some(tx),
+            },
+            rx,
+        )
+    }
+
+    /// Why re-managing the handle was fatal rather than merely ineffective:
+    /// a dropped handle stops its own watcher. So the replacement Tauri threw
+    /// away did not just fail to be stored — it died on the way out.
+    #[test]
+    fn dropping_a_handle_stops_its_watcher() {
+        let (handle, rx) = stub_handle();
+        drop(handle);
+        assert!(
+            rx.try_recv().is_ok(),
+            "dropping a handle should stop its watcher thread"
+        );
+    }
+
+    #[test]
+    fn replacing_retires_the_old_watcher_and_keeps_the_new_one() {
+        let slot = WatcherSlot::default();
+        let (first, first_stop) = stub_handle();
+        slot.replace(Some(first));
+        assert!(slot.is_watching());
+
+        let (second, second_stop) = stub_handle();
+        slot.replace(Some(second));
+
+        assert!(
+            first_stop.try_recv().is_ok(),
+            "the outgoing watcher was left running"
+        );
+        // The half that actually regressed: the incoming watcher has to still
+        // be installed and alive, not dropped on the floor the way it was when
+        // this went through Manager::manage.
+        assert!(slot.is_watching());
+        assert!(
+            second_stop.try_recv().is_err(),
+            "the incoming watcher was shut down as soon as it was installed"
+        );
+    }
+
+    #[test]
+    fn replacing_with_none_leaves_nothing_watching() {
+        let slot = WatcherSlot::default();
+        let (handle, stop) = stub_handle();
+        slot.replace(Some(handle));
+        slot.replace(None);
+
+        assert!(stop.try_recv().is_ok());
+        assert!(!slot.is_watching());
     }
 }

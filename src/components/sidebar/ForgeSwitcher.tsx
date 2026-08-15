@@ -11,8 +11,11 @@ interface ForgeSwitcherProps {
  * Sidebar header dropdown that lets the user pick which Forge to work in.
  *
  * Switching reloads the window — the same trick `set_notes_directory`
- * already uses — so every store, cache, and watcher rebinds against the
- * new Forge root.
+ * already uses — so every store and cache rebinds against the new Forge root.
+ *
+ * The watcher is *not* covered by that reload: it lives in the Rust process,
+ * which the webview reload does not restart. `set_active_forge` swaps it over
+ * explicitly through `WatcherSlot`.
  */
 export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
   const { forges, active, loadForges, switchTo, createForge } = useForgeStore();
