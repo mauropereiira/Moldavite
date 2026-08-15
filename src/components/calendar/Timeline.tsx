@@ -1,12 +1,13 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { format, isToday } from 'date-fns';
-import { useCalendarStore } from '@/stores/calendarStore';
+import { hasNoConnectableCalendarSource, useCalendarStore } from '@/stores/calendarStore';
 import { useNoteStore, useSettingsStore } from '@/stores';
 import type { CalendarEvent } from '@/types';
 import { open } from '@tauri-apps/plugin-shell';
 import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
 import { NoEventsEmptyState, ConnectCalendarEmptyState } from '@/components/ui/EmptyState';
+import { CalendarSyncComingSoon } from './CalendarSyncComingSoon';
 
 // Time grid hours (0-23)
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -411,6 +412,7 @@ export function Timeline() {
   } = useCalendarStore();
 
   const anyConnected = sources.some((s) => s.available && s.connected);
+  const noConnectableSource = hasNoConnectableCalendarSource(sources);
 
   // Check source state on mount
   useEffect(() => {
@@ -449,7 +451,11 @@ export function Timeline() {
     return () => window.clearInterval(id);
   }, [anyConnected, calendarEnabled, refreshIntervalMinutes, selectedDate, fetchEvents]);
 
-  // Nothing connected - show connect prompt
+  if (noConnectableSource) {
+    return <CalendarSyncComingSoon />;
+  }
+
+  // A source exists but nothing is connected - show the existing connect prompt.
   if (!anyConnected) {
     return <ConnectCalendarPrompt />;
   }

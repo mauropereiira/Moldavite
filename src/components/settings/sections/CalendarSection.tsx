@@ -10,10 +10,11 @@
 
 import { useEffect } from 'react';
 import { Calendar, Check, Link2, Lock, Unlink } from 'lucide-react';
-import { useCalendarStore } from '@/stores/calendarStore';
+import { hasNoConnectableCalendarSource, useCalendarStore } from '@/stores/calendarStore';
 import type { CalendarInfo, CalendarSource } from '@/types';
 import { Toggle } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { CalendarSyncComingSoon } from '@/components/calendar/CalendarSyncComingSoon';
 
 const REFRESH_INTERVALS = [5, 15, 30, 60];
 
@@ -57,6 +58,10 @@ export function CalendarSection() {
   useEffect(() => {
     checkPermission();
   }, [checkPermission]);
+
+  if (hasNoConnectableCalendarSource(sources)) {
+    return <CalendarSyncComingSoon />;
+  }
 
   const apple = sources.find((s) => s.source === 'apple');
   const google = sources.find((s) => s.source === 'google');
