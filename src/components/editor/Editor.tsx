@@ -130,6 +130,15 @@ export function Editor() {
   const [showInlineTemplatePicker, setShowInlineTemplatePicker] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+  // `/image` in the slash menu opens this dialog rather than carrying its own
+  // (broken) upload. An event keeps the extension free of a React dependency;
+  // the extension runs inside ProseMirror, not the component tree.
+  useEffect(() => {
+    const open = () => setIsImageModalOpen(true);
+    window.addEventListener('moldavite:open-image-dialog', open);
+    return () => window.removeEventListener('moldavite:open-image-dialog', open);
+  }, []);
   const [linkInitialValues, setLinkInitialValues] = useState({ url: '', text: '' });
   const prevIsSavingRef = useRef(isSaving);
 

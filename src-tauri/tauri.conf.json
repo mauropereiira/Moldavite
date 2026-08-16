@@ -30,10 +30,7 @@
       "csp": "default-src 'self'; script-src 'self' blob: plugin://localhost http://plugin.localhost; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' plugin://localhost http://plugin.localhost https://github.com https://objects.githubusercontent.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'",
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$DOCUMENT/Moldavite/images/**",
-          "$DOCUMENT/Moldavite/*/images/**"
-        ]
+        "scope": ["$DOCUMENT/Moldavite/**", "$DOCUMENT/Moldavite/*/images/**"]
       }
     }
   },
@@ -43,9 +40,7 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "moldavite"
-        ]
+        "schemes": ["moldavite"]
       }
     },
     "updater": {
@@ -57,12 +52,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "dmg",
-      "app",
-      "msi",
-      "nsis"
-    ],
+    "targets": ["dmg", "app", "msi", "nsis"],
     "createUpdaterArtifacts": true,
     "resources": [
       "example-plugin/moldavite-example/**/*",

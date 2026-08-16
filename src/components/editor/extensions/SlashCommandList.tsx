@@ -109,23 +109,16 @@ export const slashCommands: SlashCommandItem[] = [
     description: 'Insert an image',
     mark: 'Image',
     keywords: ['picture', 'photo', 'img'],
-    command: (editor) => {
-      // Trigger image upload dialog
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const src = reader.result as string;
-            editor.chain().focus().setImage({ src }).run();
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-      input.click();
+    command: () => {
+      // Hand off to the Insert Image dialog rather than doing it here.
+      //
+      // This used to read the file with `readAsDataURL` and insert the base64
+      // straight into the document, so it never touched `save_image`: the
+      // picture ended up embedded in the note's Markdown as a multi-megabyte
+      // data URL instead of a file in the Forge's `images/` folder with a link
+      // to it. The dialog already does it properly, so there is one way to
+      // insert an image rather than two that disagree.
+      window.dispatchEvent(new window.CustomEvent('moldavite:open-image-dialog'));
     },
   },
 ];
