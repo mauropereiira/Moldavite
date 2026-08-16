@@ -1,6 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
+import {
+  useNoteStore,
+  useOverlayStore,
+  useQuickSwitcherStore,
+  useSettingsStore,
+  useTimelineStore,
+} from '@/stores';
 import { Layout } from './Layout';
 
 vi.mock('../editor/Editor', () => ({
@@ -114,5 +120,36 @@ describe('Layout navigation surfaces', () => {
     act(() => useOverlayStore.getState().openAgenda(false));
     expect(screen.queryByTestId('index-overlay')).not.toBeInTheDocument();
     expect(screen.getByTestId('agenda-overlay')).toBeInTheDocument();
+  });
+
+  // The pinned bar used to live inside the editor column, as a sibling above an
+  // editor whose root is `h-full`. That made the column taller than its box and
+  // pushed the editor's own footer — Colour, WordPress, Share, Format, More —
+  // out of view, so those controls vanished exactly when a note was pinned.
+  // It belongs above the whole app: full width, outside the content row.
+  it('puts the pinned bar above the content row, not inside the editor column', () => {
+    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/roadmap.md'] });
+    useNoteStore.setState({
+      notes: [
+        {
+          name: 'roadmap.md',
+          path: 'notes/roadmap.md',
+          isDaily: false,
+          isWeekly: false,
+          isLocked: false,
+        },
+      ] as never,
+      currentNote: null,
+    });
+
+    render(<Layout />);
+
+    const bar = screen.getByRole('navigation', { name: 'Pinned notes' });
+    const content = screen.getByTestId('app-content-area');
+    // Not a descendant of the content area, and therefore not of the editor
+    // column inside it.
+    expect(content.contains(bar)).toBe(false);
+    // Ordered before it in the document, so it reads as a bar across the top.
+    expect(bar.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -138,6 +138,31 @@ describe('WordPressMenu', () => {
     expect(screen.queryByText(/Woo Happiness/)).not.toBeInTheDocument();
   });
 
+  // Choosing a site sets up the next step rather than ending the interaction.
+  // The menu used to close on selection, hiding the Publish button the choice
+  // had just been made for, so you had to reopen it to find the action.
+  it('keeps the menu open when you pick a site, leaving Publish in view', async () => {
+    status.mockResolvedValue({ available: true, connected: true, error: null });
+    sites.mockResolvedValue([
+      { id: 1, name: 'Main blog', url: 'https://a.com' },
+      { id: 2, name: 'Side blog', url: 'https://b.com' },
+    ]);
+
+    render(<WordPressMenu />);
+    await waitFor(() => expect(sites).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'WordPress' }));
+
+    expect(await screen.findByText('Choose a site first')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Side blog · b.com' }));
+
+    // Still open — the site list is still there to change your mind with.
+    expect(screen.getByRole('menuitem', { name: '✓ Side blog · b.com' })).toBeInTheDocument();
+
+    // And the action the choice was made for is now in view and ready.
+    const publish = screen.getByRole('menuitem', { name: 'Publish to Side blog · b.com' });
+    expect(publish).not.toBeDisabled();
+  });
+
   it('offers no search box for a handful of sites', async () => {
     status.mockResolvedValue({ available: true, connected: true, error: null });
     sites.mockResolvedValue([
