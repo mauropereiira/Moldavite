@@ -258,6 +258,25 @@
         with the record of which posts came from which notes. You can also revoke it from
         WordPress.com at any time, under Security → Connected Applications.
       </p>
+      <div class="callout">
+        <span class="callout-title">A limitation worth stating plainly</span>
+        <p>
+          Moldavite's own WordPress.com application credentials are compiled into the app, which
+          means anyone can extract them from a downloaded copy. This is not a way into your
+          account: the credentials identify <em>Moldavite</em> to WordPress.com, not you, and no
+          site can be reached without a token that only your own approval creates.
+        </p>
+        <p>
+          What someone could do with them is present a different application under Moldavite's name
+          on a WordPress.com consent screen. You would still have to approve it. The reason the
+          credentials cannot simply be kept out of the app is that WordPress.com's OAuth offers no
+          public-client or PKCE flow — the token exchange requires the secret — so a desktop app
+          either embeds it or routes every sign-in through a server. Moldavite is local-first and
+          runs no server, and adding one so that connecting a blog depends on it would cost more
+          than this is worth. If a consent screen ever names Moldavite when you did not ask for it,
+          decline it.
+        </p>
+      </div>
 
       <h2 id="calendar">Calendar access</h2>
       <p>
