@@ -356,4 +356,24 @@ describe('IndexOverlay', () => {
     const state = useNoteStore.getState();
     expect(state.openTabs.map((tab) => tab.id)).toEqual(['notes/Pinned.md', 'notes/Delta.md']);
   });
+
+  // Got this wrong twice by positioning the two independently: first 32px
+  // apart, which read as one crowded object; then with the hint at top-left,
+  // where it landed on top of the Forge name in the sidebar's own header.
+  // Keeping them in one container is what makes overlap impossible — absolute
+  // coordinates only ever move the collision somewhere else.
+  it('keeps the shortcut hint and the close button in one row', () => {
+    render(<IndexOverlay isOpen onClose={() => {}} />);
+
+    const close = screen.getByRole('button', { name: 'Close Index' });
+    const hint = screen.getByText(/Esc closes/i);
+
+    // Siblings under a single positioned parent, not two floating elements.
+    expect(close.parentElement).toBe(hint.parentElement);
+    expect(close.parentElement).toHaveStyle({ display: 'flex' });
+
+    // Neither carries its own absolute position any more.
+    expect(close).not.toHaveStyle({ position: 'absolute' });
+    expect(hint).not.toHaveStyle({ position: 'absolute' });
+  });
 });
