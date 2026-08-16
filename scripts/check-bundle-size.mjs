@@ -77,7 +77,11 @@ const BUDGETS = [
 // applied across thirteen overlays that previously had none of it. Keyboard
 // users could tab straight out of every modal in the app. Measured 582.4 KB
 // raw / 160.3 KB gz.
-const APP_JS_BUDGET = { rawKb: 585, gzipKb: 162 };
+// Bumped 3 KB raw for 2.2.1: pin reordering with drag and keyboard, the
+// overflow menu, inline title renaming, and the calendar's day-mark legend.
+// Measured 585.3 KB raw / 161.4 KB gz — only raw crossed, so gzip is left
+// where it is rather than given headroom nothing has asked for.
+const APP_JS_BUDGET = { rawKb: 589, gzipKb: 162 };
 
 async function main() {
   let entries;
