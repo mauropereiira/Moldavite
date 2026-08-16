@@ -2,13 +2,34 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capabilities for Moldavite",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:window:default",
     {
       "identifier": "shell:allow-open",
-      "allow": [{ "url": "https://**" }]
+      "allow": [
+        {
+          "url": "https://github.com/mauropereiira/Moldavite/releases"
+        },
+        {
+          "url": "https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md"
+        },
+        {
+          "url": "https://www.google.com/calendar/event?eid=*"
+        },
+        {
+          "url": "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+        },
+        {
+          "url": "https://accounts.google.com/o/oauth2/v2/auth?*"
+        },
+        {
+          "url": "https://public-api.wordpress.com/oauth2/authorize?*"
+        }
+      ]
     },
     "updater:default",
     "process:allow-restart",

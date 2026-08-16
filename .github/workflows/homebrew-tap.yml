@@ -1,11 +1,7 @@
 name: Update Homebrew tap
 
-# Bumps Casks/moldavite.rb in mauropereiira/homebrew-moldavite after a release
-# has finished uploading its DMGs.
-#
-# This deliberately does not trigger on `release: published`. The release is
-# created with draft:false before any build starts, so that event fires minutes
-# before the DMGs exist.
+# Bumps Casks/moldavite.rb in mauropereiira/homebrew-moldavite after the release
+# workflow has verified every artifact and published the release.
 
 on:
   workflow_call:
@@ -14,6 +10,10 @@ on:
         description: 'Release tag or bare version (v1.8.1 or 1.8.1)'
         required: true
         type: string
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY:
+        description: 'Write-scoped SSH deploy key for the Homebrew tap'
+        required: true
   workflow_dispatch:
     inputs:
       version:
