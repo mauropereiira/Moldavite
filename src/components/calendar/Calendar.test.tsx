@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEvent } from '@/types';
 import { useCalendarStore, useNoteStore } from '@/stores';
@@ -63,7 +63,10 @@ describe('Calendar day indicators', () => {
     });
   });
 
-  it('renders one ink dot per event, capped at three', async () => {
+  // Dots mark what *kind* of thing is on a day, not how many. Counting events
+  // made a day with six back-to-back meetings and a day with one long one look
+  // equally busy while saying nothing about either.
+  it('marks a day with events using the events colour, once', async () => {
     const { container } = render(<Calendar />);
 
     await waitFor(() => {
@@ -74,10 +77,20 @@ describe('Calendar day indicators', () => {
     expect(day).toBeInTheDocument();
 
     await waitFor(() => {
-      const indicators = day?.querySelector('svg[data-event-count="3"]');
-      expect(indicators).toBeInTheDocument();
-      expect(indicators?.querySelectorAll('circle')).toHaveLength(3);
+      const marks = day?.querySelectorAll('circle');
+      // Three events that day, but "has events" is one fact about it.
+      expect(marks).toHaveLength(1);
+      expect(marks?.[0].getAttribute('fill')).toBe('var(--accent)');
     });
+  });
+
+  // A colour-coded grid with no key is decoration.
+  it('names every mark colour in a legend', async () => {
+    render(<Calendar />);
+    const legend = await screen.findByLabelText('What the marks under each date mean');
+    for (const label of ['To-do', 'Events', 'Note']) {
+      expect(within(legend).getByText(label)).toBeInTheDocument();
+    }
   });
 
   it('keeps the month grid and daily-note indicators when every source is unavailable', () => {
