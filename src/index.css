@@ -3437,6 +3437,50 @@ button[aria-expanded='true'] .wn-caret {
   display: none;
 }
 
+/* Where a dragged pin will land. A line rather than a moving gap: the row is
+   short and reflowing it on every dragover reads as jitter. */
+.pinned-bar-item[data-drop] {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
+.pinned-bar-item[draggable='true'] {
+  cursor: grab;
+}
+
+.pinned-bar-item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* Divides the pins that fit from the overflow count, so "+8" reads as a
+   continuation rather than another pin. */
+.pinned-bar-sep {
+  width: 1px;
+  height: 12px;
+  margin-left: 8px;
+  background: var(--border-muted);
+}
+
+.pinned-bar-more {
+  padding: 2px 6px;
+  color: var(--text-muted);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-standard);
+}
+
+.pinned-bar-more:hover {
+  color: var(--text-primary);
+}
+
+/* The bar is chrome, and its menu is not: reset the uppercase letterspacing
+   so note names in the overflow read as names. */
+.pinned-bar [role='menu'] {
+  letter-spacing: normal;
+  line-height: var(--text-sm--line-height);
+  text-transform: none;
+}
+
 .editor-footer {
   display: flex;
   align-items: center;

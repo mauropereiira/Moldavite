@@ -73,4 +73,54 @@ describe('PinnedBar', () => {
     expect(screen.getByRole('button', { name: 'ideas' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'roadmap' })).not.toHaveAttribute('aria-current');
   });
+
+  // Twelve pins wrapped onto three lines and pushed the whole app down, which
+  // is the opposite of the speed the bar exists for. Browser-tab behaviour:
+  // a few stay put, the rest collapse into a menu.
+  it('keeps four pins on the bar and puts the rest behind a count', async () => {
+    const paths = ['a', 'b', 'c', 'd', 'e', 'f'].map((n) => `notes/${n}.md`);
+    useNoteStore.setState({ notes: paths.map((p) => file(p)) as never, currentNote: null });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: paths });
+
+    render(<PinnedBar />);
+
+    expect(screen.getByRole('button', { name: 'a' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'd' })).toBeInTheDocument();
+    // Beyond the fourth, they are not on the bar.
+    expect(screen.queryByRole('button', { name: 'e' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '2 more pinned notes' }));
+    expect(await screen.findByRole('menuitem', { name: 'e' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'f' })).toBeInTheDocument();
+  });
+
+  // The order is the user's, and a drag-only control would be unusable without
+  // a mouse — this is the keyboard path to the same reordering.
+  it('moves a pin with alt+arrow so reordering is not mouse-only', async () => {
+    const paths = ['a', 'b', 'c'].map((n) => `notes/${n}.md`);
+    useNoteStore.setState({ notes: paths.map((p) => file(p)) as never, currentNote: null });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: paths });
+
+    render(<PinnedBar />);
+    screen.getByRole('button', { name: 'c' }).focus();
+    await userEvent.keyboard('{Alt>}{ArrowLeft}{/Alt}');
+
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([
+      'notes/a.md',
+      'notes/c.md',
+      'notes/b.md',
+    ]);
+  });
+
+  it('refuses to move a pin off either end', async () => {
+    const paths = ['a', 'b'].map((n) => `notes/${n}.md`);
+    useNoteStore.setState({ notes: paths.map((p) => file(p)) as never, currentNote: null });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: paths });
+
+    render(<PinnedBar />);
+    screen.getByRole('button', { name: 'a' }).focus();
+    await userEvent.keyboard('{Alt>}{ArrowLeft}{/Alt}');
+
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['notes/a.md', 'notes/b.md']);
+  });
 });

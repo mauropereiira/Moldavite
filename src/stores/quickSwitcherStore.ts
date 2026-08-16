@@ -33,6 +33,11 @@ interface QuickSwitcherState {
   togglePinned: (noteId: string) => void;
   isPinned: (noteId: string) => boolean;
   renamePinnedNote: (oldId: string, newId: string) => void;
+  /**
+   * Move a pin to a new position. The order is the user's, like browser tabs —
+   * the one you reach for most belongs where you can hit it without looking.
+   */
+  movePinnedNote: (from: number, to: number) => void;
 }
 
 export const useQuickSwitcherStore = create<QuickSwitcherState>()(
@@ -79,6 +84,21 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
         set((state) => ({
           pinnedNoteIds: state.pinnedNoteIds.map((id) => (id === oldId ? newId : id)),
         })),
+
+      movePinnedNote: (from, to) =>
+        set((state) => {
+          const ids = state.pinnedNoteIds;
+          // Out-of-range indices come from a drop that landed nowhere useful.
+          // Silently keeping the current order is the right answer: the user
+          // sees the pin snap back rather than jump somewhere they did not aim.
+          if (from === to || from < 0 || to < 0 || from >= ids.length || to >= ids.length) {
+            return state;
+          }
+          const next = [...ids];
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          return { pinnedNoteIds: next };
+        }),
     }),
     {
       // The key is namespaced by `forgeNamespacedStorage` on every access, not
