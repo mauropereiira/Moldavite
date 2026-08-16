@@ -2,6 +2,17 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.7] - 2026-08-16
+
+### Fixed
+
+- **The plugin guide on the website described permissions the app no longer grants.** It told plugin authors that showing a prompt and adding commands need no permission, which stopped being true in 2.2.0 — a plugin that declared nothing could put a password prompt on screen under Moldavite's own chrome. Anyone writing a plugin against the published guide would have built against a model the app refuses. The permission table now matches the app.
+- **The release runbook contradicted itself** about how the Homebrew tap authenticates, in the recovery steps someone reads when a release has already gone wrong.
+
+### Changed
+
+- Documentation across the README, the project status, the user guide and the release runbook now describes what the app actually does after the last seven releases: publishing to WordPress.com, pinned notes, renaming a note from its title, and the changed release pipeline.
+
 ## [2.2.6] - 2026-08-16
 
 ### Changed

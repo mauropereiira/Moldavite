@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** August 15, 2026
+**Last Updated:** August 16, 2026
 **Status:** Shipping on macOS, and on Windows in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -9,6 +9,8 @@
 ## What's Shipped and Working
 
 ### Notes & Editing
+
+- A note is renamed from its own title in the editor: Enter commits, Escape abandons, an empty name is refused, and a failed rename restores the previous name so the page never shows a name the file does not have. Daily and weekly notes stay read-only because they are named by date. The context-menu and more-options rename paths still work and now agree with this field rather than owning it.
 
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
 - TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
@@ -20,6 +22,8 @@
 - Local semantic search (v1.6; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Navigation & Welcome
+
+- Pinned notes sit in a bar across the whole app, above the icon rail and index. Four stay on the bar and the rest collapse behind a count; drag or `alt`+arrow reorders them. Pins are the same list the Quick Switcher shows, so a note cannot be pinned in one surface and not the other. Opening a pinned note focuses the tab it is already in rather than opening a second copy.
 
 - The icon-rail monogram is Home: pending edits flush before it closes the active Index / Agenda / Search / Graph / Timeline surface and clears the active note, while every open tab remains available to resume
 - The welcome night sky offers a persisted, default-on asteroid cursor with weighted pointer lag, a three-dot trail, interactive-control feedback, and a single click impact ring. Settings → Layout can disable it; reduced-motion and coarse-pointer media preferences prevent it from mounting or hiding the native cursor
@@ -75,7 +79,7 @@
 - ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
 - No automatic scheduled backups (manual + encrypted export exist).
 - No multi-window support.
-- **`Editor.tsx` has no test harness** ([#38](https://github.com/mauropereiira/Moldavite/issues/38)) — the only significant component without one.
+- **`Editor.tsx`'s tests mock `useKeyboardShortcuts` wholesale** — which is how ⌘N stayed wired to an empty function unnoticed until a user reported it. The mock now records the options it is handed so the wiring itself can be asserted, but most of the component is still only reachable through mocks.
 - **Self-write suppression is a 500ms timing window** ([#39](https://github.com/mauropereiira/Moldavite/issues/39)) — a slow disk can make the app read its own save as an external change.
 - **Two stress tests assert a wall-clock budget** ([#44](https://github.com/mauropereiira/Moldavite/issues/44)) — they can flake under CI load.
 - **Google Calendar is not brand-verified yet** — consent shows the unverified-app interstitial and there is a 100-user cap until Google completes review.
@@ -92,4 +96,4 @@
 
 ## Explicit Non-Goals
 
-Staying a _note app_: no canvas/whiteboard, no publish service, no database views in core. The plugin system is the extension point for the long tail.
+Staying a _note app_: no canvas/whiteboard, no hosting or publishing service of our own, no database views in core. The plugin system is the extension point for the long tail.

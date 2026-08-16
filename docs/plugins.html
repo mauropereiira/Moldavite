@@ -594,7 +594,7 @@ api.commands.<span class="f">add</span>({
         <div class="method-card">
           <p class="method-signature">
             ui.prompt(options): Promise&lt;Record&lt;string, string&gt; | null&gt;
-            <span class="permission-pill">current API, no permission</span>
+            <span class="permission-pill">ui</span>
           </p>
           <p class="method-description">
             Opens a user-mediated Moldavite form. Submit returns strings keyed by field name; Cancel
@@ -783,9 +783,7 @@ api.commands.<span class="f">add</span>({
           <tbody>
             <tr>
               <td>None</td>
-              <td>
-                <code>app</code>, <code>commands.add</code>, and the current <code>ui.prompt</code>.
-              </td>
+              <td><code>app</code> only.</td>
             </tr>
             <tr>
               <td><code>editor</code></td>
@@ -793,7 +791,11 @@ api.commands.<span class="f">add</span>({
             </tr>
             <tr>
               <td><code>ui</code></td>
-              <td>Show toast notifications.</td>
+              <td>Show toast notifications and host-rendered prompts.</td>
+            </tr>
+            <tr>
+              <td><code>commands</code></td>
+              <td>Register commands in the command palette and editor slash menu.</td>
             </tr>
             <tr>
               <td><code>notes.read</code></td>

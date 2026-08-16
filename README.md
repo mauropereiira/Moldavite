@@ -106,6 +106,15 @@ AES-256-GCM, encrypted export, a one-time Obsidian importer that copies rather
 than moves, and sandboxed plugins that run in a Worker with no network unless
 you grant it.
 
+Pin the notes you keep coming back to and they sit in a bar across the top,
+reorderable, with the rest a click away. Rename a note by editing its title.
+
+**Publish to WordPress.com** without minting a credential: sign in once in your
+browser, pick a site, and the note becomes a draft. Publishing it again updates
+that draft rather than scattering new ones. Self-hosted WordPress is covered by
+a bundled plugin using an Application Password, since those sites have no
+WordPress.com account to sign in with.
+
 ## Privacy
 
 Every network connection the app can make is listed in
@@ -120,5 +129,12 @@ locally.
 Issues and pull requests welcome. `docs/RELEASING.md` covers the release
 process, `CLAUDE.md` the architecture, and `docs/DESIGN_CREAM.md` the design
 system. Run `npm test`, `npm run lint`, and `cargo test` before opening a PR.
+
+Use the Node version in `.nvmrc` — `nvm use` picks it up. Node only builds and
+tests the app (the shipped binary is Rust and contains no Node runtime), but on
+newer versions vitest fails to hand jsdom's globals to the test context, so
+`localStorage` is undefined and a couple of hundred tests fail for no real
+reason while the same commit passes in CI. `npm install` warns if your version
+is outside the supported range.
 
 MIT.
