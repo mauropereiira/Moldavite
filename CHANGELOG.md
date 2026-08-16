@@ -2,6 +2,17 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.3] - 2026-08-16
+
+### Fixed
+
+- **Inserting an image with `/image` embedded it in the note instead of saving it.** The slash command read the file and pasted it into the document as a base64 data URL, so it never reached the Forge's `images/` folder — a photo could add megabytes to a note's Markdown. It now opens the Insert Image dialog, which has always done it properly, so there is one way to insert an image rather than two that disagree.
+- **Images may not have displayed at all.** Being straight about this one: the images were being saved correctly, and the fault was in showing them. A permission that governs which files the app may display was narrowed in 2.2.0 and has been widened again. That narrowing could not be proven to cause it, but it was the only thing near it and the previous setting worked. If images still do not appear, this was not the cause and the search continues.
+
+### Changed
+
+- **The app can no longer display your notes' own files through its image channel.** Widening that permission back would also have let anything running inside the app read note files and encrypted locked notes through it. Images are served; note files, locked notes, the trash and installed plugin code are refused.
+
 ## [2.2.2] - 2026-08-16
 
 ### Fixed
