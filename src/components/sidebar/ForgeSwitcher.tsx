@@ -105,7 +105,13 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
             return !v;
           });
         }}
-        className="w-full flex items-center justify-between gap-2 px-1 pb-3 text-left"
+        // Left-aligned, with the caret beside the name rather than pushed to the
+        // far edge. Full width means "far edge" is the width of whatever is
+        // hosting the sidebar — in the Index overlay that is the whole window,
+        // so the caret landed on top of the overlay's close button. Beside the
+        // name it also reads as what it is: press the Forge name to switch
+        // Forge, rather than a lone glyph in the corner belonging to nothing.
+        className="w-full flex items-center gap-2 px-1 pb-3 text-left"
         style={{
           color: 'var(--text-primary)',
           borderBottom: '1px solid var(--border-default)',
@@ -118,11 +124,15 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
         aria-expanded={open}
         title="Switch Forge"
       >
-        <span className="flex min-w-0 items-center gap-3">
+        <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{label}</span>
-        </span>
-        <span aria-hidden="true" className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-          ↓
+          <span
+            aria-hidden="true"
+            className="flex-shrink-0 text-[10px]"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            ↓
+          </span>
         </span>
       </button>
 
