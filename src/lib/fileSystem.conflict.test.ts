@@ -192,11 +192,7 @@ describe('external-edit conflict hash threading', () => {
     resolveFirst({ contentHash: 'hash-w1', conflictCopy: null });
     await first;
     for (let i = 0; i < 10 && !resolveSecond; i += 1) await Promise.resolve();
-    const baselineAfterOlderCompletion = getLastPersistedMarkdown(
-      'serialized.md',
-      false,
-      false
-    );
+    const baselineAfterOlderCompletion = getLastPersistedMarkdown('serialized.md', false, false);
     const writeCalls = invokeMock.mock.calls.filter(([command]) => command === 'write_note');
     const secondWriteArgs = writeCalls[writeCalls.length - 1][1] as Record<string, unknown>;
     resolveSecond({ contentHash: 'hash-w2', conflictCopy: null });

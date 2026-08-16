@@ -263,7 +263,11 @@ export function CalendarSection() {
                   Display events in the timeline
                 </p>
               </div>
-              <Toggle enabled={calendarEnabled} onChange={setCalendarEnabled} />
+              <Toggle
+                enabled={calendarEnabled}
+                onChange={setCalendarEnabled}
+                ariaLabel="Enable calendar events"
+              />
             </div>
 
             <div
@@ -278,7 +282,11 @@ export function CalendarSection() {
                   Include events without specific times
                 </p>
               </div>
-              <Toggle enabled={showAllDayEvents} onChange={setShowAllDayEvents} />
+              <Toggle
+                enabled={showAllDayEvents}
+                onChange={setShowAllDayEvents}
+                ariaLabel="Show all-day events"
+              />
             </div>
 
             <div

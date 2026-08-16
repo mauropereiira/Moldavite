@@ -1,9 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getLastPersistedMarkdown,
-  readNoteWithMeta,
-} from '@/lib/fileSystem';
+import { getLastPersistedMarkdown, readNoteWithMeta } from '@/lib/fileSystem';
 import { getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 import { useForgeStore } from '@/stores/forgeStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -167,7 +164,9 @@ describe('useNotes external-write bases', () => {
       }
     });
     const pendingAfterFailure = getPendingAutosaveNoteId();
-    const setActiveCalls = invokeMock.mock.calls.filter(([command]) => command === 'set_active_forge');
+    const setActiveCalls = invokeMock.mock.calls.filter(
+      ([command]) => command === 'set_active_forge'
+    );
     hook.unmount();
     consoleError.mockRestore();
 

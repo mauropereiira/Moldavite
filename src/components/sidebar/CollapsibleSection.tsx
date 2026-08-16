@@ -44,6 +44,7 @@ export function CollapsibleSection({
         </div>
       </div>
       <div
+        hidden={isCollapsed}
         className={`overflow-hidden ${
           isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
         }`}

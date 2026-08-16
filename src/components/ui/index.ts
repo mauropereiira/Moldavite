@@ -19,6 +19,8 @@ export {
 } from './Skeleton';
 export { PasswordModal } from './PasswordModal';
 export { ConfirmDialog } from './ConfirmDialog';
+export { DialogSurface } from './DialogSurface';
+export type { DialogSurfaceProps } from './DialogSurface';
 export { NoteColorPicker, NOTE_COLORS, getNoteBackgroundColor } from './NoteColorPicker';
 export type { NoteColorId } from './NoteColorPicker';
 export { SignatureEmptyState, SignatureMark } from './SignatureMark';

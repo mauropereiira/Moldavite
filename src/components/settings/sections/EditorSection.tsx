@@ -59,7 +59,11 @@ export function EditorSection() {
               Underline spelling errors
             </p>
           </div>
-          <Toggle enabled={settings.spellCheck} onChange={settings.setSpellCheck} />
+          <Toggle
+            enabled={settings.spellCheck}
+            onChange={settings.setSpellCheck}
+            ariaLabel="Enable spell check"
+          />
         </div>
 
         <div
@@ -74,7 +78,11 @@ export function EditorSection() {
               Capitalize first letter of sentences
             </p>
           </div>
-          <Toggle enabled={settings.autoCapitalize} onChange={settings.setAutoCapitalize} />
+          <Toggle
+            enabled={settings.autoCapitalize}
+            onChange={settings.setAutoCapitalize}
+            ariaLabel="Enable auto-capitalization"
+          />
         </div>
 
         <div
@@ -89,7 +97,11 @@ export function EditorSection() {
               Display word count at bottom of editor
             </p>
           </div>
-          <Toggle enabled={settings.showWordCount} onChange={settings.setShowWordCount} />
+          <Toggle
+            enabled={settings.showWordCount}
+            onChange={settings.setShowWordCount}
+            ariaLabel="Show word count"
+          />
         </div>
 
         <div
@@ -104,7 +116,11 @@ export function EditorSection() {
               Highlight #tags and show in sidebar
             </p>
           </div>
-          <Toggle enabled={settings.tagsEnabled} onChange={settings.setTagsEnabled} />
+          <Toggle
+            enabled={settings.tagsEnabled}
+            onChange={settings.setTagsEnabled}
+            ariaLabel="Enable tags"
+          />
         </div>
       </section>
     </div>

@@ -139,6 +139,187 @@ export function renameTagInContent(content: string, oldTag: string, newTag: stri
   // but only when followed by word boundary (space, punctuation, end of line)
   const escapedOldTag = oldTag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
   const tagRegex = new RegExp(`#${escapedOldTag}(?=[\\s.,!?;:\\]\\)}"'<>]|$)`, 'gi');
+  const urlRegex = /(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+  const excludedElements = new Set(['a', 'code', 'pre', 'script', 'style']);
+  let excludedDepth = 0;
+  let cursor = 0;
+  let result = '';
 
-  return content.replace(tagRegex, `#${newTag}`);
+  const replacePlainText = (text: string) => {
+    let urlEnd = 0;
+    let rewritten = '';
+    for (const match of text.matchAll(urlRegex)) {
+      const start = match.index ?? 0;
+      rewritten += text.slice(urlEnd, start).replace(tagRegex, `#${newTag}`);
+      rewritten += match[0];
+      urlEnd = start + match[0].length;
+    }
+    return rewritten + text.slice(urlEnd).replace(tagRegex, `#${newTag}`);
+  };
+
+  const findBalancedEnd = (text: string, start: number, open: string, close: string) => {
+    let depth = 0;
+    for (let index = start; index < text.length; index++) {
+      if (text[index] === '\\') {
+        index += 1;
+      } else if (text[index] === open) {
+        depth += 1;
+      } else if (text[index] === close) {
+        depth -= 1;
+        if (depth === 0) return index;
+      }
+    }
+    return -1;
+  };
+
+  const replaceText = (text: string) => {
+    if (excludedDepth > 0) return text;
+
+    let plainStart = 0;
+    let index = 0;
+    let rewritten = '';
+    const preserveThrough = (end: number) => {
+      rewritten += replacePlainText(text.slice(plainStart, index));
+      rewritten += text.slice(index, end);
+      index = end;
+      plainStart = end;
+    };
+
+    while (index < text.length) {
+      const character = text[index];
+      const atLineStart = index === 0 || text[index - 1] === '\n';
+
+      // Inline and fenced code use matching backtick runs. Tilde runs are
+      // fences only, and an unclosed fence owns the rest of the document.
+      if (character === '`' || (character === '~' && atLineStart)) {
+        let runEnd = index + 1;
+        while (text[runEnd] === character) runEnd += 1;
+        const runLength = runEnd - index;
+        if (character === '`' || runLength >= 3) {
+          const marker = character.repeat(runLength);
+          const closing = text.indexOf(marker, runEnd);
+          if (closing !== -1) {
+            preserveThrough(closing + runLength);
+            continue;
+          }
+          if (runLength >= 3 && atLineStart) {
+            preserveThrough(text.length);
+            continue;
+          }
+        }
+      }
+
+      // Four-space and tab-indented Markdown blocks are code/pre content too.
+      if (atLineStart && (text.startsWith('    ', index) || character === '\t')) {
+        let blockEnd = text.indexOf('\n', index);
+        if (blockEnd === -1) blockEnd = text.length;
+        while (blockEnd < text.length) {
+          const nextLine = blockEnd + 1;
+          if (
+            text.startsWith('    ', nextLine) ||
+            text[nextLine] === '\t' ||
+            text[nextLine] === '\n'
+          ) {
+            blockEnd = text.indexOf('\n', nextLine);
+            if (blockEnd === -1) {
+              blockEnd = text.length;
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+        preserveThrough(blockEnd);
+        continue;
+      }
+
+      // Preserve both the label and destination of inline/reference links and
+      // images. A tag shown as link text is not an editable tag text node.
+      const bracketStart = character === '[' ? index : character === '!' ? index + 1 : -1;
+      if (bracketStart !== -1 && text[bracketStart] === '[') {
+        const labelEnd = findBalancedEnd(text, bracketStart, '[', ']');
+        if (labelEnd !== -1) {
+          let destinationStart = labelEnd + 1;
+          while (/\s/.test(text[destinationStart] ?? '')) destinationStart += 1;
+
+          let linkEnd = -1;
+          if (text[destinationStart] === '(') {
+            linkEnd = findBalancedEnd(text, destinationStart, '(', ')');
+          } else if (text[destinationStart] === '[') {
+            linkEnd = findBalancedEnd(text, destinationStart, '[', ']');
+          } else if (text[destinationStart] === ':') {
+            const newline = text.indexOf('\n', destinationStart);
+            linkEnd = newline === -1 ? text.length - 1 : newline - 1;
+          }
+
+          if (linkEnd !== -1) {
+            preserveThrough(linkEnd + 1);
+            continue;
+          }
+        }
+      }
+
+      index += 1;
+    }
+
+    return rewritten + replacePlainText(text.slice(plainStart));
+  };
+
+  while (cursor < content.length) {
+    let tagStart = content.indexOf('<', cursor);
+    while (tagStart !== -1) {
+      const candidate = content.slice(tagStart);
+      const isMarkup =
+        candidate.startsWith('<!--') ||
+        /^<\/?[a-zA-Z][\w:-]*(?=[\s/>])/.test(candidate) ||
+        /^<(?:https?:\/\/|mailto:)[^<>\n]+>/.test(candidate);
+      if (isMarkup) break;
+      tagStart = content.indexOf('<', tagStart + 1);
+    }
+    if (tagStart === -1) {
+      result += replaceText(content.slice(cursor));
+      break;
+    }
+
+    result += replaceText(content.slice(cursor, tagStart));
+
+    if (content.startsWith('<!--', tagStart)) {
+      const commentEnd = content.indexOf('-->', tagStart + 4);
+      const end = commentEnd === -1 ? content.length : commentEnd + 3;
+      result += content.slice(tagStart, end);
+      cursor = end;
+      continue;
+    }
+
+    let quote: '"' | "'" | null = null;
+    let tagEnd = tagStart + 1;
+    for (; tagEnd < content.length; tagEnd++) {
+      const character = content[tagEnd];
+      if (quote) {
+        if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        tagEnd += 1;
+        break;
+      }
+    }
+
+    const tag = content.slice(tagStart, tagEnd);
+    const tagName = tag.match(/^<\s*\/?\s*([a-zA-Z][\w:-]*)/)?.[1].toLowerCase();
+    const isClosing = /^<\s*\//.test(tag);
+    const isSelfClosing = /\/\s*>$/.test(tag);
+    if (tagName && excludedElements.has(tagName)) {
+      if (isClosing) {
+        excludedDepth = Math.max(0, excludedDepth - 1);
+      } else if (!isSelfClosing) {
+        excludedDepth += 1;
+      }
+    }
+
+    result += tag;
+    cursor = tagEnd;
+  }
+
+  return result;
 }

@@ -381,7 +381,13 @@ export function PluginsSection() {
                     </button>
                   </div>
                 </div>
-                {ok && <Toggle enabled={enabled} onChange={(next) => handleToggle(info, next)} />}
+                {ok && (
+                  <Toggle
+                    enabled={enabled}
+                    onChange={(next) => handleToggle(info, next)}
+                    ariaLabel={`Enable ${name}`}
+                  />
+                )}
               </div>
             );
           })}

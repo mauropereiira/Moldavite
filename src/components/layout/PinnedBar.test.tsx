@@ -7,7 +7,7 @@ import { useNoteStore, useQuickSwitcherStore } from '@/stores';
 const loadNote = vi.fn();
 vi.mock('@/hooks', () => ({ useNotes: () => ({ loadNote }) }));
 
-const file = (path: string, name = path.split('/').pop()!) => ({
+const file = (path: string, name = path.slice(path.lastIndexOf('/') + 1)) => ({
   name,
   path,
   isDaily: false,

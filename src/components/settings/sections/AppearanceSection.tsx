@@ -180,7 +180,11 @@ export function AppearanceSection({
               Tighter spacing throughout the app
             </p>
           </div>
-          <Toggle enabled={settings.compactMode} onChange={settings.setCompactMode} />
+          <Toggle
+            enabled={settings.compactMode}
+            onChange={settings.setCompactMode}
+            ariaLabel="Use compact mode"
+          />
         </div>
 
         <div
@@ -195,7 +199,11 @@ export function AppearanceSection({
               Hide every panel at once and leave just the note. ⌘.
             </p>
           </div>
-          <Toggle enabled={settings.focusModeEnabled} onChange={settings.setFocusModeEnabled} />
+          <Toggle
+            enabled={settings.focusModeEnabled}
+            onChange={settings.setFocusModeEnabled}
+            ariaLabel="Enable focus mode"
+          />
         </div>
       </section>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -83,9 +84,7 @@ export function LinkModal({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
-    } else if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleInsert();
     }
@@ -97,11 +96,10 @@ export function LinkModal({
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="link-modal-title"
     >
-      <div
+      <DialogSurface
+        onEscape={handleClose}
+        aria-labelledby="link-modal-title"
         className="rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
@@ -245,7 +243,7 @@ export function LinkModal({
             to cancel
           </p>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToast } from '@/hooks/useToast';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface TemplateEditorModalProps {
   isOpen: boolean;
@@ -41,16 +42,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
       setTimeout(() => nameInputRef.current?.focus(), 50);
     }
   }, [isOpen]);
-
-  // Close on Escape while the modal is open.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSaving) onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,12 +98,11 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
     <div
       className="settings-scrim fixed inset-0 flex items-center justify-center z-[10000] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && !isSaving && onClose()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="template-editor-title"
     >
-      <div
-        className="settings-dialog w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-content-enter"
+      <DialogSurface
+        onEscape={isSaving ? undefined : onClose}
+        aria-labelledby="template-editor-title"
+        className="settings-dialog z-[10000] w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-content-enter"
         style={{
           backgroundColor: 'var(--bg-base)',
         }}
@@ -269,7 +259,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
             )}
           </button>
         </div>
-      </div>
+      </DialogSurface>
     </div>,
     document.body
   );

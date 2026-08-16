@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { DialogSurface } from './DialogSurface';
 
 interface ConfirmDialogProps {
   title: string;
@@ -27,29 +26,13 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(dialogRef, true);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !busy) {
-        e.stopPropagation();
-        onCancel();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onCancel]);
-
   return (
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={() => !busy && onCancel()}
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
+      <DialogSurface
+        onEscape={busy ? undefined : onCancel}
         aria-labelledby="confirm-dialog-title"
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
         style={{ borderRadius: 'var(--radius-md)' }}
@@ -78,7 +61,7 @@ export function ConfirmDialog({
             {confirmLabel}
           </button>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

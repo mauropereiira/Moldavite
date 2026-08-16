@@ -28,7 +28,11 @@ export function FeaturesSection() {
             </span>
             <InfoTooltip text="Type #tagname to create tags. Tags are highlighted and can be filtered in the sidebar." />
           </div>
-          <Toggle enabled={settings.tagsEnabled} onChange={settings.setTagsEnabled} />
+          <Toggle
+            enabled={settings.tagsEnabled}
+            onChange={settings.setTagsEnabled}
+            ariaLabel="Enable tags"
+          />
         </div>
       </div>
 
@@ -51,7 +55,11 @@ export function FeaturesSection() {
             </span>
             <InfoTooltip text="Shows a list of all notes that link to the current note. Helps you see connections between ideas." />
           </div>
-          <Toggle enabled={settings.backlinksEnabled} onChange={settings.setBacklinksEnabled} />
+          <Toggle
+            enabled={settings.backlinksEnabled}
+            onChange={settings.setBacklinksEnabled}
+            ariaLabel="Enable backlinks"
+          />
         </div>
       </div>
 
@@ -77,7 +85,11 @@ export function FeaturesSection() {
             </span>
             <InfoTooltip text="A month calendar with daily and weekly note navigation." />
           </div>
-          <Toggle enabled={settings.showCalendarWidget} onChange={settings.setShowCalendarWidget} />
+          <Toggle
+            enabled={settings.showCalendarWidget}
+            onChange={settings.setShowCalendarWidget}
+            ariaLabel="Show calendar widget"
+          />
         </div>
 
         <div
@@ -90,7 +102,11 @@ export function FeaturesSection() {
             </span>
             <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
           </div>
-          <Toggle enabled={settings.showTimelineWidget} onChange={settings.setShowTimelineWidget} />
+          <Toggle
+            enabled={settings.showTimelineWidget}
+            onChange={settings.setShowTimelineWidget}
+            ariaLabel="Show timeline widget"
+          />
         </div>
       </div>
     </div>

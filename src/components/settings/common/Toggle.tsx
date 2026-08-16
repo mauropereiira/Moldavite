@@ -3,8 +3,8 @@
 export interface ToggleProps {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
-  /** Optional accessible label for screen readers when no visible label is associated. */
-  ariaLabel?: string;
+  /** Accessible label for screen readers; the visible row text is not a native label. */
+  ariaLabel: string;
 }
 
 export function Toggle({ enabled, onChange, ariaLabel }: ToggleProps) {

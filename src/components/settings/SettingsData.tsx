@@ -15,6 +15,7 @@ import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 // Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
 // Forge's slot. Resolved per call, never once at module load: the active-Forge
@@ -482,14 +483,20 @@ export function SettingsData() {
       {/* Merge-vs-replace picker for plain notes import */}
       {pendingZipPath && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => setPendingZipPath(null)}
+            aria-labelledby="settings-data-import-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
               backgroundColor: 'transparent',
               borderRadius: 'var(--radius-md)',
             }}
           >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="settings-data-import-title"
+              className="text-lg font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Import Notes
             </h3>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -536,14 +543,20 @@ export function SettingsData() {
             >
               Cancel
             </button>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Encrypted export: password prompt */}
       {showEncryptedExport && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => {
+              setShowEncryptedExport(false);
+              setExportPw('');
+              setExportPwConfirm('');
+            }}
+            aria-labelledby="settings-data-encrypted-export-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
               backgroundColor: 'transparent',
@@ -558,7 +571,11 @@ export function SettingsData() {
                 <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3
+                  id="settings-data-encrypted-export-title"
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   Create Encrypted Backup
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -657,14 +674,20 @@ export function SettingsData() {
                 Create Backup
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Encrypted import: password + merge choice */}
       {showEncryptedImport && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => {
+              setShowEncryptedImport(false);
+              setPendingBackupPath(null);
+              setImportPw('');
+            }}
+            aria-labelledby="settings-data-encrypted-import-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
               backgroundColor: 'transparent',
@@ -679,7 +702,11 @@ export function SettingsData() {
                 <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3
+                  id="settings-data-encrypted-import-title"
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   Import Encrypted Backup
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -763,7 +790,7 @@ export function SettingsData() {
                 Import
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
     </div>

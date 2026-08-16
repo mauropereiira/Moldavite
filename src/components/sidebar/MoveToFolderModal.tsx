@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FolderInfo } from '@/types';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface MoveToFolderModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ function FolderOption({
         tabIndex={0}
         aria-pressed={isSelected}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onSelect(folder.path);
@@ -122,7 +124,9 @@ export function MoveToFolderModal({
         className="absolute inset-0 modal-backdrop-dark modal-backdrop-enter"
         onClick={onClose}
       />
-      <div
+      <DialogSurface
+        onEscape={onClose}
+        aria-labelledby="move-to-folder-title"
         className="relative w-full max-w-md mx-4 modal-content-enter overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-elevated)',
@@ -134,7 +138,11 @@ export function MoveToFolderModal({
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: 'var(--border-default)' }}
         >
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            id="move-to-folder-title"
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
           </h2>
           <button
@@ -171,6 +179,7 @@ export function MoveToFolderModal({
               tabIndex={0}
               aria-pressed={selectedPath === null}
               onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   setSelectedPath(null);
@@ -225,7 +234,7 @@ export function MoveToFolderModal({
             Move
           </button>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

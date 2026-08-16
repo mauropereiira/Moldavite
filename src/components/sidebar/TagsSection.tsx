@@ -4,6 +4,7 @@ import { renameTagGlobally, isValidTag } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface TagsSectionProps {
   allTags: Map<string, number>;
@@ -266,14 +267,20 @@ export function TagsSection({
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
           onClick={(e) => e.target === e.currentTarget && !isRenaming && handleRenameCancel()}
         >
-          <div
+          <DialogSurface
+            onEscape={isRenaming ? undefined : handleRenameCancel}
+            aria-labelledby="rename-tag-title"
             className="p-4 w-full max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{
               backgroundColor: 'var(--bg-elevated)',
               borderRadius: 'var(--radius-lg)',
             }}
           >
-            <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="rename-tag-title"
+              className="text-base font-semibold mb-3"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Rename tag #{renamingTag}
             </h3>
             <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
@@ -292,7 +299,6 @@ export function TagsSection({
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleRenameSubmit();
-                if (e.key === 'Escape') handleRenameCancel();
               }}
               autoFocus
               disabled={isRenaming}
@@ -321,7 +327,7 @@ export function TagsSection({
                 {isRenaming ? 'Renaming...' : 'Rename'}
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
     </>

@@ -44,10 +44,7 @@ import {
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
-import {
-  cancelPendingAutosaveDebounceForNote,
-  discardPendingAutosaveForNote,
-} from './useAutoSave';
+import { cancelPendingAutosaveDebounceForNote, discardPendingAutosaveForNote } from './useAutoSave';
 
 /**
  * Manages note operations including loading, creating, and deleting notes.

@@ -32,7 +32,11 @@ export function SidebarSection() {
             </span>
             <InfoTooltip text="Browse notes organized by folders. Useful if you organize notes into different directories." />
           </div>
-          <Toggle enabled={settings.showFoldersSection} onChange={settings.setShowFoldersSection} />
+          <Toggle
+            enabled={settings.showFoldersSection}
+            onChange={settings.setShowFoldersSection}
+            ariaLabel="Show folders section"
+          />
         </div>
 
         <div
@@ -48,6 +52,7 @@ export function SidebarSection() {
           <Toggle
             enabled={settings.showBacklinksSection}
             onChange={settings.setShowBacklinksSection}
+            ariaLabel="Show backlinks section"
           />
         </div>
       </section>

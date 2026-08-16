@@ -72,7 +72,12 @@ const BUDGETS = [
 // switching, the task-list run splitter, and the pinned-notes bar. This is
 // machinery whose only job is to stop the app losing a user's writing, which
 // is worth more than the kilobytes. Measured 577.9 KB raw / 158.6 KB gz.
-const APP_JS_BUDGET = { rawKb: 580, gzipKb: 160 };
+// Bumped a further 5 KB raw / 2 KB gz for the accessibility round: a shared
+// dialog surface with focus trapping, restoration and topmost-only Escape,
+// applied across thirteen overlays that previously had none of it. Keyboard
+// users could tab straight out of every modal in the app. Measured 582.4 KB
+// raw / 160.3 KB gz.
+const APP_JS_BUDGET = { rawKb: 585, gzipKb: 162 };
 
 async function main() {
   let entries;

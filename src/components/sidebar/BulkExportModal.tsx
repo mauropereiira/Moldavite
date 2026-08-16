@@ -13,6 +13,7 @@ import { useNoteSelectionStore } from '@/stores';
 import { usePdfExportStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import type { NoteFile } from '@/types';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 type BulkFormat = 'markdown' | 'pdf' | 'plaintext';
 
@@ -155,11 +156,17 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
-      <div
+      <DialogSurface
+        onEscape={busy ? undefined : onClose}
+        aria-labelledby="bulk-export-title"
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+        <h3
+          id="bulk-export-title"
+          className="text-base font-semibold mb-1"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Export {count} note{count === 1 ? '' : 's'}
         </h3>
         <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -204,7 +211,7 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
             {busy ? 'Exporting…' : 'Choose folder'}
           </button>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

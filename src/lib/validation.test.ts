@@ -5,6 +5,7 @@ import {
   getFolderNameError,
   getNoteTitleError,
   isContentEmpty,
+  isValidDateString,
   isValidNoteName,
 } from './validation';
 
@@ -59,5 +60,17 @@ describe('isContentEmpty', () => {
     expect(isContentEmpty('<p><img src="asset://localhost/img.png"></p>')).toBe(false);
     expect(isContentEmpty('<img src="x.png"/>')).toBe(false);
     expect(isContentEmpty('<video src="x.mp4"></video>')).toBe(false);
+  });
+});
+
+describe('isValidDateString', () => {
+  it('rejects calendar dates that JavaScript normalizes into another month', () => {
+    expect(isValidDateString('2025-02-30')).toBe(false);
+    expect(isValidDateString('2023-02-29')).toBe(false);
+    expect(isValidDateString('2025-04-31')).toBe(false);
+  });
+
+  it('accepts a real leap day', () => {
+    expect(isValidDateString('2024-02-29')).toBe(true);
   });
 });

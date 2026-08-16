@@ -201,11 +201,7 @@ describe('external Forge watcher reconciliation', () => {
     const tab = dailyTab(markdownToHtml('old body'));
     useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
 
-    let resolveIncoming!: (value: {
-      content: string;
-      color: null;
-      contentHash: string;
-    }) => void;
+    let resolveIncoming!: (value: { content: string; color: null; contentHash: string }) => void;
     invokeMock.mockImplementationOnce(
       () =>
         new Promise((resolve) => {

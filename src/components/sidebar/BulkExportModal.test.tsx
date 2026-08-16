@@ -80,6 +80,15 @@ beforeEach(() => {
 });
 
 describe('BulkExportModal note addressing', () => {
+  it('renders a named modal dialog', () => {
+    useNoteSelectionStore.getState().replace([folderNote.path]);
+    render(<BulkExportModal isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('dialog', { name: 'Export 1 note' })).toHaveAttribute(
+      'aria-modal',
+      'true'
+    );
+  });
+
   it('exports Markdown by the notes/-relative path', async () => {
     await exportSelection('markdown', [folderNote]);
     expect(exportSingleNote).toHaveBeenCalledTimes(1);
