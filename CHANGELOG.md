@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.2] - 2026-08-16
+
+### Fixed
+
+- **The editor's footer controls overlapped each other in compact mode.** COLOUR, WORDPRESS, SHARE, FORMAT and MORE were drawn on top of one another, unreadable. Compact mode gives toolbar buttons a fixed 24px width for icon buttons, and the footer's buttons — which are their labels, with no icon to fall back on — were not overriding it. The previous attempt relied on a rule that Chrome respects and Safari does not, so it tested clean everywhere except the app, which is built on Safari's engine.
+
 ## [2.2.1] - 2026-08-16
 
 ### Fixed

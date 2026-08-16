@@ -41,6 +41,8 @@ const HEX_ALLOWLIST = new Map([
   ['src/components/ui/NoteColorPicker.tsx', 'note colour palette'],
   ['src/components/graph/GraphView.tsx', 'canvas fallbacks read via getComputedStyle'],
   ['src/lib/fileSystem.ts', 'markdown/HTML conversion colours'],
+  ['src/stores/calendarStore.test.ts', 'provider-supplied calendar colour fixture'],
+  ['src/components/timeline/TimelineView.test.tsx', 'provider-supplied calendar colour fixture'],
 ]);
 
 /** Files allowed to contain named colours as data or checker fixtures. */
@@ -178,8 +180,41 @@ failed += report(
   'Named CSS colours ignore the theme. Use a token, or allowlist genuine colour data with a reason.'
 );
 
+// ── One layout invariant, checked here because this is the script that already
+// reads index.css in CI. It is not about tokens, and it is labelled so nobody
+// mistakes it for one.
+//
+// Compact mode gives every toolbar button a fixed 24px width, for icon buttons.
+// The editor footer's buttons ARE their labels, so they must override it with
+// `width: auto`. `min-width: max-content` is not enough: Blink honours it over
+// a fixed width, WebKit does not — it paints the label full-width while the
+// flex layout still allocates 24px, so the labels overlap. The app is WebKit,
+// so this shipped broken twice while every browser check said it was fine.
+// Only meaningful when compact mode actually pins a width to override. That
+// keeps it silent against the synthetic fixture roots this script's own tests
+// build, and means it retires itself if compact mode ever stops doing so.
+const indexCss = (await readFile(join(ROOT, 'src/index.css'), 'utf8').catch(() => '')).replace(
+  /\/\*[\s\S]*?\*\//g,
+  ''
+);
+const compactPinsWidth = /\.compact-mode \.toolbar-button\s*\{[^}]*width:\s*\d/.test(indexCss);
+if (compactPinsWidth) {
+  const footerRule = indexCss.match(/\.editor-footer \.toolbar-button\s*\{([^}]*)\}/);
+  if (!footerRule || !/(^|;|\s)width:\s*auto/.test(footerRule[1])) {
+    console.error(
+      '\n✗ `.editor-footer .toolbar-button` must set `width: auto`.\n' +
+        '  Compact mode pins toolbar buttons to a fixed width for icon buttons, and the\n' +
+        '  footer buttons are their labels, so they have to beat it. `min-width: max-content`\n' +
+        '  is not enough: Blink honours it over a fixed width, WebKit does not — it paints\n' +
+        '  the label full-width while the flex layout still allocates the fixed width, so the\n' +
+        '  labels overlap. The app is WebKit. This shipped broken twice.\n'
+    );
+    failed += 1;
+  }
+}
+
 if (failed) {
-  console.error(`\n${failed} token problem(s).\n`);
+  console.error(`\n${failed} problem(s).\n`);
   process.exit(1);
 }
 console.log(`✓ tokens clean — ${defined.size} defined, ${files.length} files checked`);
