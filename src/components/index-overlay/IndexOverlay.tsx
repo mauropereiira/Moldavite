@@ -40,48 +40,55 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
       aria-label="Index"
       tabIndex={-1}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="focus-ring"
+      {/* Hint and close button in one row, anchored top-right.
+          They have been wrong twice: first as two separately positioned
+          elements 32px apart, which read as one crowded object on a narrow
+          window; then with the hint moved to the top-left, where it landed on
+          top of the Forge name in the sidebar's own header. Neither had a
+          reason to be independently positioned. As a flex row they keep their
+          gap whatever the text, and they stay out of the header entirely. */}
+      <div
         style={{
           position: 'absolute',
           top: '20px',
           right: '24px',
           zIndex: 2,
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-display)',
-          fontSize: '24px',
-          lineHeight: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
         }}
-        aria-label="Close Index"
-        title="Close Index (Esc)"
       >
-        ×
-      </button>
+        <span
+          style={{
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}
+        >
+          ⌘\ · Esc closes
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="focus-ring"
+          style={{
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '24px',
+            lineHeight: 1,
+          }}
+          aria-label="Close Index"
+          title="Close Index (Esc)"
+        >
+          ×
+        </button>
+      </div>
 
       <Sidebar presentation="index" autoFocusSearch onNavigate={onClose} />
-
-      {/* Left, not tucked in beside the close button. Pinned to `right: 56px`
-          it sat 32px from the ×, so on a narrower window the hint and the
-          control read as one crowded object — and it disagreed with the Agenda
-          overlay, which has always put its shortcut under the title on the
-          left. Two overlays that behave the same should look the same. */}
-      <p
-        style={{
-          position: 'absolute',
-          left: '24px',
-          top: '24px',
-          zIndex: 2,
-          color: 'var(--text-muted)',
-          fontSize: '10px',
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          pointerEvents: 'none',
-        }}
-      >
-        ⌘\ · Esc closes
-      </p>
     </div>
   );
 }
