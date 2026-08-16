@@ -1154,7 +1154,19 @@ export function Editor() {
         </div>
 
         <EditorErrorBoundary resetKey={currentNote?.id}>
-          {showNoteHeader && <NoteHeader note={currentNote} />}
+          {showNoteHeader && (
+            <NoteHeader
+              note={currentNote}
+              // The rename command addresses the file on disk, so resolve the
+              // note's own entry rather than handing it the open buffer — the
+              // display title and the filename are allowed to diverge, and the
+              // filename is the one that decides where we write.
+              onRename={async (title) => {
+                const file = notes.find((n) => n.path === currentNote?.id);
+                if (file) await renameNote(file, title);
+              }}
+            />
+          )}
           <div key={currentNote.id} className="h-full note-switch-enter">
             <EditorContent editor={editor} className="h-full" />
           </div>
