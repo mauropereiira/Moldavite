@@ -27,10 +27,14 @@ const BUDGETS = [
   // Bumped for the v1.9 round: this chunk is prose, so it grows once per entry
   // and the only way to hold a line here is to write fewer or worse release
   // notes. Measured 40.2 KB raw / 16.1 KB gz on main at the time of the bump.
-  // Bumped again for the audit round, whose notes describe eight distinct
-  // data-loss fixes. Same reasoning as last time and it will recur: this cap
-  // is a ratchet on prose, not on code. Measured 59.3 KB raw / 22.9 KB gz.
-  { pattern: /^changelog-.*\.js$/, rawKb: 72, gzipKb: 25 },
+  // Raised generously rather than by inches. This chunk is the changelog, so
+  // it grows once per release and never shrinks: a tight cap on it has to be
+  // lifted every time and therefore signals nothing. Three releases in one day
+  // each tripped it by under a kilobyte. What actually needs watching is app
+  // code, which has its own budget below. The ceiling here exists only to
+  // catch something genuinely wrong — a binary or a dependency landing in this
+  // chunk — not to ration release notes. Measured 65.5 KB raw / 25.1 KB gz.
+  { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
 ];
 

@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.4] - 2026-08-16
+
+### Fixed
+
+- **The Index overlay's keyboard hint overlapped the Forge name.** The previous release moved it out of the close button's way and into the sidebar's own header instead, so it sat on top of the Forge name as unreadable text over text. The hint and the close button are now a single row that keeps its spacing whatever either says, rather than two things positioned independently and hoping they miss each other.
+
 ## [2.2.3] - 2026-08-16
 
 ### Fixed
