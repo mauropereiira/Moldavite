@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
-import { useNoteStore } from '@/stores';
+import { useNoteStore, useQuickSwitcherStore } from '@/stores';
 import {
   createNote,
   writeNote,
@@ -38,6 +38,7 @@ export function MoreOptionsMenu({
   openDirection = 'down',
 }: MoreOptionsMenuProps) {
   const { currentNote, notes, setNotes } = useNoteStore();
+  const { togglePinned, isPinned } = useQuickSwitcherStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
@@ -229,6 +230,11 @@ export function MoreOptionsMenu({
           </button>
         }
       >
+        {currentNote && (
+          <DropdownItem onClick={() => togglePinned(currentNote.id)}>
+            {isPinned(currentNote.id) ? 'Unpin from the top bar' : 'Pin to the top bar'}
+          </DropdownItem>
+        )}
         <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
         <DropdownItem onClick={handleDuplicate} disabled={currentNote?.isDaily}>
           Duplicate note

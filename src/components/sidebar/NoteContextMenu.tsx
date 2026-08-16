@@ -7,7 +7,7 @@ import {
   noteFileBackendPath,
 } from '@/lib';
 import { useToast } from '@/hooks/useToast';
-import { usePdfExportStore } from '@/stores';
+import { usePdfExportStore, useQuickSwitcherStore } from '@/stores';
 import type { NoteFile } from '@/types';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 
@@ -48,6 +48,7 @@ export function NoteContextMenu({
   onClose,
 }: NoteContextMenuProps) {
   const toast = useToast();
+  const { togglePinned, isPinned } = useQuickSwitcherStore();
 
   const handleExportMarkdown = async () => {
     try {
@@ -179,6 +180,20 @@ export function NoteContextMenu({
           Lock Note
         </button>
       )}
+      {/* Pinning is the one action here that is equally sensible for a locked
+          note: it means "keep this to hand", not "show me what's inside". */}
+      <button
+        onClick={() => {
+          togglePinned(note.path);
+          onClose();
+        }}
+        className={itemClass}
+        style={{ color: 'var(--text-primary)' }}
+        onMouseEnter={hoverIn}
+        onMouseLeave={hoverOut}
+      >
+        {isPinned(note.path) ? 'Unpin from top bar' : 'Pin to top bar'}
+      </button>
       {!note.isLocked && (
         <button
           onClick={() => {

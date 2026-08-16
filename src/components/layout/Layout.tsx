@@ -5,6 +5,7 @@ import { RightPanel } from './RightPanel';
 import { IndexOverlay } from '@/components/index-overlay/IndexOverlay';
 import { AgendaOverlay } from '@/components/agenda-overlay/AgendaOverlay';
 import { EditorNavigation } from './EditorNavigation';
+import { PinnedBar } from './PinnedBar';
 import { IconRail } from './IconRail';
 import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 
@@ -176,6 +177,7 @@ export function Layout() {
             </Suspense>
           ) : (
             <>
+              <PinnedBar />
               <Editor />
               <EditorNavigation />
             </>
