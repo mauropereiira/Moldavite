@@ -62,15 +62,22 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
 
       <Sidebar presentation="index" autoFocusSearch onNavigate={onClose} />
 
+      {/* Left, not tucked in beside the close button. Pinned to `right: 56px`
+          it sat 32px from the ×, so on a narrower window the hint and the
+          control read as one crowded object — and it disagreed with the Agenda
+          overlay, which has always put its shortcut under the title on the
+          left. Two overlays that behave the same should look the same. */}
       <p
         style={{
           position: 'absolute',
-          right: '56px',
+          left: '24px',
           top: '24px',
+          zIndex: 2,
           color: 'var(--text-muted)',
           fontSize: '10px',
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
+          pointerEvents: 'none',
         }}
       >
         ⌘\ · Esc closes
