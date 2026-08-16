@@ -116,7 +116,7 @@ describe('WordPressMenu', () => {
       { id: 3, name: 'Woo Happiness', url: 'https://woo.example.com' },
       { id: 4, name: 'VIP P2', url: 'https://vip.example.com' },
       { id: 5, name: 'Trials', url: 'https://trials.example.com' },
-      { id: 6, name: 'Biz test', url: 'https://mauropereirabiztest.wpcomstaging.com' },
+      { id: 6, name: 'Biz test', url: 'https://biztest.wpcomstaging.com' },
     ]);
 
     render(<WordPressMenu />);
