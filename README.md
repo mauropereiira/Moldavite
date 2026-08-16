@@ -106,6 +106,15 @@ AES-256-GCM, encrypted export, a one-time Obsidian importer that copies rather
 than moves, and sandboxed plugins that run in a Worker with no network unless
 you grant it.
 
+Pin the notes you keep coming back to and they sit in a bar across the top,
+reorderable, with the rest a click away. Rename a note by editing its title.
+
+**Publish to WordPress.com** without minting a credential: sign in once in your
+browser, pick a site, and the note becomes a draft. Publishing it again updates
+that draft rather than scattering new ones. Self-hosted WordPress is covered by
+a bundled plugin using an Application Password, since those sites have no
+WordPress.com account to sign in with.
+
 ## Privacy
 
 Every network connection the app can make is listed in

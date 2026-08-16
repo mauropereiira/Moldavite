@@ -9,12 +9,22 @@ Windows may show a SmartScreen warning. This is the end-to-end release process.
 ## 1. Prepare the release branch
 
 1. Branch from `main`: `git checkout -b release/vX.Y.Z`.
-2. Bump the version everywhere it lives (keeps all four files in sync):
+2. Bump the version everywhere it lives (keeps all five files in sync):
+
    ```bash
    npm run release:version -- X.Y.Z
    ```
-   This updates `package.json`, `src-tauri/tauri.conf.json`,
-   `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`.
+
+   This updates `package.json`, `package-lock.json`,
+   `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and
+   `src-tauri/Cargo.lock`. `node scripts/bump-version.mjs --check` verifies all
+   five agree without changing anything; CI runs it, and the release workflow
+   refuses to build a tag that disagrees with them.
+
+   Use the Node version in `.nvmrc` (20; 22 also works). On newer Node, vitest
+   fails to give jsdom's globals to the test context and a couple of hundred
+   tests fail for reasons that have nothing to do with the code.
+
 3. Add a `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` (Keep-a-Changelog
    format: `### Added` / `### Changed` / `### Fixed` / `### Removed`). This is
    the single source of truth — it becomes both the GitHub release body and the
@@ -31,11 +41,15 @@ Windows may show a SmartScreen warning. This is the end-to-end release process.
    git push origin vX.Y.Z
    ```
 3. The tag push triggers `.github/workflows/release.yml`, which:
-   - creates a GitHub Release whose body is the extracted `CHANGELOG.md`
-     section for this version,
+   - creates the GitHub Release **as a draft**, with a body extracted from the
+     `CHANGELOG.md` section for this version,
    - builds macOS aarch64 + x86_64 and Windows installers, signs and notarizes
      the macOS builds, and signs updater artifacts for every platform,
    - uploads artifacts and generates `latest.json` (the updater manifest),
+   - **publishes the draft only once every artifact and signature is present**,
+     and triggers the Homebrew bump after that. The release used to be created
+     public before the builds ran, so a signing failure left a broken "latest"
+     that the updater and the cask would both follow,
    - bumps `Casks/moldavite.rb` in
      [mauropereiira/homebrew-moldavite](https://github.com/mauropereiira/homebrew-moldavite)
      and pushes it to that repo's `main`.
@@ -55,6 +69,24 @@ instead.
   `brew update && brew info --cask mauropereiira/moldavite/moldavite` reports the
   new version.
 
+### If a macOS build fails to sign
+
+`failed to run command codesign: failed to sign app` on one macOS target while
+the other signs fine is a transient runner fault, not a code problem. It
+happened during 2.2.3, on Intel only.
+
+The draft-then-publish design handles it: `publish-release` is skipped, the
+release stays a draft with an incomplete asset list, and nothing reaches users.
+Re-run only the failed job and let publication proceed:
+
+```bash
+gh run rerun <run-id> --failed
+```
+
+This is safe because the workflow itself is unchanged — reruns reuse the
+workflow snapshot from when the run was created, so a rerun is the wrong tool
+for a workflow _fix_ and the right one for a flake.
+
 ### If the tap bump failed
 
 Re-run it alone from the Actions tab: **Update Homebrew tap** →
@@ -67,8 +99,12 @@ Two failure modes worth recognising:
   the newest GitHub release disagree. Usually means a later release landed while
   this job was running. Re-run with the newer version.
 - A `403` on the push step — `HOMEBREW_TAP_DEPLOY_KEY` is missing or was
-  rotated on the tap. Generate a new keypair and re-add it. Mint a new
-  fine-grained PAT and update the secret.
+  rotated on the tap. Generate a new ed25519 keypair, POST the public half to
+  `repos/mauropereiira/homebrew-moldavite/keys` with `read_only=false`, and
+  store the private half as that secret. (Do not reach for a PAT: a deploy key
+  is bound to the tap repo alone, which no PAT can promise.) Verify it by
+  pushing a throwaway ref and deleting it — `git push --dry-run` reports
+  "Everything up-to-date" when there is nothing to push and proves nothing.
 
 ## Required GitHub secrets
 
