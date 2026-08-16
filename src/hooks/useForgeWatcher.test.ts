@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLastPersistedMarkdown, markdownToHtml, readNoteWithMeta } from '@/lib/fileSystem';
-import { registerAutosaveBaselineReset, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
+import {
+  registerAutosaveBaselineReset,
+  registerAutosaveFlush,
+  registerAutosavePendingProbe,
+} from '@/lib/autosaveFlush';
+import { useForgeStore } from '@/stores/forgeStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note } from '@/types';
@@ -184,5 +189,84 @@ describe('external Forge watcher reconciliation', () => {
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(true);
     expect(invokeMock).toHaveBeenCalledTimes(3);
     unregisterProbe();
+  });
+
+  it('preserves typing that starts while a clean external read is in flight', async () => {
+    invokeMock.mockResolvedValueOnce({
+      content: 'old body',
+      color: null,
+      contentHash: 'old-hash',
+    });
+    await readNoteWithMeta('2026-07-31.md', true, false);
+    const tab = dailyTab(markdownToHtml('old body'));
+    useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
+
+    let resolveIncoming!: (value: {
+      content: string;
+      color: null;
+      contentHash: string;
+    }) => void;
+    invokeMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveIncoming = resolve;
+        })
+    );
+    let pendingId: string | null = null;
+    const unregisterProbe = registerAutosavePendingProbe(() => pendingId);
+    const reset = vi.fn();
+    const unregisterReset = registerAutosaveBaselineReset(reset);
+
+    const reconciliation = reconcileExternalNoteChange('daily/2026-07-31.md');
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+
+    const typed = markdownToHtml('typed while disk read was pending');
+    useNoteStore.getState().updateNoteContent(typed, tab.id);
+    pendingId = tab.id;
+    resolveIncoming({ content: 'external body', color: null, contentHash: 'external-hash' });
+    await reconciliation;
+
+    const state = useNoteStore.getState();
+    const persisted = getLastPersistedMarkdown('2026-07-31.md', true, false);
+    unregisterProbe();
+    unregisterReset();
+
+    expect(state.currentNote?.content).toBe(typed);
+    expect(state.externallyChanged.has(tab.id)).toBe(true);
+    expect(persisted).toBe('old body');
+    expect(reset).not.toHaveBeenCalled();
+  });
+});
+
+describe('Forge root switching transaction', () => {
+  it('flushes before changing roots and leaves rehydration to the reload', async () => {
+    const events: string[] = [];
+    const flush = vi.fn(async () => {
+      events.push('flush');
+    });
+    const unregisterFlush = registerAutosaveFlush(flush);
+    const unregisterProbe = registerAutosavePendingProbe(() => null);
+    const reload = vi.fn();
+    invokeMock.mockImplementation(async (command: string) => {
+      events.push(command);
+      if (command === 'set_forges_root') return '/new/Forges';
+      if (command === 'list_forges') return [];
+      if (command === 'get_forges_root_path') return '/new/Forges';
+      return undefined;
+    });
+    vi.stubGlobal('window', { location: { reload } });
+
+    let resolved: string | undefined;
+    try {
+      resolved = await useForgeStore.getState().setForgesRoot('/new/Forges');
+    } finally {
+      vi.unstubAllGlobals();
+      unregisterProbe();
+      unregisterFlush();
+    }
+
+    expect(resolved).toBe('/new/Forges');
+    expect(events).toEqual(['flush', 'set_forges_root']);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

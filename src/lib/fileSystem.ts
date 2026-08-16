@@ -390,29 +390,26 @@ function splitMixedTaskLists(html: string): string {
 
   taskLists.forEach((ul) => {
     const items = Array.from(ul.children);
-    const taskItems: Element[] = [];
-    const regularItems: Element[] = [];
+    const hasTaskItems = items.some((item) => item.classList.contains('task-list-item'));
+    const hasRegularItems = items.some((item) => !item.classList.contains('task-list-item'));
+    if (!hasTaskItems || !hasRegularItems) return;
 
-    // Separate task items from regular items
-    items.forEach((li) => {
-      if (li.classList.contains('task-list-item')) {
-        taskItems.push(li);
-      } else {
-        regularItems.push(li);
+    // Split into consecutive runs instead of grouping by kind. Grouping all task
+    // items first changes the user's writing order on the next autosave.
+    const fragment = doc.createDocumentFragment();
+    let currentList: Element | null = null;
+    let currentRunIsTask: boolean | null = null;
+    items.forEach((item) => {
+      const isTask = item.classList.contains('task-list-item');
+      if (currentList === null || currentRunIsTask !== isTask) {
+        currentList = ul.cloneNode(false) as Element;
+        if (!isTask) currentList.classList.remove('contains-task-list');
+        fragment.appendChild(currentList);
+        currentRunIsTask = isTask;
       }
+      currentList.appendChild(item);
     });
-
-    // If mixed, split into two lists
-    if (taskItems.length > 0 && regularItems.length > 0) {
-      // Create new regular <ul> for non-task items
-      const regularUl = doc.createElement('ul');
-      regularItems.forEach((item) => {
-        regularUl.appendChild(item);
-      });
-
-      // Insert regular list after the task list
-      ul.parentNode?.insertBefore(regularUl, ul.nextSibling);
-    }
+    ul.replaceWith(fragment);
   });
 
   // Return the inner HTML of the wrapper div
@@ -598,6 +595,9 @@ const noteBaseHashes = new Map<string, string>();
 const lastPersistedMarkdown = new Map<string, string>();
 const lockedNoteWrites = new Set<string>();
 const noteWritesInFlight = new Map<string, Set<Promise<NoteWriteResult>>>();
+const noteWriteTails = new Map<string, Promise<void>>();
+const noteWriteGenerations = new Map<string, number>();
+const noteWriteChainHashes = new Map<string, string>();
 
 export class LockedNoteWriteError extends Error {
   constructor() {
@@ -615,6 +615,7 @@ function forgetNoteBaseHash(filename: string, isDaily: boolean, isWeekly: boolea
   const key = noteHashKey(filename, isDaily, isWeekly);
   noteBaseHashes.delete(key);
   lastPersistedMarkdown.delete(key);
+  noteWriteChainHashes.delete(key);
 }
 
 export function getLastPersistedMarkdown(
@@ -661,11 +662,24 @@ export async function readNoteWithMeta(
   isWeekly: boolean = false
 ): Promise<NoteReadResult> {
   const result = await readNoteSnapshot(filename, isDaily, isWeekly);
-  // Remember what we read so the next save can detect external edits.
+  adoptNoteSnapshot(filename, isDaily, isWeekly, result);
+  return result;
+}
+
+/**
+ * Adopt a snapshot as the editor's current disk baseline after the caller has
+ * confirmed that no local edit raced its read.
+ */
+export function adoptNoteSnapshot(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean,
+  result: NoteReadResult
+): void {
   const key = noteHashKey(filename, isDaily, isWeekly);
   noteBaseHashes.set(key, result.contentHash);
   lastPersistedMarkdown.set(key, result.content);
-  return result;
+  noteWriteChainHashes.set(key, result.contentHash);
 }
 
 /**
@@ -725,28 +739,55 @@ export async function writeNote(
     throw new LockedNoteWriteError();
   }
 
-  const write = invoke<NoteWriteResult>('write_note', {
-    filename,
-    content,
-    isDaily,
-    isWeekly,
-    color: color ?? null,
-    baseHash: noteBaseHashes.get(key) ?? null,
+  const generation = (noteWriteGenerations.get(key) ?? 0) + 1;
+  noteWriteGenerations.set(key, generation);
+  const previous = noteWriteTails.get(key) ?? Promise.resolve();
+  const write = previous.then(async () => {
+    const result = await invoke<NoteWriteResult>('write_note', {
+      filename,
+      content,
+      isDaily,
+      isWeekly,
+      color: color ?? null,
+      baseHash: noteWriteChainHashes.get(key) ?? noteBaseHashes.get(key) ?? null,
+    });
+    // Every completed generation feeds the next queued write, but only the
+    // newest requested generation may become the public editor baseline.
+    noteWriteChainHashes.set(key, result.contentHash);
+    if (noteWriteGenerations.get(key) === generation) {
+      noteBaseHashes.set(key, result.contentHash);
+      lastPersistedMarkdown.set(key, content);
+    }
+    return result;
   });
+  const tail = write.then(
+    () => undefined,
+    () => undefined
+  );
+  noteWriteTails.set(key, tail);
   const writes = noteWritesInFlight.get(key) ?? new Set<Promise<NoteWriteResult>>();
   writes.add(write);
   noteWritesInFlight.set(key, writes);
 
   try {
-    const result = await write;
-    // What we just wrote is the new base for the next conflict check.
-    noteBaseHashes.set(key, result.contentHash);
-    lastPersistedMarkdown.set(key, content);
-    return result;
+    return await write;
   } finally {
     writes.delete(write);
-    if (writes.size === 0) noteWritesInFlight.delete(key);
+    if (writes.size === 0) {
+      noteWritesInFlight.delete(key);
+      if (noteWriteTails.get(key) === tail) noteWriteTails.delete(key);
+    }
   }
+}
+
+/** Wait for every write already queued for one note. New writes can be blocked by the caller. */
+export async function drainNoteWrites(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean = false
+): Promise<void> {
+  const pending = noteWritesInFlight.get(noteHashKey(filename, isDaily, isWeekly));
+  if (pending) await Promise.all([...pending]);
 }
 
 /**
@@ -762,13 +803,24 @@ export async function deleteNote(
   opts?: { guarded?: boolean }
 ): Promise<void> {
   const key = noteHashKey(filename, isDaily, isWeekly);
-  await invoke('delete_note', {
-    filename,
-    isDaily,
-    isWeekly,
-    baseHash: opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null,
-  });
-  forgetNoteBaseHash(filename, isDaily, isWeekly);
+  const wasWriteLocked = lockedNoteWrites.has(key);
+  let deleted = false;
+  lockedNoteWrites.add(key);
+  try {
+    await drainNoteWrites(filename, isDaily, isWeekly);
+    await invoke('delete_note', {
+      filename,
+      isDaily,
+      isWeekly,
+      baseHash: opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null,
+    });
+    forgetNoteBaseHash(filename, isDaily, isWeekly);
+    deleted = true;
+  } finally {
+    // A successful delete must allow a future note at the same address. On a
+    // failed delete, restore a pre-existing lock (for a temporarily unlocked note).
+    if (deleted || !wasWriteLocked) lockedNoteWrites.delete(key);
+  }
 }
 
 export async function preserveBufferCopy(

@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 
 export const INITIAL_UPDATE_CHECK_DELAY_MS = 15 * 1000;
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -162,6 +163,14 @@ export const useUpdateStore = create<UpdateState>()(
                   break;
               }
             });
+
+            // Relaunch bypasses React cleanup. Settle the live editor buffer and
+            // abort the relaunch if persistence left any note outstanding.
+            await flushPendingAutosave();
+            const pendingNoteId = getPendingAutosaveNoteId();
+            if (pendingNoteId) {
+              throw new Error(`Relaunch cancelled because ${pendingNoteId} could not be saved`);
+            }
 
             // Clear persisted pending state before relaunch so the installed
             // version never rehydrates with a stale indicator.
