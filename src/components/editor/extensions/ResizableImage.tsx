@@ -19,6 +19,17 @@ declare module '@tiptap/core' {
   }
 }
 
+/**
+ * How wide an image is drawn when nobody has resized it.
+ *
+ * The attribute defaults to null, which rendered every picture at its natural
+ * size — a phone screenshot arrived several thousand pixels wide and pushed the
+ * note's text out of the way. This is a rendering default only: it is not
+ * written to the note, so resizing still stores a real width and images already
+ * in your notes keep whatever they had.
+ */
+const DEFAULT_IMAGE_WIDTH = 420;
+
 function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -99,7 +110,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
           ref={imageRef}
           src={src}
           alt={alt || ''}
-          style={{ width: currentWidth ? `${currentWidth}px` : 'auto' }}
+          style={{ width: `${currentWidth || DEFAULT_IMAGE_WIDTH}px`, maxWidth: '100%' }}
           className="resizable-image"
           draggable={false}
         />

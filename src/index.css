@@ -4048,8 +4048,26 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   transition: opacity var(--dur-micro) var(--ease-standard);
 }
 
+/* Selecting an image used to paint the browser's own selection wash across it
+   — a solid blue rectangle over the picture, which reads as "something broke"
+   rather than "this is selected", and hides the thing you are looking at. A
+   ring around it says the same thing and leaves the image visible. The
+   alignment controls appear above it at the same moment. */
 .resizable-image-container.selected {
-  outline: 1px solid var(--border-strong);
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.resizable-image-container ::selection,
+.resizable-image::selection {
+  background: transparent;
+}
+
+/* Stop the image being dragged into a text selection while it is the selected
+   node; that is what let the wash paint over it in the first place. */
+.resizable-image-container.selected .resizable-image {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .resizable-image-container.resizing {
