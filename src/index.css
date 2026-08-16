@@ -3848,12 +3848,20 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 .editor-footer .toolbar-button {
   /* These buttons are their labels — there is no icon to fall back on, so a
      shrunk one is not "smaller", it is unreadable. `.toolbar-button` carries
-     `overflow: hidden` for its press effect, and a flex item that shrinks past
-     its text then clips it symmetrically: COLOUR renders as "OLOU", WORDPRESS
-     as "DPR". Refusing to shrink is what keeps the labels whole; the word
-     count on the left yields instead, and it can afford to. */
+     `overflow: hidden` for its press effect, and a flex item narrower than its
+     text then clips it: COLOUR rendered as "OLOU", WORDPRESS as "DPR".
+     
+     `width: auto` is doing the real work and must stay. Compact mode sets
+     `.compact-mode .toolbar-button { width: 24px }` for icon buttons, and this
+     rule has to beat it. `min-width: max-content` alone did not: Blink honours
+     it over a fixed width, WebKit does not, and the app runs on WebKit — so
+     the labels stayed pinned to 24px boxes and overlapped each other while
+     every browser test said they were fine. Set the width itself and the
+     intrinsic keyword is not load-bearing. */
+  width: auto;
   flex: 0 0 auto;
   min-width: max-content;
+  white-space: nowrap;
   height: 32px;
   padding: 0;
   color: var(--text-muted);
