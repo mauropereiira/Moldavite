@@ -111,19 +111,6 @@ fn add_archive_tree<W: IoWrite + Seek>(
     Ok(())
 }
 
-fn clear_import_subdirs(notes_dir: &Path, subdirs: &[&str]) -> Result<(), String> {
-    for subdir in subdirs {
-        let path = notes_dir.join(subdir);
-        if path.exists() {
-            fs::remove_dir_all(&path)
-                .map_err(|e| format!("Failed to clear {subdir} before import: {e}"))?;
-        }
-        fs::create_dir_all(&path)
-            .map_err(|e| format!("Failed to recreate {subdir} before import: {e}"))?;
-    }
-    Ok(())
-}
-
 fn preflight_archive<R: IoRead + Seek>(
     archive: &mut ZipArchive<R>,
     notes_dir: &Path,
@@ -161,6 +148,222 @@ fn preflight_archive<R: IoRead + Seek>(
     Ok(())
 }
 
+fn empty_import_result() -> ImportResult {
+    ImportResult {
+        daily_notes: 0,
+        standalone_notes: 0,
+        templates: 0,
+        images: 0,
+    }
+}
+
+fn extract_archive<R: IoRead + Seek>(
+    archive: &mut ZipArchive<R>,
+    destination_root: &Path,
+    label: &str,
+    merge: bool,
+) -> Result<ImportResult, String> {
+    let mut result = empty_import_result();
+    let mut total_uncompressed = 0_u64;
+
+    for index in 0..archive.len() {
+        let mut file = archive
+            .by_index(index)
+            .map_err(|e| format!("Failed to read {label} entry: {e}"))?;
+        let name = file.name().to_string();
+        if name.ends_with('/') {
+            continue;
+        }
+
+        let Some((subdir, destination)) =
+            validated_archive_destination(destination_root, &name)
+        else {
+            return Err(format!("{label} contains unsafe entry path '{name}'"));
+        };
+        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "{label} entry '{name}' exceeds per-file size limit"
+            ));
+        }
+        total_uncompressed = total_uncompressed.saturating_add(file.size());
+        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
+            return Err(format!("{label} total uncompressed size exceeds limit"));
+        }
+
+        ensure_import_parent(destination_root, &destination)?;
+        if merge && destination.exists() {
+            continue;
+        }
+
+        let mut content = Vec::new();
+        (&mut file)
+            .take(MAX_ENTRY_UNCOMPRESSED_SIZE + 1)
+            .read_to_end(&mut content)
+            .map_err(|e| format!("Failed to read file from {label}: {e}"))?;
+        if content.len() as u64 > MAX_ENTRY_UNCOMPRESSED_SIZE {
+            return Err(format!(
+                "{label} entry '{name}' exceeds per-file size limit"
+            ));
+        }
+        crate::persist::write_atomic(&destination, &content, Some(0o600))
+            .map_err(|e| format!("Failed to write imported file: {e}"))?;
+
+        match subdir.as_str() {
+            "daily" | "weekly" => result.daily_notes += 1,
+            "notes" => result.standalone_notes += 1,
+            "templates" => result.templates += 1,
+            "images" => result.images += 1,
+            _ => {}
+        }
+    }
+
+    Ok(result)
+}
+
+fn create_import_staging_dir(notes_dir: &Path) -> Result<PathBuf, String> {
+    let parent = notes_dir
+        .parent()
+        .ok_or_else(|| "Forge has no parent directory".to_string())?;
+    let forge_name = notes_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("forge");
+
+    for _ in 0..32 {
+        let suffix = rand::RngCore::next_u64(&mut rand::rngs::OsRng);
+        let path = parent.join(format!(
+            ".{forge_name}.moldavite-import-{suffix:016x}.tmp"
+        ));
+        let mut builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        match builder.create(&path) {
+            Ok(()) => return Ok(path),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Failed to create import staging directory: {error}")),
+        }
+    }
+
+    Err("Failed to reserve an import staging directory".to_string())
+}
+
+fn apply_staged_templates(staging_root: &Path, notes_dir: &Path) -> Result<(), String> {
+    let source = staging_root.join("templates");
+    if !source.is_dir() {
+        return Ok(());
+    }
+
+    for entry in WalkDir::new(&source).follow_links(false).into_iter() {
+        let entry = entry.map_err(|e| format!("Failed to inspect staged template: {e}"))?;
+        if entry.file_type().is_symlink() {
+            return Err("Staged template contains a symlink".to_string());
+        }
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(&source)
+            .map_err(|_| "Failed to resolve staged template path".to_string())?;
+        let destination = notes_dir.join("templates").join(relative);
+        ensure_import_parent(notes_dir, &destination)?;
+        let content =
+            fs::read(entry.path()).map_err(|e| format!("Failed to read staged template: {e}"))?;
+        crate::persist::write_atomic(&destination, &content, Some(0o600))
+            .map_err(|e| format!("Failed to install staged template: {e}"))?;
+    }
+    Ok(())
+}
+
+fn rollback_swapped_subdirs(notes_dir: &Path, staging_root: &Path, swapped: &[&str]) {
+    let rollback_root = staging_root.join(".rollback");
+    for subdir in swapped.iter().rev() {
+        let live = notes_dir.join(subdir);
+        let staged = staging_root.join(subdir);
+        let backup = rollback_root.join(subdir);
+        if fs::rename(&live, &staged).is_err() {
+            let _ = fs::remove_dir_all(&live);
+        }
+        let _ = fs::rename(&backup, &live);
+    }
+}
+
+fn swap_import_subdirs(notes_dir: &Path, staging_root: &Path) -> Result<(), String> {
+    const REPLACED_SUBDIRS: [&str; 4] = ["daily", "weekly", "notes", "images"];
+    let rollback_root = staging_root.join(".rollback");
+    fs::create_dir(&rollback_root)
+        .map_err(|e| format!("Failed to prepare import rollback directory: {e}"))?;
+
+    for subdir in REPLACED_SUBDIRS {
+        let live = notes_dir.join(subdir);
+        let staged = staging_root.join(subdir);
+        fs::create_dir_all(&staged)
+            .map_err(|e| format!("Failed to prepare staged {subdir}: {e}"))?;
+        if !live.exists() {
+            fs::create_dir_all(&live)
+                .map_err(|e| format!("Failed to prepare live {subdir}: {e}"))?;
+        }
+        validate_path_within_base(&live, notes_dir)
+            .map_err(|_| format!("Live {subdir} directory is unsafe"))?;
+        validate_path_within_base(&staged, staging_root)
+            .map_err(|_| format!("Staged {subdir} directory is unsafe"))?;
+        if !live.is_dir() || !staged.is_dir() {
+            return Err(format!("Import {subdir} path is not a directory"));
+        }
+    }
+
+    let mut swapped = Vec::new();
+    for subdir in REPLACED_SUBDIRS {
+        let live = notes_dir.join(subdir);
+        let staged = staging_root.join(subdir);
+        let backup = rollback_root.join(subdir);
+        if let Err(error) = fs::rename(&live, &backup) {
+            rollback_swapped_subdirs(notes_dir, staging_root, &swapped);
+            return Err(format!(
+                "Failed to stage existing {subdir} for replacement: {error}"
+            ));
+        }
+        if let Err(error) = fs::rename(&staged, &live) {
+            let _ = fs::rename(&backup, &live);
+            rollback_swapped_subdirs(notes_dir, staging_root, &swapped);
+            return Err(format!("Failed to publish imported {subdir}: {error}"));
+        }
+        swapped.push(subdir);
+    }
+    Ok(())
+}
+
+fn replace_from_archive<R: IoRead + Seek>(
+    archive: &mut ZipArchive<R>,
+    notes_dir: &Path,
+    label: &str,
+) -> Result<ImportResult, String> {
+    let staging_root = create_import_staging_dir(notes_dir)?;
+    let imported = match (|| {
+        let imported = extract_archive(archive, &staging_root, label, false)?;
+        apply_staged_templates(&staging_root, notes_dir)?;
+        Ok(imported)
+    })() {
+        Ok(imported) => imported,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&staging_root);
+            return Err(error);
+        }
+    };
+
+    if let Err(error) = swap_import_subdirs(notes_dir, &staging_root) {
+        return Err(format!(
+            "{error}; staged recovery data was retained for safety"
+        ));
+    }
+    fs::remove_dir_all(&staging_root)
+        .map_err(|e| format!("Import completed but failed to remove staged old data: {e}"))?;
+    Ok(imported)
+}
+
 /// Export all notes and templates to a ZIP file
 #[tauri::command]
 pub(crate) fn export_notes(destination: String) -> Result<String, String> {
@@ -177,44 +380,20 @@ fn export_notes_to(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
 }
 
 fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
-    let mut open_options = fs::OpenOptions::new();
-    open_options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        open_options.mode(0o600);
-    }
-    let file = open_options
-        .open(zip_path)
-        .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
-    let mut zip = zip::ZipWriter::new(file);
+    crate::persist::write_atomic_with(zip_path, Some(0o600), |file| {
+        let mut zip = zip::ZipWriter::new(file);
+        let options = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o600);
 
-    let options = SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o600);
-
-    for subdir in ["daily", "weekly", "notes", "templates", "images"] {
-        add_archive_tree(&mut zip, notes_dir, subdir, options)?;
-    }
-
-    let file = zip
-        .finish()
-        .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
-    // The archive holds every note, so the 0600 set at create time is re-asserted
-    // here: finish() rewrites the file and can widen the mode back to the umask.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        file.set_permissions(fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("Failed to secure ZIP file: {}", e))?;
-    }
-    // Windows has no POSIX mode bits; the file inherits the target directory's
-    // ACL. Dropped explicitly so the handle closes here on every platform rather
-    // than reading as an unused binding.
-    #[cfg(not(unix))]
-    drop(file);
-
-    Ok(())
+        for subdir in ["daily", "weekly", "notes", "templates", "images"] {
+            add_archive_tree(&mut zip, notes_dir, subdir, options)?;
+        }
+        zip.finish()
+            .map_err(|e| format!("Failed to finalize ZIP: {e}"))?;
+        Ok(())
+    })
+    .map_err(|e| format!("Failed to create ZIP file: {e}"))
 }
 
 /// Import notes and templates from a ZIP file
@@ -235,85 +414,11 @@ fn import_notes_into(
         ZipArchive::new(zip_file).map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
 
     preflight_archive(&mut archive, notes_dir, "Archive")?;
-
-    let mut result = ImportResult {
-        daily_notes: 0,
-        standalone_notes: 0,
-        templates: 0,
-        images: 0,
-    };
-    let mut total_uncompressed: u64 = 0;
-
-    // If not merging, clear existing notes first (but not templates)
-    if !merge {
-        clear_import_subdirs(notes_dir, &["daily", "weekly", "notes", "images"])?;
+    if merge {
+        extract_archive(&mut archive, notes_dir, "Archive", true)
+    } else {
+        replace_from_archive(&mut archive, notes_dir, "Archive")
     }
-
-    // Extract files from the ZIP
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("Failed to read ZIP entry: {}", e))?;
-
-        let name = file.name().to_string();
-
-        if name.ends_with('/') {
-            continue;
-        }
-
-        let Some((subdir, dest_path)) = validated_archive_destination(notes_dir, &name) else {
-            return Err(format!("Archive contains unsafe entry path '{name}'"));
-        };
-
-        // Reject entries whose reported uncompressed size is above the per-file
-        // cap before we ever allocate for them.
-        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
-            return Err(format!(
-                "Archive entry '{}' exceeds per-file size limit",
-                name
-            ));
-        }
-        total_uncompressed = total_uncompressed.saturating_add(file.size());
-        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
-            return Err("Archive total uncompressed size exceeds limit".to_string());
-        }
-
-        ensure_import_parent(notes_dir, &dest_path)?;
-
-        // If merging, skip existing files
-        if merge && dest_path.exists() {
-            continue;
-        }
-
-        // Extract the file, bounded by the per-entry size limit as defence in
-        // depth against mismatched `file.size()` metadata.
-        let mut content = Vec::new();
-        (&mut file)
-            .take(MAX_ENTRY_UNCOMPRESSED_SIZE + 1)
-            .read_to_end(&mut content)
-            .map_err(|e| format!("Failed to read file from ZIP: {}", e))?;
-        if content.len() as u64 > MAX_ENTRY_UNCOMPRESSED_SIZE {
-            return Err(format!(
-                "Archive entry '{}' exceeds per-file size limit",
-                name
-            ));
-        }
-
-        crate::persist::write_atomic(&dest_path, &content, Some(0o600))
-            .map_err(|e| format!("Failed to write file: {}", e))?;
-
-        // Update counts
-        match subdir.as_str() {
-            "daily" => result.daily_notes += 1,
-            "weekly" => result.daily_notes += 1,
-            "notes" => result.standalone_notes += 1,
-            "templates" => result.templates += 1,
-            "images" => result.images += 1,
-            _ => {}
-        }
-    }
-
-    Ok(result)
 }
 
 /// Export all notes and templates to an encrypted backup file
@@ -421,81 +526,11 @@ fn import_encrypted_backup_into(
         ZipArchive::new(cursor).map_err(|e| format!("Failed to read backup archive: {}", e))?;
 
     preflight_archive(&mut archive, notes_dir, "Backup")?;
-
-    let mut result = ImportResult {
-        daily_notes: 0,
-        standalone_notes: 0,
-        templates: 0,
-        images: 0,
-    };
-    let mut total_uncompressed: u64 = 0;
-
-    // If not merging, clear existing notes first (but not templates)
-    if !merge {
-        clear_import_subdirs(notes_dir, &["daily", "weekly", "notes", "images"])?;
+    if merge {
+        extract_archive(&mut archive, notes_dir, "Backup", true)
+    } else {
+        replace_from_archive(&mut archive, notes_dir, "Backup")
     }
-
-    // Extract files from the ZIP
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("Failed to read archive entry: {}", e))?;
-
-        let name = file.name().to_string();
-
-        if name.ends_with('/') {
-            continue;
-        }
-
-        let Some((subdir, dest_path)) = validated_archive_destination(notes_dir, &name) else {
-            return Err(format!("Backup contains unsafe entry path '{name}'"));
-        };
-
-        if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
-            return Err(format!(
-                "Backup entry '{}' exceeds per-file size limit",
-                name
-            ));
-        }
-        total_uncompressed = total_uncompressed.saturating_add(file.size());
-        if total_uncompressed > MAX_TOTAL_UNCOMPRESSED_SIZE {
-            return Err("Backup total uncompressed size exceeds limit".to_string());
-        }
-
-        ensure_import_parent(notes_dir, &dest_path)?;
-
-        // Skip if file exists and merging
-        if merge && dest_path.exists() {
-            continue;
-        }
-
-        // Read and write file content, bounded by per-entry limit.
-        let mut content = Vec::new();
-        (&mut file)
-            .take(MAX_ENTRY_UNCOMPRESSED_SIZE + 1)
-            .read_to_end(&mut content)
-            .map_err(|e| format!("Failed to read file from archive: {}", e))?;
-        if content.len() as u64 > MAX_ENTRY_UNCOMPRESSED_SIZE {
-            return Err(format!(
-                "Backup entry '{}' exceeds per-file size limit",
-                name
-            ));
-        }
-
-        crate::persist::write_atomic(&dest_path, &content, Some(0o600))
-            .map_err(|e| format!("Failed to write file: {}", e))?;
-
-        // Update counts
-        match subdir.as_str() {
-            "daily" | "weekly" => result.daily_notes += 1,
-            "notes" => result.standalone_notes += 1,
-            "templates" => result.templates += 1,
-            "images" => result.images += 1,
-            _ => {}
-        }
-    }
-
-    Ok(result)
 }
 
 /// Write a settings JSON file to a user-chosen path.
@@ -509,14 +544,7 @@ pub(crate) fn export_settings_json(path: String, json: String) -> Result<(), Str
         return Err("Settings JSON too large".to_string());
     }
 
-    let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
-    file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(file_path, fs::Permissions::from_mode(0o644));
-    }
-    Ok(())
+    crate::persist::write_atomic(file_path, json.as_bytes(), Some(0o600))
 }
 
 /// Read a settings JSON file from a user-chosen path.
@@ -755,6 +783,85 @@ mod tests {
         assert_eq!(
             fs::read_to_string(destination.join("notes/keep.md")).unwrap(),
             "must survive failed import"
+        );
+    }
+
+    #[test]
+    fn security_regression_replace_import_keeps_live_notes_when_late_entry_is_corrupt() {
+        const CORRUPT_PAYLOAD: &[u8] = b"uniquely-corrupt-late-entry-payload";
+
+        let tmp = TempDir::new("late-corruption");
+        let destination = tmp.0.join("destination");
+        scaffold(&destination);
+        fs::write(destination.join("notes/keep.md"), "must survive").unwrap();
+        let archive_path = tmp.0.join("corrupt-late-entry.zip");
+        {
+            let file = fs::File::create(&archive_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("notes/valid-first.md", options).unwrap();
+            zip.write_all(b"valid first entry").unwrap();
+            zip.start_file("notes/corrupt-late.md", options).unwrap();
+            zip.write_all(CORRUPT_PAYLOAD).unwrap();
+            zip.finish().unwrap();
+        }
+        let mut bytes = fs::read(&archive_path).unwrap();
+        let payload_start = bytes
+            .windows(CORRUPT_PAYLOAD.len())
+            .position(|window| window == CORRUPT_PAYLOAD)
+            .unwrap();
+        bytes[payload_start] ^= 0xff;
+        fs::write(&archive_path, bytes).unwrap();
+
+        assert!(import_notes_into(&destination, &archive_path, false).is_err());
+        assert_eq!(
+            fs::read_to_string(destination.join("notes/keep.md")).unwrap(),
+            "must survive"
+        );
+        assert!(!destination.join("notes/valid-first.md").exists());
+    }
+
+    #[test]
+    fn replace_import_swaps_note_trees_but_preserves_unmentioned_templates() {
+        let tmp = TempDir::new("replace-compatibility");
+        let destination = tmp.0.join("destination");
+        scaffold(&destination);
+        fs::write(destination.join("notes/old.md"), "old note").unwrap();
+        fs::write(
+            destination.join("templates/existing.json"),
+            "existing template",
+        )
+        .unwrap();
+        let archive_path = tmp.0.join("replacement.zip");
+        {
+            let file = fs::File::create(&archive_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("notes/new.md", options).unwrap();
+            zip.write_all(b"new note").unwrap();
+            zip.start_file("templates/imported.json", options).unwrap();
+            zip.write_all(b"imported template").unwrap();
+            zip.finish().unwrap();
+        }
+
+        let result = import_notes_into(&destination, &archive_path, false).unwrap();
+
+        assert_eq!(result.standalone_notes, 1);
+        assert_eq!(result.templates, 1);
+        assert!(!destination.join("notes/old.md").exists());
+        assert_eq!(
+            fs::read_to_string(destination.join("notes/new.md")).unwrap(),
+            "new note"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("templates/existing.json")).unwrap(),
+            "existing template"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("templates/imported.json")).unwrap(),
+            "imported template"
         );
     }
 

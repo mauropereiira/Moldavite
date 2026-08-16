@@ -8,9 +8,13 @@
 //! writes remove their temp file and leave the previous destination intact.
 
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 
 use lazy_static::lazy_static;
+use rand::rngs::OsRng;
+use rand::RngCore;
 use regex::Regex;
 
 use crate::paths::{ensure_trash_dir, get_config_path, get_trash_metadata_path};
@@ -32,6 +36,11 @@ const WINDOWS_RENAME_RETRY_DELAYS: [std::time::Duration; 4] = [
 #[cfg(windows)]
 const WINDOWS_RENAME_BUSY_MESSAGE: &str =
     "File is busy. Wait for syncing or antivirus scanning to finish, then try again.";
+
+#[cfg(target_os = "linux")]
+const O_NOFOLLOW_FLAG: i32 = 0o400000;
+#[cfg(all(unix, not(target_os = "linux")))]
+const O_NOFOLLOW_FLAG: i32 = 0x0100;
 
 // MoveFileExW can report a non-delete-sharing handle with either code.
 #[cfg(windows)]
@@ -70,12 +79,53 @@ fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
     retry_windows_rename(|| fs::rename(from, to), std::thread::sleep)
 }
 
-/// Atomically replace `path` after a same-directory temp write and file `fsync`.
-///
-/// On Unix, `mode` is applied to the temporary file before rename, so the
-/// destination is never observable with broader permissions. Concurrent calls
-/// never share a temp path; on failure the prior destination remains intact.
-pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<(), String> {
+fn open_atomic_temp(
+    parent: &Path,
+    file_name: &str,
+    mode: Option<u32>,
+) -> std::io::Result<(std::path::PathBuf, fs::File)> {
+    const MAX_ATTEMPTS: usize = 32;
+
+    for _ in 0..MAX_ATTEMPTS {
+        let suffix = OsRng.next_u64();
+        let tmp_path = parent.join(format!(
+            ".{file_name}.{}.{suffix:016x}.tmp",
+            std::process::id()
+        ));
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options
+                .mode(mode.unwrap_or(0o600))
+                .custom_flags(O_NOFOLLOW_FLAG);
+        }
+        #[cfg(not(unix))]
+        let _ = mode;
+
+        match options.open(&tmp_path) {
+            Ok(file) => return Ok((tmp_path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "could not reserve a unique atomic temporary file",
+    ))
+}
+
+/// Atomically replace `path` after writing a securely created same-directory temp file.
+pub(crate) fn write_atomic_with<F>(
+    path: &Path,
+    mode: Option<u32>,
+    write: F,
+) -> Result<(), String>
+where
+    F: FnOnce(&mut fs::File) -> Result<(), String>,
+{
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -84,35 +134,26 @@ pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> R
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .ok_or_else(|| format!("Invalid file name for {}", path.display()))?;
-    // Unique per process AND per call: concurrent writers to the same file
-    // must never share a temp path (a clock-resolution timestamp can collide).
-    static TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let tmp_path = parent.join(format!(
-        ".{}.{}.{}.tmp",
-        file_name,
-        std::process::id(),
-        TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ));
+    if fs::symlink_metadata(path)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err(format!("Refusing to replace symlink {}", path.display()));
+    }
 
-    let result = (|| -> std::io::Result<()> {
-        use std::io::Write;
-        let mut file = fs::File::create(&tmp_path)?;
-        #[cfg(unix)]
-        if let Some(mode) = mode {
-            use std::os::unix::fs::PermissionsExt;
-            file.set_permissions(fs::Permissions::from_mode(mode))?;
-        }
-        #[cfg(not(unix))]
-        let _ = mode;
-        file.write_all(contents)?;
-        file.sync_all()?;
+    let (tmp_path, mut file) = open_atomic_temp(parent, &file_name, mode)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
+    let result = (|| -> Result<(), String> {
+        write(&mut file)?;
+        file.sync_all().map_err(|e| e.to_string())?;
+        drop(file);
         #[cfg(windows)]
         {
-            rename_with_retry(&tmp_path, path)
+            rename_with_retry(&tmp_path, path).map_err(|e| e.to_string())
         }
         #[cfg(not(windows))]
         {
-            fs::rename(&tmp_path, path)
+            fs::rename(&tmp_path, path).map_err(|e| e.to_string())
         }
     })();
 
@@ -120,6 +161,17 @@ pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> R
         let _ = fs::remove_file(&tmp_path);
     }
     result.map_err(|e| format!("Failed to write {}: {}", path.display(), e))
+}
+
+/// Atomically replace `path` after a same-directory temp write and file `fsync`.
+///
+/// The temporary name has OS entropy, is reserved exclusively without following
+/// symlinks, and receives its final mode at creation. On failure the prior
+/// destination remains intact and the temporary file is removed.
+pub(crate) fn write_atomic(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<(), String> {
+    write_atomic_with(path, mode, |file| {
+        file.write_all(contents).map_err(|e| e.to_string())
+    })
 }
 
 pub(crate) fn read_config() -> AppConfig {
@@ -205,22 +257,36 @@ fn generate_unique_name(dir: &Path, base_name: &str, extension: Option<&str>) ->
         .unwrap_or_else(|| (base_name.to_string(), 1));
 
     // Start from 2 if this is a fresh duplicate, or from existing number + 1.
-    let mut counter = if start_num == 1 { 2 } else { start_num + 1 };
+    let mut counter = if start_num == 1 {
+        2
+    } else {
+        match start_num.checked_add(1) {
+            Some(next) => next,
+            None => return timestamped_name(&actual_base, extension),
+        }
+    };
 
     loop {
         let candidate = build_name(&actual_base, Some(counter), extension);
         if !dir.join(&candidate).exists() {
             return candidate;
         }
-        counter += 1;
+        let Some(next) = counter.checked_add(1) else {
+            return timestamped_name(&actual_base, extension);
+        };
+        counter = next;
         if counter > 10_000 {
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as u32;
-            return build_name(&actual_base, Some(timestamp), extension);
+            return timestamped_name(&actual_base, extension);
         }
     }
+}
+
+fn timestamped_name(base: &str, extension: Option<&str>) -> String {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as u32;
+    build_name(base, Some(timestamp), extension)
 }
 
 /// Generate a unique filename in the given directory.
@@ -297,6 +363,28 @@ mod tests {
         let tmp = TempDir::new("atomic-noparent");
         let path = tmp.path().join("nope").join("note.md");
         assert!(write_atomic(&path, b"x", None).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_write_atomic_ignores_predictable_temp_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = TempDir::new("atomic-temp-symlink");
+        let path = tmp.path().join("note.md");
+        let outside = tmp.path().join("outside-secret");
+        fs::write(&outside, "must survive").unwrap();
+        let predictable = tmp.path().join(format!(
+            ".note.md.{}.0.tmp",
+            std::process::id()
+        ));
+        symlink(&outside, predictable).unwrap();
+
+        write_atomic(&path, b"new note", Some(0o600)).unwrap();
+
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "must survive");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new note");
+        assert!(!fs::symlink_metadata(path).unwrap().file_type().is_symlink());
     }
 
     #[cfg(target_os = "windows")]
@@ -426,6 +514,16 @@ mod tests {
         fs::write(tmp.path().join("hello (2).md"), "").unwrap();
         let name = generate_unique_filename(tmp.path(), "hello (2)", "md");
         assert_eq!(name, "hello (3).md");
+    }
+
+    #[test]
+    fn security_regression_duplicate_counter_does_not_overflow() {
+        let tmp = TempDir::new("unique-overflow");
+        fs::write(tmp.path().join("hello (4294967295).md"), "").unwrap();
+
+        let name = generate_unique_filename(tmp.path(), "hello (4294967295)", "md");
+
+        assert_ne!(name, "hello (4294967295).md");
     }
 
     #[test]

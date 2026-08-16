@@ -2,12 +2,13 @@
 //!
 //! New ciphertexts use Argon2id (19 MiB, three iterations, one lane) to derive
 //! an AES-256 key and AES-GCM for authenticated encryption. Each encryption
-//! gets a fresh random salt and 96-bit nonce; the serialized
-//! `salt$nonce$ciphertext` format is part of the on-disk compatibility
-//! contract. Temporary key material is zeroized as soon as the cipher exists.
+//! gets a fresh random salt and 96-bit nonce. Legacy payloads retain the
+//! `salt$nonce$ciphertext` format; V2 note locks add a version prefix and bind
+//! the stable note identity as AES-GCM AAD. Temporary key material is zeroized
+//! as soon as the cipher exists.
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
+    aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
 use argon2::{
@@ -20,6 +21,8 @@ use zeroize::Zeroize;
 
 // Constants
 const NONCE_LENGTH: usize = 12;
+const NOTE_FORMAT_V2: &str = "v2";
+const NOTE_AAD_DOMAIN: &[u8] = b"moldavite-note-v2\0";
 
 /// Creates Argon2 with hardened parameters for password-based encryption.
 ///
@@ -40,101 +43,77 @@ fn create_hardened_argon2() -> Argon2<'static> {
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
 
-// Encrypted note format:
-// [22 bytes salt (base64)][12 bytes nonce (base64)][encrypted content (base64)]
-// Stored as: salt$nonce$ciphertext
+// Legacy format: salt$nonce$ciphertext
+// V2 note format: v2$salt$nonce$ciphertext, with note identity as AAD.
 
-/// Encrypt content into the stable `salt$nonce$ciphertext` storage format.
-///
-/// # Arguments
-/// * `content` - The plaintext content to encrypt
-/// * `password` - The password to derive the encryption key from
-///
-/// # Returns
-/// A formatted string containing salt, nonce, and ciphertext (base64 encoded)
-///
-/// # Security
-/// Sensitive key material is zeroized after use to minimize exposure in memory.
-pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> {
-    // Generate random salt for Argon2
-    let salt = SaltString::generate(&mut OsRng);
-
-    // Derive key from password using Argon2
+fn cipher_from_password(password: &str, salt: &SaltString) -> Result<Aes256Gcm, String> {
     let argon2 = create_hardened_argon2();
     let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
+        .hash_password(password.as_bytes(), salt)
         .map_err(|e| format!("Failed to hash password: {}", e))?;
-
-    // Extract 32-byte key from the hash
     let hash = password_hash.hash.ok_or("Failed to get hash bytes")?;
     let key_bytes = hash.as_bytes();
-
-    // Ensure we have at least 32 bytes for the key
     if key_bytes.len() < 32 {
         return Err("Derived key too short".to_string());
     }
-
-    // Copy key to a mutable buffer that we can zeroize
     let mut key_buffer = [0u8; 32];
     key_buffer.copy_from_slice(&key_bytes[..32]);
-
-    // Create AES-256-GCM cipher
     let cipher = Aes256Gcm::new_from_slice(&key_buffer)
         .map_err(|e| {
             key_buffer.zeroize();
             format!("Failed to create cipher: {}", e)
         })?;
-
-    // Zeroize key buffer immediately after cipher creation
     key_buffer.zeroize();
+    Ok(cipher)
+}
 
-    // Generate random nonce
+fn encrypt_payload(
+    content: &str,
+    password: &str,
+    aad: &[u8],
+    version: Option<&str>,
+) -> Result<String, String> {
+    let salt = SaltString::generate(&mut OsRng);
+    let cipher = cipher_from_password(password, &salt)?;
+
     let mut nonce_bytes = [0u8; NONCE_LENGTH];
     rand::Rng::fill(&mut OsRng, &mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Encrypt the content
     let ciphertext = cipher
-        .encrypt(nonce, content.as_bytes())
+        .encrypt(
+            nonce,
+            Payload {
+                msg: content.as_bytes(),
+                aad,
+            },
+        )
         .map_err(|e| {
             nonce_bytes.zeroize();
             format!("Encryption failed: {}", e)
         })?;
-
-    // Encode components as base64
     let nonce_b64 = BASE64.encode(nonce_bytes);
     let ciphertext_b64 = BASE64.encode(ciphertext);
-
-    // Zeroize nonce after encoding
     nonce_bytes.zeroize();
 
-    // Return formatted string: salt$nonce$ciphertext
-    Ok(format!("{}${}${}", salt.as_str(), nonce_b64, ciphertext_b64))
+    match version {
+        Some(version) => Ok(format!(
+            "{version}${}${nonce_b64}${ciphertext_b64}",
+            salt.as_str()
+        )),
+        None => Ok(format!(
+            "{}${nonce_b64}${ciphertext_b64}",
+            salt.as_str()
+        )),
+    }
 }
 
-/// Decrypt the stable storage format, authenticating before returning plaintext.
-///
-/// # Arguments
-/// * `encrypted` - The encrypted string (salt$nonce$ciphertext format)
-/// * `password` - The password to derive the decryption key from
-///
-/// # Returns
-/// The decrypted plaintext content
-///
-/// # Security
-/// Sensitive key material is zeroized after use to minimize exposure in memory.
-pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String> {
-    // Parse the encrypted string
-    let parts: Vec<&str> = encrypted.split('$').collect();
-    if parts.len() != 3 {
-        return Err("Invalid encrypted format".to_string());
-    }
-
-    let salt_str = parts[0];
-    let nonce_b64 = parts[1];
-    let ciphertext_b64 = parts[2];
-
-    // Decode base64 components
+fn decrypt_payload(
+    salt_str: &str,
+    nonce_b64: &str,
+    ciphertext_b64: &str,
+    password: &str,
+    aad: &[u8],
+) -> Result<String, String> {
     let mut nonce_bytes = BASE64
         .decode(nonce_b64)
         .map_err(|e| format!("Failed to decode nonce: {}", e))?;
@@ -142,7 +121,6 @@ pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String
         .decode(ciphertext_b64)
         .map_err(|e| format!("Failed to decode ciphertext: {}", e))?;
 
-    // Reconstruct salt
     let salt = SaltString::from_b64(salt_str)
         .map_err(|e| {
             nonce_bytes.zeroize();
@@ -150,77 +128,99 @@ pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String
             format!("Failed to parse salt: {}", e)
         })?;
 
-    // Derive key from password using same Argon2 parameters
-    let argon2 = create_hardened_argon2();
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| {
-            nonce_bytes.zeroize();
-            ciphertext.zeroize();
-            format!("Failed to hash password: {}", e)
-        })?;
-
-    let hash = password_hash.hash.ok_or_else(|| {
+    let cipher = cipher_from_password(password, &salt).inspect_err(|_| {
         nonce_bytes.zeroize();
         ciphertext.zeroize();
-        "Failed to get hash bytes".to_string()
     })?;
-    let key_bytes = hash.as_bytes();
 
-    if key_bytes.len() < 32 {
-        nonce_bytes.zeroize();
-        ciphertext.zeroize();
-        return Err("Derived key too short".to_string());
-    }
-
-    // Copy key to a mutable buffer that we can zeroize
-    let mut key_buffer = [0u8; 32];
-    key_buffer.copy_from_slice(&key_bytes[..32]);
-
-    // Create cipher with derived key
-    let cipher = Aes256Gcm::new_from_slice(&key_buffer)
-        .map_err(|e| {
-            key_buffer.zeroize();
-            nonce_bytes.zeroize();
-            ciphertext.zeroize();
-            format!("Failed to create cipher: {}", e)
-        })?;
-
-    // Zeroize key buffer immediately after cipher creation
-    key_buffer.zeroize();
-
-    // Create nonce from bytes
     if nonce_bytes.len() != NONCE_LENGTH {
         nonce_bytes.zeroize();
         ciphertext.zeroize();
         return Err("Invalid nonce length".to_string());
     }
     let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Decrypt the content
     let mut plaintext = cipher
-        .decrypt(nonce, ciphertext.as_ref())
+        .decrypt(
+            nonce,
+            Payload {
+                msg: ciphertext.as_ref(),
+                aad,
+            },
+        )
         .map_err(|_| {
             nonce_bytes.zeroize();
             ciphertext.zeroize();
             "Decryption failed - wrong password or corrupted data".to_string()
         })?;
-
-    // Zeroize intermediate buffers
     nonce_bytes.zeroize();
     ciphertext.zeroize();
-
-    // Convert to string
     let result = String::from_utf8(plaintext.clone())
         .map_err(|e| {
             plaintext.zeroize();
             format!("Failed to convert decrypted content to string: {}", e)
         });
-
-    // Zeroize plaintext bytes
     plaintext.zeroize();
-
     result
+}
+
+/// Encrypt content into the legacy `salt$nonce$ciphertext` storage format.
+///
+/// Encrypted backups depend on this stable format. New note locks use
+/// [`encrypt_note_content`] so their identity is authenticated as AAD.
+pub fn encrypt_content(content: &str, password: &str) -> Result<String, String> {
+    encrypt_payload(content, password, &[], None)
+}
+
+/// Decrypt the legacy `salt$nonce$ciphertext` storage format.
+pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String> {
+    let parts: Vec<&str> = encrypted.split('$').collect();
+    if parts.len() != 3 {
+        return Err("Invalid encrypted format".to_string());
+    }
+    decrypt_payload(parts[0], parts[1], parts[2], password, &[])
+}
+
+fn note_aad(note_id: &str) -> Vec<u8> {
+    let mut aad = Vec::with_capacity(NOTE_AAD_DOMAIN.len() + note_id.len());
+    aad.extend_from_slice(NOTE_AAD_DOMAIN);
+    aad.extend_from_slice(note_id.as_bytes());
+    aad
+}
+
+/// Encrypt a note into the versioned V2 format with its stable identity as AAD.
+pub fn encrypt_note_content(
+    content: &str,
+    password: &str,
+    note_id: &str,
+) -> Result<String, String> {
+    encrypt_payload(
+        content,
+        password,
+        &note_aad(note_id),
+        Some(NOTE_FORMAT_V2),
+    )
+}
+
+/// Decrypt V2 note ciphertext with identity AAD, or fall back to the V1 format.
+pub fn decrypt_note_content(
+    encrypted: &str,
+    password: &str,
+    note_id: &str,
+) -> Result<String, String> {
+    let Some(versioned) = encrypted.strip_prefix(&format!("{NOTE_FORMAT_V2}$")) else {
+        return decrypt_content(encrypted, password);
+    };
+    let parts: Vec<&str> = versioned.split('$').collect();
+    if parts.len() != 3 {
+        return Err("Invalid encrypted format".to_string());
+    }
+    decrypt_payload(
+        parts[0],
+        parts[1],
+        parts[2],
+        password,
+        &note_aad(note_id),
+    )
 }
 
 #[cfg(test)]
@@ -248,5 +248,24 @@ mod tests {
         let result = decrypt_content(&encrypted, wrong_password);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn security_regression_note_ciphertext_is_bound_to_note_identity() {
+        let password = "shared password";
+        let encrypted =
+            encrypt_note_content("alpha secret", password, "standalone:alpha.md").unwrap();
+
+        assert_eq!(
+            decrypt_note_content(&encrypted, password, "standalone:alpha.md").unwrap(),
+            "alpha secret"
+        );
+        assert!(decrypt_note_content(&encrypted, password, "standalone:beta.md").is_err());
+
+        let legacy = encrypt_content("legacy secret", password).unwrap();
+        assert_eq!(
+            decrypt_note_content(&legacy, password, "standalone:any-name.md").unwrap(),
+            "legacy secret"
+        );
     }
 }
