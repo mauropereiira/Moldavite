@@ -234,6 +234,10 @@ fn create_import_staging_dir(notes_dir: &Path) -> Result<PathBuf, String> {
         let path = parent.join(format!(
             ".{forge_name}.moldavite-import-{suffix:016x}.tmp"
         ));
+        // Only the Unix branch mutates this, so on Windows `mut` is unused and
+        // `-D warnings` fails the build there. Windows inherits the parent
+        // directory's ACL, which is the equivalent protection.
+        #[cfg_attr(not(unix), allow(unused_mut))]
         let mut builder = fs::DirBuilder::new();
         #[cfg(unix)]
         {
