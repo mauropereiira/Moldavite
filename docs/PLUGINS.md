@@ -477,12 +477,21 @@ settings, plugin, ZIP, or encrypted-backup exports.
 
 | Permission   | Grants                                                                     |
 | ------------ | -------------------------------------------------------------------------- |
-| none         | `app`, `commands.add`, and API v2 `ui.prompt`                              |
+| none         | `app` only                                                                 |
 | `editor`     | Read active-note path/title/HTML and insert text at the cursor             |
-| `ui`         | Show toast notifications                                                   |
+| `ui`         | Show toast notifications and host-rendered prompts                         |
+| `commands`   | Register commands in the command palette and editor slash menu             |
 | `notes.read` | List note metadata and read unlocked Markdown bodies                       |
 | `net.fetch`  | Request runtime hosts and ask Moldavite to call exact approved HTTPS hosts |
 | `secrets`    | Read, write, and delete this plugin's namespaced Keychain entries          |
+
+`ui` and `commands` used to be free. They are not, because both put something in
+front of the user under Moldavite's own chrome: `ui.prompt` renders a host-styled
+dialog — including password fields — and a registered command sits in the palette
+looking exactly as trustworthy as a built-in one. A plugin that declared nothing
+could therefore ask for a vault password in a window the user had no reason to
+doubt. A plugin that registers commands or opens prompts must now say so on the
+consent sheet.
 
 Consent covers the raw manifest bytes, a separator, and the `plugin.js` bytes.
 Adding, removing, or editing a permission or `allowedHosts` entry therefore

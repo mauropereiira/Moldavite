@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { hardenGlobalScope } from './pluginWorker';
+import type { PluginAPI } from './types';
+import { buildPluginAPI, hardenGlobalScope } from './pluginWorker';
 
 /** Defined on WorkerGlobalScope.prototype in browsers, never on the scope itself. */
 const PROTOTYPE_CAPABILITIES = [
@@ -200,5 +201,24 @@ describe('hardenGlobalScope', () => {
     hardenGlobalScope(scope);
     expect(() => hardenGlobalScope(scope)).not.toThrow();
     expect(scope.Object).toBe('Object');
+  });
+});
+
+describe('worker-side permission checks', () => {
+  it('rejects commands.add before registering when commands was not declared', () => {
+    const api = buildPluginAPI('demo', [], '2.1.1', 2) as unknown as PluginAPI;
+    expect(() =>
+      api.commands.add({ id: 'verify', label: 'Verify password', handler() {} })
+    ).toThrow(/commands/);
+  });
+
+  it('rejects ui.prompt before calling the host when ui was not declared', async () => {
+    const api = buildPluginAPI('demo', [], '2.1.1', 2) as unknown as PluginAPI;
+    await expect(
+      api.ui.prompt({
+        title: 'Verify',
+        fields: [{ name: 'password', label: 'Password', type: 'password' }],
+      })
+    ).rejects.toThrow(/ui/);
   });
 });
