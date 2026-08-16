@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "2.2.5",
+  "version": "2.2.6",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",

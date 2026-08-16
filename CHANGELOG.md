@@ -2,6 +2,13 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.6] - 2026-08-16
+
+### Changed
+
+- **Selecting an image draws a ring around it instead of covering it.** Clicking an image used to paint a solid block of colour over the whole picture, hiding the thing you had just clicked on. It now gets a thin ring, with the alignment and delete controls above it as before.
+- **Images start at a readable size.** A picture used to be inserted at its natural size, so a phone screenshot arrived thousands of pixels wide and pushed the note's text out of the way. New images are drawn at a sensible width and can still be dragged to any size. Nothing is written to the note by this, so images already in your notes are untouched.
+
 ## [2.2.5] - 2026-08-16
 
 ### Fixed
