@@ -12,27 +12,47 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
+      version: ${{ steps.preflight.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
-      - name: Get version
-        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+      - name: Verify tag and manifest versions
+        id: preflight
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          node scripts/bump-version.mjs --check
+          version="$(node -p "require('./package.json').version")"
+          if [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match manifest version v$version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Extract release notes
+        env:
+          PACKAGE_VERSION: ${{ steps.preflight.outputs.version }}
         run: |
           node scripts/extract-changelog.mjs "$PACKAGE_VERSION" > release-notes.md
           echo "Extracted notes for $PACKAGE_VERSION"
 
-      - name: Create release
+      - name: Create draft release
         id: create-release
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PACKAGE_VERSION: ${{ steps.preflight.outputs.version }}
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
           script: |
             const fs = require('fs');
             const notes = fs.readFileSync('release-notes.md', 'utf8').trim();
@@ -56,13 +76,13 @@ jobs:
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `${process.env.GITHUB_REF_NAME}`,
+              tag_name: process.env.GITHUB_REF_NAME,
               name: `Moldavite ${process.env.GITHUB_REF_NAME}`,
               body,
-              draft: false,
+              draft: true,
               prerelease: false
-            })
-            return data.id
+            });
+            return data.id;
 
   build-tauri:
     needs: create-release
@@ -82,10 +102,12 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
@@ -117,17 +139,16 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: security find-identity -v -p codesigning
 
-      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+      - name: Build signed and notarized macOS app
+        if: matrix.platform == 'macos-latest'
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing (identity only — cert lives in the keychain
-          # prepared above)
+          # The certificate lives in the keychain prepared above.
           APPLE_SIGNING_IDENTITY: "Developer ID Application: Mauro de Brito Marques Pereira (J6Z5WJKHZB)"
-          # macOS notarization
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Tauri updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # Provider credentials are read by `option_env!`, so they must be
@@ -140,16 +161,282 @@ jobs:
           MOLDAVITE_GOOGLE_CLIENT_SECRET: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_SECRET }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
           args: ${{ matrix.args }}
           updaterJsonPreferNsis: true
 
-  # Bump the Homebrew cask once every matrix leg has finished uploading.
-  # `always()` so a Windows failure does not block a tap bump whose macOS
-  # DMGs are already published.
-  update-homebrew-tap:
+      - name: Build Windows app
+        if: matrix.platform == 'windows-latest'
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MOLDAVITE_WPCOM_CLIENT_ID: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_ID }}
+          MOLDAVITE_WPCOM_CLIENT_SECRET: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_SECRET }}
+          MOLDAVITE_GOOGLE_CLIENT_ID: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_ID }}
+          MOLDAVITE_GOOGLE_CLIENT_SECRET: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_SECRET }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          args: ${{ matrix.args }}
+          updaterJsonPreferNsis: true
+
+  publish-release:
     needs: [create-release, build-tauri]
-    if: ${{ always() && needs.create-release.result == 'success' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Verify artifacts and publish release
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          PACKAGE_VERSION: ${{ needs.create-release.outputs.version }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const crypto = require('node:crypto');
+            const tauriConfig = require('./src-tauri/tauri.conf.json');
+            const releaseId = Number(process.env.RELEASE_ID);
+            const version = process.env.PACKAGE_VERSION;
+            const tag = process.env.RELEASE_TAG;
+            const { owner, repo } = context.repo;
+
+            const encodedPublicKey = tauriConfig.plugins?.updater?.pubkey;
+            if (typeof encodedPublicKey !== 'string' || !encodedPublicKey) {
+              throw new Error('Tauri updater public key is missing');
+            }
+            const publicKeyLines = Buffer.from(encodedPublicKey, 'base64')
+              .toString('utf8')
+              .trim()
+              .split(/\r?\n/);
+            if (publicKeyLines.length !== 2) {
+              throw new Error('Tauri updater public key has an invalid minisign encoding');
+            }
+            const publicKeyPacket = Buffer.from(publicKeyLines[1], 'base64');
+            if (publicKeyPacket.length !== 42) {
+              throw new Error('Tauri updater public key packet has an invalid length');
+            }
+            const publicKeyAlgorithm = publicKeyPacket.subarray(0, 2).toString('ascii');
+            if (publicKeyAlgorithm !== 'Ed' && publicKeyAlgorithm !== 'ED') {
+              throw new Error(`Unsupported updater public key algorithm: ${publicKeyAlgorithm}`);
+            }
+            const publicKeyId = publicKeyPacket.subarray(2, 10);
+            const publicKey = crypto.createPublicKey({
+              key: Buffer.concat([
+                Buffer.from('302a300506032b6570032100', 'hex'),
+                publicKeyPacket.subarray(10)
+              ]),
+              format: 'der',
+              type: 'spki'
+            });
+
+            function verifyMinisign(payload, signatureText, assetName) {
+              const encodedSignature = signatureText.trim();
+              if (
+                encodedSignature.length % 4 !== 0 ||
+                !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedSignature)
+              ) {
+                throw new Error(`Updater signature is not valid base64: ${assetName}`);
+              }
+              const lines = Buffer.from(encodedSignature, 'base64')
+                .toString('utf8')
+                .trim()
+                .split(/\r?\n/);
+              if (lines.length !== 4 || !lines[2].startsWith('trusted comment: ')) {
+                throw new Error(`Updater signature has an invalid minisign encoding: ${assetName}`);
+              }
+              const signaturePacket = Buffer.from(lines[1], 'base64');
+              const globalSignature = Buffer.from(lines[3], 'base64');
+              if (signaturePacket.length !== 74 || globalSignature.length !== 64) {
+                throw new Error(`Updater signature has an invalid packet length: ${assetName}`);
+              }
+              const algorithm = signaturePacket.subarray(0, 2).toString('ascii');
+              if (algorithm !== 'Ed' && algorithm !== 'ED') {
+                throw new Error(`Unsupported updater signature algorithm for ${assetName}`);
+              }
+              if (!signaturePacket.subarray(2, 10).equals(publicKeyId)) {
+                throw new Error(`Updater signature uses the wrong key: ${assetName}`);
+              }
+
+              const signature = signaturePacket.subarray(10);
+              const signedPayload = algorithm === 'ED'
+                ? crypto.createHash('blake2b512').update(payload).digest()
+                : payload;
+              if (!crypto.verify(null, signedPayload, publicKey, signature)) {
+                throw new Error(`Updater payload signature is invalid: ${assetName}`);
+              }
+
+              const trustedComment = lines[2].slice('trusted comment: '.length);
+              const globalPayload = Buffer.concat([
+                signature,
+                Buffer.from(trustedComment, 'utf8')
+              ]);
+              if (!crypto.verify(null, globalPayload, publicKey, globalSignature)) {
+                throw new Error(`Updater trusted-comment signature is invalid: ${assetName}`);
+              }
+            }
+
+            const { data: release } = await github.rest.repos.getRelease({
+              owner,
+              repo,
+              release_id: releaseId
+            });
+            if (!release.draft) {
+              throw new Error(`Release ${releaseId} is already public; refusing to bypass verification`);
+            }
+            if (release.tag_name !== tag) {
+              throw new Error(`Release tag ${release.tag_name} does not match ${tag}`);
+            }
+
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner,
+              repo,
+              release_id: releaseId,
+              per_page: 100
+            });
+            const assetsByName = new Map();
+            for (const asset of assets) {
+              if (assetsByName.has(asset.name)) {
+                throw new Error(`Duplicate release asset: ${asset.name}`);
+              }
+              assetsByName.set(asset.name, asset);
+            }
+
+            const expectedAssets = [
+              `Moldavite_${version}_aarch64.dmg`,
+              `Moldavite_${version}_x64.dmg`,
+              `Moldavite_aarch64.app.tar.gz`,
+              `Moldavite_aarch64.app.tar.gz.sig`,
+              `Moldavite_x64.app.tar.gz`,
+              `Moldavite_x64.app.tar.gz.sig`,
+              `Moldavite_${version}_x64_en-US.msi`,
+              `Moldavite_${version}_x64_en-US.msi.sig`,
+              `Moldavite_${version}_x64-setup.exe`,
+              `Moldavite_${version}_x64-setup.exe.sig`,
+              `latest.json`
+            ];
+            for (const name of expectedAssets) {
+              const asset = assetsByName.get(name);
+              if (!asset) throw new Error(`Missing release asset: ${name}`);
+              if (asset.state !== 'uploaded' || asset.size <= 0) {
+                throw new Error(`Release asset is incomplete: ${name}`);
+              }
+            }
+
+            const unexpectedAssets = [...assetsByName.keys()].filter(
+              (name) => !expectedAssets.includes(name)
+            );
+            if (unexpectedAssets.length > 0) {
+              throw new Error(`Unexpected release assets: ${unexpectedAssets.join(', ')}`);
+            }
+
+            async function downloadAsset(asset) {
+              const response = await github.request(
+                'GET /repos/{owner}/{repo}/releases/assets/{asset_id}',
+                {
+                  owner,
+                  repo,
+                  asset_id: asset.id,
+                  headers: { accept: 'application/octet-stream' }
+                }
+              );
+              return Buffer.from(response.data);
+            }
+
+            const latestAsset = assetsByName.get('latest.json');
+            let updater;
+            try {
+              updater = JSON.parse((await downloadAsset(latestAsset)).toString('utf8'));
+            } catch (error) {
+              throw new Error(`latest.json is not valid JSON: ${error.message}`);
+            }
+            if (updater.version !== version) {
+              throw new Error(`latest.json version ${updater.version} does not match ${version}`);
+            }
+
+            const expectedPlatforms = {
+              'darwin-aarch64': {
+                asset: 'Moldavite_aarch64.app.tar.gz',
+                signature: 'Moldavite_aarch64.app.tar.gz.sig'
+              },
+              'darwin-aarch64-app': {
+                asset: 'Moldavite_aarch64.app.tar.gz',
+                signature: 'Moldavite_aarch64.app.tar.gz.sig'
+              },
+              'darwin-x86_64': {
+                asset: 'Moldavite_x64.app.tar.gz',
+                signature: 'Moldavite_x64.app.tar.gz.sig'
+              },
+              'darwin-x86_64-app': {
+                asset: 'Moldavite_x64.app.tar.gz',
+                signature: 'Moldavite_x64.app.tar.gz.sig'
+              },
+              'windows-x86_64': {
+                asset: `Moldavite_${version}_x64-setup.exe`,
+                signature: `Moldavite_${version}_x64-setup.exe.sig`
+              },
+              'windows-x86_64-nsis': {
+                asset: `Moldavite_${version}_x64-setup.exe`,
+                signature: `Moldavite_${version}_x64-setup.exe.sig`
+              },
+              'windows-x86_64-msi': {
+                asset: `Moldavite_${version}_x64_en-US.msi`,
+                signature: `Moldavite_${version}_x64_en-US.msi.sig`
+              }
+            };
+
+            const signatureContents = new Map();
+            for (const { signature } of Object.values(expectedPlatforms)) {
+              if (signatureContents.has(signature)) continue;
+              const contents = (await downloadAsset(assetsByName.get(signature)))
+                .toString('utf8')
+                .trim();
+              if (!contents) throw new Error(`Updater signature is empty: ${signature}`);
+              signatureContents.set(signature, contents);
+            }
+
+            const verifiedPayloads = new Set();
+            for (const { asset, signature } of Object.values(expectedPlatforms)) {
+              if (verifiedPayloads.has(asset)) continue;
+              const payload = await downloadAsset(assetsByName.get(asset));
+              verifyMinisign(payload, signatureContents.get(signature), asset);
+              verifiedPayloads.add(asset);
+            }
+
+            for (const [platform, expected] of Object.entries(expectedPlatforms)) {
+              const entry = updater.platforms?.[platform];
+              if (!entry || typeof entry.signature !== 'string' || !entry.signature.trim()) {
+                throw new Error(`latest.json is missing the ${platform} updater signature`);
+              }
+              if (entry.signature.trim() !== signatureContents.get(expected.signature)) {
+                throw new Error(`latest.json ${platform} signature does not match ${expected.signature}`);
+              }
+              const expectedUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}/${expected.asset}`;
+              if (entry.url !== expectedUrl) {
+                throw new Error(`latest.json ${platform} URL does not match ${expected.asset}`);
+              }
+            }
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: releaseId,
+              draft: false
+            });
+            core.info(`Published ${tag} after verifying ${expectedAssets.length} assets`);
+
+  # The cask only moves after the verified draft has become a public release.
+  update-homebrew-tap:
+    needs: publish-release
     uses: ./.github/workflows/homebrew-tap.yml
     with:
       version: ${{ github.ref_name }}
-    secrets: inherit
+    secrets:
+      HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}

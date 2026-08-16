@@ -170,9 +170,14 @@ export function isValidDateString(dateString: string): boolean {
     return false;
   }
 
-  // Verify it's a valid date
+  const [year, month, day] = dateString.split('-').map(Number);
   const date = new Date(dateString);
-  return !isNaN(date.getTime());
+  return (
+    !isNaN(date.getTime()) &&
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 /**

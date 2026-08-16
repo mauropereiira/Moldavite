@@ -32,6 +32,7 @@ import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import type { NoteFile } from '@/types';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 /**
  * Fuzzy match: checks if query characters appear in order within the title.
@@ -125,24 +126,29 @@ function NoteRow({
   const typeLabel = getNoteTypeLabel(note);
 
   return (
-    <button
+    <div
       className={`quick-switcher-item ${isSelected ? 'quick-switcher-item-selected' : ''}`}
-      onClick={onClick}
       onMouseEnter={onMouseEnter}
     >
-      <div className="quick-switcher-item-icon">
-        {note.isDaily || note.isWeekly ? (
-          <Calendar className="w-4 h-4" />
-        ) : (
-          <FileText className="w-4 h-4" />
-        )}
-      </div>
-      <div className="quick-switcher-item-content">
-        <div className="quick-switcher-item-title">
-          <HighlightedTitle title={title} indices={matchIndices} />
+      <button
+        type="button"
+        className="flex flex-1 min-w-0 items-center gap-3 text-left"
+        onClick={onClick}
+      >
+        <div className="quick-switcher-item-icon">
+          {note.isDaily || note.isWeekly ? (
+            <Calendar className="w-4 h-4" />
+          ) : (
+            <FileText className="w-4 h-4" />
+          )}
         </div>
-        <div className="quick-switcher-item-meta">{typeLabel}</div>
-      </div>
+        <div className="quick-switcher-item-content">
+          <div className="quick-switcher-item-title">
+            <HighlightedTitle title={title} indices={matchIndices} />
+          </div>
+          <div className="quick-switcher-item-meta">{typeLabel}</div>
+        </div>
+      </button>
       <button
         type="button"
         aria-label={isPinned ? 'Unpin note' : 'Pin note'}
@@ -153,7 +159,7 @@ function NoteRow({
       >
         <Star className="w-4 h-4" fill={isPinned ? 'currentColor' : 'none'} />
       </button>
-    </button>
+    </div>
   );
 }
 
@@ -501,6 +507,10 @@ export function QuickSwitcher() {
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Once focus leaves the search field, native controls own their keys.
+      // In particular, Enter on a Pin button must not activate the selected row.
+      if (e.target !== inputRef.current) return;
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -513,10 +523,6 @@ export function QuickSwitcher() {
         case 'Enter':
           e.preventDefault();
           if (rows[selectedIndex]) activate(rows[selectedIndex]);
-          break;
-        case 'Escape':
-          e.preventDefault();
-          close();
           break;
       }
     };
@@ -546,7 +552,12 @@ export function QuickSwitcher() {
 
   return (
     <div className="quick-switcher-backdrop">
-      <div ref={setContainerRef} className="quick-switcher-container impact-surface">
+      <DialogSurface
+        ref={setContainerRef}
+        aria-label="Quick switcher"
+        onEscape={close}
+        className="quick-switcher-container impact-surface"
+      >
         <div className="quick-switcher-input-wrapper">
           <Search className="quick-switcher-search-icon" />
           <input
@@ -625,7 +636,7 @@ export function QuickSwitcher() {
             <kbd>esc</kbd> close
           </span>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

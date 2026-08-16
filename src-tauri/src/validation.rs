@@ -259,6 +259,14 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
     if !path.is_absolute() {
         return Err("Path must be absolute".to_string());
     }
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            return Err("Refusing to write through a symlink".to_string())
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("Failed to inspect export destination: {error}")),
+    }
     let ext_ok = path
         .extension()
         .and_then(|s| s.to_str())
@@ -400,6 +408,22 @@ mod tests {
         let dir = tmp_dir("upper-ext");
         let dest = dir.join("export.JSON");
         assert!(validate_user_export_path(&dest, "json").is_ok());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_user_export_path_rejects_symlink_leaf() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tmp_dir("export-symlink-leaf");
+        let protected = dir.join("protected.json");
+        let destination = dir.join("export.json");
+        fs::write(&protected, "must survive").unwrap();
+        symlink(&protected, &destination).unwrap();
+
+        assert!(validate_user_export_path(&destination, "json").is_err());
+        assert_eq!(fs::read_to_string(&protected).unwrap(), "must survive");
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -9,13 +9,13 @@ import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
   type AgentWriteInfo,
+  adoptNoteSnapshot,
   getLastPersistedMarkdown,
   htmlToMarkdown,
   isHtmlContent,
   listNotes,
   markdownToHtml,
   readNoteSnapshot,
-  readNoteWithMeta,
   takeAgentWrite,
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
@@ -115,9 +115,22 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
     return;
   }
 
-  const result = await readNoteWithMeta(address.filename, address.isDaily, address.isWeekly);
+  // Read without advancing the conflict base. The tab can become dirty while
+  // IPC is in flight, in which case Keep mine still needs the older hash to
+  // preserve this incoming disk version as a conflict copy.
+  const result = await readNoteSnapshot(address.filename, address.isDaily, address.isWeekly);
+  const liveState = useNoteStore.getState();
+  const liveTab = matchingOpenTab(relPath, address, liveState.openTabs);
+  if (!liveTab) return;
+  if (liveTab !== tab || getPendingAutosaveNoteId() === tab.id) {
+    const client = attributedClient(await takeAgentWrite(relPath, result.contentHash));
+    liveState.markExternallyChanged(tab.id, client);
+    return;
+  }
+
+  adoptNoteSnapshot(address.filename, address.isDaily, address.isWeekly, result);
   const html = isHtmlContent(result.content) ? result.content : markdownToHtml(result.content);
-  useNoteStore.getState().applyExternalContent(tab.id, html);
+  liveState.applyExternalContent(tab.id, html);
   resetAutosaveBaseline(tab.id, html);
   const client = attributedClient(await takeAgentWrite(relPath, result.contentHash));
   useToastStore

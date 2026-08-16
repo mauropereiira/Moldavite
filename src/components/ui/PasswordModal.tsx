@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Lock, Unlock, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 import { checkPasswordStrength, type PasswordStrength } from '@/lib/validation';
+import { DialogSurface } from './DialogSurface';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -184,7 +185,11 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative modal-elevated modal-content-enter w-full max-w-md mx-4 overflow-hidden">
+      <DialogSurface
+        onEscape={isSubmitting ? undefined : onClose}
+        aria-labelledby="password-modal-title"
+        className="relative modal-elevated modal-content-enter w-full max-w-md mx-4 overflow-hidden"
+      >
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
@@ -196,7 +201,11 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
             ) : (
               <Unlock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
             )}
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <h2
+              id="password-modal-title"
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {titles[mode]}
             </h2>
           </div>
@@ -396,7 +405,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
             </button>
           </div>
         </form>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

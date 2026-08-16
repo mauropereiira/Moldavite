@@ -39,6 +39,7 @@ import {
 import type { ImportResult } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }> = [
   { value: 5, label: '5 min' },
@@ -623,7 +624,11 @@ export function GeneralSection() {
               Display &quot;Saving...&quot; when auto-saving
             </p>
           </div>
-          <Toggle enabled={settings.showAutoSaveStatus} onChange={settings.setShowAutoSaveStatus} />
+          <Toggle
+            enabled={settings.showAutoSaveStatus}
+            onChange={settings.setShowAutoSaveStatus}
+            ariaLabel="Show auto-save status"
+          />
         </div>
       </div>
 
@@ -654,11 +659,20 @@ export function GeneralSection() {
       {/* Import Options Modal */}
       {showImportOptions && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => {
+              setShowImportOptions(false);
+              setPendingImportPath(null);
+            }}
+            aria-labelledby="general-import-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="general-import-title"
+              className="text-lg font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Import Notes
             </h3>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -708,18 +722,31 @@ export function GeneralSection() {
             >
               Cancel
             </button>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={
+              isClearing
+                ? undefined
+                : () => {
+                    setShowClearConfirm(false);
+                    setConfirmText('');
+                  }
+            }
+            aria-labelledby="clear-all-notes-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--error)' }}>
+            <h3
+              id="clear-all-notes-title"
+              className="text-lg font-semibold mb-2"
+              style={{ color: 'var(--error)' }}
+            >
               Delete All Notes
             </h3>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -772,14 +799,20 @@ export function GeneralSection() {
                 {isClearing ? 'Deleting...' : 'Delete All'}
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Encrypted Export Modal */}
       {showEncryptedExportModal && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => {
+              setShowEncryptedExportModal(false);
+              setEncryptedPassword('');
+              setEncryptedConfirmPassword('');
+            }}
+            aria-labelledby="general-encrypted-export-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
           >
@@ -792,7 +825,11 @@ export function GeneralSection() {
                 <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3
+                  id="general-encrypted-export-title"
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   Create Encrypted Backup
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -902,14 +939,20 @@ export function GeneralSection() {
                 Create Backup
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Encrypted Import Modal */}
       {showEncryptedImportModal && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={() => {
+              setShowEncryptedImportModal(false);
+              setEncryptedPassword('');
+              setPendingEncryptedImportPath(null);
+            }}
+            aria-labelledby="general-encrypted-import-title"
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
           >
@@ -922,7 +965,11 @@ export function GeneralSection() {
                 <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <h3
+                  id="general-encrypted-import-title"
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   Import Encrypted Backup
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -1012,7 +1059,7 @@ export function GeneralSection() {
                 Import Backup
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
     </div>

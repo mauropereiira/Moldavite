@@ -254,7 +254,7 @@ interface PluginCommand {
   handler: () => void | Promise<void>;
 }
 
-function buildPluginAPI(
+export function buildPluginAPI(
   pluginId: string,
   permissions: string[],
   appVersion: string,
@@ -272,6 +272,7 @@ function buildPluginAPI(
     app: { version: appVersion, apiVersion },
     commands: {
       add(cmd: PluginCommand) {
+        require('commands');
         if (
           typeof cmd?.id !== 'string' ||
           typeof cmd?.label !== 'string' ||
@@ -314,6 +315,7 @@ function buildPluginAPI(
     ui: {
       ...api.ui,
       async prompt(options: unknown) {
+        require('ui');
         return callHost('ui.prompt', [options]);
       },
     },

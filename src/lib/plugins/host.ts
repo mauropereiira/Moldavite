@@ -10,7 +10,6 @@
 
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import {
   MAX_COMMAND_ID_LENGTH,
   MAX_COMMAND_LABEL_LENGTH,
@@ -40,16 +39,24 @@ interface RawPlugin {
   manifestRaw: unknown | null;
   readError: string | null;
   contentHash: string | null;
+  /** Source read and hashed by the backend in the same snapshot. */
+  code: string | null;
 }
 
 /** Classify one raw backend record; only validated manifests become loadable. */
 function classify(raw: RawPlugin): PluginInfo {
   const contentHash = raw.contentHash ?? undefined;
-  if (raw.readError || raw.manifestRaw === null || raw.manifestRaw === undefined) {
+  if (
+    raw.readError ||
+    raw.manifestRaw === null ||
+    raw.manifestRaw === undefined ||
+    typeof raw.code !== 'string' ||
+    !raw.contentHash
+  ) {
     return {
       manifest: { id: raw.id, name: raw.id, version: '?', apiVersion: 0 },
       status: 'invalid',
-      reason: raw.readError ?? 'missing manifest',
+      reason: raw.readError ?? 'missing manifest, source, or content hash',
       contentHash,
     };
   }
@@ -90,14 +97,6 @@ interface PluginRuntime {
 
 const runtimes = new Map<string, PluginRuntime>();
 const INVOCATION_TIMEOUT_MS = 30_000;
-
-async function fetchPluginSource(pluginId: string): Promise<string> {
-  // Convert only the base because convertFileSrc percent-encodes path separators.
-  const url = new URL(`${pluginId}/plugin.js`, convertFileSrc('', 'plugin')).href;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`fetch ${url} failed with status ${resp.status}`);
-  return await resp.text();
-}
 
 function terminateRuntime(pluginId: string, reason = 'plugin was unloaded') {
   const rt = runtimes.get(pluginId);
@@ -157,11 +156,11 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
   switch (msg.kind) {
     case 'commandRegistered': {
       const { localId, label } = msg as CommandRegisteredMessage;
-      if (!acceptsCommandRegistration(rt, localId, label)) {
+      if (!rt.permissions.includes('commands') || !acceptsCommandRegistration(rt, localId, label)) {
         if (!rt.commandDropWarned) {
           rt.commandDropWarned = true;
           console.error(
-            `[plugin:${pluginId}] ignored a malformed or excessive command registration`
+            `[plugin:${pluginId}] ignored an unauthorized, malformed, or excessive command registration`
           );
         }
         return;
@@ -229,16 +228,8 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
   }
 }
 
-async function loadOne(info: PluginInfo): Promise<void> {
+async function loadOne(info: PluginInfo, code: string): Promise<void> {
   const { id, permissions = [], allowedHosts = [] } = info.manifest;
-
-  let code: string;
-  try {
-    code = await fetchPluginSource(id);
-  } catch (err) {
-    console.error(`[plugin:${id}] failed to fetch source:`, err);
-    return;
-  }
 
   const worker = new PluginWorker();
   const rt: PluginRuntime = {
@@ -301,12 +292,16 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
     return [];
   }
 
-  const infos = raw.map(classify);
+  const classified = raw.map((record) => ({ info: classify(record), code: record.code }));
+  const infos = classified.map(({ info }) => info);
   const store = usePluginStore.getState();
-  for (const info of infos) {
+  for (const { info, code } of classified) {
     if (info.status !== 'ok') continue;
-    if (store.isEnabledAndGranted(info.manifest.id, info.manifest.version, info.contentHash)) {
-      await loadOne(info);
+    if (
+      typeof code === 'string' &&
+      store.isEnabledAndGranted(info.manifest.id, info.manifest.version, info.contentHash)
+    ) {
+      await loadOne(info, code);
     }
   }
   return infos;

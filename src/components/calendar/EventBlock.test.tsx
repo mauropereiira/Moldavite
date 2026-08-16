@@ -59,6 +59,18 @@ describe('EventBlock', () => {
     expect(longEvent.style.borderTop).toBe('1px solid var(--border-muted)');
   });
 
+  it('ignores malformed timestamps instead of throwing while formatting them', () => {
+    const { container } = render(
+      <EventBlock
+        event={buildEvent({ start: 'not-a-timestamp' })}
+        columnIndex={0}
+        totalColumns={1}
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('renders a two-pixel full-height bar in the event source colour', () => {
     const { container } = render(
       <EventBlock event={buildEvent()} columnIndex={0} totalColumns={1} />

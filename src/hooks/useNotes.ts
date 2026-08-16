@@ -18,13 +18,16 @@ import {
   useTaskStatusStore,
   useToastStore,
 } from '@/stores';
+import { useWordPressStore } from '@/stores/wordpressStore';
 import {
   ensureDirectories,
   listNotes,
   readNote,
+  readNoteSnapshot,
   readNoteWithMeta,
   writeNote,
   deleteNote,
+  drainNoteWrites,
   createNote as createNoteFile,
   getDailyNoteFilename,
   getWeeklyNoteFilename,
@@ -41,6 +44,7 @@ import {
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
+import { cancelPendingAutosaveDebounceForNote, discardPendingAutosaveForNote } from './useAutoSave';
 
 /**
  * Manages note operations including loading, creating, and deleting notes.
@@ -175,7 +179,7 @@ export function useNotes() {
           const noteFile = queue.shift();
           if (!noteFile) return;
           try {
-            const rawContent = await readNote(noteFile.name, true, false);
+            const { content: rawContent } = await readNoteSnapshot(noteFile.name, true, false);
             const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
             const status = parseTaskStatus(htmlContent);
             if (status.totalTasks > 0 && noteFile.date) {
@@ -553,6 +557,7 @@ export function useNotes() {
         useNoteColorsStore.getState().renameColor(oldPath, newPath);
         useNoteSelectionStore.getState().rename(oldPath, newPath);
         useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+        useWordPressStore.getState().notePathChanged(oldPath, newPath);
         useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -638,7 +643,12 @@ export function useNotes() {
 
     try {
       setIsLoading(true);
+      // Cancel the queued debounce and drain anything already writing. deleteNote
+      // rechecks under a per-note write lock before removing the file.
+      cancelPendingAutosaveDebounceForNote(note.id);
+      await drainNoteWrites(filename, note.isDaily || false, note.isWeekly || false);
       await deleteNote(filename, note.isDaily || false, note.isWeekly || false);
+      discardPendingAutosaveForNote(note.id, note.content);
 
       // Remove from notes list
       const freshNotes = state.notes;
@@ -652,15 +662,19 @@ export function useNotes() {
       }
       setNotes(updatedNotes);
 
-      // Clear current note
-      setCurrentNote(null);
+      // Remove the deleted tab atomically and select its surviving neighbour.
+      useNoteStore.getState().removeTabByPath(note.id);
     } catch (error) {
+      // A cancelled debounce was only provisional. If deletion fails, replace
+      // the live tab object so autosave observes it again and retains the buffer.
+      const liveTab = getState().openTabs.find((tab) => tab.id === note.id);
+      if (liveTab) useNoteStore.getState().updateTabContent(note.id, liveTab.content);
       console.error('[useNotes] Failed to delete note:', error);
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [getState, setNotes, setCurrentNote, setIsLoading]);
+  }, [getState, setNotes, setIsLoading]);
 
   // Initialize on mount
   useEffect(() => {

@@ -27,7 +27,10 @@ const BUDGETS = [
   // Bumped for the v1.9 round: this chunk is prose, so it grows once per entry
   // and the only way to hold a line here is to write fewer or worse release
   // notes. Measured 40.2 KB raw / 16.1 KB gz on main at the time of the bump.
-  { pattern: /^changelog-.*\.js$/, rawKb: 64, gzipKb: 22 },
+  // Bumped again for the audit round, whose notes describe eight distinct
+  // data-loss fixes. Same reasoning as last time and it will recur: this cap
+  // is a ratchet on prose, not on code. Measured 59.3 KB raw / 22.9 KB gz.
+  { pattern: /^changelog-.*\.js$/, rawKb: 72, gzipKb: 25 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
 ];
 
@@ -64,7 +67,17 @@ const BUDGETS = [
 // Bumped 4 KB raw for the WordPress.com publishing UI: the store, the typed
 // IPC layer and the footer menu. Measured 571.2 KB raw / 156.6 KB gz at the
 // bump; gzip stayed inside 157 and is left alone.
-const APP_JS_BUDGET = { rawKb: 574, gzipKb: 157 };
+// Bumped 6 KB raw / 3 KB gz for the audit round: per-note write serialisation
+// with generations, the external-reload recheck, transactional Forge and root
+// switching, the task-list run splitter, and the pinned-notes bar. This is
+// machinery whose only job is to stop the app losing a user's writing, which
+// is worth more than the kilobytes. Measured 577.9 KB raw / 158.6 KB gz.
+// Bumped a further 5 KB raw / 2 KB gz for the accessibility round: a shared
+// dialog surface with focus trapping, restoration and topmost-only Escape,
+// applied across thirteen overlays that previously had none of it. Keyboard
+// users could tab straight out of every modal in the app. Measured 582.4 KB
+// raw / 160.3 KB gz.
+const APP_JS_BUDGET = { rawKb: 585, gzipKb: 162 };
 
 async function main() {
   let entries;

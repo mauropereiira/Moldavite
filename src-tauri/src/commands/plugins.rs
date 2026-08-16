@@ -1,11 +1,14 @@
 //! Plugin system backend: enumerate, uninstall, and install-example plugins
-//! living under the active Forge's `.plugins/` directory, plus the path
-//! resolver used by the `plugin://` URI scheme handler in `lib.rs`.
+//! living under the active Forge's `.plugins/` directory. The legacy
+//! `plugin://` URI scheme remains registered for compatibility but serves no
+//! executable files; plugin source crosses the backend boundary only in the
+//! same snapshot as its consent hash.
 //!
 //! Plugin ids and relative asset paths are untrusted. Resolution remains inside
-//! one plugin directory with symlinks rejected; content hashes bind consent to
-//! the manifest and code bytes. Secrets are namespaced by plugin id in the macOS
-//! Keychain and are never returned across a different plugin identity.
+//! the canonical `.plugins` root with directory and leaf symlinks rejected;
+//! content hashes bind consent to the exact manifest and code bytes returned to
+//! the frontend. Secrets are namespaced by plugin id in the macOS Keychain and
+//! are never returned across a different plugin identity.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -94,32 +97,51 @@ pub(crate) fn plugin_secret_delete(plugin_id: String, key: String) -> Result<(),
     secret_delete_with(&KeychainSecretStore, &plugin_id, &key)
 }
 
-/// Resolve one plugin's executable module and confirm it stays inside that
-/// plugin's own directory without following a symlinked leaf.
+/// The host receives source in `list_plugins`, so leaving this scheme readable
+/// would let one same-origin plugin import another plugin's executable module.
 pub(crate) fn resolve_plugin_file(id: &str, rel: &str) -> Option<PathBuf> {
     resolve_plugin_file_in(&plugins_dir(), id, rel)
 }
 
-fn resolve_plugin_file_in(base: &Path, id: &str, rel: &str) -> Option<PathBuf> {
-    if !is_valid_plugin_id(id) || rel != "plugin.js" {
+fn resolve_plugin_file_in(_base: &Path, _id: &str, _rel: &str) -> Option<PathBuf> {
+    None
+}
+
+fn canonical_real_directory(path: &Path) -> Option<PathBuf> {
+    let metadata = fs::symlink_metadata(path).ok()?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
         return None;
     }
+    path.canonicalize().ok()
+}
+
+/// Resolve a file used by plugin enumeration without trusting lexical path
+/// containment, which would follow a plugin-directory symlink outside the Forge.
+fn resolve_installed_plugin_file_in(base: &Path, id: &str, rel: &str) -> Option<PathBuf> {
+    if !is_valid_plugin_id(id) || !matches!(rel, "manifest.json" | "plugin.js") {
+        return None;
+    }
+
+    let canonical_root = canonical_real_directory(base)?;
     let plugin_base = base.join(id);
-    let candidate = plugin_base.join(rel);
-    if fs::symlink_metadata(&candidate)
-        .map(|metadata| metadata.file_type().is_symlink())
-        .unwrap_or(true)
-    {
+    let canonical_plugin_base = canonical_real_directory(&plugin_base)?;
+    if !canonical_plugin_base.starts_with(&canonical_root) {
         return None;
     }
-    if validate_path_within_base(&candidate, &plugin_base).is_ok()
-        && fs::symlink_metadata(&candidate)
-            .map(|metadata| metadata.is_file())
-            .unwrap_or(false)
+
+    let candidate = plugin_base.join(rel);
+    let candidate_metadata = fs::symlink_metadata(&candidate).ok()?;
+    if candidate_metadata.file_type().is_symlink() || !candidate_metadata.is_file() {
+        return None;
+    }
+
+    let canonical_candidate = candidate.canonicalize().ok()?;
+    if !canonical_candidate.starts_with(&canonical_root)
+        || !canonical_candidate.starts_with(&canonical_plugin_base)
     {
-        Some(candidate)
-    } else {
         None
+    } else {
+        Some(canonical_candidate)
     }
 }
 
@@ -132,68 +154,96 @@ pub(crate) struct RawPlugin {
     pub manifest_raw: Option<serde_json::Value>,
     #[serde(rename = "readError")]
     pub read_error: Option<String>,
-    /// SHA-256 over manifest.json + plugin.js bytes. The frontend pins the
-    /// user's consent to this hash so silently swapped plugin code always
-    /// triggers a fresh permission prompt.
+    /// SHA-256 over the exact manifest.json and plugin.js bytes in this record.
     #[serde(rename = "contentHash")]
     pub content_hash: Option<String>,
+    /// UTF-8 plugin.js source read once and hashed before this record is built.
+    pub code: Option<String>,
 }
 
-/// Hash the files that define a plugin's behavior (manifest + code).
-fn plugin_content_hash(plugin_dir: &std::path::Path) -> Option<String> {
+struct PluginSnapshot {
+    manifest_raw: serde_json::Value,
+    content_hash: String,
+    code: String,
+}
+
+fn plugin_content_hash_bytes(manifest: &[u8], code: &[u8]) -> String {
     use sha2::{Digest, Sha256};
-    let manifest = fs::read(plugin_dir.join("manifest.json")).ok()?;
-    let code = fs::read(plugin_dir.join("plugin.js")).unwrap_or_default();
     let mut hasher = Sha256::new();
-    hasher.update(&manifest);
+    hasher.update(manifest);
     hasher.update([0u8]); // domain separator between the two files
-    hasher.update(&code);
-    Some(format!("{:x}", hasher.finalize()))
+    hasher.update(code);
+    format!("{:x}", hasher.finalize())
 }
 
-#[tauri::command]
-pub(crate) fn list_plugins() -> Result<Vec<RawPlugin>, String> {
-    let dir = plugins_dir();
+fn read_plugin_snapshot_in(base: &Path, id: &str) -> Result<PluginSnapshot, String> {
+    let manifest_path = resolve_installed_plugin_file_in(base, id, "manifest.json")
+        .ok_or_else(|| "no manifest.json: missing, unreadable, or unsafe path".to_string())?;
+    let code_path = resolve_installed_plugin_file_in(base, id, "plugin.js")
+        .ok_or_else(|| "no plugin.js: missing, unreadable, or unsafe path".to_string())?;
+    let manifest =
+        fs::read(manifest_path).map_err(|e| format!("cannot read manifest.json: {e}"))?;
+    let code_bytes = fs::read(code_path).map_err(|e| format!("cannot read plugin.js: {e}"))?;
+    let content_hash = plugin_content_hash_bytes(&manifest, &code_bytes);
+    let code = String::from_utf8(code_bytes)
+        .map_err(|_| "invalid plugin.js: source is not UTF-8".to_string())?;
+    let manifest_raw =
+        serde_json::from_slice(&manifest).map_err(|e| format!("invalid manifest.json: {e}"))?;
+
+    Ok(PluginSnapshot {
+        manifest_raw,
+        content_hash,
+        code,
+    })
+}
+
+#[cfg(test)]
+fn plugin_content_hash(plugin_dir: &Path) -> Option<String> {
+    let id = plugin_dir.file_name()?.to_str()?;
+    let base = plugin_dir.parent()?;
+    read_plugin_snapshot_in(base, id)
+        .ok()
+        .map(|snapshot| snapshot.content_hash)
+}
+
+fn list_plugins_in(dir: &Path) -> Vec<RawPlugin> {
     let mut out = Vec::new();
-    let entries = match fs::read_dir(&dir) {
-        Ok(e) => e,
-        Err(_) => return Ok(out), // no `.plugins` dir yet
+    if canonical_real_directory(dir).is_none() {
+        return out;
+    }
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return out,
     };
     for entry in entries.flatten() {
-        if !entry.path().is_dir() {
-            continue;
-        }
         let id = entry.file_name().to_string_lossy().to_string();
         if !is_valid_plugin_id(&id) {
             continue;
         }
-        let manifest_path = entry.path().join("manifest.json");
-        let content_hash = plugin_content_hash(&entry.path());
-        match fs::read_to_string(&manifest_path) {
-            Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
-                Ok(v) => out.push(RawPlugin {
-                    id,
-                    manifest_raw: Some(v),
-                    read_error: None,
-                    content_hash,
-                }),
-                Err(e) => out.push(RawPlugin {
-                    id,
-                    manifest_raw: None,
-                    read_error: Some(format!("invalid manifest.json: {e}")),
-                    content_hash,
-                }),
-            },
-            Err(e) => out.push(RawPlugin {
+        match read_plugin_snapshot_in(dir, &id) {
+            Ok(snapshot) => out.push(RawPlugin {
+                id,
+                manifest_raw: Some(snapshot.manifest_raw),
+                read_error: None,
+                content_hash: Some(snapshot.content_hash),
+                code: Some(snapshot.code),
+            }),
+            Err(error) => out.push(RawPlugin {
                 id,
                 manifest_raw: None,
-                read_error: Some(format!("no manifest.json: {e}")),
-                content_hash,
+                read_error: Some(error),
+                content_hash: None,
+                code: None,
             }),
         }
     }
     out.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(out)
+    out
+}
+
+#[tauri::command]
+pub(crate) fn list_plugins() -> Result<Vec<RawPlugin>, String> {
+    Ok(list_plugins_in(&plugins_dir()))
 }
 
 #[tauri::command]
@@ -524,7 +574,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn plugin_file_resolution_is_scoped_and_rejects_symlinked_leafs() {
+    fn installed_plugin_resolution_is_scoped_and_rejects_symlinks() {
         use std::os::unix::fs::symlink;
 
         let root = std::env::temp_dir().join(format!(
@@ -548,18 +598,43 @@ mod tests {
         let outside = root.join("outside.js");
         fs::write(&outside, "secret").unwrap();
         symlink(&outside, symlinked.join("plugin.js")).unwrap();
+        let outside_plugin = root.join("outside-plugin");
+        fs::create_dir_all(&outside_plugin).unwrap();
+        fs::write(outside_plugin.join("plugin.js"), "outside plugin").unwrap();
+        symlink(&outside_plugin, base.join("directory-link")).unwrap();
 
         assert_eq!(
-            resolve_plugin_file_in(&base, "first-plugin", "plugin.js"),
-            Some(first.join("plugin.js"))
+            resolve_installed_plugin_file_in(&base, "first-plugin", "plugin.js"),
+            Some(first.join("plugin.js").canonicalize().unwrap())
         );
-        assert!(
-            resolve_plugin_file_in(&base, "first-plugin", "../second-plugin/plugin.js").is_none()
-        );
-        assert!(resolve_plugin_file_in(&base, "symlinked-plugin", "plugin.js").is_none());
-        assert!(resolve_plugin_file_in(&base, "first-plugin", "README.md").is_none());
+        assert!(resolve_installed_plugin_file_in(
+            &base,
+            "first-plugin",
+            "../second-plugin/plugin.js"
+        )
+        .is_none());
+        assert!(resolve_installed_plugin_file_in(&base, "symlinked-plugin", "plugin.js").is_none());
+        assert!(resolve_installed_plugin_file_in(&base, "directory-link", "plugin.js").is_none());
+        assert!(resolve_installed_plugin_file_in(&base, "first-plugin", "README.md").is_none());
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn plugin_scheme_does_not_serve_executable_source() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-scheme-test-{}",
+            std::process::id()
+        ));
+        let base = root.join(".plugins");
+        let plugin = base.join("safe-plugin");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&plugin).unwrap();
+        fs::write(plugin.join("plugin.js"), "export default () => {};").unwrap();
+
+        assert!(resolve_plugin_file_in(&base, "safe-plugin", "plugin.js").is_none());
+
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]
@@ -671,6 +746,80 @@ mod tests {
         let after = plugin_content_hash(&dir).unwrap();
         assert_ne!(before, after);
         fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn missing_plugin_code_does_not_produce_a_consent_hash() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-missing-code-test-{}",
+            std::process::id()
+        ));
+        let dir = root.join(".plugins/missing-code");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("manifest.json"), r#"{"id":"missing-code"}"#).unwrap();
+
+        assert!(plugin_content_hash(&dir).is_none());
+        let records = list_plugins_in(dir.parent().unwrap());
+        assert_eq!(records.len(), 1);
+        assert!(records[0].read_error.is_some());
+        assert!(records[0].content_hash.is_none());
+        assert!(records[0].code.is_none());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn consent_hash_rejects_a_symlinked_plugin_directory() {
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-directory-link-test-{}",
+            std::process::id()
+        ));
+        let outside = root.join("outside");
+        let linked = root.join(".plugins/linked-plugin");
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&outside).unwrap();
+        fs::create_dir_all(linked.parent().unwrap()).unwrap();
+        fs::write(outside.join("manifest.json"), r#"{"id":"linked-plugin"}"#).unwrap();
+        fs::write(outside.join("plugin.js"), "export default () => {};").unwrap();
+        symlink(&outside, &linked).unwrap();
+
+        assert!(plugin_content_hash(&linked).is_none());
+        let records = list_plugins_in(linked.parent().unwrap());
+        assert_eq!(records.len(), 1);
+        assert!(records[0].read_error.is_some());
+        assert!(records[0].content_hash.is_none());
+        assert!(records[0].code.is_none());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn plugin_snapshot_returns_the_exact_code_bound_to_its_hash() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-snapshot-test-{}",
+            std::process::id()
+        ));
+        let base = root.join(".plugins");
+        let plugin = base.join("snapshot-plugin");
+        let manifest = br#"{"id":"snapshot-plugin","version":"1.0.0"}"#;
+        let code = b"export default () => 'hashed source';";
+        fs::remove_dir_all(&root).ok();
+        fs::create_dir_all(&plugin).unwrap();
+        fs::write(plugin.join("manifest.json"), manifest).unwrap();
+        fs::write(plugin.join("plugin.js"), code).unwrap();
+
+        let snapshot = read_plugin_snapshot_in(&base, "snapshot-plugin").unwrap();
+        assert_eq!(snapshot.code.as_bytes(), code);
+        assert_eq!(
+            snapshot.content_hash,
+            plugin_content_hash_bytes(manifest, code)
+        );
+
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

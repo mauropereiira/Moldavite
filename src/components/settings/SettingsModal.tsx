@@ -31,7 +31,7 @@
  * @module components/settings/SettingsModal
  */
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import {
   useSettingsStore,
   useThemeStore,
@@ -40,7 +40,7 @@ import {
   applyTheme,
   type SettingsTab,
 } from '@/stores';
-import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 import {
   Calendar,
   Settings,
@@ -93,9 +93,6 @@ export function SettingsModal() {
     import: null,
     about: null,
   });
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  useFocusTrap(dialogRef, settingsStore.isSettingsOpen);
-
   // Template handlers for SettingsTemplates
   const handleDeleteTemplate = async (id: string) => {
     await deleteExistingTemplate(id);
@@ -110,18 +107,6 @@ export function SettingsModal() {
   ) => {
     await updateExistingTemplate(id, { name, description, icon, content });
   };
-
-  // Handle ESC key to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        settingsStore.setIsSettingsOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [settingsStore]);
 
   const tabs = useMemo<{ id: SettingsTab; label: string; icon: React.ReactNode }[]>(
     () => [
@@ -218,12 +203,9 @@ export function SettingsModal() {
       className="settings-scrim fixed inset-0 flex items-center justify-center z-[9999] modal-backdrop-enter"
       onClick={handleBackdropClick}
     >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
+      <DialogSurface
+        onEscape={() => settingsStore.setIsSettingsOpen(false)}
         className="settings-dialog w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-content-enter"
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="settings-modal-title"
       >
         {/* Header */}
@@ -344,7 +326,7 @@ export function SettingsModal() {
             </div>
           </div>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

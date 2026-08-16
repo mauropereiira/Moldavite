@@ -7,7 +7,6 @@
 
 use chrono::Local;
 use std::fs;
-use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 
 use crate::forge_watcher::RecentWrites;
@@ -106,10 +105,13 @@ fn resolve_note_path_from(root: &Path, note_path: &str) -> Option<PathBuf> {
 /// Get the color ID for a specific note (reads from YAML frontmatter).
 #[tauri::command]
 pub(crate) fn get_note_color(note_path: String) -> Option<String> {
+    let root = get_notes_dir();
     let abs = resolve_note_path(&note_path)?;
+    crate::validation::validate_path_within_base(&abs, &root).ok()?;
     if !abs.exists() {
         return None;
     }
+    crate::validation::validate_path_within_base(&abs, &root).ok()?;
     let raw = fs::read_to_string(&abs).ok()?;
     frontmatter::parse_note(&raw).color
 }
@@ -151,12 +153,16 @@ pub(crate) fn set_note_color(
         return Err("Note not found".to_string());
     }
 
+    crate::validation::validate_path_within_base(&abs, &notes_dir)
+        .map_err(|_| "Invalid note path".to_string())?;
     let existing = fs::read_to_string(&abs).unwrap_or_default();
     let parsed = frontmatter::parse_note(&existing);
     let new_color = color_id.filter(|c| !c.is_empty() && c != "default");
     let new_content =
         frontmatter::serialize_note(new_color.as_deref(), &parsed.extra, &parsed.body);
 
+    crate::validation::validate_path_within_base(&abs, &notes_dir)
+        .map_err(|_| "Invalid note path".to_string())?;
     crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600))?;
     recent.record(&abs, &crate::commands::notes::sha256_hex(&parsed.body));
 
@@ -187,7 +193,7 @@ pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String>
             if entry.file_name().to_string_lossy().starts_with('.') && entry.depth() > 0 {
                 continue;
             }
-            if !p.is_file() {
+            if !entry.file_type().is_file() {
                 continue;
             }
             let name = match p.file_name().and_then(|n| n.to_str()) {
@@ -206,6 +212,9 @@ pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String>
                 .map(|c| c.as_os_str().to_string_lossy().to_string())
                 .collect::<Vec<_>>()
                 .join("/");
+            if crate::validation::validate_path_within_base(p, &root).is_err() {
+                continue;
+            }
             if let Ok(raw) = fs::read_to_string(p) {
                 if let Some(color) = frontmatter::parse_note(&raw).color {
                     out.insert(rel_str, color);
@@ -240,19 +249,7 @@ pub(crate) fn write_binary_file(
     }
     crate::validation::validate_user_export_path(file_path, &ext)?;
 
-    // Write the binary contents.
-    let mut file = fs::File::create(file_path).map_err(|e| e.to_string())?;
-    file.write_all(&contents).map_err(|e| e.to_string())?;
-
-    // Set file permissions (644 = owner read/write, group/others read)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o644);
-        fs::set_permissions(file_path, permissions).map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
+    crate::persist::write_atomic(file_path, &contents, Some(0o600))
 }
 
 /// Save an image to the images directory
@@ -274,8 +271,10 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
         return Err("Invalid image format".to_string());
     }
 
-    // Get or create images directory
+    let forge_root = get_notes_dir();
     let images_dir = get_images_dir();
+    crate::validation::validate_path_within_base(&images_dir, &forge_root)
+        .map_err(|_| "Invalid images directory".to_string())?;
     fs::create_dir_all(&images_dir)
         .map_err(|e| format!("Failed to create images directory: {}", e))?;
 
@@ -287,11 +286,13 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
         let _ = fs::set_permissions(&images_dir, permissions);
     }
 
-    // Generate unique filename with timestamp to avoid collisions
+    // Mix wall-clock readability with OS entropy so synced clients cannot
+    // predict and pre-position the destination leaf.
     let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f").to_string();
+    let random_suffix = rand::RngCore::next_u64(&mut rand::rngs::OsRng);
     let extension = filename.rsplit('.').next().unwrap_or("png");
     let unique_filename = format!(
-        "{}_{}.{}",
+        "{}_{}_{random_suffix:016x}.{}",
         filename
             .rsplit('.')
             .next_back()
@@ -302,6 +303,8 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     );
 
     let file_path = images_dir.join(&unique_filename);
+    crate::validation::validate_path_within_base(&file_path, &forge_root)
+        .map_err(|_| "Invalid image path".to_string())?;
 
     // Decode base64 data
     // Handle data URLs (e.g., "data:image/png;base64,...")
@@ -316,19 +319,8 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
         .decode(base64_data)
         .map_err(|e| format!("Failed to decode image data: {}", e))?;
 
-    // Write the image file
-    let mut file =
-        fs::File::create(&file_path).map_err(|e| format!("Failed to create image file: {}", e))?;
-    file.write_all(&image_bytes)
-        .map_err(|e| format!("Failed to write image data: {}", e))?;
-
-    // Set file permissions
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissions = fs::Permissions::from_mode(0o600);
-        let _ = fs::set_permissions(&file_path, permissions);
-    }
+    crate::persist::write_atomic(&file_path, &image_bytes, Some(0o600))
+        .map_err(|e| format!("Failed to write image data: {e}"))?;
 
     // Return the absolute path
     Ok(file_path.to_string_lossy().to_string())

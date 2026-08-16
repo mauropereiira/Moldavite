@@ -94,7 +94,7 @@ export function Editor() {
     showEditorFooter,
     showBacklinksPanel,
   } = useSettingsStore();
-  const { theme } = useThemeStore();
+  const { theme, setTheme } = useThemeStore();
   const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
@@ -1083,12 +1083,15 @@ export function Editor() {
     openTemplatePicker,
   } = useKeyboardShortcuts({
     editor,
-    onNewNote: () => {
-      // Will be handled by parent
-    },
-    onToggleTheme: () => {
-      // Will be handled by parent
-    },
+    // These were stubs reading "will be handled by parent". No parent ever did,
+    // and `onNewNote?.()` on an empty function fails silently, so ⌘N and ⌘⇧L
+    // did nothing at all — including on the welcome screen, which advertises
+    // ⌘N under the wordmark. Both handlers were in scope the whole time:
+    // `handleCreateNote` is what the New note button already calls, and the
+    // theme cycle matches the Quick Switcher's light → dark → system.
+    onNewNote: () => void handleCreateNote(),
+    onToggleTheme: () =>
+      setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'),
     onInsertLink: handleInsertLink,
   });
 

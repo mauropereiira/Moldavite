@@ -60,6 +60,7 @@ const METHOD_PERMISSIONS: Partial<Record<HostMethod, string>> = {
   'editor.getActiveNote': 'editor',
   'editor.insertText': 'editor',
   'ui.toast': 'ui',
+  'ui.prompt': 'ui',
   'notes.list': 'notes.read',
   'notes.read': 'notes.read',
   'net.fetch': 'net.fetch',

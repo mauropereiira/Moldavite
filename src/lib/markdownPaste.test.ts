@@ -96,4 +96,17 @@ describe('Markdown paste conversion', () => {
     );
     expect(container.querySelector('pre code')?.textContent).toContain('console.log("hello");');
   });
+
+  it('preserves DOM order when task and regular items alternate in one Markdown list', () => {
+    const container = document.createElement('div');
+    container.innerHTML = markdownToHtml('- [ ] A\n- context\n- [ ] C');
+
+    const lists = Array.from(container.children).filter((child) => child.tagName === 'UL');
+    expect(lists.map((list) => list.getAttribute('data-type') ?? 'regular')).toEqual([
+      'taskList',
+      'regular',
+      'taskList',
+    ]);
+    expect(lists.map((list) => list.textContent?.trim())).toEqual(['A', 'context', 'C']);
+  });
 });

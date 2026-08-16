@@ -5,6 +5,7 @@ import { safeInvoke as invoke } from '@/lib/ipc';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import type { TrashedNote } from '@/types';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface TrashPreviewModalProps {
   note: TrashedNote | null;
@@ -72,7 +73,9 @@ export function TrashPreviewModal({
       onClick={onClose}
     >
       <div className="absolute inset-0 modal-backdrop-dark" />
-      <div
+      <DialogSurface
+        onEscape={onClose}
+        aria-labelledby="trash-preview-title"
         className="relative modal-elevated modal-content-enter w-full max-w-lg mx-4 flex flex-col"
         style={{ borderRadius: 'var(--radius-md)', maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
@@ -83,7 +86,7 @@ export function TrashPreviewModal({
           style={{ borderBottom: '1px solid var(--border-default)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-base font-semibold truncate">
+            <h2 id="trash-preview-title" className="text-base font-semibold truncate">
               {note.filename.replace(/\.md$/, '')}
             </h2>
           </div>
@@ -125,7 +128,7 @@ export function TrashPreviewModal({
         <div className="flex-1 overflow-y-auto p-4">
           <EditorContent editor={editor} className="max-w-none" />
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

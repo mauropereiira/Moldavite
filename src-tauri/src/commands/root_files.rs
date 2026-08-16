@@ -14,6 +14,7 @@ use std::path::Path;
 
 use crate::paths::get_notes_dir;
 use crate::persist::write_atomic;
+use crate::validation::validate_path_within_base;
 
 /// The only files these commands may ever touch, by exact name.
 const ROOT_FILE_WHITELIST: [&str; 2] = ["AGENTS.md", ".gitignore"];
@@ -50,6 +51,7 @@ pub(crate) fn write_forge_root_file_in(
 
     fs::create_dir_all(base).map_err(|e| format!("Failed to create Forge directory: {}", e))?;
     let dest = base.join(filename);
+    validate_path_within_base(&dest, base)?;
     if dest.exists() && !overwrite {
         return Err(ERR_EXISTS.to_string());
     }
@@ -68,6 +70,7 @@ pub(crate) fn read_forge_root_file_in(
 ) -> Result<Option<String>, String> {
     validate_root_filename(filename)?;
     let src = base.join(filename);
+    validate_path_within_base(&src, base)?;
     if !src.exists() {
         return Ok(None);
     }
@@ -200,6 +203,19 @@ mod tests {
     fn read_missing_file_returns_none() {
         let tmp = TempDir::new("missing");
         assert_eq!(read_forge_root_file_in(tmp.path(), "AGENTS.md").unwrap(), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_root_file_read_rejects_symlink_leaf() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = TempDir::new("read-symlink");
+        let outside = tmp.path().join("outside-secret");
+        fs::write(&outside, "private key material").unwrap();
+        symlink(&outside, tmp.path().join("AGENTS.md")).unwrap();
+
+        assert!(read_forge_root_file_in(tmp.path(), "AGENTS.md").is_err());
     }
 
     #[test]

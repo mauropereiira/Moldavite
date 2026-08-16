@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -31,13 +31,16 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$DOCUMENT/Moldavite/**",
-          "$DOCUMENT/Moldavite/images/**"
+          "$DOCUMENT/Moldavite/images/**",
+          "$DOCUMENT/Moldavite/*/images/**"
         ]
       }
     }
   },
   "plugins": {
+    "shell": {
+      "open": "(?:https://github\\.com/mauropereiira/Moldavite/releases|https://github\\.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS\\.md|https://www\\.google\\.com/calendar/event\\?eid=.+|x-apple\\.systempreferences:com\\.apple\\.preference\\.security\\?Privacy_Calendars|https://accounts\\.google\\.com/o/oauth2/v2/auth\\?.+|https://public-api\\.wordpress\\.com/oauth2/authorize\\?.+)"
+    },
     "deep-link": {
       "desktop": {
         "schemes": [

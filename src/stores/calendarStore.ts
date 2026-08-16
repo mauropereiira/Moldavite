@@ -18,6 +18,7 @@ import type {
   CalendarEvent,
   CalendarInfo,
   CalendarPermission,
+  CalendarSource,
   CalendarSourceError,
   CalendarSourceStatus,
 } from '@/types';
@@ -26,7 +27,6 @@ import {
   getCalendarPermission,
   requestCalendarPermission,
   fetchCalendarEvents,
-  listCalendars,
   listCalendarSources,
   connectGoogleCalendar,
   disconnectGoogleCalendar,
@@ -44,7 +44,7 @@ const CALENDAR_EVENTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const eventCache = new Map<string, { events: CalendarEvent[]; at: number }>();
 
 function cacheKey(startDate: string, endDate: string, calendarIds: string[]): string {
-  return `${startDate}|${endDate}|${[...calendarIds].sort().join(',')}`;
+  return JSON.stringify([startDate, endDate, [...calendarIds].sort()]);
 }
 
 /** Monotonic id so a slow fetch cannot overwrite a newer one. */
@@ -72,6 +72,10 @@ interface CalendarState {
   // Calendars
   calendars: CalendarInfo[];
   selectedCalendarIds: string[];
+  /** Source metadata for opaque persisted ids, learned from CalendarInfo. */
+  selectedCalendarSources: Record<string, CalendarSource>;
+  /** Pending v0 migration, resolved against backend-owned id metadata. */
+  legacySelectedAppleCalendarId: string | null;
 
   // Settings
   calendarEnabled: boolean;
@@ -113,9 +117,9 @@ export function hasNoConnectableCalendarSource(sources: CalendarSourceStatus[]):
 
 /**
  * v0 stored a single `selectedCalendarId` holding a bare EventKit id, with
- * `null` meaning "all calendars". Ids carry a source prefix now, so carry the
- * choice forward as `apple:<id>` and let `null` become the empty list, which
- * still means all.
+ * `null` meaning "all calendars". Keep that value in a migration-only field
+ * until Rust returns the matching namespaced id; frontend code must never
+ * manufacture or parse the current id format.
  *
  * Exported for tests: an upgrade that silently dropped the user's calendar
  * choice would look like the app forgetting a setting, which is exactly the
@@ -125,10 +129,91 @@ export function migrateCalendarState(persisted: unknown, version: number): Recor
   const state = (persisted ?? {}) as Record<string, unknown>;
   if (version === 0) {
     const legacy = state.selectedCalendarId;
-    state.selectedCalendarIds = typeof legacy === 'string' && legacy ? [`apple:${legacy}`] : [];
+    state.selectedCalendarIds = [];
+    state.selectedCalendarSources = {};
+    state.legacySelectedAppleCalendarId = typeof legacy === 'string' && legacy ? legacy : null;
     delete state.selectedCalendarId;
   }
   return state;
+}
+
+interface CalendarInfoWithLegacy extends CalendarInfo {
+  /** Native id supplied only for resolving the v0 Apple selection migration. */
+  legacyId?: string;
+}
+
+interface CalendarSourceListing extends CalendarSourceStatus {
+  calendars: CalendarInfoWithLegacy[];
+  calendarsEnumerated: boolean;
+}
+
+function normalizeSourceListings(sources: CalendarSourceStatus[]): CalendarSourceListing[] {
+  return sources.map((source) => {
+    const listing = source as Partial<CalendarSourceListing>;
+    return {
+      ...source,
+      calendars: Array.isArray(listing.calendars) ? listing.calendars : [],
+      calendarsEnumerated: listing.calendarsEnumerated === true,
+    };
+  });
+}
+
+function mergeSourceListings(
+  state: Pick<
+    CalendarState,
+    | 'calendars'
+    | 'selectedCalendarIds'
+    | 'selectedCalendarSources'
+    | 'legacySelectedAppleCalendarId'
+  >,
+  listings: CalendarSourceListing[]
+): Pick<
+  CalendarState,
+  'calendars' | 'selectedCalendarIds' | 'selectedCalendarSources' | 'legacySelectedAppleCalendarId'
+> {
+  const enumeratedSources = new Set<CalendarSource>(
+    listings.filter((listing) => listing.calendarsEnumerated).map((listing) => listing.source)
+  );
+  const enumeratedCalendars = listings
+    .filter((listing) => listing.calendarsEnumerated)
+    .flatMap((listing) => listing.calendars);
+  const calendars = [
+    ...state.calendars.filter((calendar) => !enumeratedSources.has(calendar.source)),
+    ...enumeratedCalendars,
+  ];
+  const liveIds = new Set(calendars.map((calendar) => calendar.id));
+  const knownCalendars = new Map(
+    [...state.calendars, ...calendars].map((calendar) => [calendar.id, calendar])
+  );
+  let selectedCalendarIds = state.selectedCalendarIds.filter((id) => {
+    const known = knownCalendars.get(id);
+    const source = known?.source ?? state.selectedCalendarSources[id];
+    return !source || !enumeratedSources.has(source) || liveIds.has(id);
+  });
+  let legacySelectedAppleCalendarId = state.legacySelectedAppleCalendarId;
+
+  if (legacySelectedAppleCalendarId && enumeratedSources.has('apple')) {
+    const migrated = enumeratedCalendars.find(
+      (calendar) =>
+        calendar.source === 'apple' && calendar.legacyId === legacySelectedAppleCalendarId
+    );
+    if (migrated) selectedCalendarIds = [migrated.id];
+    legacySelectedAppleCalendarId = null;
+  }
+
+  const selectedCalendarSources = Object.fromEntries(
+    selectedCalendarIds.flatMap((id) => {
+      const source = knownCalendars.get(id)?.source ?? state.selectedCalendarSources[id];
+      return source ? [[id, source]] : [];
+    })
+  );
+
+  return {
+    calendars,
+    selectedCalendarIds,
+    selectedCalendarSources,
+    legacySelectedAppleCalendarId,
+  };
 }
 
 export const useCalendarStore = create<CalendarState>()(
@@ -148,6 +233,8 @@ export const useCalendarStore = create<CalendarState>()(
       lastSynced: null,
       calendars: [],
       selectedCalendarIds: [],
+      selectedCalendarSources: {},
+      legacySelectedAppleCalendarId: null,
       calendarEnabled: true,
       showAllDayEvents: true,
       refreshIntervalMinutes: 15,
@@ -207,12 +294,12 @@ export const useCalendarStore = create<CalendarState>()(
        */
       refreshSources: async () => {
         try {
-          const sources = await listCalendarSources();
-          set({ sources });
+          const listings = normalizeSourceListings(await listCalendarSources());
+          const sources: CalendarSourceStatus[] = listings;
           if (hasConnectedSource(sources)) {
-            await get().fetchCalendars();
+            set((state) => ({ sources, ...mergeSourceListings(state, listings) }));
           } else {
-            set({ calendars: [] });
+            set({ sources, calendars: [] });
           }
         } catch (error) {
           console.error('Failed to list calendar sources:', error);
@@ -259,7 +346,17 @@ export const useCalendarStore = create<CalendarState>()(
         }
         eventCache.clear();
         set((state) => ({
-          selectedCalendarIds: state.selectedCalendarIds.filter((id) => !id.startsWith('google:')),
+          calendars: state.calendars.filter((calendar) => calendar.source !== 'google'),
+          selectedCalendarIds: state.selectedCalendarIds.filter((id) => {
+            const calendar = state.calendars.find((candidate) => candidate.id === id);
+            const source = calendar?.source ?? state.selectedCalendarSources[id];
+            return source !== 'google';
+          }),
+          selectedCalendarSources: Object.fromEntries(
+            Object.entries(state.selectedCalendarSources).filter(
+              ([, source]) => source !== 'google'
+            )
+          ),
           events: state.events.filter((e) => e.source !== 'google'),
         }));
         await get().refreshSources();
@@ -272,15 +369,23 @@ export const useCalendarStore = create<CalendarState>()(
        * @param opts - `force` bypasses the TTL cache (the manual refresh button)
        */
       fetchEvents: async (start: Date, end?: Date, opts?: { force?: boolean }) => {
-        const { calendarEnabled, selectedCalendarIds, showAllDayEvents, sources } = get();
+        const {
+          calendarEnabled,
+          selectedCalendarIds,
+          showAllDayEvents,
+          sources,
+          legacySelectedAppleCalendarId,
+        } = get();
 
-        if (!calendarEnabled || !hasConnectedSource(sources)) {
+        if (!calendarEnabled || !hasConnectedSource(sources) || legacySelectedAppleCalendarId) {
           return;
         }
 
         const startDate = format(start, 'yyyy-MM-dd');
         const endDate = format(end ?? start, 'yyyy-MM-dd');
         const key = cacheKey(startDate, endDate, selectedCalendarIds);
+        // Even a cache hit is a newer view and must invalidate an older request.
+        const requestId = ++latestRequestId;
 
         if (!opts?.force) {
           const hit = eventCache.get(key);
@@ -301,7 +406,6 @@ export const useCalendarStore = create<CalendarState>()(
         // dates resolves out of order easily now that a request can take
         // seconds; without this the grid can show one day under another's
         // header.
-        const requestId = ++latestRequestId;
         set({ isLoadingEvents: true, eventsError: null });
 
         try {
@@ -337,12 +441,13 @@ export const useCalendarStore = create<CalendarState>()(
        */
       fetchCalendars: async () => {
         try {
-          const calendars = await listCalendars();
-          const live = new Set(calendars.map((c) => c.id));
-          set((state) => ({
-            calendars,
-            selectedCalendarIds: state.selectedCalendarIds.filter((id) => live.has(id)),
-          }));
+          const listings = normalizeSourceListings(await listCalendarSources());
+          const sources: CalendarSourceStatus[] = listings;
+          if (hasConnectedSource(sources)) {
+            set((state) => ({ sources, ...mergeSourceListings(state, listings) }));
+          } else {
+            set({ sources, calendars: [] });
+          }
         } catch (error) {
           console.error('Failed to fetch calendars:', error);
         }
@@ -354,11 +459,23 @@ export const useCalendarStore = create<CalendarState>()(
        */
       toggleCalendarSelected: (id) => {
         eventCache.clear();
-        set((state) => ({
-          selectedCalendarIds: state.selectedCalendarIds.includes(id)
-            ? state.selectedCalendarIds.filter((c) => c !== id)
-            : [...state.selectedCalendarIds, id],
-        }));
+        set((state) => {
+          const selected = state.selectedCalendarIds.includes(id);
+          const selectedCalendarSources = { ...state.selectedCalendarSources };
+          if (selected) {
+            delete selectedCalendarSources[id];
+          } else {
+            const source = state.calendars.find((calendar) => calendar.id === id)?.source;
+            if (source) selectedCalendarSources[id] = source;
+          }
+          return {
+            selectedCalendarIds: selected
+              ? state.selectedCalendarIds.filter((calendarId) => calendarId !== id)
+              : [...state.selectedCalendarIds, id],
+            selectedCalendarSources,
+            legacySelectedAppleCalendarId: null,
+          };
+        });
       },
 
       /**
@@ -367,7 +484,16 @@ export const useCalendarStore = create<CalendarState>()(
        */
       setSelectedCalendarIds: (ids) => {
         eventCache.clear();
-        set({ selectedCalendarIds: ids });
+        set((state) => ({
+          selectedCalendarIds: ids,
+          selectedCalendarSources: Object.fromEntries(
+            ids.flatMap((id) => {
+              const source = state.calendars.find((calendar) => calendar.id === id)?.source;
+              return source ? [[id, source]] : [];
+            })
+          ),
+          legacySelectedAppleCalendarId: null,
+        }));
       },
 
       /**
@@ -408,13 +534,15 @@ export const useCalendarStore = create<CalendarState>()(
     }),
     {
       name: 'moldavite-calendar',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) =>
         migrateCalendarState(persisted, version) as unknown as CalendarState,
       partialize: (state) => ({
         calendarEnabled: state.calendarEnabled,
         showAllDayEvents: state.showAllDayEvents,
         selectedCalendarIds: state.selectedCalendarIds,
+        selectedCalendarSources: state.selectedCalendarSources,
+        legacySelectedAppleCalendarId: state.legacySelectedAppleCalendarId,
         refreshIntervalMinutes: state.refreshIntervalMinutes,
         hasSeenOnboarding: state.hasSeenOnboarding,
       }),

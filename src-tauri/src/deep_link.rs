@@ -16,6 +16,7 @@ use crate::validation::is_safe_existing_note_path;
 const PLUGIN_LINK_PREFIX: &str = "moldavite://plugin/";
 const NOTE_LINK_PREFIX: &str = "moldavite://note/";
 pub(crate) const DEEP_LINK_EVENT: &str = "deep-link-requested";
+const MAX_PENDING_DEEP_LINKS: usize = 64;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -27,6 +28,17 @@ pub(crate) enum DeepLinkRequest {
 /// Valid links wait here until the frontend is ready to drain them.
 #[derive(Default)]
 pub(crate) struct PendingDeepLinks(Mutex<VecDeque<DeepLinkRequest>>);
+
+impl PendingDeepLinks {
+    fn push(&self, request: DeepLinkRequest) -> Result<(), String> {
+        let mut pending = self.0.lock().map_err(|error| error.to_string())?;
+        if pending.len() >= MAX_PENDING_DEEP_LINKS {
+            pending.pop_front();
+        }
+        pending.push_back(request);
+        Ok(())
+    }
+}
 
 /// Return the requested plugin id only for the supported plugin URL shape.
 pub(crate) fn plugin_id_from_url(url: &str) -> Option<&str> {
@@ -91,6 +103,18 @@ fn request_from_url(url: &str) -> Option<DeepLinkRequest> {
     note_path_from_url(url).map(|path| DeepLinkRequest::Note { path })
 }
 
+fn rejected_url_context(url: &str) -> (&'static str, &'static str) {
+    if url.starts_with(PLUGIN_LINK_PREFIX) {
+        ("plugin", "invalid plugin id or URL shape")
+    } else if url.starts_with(NOTE_LINK_PREFIX) {
+        ("note", "invalid note path or URL shape")
+    } else if url.starts_with("moldavite://") {
+        ("unknown", "unsupported Moldavite route")
+    } else {
+        ("external", "unsupported URL scheme")
+    }
+}
+
 /// Validate OS-delivered URLs, queue supported requests, and wake a live UI.
 pub(crate) fn route_urls<R, I, S>(app: &AppHandle<R>, urls: I)
 where
@@ -113,16 +137,14 @@ where
         }
 
         let Some(request) = request_from_url(url) else {
-            log::info!("[deep-link] ignored unsupported URL: {url}");
+            let (route, reason) = rejected_url_context(url);
+            log::info!("[deep-link] ignored URL route={route} reason={reason}");
             continue;
         };
 
-        match state.0.lock() {
-            Ok(mut pending) => pending.push_back(request),
-            Err(error) => {
-                log::warn!("[deep-link] could not queue request: {error}");
-                continue;
-            }
+        if let Err(error) = state.push(request) {
+            log::warn!("[deep-link] could not queue request: {error}");
+            continue;
         }
 
         if let Err(error) = app.emit(DEEP_LINK_EVENT, ()) {
@@ -147,7 +169,10 @@ pub(crate) fn take_pending_deep_links(state: State<'_, PendingDeepLinks>) -> Vec
 
 #[cfg(test)]
 mod tests {
-    use super::{note_path_from_url, plugin_id_from_url, request_from_url, DeepLinkRequest};
+    use super::{
+        note_path_from_url, plugin_id_from_url, request_from_url, DeepLinkRequest,
+        PendingDeepLinks, MAX_PENDING_DEEP_LINKS,
+    };
 
     #[test]
     fn routes_only_the_plugin_install_shape() {
@@ -232,5 +257,26 @@ mod tests {
         ] {
             assert_eq!(plugin_id_from_url(url), None, "unexpected route for {url}");
         }
+    }
+
+    #[test]
+    fn security_regression_pending_deep_link_queue_is_bounded() {
+        let pending = PendingDeepLinks::default();
+        for index in 0..=MAX_PENDING_DEEP_LINKS {
+            pending
+                .push(DeepLinkRequest::Plugin {
+                    id: format!("plugin-{index}"),
+                })
+                .unwrap();
+        }
+
+        assert_eq!(pending.0.lock().unwrap().len(), MAX_PENDING_DEEP_LINKS);
+    }
+
+    #[test]
+    fn security_regression_rejected_deep_link_log_omits_raw_url() {
+        let source = include_str!("deep_link.rs");
+        let unsafe_pattern = ["ignored unsupported", " URL: {url}"].concat();
+        assert!(!source.contains(&unsafe_pattern));
     }
 }

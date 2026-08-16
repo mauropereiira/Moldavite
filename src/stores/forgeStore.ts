@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { rememberActiveForge } from '@/lib/forgeStorage';
-import { flushPendingAutosave } from '@/lib/autosaveFlush';
+import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 
 export interface Forge {
   name: string;
@@ -29,6 +29,20 @@ interface ForgeState {
   renameForge: (oldName: string, newName: string) => Promise<Forge>;
   deleteForge: (name: string) => Promise<void>;
   setForgesRoot: (path: string) => Promise<string>;
+}
+
+async function runForgeTransition<T>(transition: () => Promise<T>): Promise<T> {
+  await flushPendingAutosave();
+  const pendingNoteId = getPendingAutosaveNoteId();
+  if (pendingNoteId) {
+    throw new Error(`Forge change cancelled because ${pendingNoteId} could not be saved`);
+  }
+
+  const result = await transition();
+  if (typeof window !== 'undefined') {
+    window.location.reload();
+  }
+  return result;
 }
 
 export const useForgeStore = create<ForgeState>((set, get) => ({
@@ -58,14 +72,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     if (get().active === name) return;
     // The reload below never runs React cleanup, so a debounced edit would be
     // destroyed by the switch. Settle it first.
-    await flushPendingAutosave();
-    await safeInvoke<string>('set_active_forge', { name });
-    // Page reload mirrors the existing `set_notes_directory` flow: it's
-    // the simplest way to ensure every store/cache is rehydrated against
-    // the new Forge root.
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    await runForgeTransition(() => safeInvoke<string>('set_active_forge', { name }));
   },
 
   createForge: async (name) => {
@@ -89,8 +96,6 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   },
 
   setForgesRoot: async (path) => {
-    const resolved = await safeInvoke<string>('set_forges_root', { path });
-    await get().loadForges();
-    return resolved;
+    return await runForgeTransition(() => safeInvoke<string>('set_forges_root', { path }));
   },
 }));

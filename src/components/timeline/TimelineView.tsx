@@ -6,6 +6,7 @@ import { useNotes } from '@/hooks';
 import { readNote, noteFileBackendPath } from '@/lib';
 import { fetchCalendarEvents, listCalendarSources } from '@/lib/calendar';
 import type { CalendarEvent, NoteFile } from '@/types';
+import { eventsOverlappingLocalDay } from '@/components/calendar/timeLayout';
 
 type BucketId = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'earlier';
 
@@ -66,20 +67,15 @@ export function TimelineView() {
         const todayStr = format(today, 'yyyy-MM-dd');
         const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
 
-        const { selectedCalendarIds } = useCalendarStore.getState();
+        const { selectedCalendarIds, legacySelectedAppleCalendarId } = useCalendarStore.getState();
+        if (legacySelectedAppleCalendarId) return;
         const { events } = await fetchCalendarEvents(yesterdayStr, todayStr, selectedCalendarIds);
 
         if (!cancelled) {
-          // Bucket on the parsed instant, not the leading characters. Apple
-          // serialises in UTC and Google in the calendar's own offset, so the
-          // text prefix is not the local date: a 21:00 event in New York
-          // starts "<tomorrow>T01:00:00Z" and would vanish from both buckets,
-          // while yesterday's 21:00 would surface under Today. `parseISO`
-          // reads a bare `yyyy-MM-dd` as local midnight, so Google's all-day
-          // values still land on the right day.
-          const localDay = (e: CalendarEvent) => format(parseISO(e.start), 'yyyy-MM-dd');
-          setTodayEvents(events.filter((e) => localDay(e) === todayStr));
-          setYesterdayEvents(events.filter((e) => localDay(e) === yesterdayStr));
+          // Events belong to every local day they overlap. Provider offsets
+          // may differ, and all-day end dates are already exclusive.
+          setTodayEvents(eventsOverlappingLocalDay(events, today));
+          setYesterdayEvents(eventsOverlappingLocalDay(events, yesterday));
         }
       } catch {
         // No calendar source available in this build — silently skip.

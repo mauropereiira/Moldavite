@@ -9,7 +9,10 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useNoteStore, useSettingsStore, useTaskStatusStore, useToastStore } from '@/stores';
+import { useNoteStore } from '@/stores/noteStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useTaskStatusStore } from '@/stores/taskStatusStore';
+import { useToastStore } from '@/stores/toastStore';
 import {
   writeNote,
   deleteNote,
@@ -25,6 +28,20 @@ import {
   registerAutosavePendingProbe,
 } from '@/lib/autosaveFlush';
 import type { Note, NoteFile } from '@/types';
+
+type PendingAutosaveDiscard = (noteId: string, content: string) => void;
+let pendingAutosaveDiscard: PendingAutosaveDiscard | null = null;
+let pendingAutosaveDebounceCancel: ((noteId: string) => void) | null = null;
+
+/** Stop a queued debounce without discarding a write that has already started. */
+export function cancelPendingAutosaveDebounceForNote(noteId: string): void {
+  pendingAutosaveDebounceCancel?.(noteId);
+}
+
+/** Explicit note deletion may discard an owed save only after disk writes have drained. */
+export function discardPendingAutosaveForNote(noteId: string, content: string): void {
+  pendingAutosaveDiscard?.(noteId, content);
+}
 
 /**
  * Automatically saves note changes after a configurable delay.
@@ -88,6 +105,7 @@ export function useAutoSave() {
                 if (dateStr) removeTaskStatus(dateStr);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete failed:', deleteError);
+                throw deleteError;
               }
             } else if (dateStr) {
               removeTaskStatus(dateStr);
@@ -130,6 +148,7 @@ export function useAutoSave() {
                 setNotes(updatedNotes);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete weekly note failed:', deleteError);
+                throw deleteError;
               }
             }
           } else {
@@ -159,12 +178,23 @@ export function useAutoSave() {
         }
 
         if (pendingRef.current === note) pendingRef.current = null;
-        lastContentRef.current = currentNote.content;
+        const liveNote = getState().openTabs.find((tab) => tab.id === note.id);
+        if (
+          lastNoteIdRef.current === note.id &&
+          liveNote?.content === note.content &&
+          pendingRef.current?.id !== note.id
+        ) {
+          lastContentRef.current = note.content;
+        }
       } catch (error) {
-        if (error instanceof LockedNoteWriteError) return;
+        if (error instanceof LockedNoteWriteError) {
+          if (pendingRef.current === note) pendingRef.current = null;
+          return;
+        }
         console.error('[useAutoSave] Auto-save failed:', error);
         const msg = error instanceof Error ? error.message : String(error);
         useToastStore.getState().addToast('error', `Auto-save failed: ${msg}`);
+        throw error;
       } finally {
         setIsSaving(false);
       }
@@ -179,17 +209,13 @@ export function useAutoSave() {
       timeoutRef.current = null;
     }
     const pending = pendingRef.current;
-    pendingRef.current = null;
     if (pending) await persistNote(pending);
   }, [persistNote]);
 
   // Expose the flush so a Forge switch can await it before reloading the window.
   useEffect(() => registerAutosaveFlush(flushPending), [flushPending]);
 
-  const pendingProbe = useCallback(
-    () => (timeoutRef.current !== null ? (pendingRef.current?.id ?? null) : null),
-    []
-  );
+  const pendingProbe = useCallback(() => pendingRef.current?.id ?? null, []);
   useEffect(() => registerAutosavePendingProbe(pendingProbe), [pendingProbe]);
 
   const resetBaseline = useCallback((noteId: string, content: string) => {
@@ -204,10 +230,43 @@ export function useAutoSave() {
   }, []);
   useEffect(() => registerAutosaveBaselineReset(resetBaseline), [resetBaseline]);
 
+  const cancelPendingDebounce = useCallback((noteId: string) => {
+    if (pendingRef.current?.id === noteId && timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      pendingRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    pendingAutosaveDebounceCancel = cancelPendingDebounce;
+    return () => {
+      if (pendingAutosaveDebounceCancel === cancelPendingDebounce) {
+        pendingAutosaveDebounceCancel = null;
+      }
+    };
+  }, [cancelPendingDebounce]);
+
+  const discardPending = useCallback((noteId: string, content: string) => {
+    if (pendingRef.current?.id === noteId) {
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      pendingRef.current = null;
+    }
+    if (lastNoteIdRef.current === noteId) {
+      lastContentRef.current = content;
+    }
+  }, []);
+  useEffect(() => {
+    pendingAutosaveDiscard = discardPending;
+    return () => {
+      if (pendingAutosaveDiscard === discardPending) pendingAutosaveDiscard = null;
+    };
+  }, [discardPending]);
+
   useEffect(() => {
     if (!currentNote) {
       // Losing the active note must not drop an edit it was still owed.
-      void flushPending();
+      void flushPending().catch(() => {});
       lastNoteIdRef.current = null;
       lastContentRef.current = '';
       return;
@@ -225,7 +284,7 @@ export function useAutoSave() {
       // Switching notes (tab click, Cmd+W, tab shortcuts) used to cancel the
       // previous note's debounce outright, losing the edit — and re-seeding the
       // baseline below meant switching back could not recover it either.
-      void flushPending();
+      void flushPending().catch(() => {});
       lastNoteIdRef.current = currentNote.id;
       lastContentRef.current = currentNote.content;
       return;
@@ -244,7 +303,7 @@ export function useAutoSave() {
     pendingRef.current = currentNote;
     timeoutRef.current = setTimeout(() => {
       timeoutRef.current = null;
-      void persistNote(currentNote);
+      void persistNote(currentNote).catch(() => {});
     }, autoSaveDelay);
 
     return () => {
@@ -256,5 +315,10 @@ export function useAutoSave() {
 
   // Unmount (app close, Forge switch reload) must also settle what is owed.
   // Kept separate from the effect above, whose cleanup runs on every keystroke.
-  useEffect(() => () => void flushPending(), [flushPending]);
+  useEffect(
+    () => () => {
+      void flushPending().catch(() => {});
+    },
+    [flushPending]
+  );
 }

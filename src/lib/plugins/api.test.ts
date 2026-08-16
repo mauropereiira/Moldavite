@@ -86,7 +86,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     expect(addToast).toHaveBeenCalledWith('error', 'boom');
   });
 
-  it('ui.prompt returns host-rendered values without a manifest permission', async () => {
+  it('ui.prompt requires the ui manifest permission before rendering', async () => {
     const pending = dispatchPluginCall(
       'demo',
       [],
@@ -96,18 +96,20 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
       2,
       'Demo Plugin'
     );
-    expect(getPluginDialogSnapshot()).toMatchObject({
-      kind: 'prompt',
-      pluginName: 'Demo Plugin',
-    });
-    resolvePluginDialog({ site: 'https://example.com' });
-    await expect(pending).resolves.toEqual({ site: 'https://example.com' });
+    const dialog = getPluginDialogSnapshot();
+    if (dialog) resolvePluginDialog(null);
+    const result = await pending.then(
+      () => null,
+      (error: unknown) => error
+    );
+    expect(dialog).toBeNull();
+    expect(result).toBeInstanceOf(PermissionDeniedError);
   });
 
   it('ui.prompt returns null on cancel and refuses to stack a second prompt', async () => {
     const options = { title: 'First', fields: [{ name: 'value', label: 'Value', type: 'text' }] };
-    const first = dispatchPluginCall('demo', [], 'ui.prompt', [options]);
-    await expect(dispatchPluginCall('other', [], 'ui.prompt', [options])).resolves.toBeNull();
+    const first = dispatchPluginCall('demo', ['ui'], 'ui.prompt', [options]);
+    await expect(dispatchPluginCall('other', ['ui'], 'ui.prompt', [options])).resolves.toBeNull();
     resolvePluginDialog(null);
     await expect(first).resolves.toBeNull();
   });

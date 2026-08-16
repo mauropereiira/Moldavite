@@ -164,6 +164,70 @@ describe('external-edit conflict hash threading', () => {
     expect(result.conflictCopy).toBe('Projects/note (conflict 2026-07-12 1015).md');
     expect(result.contentHash).toBe('hash-w1');
   });
+
+  it('serializes same-note writes and only publishes the newest generation as the baseline', async () => {
+    let resolveFirst!: (result: NoteWriteResult) => void;
+    let resolveSecond!: (result: NoteWriteResult) => void;
+    let writeCount = 0;
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'read_note') {
+        return Promise.resolve({ content: 'disk base', color: null, contentHash: 'hash-r1' });
+      }
+      if (command === 'write_note') {
+        writeCount += 1;
+        return new Promise<NoteWriteResult>((resolve) => {
+          if (writeCount === 1) resolveFirst = resolve;
+          else resolveSecond = resolve;
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    await readNote('serialized.md', false, false);
+
+    const first = writeNote('serialized.md', 'older edit', false, false);
+    const second = writeNote('serialized.md', 'newest edit', false, false);
+    await Promise.resolve();
+    const writesStartedBeforeFirstSettled = writeCount;
+
+    resolveFirst({ contentHash: 'hash-w1', conflictCopy: null });
+    await first;
+    for (let i = 0; i < 10 && !resolveSecond; i += 1) await Promise.resolve();
+    const baselineAfterOlderCompletion = getLastPersistedMarkdown('serialized.md', false, false);
+    const writeCalls = invokeMock.mock.calls.filter(([command]) => command === 'write_note');
+    const secondWriteArgs = writeCalls[writeCalls.length - 1][1] as Record<string, unknown>;
+    resolveSecond({ contentHash: 'hash-w2', conflictCopy: null });
+    await second;
+
+    expect(writesStartedBeforeFirstSettled).toBe(1);
+    expect(secondWriteArgs.baseHash).toBe('hash-w1');
+    expect(baselineAfterOlderCompletion).toBe('disk base');
+    expect(getLastPersistedMarkdown('serialized.md', false, false)).toBe('newest edit');
+  });
+
+  it('drains an in-flight write before deleting the same note', async () => {
+    let finishWrite!: () => void;
+    const commands: string[] = [];
+    invokeMock.mockImplementation((command: string) => {
+      commands.push(command);
+      if (command === 'write_note') {
+        return new Promise<NoteWriteResult>((resolve) => {
+          finishWrite = () => resolve({ contentHash: 'saved-before-delete', conflictCopy: null });
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const save = writeNote('delete-race.md', 'latest body', false, false);
+    const deletion = deleteNote('delete-race.md', false, false);
+    await Promise.resolve();
+    const commandsBeforeSaveSettled = [...commands];
+
+    finishWrite();
+    await Promise.all([save, deletion]);
+
+    expect(commandsBeforeSaveSettled).toEqual(['write_note']);
+    expect(commands).toEqual(['write_note', 'delete_note']);
+  });
 });
 
 describe('locked-note write safety', () => {

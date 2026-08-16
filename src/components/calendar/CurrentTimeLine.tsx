@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
+import { localDayInterval, MILLISECONDS_PER_HOUR } from './timeLayout';
 
 const HOUR_HEIGHT = 60; // pixels per hour
 
 interface CurrentTimeLineProps {
   isToday: boolean;
+  dayStart?: Date;
 }
 
-export function CurrentTimeLine({ isToday }: CurrentTimeLineProps) {
+export function CurrentTimeLine({ isToday, dayStart }: CurrentTimeLineProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every minute
@@ -22,9 +24,9 @@ export function CurrentTimeLine({ isToday }: CurrentTimeLineProps) {
 
   if (!isToday) return null;
 
-  const hours = currentTime.getHours();
-  const minutes = currentTime.getMinutes();
-  const topPosition = hours * HOUR_HEIGHT + (minutes * HOUR_HEIGHT) / 60;
+  const start = dayStart ?? localDayInterval(currentTime).start;
+  const topPosition =
+    ((currentTime.getTime() - start.getTime()) / MILLISECONDS_PER_HOUR) * HOUR_HEIGHT;
 
   return (
     <div

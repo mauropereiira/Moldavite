@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { registerAutosaveFlush, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
 import {
   INITIAL_UPDATE_CHECK_DELAY_MS,
   UPDATE_CHECK_INTERVAL_MS,
@@ -141,6 +142,25 @@ describe('updateStore', () => {
     expect(update.downloadAndInstall).toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBeNull();
     expect(mockRelaunch).toHaveBeenCalled();
+  });
+
+  it('does not relaunch after an update when the pending autosave flush fails', async () => {
+    const update = mockUpdate();
+    const flush = vi.fn().mockRejectedValue(new Error('disk full'));
+    const unregisterFlush = registerAutosaveFlush(flush);
+    const unregisterProbe = registerAutosavePendingProbe(() => 'notes/unsaved.md');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    useUpdateStore.setState({ availableVersion: update.version, update: update as never });
+
+    await useUpdateStore.getState().installUpdate();
+
+    unregisterProbe();
+    unregisterFlush();
+    consoleError.mockRestore();
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(mockRelaunch).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState().availableVersion).toBe(update.version);
+    expect(useUpdateStore.getState().error).not.toBeNull();
   });
 
   it('reacquires an updater handle before installing persisted pending metadata', async () => {

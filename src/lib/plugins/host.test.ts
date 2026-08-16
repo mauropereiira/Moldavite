@@ -1,13 +1,11 @@
 /** Worker-host lifecycle and untrusted-message routing regression coverage. */
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 
 vi.mock('@/lib/ipc', () => ({ safeInvoke: vi.fn() }));
-vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: vi.fn() }));
 
 const workerHarness = vi.hoisted(() => {
   type WorkerEvent = MessageEvent | { message?: string };
@@ -40,7 +38,6 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('1
 import { loadEnabledPlugins, unloadPlugin } from './host';
 
 const mockInvoke = vi.mocked(safeInvoke);
-const mockConvertFileSrc = vi.mocked(convertFileSrc);
 const plugin = {
   id: 'crashy',
   manifestRaw: {
@@ -52,6 +49,7 @@ const plugin = {
   },
   readError: null,
   contentHash: 'hash',
+  code: 'hashed plugin code',
 };
 
 type LoadedWorker = InstanceType<typeof workerHarness.MockWorker>;
@@ -81,12 +79,7 @@ function useGrantedPluginHarness() {
     usePluginStore.setState({ grants: {} });
     usePluginStore.getState().grant('crashy', '1.0.0', 'hash');
     mockInvoke.mockResolvedValue([plugin]);
-    mockConvertFileSrc.mockReset();
-    mockConvertFileSrc.mockReturnValue('http://plugin.localhost/');
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: true, text: vi.fn().mockResolvedValue('plugin code') })
-    );
+    vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
@@ -99,10 +92,12 @@ function useGrantedPluginHarness() {
 describe('plugin source loading', () => {
   useGrantedPluginHarness();
 
-  it("uses Tauri's Windows custom-protocol URL", async () => {
-    await loadWorker();
-    expect(mockConvertFileSrc).toHaveBeenCalledWith('', 'plugin');
-    expect(fetch).toHaveBeenCalledWith('http://plugin.localhost/crashy/plugin.js');
+  it('executes the source returned with the consent hash without refetching it', async () => {
+    const worker = await loadWorker();
+    expect(worker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'init', code: 'hashed plugin code' })
+    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 
@@ -151,6 +146,19 @@ describe('untrusted commandRegistered messages', () => {
     expect(usePluginCommandStore.getState().commands).toMatchObject([
       { pluginId: 'crashy', id: 'crashy:run', label: 'Run' },
     ]);
+  });
+
+  it('drops a registration when the manifest omitted the commands permission', async () => {
+    mockInvoke.mockResolvedValue([
+      { ...plugin, manifestRaw: { ...plugin.manifestRaw, permissions: [] } },
+    ]);
+    const worker = await loadWorker();
+    postFromWorker(worker, {
+      kind: 'commandRegistered',
+      localId: 'verify',
+      label: 'Verify password',
+    });
+    expect(usePluginCommandStore.getState().commands).toEqual([]);
   });
 
   it.each([

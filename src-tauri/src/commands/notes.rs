@@ -220,6 +220,15 @@ fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> 
     Ok(true)
 }
 
+fn delete_note_within_base(
+    base: &Path,
+    path: &Path,
+    base_hash: Option<&str>,
+) -> Result<bool, String> {
+    validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
+    delete_note_at(path, base_hash)
+}
+
 fn read_note_at(path: &Path) -> Result<NoteRead, String> {
     if !path.exists() {
         return Ok(NoteRead {
@@ -238,6 +247,11 @@ fn read_note_at(path: &Path) -> Result<NoteRead, String> {
     })
 }
 
+fn read_note_within_base(base: &Path, path: &Path) -> Result<NoteRead, String> {
+    validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
+    read_note_at(path)
+}
+
 /// Serialize conflict detection, frontmatter preservation, and the replacing
 /// write as one operation. This prevents concurrent saves from both observing
 /// the same old disk version and then silently overwriting one another.
@@ -250,6 +264,17 @@ pub(crate) fn save_note_with_conflict(
     save_note_with_conflict_using(path, base_hash, content, color, |path, serialized| {
         write_atomic(path, serialized.as_bytes(), Some(0o600))
     })
+}
+
+fn save_note_with_conflict_in(
+    base: &Path,
+    path: &Path,
+    base_hash: Option<&str>,
+    content: &str,
+    color: Option<&str>,
+) -> Result<Option<(String, String)>, String> {
+    validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
+    save_note_with_conflict(path, base_hash, content, color)
 }
 
 /// Variant used by MCP attribution. The callback runs exactly once with the
@@ -509,7 +534,7 @@ pub(crate) fn read_note(
     if !path.exists() && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
-    read_note_at(&path)
+    read_note_within_base(&dir, &path)
 }
 
 // Tauri command parameters map 1:1 to the IPC payload; grouping them into a
@@ -557,7 +582,13 @@ pub(crate) fn write_note(
     // preserve the disk version as a sibling conflict copy first so the
     // save below can never silently destroy it.
     let conflict_copy =
-        match save_note_with_conflict(&path, base_hash.as_deref(), &content, color.as_deref())? {
+        match save_note_with_conflict_in(
+            &dir,
+            &path,
+            base_hash.as_deref(),
+            &content,
+            color.as_deref(),
+        )? {
             Some((conflict_name, disk_body)) => {
                 if let Some(parent) = path.parent() {
                     // The copy is our own write — suppress the watcher echo.
@@ -617,7 +648,7 @@ pub(crate) fn delete_note(
 
     let path = dir.join(&filename);
 
-    delete_note_at(&path, base_hash.as_deref())?;
+    delete_note_within_base(&dir, &path, base_hash.as_deref())?;
     index.remove_note(&index_key(&filename));
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
@@ -746,6 +777,8 @@ pub(crate) fn duplicate_note(
     };
 
     let source_path = dir.join(&filename);
+    validate_path_within_base(&source_path, &dir)
+        .map_err(|_| "Invalid note path".to_string())?;
 
     if !source_path.exists() {
         return Err("Note not found".to_string());
@@ -765,6 +798,8 @@ pub(crate) fn duplicate_note(
     let new_base = portable_derived_stem(source_stem, " (copy)");
     let new_leaf = generate_unique_filename(source_parent, &new_base, "md");
     let new_path = source_parent.join(&new_leaf);
+    validate_path_within_base(&new_path, &dir)
+        .map_err(|_| "Invalid note path".to_string())?;
     let new_filename = match filename.rsplit_once('/') {
         Some((parent, _)) => format!("{parent}/{new_leaf}"),
         None => new_leaf,
@@ -804,6 +839,8 @@ pub(crate) fn export_single_note(
     };
 
     let source_path = dir.join(&filename);
+    validate_path_within_base(&source_path, &dir)
+        .map_err(|_| "Invalid note path".to_string())?;
 
     if !source_path.exists() {
         return Err("Note not found".to_string());
@@ -812,25 +849,17 @@ pub(crate) fn export_single_note(
     // Read source content
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
-    // Validate the destination: the caller receives `destination` from the OS save
-    // dialog (plugin-dialog), but this command is also callable from any JS context,
-    // so re-check that the path's parent exists and is writeable by the user.
     let dest_path = Path::new(&destination);
-    let parent = dest_path
-        .parent()
-        .ok_or_else(|| "Invalid destination path".to_string())?;
-    if !parent.is_dir() {
-        return Err("Destination directory does not exist".to_string());
-    }
-    // Only allow writing plain markdown/text via this command.
-    let ext_ok = dest_path
+    let extension = dest_path
         .extension()
         .and_then(|s| s.to_str())
-        .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "md" | "markdown" | "txt"));
-    if !ext_ok {
-        return Err("Destination must have a .md, .markdown, or .txt extension".to_string());
-    }
-    write_atomic(dest_path, content.as_bytes(), None)?;
+        .map(str::to_ascii_lowercase)
+        .filter(|extension| matches!(extension.as_str(), "md" | "markdown" | "txt"))
+        .ok_or_else(|| {
+            "Destination must have a .md, .markdown, or .txt extension".to_string()
+        })?;
+    crate::validation::validate_user_export_path(dest_path, &extension)?;
+    write_atomic(dest_path, content.as_bytes(), Some(0o600))?;
 
     Ok(destination)
 }
@@ -1165,6 +1194,41 @@ mod tests {
     }
 
     const STAMP: &str = "2026-07-12 1015";
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_note_io_rejects_symlinked_components() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = TempDir::new("symlink-io");
+        let notes = tmp.path().join("notes");
+        let outside = tmp.path().join("outside");
+        fs::create_dir_all(&notes).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("read.md"), "read secret").unwrap();
+        fs::write(outside.join("write.md"), "write secret").unwrap();
+        fs::write(outside.join("delete.md"), "delete secret").unwrap();
+        symlink(&outside, notes.join("link")).unwrap();
+
+        let read = read_note_within_base(&notes, &notes.join("link/read.md"));
+        let write = save_note_with_conflict_in(
+            &notes,
+            &notes.join("link/write.md"),
+            None,
+            "attacker overwrite",
+            None,
+        );
+        let delete = delete_note_within_base(&notes, &notes.join("link/delete.md"), None);
+
+        assert!(read.is_err(), "symlinked read escaped the notes tree");
+        assert!(write.is_err(), "symlinked write escaped the notes tree");
+        assert!(delete.is_err(), "symlinked delete escaped the notes tree");
+        assert_eq!(
+            fs::read_to_string(outside.join("write.md")).unwrap(),
+            "write secret"
+        );
+        assert!(outside.join("delete.md").is_file());
+    }
 
     #[test]
     fn conflict_creates_copy_and_both_versions_survive() {

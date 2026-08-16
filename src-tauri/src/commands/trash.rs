@@ -108,6 +108,8 @@ fn restore_item_on_disk(
     item: &TrashedNoteMetadata,
 ) -> Result<std::path::PathBuf, String> {
     let source = trash_item_path(trash_dir, item);
+    validate_path_within_base(&source, trash_dir)
+        .map_err(|_| "Invalid trash source".to_string())?;
     if !source.exists() {
         return Err("Trash file not found on disk".to_string());
     }
@@ -649,31 +651,21 @@ pub(crate) fn restore_note_from_folder(
     let item = &metadata.items[item_index];
 
     // Build trash folder path
-    let trash_folder_path = trash_item_path(&get_trash_dir(), item);
+    let trash_dir = get_trash_dir();
+    let trash_folder_path = trash_item_path(&trash_dir, item);
+    validate_path_within_base(&trash_folder_path, &trash_dir)
+        .map_err(|_| "Invalid trashed folder path".to_string())?;
 
     if !trash_folder_path.exists() {
         return Err("Trashed folder not found on disk".to_string());
     }
 
-    // Find the note file inside the trashed folder
-    let note_path_in_trash = trash_folder_path.join(&note_filename);
-
-    if !note_path_in_trash.exists() {
-        return Err("Note not found in trashed folder".to_string());
-    }
-
-    // Destination is root of standalone notes (not back to original folder)
     let standalone_dir = get_standalone_dir();
-    let dest_path = standalone_dir.join(note_path_in_trash.file_name().unwrap());
-
-    // Check if destination already exists
-    if dest_path.exists() {
-        return Err("A note with this name already exists in the notes folder".to_string());
-    }
-
-    // Move just this note to the root
-    fs::rename(&note_path_in_trash, &dest_path)
-        .map_err(|e| format!("Failed to restore note: {}", e))?;
+    let dest_path = restore_note_from_folder_on_disk(
+        &trash_folder_path,
+        &standalone_dir,
+        &note_filename,
+    )?;
 
     // Re-index the restored note.
     if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
@@ -699,6 +691,37 @@ pub(crate) fn restore_note_from_folder(
     write_trash_metadata(&metadata)?;
 
     Ok(())
+}
+
+fn restore_note_from_folder_on_disk(
+    trash_folder_path: &std::path::Path,
+    standalone_dir: &std::path::Path,
+    note_filename: &str,
+) -> Result<std::path::PathBuf, String> {
+    let note_path_in_trash = trash_folder_path.join(note_filename);
+    validate_path_within_base(&note_path_in_trash, trash_folder_path)
+        .map_err(|_| "Invalid note filename".to_string())?;
+    if !note_path_in_trash.exists() {
+        return Err("Note not found in trashed folder".to_string());
+    }
+
+    let leaf = note_path_in_trash
+        .file_name()
+        .ok_or_else(|| "Invalid note filename".to_string())?;
+    let dest_path = standalone_dir.join(leaf);
+    validate_path_within_base(&dest_path, standalone_dir)
+        .map_err(|_| "Invalid restore destination".to_string())?;
+    if dest_path.exists() {
+        return Err("A note with this name already exists in the notes folder".to_string());
+    }
+
+    validate_path_within_base(&note_path_in_trash, trash_folder_path)
+        .map_err(|_| "Invalid note filename".to_string())?;
+    validate_path_within_base(&dest_path, standalone_dir)
+        .map_err(|_| "Invalid restore destination".to_string())?;
+    fs::rename(&note_path_in_trash, &dest_path)
+        .map_err(|e| format!("Failed to restore note: {e}"))?;
+    Ok(dest_path)
 }
 
 #[cfg(test)]
@@ -927,5 +950,30 @@ mod tests {
             fs::read_to_string(restored.join("Nested/note (conflict 2026-07-13 1200).md")).unwrap(),
             "external version"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_folder_restore_rejects_symlinked_note_path() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = TempDir::new("folder-note-symlink");
+        let trash_folder = tmp.0.join("trash/folder");
+        let standalone = tmp.0.join("notes");
+        let outside = tmp.0.join("outside");
+        fs::create_dir_all(&trash_folder).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.md"), "outside secret").unwrap();
+        symlink(&outside, trash_folder.join("link")).unwrap();
+
+        let result =
+            restore_note_from_folder_on_disk(&trash_folder, &standalone, "link/secret.md");
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read_to_string(outside.join("secret.md")).unwrap(),
+            "outside secret"
+        );
+        assert!(!standalone.join("secret.md").exists());
     }
 }

@@ -2,6 +2,27 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.0] - 2026-08-16
+
+### Fixed
+
+- **Eight ways Moldavite could lose your writing.** An external change to a file could erase text typed while that file was being read. A failed save was reported as a success, so switching Forge afterwards reloaded over work that had never reached disk. Changing the Forges root left the editor writing into the wrong Forge. Installing an update relaunched without waiting for pending saves. Two saves of the same note could finish out of order and corrupt the record used to detect outside edits. A background scan quietly disabled that same protection. Deleting a note could race its own save and bring the file back. And opening a list that mixed tasks with plain items reordered them — every task above every plain line — which the next save then wrote to disk as your note.
+- **⌘N and ⌘⇧L did nothing.** Both were wired to empty functions, so the keypress was consumed and discarded. The welcome screen advertises ⌘N under the wordmark, which is where it was most obvious, but it was dead everywhere.
+- **The Format menu ran off the right of the window**, hiding its keyboard shortcuts. It was the only footer menu anchored to its own centre.
+- **Footer labels could render as fragments** — COLOUR as "OLOU", WORDPRESS as "DPR" — when the row was short of space.
+- **A brief calendar hiccup could unhide every calendar you had hidden.** When listing calendars failed, the failure was swallowed and your selection was pruned against the incomplete list — leaving it empty, which means "show everything".
+- **Calendar events were sorted by comparing timestamps as text.** Apple reports times in UTC and Google in each calendar's own offset, so an event at 09:00+03:00 sorted after one at 07:00Z despite starting two hours earlier. Events crossing midnight appeared only on the day they started, and multi-day events never showed under Today.
+- **The day grid assumed every day has 24 hours.** On the two days a year that is untrue, an hour-long event shrank to nothing and two events an hour apart drew on top of each other.
+- **Every dialog could be tabbed out of.** Thirteen overlays had no focus trapping and no dialog role — and because the welcome screen restores your mouse pointer by looking for that role, the pointer stayed invisible over them. Escape inside a confirmation also closed Settings behind it.
+- **Renaming a tag rewrote it inside code samples and link addresses**, silently corrupting notes that mentioned the tag in either.
+
+### Changed
+
+- **Notes can be pinned to a bar above the editor.** Pin from the note's More menu or by right-clicking it in the index. The bar appears only while something is pinned. Opening a pinned note returns you to the tab you already had it in rather than opening a second copy.
+- **Publishing to WordPress.com is safer about which post it updates.** Renaming a published note used to strand its post, and a new note taking the freed name inherited it — so publishing that new note could overwrite the old note's post, including one already live. Sites now show their address as well as their name, because "Site Title" is the WordPress.com default and repeats across an account. Publishing twice in quick succession no longer leaves two drafts.
+- **Moldavite no longer follows a symlink out of your Forge.** A Forge is often synced through iCloud, Dropbox or git, so a file that is secretly a link to somewhere else can arrive without you doing anything. Reading, writing, deleting, locking and exporting all now refuse to act outside the vault. Locking a note is also transactional — it could previously leave both the encrypted file and the plaintext on disk — and a locked note is now cryptographically tied to its own identity, so two notes locked with the same password can no longer be swapped for one another. Replacing a vault from a backup verifies the archive before deleting anything.
+- **Plugins must now declare what they put in front of you.** Showing a prompt requires the `ui` permission and adding commands requires `commands`; both were free before. Prompts can contain password fields and commands sit in the palette looking exactly like built-in ones, so a plugin that declared nothing could ask for a vault password in a window you had no reason to doubt. Plugin code is also read and approved in a single step now, closing a window in which the file could change between the version you consented to and the version that ran. Installed plugins will ask for consent once more, because their permissions genuinely changed.
+
 ## [2.1.1] - 2026-08-15
 
 ### Changed

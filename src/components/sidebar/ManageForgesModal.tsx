@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForgeStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface ManageForgesModalProps {
   isOpen: boolean;
@@ -71,7 +72,9 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
       style={{ background: 'rgba(0,0,0,0.5)' }}
       onClick={onClose}
     >
-      <div
+      <DialogSurface
+        onEscape={onClose}
+        aria-labelledby="manage-forges-title"
         className="rounded-lg w-full max-w-md p-5"
         style={{
           background: 'var(--bg-elevated)',
@@ -81,7 +84,9 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Manage Forges</h2>
+          <h2 id="manage-forges-title" className="text-base font-semibold">
+            Manage Forges
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -117,6 +122,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') void handleRename(f.name);
                       if (e.key === 'Escape') {
+                        e.stopPropagation();
                         setRenamingName(null);
                         setRenameValue('');
                       }
@@ -186,7 +192,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
             Done
           </button>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

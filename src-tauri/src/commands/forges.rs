@@ -18,11 +18,17 @@ use crate::forge_watcher::{self, RecentWrites, WatcherSlot};
 use crate::paths::{get_active_forge_name, get_forges_root, DEFAULT_FORGE_NAME};
 use crate::persist::{read_config, write_config};
 use crate::types::ForgeInfo;
-use crate::validation::is_safe_filename;
+use crate::validation::{is_safe_filename, validate_path_within_base};
 
 /// A directory looks like a Forge if it contains at least one of the
 /// expected note subdirs.
 pub(crate) fn looks_like_forge(dir: &Path) -> bool {
+    if fs::symlink_metadata(dir)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(true)
+    {
+        return false;
+    }
     if !dir.is_dir() {
         return false;
     }
@@ -155,11 +161,15 @@ pub(crate) fn set_active_forge(
     }
     let root = get_forges_root();
     let target = root.join(&name);
+    validate_path_within_base(&target, &root)
+        .map_err(|_| "Refusing to use a symlinked Forge".to_string())?;
     if !target.is_dir() {
         return Err(format!("Forge \"{}\" does not exist", name));
     }
     if !looks_like_forge(&target) {
         // It's a plain dir that hasn't been scaffolded — make it a Forge.
+        validate_path_within_base(&target, &root)
+            .map_err(|_| "Refusing to use a symlinked Forge".to_string())?;
         scaffold_forge(&target)?;
     }
     let mut cfg = read_config();
@@ -604,6 +614,31 @@ mod tests {
         fs::create_dir_all(&tmp2).unwrap();
         assert!(!looks_like_forge(&tmp2));
         let _ = fs::remove_dir_all(&tmp2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_symlinked_forge_is_never_accepted() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "moldavite-forge-symlink-target-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let outside = tmp.join("outside");
+        let link = tmp.join("LinkedForge");
+        fs::create_dir_all(outside.join("daily")).unwrap();
+        symlink(&outside, &link).unwrap();
+
+        assert!(!looks_like_forge(&link));
+        assert_eq!(
+            ensure_forge_at(&link),
+            Err("Refusing to use a symlinked Forge".to_string())
+        );
+        let _ = fs::remove_dir_all(&tmp);
     }
 
     #[test]

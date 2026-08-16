@@ -1,5 +1,6 @@
 import { getNoteTitleError } from '@/lib';
 import type { NoteFile, FolderInfo } from '@/types';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 /**
  * Sidebar modal props bundle. These five modals share backdrop styling,
@@ -70,8 +71,6 @@ export function SidebarModals(props: SidebarModalsProps) {
   const handleCreateNoteKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !getNoteTitleError(newNoteTitle)) {
       onCreateNote();
-    } else if (e.key === 'Escape') {
-      onCancelCreateNote();
     }
   };
 
@@ -86,11 +85,17 @@ export function SidebarModals(props: SidebarModalsProps) {
       {/* Delete Note */}
       {deleteNote && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={onDeleteNoteCancel}
+            aria-labelledby="delete-note-title"
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="delete-note-title"
+              className="text-base font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Delete Note
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -105,7 +110,7 @@ export function SidebarModals(props: SidebarModalsProps) {
                 Delete
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
@@ -115,11 +120,17 @@ export function SidebarModals(props: SidebarModalsProps) {
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
           onClick={handleCreateNoteBackdropClick}
         >
-          <div
+          <DialogSurface
+            onEscape={onCancelCreateNote}
+            aria-labelledby="create-note-title"
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="create-note-title"
+              className="text-base font-semibold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
               New Note
             </h3>
             <input
@@ -152,7 +163,7 @@ export function SidebarModals(props: SidebarModalsProps) {
                 Create
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
@@ -162,12 +173,18 @@ export function SidebarModals(props: SidebarModalsProps) {
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
           onClick={onCancelCreateFolder}
         >
-          <div
+          <DialogSurface
+            onEscape={onCancelCreateFolder}
+            aria-labelledby="create-folder-title"
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
             style={{ borderRadius: 'var(--radius-md)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="create-folder-title"
+              className="text-base font-semibold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
               New Folder
             </h3>
             <input
@@ -176,7 +193,6 @@ export function SidebarModals(props: SidebarModalsProps) {
               onChange={(e) => onNewFolderNameChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newFolderName.trim()) onCreateFolder();
-                if (e.key === 'Escape') onCancelCreateFolder();
               }}
               placeholder="Folder name..."
               className="input mb-4"
@@ -194,7 +210,7 @@ export function SidebarModals(props: SidebarModalsProps) {
                 Create
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
@@ -204,12 +220,18 @@ export function SidebarModals(props: SidebarModalsProps) {
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter"
           onClick={onCancelRenameFolder}
         >
-          <div
+          <DialogSurface
+            onEscape={onCancelRenameFolder}
+            aria-labelledby="rename-folder-title"
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
             style={{ borderRadius: 'var(--radius-md)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="rename-folder-title"
+              className="text-base font-semibold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Rename Folder
             </h3>
             <input
@@ -218,7 +240,6 @@ export function SidebarModals(props: SidebarModalsProps) {
               onChange={(e) => onRenameFolderNameChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && renameFolderName.trim()) onRenameFolderSubmit();
-                if (e.key === 'Escape') onCancelRenameFolder();
               }}
               placeholder="Folder name..."
               className="input mb-4"
@@ -236,18 +257,24 @@ export function SidebarModals(props: SidebarModalsProps) {
                 Rename
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
 
       {/* Delete Folder */}
       {deleteFolder && (
         <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[9999] modal-backdrop-enter">
-          <div
+          <DialogSurface
+            onEscape={onDeleteFolderCancel}
+            aria-labelledby="delete-folder-title"
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            <h3
+              id="delete-folder-title"
+              className="text-base font-semibold mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Delete Folder
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -262,7 +289,7 @@ export function SidebarModals(props: SidebarModalsProps) {
                 Delete
               </button>
             </div>
-          </div>
+          </DialogSurface>
         </div>
       )}
     </>

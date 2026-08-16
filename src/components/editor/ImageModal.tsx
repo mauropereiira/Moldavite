@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { processAndSaveImage, fileToBase64 } from '@/lib';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -201,9 +202,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
-    } else if (e.key === 'Enter' && !e.shiftKey && !error) {
+    if (e.key === 'Enter' && !e.shiftKey && !error) {
       if ((activeTab === 'url' && url.trim()) || (activeTab === 'file' && selectedFile)) {
         e.preventDefault();
         handleInsert();
@@ -217,11 +216,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="image-modal-title"
     >
-      <div
+      <DialogSurface
+        onEscape={handleClose}
+        aria-labelledby="image-modal-title"
         className="rounded-xl w-full max-w-lg mx-4 flex flex-col modal-elevated modal-content-enter"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
@@ -494,7 +492,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
             to cancel
           </p>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }

@@ -30,6 +30,21 @@ describe('DraggableNoteItem', () => {
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
+  it('reveals Note options when the control receives keyboard focus', () => {
+    render(
+      <DraggableNoteItem
+        note={baseNote}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Note options' })).toHaveClass(
+      'focus-visible:opacity-100'
+    );
+  });
+
   it('passes the note back to onClick', async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();

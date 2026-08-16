@@ -3371,6 +3371,72 @@ button[aria-expanded='true'] .wn-caret {
    EDITOR FOOTER
    =========================================== */
 
+/* Pinned notes, above the editor. Same typographic register as the footer —
+   Geist Mono, uppercase, letter-spaced — so it reads as chrome rather than as
+   content competing with the note. The bar only renders when something is
+   pinned, so it costs nothing until it is asked for. */
+.pinned-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.pinned-bar-item {
+  display: inline-flex;
+  align-items: center;
+  /* Never shrink past the label. The footer taught this lesson: these buttons
+     are their text, so a clipped one is unreadable rather than merely small. */
+  flex: 0 0 auto;
+  min-width: max-content;
+  color: var(--text-muted);
+  transition: color var(--dur-micro) var(--ease-standard);
+}
+
+.pinned-bar-item:hover,
+.pinned-bar-item[data-current] {
+  color: var(--text-primary);
+}
+
+.pinned-bar-open,
+.pinned-bar-unpin {
+  padding: 2px 4px;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+/* Unpin stays quiet until the item is hovered or focused, so the bar reads as
+   a row of names rather than a row of dismiss buttons — but it must appear on
+   keyboard focus too, or it is unreachable without a mouse. */
+.pinned-bar-unpin {
+  opacity: 0;
+  transition: opacity var(--dur-micro) var(--ease-standard);
+}
+
+.pinned-bar-item:hover .pinned-bar-unpin,
+.pinned-bar-unpin:focus-visible {
+  opacity: 0.7;
+}
+
+.pinned-bar-unpin:hover {
+  opacity: 1;
+}
+
+.focus-mode .pinned-bar {
+  display: none;
+}
+
 .editor-footer {
   display: flex;
   align-items: center;
@@ -3395,6 +3461,16 @@ button[aria-expanded='true'] .wn-caret {
 .editor-footer-left {
   display: flex;
   align-items: center;
+  /* Yields before the action buttons do. A truncated word count still reads as
+     a word count; a truncated "WORDPRESS" reads as nothing. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.editor-footer-right {
+  flex: 0 0 auto;
 }
 
 .editor-footer-left > * {
@@ -3725,7 +3801,14 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 }
 
 .editor-footer .toolbar-button {
-  min-width: 0;
+  /* These buttons are their labels — there is no icon to fall back on, so a
+     shrunk one is not "smaller", it is unreadable. `.toolbar-button` carries
+     `overflow: hidden` for its press effect, and a flex item that shrinks past
+     its text then clips it symmetrically: COLOUR renders as "OLOU", WORDPRESS
+     as "DPR". Refusing to shrink is what keeps the labels whole; the word
+     count on the left yields instead, and it can afford to. */
+  flex: 0 0 auto;
+  min-width: max-content;
   height: 32px;
   padding: 0;
   color: var(--text-muted);
