@@ -2,6 +2,21 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **Eight ways Moldavite could lose your writing.** An external change to a file could erase text typed while that file was being read. A failed save was reported as a success, so switching Forge afterwards reloaded over work that had never reached disk. Changing the Forges root left the editor writing into the wrong Forge. Installing an update relaunched without waiting for pending saves. Two saves of the same note could finish out of order and corrupt the record used to detect outside edits. A background scan quietly disabled that same protection. Deleting a note could race its own save and bring the file back. And opening a list that mixed tasks with plain items reordered them — every task above every plain line — which the next save then wrote to disk as your note.
+- **⌘N and ⌘⇧L did nothing.** Both were wired to empty functions, so the keypress was consumed and discarded. The welcome screen advertises ⌘N under the wordmark, which is where it was most obvious, but it was dead everywhere.
+- **The Format menu ran off the right of the window**, hiding its keyboard shortcuts. It was the only footer menu anchored to its own centre.
+- **Footer labels could render as fragments** — COLOUR as "OLOU", WORDPRESS as "DPR" — when the row was short of space.
+
+### Changed
+
+- **Notes can be pinned to a bar above the editor.** Pin from the note's More menu or by right-clicking it in the index. The bar appears only while something is pinned. Opening a pinned note returns you to the tab you already had it in rather than opening a second copy.
+- **Publishing to WordPress.com is safer about which post it updates.** Renaming a published note used to strand its post, and a new note taking the freed name inherited it — so publishing that new note could overwrite the old note's post, including one already live. Sites now show their address as well as their name, because "Site Title" is the WordPress.com default and repeats across an account. Publishing twice in quick succession no longer leaves two drafts.
+- **Plugins must now declare what they put in front of you.** Showing a prompt requires the `ui` permission and adding commands requires `commands`; both were free before. Prompts can contain password fields and commands sit in the palette looking exactly like built-in ones, so a plugin that declared nothing could ask for a vault password in a window you had no reason to doubt. Plugin code is also read and approved in a single step now, closing a window in which the file could change between the version you consented to and the version that ran. Installed plugins will ask for consent once more, because their permissions genuinely changed.
+
 ## [2.1.1] - 2026-08-15
 
 ### Changed
