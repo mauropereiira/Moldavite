@@ -28,8 +28,14 @@ interface CalendarProps {
 
 export function Calendar({ onNavigate }: CalendarProps = {}) {
   const { selectedDate, setSelectedDate, selectedWeek, setSelectedWeek, notes } = useNoteStore();
-  const { sources, calendarEnabled, selectedCalendarIds, showAllDayEvents, checkPermission } =
-    useCalendarStore();
+  const {
+    sources,
+    calendarEnabled,
+    selectedCalendarIds,
+    legacySelectedAppleCalendarId,
+    showAllDayEvents,
+    checkPermission,
+  } = useCalendarStore();
   const { loadDailyNote, loadWeeklyNote } = useNotes();
   const [viewDate, setViewDate] = React.useState(selectedDate);
   const [monthEvents, setMonthEvents] = React.useState<CalendarEvent[]>([]);
@@ -53,7 +59,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
   React.useEffect(() => {
     let cancelled = false;
 
-    if (!calendarEnabled || !anyConnected) {
+    if (!calendarEnabled || !anyConnected || legacySelectedAppleCalendarId) {
       setMonthEvents([]);
       return () => {
         cancelled = true;
@@ -80,6 +86,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     calendarEnabled,
     calendarEndKey,
     calendarStartKey,
+    legacySelectedAppleCalendarId,
     selectedCalendarIds,
     showAllDayEvents,
   ]);

@@ -8,9 +8,8 @@ import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
 import { NoEventsEmptyState, ConnectCalendarEmptyState } from '@/components/ui/EmptyState';
 import { CalendarSyncComingSoon } from './CalendarSyncComingSoon';
+import { eventsOverlappingLocalDay, localDayInterval, MILLISECONDS_PER_HOUR } from './timeLayout';
 
-// Time grid hours (0-23)
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const TIME_COLUMN_WIDTH = 60; // pixels
 
 // Helper to detect overlapping events and assign columns
@@ -24,7 +23,7 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
 
   // Sort events by start time, then by duration (longer events first)
   const sortedEvents = [...events].sort((a, b) => {
-    const startDiff = a.start.localeCompare(b.start);
+    const startDiff = new Date(a.start).getTime() - new Date(b.start).getTime();
     if (startDiff !== 0) return startDiff;
     // Longer events first
     const durationA = new Date(a.end).getTime() - new Date(a.start).getTime();
@@ -280,10 +279,24 @@ interface TimeGridProps {
 function TimeGrid({ events, selectedDate }: TimeGridProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isTodaySelected = isToday(selectedDate);
+  const day = useMemo(() => localDayInterval(selectedDate), [selectedDate]);
+  const dayEvents = useMemo(
+    () => eventsOverlappingLocalDay(events, selectedDate),
+    [events, selectedDate]
+  );
+  const hourRows = useMemo(
+    () =>
+      Array.from({ length: Math.ceil(day.elapsedHours) }, (_, index) => ({
+        instant: new Date(day.start.getTime() + index * MILLISECONDS_PER_HOUR),
+        top: index * HOUR_HEIGHT,
+        height: Math.min(HOUR_HEIGHT, (day.elapsedHours - index) * HOUR_HEIGHT),
+      })),
+    [day]
+  );
 
   // Separate all-day and timed events
-  const allDayEvents = events.filter((e) => e.isAllDay);
-  const timedEvents = events.filter((e) => !e.isAllDay);
+  const allDayEvents = dayEvents.filter((e) => e.isAllDay);
+  const timedEvents = dayEvents.filter((e) => !e.isAllDay);
 
   // Calculate columns for overlapping events
   const eventsWithColumns = useMemo(() => calculateEventColumns(timedEvents), [timedEvents]);
@@ -292,11 +305,11 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
   useEffect(() => {
     if (isTodaySelected && scrollContainerRef.current) {
       const now = new Date();
-      const currentHour = now.getHours();
-      const scrollPosition = Math.max(0, (currentHour - 1) * HOUR_HEIGHT);
+      const elapsedHours = (now.getTime() - day.start.getTime()) / MILLISECONDS_PER_HOUR;
+      const scrollPosition = Math.max(0, (elapsedHours - 1) * HOUR_HEIGHT);
       scrollContainerRef.current.scrollTop = scrollPosition;
     }
-  }, [isTodaySelected]);
+  }, [day, isTodaySelected]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -331,15 +344,15 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         style={{ minHeight: '50%' }}
       >
-        <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+        <div className="relative" style={{ height: `${day.elapsedHours * HOUR_HEIGHT}px` }}>
           {/* Hour rows */}
-          {HOURS.map((hour) => (
+          {hourRows.map((row, index) => (
             <div
-              key={hour}
+              key={row.instant.getTime()}
               className="absolute left-0 right-0"
               style={{
-                top: `${hour * HOUR_HEIGHT}px`,
-                height: `${HOUR_HEIGHT}px`,
+                top: `${row.top}px`,
+                height: `${row.height}px`,
                 borderBottom: '1px solid var(--border-muted)',
               }}
             >
@@ -352,7 +365,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
                   color: 'var(--text-muted)',
                 }}
               >
-                {hour === 0 ? '' : format(new Date().setHours(hour, 0), 'HH:mm')}
+                {index === 0 ? '' : format(row.instant, 'HH:mm')}
               </div>
 
               {/* Half-hour dashed line */}
@@ -368,7 +381,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           ))}
 
           {/* Current time indicator */}
-          <CurrentTimeLine isToday={isTodaySelected} />
+          <CurrentTimeLine isToday={isTodaySelected} dayStart={day.start} />
 
           {/* Event blocks */}
           {eventsWithColumns.map((event, index) => (
@@ -378,6 +391,8 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
               columnIndex={event.columnIndex}
               totalColumns={event.totalColumns}
               index={index}
+              dayStart={day.start}
+              dayEnd={day.end}
             />
           ))}
 

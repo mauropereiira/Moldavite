@@ -9,6 +9,7 @@
 //! refresh token is persisted, and that lives in the OS keychain.
 
 use serde::Deserialize;
+use std::future::Future;
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -103,9 +104,8 @@ async fn get_json(url: &str) -> Result<serde_json::Value, GoogleError> {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
             return Err(GoogleError::Other(format!(
-                "Google Calendar returned {status}: {body}"
+                "Google Calendar returned {status}."
             )));
         }
 
@@ -140,8 +140,10 @@ impl GoogleCalendar {
     }
 }
 
-pub fn parse_calendar_list(value: &serde_json::Value) -> Vec<GoogleCalendar> {
-    value
+pub fn parse_calendar_list_page(
+    value: &serde_json::Value,
+) -> (Vec<GoogleCalendar>, Option<String>) {
+    let calendars = value
         .get("items")
         .and_then(|items| items.as_array())
         .map(|items| {
@@ -150,12 +152,50 @@ pub fn parse_calendar_list(value: &serde_json::Value) -> Vec<GoogleCalendar> {
                 .filter_map(|item| serde_json::from_value::<GoogleCalendar>(item.clone()).ok())
                 .collect()
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let next = value
+        .get("nextPageToken")
+        .and_then(|token| token.as_str())
+        .map(str::to_string);
+    (calendars, next)
+}
+
+fn calendar_list_url(page_token: Option<&str>) -> String {
+    let mut url = format!("{CALENDAR_LIST_URL}?maxResults={PAGE_SIZE}");
+    if let Some(token) = page_token {
+        url.push_str(&format!("&pageToken={}", encode_segment(token)));
+    }
+    url
+}
+
+async fn list_calendars_with<F, Fut>(mut fetch: F) -> Result<Vec<GoogleCalendar>, GoogleError>
+where
+    F: FnMut(String) -> Fut,
+    Fut: Future<Output = Result<serde_json::Value, GoogleError>>,
+{
+    let mut all = Vec::new();
+    let mut page_token: Option<String> = None;
+    let mut pages_left = MAX_PAGES;
+
+    loop {
+        let body = fetch(calendar_list_url(page_token.as_deref())).await?;
+        let (calendars, next) = parse_calendar_list_page(&body);
+        all.extend(calendars);
+
+        pages_left -= 1;
+        match next {
+            Some(token) if pages_left > 0 && Some(&token) != page_token.as_ref() => {
+                page_token = Some(token)
+            }
+            _ => break,
+        }
+    }
+
+    Ok(all)
 }
 
 pub async fn list_calendars() -> Result<Vec<GoogleCalendar>, GoogleError> {
-    let body = get_json(CALENDAR_LIST_URL).await?;
-    Ok(parse_calendar_list(&body))
+    list_calendars_with(|url| async move { get_json(&url).await }).await
 }
 
 /// The connected account's own address, which doubles as the id of the primary
@@ -201,7 +241,16 @@ pub struct GoogleEventTime {
 
 impl GoogleEventTime {
     fn value(&self) -> Option<&str> {
-        self.date_time.as_deref().or(self.date.as_deref())
+        if let Some(value) = self.date_time.as_deref() {
+            return chrono::DateTime::parse_from_rfc3339(value)
+                .is_ok()
+                .then_some(value);
+        }
+        self.date.as_deref().and_then(|value| {
+            chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .is_ok()
+                .then_some(value)
+        })
     }
 }
 
@@ -317,7 +366,8 @@ mod tests {
                  "accessRole": "owner", "primary": true}
             ]
         });
-        let calendars = parse_calendar_list(&body);
+        let (calendars, next) = parse_calendar_list_page(&body);
+        assert!(next.is_none());
         assert_eq!(calendars.len(), 2);
         assert!(!calendars[0].allows_modify());
         assert!(calendars[1].allows_modify());
@@ -374,6 +424,53 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert!(events[0].summary.is_none());
         assert!(events[0].start_value().is_none());
+    }
+
+    #[test]
+    fn rejects_malformed_rfc3339_and_bare_date_values() {
+        let body = serde_json::json!({
+            "items": [
+                {"id": "bad-timed", "status": "confirmed",
+                 "start": {"dateTime": "definitely-not-rfc3339"},
+                 "end": {"dateTime": "2026-08-07T10:00:00+01:00"}},
+                {"id": "bad-all-day", "status": "confirmed",
+                 "start": {"date": "2026-02-31"}, "end": {"date": "2026-03-01"}}
+            ]
+        });
+        let (events, _) = parse_events_page(&body);
+
+        assert!(events[0].start_value().is_none());
+        assert!(events[1].start_value().is_none());
+    }
+
+    #[test]
+    fn calendar_listing_follows_page_tokens() {
+        use std::cell::RefCell;
+        use std::collections::VecDeque;
+
+        let responses = RefCell::new(VecDeque::from([
+            serde_json::json!({
+                "items": [{"id": "first@example.com"}],
+                "nextPageToken": "next page"
+            }),
+            serde_json::json!({"items": [{"id": "second@example.com"}]}),
+        ]));
+        let urls = RefCell::new(Vec::new());
+        let calendars = tauri::async_runtime::block_on(list_calendars_with(|url| {
+            urls.borrow_mut().push(url);
+            std::future::ready(Ok(responses.borrow_mut().pop_front().unwrap()))
+        }))
+        .unwrap();
+
+        assert_eq!(
+            calendars
+                .iter()
+                .map(|calendar| calendar.id.as_str())
+                .collect::<Vec<_>>(),
+            ["first@example.com", "second@example.com"]
+        );
+        assert_eq!(urls.borrow().len(), 2);
+        assert!(urls.borrow()[1].contains("pageToken=next%20page"));
     }
 
     #[test]

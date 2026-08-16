@@ -76,14 +76,17 @@ pub struct TokenResponse {
 }
 
 impl TokenResponse {
-    pub fn into_access_token(self, now: Instant) -> (AccessToken, Option<String>) {
-        (
+    pub fn into_access_token(self, now: Instant) -> Result<(AccessToken, Option<String>), String> {
+        let expires_at = now
+            .checked_add(Duration::from_secs(self.expires_in))
+            .ok_or_else(|| "Google returned an invalid token expiry.".to_string())?;
+        Ok((
             AccessToken {
                 value: self.access_token,
-                expires_at: now + Duration::from_secs(self.expires_in),
+                expires_at,
             },
             self.refresh_token,
-        )
+        ))
     }
 }
 
@@ -280,6 +283,44 @@ fn await_callback(listener: TcpListener, expected_state: &str) -> Result<Callbac
     }
 }
 
+#[derive(Deserialize)]
+struct OAuthErrorResponse {
+    error: String,
+}
+
+fn allowlisted_oauth_error(code: &str) -> (&'static str, &'static str) {
+    match code {
+        "access_denied" => ("access_denied", "access was denied"),
+        "invalid_client" => ("invalid_client", "the OAuth client was rejected"),
+        "invalid_grant" => (
+            "invalid_grant",
+            "the authorization grant is invalid or expired",
+        ),
+        "invalid_request" => ("invalid_request", "the OAuth request was invalid"),
+        "invalid_scope" => ("invalid_scope", "the requested scope was rejected"),
+        "server_error" => ("server_error", "the OAuth service failed"),
+        "temporarily_unavailable" => (
+            "temporarily_unavailable",
+            "the OAuth service is temporarily unavailable",
+        ),
+        "unauthorized_client" => ("unauthorized_client", "the OAuth client is not authorized"),
+        "unsupported_grant_type" => (
+            "unsupported_grant_type",
+            "the OAuth grant type is unsupported",
+        ),
+        _ => ("oauth_error", "the OAuth request was rejected"),
+    }
+}
+
+fn safe_oauth_error(status: reqwest::StatusCode, body: &str) -> String {
+    let code = serde_json::from_str::<OAuthErrorResponse>(body)
+        .ok()
+        .map(|error| error.error)
+        .unwrap_or_default();
+    let (code, description) = allowlisted_oauth_error(&code);
+    format!("Google rejected the token request ({status}): {code} ({description}).")
+}
+
 async fn post_token(params: &[(&str, &str)]) -> Result<TokenResponse, String> {
     let response = super::http_client()
         .post(TOKEN_ENDPOINT)
@@ -291,7 +332,7 @@ async fn post_token(params: &[(&str, &str)]) -> Result<TokenResponse, String> {
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("Google rejected the token request ({status}): {body}"));
+        return Err(safe_oauth_error(status, &body));
     }
 
     response
@@ -350,7 +391,8 @@ pub async fn connect(app: &tauri::AppHandle) -> Result<AccessToken, String> {
         return Err(if error == "access_denied" {
             "Connection cancelled.".to_string()
         } else {
-            format!("Google returned an error: {error}")
+            let (code, description) = allowlisted_oauth_error(&error);
+            format!("Google returned an error: {code} ({description}).")
         });
     }
     // A mismatched state means the redirect did not come from the request we
@@ -372,7 +414,7 @@ pub async fn connect(app: &tauri::AppHandle) -> Result<AccessToken, String> {
     ])
     .await?;
 
-    let (token, refresh) = response.into_access_token(Instant::now());
+    let (token, refresh) = response.into_access_token(Instant::now())?;
     let refresh = refresh.ok_or_else(|| {
         "Google did not return a refresh token. Remove Moldavite from your Google account \
          permissions and connect again."
@@ -400,7 +442,7 @@ pub async fn refresh() -> Result<AccessToken, String> {
     ])
     .await?;
 
-    Ok(response.into_access_token(Instant::now()).0)
+    Ok(response.into_access_token(Instant::now())?.0)
 }
 
 pub fn has_stored_refresh_token() -> bool {
@@ -512,7 +554,7 @@ mod tests {
             r#"{"access_token":"at","expires_in":3599,"refresh_token":"rt","token_type":"Bearer"}"#,
         )
         .unwrap();
-        let (token, refresh) = parsed.into_access_token(Instant::now());
+        let (token, refresh) = parsed.into_access_token(Instant::now()).unwrap();
         assert_eq!(token.value, "at");
         assert_eq!(refresh.as_deref(), Some("rt"));
     }
@@ -521,7 +563,44 @@ mod tests {
     fn a_refresh_response_without_a_new_refresh_token_is_fine() {
         let parsed: TokenResponse =
             serde_json::from_str(r#"{"access_token":"at2","expires_in":3599}"#).unwrap();
-        let (_, refresh) = parsed.into_access_token(Instant::now());
+        let (_, refresh) = parsed.into_access_token(Instant::now()).unwrap();
         assert!(refresh.is_none());
+    }
+
+    #[test]
+    fn an_untrusted_expiry_cannot_overflow_instant() {
+        let parsed: TokenResponse = serde_json::from_str(&format!(
+            r#"{{"access_token":"at","expires_in":{}}}"#,
+            u64::MAX
+        ))
+        .unwrap();
+
+        let conversion = std::panic::catch_unwind(|| parsed.into_access_token(Instant::now()));
+        assert!(conversion.is_ok(), "token conversion must not panic");
+        assert!(conversion.unwrap().is_err());
+    }
+
+    #[test]
+    fn token_endpoint_errors_do_not_interpolate_the_raw_body() {
+        let leaked = "access-token-that-must-stay-private";
+        let body = format!(
+            r#"{{"error":"invalid_grant","error_description":"grant contains {leaked}","access_token":"{leaked}"}}"#
+        );
+        let message = safe_oauth_error(reqwest::StatusCode::BAD_REQUEST, &body);
+
+        assert!(message.contains("invalid_grant"));
+        assert!(message.contains("authorization grant is invalid or expired"));
+        assert!(!message.contains(leaked));
+        assert!(message.len() < 200);
+    }
+
+    #[test]
+    fn an_unknown_oauth_body_gets_a_bounded_generic_error() {
+        let body = format!(r#"{{"error":"{}"}}"#, "x".repeat(10_000));
+        let message = safe_oauth_error(reqwest::StatusCode::BAD_REQUEST, &body);
+
+        assert!(message.contains("oauth_error"));
+        assert!(!message.contains(&"x".repeat(100)));
+        assert!(message.len() < 200);
     }
 }

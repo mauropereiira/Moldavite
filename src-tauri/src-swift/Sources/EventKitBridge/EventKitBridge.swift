@@ -105,11 +105,16 @@ public func fetchEvents(
         return jsonToPointer(["error": "Invalid date format"])
     }
 
-    // Set time to start and end of day
+    // EventKit's predicate uses an exclusive upper bound. Advancing from the
+    // next local midnight retains the final fractional second and follows DST.
     let calendar = Calendar.current
     let startOfDay = calendar.startOfDay(for: start)
-    guard let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: end) else {
-        return jsonToPointer(["error": "Failed to set end of day"])
+    guard let endExclusive = calendar.date(
+        byAdding: .day,
+        value: 1,
+        to: calendar.startOfDay(for: end)
+    ) else {
+        return jsonToPointer(["error": "Failed to advance past end day"])
     }
 
     // Get calendars to search
@@ -124,11 +129,18 @@ public func fetchEvents(
     // Create predicate and fetch events
     let predicate = eventStore.predicateForEvents(
         withStart: startOfDay,
-        end: endOfDay,
+        end: endExclusive,
         calendars: calendarsToSearch
     )
 
-    let events = eventStore.events(matching: predicate)
+    // Sort EventKit Dates before serialization. Serialized strings are not a
+    // safe ordering key once providers use different offsets.
+    let events = eventStore.events(matching: predicate).sorted {
+        if $0.startDate == $1.startDate {
+            return $0.endDate > $1.endDate
+        }
+        return $0.startDate < $1.startDate
+    }
 
     var eventData: [[String: Any]] = []
 
@@ -147,11 +159,6 @@ public func fetchEvents(
             "url": event.url?.absoluteString ?? ""
         ]
         eventData.append(eventDict)
-    }
-
-    // Sort by start time
-    eventData.sort {
-        ($0["start"] as? String ?? "") < ($1["start"] as? String ?? "")
     }
 
     return jsonToPointer(eventData)

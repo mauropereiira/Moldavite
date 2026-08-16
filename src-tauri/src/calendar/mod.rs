@@ -77,11 +77,43 @@ pub fn split_id(namespaced: &str) -> Option<(CalendarSource, &str)> {
     CalendarSource::from_prefix(prefix).map(|source| (source, rest))
 }
 
+enum SourceSelection<'a> {
+    All,
+    Selected(Vec<&'a str>),
+    Excluded,
+}
+
+/// Interpret opaque frontend ids exactly once, at the Rust module boundary.
+/// An empty selection means all sources; a non-empty selection containing no
+/// ids for this source means that source was deliberately excluded.
+fn selection_for<'a>(source: CalendarSource, calendar_ids: &'a [String]) -> SourceSelection<'a> {
+    if calendar_ids.is_empty() {
+        return SourceSelection::All;
+    }
+
+    let selected = calendar_ids
+        .iter()
+        .filter_map(|id| match split_id(id) {
+            Some((id_source, native)) if id_source == source => Some(native),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if selected.is_empty() {
+        SourceSelection::Excluded
+    } else {
+        SourceSelection::Selected(selected)
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarInfo {
     pub id: String,
     pub source: CalendarSource,
+    /// Native Apple id used only to resolve the pre-namespacing v0 persisted
+    /// selection. New code treats `id` as opaque and never reconstructs it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legacy_id: Option<String>,
     pub title: String,
     pub color: String,
     pub is_subscribed: bool,
@@ -114,6 +146,11 @@ pub struct CalendarSourceStatus {
     pub account: Option<String>,
     pub permission: Option<CalendarPermission>,
     pub error: Option<String>,
+    /// Calendars returned by this exact source-enumeration attempt. Keeping
+    /// the success bit beside the data lets the frontend distinguish a real
+    /// empty list from a transient provider failure.
+    pub calendars: Vec<CalendarInfo>,
+    pub calendars_enumerated: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -162,6 +199,8 @@ fn apple_status() -> CalendarSourceStatus {
         account: None,
         permission: Some(permission),
         error: None,
+        calendars: Vec::new(),
+        calendars_enumerated: false,
     }
 }
 
@@ -174,6 +213,8 @@ fn apple_status() -> CalendarSourceStatus {
         account: None,
         permission: None,
         error: Some("Apple Calendar is only available on macOS.".into()),
+        calendars: Vec::new(),
+        calendars_enumerated: false,
     }
 }
 
@@ -181,13 +222,17 @@ fn apple_status() -> CalendarSourceStatus {
 fn apple_calendars() -> Result<Vec<CalendarInfo>, String> {
     Ok(apple::get_calendars()?
         .into_iter()
-        .map(|c| CalendarInfo {
-            id: namespace_id(CalendarSource::Apple, &c.id),
-            source: CalendarSource::Apple,
-            title: c.title,
-            color: c.color,
-            is_subscribed: c.is_subscribed,
-            allows_modify: c.allows_modify,
+        .map(|c| {
+            let legacy_id = c.id.clone();
+            CalendarInfo {
+                id: namespace_id(CalendarSource::Apple, &c.id),
+                source: CalendarSource::Apple,
+                legacy_id: Some(legacy_id),
+                title: c.title,
+                color: c.color,
+                is_subscribed: c.is_subscribed,
+                allows_modify: c.allows_modify,
+            }
         })
         .collect())
 }
@@ -205,29 +250,25 @@ fn apple_events(
 ) -> Result<Vec<CalendarEvent>, String> {
     // EventKit filters by at most one calendar, so a multi-calendar selection
     // is fetched whole and narrowed here. Selecting nothing means everything.
-    let wanted: Vec<&str> = calendar_ids
-        .iter()
-        .filter_map(|id| match split_id(id) {
-            Some((CalendarSource::Apple, native)) => Some(native),
-            _ => None,
-        })
-        .collect();
-
-    // "Nothing selected" and "nothing of ours selected" are different answers.
-    // Keying the everything-case off `wanted` conflated them, so ticking only a
-    // Google calendar still returned every Apple calendar. Match the rule
-    // `google_events` uses: an empty selection means all, a selection that
-    // excludes this source means none.
-    if !calendar_ids.is_empty() && wanted.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let single = if wanted.len() == 1 { Some(wanted[0]) } else { None };
+    let wanted = match selection_for(CalendarSource::Apple, calendar_ids) {
+        SourceSelection::All => None,
+        SourceSelection::Selected(ids) => Some(ids),
+        SourceSelection::Excluded => return Ok(Vec::new()),
+    };
+    let single = wanted
+        .as_ref()
+        .filter(|ids| ids.len() == 1)
+        .map(|ids| ids[0]);
     let raw = apple::get_events(start_date, end_date, single)?;
 
     Ok(raw
         .into_iter()
-        .filter(|e| calendar_ids.is_empty() || wanted.contains(&e.calendar_id.as_str()))
+        .filter(|e| {
+            wanted
+                .as_ref()
+                .map(|ids| ids.contains(&e.calendar_id.as_str()))
+                .unwrap_or(true)
+        })
         .map(|e| CalendarEvent {
             id: namespace_id(CalendarSource::Apple, &e.id),
             source: CalendarSource::Apple,
@@ -265,6 +306,8 @@ fn google_status() -> CalendarSourceStatus {
             account: None,
             permission: None,
             error: Some(oauth::not_configured_message()),
+            calendars: Vec::new(),
+            calendars_enumerated: false,
         };
     }
     CalendarSourceStatus {
@@ -274,19 +317,26 @@ fn google_status() -> CalendarSourceStatus {
         account: None,
         permission: None,
         error: None,
+        calendars: Vec::new(),
+        calendars_enumerated: false,
     }
 }
 
-async fn google_calendars() -> Result<Vec<CalendarInfo>, String> {
+async fn google_calendars() -> Result<(Vec<CalendarInfo>, Option<String>), String> {
     if !oauth::is_configured() || !oauth::has_stored_refresh_token() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), None));
     }
     let calendars = google::list_calendars().await.map_err(|e| e.message())?;
-    Ok(calendars
+    let account = calendars
+        .iter()
+        .find(|calendar| calendar.primary)
+        .map(|calendar| calendar.id.clone());
+    let calendars = calendars
         .into_iter()
         .map(|c| CalendarInfo {
             id: namespace_id(CalendarSource::Google, &c.id),
             source: CalendarSource::Google,
+            legacy_id: None,
             title: if c.summary.is_empty() {
                 c.id.clone()
             } else {
@@ -296,11 +346,12 @@ async fn google_calendars() -> Result<Vec<CalendarInfo>, String> {
             is_subscribed: !c.primary,
             allows_modify: c.allows_modify(),
         })
-        .collect())
+        .collect();
+    Ok((calendars, account))
 }
 
-/// Google wants RFC3339 bounds; the app speaks `yyyy-MM-dd`. Widen to the whole
-/// local day on both ends so the range matches what the Swift bridge does.
+/// Google wants RFC3339 bounds; the app speaks `yyyy-MM-dd`. Use a half-open
+/// local range so fractional seconds at the end of the final day are retained.
 fn local_day_bounds(start_date: &str, end_date: &str) -> Result<(String, String), String> {
     let parse = |value: &str| {
         NaiveDate::parse_from_str(value, "%Y-%m-%d")
@@ -308,56 +359,62 @@ fn local_day_bounds(start_date: &str, end_date: &str) -> Result<(String, String)
     };
     let start = parse(start_date)?;
     let end = parse(end_date)?;
+    let end_exclusive = end
+        .succ_opt()
+        .ok_or_else(|| format!("Invalid end date {end_date}"))?;
 
     // Local midnight does not exist on a spring-forward that lands at 00:00 —
     // Santiago, Asunción, Beirut, Tehran and Havana all do this. Erroring there
     // would cost the user every Google event for that day, so walk forward to
     // the first hour that does exist. The Swift bridge already rolls forward
     // the same way, so the two sources stay aligned.
-    let start_dt = (0..=3)
-        .find_map(|hour| {
-            start
-                .and_hms_opt(hour, 0, 0)
+    let local_start = |date: NaiveDate| {
+        (0..=3).find_map(|hour| {
+            date.and_hms_opt(hour, 0, 0)
                 .and_then(|naive| Local.from_local_datetime(&naive).earliest())
         })
-        .ok_or_else(|| format!("Invalid local start time for {start_date}"))?;
-    let end_dt = (0..=3)
-        .find_map(|back| {
-            end.and_hms_opt(23 - back, 59, 59)
-                .and_then(|naive| Local.from_local_datetime(&naive).latest())
-        })
-        .ok_or_else(|| format!("Invalid local end time for {end_date}"))?;
+    };
+    let start_dt =
+        local_start(start).ok_or_else(|| format!("Invalid local start time for {start_date}"))?;
+    let end_dt = local_start(end_exclusive)
+        .ok_or_else(|| format!("Invalid local end time after {end_date}"))?;
 
     Ok((start_dt.to_rfc3339(), end_dt.to_rfc3339()))
+}
+
+#[derive(Default)]
+struct SourceEventBatch {
+    events: Vec<CalendarEvent>,
+    failures: Vec<String>,
 }
 
 async fn google_events(
     start_date: &str,
     end_date: &str,
     calendar_ids: &[String],
-) -> Result<Vec<CalendarEvent>, String> {
+) -> Result<SourceEventBatch, String> {
+    let wanted = match selection_for(CalendarSource::Google, calendar_ids) {
+        SourceSelection::All => None,
+        SourceSelection::Selected(ids) => Some(ids),
+        // Determine exclusion before credentials, bounds, or any provider I/O.
+        SourceSelection::Excluded => return Ok(SourceEventBatch::default()),
+    };
+
     if !oauth::is_configured() || !oauth::has_stored_refresh_token() {
-        return Ok(Vec::new());
+        return Ok(SourceEventBatch::default());
     }
 
     let (time_min, time_max) = local_day_bounds(start_date, end_date)?;
 
     let all = google::list_calendars().await.map_err(|e| e.message())?;
-    let wanted: Vec<&str> = calendar_ids
-        .iter()
-        .filter_map(|id| match split_id(id) {
-            Some((CalendarSource::Google, native)) => Some(native),
-            _ => None,
+    let selected: Vec<&google::GoogleCalendar> = wanted
+        .as_ref()
+        .map(|ids| {
+            all.iter()
+                .filter(|calendar| ids.contains(&calendar.id.as_str()))
+                .collect()
         })
-        .collect();
-
-    // An empty selection means every calendar; a selection with no Google
-    // entries means the user deliberately excluded Google.
-    let selected: Vec<&google::GoogleCalendar> = if calendar_ids.is_empty() {
-        all.iter().collect()
-    } else {
-        all.iter().filter(|c| wanted.contains(&c.id.as_str())).collect()
-    };
+        .unwrap_or_else(|| all.iter().collect());
 
     let mut events = Vec::new();
     let mut failures: Vec<String> = Vec::new();
@@ -407,28 +464,35 @@ async fn google_events(
         }
     }
 
-    // Every calendar failed and none produced events: report it rather than
-    // pretending the account is simply empty.
-    if events.is_empty() && !failures.is_empty() {
-        return Err(failures.join("; "));
-    }
-
-    Ok(events)
+    Ok(SourceEventBatch { events, failures })
 }
 
 // ------------------------------------------------------------- Dispatch
 
 pub async fn list_sources() -> Vec<CalendarSourceStatus> {
-    let mut google = google_status();
-    // Only ask Google who the user is when there is something to ask about;
-    // a failure here is a label problem, not a connection problem.
-    if google.connected {
-        match google::account_email().await {
-            Ok(email) => google.account = email,
-            Err(e) => google.error = Some(e.message()),
+    let mut apple = apple_status();
+    if apple.connected {
+        match apple_calendars() {
+            Ok(calendars) => {
+                apple.calendars = calendars;
+                apple.calendars_enumerated = true;
+            }
+            Err(error) => apple.error = Some(error),
         }
     }
-    vec![apple_status(), google]
+
+    let mut google = google_status();
+    if google.connected {
+        match google_calendars().await {
+            Ok((calendars, account)) => {
+                google.account = account;
+                google.calendars = calendars;
+                google.calendars_enumerated = true;
+            }
+            Err(error) => google.error = Some(error),
+        }
+    }
+    vec![apple, google]
 }
 
 /// Absolute instant for ordering, across the formats the two sources use:
@@ -450,11 +514,31 @@ fn event_instant(start: &str) -> i64 {
 /// failing the call: propagating meant one transient Google error emptied the
 /// whole list, and on a fresh launch that hides the calendar picker entirely.
 pub async fn list_all_calendars() -> Result<Vec<CalendarInfo>, String> {
-    let mut calendars = apple_calendars().unwrap_or_default();
-    if let Ok(google) = google_calendars().await {
-        calendars.extend(google);
+    Ok(list_sources()
+        .await
+        .into_iter()
+        .flat_map(|status| status.calendars)
+        .collect())
+}
+
+fn record_source_result(
+    source: CalendarSource,
+    result: Result<SourceEventBatch, String>,
+    events: &mut Vec<CalendarEvent>,
+    errors: &mut Vec<CalendarSourceError>,
+) {
+    match result {
+        Ok(mut batch) => {
+            events.append(&mut batch.events);
+            if !batch.failures.is_empty() {
+                errors.push(CalendarSourceError {
+                    source,
+                    message: batch.failures.join("; "),
+                });
+            }
+        }
+        Err(message) => errors.push(CalendarSourceError { source, message }),
     }
-    Ok(calendars)
 }
 
 /// Fetch across every source. A source that fails contributes an entry to
@@ -467,21 +551,22 @@ pub async fn fetch_events(
     let mut events = Vec::new();
     let mut errors = Vec::new();
 
-    match apple_events(start_date, end_date, calendar_ids) {
-        Ok(mut e) => events.append(&mut e),
-        Err(message) => errors.push(CalendarSourceError {
-            source: CalendarSource::Apple,
-            message,
+    record_source_result(
+        CalendarSource::Apple,
+        apple_events(start_date, end_date, calendar_ids).map(|events| SourceEventBatch {
+            events,
+            failures: Vec::new(),
         }),
-    }
+        &mut events,
+        &mut errors,
+    );
 
-    match google_events(start_date, end_date, calendar_ids).await {
-        Ok(mut e) => events.append(&mut e),
-        Err(message) => errors.push(CalendarSourceError {
-            source: CalendarSource::Google,
-            message,
-        }),
-    }
+    record_source_result(
+        CalendarSource::Google,
+        google_events(start_date, end_date, calendar_ids).await,
+        &mut events,
+        &mut errors,
+    );
 
     // Sort on the instant, not the text. Apple emits UTC (`…Z`) and Google
     // emits the calendar's own offset, so comparing the strings puts an 09:00
@@ -545,7 +630,16 @@ mod tests {
     fn day_bounds_cover_the_whole_local_range() {
         let (min, max) = local_day_bounds("2026-08-07", "2026-08-08").unwrap();
         assert!(min.starts_with("2026-08-07T00:00:00"));
-        assert!(max.starts_with("2026-08-08T23:59:59"));
+        assert!(max.starts_with("2026-08-09T00:00:00"));
+    }
+
+    #[test]
+    fn swift_uses_the_next_day_as_an_exclusive_eventkit_bound() {
+        let source = include_str!("../../src-swift/Sources/EventKitBridge/EventKitBridge.swift");
+
+        assert!(source.contains("byAdding: .day"));
+        assert!(source.contains("value: 1"));
+        assert!(!source.contains("date(bySettingHour: 23, minute: 59, second: 59"));
     }
 
     #[test]
@@ -556,6 +650,57 @@ mod tests {
         let google = event_instant("2026-08-07T09:00:00+03:00");
         assert!(google < apple, "instant ordering should ignore the offset text");
         assert!("2026-08-07T07:00:00Z" < "2026-08-07T09:00:00+03:00");
+    }
+
+    #[test]
+    fn swift_sorts_eventkit_dates_before_serializing_them() {
+        let source = include_str!("../../src-swift/Sources/EventKitBridge/EventKitBridge.swift");
+
+        assert!(source.contains("$0.startDate < $1.startDate"));
+        assert!(!source.contains("($0[\"start\"] as? String ?? \"\")"));
+    }
+
+    #[test]
+    fn google_partial_failures_are_not_conditioned_on_an_empty_event_list() {
+        let event = CalendarEvent {
+            id: "google:event".into(),
+            source: CalendarSource::Google,
+            title: "Loaded".into(),
+            start: "2026-08-07T09:00:00+01:00".into(),
+            end: "2026-08-07T10:00:00+01:00".into(),
+            is_all_day: false,
+            location: String::new(),
+            notes: String::new(),
+            calendar_id: "google:primary".into(),
+            calendar_title: "Primary".into(),
+            calendar_color: String::new(),
+            url: String::new(),
+        };
+        let mut events = Vec::new();
+        let mut errors = Vec::new();
+        record_source_result(
+            CalendarSource::Google,
+            Ok(SourceEventBatch {
+                events: vec![event],
+                failures: vec!["Restricted: 403".into()],
+            }),
+            &mut events,
+            &mut errors,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].source, CalendarSource::Google);
+        assert!(errors[0].message.contains("Restricted: 403"));
+    }
+
+    #[test]
+    fn an_apple_only_selection_is_rejected_before_google_io() {
+        let ids = vec!["apple:work".to_string()];
+        assert!(matches!(
+            selection_for(CalendarSource::Google, &ids),
+            SourceSelection::Excluded
+        ));
     }
 
     #[test]

@@ -1,7 +1,8 @@
 import { useState, type CSSProperties } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { open } from '@tauri-apps/plugin-shell';
 import type { CalendarEvent } from '@/types';
+import { eventLayoutForDay } from './timeLayout';
 
 const HOUR_HEIGHT = 60; // pixels per hour
 const EVENT_WASH_ALPHA = 0.09;
@@ -30,9 +31,18 @@ interface EventBlockProps {
   columnIndex: number;
   totalColumns: number;
   index?: number;
+  dayStart?: Date;
+  dayEnd?: Date;
 }
 
-export function EventBlock({ event, columnIndex, totalColumns, index = 0 }: EventBlockProps) {
+export function EventBlock({
+  event,
+  columnIndex,
+  totalColumns,
+  index = 0,
+  dayStart,
+  dayEnd,
+}: EventBlockProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = async () => {
@@ -41,21 +51,11 @@ export function EventBlock({ event, columnIndex, totalColumns, index = 0 }: Even
     }
   };
 
-  // Parse times and calculate position
-  const start = parseISO(event.start);
-  const end = parseISO(event.end);
-
-  const startHours = start.getHours();
-  const startMinutes = start.getMinutes();
-  const endHours = end.getHours();
-  const endMinutes = end.getMinutes();
-
-  // Calculate top position: (hour × 60px) + (minutes)
-  const topPosition = startHours * HOUR_HEIGHT + (startMinutes * HOUR_HEIGHT) / 60;
-
-  // Calculate height: duration in minutes × (60px / 60 minutes)
-  const durationMinutes = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
-  const height = Math.max(durationMinutes * (HOUR_HEIGHT / 60), 20); // Minimum 20px height
+  // Position by elapsed instants and clip to the displayed local day. Wall
+  // clock fields collide during a fall-back hour and go negative overnight.
+  const layout = eventLayoutForDay(event, HOUR_HEIGHT, dayStart, dayEnd);
+  if (!layout) return null;
+  const { start, end, top: topPosition, height } = layout;
 
   // Calculate width and left position for overlapping events
   const width = `calc((100% - 60px - ${(totalColumns - 1) * 2}px) / ${totalColumns})`;
