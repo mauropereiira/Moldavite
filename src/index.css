@@ -3437,6 +3437,50 @@ button[aria-expanded='true'] .wn-caret {
   display: none;
 }
 
+/* Where a dragged pin will land. A line rather than a moving gap: the row is
+   short and reflowing it on every dragover reads as jitter. */
+.pinned-bar-item[data-drop] {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
+.pinned-bar-item[draggable='true'] {
+  cursor: grab;
+}
+
+.pinned-bar-item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* Divides the pins that fit from the overflow count, so "+8" reads as a
+   continuation rather than another pin. */
+.pinned-bar-sep {
+  width: 1px;
+  height: 12px;
+  margin-left: 8px;
+  background: var(--border-muted);
+}
+
+.pinned-bar-more {
+  padding: 2px 6px;
+  color: var(--text-muted);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-standard);
+}
+
+.pinned-bar-more:hover {
+  color: var(--text-primary);
+}
+
+/* The bar is chrome, and its menu is not: reset the uppercase letterspacing
+   so note names in the overflow read as names. */
+.pinned-bar [role='menu'] {
+  letter-spacing: normal;
+  line-height: var(--text-sm--line-height);
+  text-transform: none;
+}
+
 .editor-footer {
   display: flex;
   align-items: center;
@@ -3467,10 +3511,6 @@ button[aria-expanded='true'] .wn-caret {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.editor-footer-right {
-  flex: 0 0 auto;
 }
 
 .editor-footer-left > * {
@@ -3797,7 +3837,12 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 .editor-footer-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* Never squeezed: these controls are their labels. */
+  flex: 0 0 auto;
+  /* Roomier than the 8px these started at. The labels are uppercase and
+     letterspaced, so at 8px the gap between two controls read as narrower than
+     the gap inside one word and the row scanned as a single run of text. */
+  gap: 18px;
 }
 
 .editor-footer .toolbar-button {
@@ -5122,4 +5167,28 @@ button.editor-index-trigger:not(:disabled):hover {
 
 .obs-import-details p + p {
   margin-top: 0.375rem;
+}
+
+/* Key for the marks under each date in the month grid. Same quiet register as
+   the rest of the chrome: legible when looked for, silent otherwise. */
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-muted);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.calendar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
 }

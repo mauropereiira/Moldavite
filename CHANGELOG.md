@@ -2,6 +2,22 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.1] - 2026-08-16
+
+### Fixed
+
+- **The editor's footer controls disappeared whenever a note was pinned.** The pinned bar sat inside the editor column, above an editor that fills its height, so the column overflowed and pushed its own footer out of view. Colour, WordPress, Share, Format and More were all gone until you unpinned.
+- **Long note names ran underneath the Options button in the index** instead of ending in an ellipsis before it.
+- **The Index overlay's keyboard hint sat almost on top of its close button**, so on a narrower window the two read as one crowded object. It moves to the left, matching the Agenda overlay it had always disagreed with.
+- **The footer controls sat too close together.** The labels are uppercase and letterspaced, so the gap between two controls was narrower than the gap inside a single word and the row scanned as one continuous run of text.
+
+### Changed
+
+- **Pinned notes behave like browser tabs.** The bar spans the whole app rather than only the editor, so a pinned note is one click away wherever you are. Four stay on the bar and the rest collapse behind a count — twelve pins used to wrap onto three lines and push the app down, which is the opposite of what the bar is for. Drag a pin to reorder it, or hold alt and press left or right when one is focused.
+- **A note can be renamed from its own title.** Click the title and type. Enter saves, Escape abandons the edit, an empty name is refused, and a rename that fails puts the old name back so the page never shows a name the file does not have. Renaming from the menus still works. Daily and weekly notes stay read-only, because they are named by date.
+- **Today is legible on the calendar at a glance.** It was a one-pixel rule under a number, in a grid of numbers, next to the two-pixel rule that marks your selection. It now carries the accent colour as well.
+- **The marks under each date say what is on that day.** They used to count events, so a day with six back-to-back meetings and a day with one long meeting looked equally busy while telling you nothing about either. Each mark now stands for a kind of thing — open to-dos, events, a note — and a legend under the grid names the colours.
+
 ## [2.2.0] - 2026-08-16
 
 ### Fixed

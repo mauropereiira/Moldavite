@@ -79,6 +79,11 @@ export function Dropdown({
       // would make it impossible to focus, let alone type in.
       if (child.type === DropdownSearch) return child;
 
+      // Neither is a setting you are adjusting *before* you act. Anything
+      // inside a static region keeps the menu open, including its descendants,
+      // so picking a site leaves you looking at the button that publishes to it.
+      if (child.type === DropdownStatic) return child;
+
       const clickable = child as React.ReactElement<{
         onClick?: React.MouseEventHandler<HTMLElement>;
       }>;
@@ -126,7 +131,7 @@ interface DropdownItemProps {
   children: React.ReactNode;
   onClick?: () => void;
   icon?: React.ReactNode;
-  variant?: 'default' | 'danger';
+  variant?: 'default' | 'danger' | 'primary';
   disabled?: boolean;
 }
 
@@ -141,9 +146,21 @@ export function DropdownItem({
     <button
       onClick={disabled ? undefined : onClick}
       role="menuitem"
-      className="w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors focus-ring"
+      // `primary` marks the action the menu exists for. The accent is the one
+      // colour this design holds back for a single thing at a time, so it reads
+      // as "this is the button" without a filled block shouting in a menu of
+      // quiet rows.
+      className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2 transition-colors focus-ring${
+        variant === 'primary' ? ' dropdown-item-primary' : ''
+      }`}
       style={{
-        color: variant === 'danger' ? 'var(--error)' : 'var(--text-primary)',
+        color:
+          variant === 'danger'
+            ? 'var(--error)'
+            : variant === 'primary'
+              ? 'var(--accent)'
+              : 'var(--text-primary)',
+        fontWeight: variant === 'primary' ? 600 : undefined,
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
@@ -200,6 +217,18 @@ export function DropdownSearch({
       />
     </div>
   );
+}
+
+/**
+ * A region of a menu that does not dismiss it.
+ *
+ * `Dropdown` closes on any child's click, which is right for a choice that ends
+ * the interaction and wrong for one that sets up the next step. Choosing which
+ * site to publish to is the second kind: closing there hides the Publish button
+ * the choice was made for, and you have to reopen the menu to find it.
+ */
+export function DropdownStatic({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 // Divider component

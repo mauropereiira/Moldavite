@@ -117,121 +117,131 @@ export function Layout() {
 
   return (
     <div
-      className="flex h-screen w-screen overflow-hidden"
+      className="flex flex-col h-screen w-screen overflow-hidden"
       style={{ backgroundColor: 'var(--bg-base)' }}
     >
-      {showIconRail && <IconRail />}
+      {/* Full width, above everything including the rail and the index, so a
+          pinned note is one click away from wherever you are. It sits outside
+          the content row rather than inside the editor column: the editor is
+          `h-full`, so a sibling above it there pushed its own footer out of
+          view — which is why the footer controls disappeared whenever
+          something was pinned. Overlays and modals mount above this and cover
+          it, which is what you want when one is open. */}
+      <PinnedBar />
 
-      <div
-        data-testid="app-content-area"
-        className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden"
-      >
-        {/* Left Sidebar */}
-        {sidebarVisible && (
-          <div
-            className="app-sidebar flex-shrink-0 relative"
-            style={{
-              width: `${sidebarWidth}px`,
-              backgroundColor: 'var(--bg-sidebar)',
-              borderRight: '1px solid var(--border-default)',
-            }}
-          >
-            <Sidebar />
+      <div className="flex min-h-0 w-full flex-1 overflow-hidden">
+        {showIconRail && <IconRail />}
 
-            {/* Left Resize Handle */}
-            <div
-              className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
-              style={{
-                transitionDuration: 'var(--duration-fast)',
-                backgroundColor:
-                  isResizing === 'left'
-                    ? 'var(--accent-primary)'
-                    : isHovering === 'left'
-                      ? 'var(--border-strong)'
-                      : 'transparent',
-              }}
-              onMouseDown={handleMouseDown('left')}
-              onMouseEnter={() => setIsHovering('left')}
-              onMouseLeave={() => setIsHovering(null)}
-            />
-
-            {/* Extended hit area for easier grabbing */}
-            <div
-              className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-10"
-              style={{ transform: 'translateX(50%)' }}
-              onMouseDown={handleMouseDown('left')}
-              onMouseEnter={() => setIsHovering('left')}
-              onMouseLeave={() => setIsHovering(null)}
-            />
-          </div>
-        )}
-
-        {/* Center pane — Editor by default, Timeline when toggled on */}
         <div
-          className="relative flex-1 flex flex-col min-w-0"
-          style={{ backgroundColor: 'var(--bg-editor)' }}
+          data-testid="app-content-area"
+          className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden"
         >
-          {isTimelineOpen ? (
-            <Suspense fallback={null}>
-              <TimelineView />
-            </Suspense>
-          ) : (
-            <>
-              <PinnedBar />
-              <Editor />
-              <EditorNavigation />
-            </>
-          )}
-        </div>
-
-        {/* Right Panel */}
-        {rightPanelVisible && (
-          <div
-            className="app-right-panel relative min-h-0 flex-shrink-0 overflow-hidden"
-            style={{
-              width: `${rightPanelWidth}px`,
-              backgroundColor: 'var(--bg-panel)',
-              borderLeft: '1px solid var(--border-default)',
-            }}
-          >
-            {/* Right Resize Handle */}
+          {/* Left Sidebar */}
+          {sidebarVisible && (
             <div
-              className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+              className="app-sidebar flex-shrink-0 relative"
               style={{
-                transitionDuration: 'var(--duration-fast)',
-                backgroundColor:
-                  isResizing === 'right'
-                    ? 'var(--accent-primary)'
-                    : isHovering === 'right'
-                      ? 'var(--border-strong)'
-                      : 'transparent',
+                width: `${sidebarWidth}px`,
+                backgroundColor: 'var(--bg-sidebar)',
+                borderRight: '1px solid var(--border-default)',
               }}
-              onMouseDown={handleMouseDown('right')}
-              onMouseEnter={() => setIsHovering('right')}
-              onMouseLeave={() => setIsHovering(null)}
-            />
+            >
+              <Sidebar />
 
-            {/* Extended hit area for easier grabbing */}
-            <div
-              className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
-              style={{ transform: 'translateX(-50%)' }}
-              onMouseDown={handleMouseDown('right')}
-              onMouseEnter={() => setIsHovering('right')}
-              onMouseLeave={() => setIsHovering(null)}
-            />
+              {/* Left Resize Handle */}
+              <div
+                className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+                style={{
+                  transitionDuration: 'var(--duration-fast)',
+                  backgroundColor:
+                    isResizing === 'left'
+                      ? 'var(--accent-primary)'
+                      : isHovering === 'left'
+                        ? 'var(--border-strong)'
+                        : 'transparent',
+                }}
+                onMouseDown={handleMouseDown('left')}
+                onMouseEnter={() => setIsHovering('left')}
+                onMouseLeave={() => setIsHovering(null)}
+              />
 
-            <RightPanel />
+              {/* Extended hit area for easier grabbing */}
+              <div
+                className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-10"
+                style={{ transform: 'translateX(50%)' }}
+                onMouseDown={handleMouseDown('left')}
+                onMouseEnter={() => setIsHovering('left')}
+                onMouseLeave={() => setIsHovering(null)}
+              />
+            </div>
+          )}
+
+          {/* Center pane — Editor by default, Timeline when toggled on */}
+          <div
+            className="relative flex-1 flex flex-col min-w-0"
+            style={{ backgroundColor: 'var(--bg-editor)' }}
+          >
+            {isTimelineOpen ? (
+              <Suspense fallback={null}>
+                <TimelineView />
+              </Suspense>
+            ) : (
+              <>
+                <Editor />
+                <EditorNavigation />
+              </>
+            )}
           </div>
-        )}
 
-        <IndexOverlay
-          isOpen={activeOverlay === 'index' && indexMode === 'overlay'}
-          onClose={closeOverlay}
-        />
-        <AgendaOverlay
-          isOpen={activeOverlay === 'agenda' && agendaMode === 'overlay'}
-          onClose={closeOverlay}
-        />
+          {/* Right Panel */}
+          {rightPanelVisible && (
+            <div
+              className="app-right-panel relative min-h-0 flex-shrink-0 overflow-hidden"
+              style={{
+                width: `${rightPanelWidth}px`,
+                backgroundColor: 'var(--bg-panel)',
+                borderLeft: '1px solid var(--border-default)',
+              }}
+            >
+              {/* Right Resize Handle */}
+              <div
+                className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+                style={{
+                  transitionDuration: 'var(--duration-fast)',
+                  backgroundColor:
+                    isResizing === 'right'
+                      ? 'var(--accent-primary)'
+                      : isHovering === 'right'
+                        ? 'var(--border-strong)'
+                        : 'transparent',
+                }}
+                onMouseDown={handleMouseDown('right')}
+                onMouseEnter={() => setIsHovering('right')}
+                onMouseLeave={() => setIsHovering(null)}
+              />
+
+              {/* Extended hit area for easier grabbing */}
+              <div
+                className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
+                style={{ transform: 'translateX(-50%)' }}
+                onMouseDown={handleMouseDown('right')}
+                onMouseEnter={() => setIsHovering('right')}
+                onMouseLeave={() => setIsHovering(null)}
+              />
+
+              <RightPanel />
+            </div>
+          )}
+
+          <IndexOverlay
+            isOpen={activeOverlay === 'index' && indexMode === 'overlay'}
+            onClose={closeOverlay}
+          />
+          <AgendaOverlay
+            isOpen={activeOverlay === 'agenda' && agendaMode === 'overlay'}
+            onClose={closeOverlay}
+          />
+        </div>
       </div>
     </div>
   );

@@ -11,7 +11,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { Dropdown, DropdownItem, DropdownDivider, DropdownSearch } from '@/components/ui/Dropdown';
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownDivider,
+  DropdownSearch,
+  DropdownStatic,
+} from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { htmlToMarkdown } from '@/lib';
@@ -140,18 +146,13 @@ export function WordPressMenu({
 
       {connected && (
         <>
-          <DropdownItem
-            onClick={() => void handlePublish()}
-            // Without `publishing`, reopening the menu mid-publish and clicking
-            // again sends a second create — neither call has a post id yet, so
-            // you get two drafts and only the later one stays mapped.
-            disabled={!currentNote || !chosenSite || publishing}
-          >
-            {chosenSite ? `Publish to ${siteLabel(chosenSite)}` : 'Choose a site first'}
-          </DropdownItem>
+          {/* The picker comes first and does not dismiss the menu, so choosing
+              a site leaves you looking at the button that publishes to it.
+              Publishing used to sit above a list that closed on selection —
+              you chose a site, the menu vanished, and you had to reopen it to
+              find the action you had just set up. */}
           {sites.length > 1 && (
-            <>
-              <DropdownDivider />
+            <DropdownStatic>
               {showSearch && (
                 <DropdownSearch
                   value={query}
@@ -179,8 +180,25 @@ export function WordPressMenu({
                   ))
                 )}
               </div>
-            </>
+              <DropdownDivider />
+            </DropdownStatic>
           )}
+
+          <DropdownItem
+            variant="primary"
+            onClick={() => void handlePublish()}
+            // Without `publishing`, reopening the menu mid-publish and clicking
+            // again sends a second create — neither call has a post id yet, so
+            // you get two drafts and only the later one stays mapped.
+            disabled={!currentNote || !chosenSite || publishing}
+          >
+            {publishing
+              ? 'Publishing…'
+              : chosenSite
+                ? `Publish to ${siteLabel(chosenSite)}`
+                : 'Choose a site first'}
+          </DropdownItem>
+
           <DropdownDivider />
           <DropdownItem onClick={() => void disconnect()}>Disconnect</DropdownItem>
         </>

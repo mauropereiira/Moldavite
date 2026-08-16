@@ -83,13 +83,19 @@ function DraggableNoteItemImpl({
         }${isSelected ? ' is-selected' : ''}`}
         aria-pressed={isSelected || undefined}
       >
-        <span className="flex items-baseline gap-2">
+        {/* `min-w-0` on both: a flex item's default minimum is its content
+            size, so `truncate` never engages and a long note name runs under
+            the Options button instead of ellipsing before it. */}
+        <span className="flex min-w-0 items-baseline gap-2">
           {note.isLocked && (
-            <span className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>
+            <span
+              className="flex-shrink-0 text-[10px] font-normal"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Locked
             </span>
           )}
-          <span className="note-card-title truncate">{note.name.replace(/\.md$/, '')}</span>
+          <span className="note-card-title min-w-0 truncate">{note.name.replace(/\.md$/, '')}</span>
         </span>
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">

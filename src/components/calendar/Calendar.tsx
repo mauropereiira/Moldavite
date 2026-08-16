@@ -18,7 +18,7 @@ import {
   parseISO,
 } from 'date-fns';
 import { fetchCalendarEvents } from '@/lib/calendar';
-import { useCalendarStore, useNoteStore } from '@/stores';
+import { useCalendarStore, useNoteStore, useTaskStatusStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import type { CalendarEvent } from '@/types';
 
@@ -26,8 +26,24 @@ interface CalendarProps {
   onNavigate?: () => void;
 }
 
+/**
+ * What a dot under a date means. One per *kind*, never one per event: counting
+ * events made a day with six back-to-back meetings and a day with one long one
+ * look equally busy while saying nothing about what was actually on it.
+ *
+ * Shared with the legend below the grid, so the two can never drift — a
+ * colour-coded grid with no key is decoration, and a key that disagrees with
+ * the grid is worse than none.
+ */
+const DAY_MARKS = [
+  { kind: 'tasks', label: 'To-do', color: 'var(--warning)' },
+  { kind: 'events', label: 'Events', color: 'var(--accent)' },
+  { kind: 'note', label: 'Note', color: 'var(--text-secondary)' },
+] as const;
+
 export function Calendar({ onNavigate }: CalendarProps = {}) {
   const { selectedDate, setSelectedDate, selectedWeek, setSelectedWeek, notes } = useNoteStore();
+  const taskStatusByDate = useTaskStatusStore((state) => state.taskStatusByDate);
   const {
     sources,
     calendarEnabled,
@@ -271,6 +287,18 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
                 const isToday = isSameDay(day, new Date());
                 const dayHasNote = hasNote(day);
                 const dayEventCount = eventCount(day);
+                const dayKey = format(day, 'yyyy-MM-dd');
+                const taskStatus = taskStatusByDate.get(dayKey);
+                const hasOpenTasks = Boolean(
+                  taskStatus && taskStatus.totalTasks > taskStatus.completedTasks
+                );
+                const dayMarks = DAY_MARKS.filter(({ kind }) =>
+                  kind === 'tasks'
+                    ? hasOpenTasks
+                    : kind === 'events'
+                      ? dayEventCount > 0
+                      : dayHasNote
+                );
 
                 return (
                   <button
@@ -280,12 +308,18 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
                     className="calendar-date list-item-stagger focus-ring flex h-8 items-center justify-center text-xs transition-colors"
                     style={
                       {
-                        color: isCurrentMonth
-                          ? dayHasNote
-                            ? 'var(--text-primary)'
-                            : 'var(--text-secondary)'
-                          : 'var(--text-muted)',
-                        fontWeight: dayHasNote ? 500 : 400,
+                        // Today is the one date you look for, and a 1px rule
+                        // under a number in a grid of numbers is not enough to
+                        // find at a glance — especially beside the 2px rule
+                        // that marks the selection.
+                        color: isToday
+                          ? 'var(--accent)'
+                          : isCurrentMonth
+                            ? dayHasNote
+                              ? 'var(--text-primary)'
+                              : 'var(--text-secondary)'
+                            : 'var(--text-muted)',
+                        fontWeight: isToday || dayHasNote ? 500 : 400,
                         '--index': Math.min(weekIndex * 8 + dayIndex + 1, 10),
                       } as React.CSSProperties
                     }
@@ -311,6 +345,12 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
                       >
                         {format(day, 'd')}
                       </span>
+                      {/* One dot per *kind* of thing on that day rather than
+                          one per event. Counting events made a busy day and a
+                          day with a single long meeting look equally noisy
+                          while telling you nothing about what was on it. The
+                          legend beneath the grid names the colours; without it
+                          this is decoration. */}
                       <svg
                         aria-hidden="true"
                         data-event-count={dayEventCount}
@@ -320,17 +360,16 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
                         style={{
                           display: 'block',
                           marginTop: '2px',
-                          color: 'var(--text-muted)',
                           opacity: isCurrentMonth ? 1 : 0.55,
                         }}
                       >
-                        {Array.from({ length: dayEventCount }, (_, eventIndex) => (
+                        {dayMarks.map((mark, markIndex) => (
                           <circle
-                            key={eventIndex}
-                            cx={5 - ((dayEventCount - 1) * 3) / 2 + eventIndex * 3}
+                            key={mark.kind}
+                            cx={5 - ((dayMarks.length - 1) * 3) / 2 + markIndex * 3}
                             cy="1"
                             r="1"
-                            fill="currentColor"
+                            fill={mark.color}
                           />
                         ))}
                       </svg>
@@ -341,6 +380,20 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
             </div>
           );
         })}
+      </div>
+
+      {/* Without this the colours are decoration. Kept to the same quiet
+          register as the rest of the chrome — it should be readable when you
+          look for it and invisible when you are not. */}
+      <div className="calendar-legend" aria-label="What the marks under each date mean">
+        {DAY_MARKS.map(({ kind, label, color }) => (
+          <span key={kind} className="calendar-legend-item">
+            <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+              <circle cx="3" cy="3" r="3" fill={color} />
+            </svg>
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   );
