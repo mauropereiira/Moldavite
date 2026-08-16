@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.5] - 2026-08-16
+
+### Fixed
+
+- **The Forge switcher's arrow sat on top of the Index overlay's close button.** The arrow was pinned to the far right of a full-width control, and in the overlay "far right" is the whole window. It now sits beside the Forge name, where it cannot collide with anything at any width — and where it reads as what it is: press the Forge name to switch Forge.
+
 ## [2.2.4] - 2026-08-16
 
 ### Fixed
