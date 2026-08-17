@@ -46,7 +46,7 @@
   },
   "plugins": {
     "shell": {
-      "open": "(?:https://github\\.com/mauropereiira/Moldavite/releases|https://github\\.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS\\.md|https://www\\.google\\.com/calendar/event\\?eid=.+|x-apple\\.systempreferences:com\\.apple\\.preference\\.security\\?Privacy_Calendars|https://accounts\\.google\\.com/o/oauth2/v2/auth\\?.+|https://public-api\\.wordpress\\.com/oauth2/authorize\\?.+)"
+      "open": "(?:https://github\\.com/mauropereiira/Moldavite/releases|https://github\\.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS\\.md|https://github\\.com/mauropereiira/Moldavite/tree/main/extension|https://www\\.google\\.com/calendar/event\\?eid=.+|x-apple\\.systempreferences:com\\.apple\\.preference\\.security\\?Privacy_Calendars|https://accounts\\.google\\.com/o/oauth2/v2/auth\\?.+|https://public-api\\.wordpress\\.com/oauth2/authorize\\?.+)"
     },
     "deep-link": {
       "desktop": {

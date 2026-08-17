@@ -24,6 +24,7 @@ import {
 import { PluginPermissionSheet } from '@/components/plugins/PluginPermissionSheet';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { PluginAboutDialog } from '@/components/plugins/PluginAboutDialog';
+import { BrowserClipperCard } from '../BrowserClipperCard';
 import { PluginInstallDialog } from '@/components/plugins/PluginInstallDialog';
 import { ConfirmDialog } from '@/components/ui';
 import { Toggle } from '../common';
@@ -491,6 +492,8 @@ export function PluginsSection() {
           in your Forge and reopen this tab.
         </p>
       </div>
+
+      <BrowserClipperCard />
 
       {registryStatus === 'error' && (
         <div
