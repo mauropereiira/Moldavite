@@ -1227,10 +1227,14 @@ time,
   box-shadow: none;
 }
 
+/* The `:not()` arguments are wrapped in `:where()` on purpose: bare `:not(.x)`
+   adds a class to the specificity, and at (0,4,0) this blanket reset outranked
+   every `.settings-dialog .thing { background: … !important }` exception below
+   it — the import wizard and its scrim rendered with no background at all. */
 .settings-dialog
-  :where(div, section, button, input, select, textarea, span):not(.settings-preset-swatch):not(
-    .settings-update-dot
-  ):not(.settings-calendar-swatch) {
+  :where(div, section, button, input, select, textarea, span):not(
+    :where(.settings-preset-swatch, .settings-update-dot, .settings-calendar-swatch)
+  ) {
   background-color: transparent !important;
   border-radius: 0 !important;
   box-shadow: none !important;

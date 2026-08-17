@@ -38,7 +38,8 @@ export type ShortcutId =
   | 'toggleSidebar'
   | 'toggleRightPanel'
   | 'toggleFocusMode'
-  | 'clearSelection';
+  | 'clearSelection'
+  | 'closeNote';
 
 export interface Shortcut {
   id: ShortcutId;
@@ -177,6 +178,13 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['⌘', '.'],
     description: 'Focus mode — hide all chrome',
     category: 'navigation',
+  },
+
+  {
+    id: 'closeNote',
+    keys: ['Esc'],
+    description: 'Close the open note',
+    category: 'files',
   },
 
   // Selection

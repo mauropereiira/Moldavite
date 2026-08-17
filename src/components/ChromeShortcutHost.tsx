@@ -1,10 +1,41 @@
 import { useEffect } from 'react';
-import { useGraphStore, useOverlayStore, useQuickSwitcherStore, useSettingsStore } from '@/stores';
+import {
+  useGraphStore,
+  useNoteSelectionStore,
+  useNoteStore,
+  useOverlayStore,
+  useQuickSwitcherStore,
+  useSettingsStore,
+} from '@/stores';
+
+/**
+ * Esc leaves the open note, landing back on the wordmark screen when it was the
+ * last one. Esc is the most contested key in the app, so it only acts when
+ * nothing else wants it: no handler has already claimed the event (ProseMirror
+ * marks its own suggestion menus that way), no dialog is on screen, no bulk
+ * selection is waiting to be cleared, and focus is in the note itself rather
+ * than in a field, a menu, or a toolbar button.
+ */
+function closeActiveNote(event: KeyboardEvent) {
+  if (event.defaultPrevented) return;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+
+  const target = event.target as HTMLElement | null;
+  const inNote = target === document.body || Boolean(target?.closest?.('.tiptap'));
+  if (!inNote) return;
+  if (document.querySelector('[role="dialog"], [aria-modal="true"]')) return;
+  if (useNoteSelectionStore.getState().selectedIds.size > 0) return;
+
+  const { activeTabId, closeTab } = useNoteStore.getState();
+  if (!activeTabId) return;
+  event.preventDefault();
+  closeTab(activeTabId);
+}
 
 /**
  * Keyboard handling for the navigation surfaces — ⌘\ (Index), ⌘⌥\ (Agenda),
- * ⌘P (Search), ⌘⇧G (Graph), Esc (close the active one) — and ⌘. (focus mode).
- * Mount once near the app root.
+ * ⌘P (Search), ⌘⇧G (Graph), Esc (close the active one, or the open note when
+ * none is up) — and ⌘. (focus mode). Mount once near the app root.
  *
  * The listener lives here rather than in `useKeyboardShortcuts` for the same
  * reason `ShortcutHelpHost` does: that hook is owned by the editor tree, which
@@ -19,9 +50,13 @@ import { useGraphStore, useOverlayStore, useQuickSwitcherStore, useSettingsStore
 export function ChromeShortcutHost() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && useOverlayStore.getState().activeOverlay) {
-        e.preventDefault();
-        useOverlayStore.getState().closeOverlay();
+      if (e.key === 'Escape') {
+        if (useOverlayStore.getState().activeOverlay) {
+          e.preventDefault();
+          useOverlayStore.getState().closeOverlay();
+        } else {
+          closeActiveNote(e);
+        }
         return;
       }
 

@@ -2,6 +2,20 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.2.8] - 2026-08-17
+
+### Added
+
+- **Esc closes the note you are reading.** Press it with a note open and you land back on the wordmark screen — or on the next tab, if you had several open. It gives way to anything else that wants the key first: a dialog, the Index or Agenda, a slash menu, a sidebar selection waiting to be cleared, or a text field you are typing in. It appears in the shortcut list under ⌘/ with everything else.
+
+### Fixed
+
+- **The Obsidian import window had no background of its own.** The Settings page behind it showed straight through, so the vault counts, the Forge name field and the buttons all landed on top of unrelated text. One blanket rule that flattens backgrounds inside Settings had been outranking every exception written for it, which also left the monogram on the About tab invisible and killed the hover highlight on rows and tabs. Those are back too.
+- **Info tooltips in Settings were unreadable.** The little (i) popovers drew their text with no background at all, over whatever happened to sit underneath. They now use the same solid surface as the rest of the app's floating panels.
+- **Browsing community plugins always failed with a connection error.** The address the plugin directory is served from was missing from the app's own security policy, so the request was blocked before it ever left Moldavite — and then reported as if the network were at fault.
+- **The install buttons for the two bundled plugins stayed on screen after installing them.** Pressing one again could only produce an error, because a bundled install refuses to overwrite what is already there. Each button now disappears once its plugin is installed, and comes back if you uninstall it.
+- **Sidebar settings showed an empty "Layout" heading.** Both width sliders only apply to a pinned column, so with the Index and Agenda as overlays the group had nothing in it. It now appears only when there is something to adjust.
+
 ## [2.2.7] - 2026-08-16
 
 ### Fixed

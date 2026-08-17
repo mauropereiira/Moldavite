@@ -248,6 +248,9 @@ export function PluginsSection() {
     }
   };
 
+  /** Bundled installs refuse to overwrite, so hide the button once it is in. */
+  const isInstalled = (id: string) => plugins.some((info) => info.manifest.id === id);
+
   const statusText = (info: PluginInfo): string => {
     if (info.status === 'invalid') return 'Invalid';
     if (info.status === 'incompatible') return 'Incompatible';
@@ -400,35 +403,39 @@ export function PluginsSection() {
         style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
       >
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleInstallWordPress}
-            disabled={busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <Download aria-hidden="true" className="w-4 h-4" />
-            Install Publish to WordPress
-          </button>
-          <button
-            type="button"
-            onClick={handleInstallExample}
-            disabled={busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <Download aria-hidden="true" className="w-4 h-4" />
-            Install example plugin
-          </button>
+          {!isInstalled('moldavite-wordpress') && (
+            <button
+              type="button"
+              onClick={handleInstallWordPress}
+              disabled={busy}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'transparent',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <Download aria-hidden="true" className="w-4 h-4" />
+              Install Publish to WordPress
+            </button>
+          )}
+          {!isInstalled('moldavite-example') && (
+            <button
+              type="button"
+              onClick={handleInstallExample}
+              disabled={busy}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <Download aria-hidden="true" className="w-4 h-4" />
+              Install example plugin
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void browseCommunityPlugins()}
