@@ -9,12 +9,21 @@
 //! the host manifest, which is a weaker claim than a user sitting in the app.
 
 use std::io::{ErrorKind, Read, Write};
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
+
+use crate::persist::write_atomic;
+use crate::validation::{sanitize_path_segment, validate_path_within_base};
 
 /// Chrome caps host → extension messages at 1 MB; inbound is our own bound.
 pub(crate) const MAX_INBOUND: usize = 8 * 1024 * 1024;
 pub(crate) const MAX_OUTBOUND: usize = 1024 * 1024;
+
+/// Clips live in their own folder so a week of reading cannot bury your own notes.
+const CLIPPINGS_DIR: &str = "Clippings";
+/// Enough repeats of one page to be a mistake rather than a workflow.
+const MAX_COLLISION_SUFFIX: u32 = 50;
 
 /// Read one framed message. `Ok(None)` means the browser closed the pipe.
 fn read_message(reader: &mut impl Read) -> Result<Option<Value>, String> {
@@ -81,9 +90,97 @@ fn forges() -> Result<Value, String> {
     }))
 }
 
+/// Host of an http(s) URL, or `None` for any other scheme. Deliberately not a URL
+/// parser: the only questions here are "is this safe to record" and "what do we
+/// call the file when the page has no title".
+fn http_host(url: &str) -> Option<&str> {
+    let rest = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host = authority.rsplit('@').next()?.split(':').next()?;
+    (!host.is_empty()).then_some(host)
+}
+
+fn clip_stem(title: &str, url: &str) -> String {
+    let fallback = http_host(url).unwrap_or("Clipped page");
+    let title = title.trim();
+    if title.is_empty() {
+        return sanitize_path_segment(fallback, "Clipped page");
+    }
+    sanitize_path_segment(title, fallback)
+}
+
+fn clip_document(title: &str, url: &str, markdown: &str, clipped: &str) -> String {
+    // The URL is quoted so a colon or a `#` cannot break the YAML block, and any
+    // quote inside it is escaped.
+    let source = url.replace('\\', "\\\\").replace('"', "\\\"");
+    let heading = if title.trim().is_empty() {
+        String::new()
+    } else {
+        format!("# {}\n\n", title.trim())
+    };
+    let body = markdown.trim_end();
+    format!("---\nsource: \"{source}\"\nclipped: {clipped}\n---\n\n{heading}{body}\n")
+}
+
+fn unique_destination(dir: &Path, stem: &str) -> Result<PathBuf, String> {
+    let first = dir.join(format!("{stem}.md"));
+    if !first.exists() {
+        return Ok(first);
+    }
+    for suffix in 2..=MAX_COLLISION_SUFFIX {
+        let candidate = dir.join(format!("{stem} ({suffix}).md"));
+        if !candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err("Too many clippings of this page already exist".to_string())
+}
+
+fn required_str<'a>(request: &'a Value, key: &str) -> Result<&'a str, String> {
+    request
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("{key} is required"))
+}
+
+fn clip(request: &Value) -> Result<Value, String> {
+    let url = required_str(request, "url")?;
+    if http_host(url).is_none() {
+        return Err("source must be an http(s) URL".to_string());
+    }
+    let markdown = required_str(request, "markdown")?;
+    let title = request.get("title").and_then(Value::as_str).unwrap_or("");
+
+    let forge_root = crate::mcp::resolve_named_forge(request.get("forge").and_then(Value::as_str))?;
+    let dir = forge_root.join("notes").join(CLIPPINGS_DIR);
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("Failed to create the Clippings folder: {error}"))?;
+
+    let path = unique_destination(&dir, &clip_stem(title, url))?;
+    validate_path_within_base(&path, &forge_root)
+        .map_err(|_| "Refusing to write outside the Forge".to_string())?;
+
+    let clipped = chrono::Local::now().format("%Y-%m-%d").to_string();
+    write_atomic(
+        &path,
+        clip_document(title, url, markdown, &clipped).as_bytes(),
+        Some(0o600),
+    )?;
+
+    let relative = path
+        .strip_prefix(&forge_root)
+        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    Ok(json!({ "path": relative }))
+}
+
 fn handle(request: &Value) -> Value {
     match request.get("op").and_then(Value::as_str) {
         Some("forges") => respond(forges()),
+        Some("clip") => respond(clip(request)),
         _ => error_response("unsupported operation"),
     }
 }
@@ -184,5 +281,85 @@ mod tests {
 
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["ok"], Value::Bool(false));
+    }
+
+    fn temp_dir(label: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-clip-{label}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn clip_document_carries_source_and_date_then_the_body() {
+        let note = clip_document(
+            "How TLS works",
+            "https://example.com/tls",
+            "First paragraph.",
+            "2026-08-17",
+        );
+
+        assert_eq!(
+            note,
+            "---\nsource: \"https://example.com/tls\"\nclipped: 2026-08-17\n---\n\n# How TLS works\n\nFirst paragraph.\n"
+        );
+    }
+
+    #[test]
+    fn clip_stem_falls_back_to_the_host_when_a_page_has_no_title() {
+        assert_eq!(
+            clip_stem("How TLS works", "https://example.com/a"),
+            "How TLS works"
+        );
+        assert_eq!(clip_stem("   ", "https://example.com/a"), "example.com");
+        // A traversal attempt is a filename, never a path.
+        let hostile = clip_stem("../../etc/passwd", "https://example.com/a");
+        assert!(!hostile.contains('/'), "unexpected stem: {hostile}");
+    }
+
+    #[test]
+    fn a_second_clip_of_the_same_page_does_not_overwrite_the_first() {
+        let dir = temp_dir("collision");
+
+        let first = unique_destination(&dir, "Same title").unwrap();
+        std::fs::write(&first, "original").unwrap();
+        let second = unique_destination(&dir, "Same title").unwrap();
+
+        assert_eq!(first.file_name().unwrap(), "Same title.md");
+        assert_eq!(second.file_name().unwrap(), "Same title (2).md");
+        assert_eq!(std::fs::read_to_string(&first).unwrap(), "original");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn clip_rejects_a_non_http_source() {
+        let response = handle(&json!({
+            "op": "clip",
+            "url": "javascript:alert(1)",
+            "title": "x",
+            "markdown": "body",
+        }));
+
+        assert_eq!(response["ok"], Value::Bool(false));
+        assert_eq!(response["error"], "source must be an http(s) URL");
+    }
+
+    #[test]
+    fn clip_rejects_an_unknown_forge() {
+        let response = handle(&json!({
+            "op": "clip",
+            "forge": "NoSuchForge-9f3a",
+            "url": "https://example.com/a",
+            "title": "x",
+            "markdown": "body",
+        }));
+
+        assert_eq!(response["ok"], Value::Bool(false));
     }
 }
