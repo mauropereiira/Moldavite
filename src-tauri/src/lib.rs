@@ -41,6 +41,10 @@ pub(crate) mod migration;
 /// Stdio Model Context Protocol server, selected with the `--mcp` flag.
 pub mod mcp;
 
+/// Native-messaging host for the browser clipper, selected by how the browser
+/// launches us. Write-only, and narrower than MCP on purpose.
+pub mod browser_host;
+
 /// Filesystem watcher (notify) that emits `forge:changed` events.
 pub(crate) mod forge_watcher;
 
