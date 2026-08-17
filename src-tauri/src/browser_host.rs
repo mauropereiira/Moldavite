@@ -4,9 +4,15 @@
 //! transport is a 4-byte little-endian length prefix followed by a JSON body,
 //! which is the only difference from the `--mcp` stdio server.
 //!
-//! Exactly two operations exist and both are write-side. This bridge must never
-//! grow a read: the extension is authenticated only by the extension ID pinned in
-//! the host manifest, which is a weaker claim than a user sitting in the app.
+//! Exactly two operations exist: `forges` and `clip`.
+//!
+//! The caller is authenticated only by the extension ID pinned in the host
+//! manifest, which the browser enforces — a weaker claim than a user sitting in
+//! the app window. So the bridge must never expose note content or the note
+//! list. `forges` is the one read here, and it returns Forge *names* only:
+//! directory names any local process could already enumerate from the Forges
+//! root, and the popup cannot offer a destination it cannot name. Adding any
+//! read beyond that re-opens a question this bridge has not answered.
 
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
@@ -195,6 +201,39 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> Result<(), String>
     Ok(())
 }
 
+pub const GECKO_EXTENSION_ID: &str = "clipper@moldavite.app";
+
+fn is_chrome_origin(arg: &str) -> bool {
+    let Some(id) = arg
+        .strip_prefix("chrome-extension://")
+        .and_then(|rest| rest.strip_suffix('/'))
+    else {
+        return false;
+    };
+    id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_lowercase() && byte <= b'p')
+}
+
+/// Chrome passes the calling origin first; Firefox passes the manifest path then
+/// the add-on ID. Native-messaging manifests cannot carry arguments, so how we
+/// were launched is the only signal available.
+///
+/// This selects a *mode*, it does not authenticate anyone: which extension may
+/// connect is enforced by the browser from `allowed_origins` in the host
+/// manifest, and a local process that can spawn this binary could write to the
+/// Forge directly anyway.
+pub fn is_browser_host_launch(args: &[String]) -> bool {
+    if args.iter().any(|arg| arg == "--browser-host") {
+        return true;
+    }
+    match args {
+        [origin, ..] if is_chrome_origin(origin) => true,
+        [manifest, extension_id, ..] => {
+            manifest.ends_with(".json") && extension_id == GECKO_EXTENSION_ID
+        }
+        _ => false,
+    }
+}
+
 /// Entry point used by `main.rs` once launch-mode detection has fired.
 pub fn run() -> Result<(), String> {
     serve(std::io::stdin().lock(), std::io::stdout().lock())
@@ -348,6 +387,34 @@ mod tests {
 
         assert_eq!(response["ok"], Value::Bool(false));
         assert_eq!(response["error"], "source must be an http(s) URL");
+    }
+
+    #[test]
+    fn recognises_how_each_browser_launches_the_host() {
+        let args = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+
+        assert!(is_browser_host_launch(&args(&["--browser-host"])));
+        assert!(is_browser_host_launch(&args(&[
+            "chrome-extension://abcdefghijklmnopabcdefghijklmnop/",
+            "--parent-window=0",
+        ])));
+        assert!(is_browser_host_launch(&args(&[
+            "/Users/x/Library/Application Support/Mozilla/NativeMessagingHosts/com.moldavite.clipper.json",
+            GECKO_EXTENSION_ID,
+        ])));
+
+        assert!(!is_browser_host_launch(&args(&[])));
+        assert!(!is_browser_host_launch(&args(&["--mcp"])));
+        // Not a Chrome ID: IDs are exactly 32 characters from a–p.
+        assert!(!is_browser_host_launch(&args(&["chrome-extension://short/"])));
+        assert!(!is_browser_host_launch(&args(&[
+            "chrome-extension://ABCDEFGHIJKLMNOPabcdefghijklmnop/"
+        ])));
+        // A Firefox-shaped launch for somebody else's add-on is not ours.
+        assert!(!is_browser_host_launch(&args(&[
+            "/tmp/other.json",
+            "someone@else"
+        ])));
     }
 
     #[test]
