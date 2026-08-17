@@ -76,76 +76,78 @@ export function SidebarSection() {
         />
       </section>
 
-      {/* Layout */}
-      <section className="settings-section">
-        <div className="flex items-center gap-1">
-          <SectionHeading>Layout</SectionHeading>
-          <InfoTooltip text="Control the width of sidebars. Wider sidebars show more note titles, narrower gives more editor space." />
-        </div>
-
-        {/* Only meaningful when the Index is a pinned column. As an overlay it
-            is full-window, and the rail is a fixed 48px — so an ungated slider
-            here is a control that silently does nothing. */}
-        {settings.indexMode === 'pinned' && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1">
-                <label
-                  htmlFor="sidebar-width-range"
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  Sidebar Width
-                </label>
-                <InfoTooltip text="Width of the pinned Index column in pixels. Range: 200px (compact) to 400px (spacious)." />
-              </div>
-              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {settings.sidebarWidth}px
-              </span>
-            </div>
-            <input
-              id="sidebar-width-range"
-              type="range"
-              min="200"
-              max="400"
-              step="10"
-              value={settings.sidebarWidth}
-              onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
-              className="settings-range w-full appearance-none cursor-pointer"
-            />
+      {/* Layout — only meaningful for a pinned column. As an overlay the Index
+          is full-window and the rail is a fixed 48px, so an ungated slider is a
+          control that silently does nothing; with neither pinned the whole
+          group is empty, so it does not render at all. */}
+      {(settings.indexMode === 'pinned' || settings.agendaMode === 'pinned') && (
+        <section className="settings-section">
+          <div className="flex items-center gap-1">
+            <SectionHeading>Layout</SectionHeading>
+            <InfoTooltip text="Control the width of sidebars. Wider sidebars show more note titles, narrower gives more editor space." />
           </div>
-        )}
 
-        {settings.agendaMode === 'pinned' && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1">
-                <label
-                  htmlFor="right-panel-width-range"
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  Right Panel Width
-                </label>
-                <InfoTooltip text="Width of the right panel (calendar/timeline) in pixels. Range: 250px to 500px." />
+          {settings.indexMode === 'pinned' && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1">
+                  <label
+                    htmlFor="sidebar-width-range"
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Sidebar Width
+                  </label>
+                  <InfoTooltip text="Width of the pinned Index column in pixels. Range: 200px (compact) to 400px (spacious)." />
+                </div>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  {settings.sidebarWidth}px
+                </span>
               </div>
-              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {settings.rightPanelWidth}px
-              </span>
+              <input
+                id="sidebar-width-range"
+                type="range"
+                min="200"
+                max="400"
+                step="10"
+                value={settings.sidebarWidth}
+                onChange={(e) => settings.setSidebarWidth(Number(e.target.value))}
+                className="settings-range w-full appearance-none cursor-pointer"
+              />
             </div>
-            <input
-              id="right-panel-width-range"
-              type="range"
-              min="250"
-              max="500"
-              step="10"
-              value={settings.rightPanelWidth}
-              onChange={(e) => settings.setRightPanelWidth(Number(e.target.value))}
-              className="settings-range w-full appearance-none cursor-pointer"
-            />
-          </div>
-        )}
-      </section>
+          )}
+
+          {settings.agendaMode === 'pinned' && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1">
+                  <label
+                    htmlFor="right-panel-width-range"
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Right Panel Width
+                  </label>
+                  <InfoTooltip text="Width of the right panel (calendar/timeline) in pixels. Range: 250px to 500px." />
+                </div>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  {settings.rightPanelWidth}px
+                </span>
+              </div>
+              <input
+                id="right-panel-width-range"
+                type="range"
+                min="250"
+                max="500"
+                step="10"
+                value={settings.rightPanelWidth}
+                onChange={(e) => settings.setRightPanelWidth(Number(e.target.value))}
+                className="settings-range w-full appearance-none cursor-pointer"
+              />
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

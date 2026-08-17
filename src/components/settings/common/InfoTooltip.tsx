@@ -95,7 +95,8 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
               left: pos.left,
               width: TOOLTIP_WIDTH,
               transform: pos.placement === 'top' ? 'translateY(-100%)' : undefined,
-              backgroundColor: 'transparent',
+              // Floats over content, so it has to be opaque to stay readable.
+              backgroundColor: 'var(--bg-elevated)',
               border: '1px solid var(--border-default)',
               color: 'var(--text-secondary)',
               zIndex: 10000,

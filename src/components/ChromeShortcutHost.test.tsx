@@ -2,11 +2,14 @@ import { fireEvent, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   useGraphStore,
+  useNoteSelectionStore,
+  useNoteStore,
   useOverlayStore,
   useQuickSwitcherStore,
   useSettingsStore,
   useTimelineStore,
 } from '@/stores';
+import type { Note } from '@/types';
 import { ChromeShortcutHost } from './ChromeShortcutHost';
 
 describe('ChromeShortcutHost modes', () => {
@@ -78,9 +81,28 @@ describe('ChromeShortcutHost surfaces', () => {
       isSidebarHidden: false,
       isRightPanelHidden: false,
     });
+    useNoteStore.setState({ openTabs: [], activeTabId: null, currentNote: null });
+    useNoteSelectionStore.getState().clear();
   });
 
   const escape = () => fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+
+  const note: Note = {
+    id: 'note-1',
+    title: 'Note',
+    content: '',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    isDaily: false,
+    isWeekly: false,
+  };
+
+  const openNote = () =>
+    useNoteStore.setState({ openTabs: [note], activeTabId: note.id, currentNote: note });
+
+  /** Escape with nothing focused, which is what the browser targets at body. */
+  const escapeFromNote = (init: { shiftKey?: boolean } = {}) =>
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape', ...init });
 
   const surfaces = [
     { name: 'index', open: () => useOverlayStore.getState().openIndex(false) },
@@ -100,6 +122,64 @@ describe('ChromeShortcutHost surfaces', () => {
     expect(useGraphStore.getState().isOpen).toBe(false);
     expect(useTimelineStore.getState().isOpen).toBe(false);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+  });
+
+  it('closes the open note on Escape, not the note under an active surface', () => {
+    render(<ChromeShortcutHost />);
+    openNote();
+
+    // An overlay owns Escape first: the note survives.
+    useOverlayStore.getState().openIndex(false);
+    escapeFromNote();
+    expect(useNoteStore.getState().activeTabId).toBe('note-1');
+
+    escapeFromNote();
+    expect(useNoteStore.getState().activeTabId).toBeNull();
+    expect(useNoteStore.getState().currentNote).toBeNull();
+  });
+
+  it('leaves the note alone while anything else wants Escape', () => {
+    render(<ChromeShortcutHost />);
+
+    const cases: Array<[string, () => () => void]> = [
+      [
+        'a dialog is on screen',
+        () => {
+          const dialog = document.createElement('div');
+          dialog.setAttribute('role', 'dialog');
+          document.body.appendChild(dialog);
+          return () => dialog.remove();
+        },
+      ],
+      [
+        'a bulk selection is waiting to be cleared',
+        () => {
+          useNoteSelectionStore.getState().replace(['note-1']);
+          return () => useNoteSelectionStore.getState().clear();
+        },
+      ],
+    ];
+
+    for (const [, setup] of cases) {
+      openNote();
+      const teardown = setup();
+      escapeFromNote();
+      expect(useNoteStore.getState().activeTabId).toBe('note-1');
+      teardown();
+    }
+
+    // Handled by something closer to the event — ProseMirror marks its own
+    // suggestion menus this way.
+    openNote();
+    const claimEscape = (event: KeyboardEvent) => event.preventDefault();
+    document.body.addEventListener('keydown', claimEscape);
+    escapeFromNote();
+    document.body.removeEventListener('keydown', claimEscape);
+    expect(useNoteStore.getState().activeTabId).toBe('note-1');
+
+    // A modifier means it is some other shortcut, not "leave the note".
+    escapeFromNote({ shiftKey: true });
+    expect(useNoteStore.getState().activeTabId).toBe('note-1');
   });
 
   it('toggles Search and Graph from the keyboard like their rail buttons', () => {
