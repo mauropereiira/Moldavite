@@ -182,8 +182,41 @@ jobs:
           args: ${{ matrix.args }}
           updaterJsonPreferNsis: true
 
+  # Built from the same commit as the app so a release's clipper and its binary
+  # always agree about the protocol between them.
+  build-extension:
+    needs: create-release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Build the Chrome extension
+        run: |
+          npm ci
+          npm test
+          npm run build
+          cd dist/chrome && zip -r ../../moldavite-clipper-chrome.zip .
+        working-directory: extension
+
+      - name: Attach it to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release upload "$RELEASE_TAG" extension/moldavite-clipper-chrome.zip --clobber
+
   publish-release:
-    needs: [create-release, build-tauri]
+    needs: [create-release, build-tauri, build-extension]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -320,7 +353,11 @@ jobs:
               `Moldavite_${version}_x64_en-US.msi.sig`,
               `Moldavite_${version}_x64-setup.exe`,
               `Moldavite_${version}_x64-setup.exe.sig`,
-              `latest.json`
+              `latest.json`,
+              // The Chrome/Edge/Brave clipper, loaded unpacked. The Firefox XPI
+              // is not here: it has to be signed through AMO by hand, and is
+              // uploaded to the published release afterwards.
+              `moldavite-clipper-chrome.zip`
             ];
             for (const name of expectedAssets) {
               const asset = assetsByName.get(name);

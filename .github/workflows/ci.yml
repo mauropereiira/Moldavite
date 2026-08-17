@@ -51,6 +51,36 @@ jobs:
       - name: Run ${{ matrix.task }}
         run: ${{ matrix.run }}
 
+  # The clipper is its own npm package with its own dependencies (Readability,
+  # Turndown, esbuild) and shares none of the app's build, so it gets its own job
+  # rather than a matrix entry that would need the app's install.
+  extension:
+    name: test-extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+        working-directory: extension
+
+      - name: Test
+        run: npm test
+        working-directory: extension
+
+      - name: Build
+        run: npm run build
+        working-directory: extension
+
   rust:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest

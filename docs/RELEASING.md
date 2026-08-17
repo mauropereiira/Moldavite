@@ -59,9 +59,32 @@ pins a SHA-256 per DMG, so replacing a release's binaries under an existing tag
 makes `brew install` fail with a checksum mismatch for everyone. Ship X.Y.Z+1
 instead.
 
+## 2b. Sign and attach the Firefox clipper (manual)
+
+CI builds and attaches `moldavite-clipper-chrome.zip` on its own. The Firefox
+build cannot be automated here: release Firefox installs only signed add-ons, and
+signing goes through a Mozilla account.
+
+```bash
+cd extension && npm run build
+npx web-ext sign --source-dir=dist/firefox --channel=unlisted \
+  --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET"
+gh release upload "vX.Y.Z" web-ext-artifacts/*.xpi
+```
+
+`--channel=unlisted` means Mozilla signs the file without listing it on
+addons.mozilla.org — there is no public listing and no review queue, and the
+download still comes from the GitHub release. The API credentials come from the
+Mozilla add-on developer hub; they are not GitHub secrets, because the signing
+step is not run by CI.
+
+Skipping this step is a valid release: Chrome users get the clipper, Firefox
+users see no `.xpi` on that release.
+
 ## 3. Verify
 
-- Confirm the Release has the DMGs, the `.exe`/`.msi`, and `latest.json`.
+- Confirm the Release has the DMGs, the `.exe`/`.msi`, `latest.json`, and
+  `moldavite-clipper-chrome.zip`.
 - Open an older install → it should detect the update after about 15s (or via
   Settings → About → Check for Updates), download, install, and relaunch.
 - On relaunch, the "What's New" popup shows this version's notes.

@@ -109,6 +109,13 @@ you grant it.
 Pin the notes you keep coming back to and they sit in a bar across the top,
 reorderable, with the rest a click away. Rename a note by editing its title.
 
+**Clip any page to a note.** A browser extension turns the page you are reading
+into Markdown in the Forge you choose — links kept, images and styling dropped —
+and it works whether or not Moldavite is open. It is distributed from this
+repository rather than the browser stores, so Chrome needs Developer mode and the
+Firefox file is signed by Mozilla without being listed there. See
+[docs/CLIPPER.md](docs/CLIPPER.md).
+
 **Publish to WordPress.com** without minting a credential: sign in once in your
 browser, pick a site, and the note becomes a draft. Publishing it again updates
 that draft rather than scattering new ones. Self-hosted WordPress is covered by
