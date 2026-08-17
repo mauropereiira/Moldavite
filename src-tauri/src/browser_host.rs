@@ -84,16 +84,22 @@ fn respond(result: Result<Value, String>) -> Value {
     }
 }
 
-fn forges() -> Result<Value, String> {
-    let forges = crate::commands::forges::list_forges()?;
+/// Split from `forges` so it can be tested without a Forges root on disk:
+/// `paths::get_forges_root` panics when there is no Documents directory, which
+/// is every headless CI runner.
+fn forges_response(forges: &[crate::types::ForgeInfo]) -> Value {
     let active = forges
         .iter()
         .find(|forge| forge.is_active)
         .map(|forge| forge.name.clone());
-    Ok(json!({
+    json!({
         "forges": forges.iter().map(|forge| forge.name.clone()).collect::<Vec<_>>(),
         "active": active,
-    }))
+    })
+}
+
+fn forges() -> Result<Value, String> {
+    Ok(forges_response(&crate::commands::forges::list_forges()?))
 }
 
 /// Host of an http(s) URL, or `None` for any other scheme. Deliberately not a URL
@@ -152,7 +158,10 @@ fn required_str<'a>(request: &'a Value, key: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("{key} is required"))
 }
 
-fn clip(request: &Value) -> Result<Value, String> {
+/// The whole clip except resolving which Forge it lands in. Kept separate so it
+/// is testable against a temporary directory: the real resolver reads the app's
+/// config and panics without a Documents directory.
+fn clip_into(forge_root: &Path, request: &Value, clipped: &str) -> Result<Value, String> {
     let url = required_str(request, "url")?;
     if http_host(url).is_none() {
         return Err("source must be an http(s) URL".to_string());
@@ -160,27 +169,31 @@ fn clip(request: &Value) -> Result<Value, String> {
     let markdown = required_str(request, "markdown")?;
     let title = request.get("title").and_then(Value::as_str).unwrap_or("");
 
-    let forge_root = crate::mcp::resolve_named_forge(request.get("forge").and_then(Value::as_str))?;
     let dir = forge_root.join("notes").join(CLIPPINGS_DIR);
     std::fs::create_dir_all(&dir)
         .map_err(|error| format!("Failed to create the Clippings folder: {error}"))?;
 
     let path = unique_destination(&dir, &clip_stem(title, url))?;
-    validate_path_within_base(&path, &forge_root)
+    validate_path_within_base(&path, forge_root)
         .map_err(|_| "Refusing to write outside the Forge".to_string())?;
 
-    let clipped = chrono::Local::now().format("%Y-%m-%d").to_string();
     write_atomic(
         &path,
-        clip_document(title, url, markdown, &clipped).as_bytes(),
+        clip_document(title, url, markdown, clipped).as_bytes(),
         Some(0o600),
     )?;
 
     let relative = path
-        .strip_prefix(&forge_root)
+        .strip_prefix(forge_root)
         .map(|rel| rel.to_string_lossy().replace('\\', "/"))
         .unwrap_or_default();
     Ok(json!({ "path": relative }))
+}
+
+fn clip(request: &Value) -> Result<Value, String> {
+    let forge_root = crate::mcp::resolve_named_forge(request.get("forge").and_then(Value::as_str))?;
+    let clipped = chrono::Local::now().format("%Y-%m-%d").to_string();
+    clip_into(&forge_root, request, &clipped)
 }
 
 fn handle(request: &Value) -> Value {
@@ -294,24 +307,31 @@ mod tests {
         assert!(output.is_empty());
     }
 
+    fn forge_info(name: &str, is_active: bool) -> crate::types::ForgeInfo {
+        crate::types::ForgeInfo {
+            name: name.to_string(),
+            path: format!("/forges/{name}"),
+            is_active,
+        }
+    }
+
     #[test]
     fn forges_lists_names_and_marks_the_active_one() {
-        let out = responses(framed(r#"{"op":"forges"}"#));
+        let response = forges_response(&[forge_info("Default", false), forge_info("Work", true)]);
 
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0]["ok"], Value::Bool(true));
-        assert!(out[0]["forges"].is_array(), "forges should be an array");
-        // The active Forge is either null or one of the listed names — never a
-        // name that isn't there, which is what the popup would render blank.
-        if let Some(active) = out[0]["active"].as_str() {
-            let names: Vec<&str> = out[0]["forges"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter_map(Value::as_str)
-                .collect();
-            assert!(names.contains(&active), "active {active} not in {names:?}");
-        }
+        assert_eq!(response["forges"][0], "Default");
+        assert_eq!(response["forges"][1], "Work");
+        assert_eq!(response["active"], "Work");
+    }
+
+    #[test]
+    fn forges_reports_no_active_rather_than_inventing_one() {
+        // The popup renders a blank selection from a name that is not in the
+        // list, so "none" has to survive as null rather than as a guess.
+        let response = forges_response(&[forge_info("Default", false)]);
+
+        assert_eq!(response["active"], Value::Null);
+        assert_eq!(response["forges"].as_array().unwrap().len(), 1);
     }
 
     #[test]
@@ -378,15 +398,66 @@ mod tests {
 
     #[test]
     fn clip_rejects_a_non_http_source() {
-        let response = handle(&json!({
-            "op": "clip",
-            "url": "javascript:alert(1)",
-            "title": "x",
-            "markdown": "body",
-        }));
+        let forge = temp_dir("scheme");
 
-        assert_eq!(response["ok"], Value::Bool(false));
-        assert_eq!(response["error"], "source must be an http(s) URL");
+        let error = clip_into(
+            &forge,
+            &json!({ "url": "javascript:alert(1)", "title": "x", "markdown": "body" }),
+            "2026-08-17",
+        )
+        .unwrap_err();
+
+        assert_eq!(error, "source must be an http(s) URL");
+        assert!(!forge.join("notes").exists(), "nothing should be written");
+
+        let _ = std::fs::remove_dir_all(&forge);
+    }
+
+    #[test]
+    fn clip_writes_the_note_and_returns_its_forge_relative_path() {
+        let forge = temp_dir("write");
+
+        let response = clip_into(
+            &forge,
+            &json!({
+                "url": "https://example.com/tls",
+                "title": "How TLS works",
+                "markdown": "## Heading\n\nBody.",
+            }),
+            "2026-08-17",
+        )
+        .unwrap();
+
+        assert_eq!(response["path"], "notes/Clippings/How TLS works.md");
+        let written =
+            std::fs::read_to_string(forge.join("notes/Clippings/How TLS works.md")).unwrap();
+        assert!(written.starts_with("---\nsource: \"https://example.com/tls\"\n"));
+        assert!(written.contains("# How TLS works"));
+        assert!(written.ends_with("## Heading\n\nBody.\n"));
+
+        let _ = std::fs::remove_dir_all(&forge);
+    }
+
+    #[test]
+    fn a_hostile_title_cannot_escape_the_clippings_folder() {
+        let forge = temp_dir("traversal");
+
+        let response = clip_into(
+            &forge,
+            &json!({
+                "url": "https://example.com/a",
+                "title": "../../../../etc/passwd",
+                "markdown": "body",
+            }),
+            "2026-08-17",
+        )
+        .unwrap();
+
+        let path = response["path"].as_str().unwrap();
+        assert!(path.starts_with("notes/Clippings/"), "escaped to {path}");
+        assert!(forge.join(path).exists());
+
+        let _ = std::fs::remove_dir_all(&forge);
     }
 
     #[test]
@@ -418,15 +489,23 @@ mod tests {
     }
 
     #[test]
-    fn clip_rejects_an_unknown_forge() {
-        let response = handle(&json!({
-            "op": "clip",
-            "forge": "NoSuchForge-9f3a",
-            "url": "https://example.com/a",
-            "title": "x",
-            "markdown": "body",
-        }));
+    fn a_repeat_clip_never_replaces_the_first_note() {
+        let forge = temp_dir("repeat");
+        let request = json!({
+            "url": "https://example.com/tls",
+            "title": "How TLS works",
+            "markdown": "first",
+        });
 
-        assert_eq!(response["ok"], Value::Bool(false));
+        let first = clip_into(&forge, &request, "2026-08-17").unwrap();
+        let second = clip_into(&forge, &request, "2026-08-17").unwrap();
+
+        assert_eq!(first["path"], "notes/Clippings/How TLS works.md");
+        assert_eq!(second["path"], "notes/Clippings/How TLS works (2).md");
+        assert!(std::fs::read_to_string(forge.join(first["path"].as_str().unwrap()))
+            .unwrap()
+            .contains("first"));
+
+        let _ = std::fs::remove_dir_all(&forge);
     }
 }
