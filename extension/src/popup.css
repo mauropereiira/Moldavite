@@ -1,0 +1,71 @@
+/* Deliberately plain: this popup is a dropdown and a button, and Moldavite's
+   own type stack is not available outside the app. */
+:root {
+  color-scheme: light dark;
+  --ink: #14120c;
+  --paper: #f9f6ed;
+  --line: #c9c2ad;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f2eee1;
+    --paper: #14120c;
+    --line: #3a3527;
+  }
+}
+
+body {
+  width: 260px;
+  margin: 0;
+  padding: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.field {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+select,
+button {
+  width: 100%;
+  padding: 7px 8px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#status {
+  margin: 10px 0 0;
+  min-height: 1.45em;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  opacity: 0.85;
+}

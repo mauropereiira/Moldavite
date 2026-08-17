@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Moldavite Clipper",
+  "version": "0.1.0",
+  "description": "Save the page you are reading as a Markdown note in Moldavite.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "nativeMessaging"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Clip to Moldavite"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsKhwBeJwJXg3ti/q8OKIcVOViJsjemkxHtQi1k5WhSjQPLm0yUB983Tpght84KVPqSqhUjQGqKRt0BriA3L/6bhhBChhi7am1roGxAps/cKqaARCTzG0P7R5+66AA7DnWIozjmst0koEdoS6hCwS+Jek3ly25O2/9xWomC3JYxXaW+ywgjFAoYzbGIN3/Jq4XbDP5qKNnOL6qRPLfifAzSp2q7Cf0ZNVpTwmMFKUwPLE1MFqxkc5MekKLjHEPfVFW3OPS2hcZ3mqTJhbhybXiIKfs2pOEngZU1B9djT7nnYZRPaaC8w6nh8u3hPmZ19W5Z6De4t8VvhAIbU3D2hF/wIDAQAB",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "clipper@moldavite.app",
+      "strict_min_version": "128.0"
+    }
+  }
+}
