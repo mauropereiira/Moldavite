@@ -85,7 +85,11 @@ const BUDGETS = [
 // overflow menu, inline title renaming, and the calendar's day-mark legend.
 // Measured 585.3 KB raw / 161.4 KB gz — only raw crossed, so gzip is left
 // where it is rather than given headroom nothing has asked for.
-const APP_JS_BUDGET = { rawKb: 589, gzipKb: 162 };
+// Bumped 4 KB raw / 1 KB gz for 2.3.0: the browser clipper's Settings card and
+// its install sheet, including the two per-browser disclosures. The extension
+// itself is a separate package and ships none of its code in this bundle.
+// Measured 591.2 KB raw / 162.6 KB gz.
+const APP_JS_BUDGET = { rawKb: 593, gzipKb: 163 };
 
 async function main() {
   let entries;
