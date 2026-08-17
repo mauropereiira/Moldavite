@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.3.0] - 2026-08-17
+
+### Added
+
+- **Clip any web page into a note.** A browser extension turns the page you are reading into Markdown in the Forge you pick: headings, lists, quotes, code and tables survive, links are kept and rewritten to absolute addresses so they still work from a note, images and styling are dropped. Clippings land in `notes/Clippings/` with the source URL and date in frontmatter, and clipping the same page twice never overwrites the first one. Because the browser starts Moldavite's binary on demand, it works whether or not the app is open. Install it from Settings → Plugins → Browser clipper, which shows the steps before sending you anywhere. Two things worth knowing up front, neither of them a defect in Moldavite: the extension is distributed from the repository rather than the browser stores, so Chrome needs Developer mode and Load unpacked, and Firefox — which installs only signed add-ons — takes a file signed by Mozilla that is still not listed in their store. Nothing reaches your notes until you press Connect browser, and the channel is write-only: it can create a clipping and name your Forges, and cannot read a note.
+
 ## [2.2.8] - 2026-08-17
 
 ### Added

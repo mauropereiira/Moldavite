@@ -50,6 +50,21 @@ pub fn run_from_env() -> Result<(), String> {
     server::serve(std::io::stdin().lock(), std::io::stdout().lock(), context)
 }
 
+/// Resolve a Forge by name for callers outside MCP, falling back to the active
+/// one. Never scaffolds: a browser asking for a Forge that is gone is an error,
+/// not a reason to create a directory behind the user's back.
+pub fn resolve_named_forge(name: Option<&str>) -> Result<PathBuf, String> {
+    match name {
+        Some(name) => {
+            if !crate::validation::is_safe_existing_filename(name) {
+                return Err("Invalid Forge name".to_string());
+            }
+            validate_forge_root(name, crate::paths::get_forges_root().join(name))
+        }
+        None => resolve_forge(None),
+    }
+}
+
 fn resolve_forge(requested: Option<&str>) -> Result<PathBuf, String> {
     let explicit = requested.is_some();
     let name = requested

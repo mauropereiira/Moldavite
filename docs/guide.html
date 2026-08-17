@@ -116,6 +116,7 @@
         <a href="#safety">Safety, privacy, and external edits</a>
         <a href="#updates">Staying up to date</a>
         <a href="#plugins">Plugins and WordPress</a>
+        <a href="#clipping">Clipping pages</a>
         <a href="#agents">AI agents and AGENTS.md</a>
         <a href="#mcp">MCP client setup</a>
       </nav>
@@ -625,6 +626,44 @@
           built-in <strong>WordPress</strong> button in the editor footer is for.
         </p>
       </div>
+
+      <h2 id="clipping">Clipping pages from your browser</h2>
+      <p>
+        The Moldavite clipper turns the page you are reading into a Markdown note in the Forge you
+        choose. Headings, lists, quotes, code, and tables survive; links are kept and rewritten to
+        absolute addresses so they still work from a note; images and styling are dropped. Notes
+        land in <code>notes/Clippings/</code> with the source URL and date in frontmatter, and
+        clipping the same page twice never overwrites the first one.
+      </p>
+      <p>
+        The extension is distributed from the Moldavite repository rather than the Chrome Web Store
+        or the Firefox add-on gallery. Both browsers ask for something unusual as a result, and
+        neither is a defect in Moldavite:
+      </p>
+      <ul>
+        <li>
+          <strong>Chrome, Edge, and Brave</strong> — download and unzip the archive, open
+          <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>, then choose
+          <strong>Load unpacked</strong>. Chrome only permits extensions from outside its store in
+          Developer mode; that is Chrome's rule for anything unlisted.
+        </li>
+        <li>
+          <strong>Firefox</strong> — download the <code>.xpi</code> and open it. Firefox installs
+          only signed add-ons, so the file is signed by Mozilla. It is not listed in their store.
+        </li>
+      </ul>
+      <p>
+        Then open <strong>Settings → Plugins → Browser clipper</strong> and press
+        <strong>Connect browser</strong>. Nothing can reach your notes until you do: pairing writes
+        a native-messaging manifest naming the exact extension allowed to connect, and the browser
+        enforces it. The channel is write-only — it can create a clipping and list your Forge names,
+        and there is no way to read a note through it. Because the browser starts Moldavite's binary
+        on demand, clipping works whether or not the app is open. The
+        <a href="https://github.com/mauropereiira/Moldavite/blob/main/docs/CLIPPER.md"
+          >clipper reference</a
+        >
+        covers troubleshooting.
+      </p>
 
       <h2 id="agents">Use a Forge as agent memory</h2>
       <p>

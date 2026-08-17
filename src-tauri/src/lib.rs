@@ -41,6 +41,10 @@ pub(crate) mod migration;
 /// Stdio Model Context Protocol server, selected with the `--mcp` flag.
 pub mod mcp;
 
+/// Native-messaging host for the browser clipper, selected by how the browser
+/// launches us. Write-only, and narrower than MCP on purpose.
+pub mod browser_host;
+
 /// Filesystem watcher (notify) that emits `forge:changed` events.
 pub(crate) mod forge_watcher;
 
@@ -260,6 +264,9 @@ pub fn run() {
             if let Err(e) = migration::migrate_legacy_single_forge_to_multi() {
                 log::warn!("[forge] multi-Forge migration error: {}", e);
             }
+            // A moved app bundle leaves paired browsers pointing at a binary
+            // that is no longer there; only already-paired browsers are touched.
+            commands::browser_bridge::refresh_paired_manifests();
             if let Err(e) = migration::adopt_stray_root_layout() {
                 log::warn!("[forge] stray root layout migration error: {}", e);
             }
@@ -299,6 +306,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            commands::browser_bridge::browser_bridge_status,
+            commands::browser_bridge::connect_browser_bridge,
+            commands::browser_bridge::disconnect_browser_bridge,
             wordpress_status,
             wordpress_connect,
             wordpress_disconnect,

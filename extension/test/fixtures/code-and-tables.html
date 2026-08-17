@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Configuring the resolver</title>
+  </head>
+  <body>
+    <article>
+      <h1>Configuring the resolver</h1>
+      <p>
+        The resolver reads its configuration once at startup, which means every change below needs a
+        restart before it takes effect. This trips people up often enough to be worth stating twice.
+      </p>
+      <pre><code class="language-rust">fn resolve(name: &amp;str) -&gt; Option&lt;Record&gt; {
+    registry().get(name).cloned()
+}</code></pre>
+      <p>The options accepted in the configuration file are as follows.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Header</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>timeout</td>
+            <td>Seconds before a lookup is abandoned</td>
+          </tr>
+          <tr>
+            <td>retries</td>
+            <td>How many times a failed lookup is repeated</td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  </body>
+</html>

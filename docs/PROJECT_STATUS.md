@@ -50,6 +50,11 @@
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check; automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows), settings modal with focus trap
 
+### Browser clipper
+
+- Chrome/Edge/Brave and Firefox extension in `extension/`, distributed from the repository rather than the stores: Chrome requires Developer mode and Load unpacked, Firefox requires an AMO-signed unlisted XPI. Readability extracts the article, Turndown converts it, images and styling are dropped and links are absolutised
+- Reaches the app over native messaging, so the browser starts the binary on demand and clipping works with Moldavite closed. Two write-side operations (`forges`, `clip`) and no note read of any kind; the host manifest pins the exact extension ID and is written only by an explicit Connect in Settings → Plugins, then rewritten on launch if the binary has moved
+
 ### Plugins (v2 — v1 shipped 1.4.0, sandbox hardened 1.5.0, v2 shipped 1.6.0)
 
 - API v2: commands/editor/toasts plus trusted host-rendered prompt forms, permissioned unlocked-note metadata + Markdown reads, host-performed HTTPS behind manifest and individually revocable user-approved exact hosts, and per-plugin OS credential-store secrets; API v1 remains compatible

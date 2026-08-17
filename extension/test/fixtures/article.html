@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>How Cloudflare handles TLS</title>
+    <style>
+      .prose {
+        color: rebeccapurple;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="site-nav"><a href="/">Home</a> <a href="/about">About</a></nav>
+    <article class="prose">
+      <h1>How Cloudflare handles TLS</h1>
+      <p>
+        Termination happens at the edge, which is the part people find surprising the first time
+        they look at it. The certificate the browser sees is not the certificate the origin holds,
+        and the two are negotiated independently for reasons that are mostly historical but turn out
+        to matter a great deal in practice.
+      </p>
+      <h2>How the handshake works</h2>
+      <p>
+        The client hello arrives at whichever edge node is closest, and everything after that is a
+        question of which keys that node is allowed to hold on your behalf. Read the
+        <a href="/posts/related">related write-up</a> for the longer version of this story.
+      </p>
+      <ul>
+        <li>First point</li>
+        <li>Second point about session resumption and why tickets complicate it</li>
+      </ul>
+      <blockquote>
+        <p>A quoted line from somebody who was there at the time.</p>
+      </blockquote>
+      <p>
+        <img src="/diagram.png" alt="A handshake diagram" />
+      </p>
+      <div style="border: 1px solid red; padding: 8px">
+        A styled aside that should survive as plain text without its styling.
+      </div>
+    </article>
+    <footer><p>© Example Corp</p></footer>
+  </body>
+</html>

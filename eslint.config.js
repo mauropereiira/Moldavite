@@ -90,7 +90,7 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      'react': reactPlugin,
+      react: reactPlugin,
       'react-hooks': reactHooksPlugin,
     },
     rules: {
@@ -99,11 +99,14 @@ export default [
       ...reactHooksPlugin.configs.recommended.rules,
 
       // TypeScript specific
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -123,8 +126,8 @@ export default [
       'no-debugger': 'warn',
       'prefer-const': 'error',
       'no-var': 'error',
-      'eqeqeq': ['error', 'always'],
-      'curly': ['error', 'all'],
+      eqeqeq: ['error', 'always'],
+      curly: ['error', 'all'],
       'no-unused-expressions': 'error',
     },
     settings: {
@@ -140,6 +143,9 @@ export default [
       'dist-ssr/**',
       // Static GitHub Pages site — browser globals, not app code.
       'docs/**',
+      // Separate npm package: browser-extension globals, no React, no
+      // TypeScript. It carries its own tests and its own build.
+      'extension/**',
       'node_modules/**',
       'src-tauri/target/**',
       'src-tauri/gen/**',

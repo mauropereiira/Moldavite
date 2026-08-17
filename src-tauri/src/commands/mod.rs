@@ -5,6 +5,7 @@
 //! and stateful indexes are updated only after the corresponding disk operation.
 
 pub mod backlinks;
+pub mod browser_bridge;
 pub mod export_import;
 pub mod folders;
 pub mod forges;
