@@ -56,8 +56,34 @@ fn error_response(message: &str) -> Value {
     json!({ "ok": false, "error": message })
 }
 
+/// Success bodies are objects, so `ok` is merged in rather than nesting the
+/// payload one level deeper for every caller.
+fn respond(result: Result<Value, String>) -> Value {
+    match result {
+        Ok(Value::Object(mut body)) => {
+            body.insert("ok".to_string(), Value::Bool(true));
+            Value::Object(body)
+        }
+        Ok(other) => json!({ "ok": true, "result": other }),
+        Err(error) => error_response(&error),
+    }
+}
+
+fn forges() -> Result<Value, String> {
+    let forges = crate::commands::forges::list_forges()?;
+    let active = forges
+        .iter()
+        .find(|forge| forge.is_active)
+        .map(|forge| forge.name.clone());
+    Ok(json!({
+        "forges": forges.iter().map(|forge| forge.name.clone()).collect::<Vec<_>>(),
+        "active": active,
+    }))
+}
+
 fn handle(request: &Value) -> Value {
     match request.get("op").and_then(Value::as_str) {
+        Some("forges") => respond(forges()),
         _ => error_response("unsupported operation"),
     }
 }
@@ -130,6 +156,26 @@ mod tests {
 
         assert!(error.contains("too large"), "unexpected error: {error}");
         assert!(output.is_empty());
+    }
+
+    #[test]
+    fn forges_lists_names_and_marks_the_active_one() {
+        let out = responses(framed(r#"{"op":"forges"}"#));
+
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["ok"], Value::Bool(true));
+        assert!(out[0]["forges"].is_array(), "forges should be an array");
+        // The active Forge is either null or one of the listed names — never a
+        // name that isn't there, which is what the popup would render blank.
+        if let Some(active) = out[0]["active"].as_str() {
+            let names: Vec<&str> = out[0]["forges"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            assert!(names.contains(&active), "active {active} not in {names:?}");
+        }
     }
 
     #[test]
