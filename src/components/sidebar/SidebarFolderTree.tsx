@@ -2,6 +2,7 @@ import React from 'react';
 import { SidebarSection } from './SidebarSection';
 import { FolderTree } from './FolderTree';
 import type { FolderInfo, NoteFile } from '@/types';
+import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarFolderTreeProps {
@@ -20,6 +21,9 @@ interface SidebarFolderTreeProps {
   onNoteSelectionClick?: (note: NoteFile, e: React.MouseEvent) => void;
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   getNoteTags?: (notePath: string) => string[];
+  /** Manual sort only — reorder siblings by dropping one on another. */
+  onFolderReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
+  onNoteReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
   isDragOverFoldersRoot: boolean;
   onFoldersRootDragEnter: (e: React.DragEvent) => void;
   onFoldersRootDragOver: (e: React.DragEvent) => void;
@@ -53,6 +57,8 @@ export function SidebarFolderTree({
   onNoteSelectionClick,
   onNoteContextMenu,
   getNoteTags,
+  onFolderReorder,
+  onNoteReorder,
   isDragOverFoldersRoot,
   onFoldersRootDragEnter,
   onFoldersRootDragOver,
@@ -105,6 +111,8 @@ export function SidebarFolderTree({
             onNoteSelectionClick={onNoteSelectionClick}
             onNoteContextMenu={onNoteContextMenu}
             getNoteTags={getNoteTags}
+            onFolderReorder={onFolderReorder}
+            onNoteReorder={onNoteReorder}
             showShapeMarks={showShapeMarks}
           />
         ) : (

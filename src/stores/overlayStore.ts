@@ -24,6 +24,12 @@ interface OverlayState {
   activeOverlay: AppOverlay | null;
   isSidebarHidden: boolean;
   isRightPanelHidden: boolean;
+  /**
+   * Which pinned columns the window folded away because it got too narrow to
+   * hold them, remembered so widening restores exactly those and not a column
+   * the user had put away themselves.
+   */
+  foldedByWidth: { sidebar: boolean; panel: boolean } | null;
   /** Make `surface` the active one, dismissing whatever was active before. */
   openSurface: (surface: AppOverlay) => void;
   /** Close `surface`, but only while it is the active one. */
@@ -35,12 +41,20 @@ interface OverlayState {
   toggleAgenda: (pinned: boolean) => void;
   /** Close whichever surface is active. */
   closeOverlay: () => void;
+  /**
+   * Fold the pinned columns away for a window with no room left for the
+   * editor. A preference, not a visibility switch — settings still say
+   * "pinned", and `unfoldForWideWindow` puts back what was showing.
+   */
+  foldForNarrowWindow: () => void;
+  unfoldForWideWindow: () => void;
 }
 
 export const useOverlayStore = create<OverlayState>((set, get) => ({
   activeOverlay: null,
   isSidebarHidden: false,
   isRightPanelHidden: false,
+  foldedByWidth: null,
 
   openSurface: (surface) => set({ activeOverlay: surface }),
 
@@ -77,6 +91,33 @@ export const useOverlayStore = create<OverlayState>((set, get) => ({
   },
 
   closeOverlay: () => set({ activeOverlay: null }),
+
+  foldForNarrowWindow: () =>
+    set((state) =>
+      state.foldedByWidth
+        ? state
+        : {
+            // Record what was actually showing. A column the user had already
+            // put away is not ours to bring back later.
+            foldedByWidth: {
+              sidebar: !state.isSidebarHidden,
+              panel: !state.isRightPanelHidden,
+            },
+            isSidebarHidden: true,
+            isRightPanelHidden: true,
+          }
+    ),
+
+  unfoldForWideWindow: () =>
+    set((state) =>
+      state.foldedByWidth
+        ? {
+            foldedByWidth: null,
+            isSidebarHidden: state.foldedByWidth.sidebar ? false : state.isSidebarHidden,
+            isRightPanelHidden: state.foldedByWidth.panel ? false : state.isRightPanelHidden,
+          }
+        : state
+    ),
 }));
 
 export interface SurfaceState {

@@ -138,7 +138,14 @@ export function NoteContextMenu({
   return (
     <div
       ref={(node) => applyImpactOrigin(node, position)}
-      className="fixed z-[9999] py-1 min-w-[160px] modal-content-enter impact-surface"
+      // `flex flex-col` is load-bearing, not styling. A shrink-to-fit popup
+      // (fixed/absolute, no width) that holds BOTH percentage-width children
+      // and a plain block child — the separator below — is sized to the whole
+      // available width by WebKit instead of to its content: this menu paints
+      // ~1000px wide beside a 360px sidebar. Blink shrink-wraps it, so it
+      // looks correct in every browser check. A flex column sizes from the
+      // items in both engines. `width: max-content` does NOT fix it in WebKit.
+      className="fixed z-[9999] flex flex-col py-1 min-w-[160px] modal-content-enter impact-surface"
       style={{
         left: position.x,
         top: position.y,

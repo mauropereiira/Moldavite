@@ -108,6 +108,8 @@ you grant it.
 
 Pin the notes you keep coming back to and they sit in a bar across the top,
 reorderable, with the rest a click away. Rename a note by editing its title.
+Order the sidebar A–Z, Z–A, or by hand — drag notes and folders where you want
+them and they stay there.
 
 **Clip any page to a note.** A browser extension turns the page you are reading
 into Markdown in the Forge you choose — links kept, images and styling dropped —

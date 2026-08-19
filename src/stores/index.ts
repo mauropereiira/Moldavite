@@ -18,6 +18,7 @@
  * - `useFolderStore` - Folder navigation state
  * - `useTrashStore` - Trash/recycle bin state
  * - `useTagStore` - Tag management state
+ * - `useSidebarOrderStore` - User-dragged order of sidebar notes and folders
  *
  * @module stores
  */
@@ -75,6 +76,7 @@ export type { AppOverlay } from './overlayStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
 export { useQuickSwitcherStore } from './quickSwitcherStore';
+export { useSidebarOrderStore, applyManualOrder, reorderIds } from './sidebarOrderStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
 export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
 export { useForgeStore } from './forgeStore';

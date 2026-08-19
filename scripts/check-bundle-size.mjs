@@ -89,7 +89,11 @@ const BUDGETS = [
 // its install sheet, including the two per-browser disclosures. The extension
 // itself is a separate package and ships none of its code in this bundle.
 // Measured 591.2 KB raw / 162.6 KB gz.
-const APP_JS_BUDGET = { rawKb: 593, gzipKb: 163 };
+// Bumped 5 KB raw / 2 KB gz for 2.3.1: manual sidebar ordering (a per-Forge
+// order store plus reorder drop targets on note and folder rows) and the
+// editor footer's two collapse breakpoints, which carry a second row and a
+// folded navigation menu. Measured 595.7 KB raw / 164.1 KB gz.
+const APP_JS_BUDGET = { rawKb: 598, gzipKb: 165 };
 
 async function main() {
   let entries;

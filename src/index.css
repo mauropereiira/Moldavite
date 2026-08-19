@@ -3506,6 +3506,69 @@ button[aria-expanded='true'] .wn-caret {
   text-transform: uppercase;
 }
 
+/* The folded actions, stacked one per row inside their menu. Each row is still
+   the same control it is on the wide footer, so it opens its own menu from
+   here — which is what makes adding another one a matter of adding it once.
+   What changes is how they read: on the footer they are small-caps labels in a
+   row of chrome, and in here they have to be menu rows like every other menu's,
+   or the one control folds into something that looks like a different app.
+
+   `align-items: stretch` is what makes each row span the menu. Do NOT reach for
+   `width: 100%` on the rows to do that job: a percentage-width child inside a
+   shrink-to-fit popup makes WebKit size the popup to the space available rather
+   than to its content, and the menu paints ~255px wide with the labels huddled
+   down its left edge. Same trap as the sidebar's context menus. */
+.editor-footer-actions-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Stretch has to be handed down two levels to reach the button. A `<button>`
+   is shrink-to-fit at `width: auto` even as a block-level flex container —
+   form controls size to their own content — so the row's wrappers spanned the
+   menu while the button inside stayed label-width: the right of every row
+   looked like dead space and still opened the menu when clicked, because the
+   click lives on the wrapper.
+
+   Stretching it as a flex item rather than with `width: 100%` is deliberate:
+   a percentage-width child is what makes WebKit blow a shrink-to-fit popup out
+   to the available width. `:first-child` keeps this off the second child —
+   each row's own open menu, absolutely positioned, whose layout is its own. */
+.editor-footer-actions-menu > *,
+.editor-footer-actions-menu > * > *:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Three classes deep on purpose. `.editor-footer .toolbar-button` below carries
+   the footer's small-caps treatment at the same two-class weight, and it is
+   written later in this file — so an equally specific rule here would lose on
+   source order alone and the folded menu would keep painting chrome labels. */
+.editor-footer .editor-footer-actions-menu .toolbar-button {
+  justify-content: flex-start;
+  height: auto;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: var(--text-sm--line-height);
+  text-transform: none;
+}
+
+.editor-footer .editor-footer-actions-menu .toolbar-button:hover {
+  background: var(--hover-overlay);
+  color: var(--text-primary);
+}
+
+/* The colour picker is an icon button everywhere else; in here it is a row like
+   the others, so it needs the label the footer gives it and the swatch back. */
+.editor-footer-actions-menu .editor-footer-color .toolbar-button::after {
+  content: 'Colour';
+}
+
 .editor-footer-left {
   display: flex;
   align-items: center;
@@ -3849,7 +3912,9 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   gap: 18px;
 }
 
-.editor-footer .toolbar-button {
+.editor-footer .toolbar-button,
+.editor-footer-overflow-toggle {
+  transition: color var(--dur-micro) var(--ease-standard);
   /* These buttons are their labels — there is no icon to fall back on, so a
      shrunk one is not "smaller", it is unreadable. `.toolbar-button` carries
      `overflow: hidden` for its press effect, and a flex item narrower than its
@@ -3875,7 +3940,9 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   text-transform: uppercase;
 }
 
-.editor-footer .toolbar-button:hover {
+.editor-footer .toolbar-button:hover,
+.editor-footer-overflow-toggle:hover,
+.editor-footer-overflow-toggle[aria-expanded='true'] {
   color: var(--text-primary);
 }
 

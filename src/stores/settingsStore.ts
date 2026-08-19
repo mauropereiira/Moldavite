@@ -15,6 +15,8 @@ export type DefaultNoteType = 'daily' | 'standalone';
 export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
 export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60; // 0 = never, values in minutes
 export type SortOption =
+  /** The order the user dragged the sidebar into; see `useSidebarOrderStore`. */
+  | 'manual'
   | 'name-asc'
   | 'name-desc'
   | 'modified-desc'

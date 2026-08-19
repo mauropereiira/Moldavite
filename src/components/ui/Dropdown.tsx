@@ -112,7 +112,14 @@ export function Dropdown({
         <div
           ref={applyImpactOrigin}
           role="menu"
-          className={`absolute ${directionClasses} ${positionClasses[position]} z-50 min-w-[180px] py-1 modal-content-enter impact-surface`}
+          // `flex flex-col` is load-bearing, not styling. A shrink-to-fit popup
+          // (fixed/absolute, no width) that holds BOTH percentage-width children
+          // and a plain block child — the DropdownSeparator — is sized to the whole
+          // available width by WebKit instead of to its content: this menu paints
+          // ~1000px wide beside a 360px sidebar. Blink shrink-wraps it, so it
+          // looks correct in every browser check. A flex column sizes from the
+          // items in both engines. `width: max-content` does NOT fix it in WebKit.
+          className={`absolute ${directionClasses} ${positionClasses[position]} z-50 flex flex-col min-w-[180px] py-1 modal-content-enter impact-surface`}
           style={{
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-muted)',
