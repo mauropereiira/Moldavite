@@ -54,11 +54,19 @@ export function TimelineView() {
   // (we don't have an fs-mtime exposed by the backend — see report).
   const buckets = useMemo(() => bucketNotes(notes), [notes]);
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const totalNotes = useMemo(
     () => BUCKETS.reduce((sum, bucket) => sum + buckets[bucket.id].length, 0),
     [buckets]
   );
+
+  // The page count is stored against the list it was counted for, so a Forge
+  // switch — or anything else that changes how many notes there are — starts
+  // from the first page again instead of opening the new list at whatever
+  // depth the old one had been paged to. Derived rather than reset from an
+  // effect: an effect here would render the stale count once, then render
+  // again to correct it.
+  const [page, setPage] = useState({ countedFor: totalNotes, count: PAGE_SIZE });
+  const visibleCount = page.countedFor === totalNotes ? page.count : PAGE_SIZE;
 
   // One budget spent down the buckets in order, so the page boundary falls
   // wherever it falls rather than giving every bucket a quota of its own —
@@ -79,10 +87,6 @@ export function TimelineView() {
     () => BUCKETS.flatMap((bucket) => visibleBuckets[bucket.id]),
     [visibleBuckets]
   );
-
-  // A new Forge, or a filter that shrinks the list, should start from the top
-  // again rather than keep a page count the feed no longer has rows for.
-  useEffect(() => setVisibleCount(PAGE_SIZE), [totalNotes]);
 
   // Kick off calendar-event fetch. This goes through the calendar library
   // rather than invoking directly, so it sees every connected source and
@@ -251,7 +255,7 @@ export function TimelineView() {
         {visibleCount < totalNotes && (
           <button
             type="button"
-            onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            onClick={() => setPage({ countedFor: totalNotes, count: visibleCount + PAGE_SIZE })}
             className="focus-ring w-full py-3 text-xs transition-colors"
             style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
