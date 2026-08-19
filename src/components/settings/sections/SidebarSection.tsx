@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores';
 import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
 
 const SORT_OPTIONS = [
+  { value: 'manual', label: 'Manual' },
   { value: 'name-asc', label: 'Name (A-Z)' },
   { value: 'name-desc', label: 'Name (Z-A)' },
   { value: 'modified-desc', label: 'Modified (Newest)' },
@@ -62,10 +63,10 @@ export function SidebarSection() {
         <div>
           <div className="flex items-center gap-1">
             <SectionHeading>Sort Notes By</SectionHeading>
-            <InfoTooltip text="Choose how notes are ordered in the sidebar list. Modified sorts by last edit time." />
+            <InfoTooltip text="Choose how notes are ordered in the sidebar list. Modified sorts by last edit time. Manual lets you drag notes and folders into your own order — daily notes always stay in date order." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            How notes are ordered in the sidebar
+            How notes and folders are ordered in the sidebar
           </p>
         </div>
         <SegmentedControl

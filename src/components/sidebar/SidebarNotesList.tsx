@@ -1,6 +1,7 @@
 import { SidebarSection } from './SidebarSection';
 import { DraggableNoteItem } from './DraggableNoteItem';
 import type { NoteFile } from '@/types';
+import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarNotesListProps {
@@ -12,7 +13,7 @@ interface SidebarNotesListProps {
   /** Full count label (may differ from notes.length when filtered) */
   count: number;
   title: string;
-  sortOption: 'name-asc' | 'name-desc';
+  sortOption: 'manual' | 'name-asc' | 'name-desc';
   onSortToggle: () => void;
   onNewNote: () => void;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
@@ -20,6 +21,8 @@ interface SidebarNotesListProps {
   onNoteContextMenu: (note: NoteFile, e: React.MouseEvent) => void;
   isNoteActive: (note: NoteFile) => boolean;
   getNoteTags?: (notePath: string) => string[];
+  /** Manual sort only — drop a note onto another to take its place. */
+  onNoteReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
   /** Drag-over state for the root drop zone */
   isDragOverRoot: boolean;
   onRootDragEnter: (e: React.DragEvent) => void;
@@ -32,6 +35,17 @@ interface SidebarNotesListProps {
   showFilteredEmptyState: boolean;
   filteredEmptyTagCount: number;
 }
+
+/**
+ * Label and tooltip for the header's sort control, which cycles A–Z → Z–A →
+ * Manual. Each entry names what clicking will switch *to*, not the current
+ * state — the sort in force is visible in the list itself.
+ */
+const SORT_TOGGLE = {
+  'name-asc': { label: 'Sort Z–A', title: 'Sort Z-A' },
+  'name-desc': { label: 'Manual', title: 'Arrange notes and folders by dragging them' },
+  manual: { label: 'Sort A–Z', title: 'Sort A-Z' },
+} as const;
 
 /**
  * The "Notes" sidebar section — standalone notes not in any folder and
@@ -52,6 +66,7 @@ export function SidebarNotesList({
   onNoteContextMenu,
   isNoteActive,
   getNoteTags,
+  onNoteReorder,
   isDragOverRoot,
   onRootDragEnter,
   onRootDragOver,
@@ -75,9 +90,9 @@ export function SidebarNotesList({
             style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-            title={sortOption === 'name-asc' ? 'Sort Z-A' : 'Sort A-Z'}
+            title={SORT_TOGGLE[sortOption].title}
           >
-            {sortOption === 'name-asc' ? 'Sort Z–A' : 'Sort A–Z'}
+            {SORT_TOGGLE[sortOption].label}
           </button>
           <button
             onClick={onNewNote}
@@ -112,6 +127,7 @@ export function SidebarNotesList({
             onContextMenu={onNoteContextMenu}
             tags={getNoteTags ? getNoteTags(note.path) : undefined}
             index={index}
+            onReorder={onNoteReorder}
           />
         ))}
         {showEmptyState && (

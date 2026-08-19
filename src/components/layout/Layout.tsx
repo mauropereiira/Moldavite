@@ -8,6 +8,7 @@ import { EditorNavigation } from './EditorNavigation';
 import { PinnedBar } from './PinnedBar';
 import { IconRail } from './IconRail';
 import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
+import { useElementWidth } from '@/hooks/useElementWidth';
 
 // TimelineView pulls in calendar/event aggregation + its own render
 // pipeline — only load it when the user actually toggles the timeline on.
@@ -18,6 +19,16 @@ const LEFT_SIDEBAR_MIN = 200;
 const LEFT_SIDEBAR_MAX = 400;
 const RIGHT_PANEL_MIN = 250;
 const RIGHT_PANEL_MAX = 500;
+
+/**
+ * The narrowest the editor may become before the pinned columns fold away.
+ * Below this a note is a few words per line and the window is unusable as a
+ * writing surface, which is the one thing it cannot stop being.
+ */
+const EDITOR_MIN_WIDTH = 420;
+
+/** `IconRail`'s own width — mirrors `--rail-width` in index.css. */
+const RAIL_WIDTH = 48;
 
 type ResizeTarget = 'left' | 'right' | null;
 
@@ -104,19 +115,47 @@ export function Layout() {
     }
   }, [activeOverlay, agendaMode, closeOverlay, indexMode]);
 
+  /**
+   * Fold the pinned columns away once the window cannot hold them and a usable
+   * editor at the same time, and unfold when it can again.
+   *
+   * Measured against the window, never against the editor: the editor's own
+   * width is an *output* of this decision, so reading it back would let the
+   * layout oscillate across the threshold. The settings are left alone — the
+   * columns are still "pinned", just not showing — so the user's own choice
+   * survives the resize, which is what `unfoldForWideWindow` restores.
+   */
+  const [shell, setShell] = useState<HTMLDivElement | null>(null);
+  const windowWidth = useElementWidth(shell);
+  const pinnedColumnsWidth =
+    (indexMode === 'pinned' ? sidebarWidth : 0) + (agendaMode === 'pinned' ? rightPanelWidth : 0);
+  const isTooNarrow =
+    windowWidth !== null && windowWidth - RAIL_WIDTH - pinnedColumnsWidth < EDITOR_MIN_WIDTH;
+
+  useEffect(() => {
+    const { foldForNarrowWindow, unfoldForWideWindow } = useOverlayStore.getState();
+    if (isTooNarrow) foldForNarrowWindow();
+    else unfoldForWideWindow();
+  }, [isTooNarrow]);
+
   const sidebarVisible = indexMode === 'pinned' && !isSidebarHidden;
   const rightPanelVisible = agendaMode === 'pinned' && !isRightPanelHidden;
+
+  // While folded the rail is the only way back to the Index and the Agenda, so
+  // it appears even for someone who has switched it off.
+  const railVisible = showIconRail || isTooNarrow;
 
   // Publish the rail's presence so full-window surfaces outside this tree —
   // the graph is mounted at the App root, not inside the content area — can
   // start clear of it. See `--rail-width` in index.css.
   useEffect(() => {
-    document.documentElement.classList.toggle('has-icon-rail', showIconRail);
+    document.documentElement.classList.toggle('has-icon-rail', railVisible);
     return () => document.documentElement.classList.remove('has-icon-rail');
-  }, [showIconRail]);
+  }, [railVisible]);
 
   return (
     <div
+      ref={setShell}
       className="flex flex-col h-screen w-screen overflow-hidden"
       style={{ backgroundColor: 'var(--bg-base)' }}
     >
@@ -130,7 +169,7 @@ export function Layout() {
       <PinnedBar />
 
       <div className="flex min-h-0 w-full flex-1 overflow-hidden">
-        {showIconRail && <IconRail />}
+        {railVisible && <IconRail />}
 
         <div
           data-testid="app-content-area"

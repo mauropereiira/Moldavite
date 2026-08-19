@@ -1,6 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { NoteFile } from '@/types';
 import { useNoteSelectionStore } from '@/stores';
+import type { DropPlace } from '@/stores/sidebarOrderStore';
+import { dropPlaceFromPointer, isSameFolder } from './dropPlacement';
+import { DropIndicator } from './DropIndicator';
+
+/** The folder a dragged note came from, read off its `notes/`-relative path. */
+function folderOfRelativePath(relative: string): string | null {
+  const cut = relative.lastIndexOf('/');
+  return cut === -1 ? null : relative.slice(0, cut);
+}
+
+/**
+ * The note currently being dragged, if any.
+ *
+ * `dataTransfer.getData` is deliberately unreadable until the drop, so a row
+ * cannot ask "is this one of mine?" while deciding whether to show the insert
+ * line. The drag never leaves this window, so remembering the source here is
+ * enough — and the drop itself still reads `dataTransfer`, which is the
+ * authoritative copy.
+ */
+let draggedNote: { path: string; folderPath?: string } | null = null;
 
 interface DraggableNoteItemProps {
   note: NoteFile;
@@ -13,6 +33,12 @@ interface DraggableNoteItemProps {
   level?: number;
   tags?: string[];
   index?: number;
+  /**
+   * Manual-sort only. Drop another note from this same list onto this row to
+   * take its place. Absent in every other sort mode, where the list order is
+   * computed and a reorder would silently do nothing.
+   */
+  onReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
 }
 
 function DraggableNoteItemImpl({
@@ -24,6 +50,7 @@ function DraggableNoteItemImpl({
   level = 0,
   tags = [],
   index = 0,
+  onReorder,
 }: DraggableNoteItemProps) {
   // Narrow selector: subscribe to this row's selection bit only. Any other
   // row's state change returns the same boolean, so React bails out of the
@@ -57,7 +84,50 @@ function DraggableNoteItemImpl({
     const relativePath = note.path.startsWith('notes/') ? note.path.slice(6) : note.path;
     e.dataTransfer.setData('text/plain', relativePath);
     e.dataTransfer.setData('application/x-note-path', relativePath);
+    // The full address as well: reordering keys off `note.path`, and the
+    // relative form above cannot be turned back into one for a note that
+    // does not live under `notes/`.
+    e.dataTransfer.setData('application/x-note-id', note.path);
     e.dataTransfer.effectAllowed = 'move';
+    draggedNote = { path: note.path, folderPath: note.folderPath };
+  };
+  const handleDragEnd = () => {
+    draggedNote = null;
+  };
+
+  // Reorder drop target. Only a note from this same list is a reorder; a note
+  // dragged in from another folder is a move, so that drop is left alone to
+  // bubble to the section / folder zone that already handles moves.
+  const [dropPlace, setDropPlace] = useState<DropPlace | null>(null);
+
+  const isReorderDrag = () =>
+    draggedNote !== null &&
+    draggedNote.path !== note.path &&
+    isSameFolder(draggedNote.folderPath, note.folderPath);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isReorderDrag()) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropPlace(dropPlaceFromPointer(e));
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    // `relatedTarget` is where the pointer went. Crossing between this row's
+    // own children fires a leave the row never actually experienced.
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDropPlace(null);
+  };
+  const handleDropOnRow = (e: React.DragEvent) => {
+    setDropPlace(null);
+    const draggedPath = e.dataTransfer.getData('application/x-note-id');
+    if (!draggedPath || draggedPath === note.path) return;
+    const from = folderOfRelativePath(e.dataTransfer.getData('application/x-note-path'));
+    if (!isSameFolder(from, note.folderPath)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Recomputed from the event rather than read off state: the drop is the
+    // authoritative pointer position, and state could be a frame behind it.
+    onReorder?.(draggedPath, note.path, dropPlaceFromPointer(e));
   };
 
   return (
@@ -72,7 +142,12 @@ function DraggableNoteItemImpl({
       onContextMenu={handleContextMenu}
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragLeave={onReorder && handleDragLeave}
+      onDragOver={onReorder && handleDragOver}
+      onDrop={onReorder && handleDropOnRow}
     >
+      <DropIndicator place={dropPlace} />
       <div
         onClick={handleClick}
         role="button"
@@ -151,5 +226,6 @@ export const DraggableNoteItem = React.memo(
     prev.onClick === next.onClick &&
     prev.onContextMenu === next.onContextMenu &&
     prev.onSelectionClick === next.onSelectionClick &&
+    prev.onReorder === next.onReorder &&
     arraysEqual(prev.tags, next.tags)
 );

@@ -1124,15 +1124,28 @@ fn move_note_in(
         return Err("Destination folder does not exist".to_string());
     }
 
-    // Generate unique filename if needed (handle conflicts)
+    // Generate unique filename if needed (handle conflicts). A note already
+    // living in the destination is not a conflict — it is its own only match.
+    // Deduplicating there renamed the note to "name (2).md" ON TOP OF itself,
+    // so dropping a root note back onto the root list (or re-picking its own
+    // folder in Move to Folder…) appeared to duplicate it and delete the
+    // original. `move_folder` has always short-circuited this case.
     let base_name = filename.trim_end_matches(".md");
-    let final_filename = generate_unique_filename(&dest_dir, base_name, "md");
+    let is_same_folder = source_path.parent() == Some(dest_dir.as_path());
+    let final_filename = if is_same_folder {
+        filename.clone()
+    } else {
+        generate_unique_filename(&dest_dir, base_name, "md")
+    };
     let dest_path = dest_dir.join(&final_filename);
     validate_path_within_base(&dest_path, standalone_dir)
         .map_err(|_| "Invalid note path".to_string())?;
 
-    // Move the file
-    fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
+    // Move the file. Same-folder is a no-op rename; skip it rather than trust
+    // every platform to treat "rename a path onto itself" as harmless.
+    if !is_same_folder {
+        fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
+    }
 
     // Return new relative path
     let new_relative_path = match to_folder {
@@ -1722,6 +1735,38 @@ mod tests {
         assert_eq!(final_filename, "note.md");
         assert_eq!(relative, "Archive/note.md");
         assert_eq!(fs::read_to_string(destination).unwrap(), "body");
+    }
+
+    #[test]
+    fn move_note_into_its_current_folder_is_a_no_op() {
+        // Dropping a note back where it already lives used to dedupe against
+        // itself: "pw.md" was renamed to "pw (2).md", which reads as a
+        // duplicate that ate the original.
+        let tmp = TempDir::new("move-same-folder");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+        fs::write(notes.join("pw.md"), "root body").unwrap();
+        fs::write(notes.join("Projects/note.md"), "nested body").unwrap();
+
+        let (_, final_filename, relative, _) = move_note_in(&notes, "pw.md", None).unwrap();
+        assert_eq!(final_filename, "pw.md");
+        assert_eq!(relative, "pw.md");
+        assert!(notes.join("pw.md").is_file());
+        assert!(!notes.join("pw (2).md").exists());
+        assert_eq!(fs::read_to_string(notes.join("pw.md")).unwrap(), "root body");
+
+        let (_, final_filename, relative, _) =
+            move_note_in(&notes, "Projects/note.md", Some("Projects")).unwrap();
+        assert_eq!(final_filename, "note.md");
+        assert_eq!(relative, "Projects/note.md");
+        assert!(notes.join("Projects/note.md").is_file());
+        assert!(!notes.join("Projects/note (2).md").exists());
+
+        // A genuine collision in a different folder still dedupes.
+        fs::write(notes.join("Projects/pw.md"), "other").unwrap();
+        let (_, final_filename, _, _) = move_note_in(&notes, "pw.md", Some("Projects")).unwrap();
+        assert_eq!(final_filename, "pw (2).md");
+        assert!(!notes.join("pw.md").exists());
     }
 
     #[test]

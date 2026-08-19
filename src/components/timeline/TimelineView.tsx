@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { useNoteStore, useTimelineStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
@@ -27,6 +27,15 @@ const MAX_PREVIEW_CHARS = 120;
 const PREVIEW_CACHE_LIMIT = 400;
 
 /**
+ * How many notes the feed shows before asking. Every row costs a file read for
+ * its preview, so an unpaged Timeline opened a whole library at once: a
+ * few-hundred-note Forge spent hundreds of round trips before painting a feed
+ * whose first screen holds a dozen rows. Paging makes the cost track what is
+ * actually being read.
+ */
+const PAGE_SIZE = 50;
+
+/**
  * Dedicated chronological feed that replaces the editor pane when the
  * Timeline is open. Notes are grouped by freshness buckets. On macOS with
  * calendar permission granted, the day's calendar events are interleaved as
@@ -44,6 +53,40 @@ export function TimelineView() {
   // "modified_at": daily notes by `date` descending, standalone alphabetically
   // (we don't have an fs-mtime exposed by the backend — see report).
   const buckets = useMemo(() => bucketNotes(notes), [notes]);
+
+  const totalNotes = useMemo(
+    () => BUCKETS.reduce((sum, bucket) => sum + buckets[bucket.id].length, 0),
+    [buckets]
+  );
+
+  // The page count is stored against the list it was counted for, so a Forge
+  // switch — or anything else that changes how many notes there are — starts
+  // from the first page again instead of opening the new list at whatever
+  // depth the old one had been paged to. Derived rather than reset from an
+  // effect: an effect here would render the stale count once, then render
+  // again to correct it.
+  const [page, setPage] = useState({ countedFor: totalNotes, count: PAGE_SIZE });
+  const visibleCount = page.countedFor === totalNotes ? page.count : PAGE_SIZE;
+
+  // One budget spent down the buckets in order, so the page boundary falls
+  // wherever it falls rather than giving every bucket a quota of its own —
+  // fifty notes from today should not be cut short to reserve room for
+  // "Earlier".
+  const visibleBuckets = useMemo(() => {
+    let remaining = visibleCount;
+    const out = {} as Record<BucketId, NoteFile[]>;
+    for (const bucket of BUCKETS) {
+      const take = Math.min(remaining, buckets[bucket.id].length);
+      out[bucket.id] = take > 0 ? buckets[bucket.id].slice(0, take) : [];
+      remaining -= take;
+    }
+    return out;
+  }, [buckets, visibleCount]);
+
+  const visibleNotes = useMemo(
+    () => BUCKETS.flatMap((bucket) => visibleBuckets[bucket.id]),
+    [visibleBuckets]
+  );
 
   // Kick off calendar-event fetch. This goes through the calendar library
   // rather than invoking directly, so it sees every connected source and
@@ -88,15 +131,23 @@ export function TimelineView() {
     };
   }, []);
 
-  // Lazy-load previews for all visible notes. We cap the cache size so a huge
-  // library doesn't blow memory — rows scroll off-screen fine without it.
+  // Previews are read only for the rows on screen, and kept once read so
+  // showing another page does not re-read the pages already shown. The cache is
+  // still capped: a library read all the way to the end should not be held in
+  // memory in full.
+  const previewCacheRef = useRef<Map<string, string>>(new Map());
   useEffect(() => {
     let cancelled = false;
-    const visible = notes.filter((n) => !n.isLocked).slice(0, PREVIEW_CACHE_LIMIT);
 
     const loadPreviews = async () => {
-      const next = new Map<string, string>();
-      for (const note of visible) {
+      const cache = previewCacheRef.current;
+      const missing = visibleNotes.filter(
+        (note) => !note.isLocked && !cache.has(note.path) && cache.size < PREVIEW_CACHE_LIMIT
+      );
+      if (missing.length === 0) return;
+
+      const next = new Map(cache);
+      for (const note of missing) {
         try {
           const raw = await readNote(noteFileBackendPath(note), note.isDaily, note.isWeekly);
           next.set(note.path, stripForPreview(raw));
@@ -105,6 +156,7 @@ export function TimelineView() {
         }
         if (cancelled) return;
       }
+      previewCacheRef.current = next;
       if (!cancelled) setPreviews(next);
     };
 
@@ -112,7 +164,7 @@ export function TimelineView() {
     return () => {
       cancelled = true;
     };
-  }, [notes]);
+  }, [visibleNotes]);
 
   const handleRowClick = (note: NoteFile) => {
     close();
@@ -163,7 +215,7 @@ export function TimelineView() {
         )}
 
         {BUCKETS.map((bucket) => {
-          const items = buckets[bucket.id];
+          const items = visibleBuckets[bucket.id];
           const events =
             bucket.id === 'today' ? todayEvents : bucket.id === 'yesterday' ? yesterdayEvents : [];
           if (items.length === 0 && events.length === 0) return null;
@@ -199,6 +251,19 @@ export function TimelineView() {
             </section>
           );
         })}
+
+        {visibleCount < totalNotes && (
+          <button
+            type="button"
+            onClick={() => setPage({ countedFor: totalNotes, count: visibleCount + PAGE_SIZE })}
+            className="focus-ring w-full py-3 text-xs transition-colors"
+            style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-muted)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          >
+            Show more — {visibleCount} of {totalNotes}
+          </button>
+        )}
       </div>
     </div>
   );

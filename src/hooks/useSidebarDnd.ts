@@ -73,7 +73,10 @@ export function useSidebarDnd({
     if (!notePath) {
       notePath = e.dataTransfer.getData('text/plain');
     }
-    if (notePath) {
+    // A note already at the root has nowhere to go — the backend treats this
+    // as a no-op now, but skipping it also spares the pointless "Note moved"
+    // toast and the note-list refresh behind it.
+    if (notePath && notePath.includes('/')) {
       await moveNoteToFolder(notePath, undefined);
     }
   };

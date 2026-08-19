@@ -2,6 +2,24 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.4.0] - 2026-08-19
+
+### Added
+
+- **Arrange the sidebar by hand.** A third sort mode, Manual, next to A–Z and Z–A: drag a note onto another to drop it into that place, and the arrangement sticks. Drop on the upper half of a row to land above it, the lower half to land below — so the end of a list is reachable too. It works in the Notes list and inside folders. Folders reorder the same way, using the top and bottom of a folder row; the middle of the row still means “put this inside”, so nesting a folder is exactly the gesture it always was. Daily notes are left out on purpose — they are ordered by date and nothing else. Your arrangement is remembered per Forge; a note created afterwards joins the end of its list rather than pushing anything around. Pick it from the sort control in the Notes header, which now cycles A–Z → Z–A → Manual, or from Settings → Sidebar.
+
+### Changed
+
+- **The Timeline loads in pages.** It used to render every note in the Forge and read every one of their files for a preview line before it painted — hundreds of round trips to fill a screen that holds a dozen rows. It now shows 50 and reads only those, with a Show more at the foot of the feed that counts what is left. Pages already read are kept, so going further never re-reads what you have seen.
+
+### Fixed
+
+- **Reordering a note at the top level of the sidebar did nothing.** The drop was checked against the note's folder, and the two sides of that check disagreed on how to spell "no folder" — the backend sends `null`, parsing a dragged note's path gives `undefined`. Every root-level drop bailed out at the last moment, after the insert line had already shown where it would land. Notes inside a folder were unaffected, which is what hid it.
+- **Dragging a note and dropping it where it already was duplicated it and deleted the original.** Dropping a top-level note back onto the Notes list — or choosing its own folder in Move to Folder… — treated the note as a naming conflict with itself, so `pw` was renamed to `pw (2)` on top of itself and the original address was gone. A note is now left alone when it is already where you dropped it; a genuine name clash in a different folder still gets the numbered suffix it always did.
+- **The note and folder options menus stretched most of the way across the window.** A menu opened beside a 360-pixel sidebar painted itself around a thousand pixels wide, over the note you were reading. The app renders in WebKit, which sizes that kind of floating panel to the space available rather than to the labels inside it; every browser check said it was fine.
+- **The editor's bottom bar printed on top of itself in a narrow window.** Index · Agenda · Settings sit centred over the editor and could not move aside, so as the window narrowed the note actions ran straight through them. The actions now fold into a single Actions menu once the editor gets tight, and the three links fold into a Menu of their own below that — the same shape, so both read as one control. Adding another action later means adding it once; it appears in whichever of the two the window is currently wide enough for. Both thresholds follow the editor's own width, not the window's, so opening or resizing the sidebar and the right panel changes them too. The links also sit on the footer's own line now, rather than a few pixels above it.
+- **A window too narrow for its pinned columns squeezed the editor down to one word per line.** With the Index and Agenda both pinned there was nothing left to write in. They now fold away when the window can no longer hold them and a usable editor at once, and come back — exactly the ones that were showing — when it can again. The icon rail appears while they are folded even if it is switched off, since it is the only way back to them. Nothing in Settings changes: they are still pinned, just not on screen.
+
 ## [2.3.0] - 2026-08-17
 
 ### Added

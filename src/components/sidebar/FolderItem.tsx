@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
 import type { FolderInfo, NoteFile } from '@/types';
+import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { DraggableNoteItem } from './DraggableNoteItem';
 import { Folder, FolderOpen } from 'lucide-react';
+import { folderDropIntent } from './dropPlacement';
+import { DropIndicator } from './DropIndicator';
 import { SignatureMark } from '@/components/ui/SignatureMark';
 
 interface FolderItemProps {
@@ -21,7 +24,30 @@ interface FolderItemProps {
   renderChildren?: React.ReactNode;
   showShapeMark?: boolean;
   index?: number;
+  /**
+   * Manual-sort only. Dropping a *sibling* folder on this row's header
+   * reorders instead of nesting; nesting a sibling is still available by
+   * dropping it into this folder's expanded contents, which is the area the
+   * wrapper below still handles.
+   */
+  onFolderReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
+  /** Manual-sort only — reorder notes inside this folder. */
+  onNoteReorder?: (draggedPath: string, targetPath: string, place: DropPlace) => void;
 }
+
+/** The parent of a folder path: `''` for a top-level folder. */
+function parentOfPath(path: string): string {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? '' : path.slice(0, cut);
+}
+
+/**
+ * The folder currently being dragged, if any. `dataTransfer.getData` stays
+ * unreadable until the drop, so this is the only way a row can tell a sibling
+ * (reorder) from anything else (nest) while deciding what hover feedback to
+ * paint. The drop itself still reads `dataTransfer`.
+ */
+let draggedFolderPath: string | null = null;
 
 export function FolderItem({
   folder,
@@ -40,9 +66,46 @@ export function FolderItem({
   renderChildren,
   showShapeMark = false,
   index = 0,
+  onFolderReorder,
+  onNoteReorder,
 }: FolderItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounterRef = useRef(0);
+  const [dropPlace, setDropPlace] = useState<DropPlace | null>(null);
+
+  // Manual sort: a sibling folder dropped on either END of this header row
+  // takes a place beside it. The band through the row's middle still means
+  // "nest inside this folder", so both gestures live on the same row and
+  // neither is lost — the drop falls through to the wrapper below, which has
+  // always handled nesting.
+  const isSiblingReorder = (dragged: string | null) =>
+    !!onFolderReorder &&
+    !!dragged &&
+    dragged !== folder.path &&
+    parentOfPath(dragged) === parentOfPath(folder.path);
+
+  const handleRowDragOver = (e: React.DragEvent) => {
+    if (!isSiblingReorder(draggedFolderPath)) return;
+    const intent = folderDropIntent(e);
+    setDropPlace(intent === 'nest' ? null : intent);
+    if (intent === 'nest') return;
+    // Claimed here so the row, not the wrapper, is what the pointer is over.
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+  const handleRowDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDropPlace(null);
+  };
+  const handleRowDrop = (e: React.DragEvent) => {
+    setDropPlace(null);
+    const dragged = e.dataTransfer.getData('application/x-folder-path');
+    const intent = folderDropIntent(e);
+    if (intent === 'nest' || !isSiblingReorder(dragged)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onFolderReorder?.(dragged, folder.path, intent);
+  };
 
   // Handle drag start for this folder
   const handleDragStart = (e: React.DragEvent) => {
@@ -50,6 +113,11 @@ export function FolderItem({
     e.dataTransfer.setData('text/plain', folder.path);
     e.dataTransfer.setData('application/x-folder-path', folder.path);
     e.dataTransfer.effectAllowed = 'move';
+    draggedFolderPath = folder.path;
+  };
+
+  const handleDragEnd = () => {
+    draggedFolderPath = null;
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -180,7 +248,12 @@ export function FolderItem({
         onContextMenu={onContextMenu}
         draggable
         onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={onFolderReorder && handleRowDragOver}
+        onDragLeave={onFolderReorder && handleRowDragLeave}
+        onDrop={onFolderReorder && handleRowDrop}
       >
+        <DropIndicator place={dropPlace} />
         <span
           aria-hidden="true"
           className={`sidebar-caret ${isExpanded ? 'sidebar-caret-expanded' : ''}`}
@@ -263,6 +336,7 @@ export function FolderItem({
               level={level + 1}
               tags={getNoteTags?.(note.path)}
               index={index}
+              onReorder={onNoteReorder}
             />
           ))}
           {folder.children.length === 0 && folderNotes.length === 0 && (

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useRef, useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   useNotes,
   useFolders,
@@ -15,6 +15,9 @@ import {
   useSearchStore,
   useSemanticStore,
   useNoteSelectionStore,
+  useSidebarOrderStore,
+  useFolderStore,
+  applyManualOrder,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
@@ -55,6 +58,7 @@ import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
+import type { DropPlace } from '@/stores/sidebarOrderStore';
 
 interface SidebarProps {
   presentation?: 'panel' | 'index';
@@ -193,8 +197,16 @@ export function Sidebar({
   const [showBulkTrashConfirm, setShowBulkTrashConfirm] = useState(false);
   const [showBulkExportModal, setShowBulkExportModal] = useState(false);
 
+  // Manual sort: the user drags notes and folders into place and we replay
+  // that arrangement. Daily notes are excluded by construction — they never
+  // pass through here.
+  const isManualSort = sortOption === 'manual';
+  const noteOrder = useSidebarOrderStore((s) => s.noteOrder);
+  const folderOrder = useSidebarOrderStore((s) => s.folderOrder);
+
   // Sort function based on current sort option
   const sortNotes = (notesToSort: NoteFile[]) => {
+    if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
     return [...notesToSort].sort((a, b) => {
       switch (sortOption) {
         case 'name-desc':
@@ -211,6 +223,75 @@ export function Sidebar({
 
   // All standalone notes (for FolderTree to filter by folder)
   const allStandaloneNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly));
+
+  // The tree with every level put in the user's order. Each level is ranked
+  // only against its own siblings, so one array covers the whole tree.
+  const orderedFolders = useMemo(() => {
+    if (!isManualSort) return folders;
+    const order = (level: FolderInfo[]): FolderInfo[] =>
+      applyManualOrder(level, (f) => f.path, folderOrder).map((f) =>
+        f.children.length > 0 ? { ...f, children: order(f.children) } : f
+      );
+    return order(folders);
+  }, [folders, folderOrder, isManualSort]);
+
+  /**
+   * Manual mode starts from A–Z. `list_notes` returns notes in whatever order
+   * the directory scan produced — folders are sorted by name in the backend,
+   * notes are not — so without a starting point, picking Manual would scramble
+   * the list before the user had arranged anything. Only ever fills an empty
+   * arrangement, so it cannot overwrite one.
+   */
+  useEffect(() => {
+    if (!isManualSort) return;
+    useSidebarOrderStore
+      .getState()
+      .seedNotes(
+        [...notes.filter((n) => !n.isDaily && !n.isWeekly)]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((n) => n.path)
+      );
+  }, [isManualSort, notes]);
+
+  /**
+   * Reorder handlers read the stores directly instead of closing over derived
+   * state. They are handed to every memoized row, so a stable identity keeps
+   * the list from re-rendering wholesale — and reading fresh state is what
+   * makes that stability safe.
+   */
+  const handleNoteReorder = useCallback(
+    (draggedPath: string, targetPath: string, place: DropPlace) => {
+      const all = useNoteStore.getState().notes;
+      const target = all.find((n) => n.path === targetPath);
+      if (!target) return;
+      const { noteOrder: order, moveNote } = useSidebarOrderStore.getState();
+      const siblings = applyManualOrder(
+        all.filter((n) => !n.isDaily && !n.isWeekly && n.folderPath === target.folderPath),
+        (n) => n.path,
+        order
+      ).map((n) => n.path);
+      moveNote(draggedPath, targetPath, siblings, place);
+    },
+    []
+  );
+
+  const handleFolderReorder = useCallback(
+    (draggedPath: string, targetPath: string, place: DropPlace) => {
+      const parentOf = (path: string) => path.slice(0, path.lastIndexOf('/') + 1);
+      const flatten = (level: FolderInfo[]): FolderInfo[] =>
+        level.flatMap((f) => [f, ...flatten(f.children)]);
+      const { folderOrder: order, moveFolder } = useSidebarOrderStore.getState();
+      const siblings = applyManualOrder(
+        flatten(useFolderStore.getState().folders).filter(
+          (f) => parentOf(f.path) === parentOf(targetPath)
+        ),
+        (f) => f.path,
+        order
+      ).map((f) => f.path);
+      moveFolder(draggedPath, targetPath, siblings, place);
+    },
+    []
+  );
 
   // Daily notes
   const dailyNotes = useMemo(() => notes.filter((n) => n.isDaily), [notes]);
@@ -529,9 +610,9 @@ export function Sidebar({
         }
       }
     };
-    walk(folders);
+    walk(orderedFolders);
     return ids;
-  }, [displayedNotes, allStandaloneNotes, folders, expandedFolders]);
+  }, [displayedNotes, allStandaloneNotes, orderedFolders, expandedFolders]);
 
   const handleSelectionClick = (note: NoteFile, e: React.MouseEvent) => {
     const id = note.path;
@@ -829,9 +910,17 @@ export function Sidebar({
                 onToggleSection={() => toggleSection('notes')}
                 title={selectedTags.length > 0 ? 'Notes (filtered)' : 'Notes'}
                 count={selectedTags.length > 0 ? displayedNotes.length : unfiledNotes.length}
-                sortOption={sortOption === 'name-desc' ? 'name-desc' : 'name-asc'}
+                sortOption={
+                  sortOption === 'name-desc' || sortOption === 'manual' ? sortOption : 'name-asc'
+                }
                 onSortToggle={() =>
-                  setSortOption(sortOption === 'name-asc' ? 'name-desc' : 'name-asc')
+                  setSortOption(
+                    sortOption === 'name-asc'
+                      ? 'name-desc'
+                      : sortOption === 'name-desc'
+                        ? 'manual'
+                        : 'name-asc'
+                  )
                 }
                 onNewNote={() => setIsCreating(true)}
                 onNoteClick={handleSidebarNoteClick}
@@ -839,6 +928,7 @@ export function Sidebar({
                 onNoteContextMenu={handleContextMenu}
                 isNoteActive={isNoteActive}
                 getNoteTags={tagsEnabled ? getNoteTags : undefined}
+                onNoteReorder={isManualSort ? handleNoteReorder : undefined}
                 isDragOverRoot={dnd.isDragOverRoot}
                 onRootDragEnter={dnd.onRootDragEnter}
                 onRootDragOver={dnd.onRootDragOver}
@@ -873,7 +963,7 @@ export function Sidebar({
                 style={isIndex ? ({ '--index': 1 } as React.CSSProperties) : undefined}
               >
                 <SidebarFolderTree
-                  folders={folders}
+                  folders={orderedFolders}
                   notes={allStandaloneNotes}
                   expandedFolders={expandedFolders}
                   isCollapsed={sectionsCollapsed.folders}
@@ -888,6 +978,8 @@ export function Sidebar({
                   onNoteSelectionClick={handleSelectionClick}
                   onNoteContextMenu={handleContextMenu}
                   getNoteTags={tagsEnabled ? getNoteTags : undefined}
+                  onFolderReorder={isManualSort ? handleFolderReorder : undefined}
+                  onNoteReorder={isManualSort ? handleNoteReorder : undefined}
                   isDragOverFoldersRoot={dnd.isDragOverFoldersRoot}
                   onFoldersRootDragEnter={dnd.onFoldersRootDragEnter}
                   onFoldersRootDragOver={dnd.onFoldersRootDragOver}

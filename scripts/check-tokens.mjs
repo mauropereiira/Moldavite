@@ -199,7 +199,11 @@ const indexCss = (await readFile(join(ROOT, 'src/index.css'), 'utf8').catch(() =
 );
 const compactPinsWidth = /\.compact-mode \.toolbar-button\s*\{[^}]*width:\s*\d/.test(indexCss);
 if (compactPinsWidth) {
-  const footerRule = indexCss.match(/\.editor-footer \.toolbar-button\s*\{([^}]*)\}/);
+  // The selector may sit in a list — the overflow toggle shares this rule —
+  // so match the whole list up to the brace rather than the bare selector.
+  const footerRule = indexCss.match(
+    /(?:^|\})[^{}]*\.editor-footer \.toolbar-button[^{}]*\{([^}]*)\}/
+  );
   if (!footerRule || !/(^|;|\s)width:\s*auto/.test(footerRule[1])) {
     console.error(
       '\n✗ `.editor-footer .toolbar-button` must set `width: auto`.\n' +
