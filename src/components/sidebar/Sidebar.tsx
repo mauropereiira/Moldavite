@@ -833,6 +833,7 @@ export function Sidebar({
           }}
           onRename={handleRenameFolder}
           onDelete={handleDeleteFolder}
+          onClose={closeFolderContextMenu}
         />
       )}
 

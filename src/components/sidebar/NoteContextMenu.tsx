@@ -9,7 +9,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { usePdfExportStore, useQuickSwitcherStore } from '@/stores';
 import type { NoteFile } from '@/types';
-import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { ContextMenuSurface } from './ContextMenuSurface';
 
 interface NoteContextMenuProps {
   note: NoteFile;
@@ -25,14 +25,7 @@ interface NoteContextMenuProps {
   onClose: () => void;
 }
 
-const itemClass = 'w-full px-3 py-2 text-left text-sm transition-colors';
-
-function hoverIn(e: React.MouseEvent<HTMLButtonElement>) {
-  e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-}
-function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
-  e.currentTarget.style.backgroundColor = 'transparent';
-}
+const itemClass = 'shrink-0 w-full px-3 py-2 text-left text-sm transition-colors';
 
 export function NoteContextMenu({
   note,
@@ -136,33 +129,13 @@ export function NoteContextMenu({
   };
 
   return (
-    <div
-      ref={(node) => applyImpactOrigin(node, position)}
-      // `flex flex-col` is load-bearing, not styling. A shrink-to-fit popup
-      // (fixed/absolute, no width) that holds BOTH percentage-width children
-      // and a plain block child — the separator below — is sized to the whole
-      // available width by WebKit instead of to its content: this menu paints
-      // ~1000px wide beside a 360px sidebar. Blink shrink-wraps it, so it
-      // looks correct in every browser check. A flex column sizes from the
-      // items in both engines. `width: max-content` does NOT fix it in WebKit.
-      className="fixed z-[9999] flex flex-col py-1 min-w-[160px] modal-content-enter impact-surface"
-      style={{
-        left: position.x,
-        top: position.y,
-        backgroundColor: 'var(--bg-elevated)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-sm)',
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <ContextMenuSurface position={position} onClose={onClose}>
       {note.isLocked ? (
         <>
           <button
             onClick={() => onUnlock(note)}
             className={itemClass}
             style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={hoverIn}
-            onMouseLeave={hoverOut}
           >
             View Note
           </button>
@@ -170,8 +143,6 @@ export function NoteContextMenu({
             onClick={() => onPermanentUnlock(note)}
             className={itemClass}
             style={{ color: 'var(--text-primary)' }}
-            onMouseEnter={hoverIn}
-            onMouseLeave={hoverOut}
           >
             Remove Lock
           </button>
@@ -181,8 +152,6 @@ export function NoteContextMenu({
           onClick={() => onLock(note)}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Lock Note
         </button>
@@ -196,8 +165,6 @@ export function NoteContextMenu({
         }}
         className={itemClass}
         style={{ color: 'var(--text-primary)' }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
         {isPinned(note.path) ? 'Unpin from top bar' : 'Pin to top bar'}
       </button>
@@ -209,8 +176,6 @@ export function NoteContextMenu({
           }}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Open in New Tab
         </button>
@@ -220,8 +185,6 @@ export function NoteContextMenu({
           onClick={handleDuplicate}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Duplicate
         </button>
@@ -234,8 +197,6 @@ export function NoteContextMenu({
           }}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Rename…
         </button>
@@ -245,8 +206,6 @@ export function NoteContextMenu({
           onClick={handleExportMarkdown}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Export as Markdown
         </button>
@@ -256,8 +215,6 @@ export function NoteContextMenu({
           onClick={handleExportPdf}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Export as PDF
         </button>
@@ -267,8 +224,6 @@ export function NoteContextMenu({
           onClick={handleExportPlaintext}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Export as Plaintext
         </button>
@@ -278,13 +233,11 @@ export function NoteContextMenu({
           onClick={() => onMoveToFolder(note)}
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
         >
           Move to Folder...
         </button>
       )}
-      <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />
+      <div className="my-1 shrink-0" style={{ borderTop: '1px solid var(--border-muted)' }} />
       <button
         onClick={(e) => {
           onDelete(e, note);
@@ -292,11 +245,9 @@ export function NoteContextMenu({
         }}
         className={itemClass}
         style={{ color: 'var(--error)' }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
         Delete Note
       </button>
-    </div>
+    </ContextMenuSurface>
   );
 }

@@ -1,5 +1,5 @@
 import type { FolderInfo } from '@/types';
-import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { ContextMenuSurface } from './ContextMenuSurface';
 
 interface FolderContextMenuProps {
   folder: FolderInfo;
@@ -7,16 +7,10 @@ interface FolderContextMenuProps {
   onNewNoteInFolder: (folder: FolderInfo) => void;
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
+  onClose: () => void;
 }
 
-const itemClass = 'w-full px-3 py-2 text-left text-sm transition-colors';
-
-function hoverIn(e: React.MouseEvent<HTMLButtonElement>) {
-  e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
-}
-function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
-  e.currentTarget.style.backgroundColor = 'transparent';
-}
+const itemClass = 'shrink-0 w-full px-3 py-2 text-left text-sm transition-colors';
 
 export function FolderContextMenu({
   folder,
@@ -24,33 +18,14 @@ export function FolderContextMenu({
   onNewNoteInFolder,
   onRename,
   onDelete,
+  onClose,
 }: FolderContextMenuProps) {
   return (
-    <div
-      ref={(node) => applyImpactOrigin(node, position)}
-      // `flex flex-col` is load-bearing, not styling. A shrink-to-fit popup
-      // (fixed/absolute, no width) that holds BOTH percentage-width children
-      // and a plain block child — the separator below — is sized to the whole
-      // available width by WebKit instead of to its content: this menu paints
-      // ~1000px wide beside a 360px sidebar. Blink shrink-wraps it, so it
-      // looks correct in every browser check. A flex column sizes from the
-      // items in both engines. `width: max-content` does NOT fix it in WebKit.
-      className="fixed z-[9999] flex flex-col py-1 min-w-[160px] modal-content-enter impact-surface"
-      style={{
-        left: position.x,
-        top: position.y,
-        backgroundColor: 'var(--bg-elevated)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-sm)',
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <ContextMenuSurface position={position} onClose={onClose}>
       <button
         onClick={() => onNewNoteInFolder(folder)}
         className={itemClass}
         style={{ color: 'var(--text-primary)' }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
         New Note in Folder
       </button>
@@ -58,21 +33,17 @@ export function FolderContextMenu({
         onClick={() => onRename(folder)}
         className={itemClass}
         style={{ color: 'var(--text-primary)' }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
         Rename Folder
       </button>
-      <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />
+      <div className="my-1 shrink-0" style={{ borderTop: '1px solid var(--border-muted)' }} />
       <button
         onClick={() => onDelete(folder)}
         className={itemClass}
         style={{ color: 'var(--error)' }}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
       >
         Delete Folder
       </button>
-    </div>
+    </ContextMenuSurface>
   );
 }
