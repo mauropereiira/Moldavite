@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **Long note names stop before the sidebar's Options control.** Narrowing the Index could let a note title continue underneath Options instead of ending in an ellipsis, leaving both labels printed over each other. The complete title is still available to assistive technology; only its visual width is shortened.
+
 ## [2.4.0] - 2026-08-19
 
 ### Added
