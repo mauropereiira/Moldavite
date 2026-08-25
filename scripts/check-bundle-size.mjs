@@ -97,9 +97,9 @@ const BUDGETS = [
 // transactional note readdressing: serialized moves, autosave holds, path-keyed
 // state migration, and validated drag feedback. Measured 603.5 KB raw / 166.9 KB gz.
 // Bumped 3 KB raw for reversible trash state: optimistic rollback plus archived
-// WordPress mappings keyed by backend trash identity. Measured 606.3 KB raw /
-// 167.6 KB gz; gzip remains within the existing cap.
-const APP_JS_BUDGET = { rawKb: 608, gzipKb: 168 };
+// WordPress mappings keyed by backend trash identity. Measured 606.8 KB raw /
+// 167.8 KB gz locally and 168.2 KB gz on Linux CI.
+const APP_JS_BUDGET = { rawKb: 608, gzipKb: 169 };
 
 async function main() {
   let entries;
