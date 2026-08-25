@@ -2,6 +2,15 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.4.2] - 2026-08-25
+
+### Fixed
+
+- **Moving, renaming or trashing a note cannot leave its latest edit behind.** Those operations now wait for the note's pending save, carry its conflict history to the new path and hold anything typed while the file is moving until that path is ready. Tabs, colours, pins, recent notes, selection, manual sidebar order and WordPress publishing all follow the same note instead of staying attached to its old address. Moldavite also waits for that work before closing, and moving a note no longer reports its own filesystem change as an outside edit.
+- **Web and email links open where they belong.** Clicking an `http`, `https` or `mailto` link in the editor now hands it to the system browser or mail app, including a middle-click. Links to other Moldavite notes still open inside Moldavite.
+- **Drag feedback no longer promises a move the app will refuse.** Notes and folders show a restrained source state and a precise valid target, then mark only a successful drop. Daily, weekly, locked, same-folder, self and nested-folder drops are rejected before the target lights up, while locked notes can still be reordered where that is allowed.
+- **Restoring a trashed note restores its identity as well as its file.** An open note disappears immediately when it enters trash and returns if the operation fails. A restored weekly note goes back to Weekly rather than Notes; its colour and WordPress post mapping return too, so publishing it again updates the same post. Expired and permanently deleted trash entries now discard those archived mappings instead of leaving them behind.
+
 ## [2.4.1] - 2026-08-25
 
 ### Fixed
