@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { NoteFile } from '@/types';
 import { useNoteSelectionStore } from '@/stores';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
@@ -20,7 +20,20 @@ function folderOfRelativePath(relative: string): string | null {
  * enough — and the drop itself still reads `dataTransfer`, which is the
  * authoritative copy.
  */
-let draggedNote: { path: string; folderPath?: string } | null = null;
+let draggedNote: { path: string; folderPath: string | null; canMoveToFolder: boolean } | null =
+  null;
+
+export function canDropDraggedNoteIntoFolder(folderPath: string): boolean {
+  return (
+    draggedNote !== null &&
+    draggedNote.canMoveToFolder &&
+    !isSameFolder(draggedNote.folderPath, folderPath)
+  );
+}
+
+export function canDropDraggedNoteIntoRoot(): boolean {
+  return draggedNote?.canMoveToFolder === true && draggedNote.folderPath !== null;
+}
 
 interface DraggableNoteItemProps {
   note: NoteFile;
@@ -57,6 +70,23 @@ function DraggableNoteItemImpl({
   // update. This is what keeps the memoized list efficient when a user
   // shift-selects a 500-note range.
   const isSelected = useNoteSelectionStore((s) => s.selectedIds.has(note.path));
+  const canMoveToFolder =
+    note.path.startsWith('notes/') && !note.isDaily && !note.isWeekly && !note.isLocked;
+  const [isDragging, setIsDragging] = useState(false);
+  const dragFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (dragFrameRef.current !== null) {
+        window.cancelAnimationFrame(dragFrameRef.current);
+      }
+      if (draggedNote?.path === note.path) {
+        draggedNote = null;
+      }
+    },
+    [note.path]
+  );
+
   const handleClick = (e: React.MouseEvent) => {
     // Cmd/Ctrl-click toggles and shift-click extends the selection. We route
     // both through `onSelectionClick` so the parent can keep track of the
@@ -79,6 +109,7 @@ function DraggableNoteItemImpl({
   };
   const handleContextMenu = (e: React.MouseEvent) => onContextMenu(note, e);
   const handleDragStart = (e: React.DragEvent) => {
+    if (!canMoveToFolder && !onReorder) return;
     // Store the note path for drag-and-drop
     // Strip "notes/" prefix for the relative path within notes folder
     const relativePath = note.path.startsWith('notes/') ? note.path.slice(6) : note.path;
@@ -89,10 +120,29 @@ function DraggableNoteItemImpl({
     // does not live under `notes/`.
     e.dataTransfer.setData('application/x-note-id', note.path);
     e.dataTransfer.effectAllowed = 'move';
-    draggedNote = { path: note.path, folderPath: note.folderPath };
+    draggedNote = {
+      path: note.path,
+      folderPath: folderOfRelativePath(relativePath),
+      canMoveToFolder,
+    };
+    if (dragFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragFrameRef.current);
+    }
+    // The browser snapshots the native drag preview before the next frame.
+    // Deferring the dim keeps that preview fully opaque while changing only
+    // the source row left behind in the sidebar.
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      setIsDragging(true);
+    });
   };
   const handleDragEnd = () => {
     draggedNote = null;
+    if (dragFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    setIsDragging(false);
   };
 
   // Reorder drop target. Only a note from this same list is a reorder; a note
@@ -132,7 +182,9 @@ function DraggableNoteItemImpl({
 
   return (
     <div
-      className="group relative list-item-stagger"
+      className={`draggable-note-item group relative list-item-stagger${
+        isDragging ? ' sidebar-note-drag-source' : ''
+      }`}
       style={
         {
           paddingLeft: level > 0 ? `${level * 12}px` : undefined,
@@ -140,7 +192,7 @@ function DraggableNoteItemImpl({
         } as React.CSSProperties
       }
       onContextMenu={handleContextMenu}
-      draggable
+      draggable={canMoveToFolder || !!onReorder}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragLeave={onReorder && handleDragLeave}

@@ -1,11 +1,21 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLastPersistedMarkdown, readNoteWithMeta } from '@/lib/fileSystem';
-import { getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
+import {
+  beginAutosavePathChange,
+  commitAutosavePathChange,
+  flushPendingAutosave,
+  getPendingAutosaveNoteId,
+} from '@/lib/autosaveFlush';
 import { useForgeStore } from '@/stores/forgeStore';
+import { useNoteColorsStore } from '@/stores/noteColorsStore';
+import { useNoteSelectionStore } from '@/stores/noteSelectionStore';
 import { useNoteStore } from '@/stores/noteStore';
+import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSidebarOrderStore } from '@/stores/sidebarOrderStore';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useWordPressStore } from '@/stores/wordpressStore';
 import type { Note, NoteFile } from '@/types';
 
 const invokeMock = vi.fn();
@@ -15,7 +25,8 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { useNotes } from './useNotes';
-import { useAutoSave } from './useAutoSave';
+import { discardPendingAutosaveForNote, useAutoSave } from './useAutoSave';
+import { useTrash } from './useTrash';
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,6 +37,8 @@ beforeEach(() => {
       return { content: '', color: null, contentHash: 'empty-hash' };
     }
     if (command === 'create_note') return 'created.md';
+    if (command === 'list_trash') return [];
+    if (command === 'trash_note') return 'trash-1';
     return undefined;
   });
   useTemplateStore.setState({ defaultDailyTemplate: null });
@@ -237,5 +250,384 @@ describe('useNotes external-write bases', () => {
     expect(state.openTabs.map((tab) => tab.id)).toEqual([survivor.id]);
     expect(state.activeTabId).toBe(survivor.id);
     expect(state.currentNote?.id).toBe(survivor.id);
+  });
+
+  it('readdresses edits made while an active note is moving', async () => {
+    const note: Note = {
+      id: 'notes/moving.md',
+      title: 'moving',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') {
+        return { contentHash: 'moved-write', conflictCopy: null };
+      }
+      return undefined;
+    });
+    const hook = renderHook(() => useAutoSave());
+
+    act(() => {
+      useNoteStore.setState({
+        notes: [],
+        openTabs: [note],
+        activeTabId: note.id,
+        currentNote: note,
+      });
+    });
+    beginAutosavePathChange(note.id);
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>edit during move</p>', note.id);
+    });
+    await waitFor(() => expect(getPendingAutosaveNoteId()).toBe(note.id));
+
+    const newId = 'notes/Projects/moving.md';
+    act(() => useNoteStore.getState().renameNoteReferences(note.id, newId, 'moving'));
+    await act(() => commitAutosavePathChange(note.id, newId));
+    hook.unmount();
+
+    const writes = invokeMock.mock.calls.filter(([command]) => command === 'write_note');
+    expect(writes).toHaveLength(1);
+    expect(writes[0][1]).toMatchObject({
+      filename: 'Projects/moving.md',
+      content: 'edit during move',
+    });
+    expect(getPendingAutosaveNoteId()).toBeNull();
+  });
+
+  it('keeps the moved edit separate when another note is edited during the move', async () => {
+    const moving: Note = {
+      id: 'notes/moving-and-switching.md',
+      title: 'moving-and-switching',
+      content: '<p>saved moving body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    const other: Note = {
+      ...moving,
+      id: 'notes/other.md',
+      title: 'other',
+      content: '<p>saved other body</p>',
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') {
+        return { contentHash: 'write-hash', conflictCopy: null };
+      }
+      return undefined;
+    });
+    const hook = renderHook(() => useAutoSave());
+
+    act(() => {
+      useNoteStore.setState({
+        notes: [],
+        openTabs: [moving, other],
+        activeTabId: moving.id,
+        currentNote: moving,
+      });
+    });
+    beginAutosavePathChange(moving.id);
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>moving edit</p>', moving.id);
+    });
+    await waitFor(() => expect(getPendingAutosaveNoteId()).toBe(moving.id));
+
+    act(() => useNoteStore.getState().switchTab(other.id));
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>other edit</p>', other.id);
+    });
+    const newId = 'notes/Projects/moving-and-switching.md';
+    act(() => useNoteStore.getState().renameNoteReferences(moving.id, newId, moving.title));
+    await act(() => commitAutosavePathChange(moving.id, newId));
+
+    expect(getPendingAutosaveNoteId()).toBe(other.id);
+    await act(() => flushPendingAutosave());
+    hook.unmount();
+
+    const writes = invokeMock.mock.calls
+      .filter(([command]) => command === 'write_note')
+      .map(([, args]) => args as Record<string, unknown>);
+    expect(writes).toEqual([
+      expect.objectContaining({
+        filename: 'Projects/moving-and-switching.md',
+        content: 'moving edit',
+      }),
+      expect.objectContaining({ filename: 'other.md', content: 'other edit' }),
+    ]);
+  });
+
+  it('keeps a moved edit pending when its first destination save fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const moving: Note = {
+      id: 'notes/retry-move.md',
+      title: 'retry-move',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    let failWrite = true;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') {
+        if (failWrite) throw new Error('disk full');
+        return { contentHash: 'retry-hash', conflictCopy: null };
+      }
+      return undefined;
+    });
+    const hook = renderHook(() => useAutoSave());
+
+    act(() => {
+      useNoteStore.setState({
+        openTabs: [moving],
+        activeTabId: moving.id,
+        currentNote: moving,
+      });
+    });
+    beginAutosavePathChange(moving.id);
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>must retry</p>', moving.id);
+    });
+    const newId = 'notes/Projects/retry-move.md';
+    act(() => useNoteStore.getState().renameNoteReferences(moving.id, newId, moving.title));
+
+    await expect(act(() => commitAutosavePathChange(moving.id, newId))).rejects.toThrow(
+      'disk full'
+    );
+    expect(getPendingAutosaveNoteId()).toBe(newId);
+
+    failWrite = false;
+    await act(() => flushPendingAutosave());
+    hook.unmount();
+    consoleError.mockRestore();
+
+    expect(getPendingAutosaveNoteId()).toBeNull();
+    const writes = invokeMock.mock.calls.filter(([command]) => command === 'write_note');
+    expect(writes).toHaveLength(2);
+    expect(writes[1][1]).toMatchObject({
+      filename: 'Projects/retry-move.md',
+      content: 'must retry',
+    });
+  });
+
+  it('discards a held moved edit after the note is explicitly deleted', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const moving: Note = {
+      id: 'notes/delete-after-move.md',
+      title: 'delete-after-move',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') throw new Error('disk full');
+      return undefined;
+    });
+    const hook = renderHook(() => useAutoSave());
+
+    act(() => {
+      useNoteStore.setState({
+        openTabs: [moving],
+        activeTabId: moving.id,
+        currentNote: moving,
+      });
+    });
+    beginAutosavePathChange(moving.id);
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>delete me</p>', moving.id);
+    });
+    const newId = 'notes/Projects/delete-after-move.md';
+    act(() => useNoteStore.getState().renameNoteReferences(moving.id, newId, moving.title));
+    await expect(act(() => commitAutosavePathChange(moving.id, newId))).rejects.toThrow(
+      'disk full'
+    );
+
+    discardPendingAutosaveForNote(newId, '<p>delete me</p>');
+    await act(() => flushPendingAutosave());
+    hook.unmount();
+    consoleError.mockRestore();
+
+    expect(getPendingAutosaveNoteId()).toBeNull();
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'write_note')).toHaveLength(1);
+  });
+
+  it('does not trash a note whose moved edit still cannot be saved', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const moving: Note = {
+      id: 'notes/trash-after-move.md',
+      title: 'trash-after-move',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'write_note') throw new Error('disk full');
+      if (command === 'list_notes' || command === 'list_trash') return [];
+      return undefined;
+    });
+    const hook = renderHook(() => {
+      useAutoSave();
+      return useTrash();
+    });
+
+    act(() => {
+      useNoteStore.setState({
+        openTabs: [moving],
+        activeTabId: moving.id,
+        currentNote: moving,
+      });
+    });
+    beginAutosavePathChange(moving.id);
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>trash me</p>', moving.id);
+    });
+    const newId = 'notes/Projects/trash-after-move.md';
+    act(() => useNoteStore.getState().renameNoteReferences(moving.id, newId, moving.title));
+    await expect(act(() => commitAutosavePathChange(moving.id, newId))).rejects.toThrow(
+      'disk full'
+    );
+
+    await expect(
+      act(() => hook.result.current.trashNote('Projects/trash-after-move.md', false))
+    ).rejects.toThrow('Save pending changes before moving a note to trash');
+    expect(getPendingAutosaveNoteId()).toBe(newId);
+    hook.unmount();
+    consoleError.mockRestore();
+
+    expect(useNoteStore.getState().openTabs).toHaveLength(1);
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'write_note')).toHaveLength(2);
+    expect(invokeMock.mock.calls.some(([command]) => command === 'trash_note')).toBe(false);
+  });
+
+  it('keeps the saved tab when trashing the note fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const note: Note = {
+      id: 'notes/failed-trash.md',
+      title: 'failed-trash',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'trash_note') throw new Error('trash unavailable');
+      if (command === 'write_note')
+        return { contentHash: 'saved-before-trash', conflictCopy: null };
+      return undefined;
+    });
+    const hook = renderHook(() => {
+      useAutoSave();
+      return useTrash();
+    });
+
+    act(() => {
+      useNoteStore.setState({
+        openTabs: [note],
+        activeTabId: note.id,
+        currentNote: note,
+      });
+    });
+    act(() => {
+      useNoteStore.getState().updateNoteContent('<p>unsaved edit</p>', note.id);
+    });
+    await waitFor(() => expect(getPendingAutosaveNoteId()).toBe(note.id));
+
+    await expect(
+      act(() => hook.result.current.trashNote('failed-trash.md', false))
+    ).rejects.toThrow('trash unavailable');
+    expect(getPendingAutosaveNoteId()).toBeNull();
+    hook.unmount();
+    consoleError.mockRestore();
+
+    expect(useNoteStore.getState().openTabs.map((tab) => tab.id)).toEqual([note.id]);
+    expect(useNoteStore.getState().currentNote?.content).toBe('<p>unsaved edit</p>');
+  });
+
+  it('forgets every path-keyed reference after trash succeeds', async () => {
+    const note: Note = {
+      id: 'notes/trash-cleanup.md',
+      title: 'trash-cleanup',
+      content: '<p>saved body</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    const noteFile: NoteFile = {
+      name: 'trash-cleanup.md',
+      path: note.id,
+      isDaily: false,
+      isWeekly: false,
+      isLocked: false,
+    };
+    useNoteStore.setState({
+      notes: [noteFile],
+      openTabs: [note],
+      activeTabId: note.id,
+      currentNote: note,
+      recentNoteIds: [note.id],
+      unlockedNotes: new Set([note.id]),
+    });
+    useNoteColorsStore.setState({ colors: { [note.id]: 'cosmos' } });
+    useNoteSelectionStore.setState({ selectedIds: new Set([note.id]) });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: [note.id] });
+    useSidebarOrderStore.setState({ noteOrder: [note.id] });
+    useWordPressStore.setState({
+      postsByNote: { [`7:${note.id}`]: 42 },
+      trashedPostsById: {},
+    });
+    const hook = renderHook(() => {
+      useAutoSave();
+      return useTrash();
+    });
+
+    await act(() => hook.result.current.trashNote('trash-cleanup.md', false));
+
+    expect(useNoteStore.getState()).toMatchObject({
+      notes: [],
+      openTabs: [],
+      activeTabId: null,
+      currentNote: null,
+      recentNoteIds: [],
+    });
+    expect(useNoteStore.getState().unlockedNotes.has(note.id)).toBe(false);
+    expect(useNoteColorsStore.getState().colors[note.id]).toBeUndefined();
+    expect(useNoteSelectionStore.getState().selectedIds.has(note.id)).toBe(false);
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).not.toContain(note.id);
+    expect(useSidebarOrderStore.getState().noteOrder).not.toContain(note.id);
+    expect(useWordPressStore.getState().postsByNote).toEqual({});
+    expect(useWordPressStore.getState().trashedPostsById).toEqual({
+      'trash-1': { [`7:${note.id}`]: 42 },
+    });
+  });
+
+  it('forgets WordPress mappings for expired trash items', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'cleanup_old_trash') return ['expired-trash'];
+      if (command === 'list_trash') return [];
+      return undefined;
+    });
+    useWordPressStore.setState({
+      trashedPostsById: {
+        'expired-trash': { '7:notes/expired.md': 42 },
+        'fresh-trash': { '7:notes/fresh.md': 43 },
+      },
+    });
+    const hook = renderHook(() => useTrash());
+
+    await act(() => hook.result.current.cleanupOld());
+
+    expect(useWordPressStore.getState().trashedPostsById).toEqual({
+      'fresh-trash': { '7:notes/fresh.md': 43 },
+    });
   });
 });

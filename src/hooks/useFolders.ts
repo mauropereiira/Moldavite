@@ -5,7 +5,14 @@
  */
 
 import { useCallback } from 'react';
-import { useFolderStore, useNoteStore } from '@/stores';
+import {
+  useFolderStore,
+  useNoteColorsStore,
+  useNoteSelectionStore,
+  useNoteStore,
+  useQuickSwitcherStore,
+  useSidebarOrderStore,
+} from '@/stores';
 import {
   listFolders,
   createFolder as createFolderApi,
@@ -15,6 +22,15 @@ import {
   moveFolder as moveFolderApi,
   listNotes,
 } from '@/lib/fileSystem';
+import {
+  acquireAutosavePathChange,
+  abortAutosavePathChange,
+  beginAutosavePathChange,
+  commitAutosavePathChange,
+  flushPendingAutosave,
+  getPendingAutosaveNoteId,
+} from '@/lib/autosaveFlush';
+import { useWordPressStore } from '@/stores/wordpressStore';
 import { useToast } from './useToast';
 
 export function useFolders() {
@@ -121,16 +137,62 @@ export function useFolders() {
    */
   const moveNoteToFolder = useCallback(
     async (notePath: string, toFolder?: string) => {
+      let heldAutosavePath: string | null = null;
+      const releasePathChange = await acquireAutosavePathChange();
       try {
-        const newPath = await moveNoteApi(notePath, toFolder);
-        // Refresh notes to reflect new paths
-        const notes = await listNotes();
-        setNotes(notes);
+        const oldPath = notePath.startsWith('notes/') ? notePath : `notes/${notePath}`;
+        const backendPath = oldPath.slice('notes/'.length);
+
+        await flushPendingAutosave();
+        if (getPendingAutosaveNoteId() !== null) {
+          throw new Error('Save pending changes before moving a note');
+        }
+        if (useNoteStore.getState().currentNote?.id === oldPath) {
+          beginAutosavePathChange(oldPath);
+          heldAutosavePath = oldPath;
+        }
+
+        const newPath = await moveNoteApi(backendPath, toFolder);
+        if (newPath !== oldPath) {
+          const newName = newPath.split('/').pop() || newPath;
+          const newTitle = newName.replace(/\.md$/, '');
+          useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+        }
+        if (heldAutosavePath) {
+          const committingPath = heldAutosavePath;
+          heldAutosavePath = null;
+          await commitAutosavePathChange(committingPath, newPath).catch((error) => {
+            console.error('[useFolders] Failed to save an edit made during move:', error);
+          });
+        }
+        if (newPath !== oldPath) {
+          try {
+            useNoteColorsStore.getState().renameColor(oldPath, newPath);
+            useNoteSelectionStore.getState().rename(oldPath, newPath);
+            useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+            useSidebarOrderStore.getState().renameNote(oldPath, newPath);
+            useWordPressStore.getState().notePathChanged(oldPath, newPath);
+          } catch (error) {
+            console.error('[useFolders] Failed to migrate secondary note references:', error);
+          }
+        }
+        // The move is already committed and renameNoteReferences carries enough
+        // metadata to keep the sidebar coherent if this best-effort refresh fails.
+        try {
+          setNotes(await listNotes());
+        } catch (error) {
+          console.error('[useFolders] Failed to refresh notes after move:', error);
+        }
         toast.success('Note moved');
         return newPath;
       } catch (error) {
+        if (heldAutosavePath) {
+          await abortAutosavePathChange(heldAutosavePath).catch(() => {});
+        }
         toast.error(String(error));
         throw error;
+      } finally {
+        releasePathChange();
       }
     },
     [setNotes, toast]

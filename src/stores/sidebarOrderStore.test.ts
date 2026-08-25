@@ -103,4 +103,15 @@ describe('useSidebarOrderStore', () => {
     expect(useSidebarOrderStore.getState().folderOrder).toEqual(['Work', 'Archive']);
     expect(useSidebarOrderStore.getState().noteOrder).toEqual(['notes/b.md', 'notes/a.md']);
   });
+
+  it('preserves a note rank when its path changes', () => {
+    useSidebarOrderStore.setState({ noteOrder: ['notes/a.md', 'notes/b.md'] });
+
+    useSidebarOrderStore.getState().renameNote('notes/a.md', 'notes/Projects/a.md');
+
+    expect(useSidebarOrderStore.getState().noteOrder).toEqual([
+      'notes/Projects/a.md',
+      'notes/b.md',
+    ]);
+  });
 });

@@ -14,6 +14,7 @@ import {
   useNoteSelectionStore,
   useNoteStore,
   useQuickSwitcherStore,
+  useSidebarOrderStore,
   useTemplateStore,
   useTaskStatusStore,
   useToastStore,
@@ -45,6 +46,14 @@ import {
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
 import { cancelPendingAutosaveDebounceForNote, discardPendingAutosaveForNote } from './useAutoSave';
+import {
+  acquireAutosavePathChange,
+  abortAutosavePathChange,
+  beginAutosavePathChange,
+  commitAutosavePathChange,
+  flushPendingAutosave,
+  getPendingAutosaveNoteId,
+} from '@/lib/autosaveFlush';
 
 /**
  * Manages note operations including loading, creating, and deleting notes.
@@ -547,25 +556,45 @@ export function useNotes() {
 
       if (newPath === oldPath) return;
 
+      const releasePathChange = await acquireAutosavePathChange();
+      let heldAutosavePath: string | null = null;
       try {
+        await flushPendingAutosave();
+        if (getPendingAutosaveNoteId() !== null) {
+          throw new Error('Save pending changes before renaming a note');
+        }
         if (getState().currentNote?.id === oldPath) {
-          await flushCurrentNote();
+          beginAutosavePathChange(oldPath);
+          heldAutosavePath = oldPath;
         }
         await renameNoteFile(oldFilename, newFilename, false, false);
 
         useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+        if (heldAutosavePath) {
+          const committingPath = heldAutosavePath;
+          heldAutosavePath = null;
+          await commitAutosavePathChange(committingPath, newPath).catch((error) => {
+            console.error('[useNotes] Failed to save an edit made during rename:', error);
+          });
+        }
         useNoteColorsStore.getState().renameColor(oldPath, newPath);
         useNoteSelectionStore.getState().rename(oldPath, newPath);
         useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
+        useSidebarOrderStore.getState().renameNote(oldPath, newPath);
         useWordPressStore.getState().notePathChanged(oldPath, newPath);
         useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
       } catch (error) {
+        if (heldAutosavePath) {
+          await abortAutosavePathChange(heldAutosavePath).catch(() => {});
+        }
         const message = error instanceof Error ? error.message : String(error);
         useToastStore.getState().addToast('error', message);
         throw error;
+      } finally {
+        releasePathChange();
       }
     },
-    [flushCurrentNote, getState]
+    [getState]
   );
 
   /**

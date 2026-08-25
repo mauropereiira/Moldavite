@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DependencyList } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,7 @@ const tiptapHarness = vi.hoisted(() => ({
 
 const safeInvoke = vi.hoisted(() => vi.fn());
 const convertFileSrc = vi.hoisted(() => vi.fn((path: string) => `asset://${path}`));
+const shellOpen = vi.hoisted(() => vi.fn());
 
 vi.mock('@tiptap/react', async () => {
   const actual = await vi.importActual<typeof import('@tiptap/react')>('@tiptap/react');
@@ -65,6 +66,10 @@ vi.mock('@/lib/ipc', () => ({
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
   convertFileSrc: (path: string) => convertFileSrc(path),
+}));
+
+vi.mock('@tauri-apps/plugin-shell', () => ({
+  open: (...args: unknown[]) => shellOpen(...args),
 }));
 
 // Stable across renders so a test can assert what the shortcut handlers do,
@@ -210,6 +215,20 @@ async function renderEditor(currentNote: Note, otherNotes: Note[] = []) {
   return { editor, scrollContainer };
 }
 
+async function clickEditorElement(element: HTMLElement) {
+  const original = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
+  Object.defineProperty(document, 'elementFromPoint', {
+    configurable: true,
+    value: () => element,
+  });
+  try {
+    await userEvent.setup().click(element);
+  } finally {
+    if (original) Object.defineProperty(document, 'elementFromPoint', original);
+    else Reflect.deleteProperty(document, 'elementFromPoint');
+  }
+}
+
 beforeEach(() => {
   tiptapHarness.editor = null;
   tiptapHarness.setContentCalls = [];
@@ -218,6 +237,7 @@ beforeEach(() => {
   tiptapHarness.afterSetContent = null;
   safeInvoke.mockReset();
   convertFileSrc.mockClear();
+  shellOpen.mockReset().mockResolvedValue(undefined);
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -292,6 +312,40 @@ describe('Editor layout settings', () => {
   });
 });
 
+describe('Editor links', () => {
+  it.each([
+    ['web URL', 'https://example.com/docs?from=moldavite'],
+    ['email address', 'mailto:hello@example.com'],
+  ])('opens an embedded %s with the system handler', async (_label, href) => {
+    await renderEditor(note('notes/links.md', `<p><a href="${href}">Open link</a></p>`));
+
+    await clickEditorElement(screen.getByRole('link', { name: 'Open link' }));
+
+    expect(shellOpen).toHaveBeenCalledOnce();
+    expect(shellOpen).toHaveBeenCalledWith(href);
+  });
+
+  it('does not open unsupported link schemes', async () => {
+    await renderEditor(note('notes/links.md', '<p><a href="tel:+15551234567">Call</a></p>'));
+
+    await clickEditorElement(screen.getByRole('link', { name: 'Call' }));
+
+    expect(shellOpen).not.toHaveBeenCalled();
+  });
+
+  it('opens a middle-clicked web link with the system handler', async () => {
+    const href = 'https://example.com/middle-click';
+    await renderEditor(note('notes/links.md', `<p><a href="${href}">Open link</a></p>`));
+
+    fireEvent(
+      screen.getByRole('link', { name: 'Open link' }),
+      new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true })
+    );
+
+    expect(shellOpen).toHaveBeenCalledWith(href);
+  });
+});
+
 describe('Editor content synchronization', () => {
   it('loads note content without emitting an editor update', async () => {
     const currentNote = note('notes/first.md', '<p>First note body</p>');
@@ -356,6 +410,35 @@ describe('Editor content synchronization', () => {
       expect(scrollContainer.scrollTop).toBe(180);
       expect(editor.state.selection.from).toBe(3);
       expect(editor.state.selection.to).toBe(7);
+    });
+    expect(tiptapHarness.setTextSelectionCalls).toContainEqual([{ from: 3, to: 7 }]);
+  });
+
+  it('preserves focus, selection, and scroll when the open note moves folders', async () => {
+    const currentNote = note('notes/first.md', '<p>abcdefghi</p>');
+    const { editor, scrollContainer } = await renderEditor(currentNote);
+
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>abcdefghi</p>'));
+    editor.commands.focus();
+    editor.commands.setTextSelection({ from: 3, to: 7 });
+    scrollContainer.scrollTop = 190;
+    tiptapHarness.setTextSelectionCalls = [];
+    tiptapHarness.blurCallCount = 0;
+    tiptapHarness.afterSetContent = () => {
+      scrollContainer.scrollTop = 0;
+    };
+
+    act(() => {
+      useNoteStore
+        .getState()
+        .renameNoteReferences(currentNote.id, 'notes/Projects/first.md', 'first');
+    });
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(190);
+      expect(editor.state.selection).toMatchObject({ from: 3, to: 7 });
+      expect(editor.isFocused).toBe(true);
+      expect(useNoteStore.getState().currentNote?.readdressedFrom).toBeUndefined();
     });
     expect(tiptapHarness.setTextSelectionCalls).toContainEqual([{ from: 3, to: 7 }]);
   });

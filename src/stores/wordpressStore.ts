@@ -42,6 +42,7 @@ interface WordPressState {
   settleAuth: (result: { connected: boolean; error: string | null }) => void;
 
   postsByNote: Record<string, number>;
+  trashedPostsById: Record<string, Record<string, number>>;
   /**
    * Follow a note to its new path so its published post follows too.
    *
@@ -52,6 +53,10 @@ interface WordPressState {
    * post's status, so that could rewrite something already public.
    */
   notePathChanged: (oldPath: string, newPath: string) => void;
+  noteTrashed: (notePath: string, trashId: string) => void;
+  noteRestored: (trashId: string, notePath: string) => void;
+  forgetTrashedNote: (trashId: string) => void;
+  forgetAllTrashedNotes: () => void;
 }
 
 const postKey = (siteId: number, notePath: string) => `${siteId}:${notePath}`;
@@ -73,6 +78,7 @@ export const useWordPressStore = create<WordPressState>()(
       chosenSiteId: null,
       error: null,
       postsByNote: {},
+      trashedPostsById: {},
 
       refresh: async () => {
         try {
@@ -111,7 +117,14 @@ export const useWordPressStore = create<WordPressState>()(
           // Forget the site and the post map too: they belong to the account
           // that just went away, and silently reusing them against a different
           // account would overwrite someone else's posts.
-          set({ connected: false, sites: [], chosenSiteId: null, postsByNote: {}, error: null });
+          set({
+            connected: false,
+            sites: [],
+            chosenSiteId: null,
+            postsByNote: {},
+            trashedPostsById: {},
+            error: null,
+          });
         } catch (error) {
           set({ error: String(error) });
         }
@@ -156,6 +169,44 @@ export const useWordPressStore = create<WordPressState>()(
           return changed ? { postsByNote: moved } : state;
         }),
 
+      noteTrashed: (notePath, trashId) =>
+        set((state) => {
+          const postsByNote: Record<string, number> = {};
+          const archived: Record<string, number> = {};
+          for (const [key, postId] of Object.entries(state.postsByNote)) {
+            if (splitPostKey(key).notePath === notePath) archived[key] = postId;
+            else postsByNote[key] = postId;
+          }
+          return {
+            postsByNote,
+            trashedPostsById:
+              Object.keys(archived).length > 0
+                ? { ...state.trashedPostsById, [trashId]: archived }
+                : state.trashedPostsById,
+          };
+        }),
+
+      noteRestored: (trashId, notePath) =>
+        set((state) => {
+          const archived = state.trashedPostsById[trashId];
+          if (!archived) return state;
+          const postsByNote = { ...state.postsByNote };
+          for (const [key, postId] of Object.entries(archived)) {
+            postsByNote[`${splitPostKey(key).siteId}:${notePath}`] = postId;
+          }
+          const { [trashId]: _restored, ...trashedPostsById } = state.trashedPostsById;
+          return { postsByNote, trashedPostsById };
+        }),
+
+      forgetTrashedNote: (trashId) =>
+        set((state) => {
+          if (!(trashId in state.trashedPostsById)) return state;
+          const { [trashId]: _forgotten, ...trashedPostsById } = state.trashedPostsById;
+          return { trashedPostsById };
+        }),
+
+      forgetAllTrashedNotes: () => set({ trashedPostsById: {} }),
+
       publish: async (note) => {
         const siteId = get().chosenSiteId;
         if (!siteId) throw new Error('Choose a WordPress site first.');
@@ -186,6 +237,7 @@ export const useWordPressStore = create<WordPressState>()(
       partialize: (state) => ({
         chosenSiteId: state.chosenSiteId,
         postsByNote: state.postsByNote,
+        trashedPostsById: state.trashedPostsById,
       }),
     }
   )

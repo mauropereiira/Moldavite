@@ -53,7 +53,10 @@ interface NoteState {
   markExternallyChanged: (noteId: string, client?: string) => void;
   clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
+  acknowledgeNoteReaddress: (noteId: string) => void;
+  forgetNoteReferences: (noteId: string) => void;
   removeTabByPath: (notePath: string) => void;
+  restoreTabAt: (note: Note, index: number, activate: boolean) => void;
   pinTab: (noteId: string) => { success: boolean; message?: string };
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   loadPinnedTabs: () => void;
@@ -361,7 +364,14 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     set((state) => {
       const newName = newPath.split('/').pop() || `${newTitle}.md`;
       const openTabs = state.openTabs.map((tab) =>
-        tab.id === oldPath ? { ...tab, id: newPath, title: newTitle } : tab
+        tab.id === oldPath
+          ? {
+              ...tab,
+              id: newPath,
+              title: newTitle,
+              ...(state.activeTabId === oldPath ? { readdressedFrom: oldPath } : {}),
+            }
+          : tab
       );
       const recentNoteIds = state.recentNoteIds.map((id) => (id === oldPath ? newPath : id));
       const unlockedNotes = new Set(
@@ -390,7 +400,14 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
       return {
         notes: state.notes.map((note) =>
-          note.path === oldPath ? { ...note, name: newName, path: newPath } : note
+          note.path === oldPath
+            ? {
+                ...note,
+                name: newName,
+                path: newPath,
+                folderPath: newPath.split('/').slice(1, -1).join('/') || undefined,
+              }
+            : note
         ),
         openTabs,
         activeTabId,
@@ -400,6 +417,50 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         externallyChanged,
       };
     }),
+
+  acknowledgeNoteReaddress: (noteId) =>
+    set((state) => {
+      const tab = state.openTabs.find((candidate) => candidate.id === noteId);
+      if (!tab?.readdressedFrom) return state;
+      const openTabs = state.openTabs.map((candidate) => {
+        if (candidate.id !== noteId) return candidate;
+        const updated = { ...candidate };
+        delete updated.readdressedFrom;
+        return updated;
+      });
+      return {
+        openTabs,
+        currentNote:
+          state.activeTabId === noteId
+            ? openTabs.find((candidate) => candidate.id === noteId) || null
+            : state.currentNote,
+      };
+    }),
+
+  forgetNoteReferences: (noteId) => {
+    get().closeTab(noteId);
+    set((state) => {
+      const recentNoteIds = state.recentNoteIds.filter((id) => id !== noteId);
+      const unlockedNotes = new Set(state.unlockedNotes);
+      unlockedNotes.delete(noteId);
+      const externallyChanged = new Map(state.externallyChanged);
+      externallyChanged.delete(noteId);
+      try {
+        localStorage.setItem(
+          namespacedKey('moldavite-recent-notes'),
+          JSON.stringify(recentNoteIds)
+        );
+      } catch (error) {
+        console.error('[noteStore] Failed to forget note references:', error);
+      }
+      return {
+        notes: state.notes.filter((note) => note.path !== noteId),
+        recentNoteIds,
+        unlockedNotes,
+        externallyChanged,
+      };
+    });
+  },
 
   /**
    * Removes a tab by note path (used when a note is deleted).
@@ -411,6 +472,26 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     // `undefined`.
     get().closeTab(notePath);
   },
+
+  restoreTabAt: (note, index, activate) =>
+    set((state) => {
+      if (state.openTabs.some((tab) => tab.id === note.id)) return state;
+      const openTabs = [...state.openTabs];
+      openTabs.splice(Math.min(Math.max(index, 0), openTabs.length), 0, note);
+      try {
+        localStorage.setItem(
+          namespacedKey('moldavite-pinned-tabs'),
+          JSON.stringify(openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
+        );
+      } catch (error) {
+        console.error('[noteStore] Failed to restore closed tab:', error);
+      }
+      return {
+        openTabs,
+        activeTabId: activate ? note.id : state.activeTabId,
+        currentNote: activate ? note : state.currentNote,
+      };
+    }),
 
   /**
    * Toggles the pinned state of a tab.

@@ -82,7 +82,7 @@ export function Sidebar({
     renameNote,
     refresh: refreshNotes,
   } = useNotes();
-  const { currentNote, setSelectedDate, removeTabByPath } = useNoteStore();
+  const { currentNote, setSelectedDate } = useNoteStore();
   const lock = useSidebarLock();
   const {
     setIsSettingsOpen,
@@ -168,10 +168,6 @@ export function Sidebar({
   // Track target folder for new note creation
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
 
-  // Root-level drop zones (notes section accepts notes, folders section
-  // accepts folders). Lives in a dedicated hook.
-  const dnd = useSidebarDnd({ moveNoteToFolder, moveFolderToFolder });
-
   // Initialize folders
   useEffect(() => {
     initializeFolders();
@@ -196,6 +192,20 @@ export function Sidebar({
   const [showManageForges, setShowManageForges] = useState(false);
   const [showBulkTrashConfirm, setShowBulkTrashConfirm] = useState(false);
   const [showBulkExportModal, setShowBulkExportModal] = useState(false);
+
+  const moveNoteAndTrackAnchor = useCallback(
+    async (notePath: string, toFolder?: string) => {
+      const oldPath = notePath.startsWith('notes/') ? notePath : `notes/${notePath}`;
+      const newPath = await moveNoteToFolder(notePath, toFolder);
+      if (selectionAnchorRef.current === oldPath) selectionAnchorRef.current = newPath;
+      return newPath;
+    },
+    [moveNoteToFolder]
+  );
+
+  // Root-level drop zones (notes section accepts notes, folders section
+  // accepts folders). Lives in a dedicated hook.
+  const dnd = useSidebarDnd({ moveNoteToFolder: moveNoteAndTrackAnchor, moveFolderToFolder });
 
   // Manual sort: the user drags notes and folders into place and we replay
   // that arrangement. Daily notes are excluded by construction — they never
@@ -457,12 +467,7 @@ export function Sidebar({
           ? noteToDelete.path.slice(6)
           : noteToDelete.name;
       }
-      await trashNote(relativePath, noteToDelete.isDaily || false);
-
-      // Close the tab, don't just null `currentNote` — a surviving tab still
-      // holds the deleted note's body, and editing it autosaves the file back
-      // onto disk while a copy sits in the trash.
-      removeTabByPath(noteToDelete.path);
+      await trashNote(relativePath, noteToDelete.isDaily || false, noteToDelete.isWeekly || false);
     } catch (error) {
       console.error('[Sidebar] Trash failed:', error);
     } finally {
@@ -507,7 +512,7 @@ export function Sidebar({
       ? noteToMove.path.slice(6)
       : noteToMove.path;
 
-    await moveNoteToFolder(relativePath, folderPath ?? undefined);
+    await moveNoteAndTrackAnchor(relativePath, folderPath ?? undefined);
     setNoteToMove(null);
     setShowMoveToFolder(false);
   };
@@ -569,7 +574,7 @@ export function Sidebar({
   };
 
   const handleNoteDrop = async (notePath: string, toFolder: string) => {
-    await moveNoteToFolder(notePath, toFolder);
+    await moveNoteAndTrackAnchor(notePath, toFolder);
   };
 
   const handleFolderDrop = async (folderPath: string, toFolder: string) => {
@@ -647,11 +652,13 @@ export function Sidebar({
     const selected = resolveSelectedNotes();
     setShowBulkMoveModal(false);
     if (selected.length === 0) return;
+    selectionClear();
+    selectionAnchorRef.current = null;
 
     const results = await Promise.allSettled(
       selected.map((n) => {
         const relative = n.path.startsWith('notes/') ? n.path.slice(6) : n.path;
-        return moveNoteToFolder(relative, folderPath ?? undefined);
+        return moveNoteAndTrackAnchor(relative, folderPath ?? undefined);
       })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -660,7 +667,6 @@ export function Sidebar({
     } else {
       toast.success(`Moved ${selected.length} note${selected.length === 1 ? '' : 's'}`);
     }
-    selectionClear();
   };
 
   const handleBulkTrashConfirm = async () => {
@@ -675,14 +681,10 @@ export function Sidebar({
           : n.path.startsWith('notes/')
             ? n.path.slice(6)
             : n.name;
-        return trashNote(relative, n.isDaily || false);
+        return trashNote(relative, n.isDaily || false, n.isWeekly || false);
       })
     );
     const failed = results.filter((r) => r.status === 'rejected').length;
-
-    // Close a tab for every trashed note, not just the active one — any tab
-    // left open still holds the note's body and would write it back on edit.
-    selected.forEach((n) => removeTabByPath(n.path));
 
     if (failed > 0) {
       toast.error(`Failed to trash ${failed} note${failed === 1 ? '' : 's'}`);

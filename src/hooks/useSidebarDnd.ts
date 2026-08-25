@@ -5,6 +5,8 @@
  */
 
 import { useRef, useState } from 'react';
+import { canDropDraggedNoteIntoRoot } from '@/components/sidebar/DraggableNoteItem';
+import { canDropDraggedFolderIntoRoot } from '@/components/sidebar/FolderItem';
 
 type MoveNote = (notePath: string, toFolder?: string) => Promise<unknown>;
 type MoveFolder = (folderPath: string, toFolder?: string) => Promise<unknown>;
@@ -32,80 +34,89 @@ export function useSidebarDnd({
 
   // Notes section — accepts notes only.
   const onRootDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    rootDragCounterRef.current++;
     const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if ((hasNoteData || hasTextData) && !hasFolderData) {
+    if (hasNoteData && !hasFolderData && canDropDraggedNoteIntoRoot()) {
+      e.preventDefault();
+      rootDragCounterRef.current++;
       setIsDragOverRoot(true);
     }
   };
 
   const onRootDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
     const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if ((hasNoteData || hasTextData) && !hasFolderData) {
+    if (hasNoteData && !hasFolderData && canDropDraggedNoteIntoRoot()) {
+      e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
     }
   };
 
   const onRootDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    rootDragCounterRef.current--;
+    rootDragCounterRef.current = Math.max(0, rootDragCounterRef.current - 1);
     if (rootDragCounterRef.current === 0) {
       setIsDragOverRoot(false);
     }
   };
 
   const onRootDrop = async (e: React.DragEvent) => {
+    const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
+    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
+    if (!hasNoteData || hasFolderData || !canDropDraggedNoteIntoRoot()) return;
+
     e.preventDefault();
     e.stopPropagation();
     rootDragCounterRef.current = 0;
     setIsDragOverRoot(false);
 
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    if (hasFolderData) return;
-
-    let notePath = e.dataTransfer.getData('application/x-note-path');
-    if (!notePath) {
-      notePath = e.dataTransfer.getData('text/plain');
-    }
+    const notePath = e.dataTransfer.getData('application/x-note-path');
     // A note already at the root has nowhere to go — the backend treats this
     // as a no-op now, but skipping it also spares the pointless "Note moved"
     // toast and the note-list refresh behind it.
     if (notePath && notePath.includes('/')) {
-      await moveNoteToFolder(notePath, undefined);
+      try {
+        await moveNoteToFolder(notePath, undefined);
+      } catch {
+        // The move workflow owns its error toast.
+      }
     }
   };
 
   // Folders section — accepts folders only.
   const onFoldersRootDragEnter = (e: React.DragEvent) => {
+    if (
+      !e.dataTransfer.types.includes('application/x-folder-path') ||
+      !canDropDraggedFolderIntoRoot()
+    ) {
+      return;
+    }
     e.preventDefault();
     foldersRootDragCounterRef.current++;
-    if (e.dataTransfer.types.includes('application/x-folder-path')) {
-      setIsDragOverFoldersRoot(true);
-    }
+    setIsDragOverFoldersRoot(true);
   };
 
   const onFoldersRootDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.types.includes('application/x-folder-path')) {
-      e.dataTransfer.dropEffect = 'move';
+    if (
+      !e.dataTransfer.types.includes('application/x-folder-path') ||
+      !canDropDraggedFolderIntoRoot()
+    ) {
+      return;
     }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const onFoldersRootDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    foldersRootDragCounterRef.current--;
+    foldersRootDragCounterRef.current = Math.max(0, foldersRootDragCounterRef.current - 1);
     if (foldersRootDragCounterRef.current === 0) {
       setIsDragOverFoldersRoot(false);
     }
   };
 
   const onFoldersRootDrop = async (e: React.DragEvent) => {
+    if (!canDropDraggedFolderIntoRoot()) return;
     e.preventDefault();
     e.stopPropagation();
     foldersRootDragCounterRef.current = 0;
@@ -113,7 +124,11 @@ export function useSidebarDnd({
 
     const folderPath = e.dataTransfer.getData('application/x-folder-path');
     if (folderPath) {
-      await moveFolderToFolder(folderPath, undefined);
+      try {
+        await moveFolderToFolder(folderPath, undefined);
+      } catch {
+        // The move workflow owns its error toast.
+      }
     }
   };
 

@@ -26,6 +26,8 @@ interface SidebarOrderState {
   /** Put `dragged` before or after `target` among `siblings` (their current display order). */
   moveNote: (dragged: string, target: string, siblings: string[], place: DropPlace) => void;
   moveFolder: (dragged: string, target: string, siblings: string[], place: DropPlace) => void;
+  /** Preserve a note's manual rank when its path changes. */
+  renameNote: (oldId: string, newId: string) => void;
 
   /** Give an empty arrangement a starting point. Ignored once one exists. */
   seedNotes: (ids: string[]) => void;
@@ -91,6 +93,11 @@ export const useSidebarOrderStore = create<SidebarOrderState>()(
       moveFolder: (dragged, target, siblings, place) =>
         set((state) => ({
           folderOrder: reorderIds(state.folderOrder, siblings, dragged, target, place),
+        })),
+
+      renameNote: (oldId, newId) =>
+        set((state) => ({
+          noteOrder: state.noteOrder.map((id) => (id === oldId ? newId : id)),
         })),
 
       seedNotes: (ids) => set((state) => (state.noteOrder.length > 0 ? state : { noteOrder: ids })),

@@ -41,6 +41,7 @@ pub(crate) struct TrashedNote {
     pub(crate) filename: String,
     pub(crate) original_path: String,
     pub(crate) is_daily: bool,
+    pub(crate) is_weekly: bool,
     pub(crate) is_folder: bool,
     pub(crate) contained_files: Vec<String>,
     pub(crate) trashed_at: i64,
@@ -58,6 +59,8 @@ pub(crate) struct TrashedNoteMetadata {
     pub(crate) filename: String,
     pub(crate) original_path: String,
     pub(crate) is_daily: bool,
+    #[serde(default)]
+    pub(crate) is_weekly: bool,
     #[serde(default)]
     pub(crate) is_folder: bool,
     #[serde(default)]

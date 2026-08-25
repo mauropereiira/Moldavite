@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FolderInfo, NoteFile } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
-import { DraggableNoteItem } from './DraggableNoteItem';
+import { canDropDraggedNoteIntoFolder, DraggableNoteItem } from './DraggableNoteItem';
 import { Folder, FolderOpen } from 'lucide-react';
 import { folderDropIntent } from './dropPlacement';
 import { DropIndicator } from './DropIndicator';
@@ -13,8 +13,8 @@ interface FolderItemProps {
   isExpanded: boolean;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  onNoteDrop: (notePath: string) => void;
-  onFolderDrop: (folderPath: string) => void;
+  onNoteDrop: (notePath: string) => Promise<void>;
+  onFolderDrop: (folderPath: string) => Promise<void> | void;
   notes: NoteFile[];
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
@@ -49,6 +49,10 @@ function parentOfPath(path: string): string {
  */
 let draggedFolderPath: string | null = null;
 
+export function canDropDraggedFolderIntoRoot(): boolean {
+  return draggedFolderPath?.includes('/') === true;
+}
+
 export function FolderItem({
   folder,
   level,
@@ -69,9 +73,22 @@ export function FolderItem({
   onFolderReorder,
   onNoteReorder,
 }: FolderItemProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const dragCounterRef = useRef(0);
+  const [isNoteDropTarget, setIsNoteDropTarget] = useState(false);
+  const [impactKey, setImpactKey] = useState<number | null>(null);
+  const impactCounterRef = useRef(0);
+  const impactTimeoutRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
   const [dropPlace, setDropPlace] = useState<DropPlace | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (impactTimeoutRef.current !== null) {
+        window.clearTimeout(impactTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Manual sort: a sibling folder dropped on either END of this header row
   // takes a place beside it. The band through the row's middle still means
@@ -120,51 +137,56 @@ export function FolderItem({
     draggedFolderPath = null;
   };
 
+  const isDirectDropZone = (target: React.DragEvent<HTMLDivElement>['target'], dropZone: Element) =>
+    target instanceof Element && target.closest('[data-folder-note-drop-zone]') === dropZone;
+
   const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current++;
-
-    const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
-    const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
-
-    if (hasNoteData || hasFolderData || hasTextData) {
-      setIsDragOver(true);
-    }
+    if (!e.dataTransfer.types.includes('application/x-note-path')) return;
+    const directTarget = isDirectDropZone(e.target, e.currentTarget);
+    setIsNoteDropTarget(directTarget && canDropDraggedNoteIntoFolder(folder.path));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
     const hasNoteData = e.dataTransfer.types.includes('application/x-note-path');
     const hasFolderData = e.dataTransfer.types.includes('application/x-folder-path');
-    const hasTextData = e.dataTransfer.types.includes('text/plain');
 
-    if (hasNoteData || hasFolderData || hasTextData) {
+    if (hasNoteData) {
+      const directTarget = isDirectDropZone(e.target, e.currentTarget);
+      const isValid = directTarget && canDropDraggedNoteIntoFolder(folder.path);
+      setIsNoteDropTarget(isValid);
+      if (isValid) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }
+      return;
+    }
+
+    if (hasFolderData) {
+      e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
     }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current--;
-
-    // Only set isDragOver to false when we've truly left the entire folder area
-    if (dragCounterRef.current === 0) {
-      setIsDragOver(false);
-    }
+    if (!e.dataTransfer.types.includes('application/x-note-path')) return;
+    const nextZone =
+      e.relatedTarget instanceof Element
+        ? e.relatedTarget.closest('[data-folder-note-drop-zone]')
+        : null;
+    if (nextZone !== e.currentTarget) setIsNoteDropTarget(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragOver(false);
+  const handleDrop = async (e: React.DragEvent) => {
+    setIsNoteDropTarget(false);
 
     // Check for folder drop first
     const folderPath = e.dataTransfer.getData('application/x-folder-path');
     if (folderPath) {
+      e.preventDefault();
       const isSelf = folderPath === folder.path;
       if (isSelf) {
         // Can't drop folder on itself
+        e.stopPropagation();
         return;
       }
 
@@ -189,27 +211,53 @@ export function FolderItem({
       // Accept the drop - move folder into this folder
       // This includes deeper descendants (grandchildren, etc.) being moved up
       e.stopPropagation();
-      onFolderDrop(folderPath);
+      try {
+        await onFolderDrop(folderPath);
+      } catch {
+        // useFolders owns the move error toast.
+      }
       return;
     }
 
-    // For notes, always stop propagation
-    e.stopPropagation();
+    // Only a note originating in this sidebar is a note move. In particular,
+    // text dragged from another app must not masquerade as a note path.
+    if (!e.dataTransfer.types.includes('application/x-note-path')) return;
 
-    // Try custom note type, fall back to text/plain
-    let notePath = e.dataTransfer.getData('application/x-note-path');
-    if (!notePath) {
-      notePath = e.dataTransfer.getData('text/plain');
+    // For internal notes, always stop propagation so a nested folder is the
+    // only destination considered under the pointer.
+    e.stopPropagation();
+    const notePath = e.dataTransfer.getData('application/x-note-path');
+    if (!notePath || !canDropDraggedNoteIntoFolder(folder.path)) return;
+
+    e.preventDefault();
+    try {
+      await onNoteDrop(notePath);
+    } catch {
+      // useFolders owns the move error toast; this component only suppresses
+      // success feedback for the rejected move.
+      return;
     }
-    if (notePath) {
-      // Don't allow dropping a note into its own folder
-      const noteFolder = notePath.includes('/')
-        ? notePath.substring(0, notePath.lastIndexOf('/'))
-        : null;
-      if (noteFolder !== folder.path) {
-        onNoteDrop(notePath);
+
+    if (!isMountedRef.current) return;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (impactTimeoutRef.current !== null) {
+        window.clearTimeout(impactTimeoutRef.current);
+        impactTimeoutRef.current = null;
       }
+      setImpactKey(null);
+      return;
     }
+
+    const nextImpactKey = ++impactCounterRef.current;
+    setImpactKey(nextImpactKey);
+    if (impactTimeoutRef.current !== null) {
+      window.clearTimeout(impactTimeoutRef.current);
+    }
+    impactTimeoutRef.current = window.setTimeout(() => {
+      setImpactKey((current) => (current === nextImpactKey ? null : current));
+      impactTimeoutRef.current = null;
+    }, 400);
   };
 
   // Filter notes that belong to this folder
@@ -217,6 +265,7 @@ export function FolderItem({
 
   return (
     <div
+      data-folder-note-drop-zone=""
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -226,11 +275,12 @@ export function FolderItem({
       <div
         className={`folder-row group relative flex items-center gap-2 py-1.5 pr-14 cursor-pointer transition-colors sidebar-item-animated${
           showShapeMark ? ' list-item-stagger' : ''
-        }${isExpanded ? ' folder-row-expanded' : ''}`}
+        }${isExpanded ? ' folder-row-expanded' : ''}${
+          isNoteDropTarget ? ' folder-row-note-drop-target' : ''
+        }`}
         style={
           {
             paddingLeft: `${14 + level * 12}px`,
-            borderLeftColor: isDragOver ? 'var(--border-strong)' : undefined,
             '--index': Math.min(index, 10),
           } as React.CSSProperties
         }
@@ -254,6 +304,21 @@ export function FolderItem({
         onDrop={onFolderReorder && handleRowDrop}
       >
         <DropIndicator place={dropPlace} />
+        {impactKey !== null && (
+          <span
+            key={impactKey}
+            aria-hidden="true"
+            className="folder-note-drop-impact"
+            style={{ left: `${20 + level * 12}px` }}
+            onAnimationEnd={() => {
+              if (impactTimeoutRef.current !== null) {
+                window.clearTimeout(impactTimeoutRef.current);
+                impactTimeoutRef.current = null;
+              }
+              setImpactKey((current) => (current === impactKey ? null : current));
+            }}
+          />
+        )}
         <span
           aria-hidden="true"
           className={`sidebar-caret ${isExpanded ? 'sidebar-caret-expanded' : ''}`}

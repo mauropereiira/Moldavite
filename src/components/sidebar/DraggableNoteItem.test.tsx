@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DraggableNoteItem } from './DraggableNoteItem';
 import { useNoteSelectionStore } from '@/stores';
@@ -14,9 +14,22 @@ const baseNote: NoteFile = {
 };
 
 describe('DraggableNoteItem', () => {
+  let dragFrame: ((time: number) => void) | null;
+
   beforeEach(() => {
     useNoteSelectionStore.getState().clear();
+    dragFrame = null;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: (time: number) => void) => {
+        dragFrame = callback;
+        return 17;
+      })
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it('renders the note name without the .md suffix', () => {
     render(
@@ -160,5 +173,60 @@ describe('DraggableNoteItem', () => {
     fireEvent.dragStart(draggable, { dataTransfer });
     expect(dataTransfer.getData('application/x-note-path')).toBe('Hello.md');
     expect(dataTransfer.getData('text/plain')).toBe('Hello.md');
+  });
+
+  it('dims the source only on the frame after the native drag preview is captured', () => {
+    render(
+      <DraggableNoteItem
+        note={baseNote}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    const draggable = screen.getByRole('button', { name: /Hello/i }).parentElement as HTMLElement;
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => ''),
+      effectAllowed: '',
+      types: [] as string[],
+    };
+
+    fireEvent.dragStart(draggable, { dataTransfer });
+    expect(draggable).not.toHaveClass('sidebar-note-drag-source');
+
+    act(() => dragFrame?.(16));
+    expect(draggable).toHaveClass('sidebar-note-drag-source');
+
+    fireEvent.dragEnd(draggable, { dataTransfer });
+    expect(draggable).not.toHaveClass('sidebar-note-drag-source');
+  });
+
+  it.each([
+    ['daily', { ...baseNote, path: 'daily/2026-08-25.md', isDaily: true }],
+    ['weekly', { ...baseNote, path: 'weekly/2026-W35.md', isWeekly: true }],
+    ['locked', { ...baseNote, isLocked: true }],
+  ])('does not advertise %s notes as movable into standalone folders', (_label, note) => {
+    render(
+      <DraggableNoteItem note={note} isActive={false} onClick={vi.fn()} onContextMenu={vi.fn()} />
+    );
+
+    const draggable = screen.getByRole('button', { name: /Hello/i }).parentElement as HTMLElement;
+    expect(draggable).toHaveAttribute('draggable', 'false');
+  });
+
+  it('keeps a locked standalone note draggable when manual reordering is available', () => {
+    render(
+      <DraggableNoteItem
+        note={{ ...baseNote, isLocked: true }}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+        onReorder={vi.fn()}
+      />
+    );
+
+    const draggable = screen.getByRole('button', { name: /Hello/i }).parentElement as HTMLElement;
+    expect(draggable).toHaveAttribute('draggable', 'true');
   });
 });

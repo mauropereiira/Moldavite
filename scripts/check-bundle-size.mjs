@@ -93,7 +93,13 @@ const BUDGETS = [
 // order store plus reorder drop targets on note and folder rows) and the
 // editor footer's two collapse breakpoints, which carry a second row and a
 // folded navigation menu. Measured 595.7 KB raw / 164.1 KB gz.
-const APP_JS_BUDGET = { rawKb: 598, gzipKb: 165 };
+// Bumped 8 KB raw / 3 KB gz for handing editor links to the system browser and
+// transactional note readdressing: serialized moves, autosave holds, path-keyed
+// state migration, and validated drag feedback. Measured 603.5 KB raw / 166.9 KB gz.
+// Bumped 3 KB raw for reversible trash state: optimistic rollback plus archived
+// WordPress mappings keyed by backend trash identity. Measured 606.8 KB raw /
+// 167.8 KB gz locally and 168.2 KB gz on Linux CI.
+const APP_JS_BUDGET = { rawKb: 608, gzipKb: 169 };
 
 async function main() {
   let entries;

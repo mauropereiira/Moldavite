@@ -2,6 +2,22 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+// Keep storage deterministic across supported Node versions. Node 22 can
+// otherwise expose an unusable getter unless --localstorage-file is configured.
+const storageValues = new Map<string, string>();
+const testStorage = {
+  get length() {
+    return storageValues.size;
+  },
+  clear: () => storageValues.clear(),
+  getItem: (key: string) => storageValues.get(key) ?? null,
+  key: (index: number) => [...storageValues.keys()][index] ?? null,
+  removeItem: (key: string) => storageValues.delete(key),
+  setItem: (key: string, value: string) => storageValues.set(key, value),
+};
+Object.defineProperty(window, 'localStorage', { configurable: true, value: testStorage });
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: testStorage });
+
 afterEach(() => {
   cleanup();
 });
