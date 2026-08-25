@@ -2682,6 +2682,17 @@ button[aria-expanded='true'] .wn-caret {
   animation-name: impact-content-in;
 }
 
+.sidebar-context-menu {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
 .modal-content-exit {
   animation: modal-content-out var(--dur-micro) var(--ease-exit) forwards;
 }
