@@ -6,6 +6,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Long note names stop before the sidebar's Options control.** Narrowing the Index could let a note title continue underneath Options instead of ending in an ellipsis, leaving both labels printed over each other. The complete title is still available to assistive technology; only its visual width is shortened.
 - **Sidebar Options menus stay inside the window and close when the Index scrolls.** Opening a note's long action menu low in a small window cut off its lower choices, and scrolling the Index left the menu fixed over unrelated content. Note and folder menus now flip or shift away from window edges, gain their own scrollbar when the window is shorter than their contents, and close when the surrounding page scrolls.
 
 ## [2.4.0] - 2026-08-19
