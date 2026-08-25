@@ -153,9 +153,12 @@ function DraggableNoteItemImpl({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick(e as unknown as React.MouseEvent)}
-        className={`note-card sidebar-item-animated w-full text-left text-sm pr-14 focus-ring cursor-pointer${
+        className={`note-card sidebar-item-animated w-full text-left text-sm focus-ring cursor-pointer${
           isActive ? ' note-card-active' : ''
         }${isSelected ? ' is-selected' : ''}`}
+        // `.note-card` uses a padding shorthand that outranks Tailwind's
+        // layered utilities. Keep the overlaid Options action clear here.
+        style={{ paddingRight: '3.5rem' }}
         aria-pressed={isSelected || undefined}
       >
         {/* `min-w-0` on both: a flex item's default minimum is its content

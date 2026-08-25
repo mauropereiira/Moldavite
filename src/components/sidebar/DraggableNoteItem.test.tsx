@@ -30,6 +30,27 @@ describe('DraggableNoteItem', () => {
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
+  it('truncates long titles before Options without shortening the accessible name', () => {
+    const title = 'An exceptionally long note title that cannot fit beside the options action';
+    render(
+      <DraggableNoteItem
+        note={{ ...baseNote, name: `${title}.md`, path: `notes/${title}.md` }}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+
+    const row = screen.getByRole('button', { name: title });
+    const visibleTitle = screen.getByText(title);
+
+    expect(visibleTitle).toHaveTextContent(title);
+    expect(visibleTitle).toHaveClass('min-w-0', 'truncate');
+    expect(visibleTitle.parentElement).toHaveClass('min-w-0');
+    expect(row).toHaveAccessibleName(title);
+    expect(row.style.paddingRight).toBe('3.5rem');
+  });
+
   it('reveals Note options when the control receives keyboard focus', () => {
     render(
       <DraggableNoteItem
