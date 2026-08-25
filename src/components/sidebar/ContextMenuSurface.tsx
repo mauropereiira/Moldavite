@@ -28,11 +28,9 @@ export function fitContextMenuPosition(
     y = point.y - menu.height;
   }
 
-  const maxX = Math.max(EDGE, viewport.width - menu.width - EDGE);
-  const maxY = Math.max(EDGE, viewport.height - menu.height - EDGE);
   return {
-    x: Math.max(EDGE, Math.min(x, maxX)),
-    y: Math.max(EDGE, Math.min(y, maxY)),
+    x: Math.max(EDGE, Math.min(x, viewport.width - menu.width - EDGE)),
+    y: Math.max(EDGE, Math.min(y, viewport.height - menu.height - EDGE)),
   };
 }
 
