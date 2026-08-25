@@ -9,7 +9,7 @@ interface FolderTreeProps {
   expandedFolders: string[];
   onToggleFolder: (path: string) => void;
   onFolderContextMenu: (e: React.MouseEvent, folder: FolderInfo) => void;
-  onNoteDrop: (notePath: string, toFolder: string) => void;
+  onNoteDrop: (notePath: string, toFolder: string) => Promise<void>;
   onFolderDrop: (folderPath: string, toFolder: string) => void;
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;

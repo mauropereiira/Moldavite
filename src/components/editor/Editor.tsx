@@ -72,6 +72,7 @@ import { useToast } from '@/hooks/useToast';
 import { markdownToHtml, processAndSaveImage } from '@/lib';
 import { looksLikeMarkdown } from '@/lib/markdownPaste';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
@@ -291,6 +292,21 @@ export function Editor() {
     setShowDeleteConfirm(false);
   };
 
+  const openExternalEditorLink = (event: MouseEvent): boolean => {
+    if (!(event.target instanceof Element)) return false;
+    const href = event.target.closest('a[href]')?.getAttribute('href');
+    if (!href) return false;
+
+    event.preventDefault();
+    if (/^(https?|mailto):/i.test(href)) {
+      void shellOpen(href).catch((error) => {
+        console.error('[Editor] Failed to open external link:', error);
+        toast.error('Failed to open link');
+      });
+    }
+    return true;
+  };
+
   const editor = useEditor(
     {
       extensions: [
@@ -309,7 +325,9 @@ export function Editor() {
           allowBase64: true,
         }),
         Link.configure({
-          openOnClick: true,
+          // Browser-style window.open does not leave a Tauri WebView. Link
+          // clicks are handed to the system browser in editorProps below.
+          openOnClick: false,
           autolink: true,
           protocols: ['http', 'https', 'mailto'],
           HTMLAttributes: {
@@ -741,6 +759,13 @@ export function Editor() {
           class: 'focus:outline-none min-h-full',
           spellcheck: spellCheck ? 'true' : 'false',
         },
+        handleClick: (_view, _position, event) => {
+          return event.button === 0 && openExternalEditorLink(event);
+        },
+        handleDOMEvents: {
+          auxclick: (_view, event) =>
+            event instanceof MouseEvent && event.button === 1 && openExternalEditorLink(event),
+        },
         handlePaste: (view, event) => {
           const clipboard = event.clipboardData;
           if (!clipboard) return false;
@@ -893,16 +918,23 @@ export function Editor() {
     // editor rebuild, where TipTap is recreated because a setting in its
     // dependency list changed. Both leave the reader on the same note, so
     // neither should throw them back to the top.
-    const isSameNote = !!note && previous.noteId !== null && previous.noteId === currentNoteId;
-    // Selection can only be carried across an external reload. On a rebuild the
-    // instance below is a fresh one and the old editor's selection is already
-    // gone, so there is nothing to read back.
-    const isExternalReload = isSameNote && previous.editor === editor;
+    const isReaddressedNote =
+      !!note && previous.noteId !== null && note.readdressedFrom === previous.noteId;
+    const isSameNote =
+      !!note &&
+      previous.noteId !== null &&
+      (previous.noteId === currentNoteId || isReaddressedNote);
+    // Selection can only be carried when the same editor instance survives an
+    // external reload or path change. A rebuilt instance has no old selection.
+    const preserveEditorState = isSameNote && previous.editor === editor;
     lastAppliedRef.current = {
       editor,
       noteId: currentNoteId ?? null,
       externalRev: note?.externalRev,
     };
+    if (isReaddressedNote && currentNoteId) {
+      useNoteStore.getState().acknowledgeNoteReaddress(currentNoteId);
+    }
 
     try {
       if (note) {
@@ -916,10 +948,10 @@ export function Editor() {
               // switch keeps the original behaviour: top of the note, no
               // selection carried over from the previous one.
               const scrollTop = isSameNote ? (scrollContainerRef.current?.scrollTop ?? 0) : 0;
-              const selection = isExternalReload
+              const selection = preserveEditorState
                 ? { from: editor.state.selection.from, to: editor.state.selection.to }
                 : null;
-              const keepFocus = isExternalReload && editor.isFocused;
+              const keepFocus = preserveEditorState && editor.isFocused;
 
               // Clear and set content, then blur to clear any selection.
               // emitUpdate:false because TipTap v3 defaults it to true, which

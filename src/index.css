@@ -1028,6 +1028,17 @@ time,
   color: var(--text-primary);
 }
 
+.draggable-note-item {
+  transition:
+    opacity var(--dur-micro) var(--ease-standard),
+    transform var(--dur-press) var(--ease-standard);
+}
+
+.draggable-note-item.sidebar-note-drag-source {
+  opacity: 0.52;
+  transform: scale(0.99);
+}
+
 .note-tag {
   color: var(--text-muted);
   font-size: 10px;
@@ -1053,6 +1064,49 @@ time,
   background: var(--hover-overlay);
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.folder-row-note-drop-target,
+.folder-row-note-drop-target:hover {
+  background: transparent;
+  border-left-color: var(--text-primary);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.folder-row-note-drop-target::after {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--border-strong);
+  content: '';
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+@keyframes sidebar-folder-impact {
+  from {
+    opacity: 0.48;
+    transform: translate(-50%, -50%) scale(0.45);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+}
+
+.folder-note-drop-impact {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: sidebar-folder-impact var(--dur-slow) var(--ease-standard) both;
 }
 
 /* Sidebar rows sit inside 12px gutters. Pull the interactive band back out

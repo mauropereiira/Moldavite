@@ -104,6 +104,7 @@ fn trash_item_path(trash_dir: &std::path::Path, item: &TrashedNoteMetadata) -> s
 fn restore_item_on_disk(
     trash_dir: &std::path::Path,
     daily_dir: &std::path::Path,
+    weekly_dir: &std::path::Path,
     standalone_dir: &std::path::Path,
     item: &TrashedNoteMetadata,
 ) -> Result<std::path::PathBuf, String> {
@@ -113,12 +114,14 @@ fn restore_item_on_disk(
     if !source.exists() {
         return Err("Trash file not found on disk".to_string());
     }
-    let root = if item.is_daily {
+    let root = if item.is_weekly {
+        weekly_dir
+    } else if item.is_daily {
         daily_dir
     } else {
         standalone_dir
     };
-    let valid_original_path = if item.is_daily {
+    let valid_original_path = if item.is_daily || item.is_weekly {
         is_safe_existing_filename(&item.original_path)
     } else {
         is_safe_existing_note_path(&item.original_path)
@@ -160,6 +163,7 @@ fn trash_note_on_disk(
     filename: &str,
     bare_filename: bool,
     is_daily: bool,
+    is_weekly: bool,
     id: &str,
     trashed_at: i64,
 ) -> Result<TrashedNoteMetadata, String> {
@@ -190,6 +194,7 @@ fn trash_note_on_disk(
         filename: filename.to_string(),
         original_path: filename.to_string(),
         is_daily,
+        is_weekly,
         is_folder: false,
         contained_files: Vec::new(),
         trashed_at,
@@ -202,7 +207,7 @@ pub(crate) fn trash_note(
     is_daily: bool,
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let source_dir = if is_weekly {
         get_weekly_dir()
     } else if is_daily {
@@ -224,6 +229,7 @@ pub(crate) fn trash_note(
         &filename,
         is_daily || is_weekly,
         is_daily,
+        is_weekly,
         &id,
         chrono::Utc::now().timestamp(),
     )?;
@@ -242,7 +248,7 @@ pub(crate) fn trash_note(
         &filename, is_daily, is_weekly,
     ));
 
-    Ok(())
+    Ok(id)
 }
 
 #[tauri::command]
@@ -264,6 +270,7 @@ pub(crate) fn list_trash() -> Result<Vec<TrashedNote>, String> {
                 filename: item.filename.clone(),
                 original_path: item.original_path.clone(),
                 is_daily: item.is_daily,
+                is_weekly: item.is_weekly,
                 is_folder: item.is_folder,
                 contained_files: item.contained_files.clone(),
                 trashed_at: item.trashed_at,
@@ -316,7 +323,7 @@ pub(crate) fn read_trashed_note(trash_id: String) -> Result<String, String> {
 pub(crate) fn restore_note(
     trash_id: String,
     index: State<'_, Arc<BacklinksIndex>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let mut metadata = read_trash_metadata();
 
     // Find the item in metadata
@@ -337,10 +344,11 @@ pub(crate) fn restore_note(
         return Err("Trash file not found on disk".to_string());
     }
 
-    if item.is_folder {
+    let restored_path = if item.is_folder {
         let dest_path = restore_item_on_disk(
             &get_trash_dir(),
             &get_daily_dir(),
+            &get_weekly_dir(),
             &get_standalone_dir(),
             &item,
         )?;
@@ -353,10 +361,12 @@ pub(crate) fn restore_note(
                 .map(|f| format!("notes/{}/{}", item.original_path, f))
                 .collect(),
         );
+        format!("notes/{}", item.original_path)
     } else {
         let dest_path = restore_item_on_disk(
             &get_trash_dir(),
             &get_daily_dir(),
+            &get_weekly_dir(),
             &get_standalone_dir(),
             &item,
         )?;
@@ -368,15 +378,22 @@ pub(crate) fn restore_note(
         crate::semantic::note_changed(&crate::semantic::note_rel_path(
             &item.original_path,
             item.is_daily,
-            false,
+            item.is_weekly,
         ));
-    }
+        if item.is_weekly {
+            format!("weekly/{}", item.original_path)
+        } else if item.is_daily {
+            format!("daily/{}", item.original_path)
+        } else {
+            format!("notes/{}", item.original_path)
+        }
+    };
 
     // Update metadata
     metadata.items.remove(item_index);
     write_trash_metadata(&metadata)?;
 
-    Ok(())
+    Ok(restored_path)
 }
 
 fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
@@ -458,33 +475,33 @@ pub(crate) fn empty_trash() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn cleanup_old_trash() -> Result<u32, String> {
+pub(crate) fn cleanup_old_trash() -> Result<Vec<String>, String> {
     let mut metadata = read_trash_metadata();
     let now = chrono::Utc::now().timestamp();
-    let deleted_count = cleanup_old_trash_in(&get_trash_dir(), &mut metadata, now)?;
+    let deleted_ids = cleanup_old_trash_in(&get_trash_dir(), &mut metadata, now)?;
     write_trash_metadata(&metadata)?;
-    Ok(deleted_count)
+    Ok(deleted_ids)
 }
 
 fn cleanup_old_trash_in(
     trash_dir: &std::path::Path,
     metadata: &mut TrashMetadata,
     now: i64,
-) -> Result<u32, String> {
+) -> Result<Vec<String>, String> {
     let seven_days_secs = 7 * 24 * 60 * 60;
-    let mut deleted_count = 0u32;
+    let mut deleted_ids = Vec::new();
 
     // Find expired items
-    let expired_items: Vec<(usize, bool)> = metadata
+    let expired_items: Vec<(usize, bool, String)> = metadata
         .items
         .iter()
         .enumerate()
         .filter(|(_, item)| now - item.trashed_at >= seven_days_secs)
-        .map(|(i, item)| (i, item.is_folder))
+        .map(|(i, item)| (i, item.is_folder, item.id.clone()))
         .collect();
 
     // Delete files/folders and remove from metadata (in reverse to maintain indices)
-    for (i, is_folder) in expired_items.into_iter().rev() {
+    for (i, is_folder, id) in expired_items.into_iter().rev() {
         let item = &metadata.items[i];
         let trash_path = trash_item_path(trash_dir, item);
 
@@ -495,13 +512,14 @@ fn cleanup_old_trash_in(
                 fs::remove_file(&trash_path)
             };
             result.map_err(|e| format!("Failed to delete expired trash item: {e}"))?;
-            deleted_count += 1;
         }
 
         metadata.items.remove(i);
+        deleted_ids.push(id);
     }
 
-    Ok(deleted_count)
+    deleted_ids.reverse();
+    Ok(deleted_ids)
 }
 
 fn collect_folder_files(dir: &std::path::Path, relative_path: &str, files: &mut Vec<String>) {
@@ -579,6 +597,7 @@ fn trash_folder_on_disk(
         filename: folder_name,
         original_path: path.to_string(),
         is_daily: false,
+        is_weekly: false,
         is_folder: true,
         contained_files,
         trashed_at,
@@ -661,11 +680,8 @@ pub(crate) fn restore_note_from_folder(
     }
 
     let standalone_dir = get_standalone_dir();
-    let dest_path = restore_note_from_folder_on_disk(
-        &trash_folder_path,
-        &standalone_dir,
-        &note_filename,
-    )?;
+    let dest_path =
+        restore_note_from_folder_on_disk(&trash_folder_path, &standalone_dir, &note_filename)?;
 
     // Re-index the restored note.
     if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
@@ -741,7 +757,7 @@ mod tests {
                     .unwrap()
                     .as_nanos()
             ));
-            for subdir in ["trash", "daily", "notes"] {
+            for subdir in ["trash", "daily", "weekly", "notes"] {
                 fs::create_dir_all(path.join(subdir)).unwrap();
             }
             Self(path)
@@ -759,6 +775,7 @@ mod tests {
             filename: original_path.clone(),
             original_path,
             is_daily: false,
+            is_weekly: false,
             is_folder: false,
             contained_files: Vec::new(),
             trashed_at,
@@ -810,17 +827,65 @@ mod tests {
         let relative = "Q3: Roadmap./Reports..md";
         fs::write(folder.join("Reports..md"), "legacy body").unwrap();
 
-        let metadata =
-            trash_note_on_disk(&notes, &trash, relative, false, false, "legacy-id", 123).unwrap();
+        let metadata = trash_note_on_disk(
+            &notes,
+            &trash,
+            relative,
+            false,
+            false,
+            false,
+            "legacy-id",
+            123,
+        )
+        .unwrap();
         assert!(!notes.join(relative).exists());
         assert_eq!(
             fs::read_to_string(trash_item_path(&trash, &metadata)).unwrap(),
             "legacy body"
         );
 
-        let restored = restore_item_on_disk(&trash, &daily, &notes, &metadata).unwrap();
+        let restored =
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &metadata).unwrap();
         assert_eq!(restored, notes.join(relative));
         assert_eq!(fs::read_to_string(restored).unwrap(), "legacy body");
+    }
+
+    #[test]
+    fn weekly_note_restores_to_weekly_directory() {
+        let tmp = TempDir::new("weekly-note");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let weekly = tmp.0.join("weekly");
+        let notes = tmp.0.join("notes");
+        let filename = "2026-W34.md";
+        fs::write(weekly.join(filename), "weekly body").unwrap();
+
+        let metadata = trash_note_on_disk(
+            &weekly,
+            &trash,
+            filename,
+            true,
+            false,
+            true,
+            "weekly-id",
+            123,
+        )
+        .unwrap();
+
+        assert!(metadata.is_weekly);
+        let restored = restore_item_on_disk(&trash, &daily, &weekly, &notes, &metadata).unwrap();
+        assert_eq!(restored, weekly.join(filename));
+        assert_eq!(fs::read_to_string(restored).unwrap(), "weekly body");
+    }
+
+    #[test]
+    fn legacy_trash_metadata_defaults_to_non_weekly() {
+        let metadata: TrashMetadata = serde_json::from_str(
+            r#"{"items":[{"id":"legacy","filename":"note.md","original_path":"note.md","is_daily":false,"trashed_at":123}]}"#,
+        )
+        .unwrap();
+
+        assert!(!metadata.items[0].is_weekly);
     }
 
     #[test]
@@ -845,7 +910,7 @@ mod tests {
             items.push(metadata);
         }
         for metadata in &items {
-            restore_item_on_disk(&trash, &daily, &notes, metadata).unwrap();
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, metadata).unwrap();
         }
         assert_eq!(fs::read_dir(&trash).unwrap().count(), 0);
         for i in 0..205 {
@@ -869,7 +934,10 @@ mod tests {
         let mut metadata = TrashMetadata {
             items: vec![expired, fresh.clone()],
         };
-        assert_eq!(cleanup_old_trash_in(&trash, &mut metadata, now).unwrap(), 1);
+        assert_eq!(
+            cleanup_old_trash_in(&trash, &mut metadata, now).unwrap(),
+            vec!["expired"]
+        );
         assert_eq!(metadata.items.len(), 1);
         assert_eq!(metadata.items[0].id, fresh.id);
         assert!(trash_item_path(&trash, &fresh).exists());
@@ -886,13 +954,18 @@ mod tests {
 
         let malicious = item("malicious".into(), outside.to_string_lossy().to_string(), 0);
         fs::write(trash_item_path(&trash, &malicious), "stolen").unwrap();
-        assert!(restore_item_on_disk(&trash, &daily, &notes, &malicious).is_err());
+        assert!(
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &malicious)
+                .is_err()
+        );
         assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
         assert!(trash_item_path(&trash, &malicious).exists());
 
         let legitimate = item("legitimate".into(), "Projects/Deep/note.md".into(), 0);
         fs::write(trash_item_path(&trash, &legitimate), "restored").unwrap();
-        let restored = restore_item_on_disk(&trash, &daily, &notes, &legitimate).unwrap();
+        let restored =
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &legitimate)
+                .unwrap();
         assert_eq!(restored, notes.join("Projects/Deep/note.md"));
         assert_eq!(fs::read_to_string(restored).unwrap(), "restored");
     }
@@ -935,13 +1008,19 @@ mod tests {
             filename: "Deep".into(),
             original_path: "Projects/Deep".into(),
             is_daily: false,
+            is_weekly: false,
             is_folder: true,
             contained_files: vec!["Nested/note (conflict 2026-07-13 1200).md".into()],
             trashed_at: 0,
         };
-        let restored =
-            restore_item_on_disk(&trash, &tmp.0.join("daily"), &tmp.0.join("notes"), &folder)
-                .unwrap();
+        let restored = restore_item_on_disk(
+            &trash,
+            &tmp.0.join("daily"),
+            &tmp.0.join("weekly"),
+            &tmp.0.join("notes"),
+            &folder,
+        )
+        .unwrap();
         assert_eq!(
             fs::read_to_string(restored.join("Nested/secret.md.locked")).unwrap(),
             "ciphertext"
@@ -966,8 +1045,7 @@ mod tests {
         fs::write(outside.join("secret.md"), "outside secret").unwrap();
         symlink(&outside, trash_folder.join("link")).unwrap();
 
-        let result =
-            restore_note_from_folder_on_disk(&trash_folder, &standalone, "link/secret.md");
+        let result = restore_note_from_folder_on_disk(&trash_folder, &standalone, "link/secret.md");
 
         assert!(result.is_err());
         assert_eq!(

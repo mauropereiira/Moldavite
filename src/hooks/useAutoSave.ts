@@ -25,6 +25,7 @@ import {
 import {
   registerAutosaveBaselineReset,
   registerAutosaveFlush,
+  registerAutosavePathChange,
   registerAutosavePendingProbe,
 } from '@/lib/autosaveFlush';
 import type { Note, NoteFile } from '@/types';
@@ -61,6 +62,8 @@ export function useAutoSave() {
    * against the note it actually belongs to.
    */
   const pendingRef = useRef<Note | null>(null);
+  const heldPathChangeNoteRef = useRef<Note | null>(null);
+  const pathChangeRef = useRef<{ oldId: string; newId?: string } | null>(null);
 
   /**
    * Write one note to disk immediately. Takes the note explicitly rather than
@@ -208,6 +211,16 @@ export function useAutoSave() {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    const held = heldPathChangeNoteRef.current;
+    const transition = pathChangeRef.current;
+    if (
+      held &&
+      held.id !== transition?.oldId &&
+      (transition?.newId === undefined || held.id !== transition.newId)
+    ) {
+      await persistNote(held);
+      if (heldPathChangeNoteRef.current === held) heldPathChangeNoteRef.current = null;
+    }
     const pending = pendingRef.current;
     if (pending) await persistNote(pending);
   }, [persistNote]);
@@ -215,10 +228,96 @@ export function useAutoSave() {
   // Expose the flush so a Forge switch can await it before reloading the window.
   useEffect(() => registerAutosaveFlush(flushPending), [flushPending]);
 
-  const pendingProbe = useCallback(() => pendingRef.current?.id ?? null, []);
+  const pendingProbe = useCallback(
+    () => heldPathChangeNoteRef.current?.id ?? pendingRef.current?.id ?? null,
+    []
+  );
   useEffect(() => registerAutosavePendingProbe(pendingProbe), [pendingProbe]);
 
+  const queuePending = useCallback(
+    (note: Note) => {
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      pendingRef.current = note;
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = null;
+        void persistNote(note).catch(() => {});
+      }, autoSaveDelay);
+    },
+    [autoSaveDelay, persistNote]
+  );
+
+  const beginPathChange = useCallback((noteId: string) => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    pathChangeRef.current = { oldId: noteId };
+  }, []);
+  const commitPathChange = useCallback(
+    async (oldId: string, newId: string) => {
+      const transition = pathChangeRef.current;
+      if (transition?.oldId !== oldId) return;
+      transition.newId = newId;
+      if (heldPathChangeNoteRef.current?.id === oldId) {
+        heldPathChangeNoteRef.current = { ...heldPathChangeNoteRef.current, id: newId };
+      }
+      if (lastNoteIdRef.current === oldId) lastNoteIdRef.current = newId;
+      try {
+        while (heldPathChangeNoteRef.current?.id === newId) {
+          const held = heldPathChangeNoteRef.current;
+          await persistNote(held);
+          if (heldPathChangeNoteRef.current === held) heldPathChangeNoteRef.current = null;
+        }
+      } catch (error) {
+        const held = heldPathChangeNoteRef.current;
+        if (held?.id === newId) {
+          heldPathChangeNoteRef.current = null;
+          queuePending(held);
+        }
+        throw error;
+      } finally {
+        if (pathChangeRef.current === transition) pathChangeRef.current = null;
+      }
+    },
+    [persistNote, queuePending]
+  );
+  const abortPathChange = useCallback(
+    async (noteId: string) => {
+      const transition = pathChangeRef.current;
+      if (transition?.oldId !== noteId) return;
+      try {
+        while (heldPathChangeNoteRef.current?.id === noteId) {
+          const held = heldPathChangeNoteRef.current;
+          await persistNote(held);
+          if (heldPathChangeNoteRef.current === held) heldPathChangeNoteRef.current = null;
+        }
+      } catch (error) {
+        const held = heldPathChangeNoteRef.current;
+        if (held?.id === noteId) {
+          heldPathChangeNoteRef.current = null;
+          queuePending(held);
+        }
+        throw error;
+      } finally {
+        if (pathChangeRef.current === transition) pathChangeRef.current = null;
+      }
+    },
+    [persistNote, queuePending]
+  );
+  useEffect(
+    () =>
+      registerAutosavePathChange({
+        begin: beginPathChange,
+        commit: commitPathChange,
+        abort: abortPathChange,
+      }),
+    [abortPathChange, beginPathChange, commitPathChange]
+  );
+
   const resetBaseline = useCallback((noteId: string, content: string) => {
+    if (heldPathChangeNoteRef.current?.id === noteId) {
+      heldPathChangeNoteRef.current = null;
+    }
     if (pendingRef.current?.id === noteId) {
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -247,6 +346,13 @@ export function useAutoSave() {
   }, [cancelPendingDebounce]);
 
   const discardPending = useCallback((noteId: string, content: string) => {
+    const transition = pathChangeRef.current;
+    if (transition?.oldId === noteId || transition?.newId === noteId) {
+      pathChangeRef.current = null;
+    }
+    if (heldPathChangeNoteRef.current?.id === noteId) {
+      heldPathChangeNoteRef.current = null;
+    }
     if (pendingRef.current?.id === noteId) {
       if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -290,28 +396,32 @@ export function useAutoSave() {
       return;
     }
 
+    const pathChange = pathChangeRef.current;
+    if (
+      (currentNote.id === pathChange?.oldId || currentNote.id === pathChange?.newId) &&
+      currentNote.content !== lastContentRef.current
+    ) {
+      heldPathChangeNoteRef.current = currentNote;
+      return;
+    }
+    if (heldPathChangeNoteRef.current?.id === currentNote.id) {
+      heldPathChangeNoteRef.current = currentNote;
+      return;
+    }
+
     // Don't save if content hasn't changed
     if (currentNote.content === lastContentRef.current) {
       return;
     }
 
-    // Clear previous timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    pendingRef.current = currentNote;
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = null;
-      void persistNote(currentNote).catch(() => {});
-    }, autoSaveDelay);
+    queuePending(currentNote);
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentNote, getState, autoSaveDelay, persistNote, flushPending]);
+  }, [currentNote, getState, flushPending, queuePending]);
 
   // Unmount (app close, Forge switch reload) must also settle what is owed.
   // Kept separate from the effect above, whose cleanup runs on every keystroke.

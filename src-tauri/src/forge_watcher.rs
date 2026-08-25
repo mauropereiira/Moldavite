@@ -4,11 +4,11 @@
 //! note file is created, modified, or removed by an external process, and a
 //! `forges:changed` event when a direct child Forge is added, removed, or renamed.
 //!
-//! Writes performed by Moldavite itself are short-circuited when the file body
-//! still matches the hash recorded after the write, so the UI doesn't
-//! double-refresh after its own saves. Entries are short-lived hints, not
-//! durable state; paths are normalized relative to the watched Forge and
-//! hidden/internal files never emit events.
+//! Mutations performed by Moldavite itself are short-circuited when the current
+//! file state still matches the content or absence recorded after the operation,
+//! so the UI doesn't double-refresh after its own saves and moves. Entries are
+//! short-lived hints, not durable state; paths are normalized relative to the
+//! watched Forge and hidden/internal files never emit events.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -29,9 +29,15 @@ use crate::paths::{get_forges_root, get_notes_dir};
 const SELF_WRITE_MAX_AGE: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+enum ExpectedDiskState {
+    ContentHash(String),
+    Missing,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct RecentWrite {
     recorded_at: Instant,
-    content_hash: String,
+    expected: ExpectedDiskState,
 }
 
 /// Records writes Moldavite itself initiated, keyed by absolute path.
@@ -48,12 +54,25 @@ impl RecentWrites {
     /// Record the logical body hash written to `path`. Watcher events are
     /// suppressed only while the current on-disk body still has this hash.
     pub fn record(&self, path: &Path, content_hash: &str) {
+        self.record_expected(
+            path,
+            ExpectedDiskState::ContentHash(content_hash.to_string()),
+        );
+    }
+
+    /// Record a path Moldavite just removed or moved away from. A recreated
+    /// file does not match this expectation and is emitted as an external edit.
+    pub fn record_missing(&self, path: &Path) {
+        self.record_expected(path, ExpectedDiskState::Missing);
+    }
+
+    fn record_expected(&self, path: &Path, expected: ExpectedDiskState) {
         if let Ok(mut map) = self.inner.lock() {
             map.insert(
                 path.to_path_buf(),
                 RecentWrite {
                     recorded_at: Instant::now(),
-                    content_hash: content_hash.to_string(),
+                    expected,
                 },
             );
             // Opportunistic GC.
@@ -70,9 +89,9 @@ impl RecentWrites {
         }
     }
 
-    /// Returns true only when `path` still contains the body we wrote.
-    /// Read failures and mismatches evict the hint so external changes flow
-    /// through instead of being hidden behind stale self-write state.
+    /// Returns true only when `path` still matches the content or absence we
+    /// recorded. Read failures and mismatches evict the hint so external changes
+    /// flow through instead of being hidden behind stale self-mutation state.
     pub fn matches_current_content(&self, path: &Path) -> bool {
         let recorded = {
             let Ok(mut map) = self.inner.lock() else {
@@ -88,14 +107,16 @@ impl RecentWrites {
             recorded
         };
 
-        let current_hash = match std::fs::read_to_string(path) {
-            Ok(raw) => sha256_hex(&frontmatter::parse_note(&raw).body),
-            Err(_) => {
-                self.evict_if_unchanged(path, &recorded);
-                return false;
-            }
+        let matches = match &recorded.expected {
+            ExpectedDiskState::ContentHash(content_hash) => std::fs::read_to_string(path)
+                .map(|raw| sha256_hex(&frontmatter::parse_note(&raw).body) == *content_hash)
+                .unwrap_or(false),
+            ExpectedDiskState::Missing => matches!(
+                std::fs::metadata(path),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound
+            ),
         };
-        if current_hash == recorded.content_hash {
+        if matches {
             true
         } else {
             self.evict_if_unchanged(path, &recorded);
@@ -436,6 +457,28 @@ mod tests {
     }
 
     #[test]
+    fn expected_missing_file_is_suppressed() {
+        let tmp = TempDir::new("expected-missing");
+        let path = tmp.path().join("moved.md");
+        let recent = RecentWrites::new();
+        recent.record_missing(&path);
+
+        assert!(recent.matches_current_content(&path));
+    }
+
+    #[test]
+    fn recreated_missing_file_is_delivered_and_evicted() {
+        let tmp = TempDir::new("recreated-missing");
+        let path = tmp.path().join("moved.md");
+        let recent = RecentWrites::new();
+        recent.record_missing(&path);
+        crate::persist::write_atomic(&path, b"recreated externally", Some(0o600)).unwrap();
+
+        assert!(!recent.matches_current_content(&path));
+        assert!(!recent.inner.lock().unwrap().contains_key(&path));
+    }
+
+    #[test]
     fn expired_entry_is_delivered_and_evicted() {
         let tmp = TempDir::new("expired");
         let path = tmp.path().join("note.md");
@@ -445,7 +488,7 @@ mod tests {
             path.clone(),
             RecentWrite {
                 recorded_at: Instant::now() - SELF_WRITE_MAX_AGE - Duration::from_secs(1),
-                content_hash: sha256_hex("written body"),
+                expected: ExpectedDiskState::ContentHash(sha256_hex("written body")),
             },
         );
 

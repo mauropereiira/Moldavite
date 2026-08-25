@@ -7,7 +7,7 @@
  * bare filenames; standalone commands use paths relative to `notes/` and must never
  * derive those paths from display titles. The module-level hash registry records the
  * last observed body for optimistic external-edit conflict safety; reads and successful
- * writes are the only operations that advance a note's base hash.
+ * writes advance a note's base hash, while moves preserve it under the new address.
  */
 
 import { safeInvoke as invoke } from './ipc';
@@ -610,12 +610,36 @@ function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): str
   return `${isDaily ? 'daily' : isWeekly ? 'weekly' : 'notes'}:${filename}`;
 }
 
-/** Drop the recorded base hash for a note (after delete/rename/move). */
+/** Drop the recorded base hash for a note after its content identity is gone. */
 function forgetNoteBaseHash(filename: string, isDaily: boolean, isWeekly: boolean): void {
   const key = noteHashKey(filename, isDaily, isWeekly);
   noteBaseHashes.delete(key);
   lastPersistedMarkdown.delete(key);
   noteWriteChainHashes.delete(key);
+}
+
+/** Preserve conflict and write-chain state when a note changes address. */
+function readdressNote(
+  oldFilename: string,
+  newFilename: string,
+  isDaily: boolean,
+  isWeekly: boolean
+): void {
+  const oldKey = noteHashKey(oldFilename, isDaily, isWeekly);
+  const newKey = noteHashKey(newFilename, isDaily, isWeekly);
+  if (oldKey === newKey) return;
+
+  const transfer = <T>(registry: Map<string, T>) => {
+    const value = registry.get(oldKey);
+    registry.delete(newKey);
+    if (value !== undefined) registry.set(newKey, value);
+    registry.delete(oldKey);
+  };
+
+  transfer(noteBaseHashes);
+  transfer(lastPersistedMarkdown);
+  transfer(noteWriteChainHashes);
+  transfer(noteWriteGenerations);
 }
 
 export function getLastPersistedMarkdown(
@@ -855,8 +879,16 @@ export async function renameNote(
   isDaily: boolean,
   isWeekly: boolean = false
 ): Promise<void> {
-  await invoke('rename_note', { oldFilename, newFilename, isDaily, isWeekly });
-  forgetNoteBaseHash(oldFilename, isDaily, isWeekly);
+  const key = noteHashKey(oldFilename, isDaily, isWeekly);
+  if (lockedNoteWrites.has(key)) throw new LockedNoteWriteError();
+  lockedNoteWrites.add(key);
+  try {
+    await drainNoteWrites(oldFilename, isDaily, isWeekly);
+    await invoke('rename_note', { oldFilename, newFilename, isDaily, isWeekly });
+    readdressNote(oldFilename, newFilename, isDaily, isWeekly);
+  } finally {
+    lockedNoteWrites.delete(key);
+  }
 }
 
 /**
@@ -1401,9 +1433,18 @@ export async function deleteFolder(path: string, force?: boolean): Promise<void>
  * @returns The new note path
  */
 export async function moveNote(notePath: string, toFolder?: string): Promise<string> {
-  const newPath = await invoke<string>('move_note', { notePath, toFolder });
-  forgetNoteBaseHash(notePath, false, false);
-  return newPath;
+  const key = noteHashKey(notePath, false, false);
+  if (lockedNoteWrites.has(key)) throw new LockedNoteWriteError();
+  lockedNoteWrites.add(key);
+  try {
+    await drainNoteWrites(notePath, false, false);
+    const baseHash = noteWriteChainHashes.get(key) ?? noteBaseHashes.get(key) ?? null;
+    const newPath = await invoke<string>('move_note', { notePath, toFolder, baseHash });
+    readdressNote(notePath, newPath.replace(/^notes\//, ''), false, false);
+    return newPath;
+  } finally {
+    lockedNoteWrites.delete(key);
+  }
 }
 
 /**
@@ -1429,9 +1470,20 @@ export async function trashNote(
   filename: string,
   isDaily: boolean,
   isWeekly: boolean = false
-): Promise<void> {
-  await invoke('trash_note', { filename, isDaily, isWeekly });
-  forgetNoteBaseHash(filename, isDaily, isWeekly);
+): Promise<string> {
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  const wasWriteLocked = lockedNoteWrites.has(key);
+  let trashed = false;
+  lockedNoteWrites.add(key);
+  try {
+    await drainNoteWrites(filename, isDaily, isWeekly);
+    const trashId = await invoke<string>('trash_note', { filename, isDaily, isWeekly });
+    forgetNoteBaseHash(filename, isDaily, isWeekly);
+    trashed = true;
+    return trashId;
+  } finally {
+    if (trashed || !wasWriteLocked) lockedNoteWrites.delete(key);
+  }
 }
 
 /**
@@ -1446,8 +1498,8 @@ export async function listTrash(): Promise<TrashedNote[]> {
  * Restores a note from the trash to its original location.
  * @param trashId - The unique ID of the trashed note
  */
-export async function restoreNote(trashId: string): Promise<void> {
-  await invoke('restore_note', { trashId });
+export async function restoreNote(trashId: string): Promise<string> {
+  return await invoke<string>('restore_note', { trashId });
 }
 
 /**
@@ -1468,9 +1520,9 @@ export async function emptyTrash(): Promise<void> {
 /**
  * Cleans up old trash items (older than 7 days).
  * Should be called on app startup.
- * @returns The number of items deleted
+ * @returns The trash IDs removed from metadata
  */
-export async function cleanupOldTrash(): Promise<number> {
+export async function cleanupOldTrash(): Promise<string[]> {
   return await invoke('cleanup_old_trash');
 }
 

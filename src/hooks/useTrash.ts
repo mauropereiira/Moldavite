@@ -5,7 +5,14 @@
  */
 
 import { useCallback } from 'react';
-import { useTrashStore, useNoteStore } from '@/stores';
+import {
+  useNoteColorsStore,
+  useNoteSelectionStore,
+  useNoteStore,
+  useQuickSwitcherStore,
+  useSidebarOrderStore,
+  useTrashStore,
+} from '@/stores';
 import {
   trashNote as trashNoteApi,
   trashFolder as trashFolderApi,
@@ -20,6 +27,32 @@ import {
 } from '@/lib/fileSystem';
 import { useFolderStore } from '@/stores/folderStore';
 import { useToast } from './useToast';
+import { discardPendingAutosaveForNote } from './useAutoSave';
+import {
+  acquireAutosavePathChange,
+  flushPendingAutosave,
+  getPendingAutosaveNoteId,
+} from '@/lib/autosaveFlush';
+import { useWordPressStore } from '@/stores/wordpressStore';
+import type { Note, NoteFile } from '@/types';
+
+function forgetTrashedNoteReferences(noteId: string): void {
+  useNoteStore.getState().forgetNoteReferences(noteId);
+  useNoteColorsStore.setState((state) => {
+    if (!(noteId in state.colors)) return state;
+    const { [noteId]: _removed, ...colors } = state.colors;
+    return { colors };
+  });
+  useNoteSelectionStore
+    .getState()
+    .replace([...useNoteSelectionStore.getState().selectedIds].filter((id) => id !== noteId));
+  if (useQuickSwitcherStore.getState().pinnedNoteIds.includes(noteId)) {
+    useQuickSwitcherStore.getState().togglePinned(noteId);
+  }
+  useSidebarOrderStore.setState((state) => ({
+    noteOrder: state.noteOrder.filter((id) => id !== noteId),
+  }));
+}
 
 export function useTrash() {
   const { trashedNotes, setTrashedNotes, setLoading, removeFromTrash } = useTrashStore();
@@ -49,11 +82,58 @@ export function useTrash() {
    * Moves a note to the trash.
    * @param filename - The note filename (relative path)
    * @param isDaily - Whether this is a daily note
+   * @param isWeekly - Whether this is a weekly note
    */
   const trashNote = useCallback(
-    async (filename: string, isDaily: boolean) => {
+    async (filename: string, isDaily: boolean, isWeekly: boolean = false) => {
+      const noteId = isDaily
+        ? `daily/${filename}`
+        : isWeekly
+          ? `weekly/${filename}`
+          : `notes/${filename}`;
+      let trashed = false;
+      let closedTab:
+        | {
+            note: Note;
+            index: number;
+            activate: boolean;
+            hadExternalChange: boolean;
+            externalClient: string | null;
+          }
+        | undefined;
+      let removedNoteFile: { note: NoteFile; index: number } | undefined;
+      const releasePathChange = await acquireAutosavePathChange();
+
       try {
-        await trashNoteApi(filename, isDaily);
+        await flushPendingAutosave();
+        if (getPendingAutosaveNoteId() !== null) {
+          throw new Error('Save pending changes before moving a note to trash');
+        }
+        const noteState = useNoteStore.getState();
+        const noteFileIndex = noteState.notes.findIndex((note) => note.path === noteId);
+        if (noteFileIndex >= 0) {
+          removedNoteFile = { note: noteState.notes[noteFileIndex], index: noteFileIndex };
+          useNoteStore.setState((state) => ({
+            notes: state.notes.filter((note) => note.path !== noteId),
+          }));
+        }
+        const tabIndex = noteState.openTabs.findIndex((note) => note.id === noteId);
+        const openNote = tabIndex >= 0 ? noteState.openTabs[tabIndex] : undefined;
+        if (openNote) {
+          closedTab = {
+            note: openNote,
+            index: tabIndex,
+            activate: noteState.activeTabId === noteId,
+            hadExternalChange: noteState.externallyChanged.has(noteId),
+            externalClient: noteState.externallyChanged.get(noteId) ?? null,
+          };
+          noteState.removeTabByPath(noteId);
+        }
+        const trashId = await trashNoteApi(filename, isDaily, isWeekly);
+        trashed = true;
+        discardPendingAutosaveForNote(noteId, closedTab?.note.content ?? '');
+        useWordPressStore.getState().noteTrashed(noteId, trashId);
+        forgetTrashedNoteReferences(noteId);
         // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
@@ -61,8 +141,31 @@ export function useTrash() {
         await loadTrash();
         toast.success('Note moved to trash');
       } catch (error) {
+        if (!trashed && closedTab) {
+          useNoteStore.getState().restoreTabAt(closedTab.note, closedTab.index, closedTab.activate);
+          if (closedTab.hadExternalChange) {
+            useNoteStore
+              .getState()
+              .markExternallyChanged(noteId, closedTab.externalClient ?? undefined);
+          }
+        }
+        if (!trashed && removedNoteFile) {
+          const noteFileToRestore = removedNoteFile;
+          useNoteStore.setState((state) => {
+            if (state.notes.some((note) => note.path === noteId)) return state;
+            const notes = [...state.notes];
+            notes.splice(
+              Math.min(Math.max(noteFileToRestore.index, 0), notes.length),
+              0,
+              noteFileToRestore.note
+            );
+            return { notes };
+          });
+        }
         toast.error(String(error));
         throw error;
+      } finally {
+        releasePathChange();
       }
     },
     [setNotes, loadTrash, toast]
@@ -75,8 +178,10 @@ export function useTrash() {
   const restoreNote = useCallback(
     async (trashId: string) => {
       try {
-        await restoreNoteApi(trashId);
+        const restoredPath = await restoreNoteApi(trashId);
+        useWordPressStore.getState().noteRestored(trashId, restoredPath);
         removeFromTrash(trashId);
+        await useNoteColorsStore.getState().loadColors();
         // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
@@ -97,6 +202,7 @@ export function useTrash() {
     async (trashId: string) => {
       try {
         await permanentlyDeleteTrash(trashId);
+        useWordPressStore.getState().forgetTrashedNote(trashId);
         removeFromTrash(trashId);
         toast.success('Note permanently deleted');
       } catch (error) {
@@ -113,6 +219,7 @@ export function useTrash() {
   const emptyTrash = useCallback(async () => {
     try {
       await emptyTrashApi();
+      useWordPressStore.getState().forgetAllTrashedNotes();
       setTrashedNotes([]);
       toast.success('Trash emptied');
     } catch (error) {
@@ -127,8 +234,11 @@ export function useTrash() {
    */
   const cleanupOld = useCallback(async () => {
     try {
-      const deletedCount = await cleanupOldTrash();
-      if (deletedCount > 0) {
+      const deletedIds = await cleanupOldTrash();
+      if (deletedIds.length > 0) {
+        for (const trashId of deletedIds) {
+          useWordPressStore.getState().forgetTrashedNote(trashId);
+        }
         await loadTrash();
       }
     } catch (error) {
@@ -170,6 +280,7 @@ export function useTrash() {
     async (trashId: string, noteFilename: string) => {
       try {
         await restoreNoteFromFolderApi(trashId, noteFilename);
+        await useNoteColorsStore.getState().loadColors();
         // Refresh trash list
         await loadTrash();
         // Refresh notes list

@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   Layout,
   ToastContainer,
@@ -27,6 +29,7 @@ import {
 } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
 import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
+import { registerAutosaveCloseGuard } from './lib/autosaveFlush';
 
 const SettingsModal = lazy(() =>
   import('./components/settings').then((module) => ({ default: module.SettingsModal }))
@@ -65,6 +68,26 @@ function App() {
   useEffect(() => {
     void initializeSemantic();
   }, [initializeSemantic]);
+
+  // Native close must wait for path-changing operations and their held edits.
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    const appWindow = getCurrentWindow();
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void registerAutosaveCloseGuard(appWindow)
+      .then((stopListening) => {
+        if (disposed) stopListening();
+        else unlisten = stopListening;
+      })
+      .catch((error) => console.error('[App] Failed to register close guard:', error));
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Apply theme on mount and when it changes
   useEffect(() => {

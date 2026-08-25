@@ -6,6 +6,7 @@ import { useNoteColorsStore } from '@/stores/noteColorsStore';
 import { useNoteSelectionStore } from '@/stores/noteSelectionStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
+import { useSidebarOrderStore } from '@/stores/sidebarOrderStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note, NoteFile } from '@/types';
 
@@ -59,6 +60,7 @@ beforeEach(() => {
   useNoteColorsStore.setState({ colors: {}, isLoading: false });
   useNoteSelectionStore.setState({ selectedIds: new Set() });
   useQuickSwitcherStore.setState({ pinnedNoteIds: [], recentSearches: [], isOpen: false });
+  useSidebarOrderStore.setState({ noteOrder: [], folderOrder: [] });
   useToastStore.setState({ toasts: [] });
 });
 
@@ -82,6 +84,7 @@ describe('useNotes rename', () => {
     useNoteColorsStore.setState({ colors: { [file.path]: 'purple' } });
     useNoteSelectionStore.setState({ selectedIds: new Set([file.path]) });
     useQuickSwitcherStore.setState({ pinnedNoteIds: [file.path] });
+    useSidebarOrderStore.setState({ noteOrder: [file.path, 'notes/Other.md'] });
 
     await act(() => hook.result.current.renameNote(file, 'New title'));
 
@@ -101,6 +104,10 @@ describe('useNotes rename', () => {
     expect(useNoteColorsStore.getState().colors).toEqual({ 'notes/New title.md': 'purple' });
     expect([...useNoteSelectionStore.getState().selectedIds]).toEqual(['notes/New title.md']);
     expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['notes/New title.md']);
+    expect(useSidebarOrderStore.getState().noteOrder).toEqual([
+      'notes/New title.md',
+      'notes/Other.md',
+    ]);
     expect(useToastStore.getState().toasts[0]).toMatchObject({
       type: 'success',
       message: 'Renamed — inbound links updated',

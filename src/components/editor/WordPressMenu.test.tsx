@@ -38,6 +38,7 @@ describe('WordPressMenu', () => {
       chosenSiteId: null,
       error: null,
       postsByNote: {},
+      trashedPostsById: {},
     });
     useNoteStore.setState({
       currentNote: {
@@ -199,6 +200,23 @@ describe('WordPressMenu', () => {
     expect(postsByNote['9:notes/old.md']).toBeUndefined();
     // Unrelated notes are untouched.
     expect(postsByNote['7:notes/other.md']).toBe(99);
+  });
+
+  it('archives and restores every published-post mapping for a trashed note', () => {
+    useWordPressStore.setState({
+      postsByNote: { '7:notes/old.md': 42, '9:notes/old.md': 7, '7:notes/other.md': 99 },
+    });
+
+    useWordPressStore.getState().noteTrashed('notes/old.md', 'trash-1');
+
+    expect(useWordPressStore.getState().postsByNote).toEqual({ '7:notes/other.md': 99 });
+    useWordPressStore.getState().noteRestored('trash-1', 'notes/restored.md');
+    expect(useWordPressStore.getState().postsByNote).toEqual({
+      '7:notes/other.md': 99,
+      '7:notes/restored.md': 42,
+      '9:notes/restored.md': 7,
+    });
+    expect(useWordPressStore.getState().trashedPostsById).toEqual({});
   });
 
   // Signing out of one account must not leave its post ids behind to be

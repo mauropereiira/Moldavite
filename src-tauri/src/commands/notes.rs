@@ -1062,9 +1062,12 @@ fn visit_note_files(
 pub(crate) fn move_note(
     note_path: String,
     to_folder: Option<String>,
+    base_hash: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
+    recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<String, String> {
     let standalone_dir = get_standalone_dir();
+    let source_path = standalone_dir.join(&note_path);
     let (old_filename, final_filename, new_relative_path, dest_path) =
         move_note_in(&standalone_dir, &note_path, to_folder.as_deref())?;
 
@@ -1073,6 +1076,15 @@ pub(crate) fn move_note(
     index.remove_note(&old_filename);
     let content = fs::read_to_string(&dest_path).unwrap_or_default();
     index.update_note(&final_filename, &content);
+
+    if note_path != new_relative_path {
+        recent.record_missing(&source_path);
+        let body = frontmatter::parse_note(&content).body;
+        let content_hash = sha256_hex(&body);
+        if base_hash.as_deref() == Some(content_hash.as_str()) {
+            recent.record(&dest_path, &content_hash);
+        }
+    }
 
     crate::semantic::note_removed(&format!("notes/{}", note_path));
     crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
