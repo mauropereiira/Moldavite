@@ -105,6 +105,7 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
       // baked in here: this module is imported before the active Forge is known.
       name: QUICK_SWITCHER_KEY,
       storage: createJSONStorage(() => forgeNamespacedStorage),
+      version: 0, // Hook for future migrations; no shape changes yet.
       // Don't persist transient UI state.
       partialize: (state) => ({
         recentSearches: state.recentSearches,

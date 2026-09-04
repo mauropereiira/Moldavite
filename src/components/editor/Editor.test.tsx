@@ -79,6 +79,22 @@ const shortcutSpies = vi.hoisted(() => ({
   options: { current: null as null | Record<string, unknown> },
 }));
 
+// Stable across renders so a test can control/assert `useNotes()` calls —
+// notably `deleteCurrentNote`, whose rejection path the delete-failure test
+// below exercises.
+const notesSpies = vi.hoisted(() => ({
+  deleteCurrentNote: vi.fn(),
+  loadDailyNote: vi.fn(),
+  loadNote: vi.fn(),
+  renameNote: vi.fn(),
+}));
+
+// Stable across renders so a test can assert the delete-failure toast.
+const toastSpies = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+}));
+
 vi.mock('@/hooks', () => ({
   useAutoSave: vi.fn(),
   useKeyboardShortcuts: (options: Record<string, unknown>) => {
@@ -91,23 +107,29 @@ vi.mock('@/hooks', () => ({
     };
   },
   useNotes: () => ({
-    deleteCurrentNote: vi.fn(),
-    loadDailyNote: vi.fn(),
+    deleteCurrentNote: notesSpies.deleteCurrentNote,
+    loadDailyNote: notesSpies.loadDailyNote,
     createNote: shortcutSpies.createNote,
-    loadNote: vi.fn(),
-    renameNote: vi.fn(),
+    loadNote: notesSpies.loadNote,
+    renameNote: notesSpies.renameNote,
   }),
   useTemplates: () => ({ getTemplateContent: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useToast', () => ({
-  useToast: () => ({
-    success: vi.fn(),
-    error: vi.fn(),
-  }),
+  useToast: () => toastSpies,
 }));
 
-vi.mock('./EditorFooter', () => ({ EditorFooter: () => <footer data-testid="editor-footer" /> }));
+// The stub exposes a delete trigger wired to the real `onDelete` prop so
+// tests can reach Editor's own `handleDeleteConfirm` without rendering the
+// full (unrelated) footer.
+vi.mock('./EditorFooter', () => ({
+  EditorFooter: (props: { onDelete: () => void }) => (
+    <footer data-testid="editor-footer">
+      <button onClick={props.onDelete}>Delete note</button>
+    </footer>
+  ),
+}));
 vi.mock('./TabBar', () => ({ TabBar: () => <div data-testid="tab-bar" /> }));
 vi.mock('./NoteHeader', () => ({ NoteHeader: () => <header data-testid="note-header" /> }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
@@ -238,6 +260,12 @@ beforeEach(() => {
   safeInvoke.mockReset();
   convertFileSrc.mockClear();
   shellOpen.mockReset().mockResolvedValue(undefined);
+  notesSpies.deleteCurrentNote.mockReset().mockResolvedValue(undefined);
+  notesSpies.loadDailyNote.mockReset();
+  notesSpies.loadNote.mockReset();
+  notesSpies.renameNote.mockReset();
+  toastSpies.success.mockReset();
+  toastSpies.error.mockReset();
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -549,5 +577,30 @@ describe('Editor external change decisions', () => {
       message: expect.stringContaining('first (conflict 2026-08-14 1200).md'),
     });
     unregisterFlush();
+  });
+});
+
+describe('Editor delete failures', () => {
+  // Previously the backend error was only console.error'd and the confirm
+  // dialog closed exactly as on success, so the user believed the note was
+  // gone. It must surface a toast, and the note must stay in the store.
+  it('shows an error toast and keeps the note when delete rejects', async () => {
+    const user = userEvent.setup();
+    const currentNote = note('notes/first.md', '<p>First note body</p>');
+    notesSpies.deleteCurrentNote.mockRejectedValueOnce(new Error('disk is full'));
+    await renderEditor(currentNote);
+
+    await user.click(screen.getByRole('button', { name: 'Delete note' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(notesSpies.deleteCurrentNote).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(toastSpies.error).toHaveBeenCalledWith(expect.stringContaining('disk is full'))
+    );
+    // The confirm dialog still closes (matching the success path)...
+    expect(screen.queryByText('Delete this note? This cannot be undone.')).not.toBeInTheDocument();
+    // ...but unlike a real deletion, nothing removed the note from the store.
+    expect(useNoteStore.getState().currentNote?.id).toBe(currentNote.id);
+    expect(useNoteStore.getState().openTabs).toHaveLength(1);
   });
 });

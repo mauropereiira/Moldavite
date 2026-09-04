@@ -38,7 +38,10 @@ const VISIBLE_PINS = 4;
 
 export function PinnedBar() {
   const { pinnedNoteIds, togglePinned, movePinnedNote } = useQuickSwitcherStore();
-  const { notes, currentNote } = useNoteStore();
+  const notes = useNoteStore((state) => state.notes);
+  // Only the active note's id is read (for the `isCurrent` highlight), so a
+  // content-only edit in the editor does not re-render the pinned bar.
+  const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
   const { loadNote } = useNotes();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -62,7 +65,7 @@ export function PinnedBar() {
   return (
     <nav className="pinned-bar" aria-label="Pinned notes">
       {onBar.map(({ index, note }, position) => {
-        const isCurrent = currentNote?.id === note.path;
+        const isCurrent = currentNoteId === note.path;
         return (
           <span
             key={note.path}

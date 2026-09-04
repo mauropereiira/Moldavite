@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server."
+      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS, Windows and Linux with a built-in MCP server."
     />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -717,9 +717,9 @@ api.commands.<span class="f">add</span>({
           the next request, with at most five redirects.
         </li>
         <li>
-          A missing or WebKit-hidden redirect target is rejected. Cross-origin redirects retain only
-          <code>Accept</code>, <code>Accept-Language</code>, and <code>Content-Type</code> when a
-          body remains. Authorization and cookies are not forwarded.
+          A redirect response with no <code>Location</code> header is rejected. Cross-origin
+          redirects retain only <code>Accept</code>, <code>Accept-Language</code>, and
+          <code>Content-Type</code> when a body remains. Authorization and cookies are not forwarded.
         </li>
         <li>The whole chain has a 30-second timeout and a 10 MiB streamed-response limit.</li>
       </ul>
@@ -765,7 +765,7 @@ api.commands.<span class="f">add</span>({
       <p>
         The credential-store service is <code>Moldavite</code>. The host constructs the account as
         <code>plugin:&lt;plugin-id&gt;:&lt;key&gt;</code>, so a worker cannot choose another
-        plugin's namespace. macOS stores these entries in Keychain; Windows uses Credential Manager.
+        plugin's namespace. macOS stores these entries in Keychain, Windows in Credential Manager, and Linux in the Secret Service (GNOME Keyring or KWallet).
         Keys are 1–128 characters, begin with a letter or digit, and then use letters, digits, dots,
         underscores, or hyphens. Secret values are never listed or included in Forge, settings,
         plugin, ZIP, or encrypted-backup exports.

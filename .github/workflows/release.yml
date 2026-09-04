@@ -72,6 +72,11 @@ jobs:
               `1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_x64-setup.exe\` (recommended) or \`.msi\``,
               `2. Run the installer`,
               `3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
+              ``,
+              `### Linux (beta)`,
+              `1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.AppImage\` (any distribution) or \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.deb\` (Debian, Ubuntu)`,
+              `2. AppImage: mark it executable and run it. Needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) and \`libfuse2\` (\`sudo apt install libfuse2\` on Ubuntu)`,
+              `3. deb: \`sudo apt install ./Moldavite_${process.env.PACKAGE_VERSION}_amd64.deb\``,
             ].join('\n');
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -99,6 +104,10 @@ jobs:
             args: '--target x86_64-apple-darwin'
           - platform: 'windows-latest'
             args: ''
+          # 24.04: the ONNX Runtime binary fastembed downloads needs glibc 2.38,
+          # which 22.04 lacks. The bundles therefore need 2.38 at runtime too.
+          - platform: 'ubuntu-24.04'
+            args: '--bundles appimage deb'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -181,6 +190,43 @@ jobs:
           tagName: ${{ github.ref_name }}
           args: ${{ matrix.args }}
           updaterJsonPreferNsis: true
+
+      # Tauri's documented Debian/Ubuntu list, plus patchelf for the AppImage
+      # tooling. `file` is what linuxdeploy uses to inspect binaries.
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # No code signing on Linux; the AppImage is updater-signed like every
+      # other platform. The deb has no in-app updater and is replaced by
+      # installing the next one.
+      - name: Build Linux app
+        if: matrix.platform == 'ubuntu-24.04'
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MOLDAVITE_WPCOM_CLIENT_ID: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_ID }}
+          MOLDAVITE_WPCOM_CLIENT_SECRET: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_SECRET }}
+          MOLDAVITE_GOOGLE_CLIENT_ID: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_ID }}
+          MOLDAVITE_GOOGLE_CLIENT_SECRET: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_SECRET }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          args: ${{ matrix.args }}
 
   # Built from the same commit as the app so a release's clipper and its binary
   # always agree about the protocol between them.
@@ -353,6 +399,9 @@ jobs:
               `Moldavite_${version}_x64_en-US.msi.sig`,
               `Moldavite_${version}_x64-setup.exe`,
               `Moldavite_${version}_x64-setup.exe.sig`,
+              `Moldavite_${version}_amd64.AppImage`,
+              `Moldavite_${version}_amd64.AppImage.sig`,
+              `Moldavite_${version}_amd64.deb`,
               `latest.json`,
               // The Chrome/Edge/Brave clipper, loaded unpacked. The Firefox XPI
               // is not here: it has to be signed through AMO by hand, and is
@@ -426,6 +475,10 @@ jobs:
               'windows-x86_64-msi': {
                 asset: `Moldavite_${version}_x64_en-US.msi`,
                 signature: `Moldavite_${version}_x64_en-US.msi.sig`
+              },
+              'linux-x86_64': {
+                asset: `Moldavite_${version}_amd64.AppImage`,
+                signature: `Moldavite_${version}_amd64.AppImage.sig`
               }
             };
 

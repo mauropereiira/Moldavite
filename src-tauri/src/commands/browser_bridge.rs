@@ -177,7 +177,7 @@ fn home_dir() -> Result<PathBuf, String> {
 }
 
 fn binary_path() -> Result<PathBuf, String> {
-    std::env::current_exe().map_err(|error| format!("Cannot locate the Moldavite binary: {error}"))
+    crate::paths::app_binary_path()
 }
 
 #[tauri::command]

@@ -106,7 +106,8 @@ either re-prompts the user.
 The full authoring surface is in [PLUGINS.md](PLUGINS.md).
 
 The `keyring` backend stores secrets in the macOS Keychain on macOS and Windows
-Credential Manager on Windows. Plugin account names remain isolated within the
+Credential Manager on Windows, and the Secret Service (GNOME Keyring or KWallet)
+on Linux. Plugin account names remain isolated within the
 same `Moldavite` service on either platform.
 
 ## Source layout

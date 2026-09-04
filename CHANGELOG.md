@@ -2,6 +2,37 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Moldavite remembers its window.** Size and position come back on the next launch instead of the default 1200 by 800 in the middle of the screen.
+- **Automatic update checks can be switched off.** Settings → About has a toggle, Check for updates automatically. With it off nothing is contacted on launch, every 24 hours or on focus; the manual check still works.
+- **Linux builds, in beta.** An AppImage for any distribution and a deb for Debian and Ubuntu, built and updater-signed by the same release workflow as macOS and Windows, with a build check on every pull request. Nothing has been exercised on a Linux desktop by hand yet. Both need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later), the floor the local semantic-search runtime sets; the AppImage needs `libfuse2` where the distribution lacks it, and the deb has no in-app updater.
+
+### Changed
+
+- **Typing no longer redraws the rest of the window.** The Index, the pinned bar, backlinks, the calendar and several menus watched the whole note store, so every keystroke re-rendered all of them. They now subscribe only to the fields they show. A large Forge stays smooth while you write.
+- **New note locks use a stronger key derivation.** Locking a note now derives the key with 64 MiB of Argon2id memory instead of 19, which makes an offline guess at a copied `.locked` file a good deal more expensive. Notes locked earlier open exactly as before and move to the new format the next time they are locked. Encrypted exports keep their existing format.
+- **Smaller downloads.** The app binary is built with link-time optimisation and stripped symbols. Instrument Serif ships only its Latin subset, like the other two fonts. Four packages nothing imported are gone.
+- **Search does half the work per query.** Each query lowercased every note twice, once to match and once more per matching line.
+
+### Fixed
+
+- **Plugins can reach the hosts they are allowed to.** A plugin's `net.fetch` ran from the page, where the app's own content security policy blocks any host it does not list, so the bundled Publish to WordPress plugin could never reach public-api.wordpress.com. Requests now leave from the Rust side, which enforces the same allow-list, redirect, header and size rules a second time. The unused `plugin://` scheme is gone with it.
+- **Saving a note no longer stacks a second frontmatter block.** When a write carried complete Markdown, its own frontmatter and the block rebuilt from the file's existing keys, the save wrote both, so a note whose body already began with `---` grew a frontmatter block each time an agent or the Use disk version action saved it. The block is parsed out of the incoming content and merged once; keys the writer supplies win, keys only on disk are kept.
+- **A note written from outside in the old HTML format is sanitised before it reaches the editor.** The Markdown path always was. The legacy HTML path taken when the Forge watcher reloads a note, or when you choose Use disk version, handed the file to the editor as it was on disk.
+- **A wiki-link cannot probe paths outside the Forge.** Resolving `[[...]]` against the daily folder joined the link text straight into a path, so a link like `[[../../x]]` reported whether a file existed outside the Forge. The name is validated first now, as the standalone path already was.
+- **Emptying the trash, deleting one item and the 7-day cleanup only ever delete inside `.trash/`.** Restore and preview already checked that; the three delete paths did not, so a damaged `.trash/metadata.json` could point them elsewhere.
+- **Deleting a Forge refuses a symlink**, the way deleting a folder already did.
+- **A wiki-link named after a Windows device, such as `[[NUL]]` or `[[COM1]]`, no longer creates a file Windows cannot open.**
+- **Failing to delete a note from the editor now says so.** The dialog closed as if it had worked and the note stayed on disk.
+- **Folder expansion and template preferences are kept per Forge.** They were shared across every Forge. The values you had carry over to the Forge that was open.
+- **The plugin permission sheet traps focus and closes on Esc**, like every other dialog.
+- **A missing Documents or config folder no longer crashes the app on its first note operation.** It falls back to the home folder and logs the problem.
+- **Shortcut hints show Ctrl on Windows.** The icon rail tooltips, two Layout settings labels, the Appearance hint and the Index and Agenda overlay captions printed ⌘ on every platform.
+- **Dependency advisories are patched on both sides.** JavaScript: markdown-it, linkify-it, DOMPurify, fflate, and TipTap 3.31 for a prototype-pollution advisory in `mergeAttributes`. Rust: bytes, h2, quick-xml, quinn-proto, rkyv, rustls-webpki, tar and time, all transitive. Pull requests now run `npm audit` and `cargo audit`, and the Rust crate is built and tested on macOS as well as Linux and Windows. The declared minimum Rust is 1.88, which the dependency set already required.
+
 ## [2.4.2] - 2026-08-25
 
 ### Fixed

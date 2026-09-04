@@ -5,6 +5,7 @@
 import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
 import type { BaseMode, FontFamily, FontSize, ThemePreset } from '@/stores';
 import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
+import { formatShortcut } from '@/lib/shortcuts';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: BaseMode; label: string }> = [
   { value: 'light', label: 'Light' },
@@ -39,7 +40,7 @@ export function AppearanceSection({
         <div>
           <div className="flex items-center gap-1">
             <SectionHeading>Theme</SectionHeading>
-            <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your macOS appearance setting." />
+            <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your operating system's appearance setting." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Choose your preferred color scheme
@@ -196,7 +197,7 @@ export function AppearanceSection({
               Focus mode
             </span>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Hide every panel at once and leave just the note. ⌘.
+              Hide every panel at once and leave just the note. {formatShortcut('⌘.')}
             </p>
           </div>
           <Toggle

@@ -82,7 +82,10 @@ export function Sidebar({
     renameNote,
     refresh: refreshNotes,
   } = useNotes();
-  const { currentNote, setSelectedDate } = useNoteStore();
+  // Only the active note's id is read here (see isNoteActive below), so a
+  // content-only edit in the editor does not re-render the whole sidebar.
+  const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
+  const setSelectedDate = useNoteStore((state) => state.setSelectedDate);
   const lock = useSidebarLock();
   const {
     setIsSettingsOpen,
@@ -445,8 +448,8 @@ export function Sidebar({
   };
 
   const isNoteActive = (note: NoteFile) => {
-    if (!currentNote) return false;
-    return currentNote.id === note.path;
+    if (!currentNoteId) return false;
+    return currentNoteId === note.path;
   };
 
   const handleDeleteClick = (e: React.MouseEvent, note: NoteFile) => {

@@ -1,6 +1,6 @@
 # Contributing to Moldavite
 
-Thanks for helping improve Moldavite. The project is a local-first macOS app, so
+Thanks for helping improve Moldavite. The project is a local-first desktop app for macOS, Windows and Linux, so
 changes that touch notes, paths, encryption, plugins, or agent access should be
 reviewed as changes to user data or a trust boundary.
 
@@ -9,8 +9,9 @@ reviewed as changes to user data or a trust boundary.
 Prerequisites:
 
 - Node.js 18 or newer
-- Rust 1.77 or newer
-- Xcode Command Line Tools on macOS
+- Rust 1.88 or newer
+- Xcode Command Line Tools on macOS; on Linux, the apt packages listed in the
+  `build-linux` job of `.github/workflows/ci.yml`
 
 Clone the repository, install dependencies, and start Tauri with frontend hot
 reload:
@@ -31,7 +32,8 @@ npm run lint                              # TypeScript/React ESLint checks
 npm run format:check                      # Prettier check
 (cd src-tauri && cargo clippy --all-targets -- -D warnings)
 npm run build                             # Frontend production build
-npm run tauri build                       # Packaged macOS application
+npm run tauri build                       # Packaged app (DMG on macOS, EXE and MSI on Windows;
+                                          #   add --bundles appimage deb on Linux)
 ```
 
 Run the checks relevant to your change while iterating. Before requesting review,

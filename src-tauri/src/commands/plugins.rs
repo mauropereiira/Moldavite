@@ -1,8 +1,7 @@
 //! Plugin system backend: enumerate, uninstall, and install-example plugins
-//! living under the active Forge's `.plugins/` directory. The legacy
-//! `plugin://` URI scheme remains registered for compatibility but serves no
-//! executable files; plugin source crosses the backend boundary only in the
-//! same snapshot as its consent hash.
+//! living under the active Forge's `.plugins/` directory. Plugin source
+//! crosses the backend boundary only in the same snapshot as its consent
+//! hash.
 //!
 //! Plugin ids and relative asset paths are untrusted. Resolution remains inside
 //! the canonical `.plugins` root with directory and leaf symlinks rejected;
@@ -95,16 +94,6 @@ pub(crate) fn plugin_secret_set(
 #[tauri::command]
 pub(crate) fn plugin_secret_delete(plugin_id: String, key: String) -> Result<(), String> {
     secret_delete_with(&KeychainSecretStore, &plugin_id, &key)
-}
-
-/// The host receives source in `list_plugins`, so leaving this scheme readable
-/// would let one same-origin plugin import another plugin's executable module.
-pub(crate) fn resolve_plugin_file(id: &str, rel: &str) -> Option<PathBuf> {
-    resolve_plugin_file_in(&plugins_dir(), id, rel)
-}
-
-fn resolve_plugin_file_in(_base: &Path, _id: &str, _rel: &str) -> Option<PathBuf> {
-    None
 }
 
 fn canonical_real_directory(path: &Path) -> Option<PathBuf> {
@@ -618,23 +607,6 @@ mod tests {
         assert!(resolve_installed_plugin_file_in(&base, "first-plugin", "README.md").is_none());
 
         fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn plugin_scheme_does_not_serve_executable_source() {
-        let root = std::env::temp_dir().join(format!(
-            "moldavite-plugin-scheme-test-{}",
-            std::process::id()
-        ));
-        let base = root.join(".plugins");
-        let plugin = base.join("safe-plugin");
-        fs::remove_dir_all(&root).ok();
-        fs::create_dir_all(&plugin).unwrap();
-        fs::write(plugin.join("plugin.js"), "export default () => {};").unwrap();
-
-        assert!(resolve_plugin_file_in(&base, "safe-plugin", "plugin.js").is_none());
-
-        fs::remove_dir_all(root).ok();
     }
 
     #[test]

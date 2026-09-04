@@ -14,6 +14,7 @@ import type { Note } from '@/types';
 import { IconRail } from './IconRail';
 import { QuickSwitcher } from '@/components/quick-switcher';
 import { WelcomeEmptyState } from '@/components/ui/WelcomeScreen';
+import { formatShortcut } from '@/lib/shortcuts';
 
 const trash = vi.hoisted(() => ({
   loadTrash: vi.fn(async () => undefined),
@@ -70,7 +71,10 @@ describe('IconRail', () => {
     render(<IconRail />);
 
     const settings = screen.getByRole('button', { name: /settings.*update available/i });
-    expect(settings).toHaveAttribute('data-tooltip', 'Settings · Update 1.8.0 available · ⌘,');
+    expect(settings).toHaveAttribute(
+      'data-tooltip',
+      `Settings · Update 1.8.0 available · ${formatShortcut('⌘,')}`
+    );
     expect(screen.getByTestId('settings-update-indicator')).toBeInTheDocument();
   });
 
@@ -152,7 +156,7 @@ describe('IconRail', () => {
     render(<IconRail />);
 
     const index = screen.getByRole('button', { name: 'Index (Command Backslash)' });
-    expect(index).toHaveAttribute('data-tooltip', 'Index · ⌘\\');
+    expect(index).toHaveAttribute('data-tooltip', `Index · ${formatShortcut('⌘\\')}`);
 
     fireEvent.click(index);
     expect(useOverlayStore.getState().activeOverlay).toBe('index');

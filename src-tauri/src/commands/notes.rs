@@ -95,6 +95,22 @@ pub(crate) fn sha256_hex(content: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+/// Classify a notes-tree directory entry as a note file, stripping the
+/// shared `.md.locked` suffix back to `.md`. Returns `(base_name, is_locked)`
+/// for `.md` and `.md.locked` files, `None` for anything else (an
+/// extraneous file that isn't a note).
+fn classify_note_entry(path: &Path) -> Option<(String, bool)> {
+    let filename = path.file_name()?.to_string_lossy().to_string();
+    if filename.ends_with(".md.locked") {
+        let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+        Some((base_name, true))
+    } else if path.extension().is_some_and(|ext| ext == "md") {
+        Some((filename, false))
+    } else {
+        None
+    }
+}
+
 /// True when a daily-note stem is an actual date ("2025-01-01"). Files in
 /// daily/ with other names (e.g. conflict copies) are listed without a
 /// `date` so the frontend never tries to parse them as calendar days.
@@ -298,12 +314,25 @@ where
     let conflict = preserve_conflict_copy_unlocked(path, base_hash, content, &stamp)?;
     let existing = fs::read_to_string(path).unwrap_or_default();
     let parsed_existing = frontmatter::parse_note(&existing);
+    // `content` may itself begin with a frontmatter block: the MCP write path
+    // and the editor's "Use disk version" both hand over complete Markdown, not
+    // a bare body. Parse it out rather than treating the whole string as body,
+    // otherwise `serialize_note` stamps a second block on top of the one the
+    // caller already wrote and the file grows a frontmatter block per save.
+    let parsed_incoming = frontmatter::parse_note(content);
+    // Keys the caller put in `content` win; disk keys it did not mention are
+    // preserved, so external metadata still survives a round trip.
+    let mut merged_extra = parsed_existing.extra.clone();
+    for (key, value) in parsed_incoming.extra {
+        merged_extra.insert(key, value);
+    }
     let resolved_color = match color {
         Some("") | Some("default") => None,
-        Some(value) => Some(value),
-        None => parsed_existing.color.as_deref(),
+        Some(value) => Some(value.to_string()),
+        None => parsed_incoming.color.or(parsed_existing.color),
     };
-    let serialized = frontmatter::serialize_note(resolved_color, &parsed_existing.extra, content);
+    let serialized =
+        frontmatter::serialize_note(resolved_color.as_deref(), &merged_extra, &parsed_incoming.body);
     write(path, &serialized)?;
     Ok(conflict)
 }
@@ -356,9 +385,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
 
                 let modified_at = file_modified_unix(&path);
 
-                // Check for locked files (.md.locked)
-                if filename.ends_with(".md.locked") {
-                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let note_path = if relative_path.is_empty() {
                         format!("notes/{}", base_name)
                     } else {
@@ -371,24 +398,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                         is_weekly: false,
                         date: None,
                         week: None,
-                        is_locked: true,
-                        folder_path,
-                        modified_at,
-                    });
-                } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let note_path = if relative_path.is_empty() {
-                        format!("notes/{}", filename)
-                    } else {
-                        format!("notes/{}/{}", relative_path, filename)
-                    };
-                    notes.push(NoteFile {
-                        name: filename,
-                        path: note_path,
-                        is_daily: false,
-                        is_weekly: false,
-                        date: None,
-                        week: None,
-                        is_locked: false,
+                        is_locked,
                         folder_path,
                         modified_at,
                     });
@@ -408,12 +418,9 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let filename = path.file_name().unwrap().to_string_lossy().to_string();
                 let modified_at = file_modified_unix(&path);
 
-                // Check for locked files (.md.locked)
-                if filename.ends_with(".md.locked") {
-                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let date = base_name
                         .strip_suffix(".md")
                         .filter(|s| is_date_stem(s))
@@ -425,23 +432,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_weekly: false,
                         date,
                         week: None,
-                        is_locked: true,
-                        folder_path: None,
-                        modified_at,
-                    });
-                } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let date = filename
-                        .strip_suffix(".md")
-                        .filter(|s| is_date_stem(s))
-                        .map(|s| s.to_string());
-                    notes.push(NoteFile {
-                        name: filename.clone(),
-                        path: format!("daily/{}", filename),
-                        is_daily: true,
-                        is_weekly: false,
-                        date,
-                        week: None,
-                        is_locked: false,
+                        is_locked,
                         folder_path: None,
                         modified_at,
                     });
@@ -456,12 +447,9 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
         if let Ok(entries) = fs::read_dir(&weekly_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let filename = path.file_name().unwrap().to_string_lossy().to_string();
                 let modified_at = file_modified_unix(&path);
 
-                // Check for locked files (.md.locked)
-                if filename.ends_with(".md.locked") {
-                    let base_name = filename.strip_suffix(".locked").unwrap().to_string();
+                if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let week = base_name
                         .strip_suffix(".md")
                         .filter(|s| is_week_stem(s))
@@ -473,23 +461,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_weekly: true,
                         date: None,
                         week,
-                        is_locked: true,
-                        folder_path: None,
-                        modified_at,
-                    });
-                } else if path.extension().is_some_and(|ext| ext == "md") {
-                    let week = filename
-                        .strip_suffix(".md")
-                        .filter(|s| is_week_stem(s))
-                        .map(|s| s.to_string());
-                    notes.push(NoteFile {
-                        name: filename.clone(),
-                        path: format!("weekly/{}", filename),
-                        is_daily: false,
-                        is_weekly: true,
-                        date: None,
-                        week,
-                        is_locked: false,
+                        is_locked,
                         folder_path: None,
                         modified_at,
                     });
@@ -1220,6 +1192,20 @@ mod tests {
 
     const STAMP: &str = "2026-07-12 1015";
 
+    #[test]
+    fn classify_note_entry_strips_locked_suffix_and_skips_other_files() {
+        assert_eq!(
+            classify_note_entry(Path::new("2026-01-01.md")),
+            Some(("2026-01-01.md".to_string(), false))
+        );
+        assert_eq!(
+            classify_note_entry(Path::new("2026-01-01.md.locked")),
+            Some(("2026-01-01.md".to_string(), true))
+        );
+        assert_eq!(classify_note_entry(Path::new("notes.txt")), None);
+        assert_eq!(classify_note_entry(Path::new(".DS_Store")), None);
+    }
+
     #[cfg(unix)]
     #[test]
     fn security_regression_note_io_rejects_symlinked_components() {
@@ -1293,6 +1279,31 @@ mod tests {
             .expect("conflict copy should be created");
         assert_eq!(body, "external body");
         assert_eq!(fs::read_to_string(tmp.path().join(&name)).unwrap(), raw);
+    }
+
+    #[test]
+    fn write_does_not_stack_frontmatter_when_content_carries_its_own() {
+        // A caller (an MCP agent, or the Use-disk-version path) may pass
+        // complete Markdown whose body already begins with a frontmatter
+        // block. The save must not prepend a second block built from the
+        // existing file's keys.
+        let tmp = TempDir::new("stack");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "---\nkind: note\n---\nold body").unwrap();
+
+        let content = "---\nkind: note\naliases:\n- x\n---\nnew body";
+        save_note_with_conflict(&path, None, content, None).unwrap();
+
+        let written = fs::read_to_string(&path).unwrap();
+        assert_eq!(
+            written.matches("\n---\n").count() + usize::from(written.starts_with("---\n")),
+            2,
+            "exactly one frontmatter block (an opening and a closing fence), got:\n{written}"
+        );
+        let parsed = frontmatter::parse_note(&written);
+        assert_eq!(parsed.body, "new body");
+        assert!(!parsed.body.starts_with("---"), "body still carries a fence");
+        assert!(parsed.extra.contains_key("aliases"), "caller frontmatter kept");
     }
 
     #[test]

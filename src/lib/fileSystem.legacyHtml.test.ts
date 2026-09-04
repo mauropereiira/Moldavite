@@ -9,7 +9,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isHtmlContent, markdownToHtml, filenameToNote } from './fileSystem';
+import {
+  isHtmlContent,
+  markdownToHtml,
+  filenameToNote,
+  noteContentToEditorHtml,
+} from './fileSystem';
 import type { NoteFile } from '@/types';
 
 const noteFile: NoteFile = {
@@ -86,5 +91,22 @@ describe('filenameToNote sanitization', () => {
 
   it('passes empty content straight through', () => {
     expect(filenameToNote(noteFile, '').content).toBe('');
+  });
+});
+
+describe('noteContentToEditorHtml', () => {
+  it('sanitizes a legacy HTML body, stripping scripts and event handlers', () => {
+    const legacy =
+      '<p>Hello</p><script>alert(1)</script><img src="x.png" onerror="alert(2)" alt="">';
+    const html = noteContentToEditorHtml(legacy);
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('onerror');
+    expect(html).toContain('<p>Hello</p>');
+    expect(html).toContain('<img');
+  });
+
+  it('routes Markdown through markdownToHtml unchanged', () => {
+    const markdown = '# Title\n\n- one\n- [ ] task\n\nSee [[Other Note]].';
+    expect(noteContentToEditorHtml(markdown)).toBe(markdownToHtml(markdown));
   });
 });

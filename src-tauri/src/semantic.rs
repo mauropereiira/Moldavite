@@ -6,7 +6,8 @@
 //! 384-dimensional ONNX embedding models powered by `fastembed`. The selected
 //! model is downloaded from Hugging Face exactly once, and only after the user explicitly enables the feature
 //! (`semantic_set_enabled`). Model files are cached in the app data dir
-//! (`~/Library/Application Support/Moldavite/models`), never inside a vault.
+//! (`~/Library/Application Support/Moldavite/models` on macOS, `%APPDATA%\\Moldavite\\models`
+//! on Windows), never inside a vault.
 //! At query time no data ever leaves the machine.
 //!
 //! # Index

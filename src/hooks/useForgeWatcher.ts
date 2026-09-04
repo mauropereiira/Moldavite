@@ -12,9 +12,9 @@ import {
   adoptNoteSnapshot,
   getLastPersistedMarkdown,
   htmlToMarkdown,
-  isHtmlContent,
   listNotes,
   markdownToHtml,
+  noteContentToEditorHtml,
   readNoteSnapshot,
   takeAgentWrite,
 } from '@/lib';
@@ -129,7 +129,7 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
   }
 
   adoptNoteSnapshot(address.filename, address.isDaily, address.isWeekly, result);
-  const html = isHtmlContent(result.content) ? result.content : markdownToHtml(result.content);
+  const html = noteContentToEditorHtml(result.content);
   liveState.applyExternalContent(tab.id, html);
   resetAutosaveBaseline(tab.id, html);
   const client = attributedClient(await takeAgentWrite(relPath, result.contentHash));

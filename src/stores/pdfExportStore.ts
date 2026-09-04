@@ -48,6 +48,9 @@ export const usePdfExportStore = create<PdfExportState>()(
       setPageSize: (pageSize) => set({ pageSize }),
       setMargin: (margin) => set({ margin }),
     }),
-    { name: 'moldavite-pdf-export' }
+    {
+      name: 'moldavite-pdf-export',
+      version: 0, // Hook for future migrations; no shape changes yet.
+    }
   )
 );

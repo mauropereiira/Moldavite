@@ -84,6 +84,32 @@ export function readNamespaced(baseKey: string): string | null {
 }
 
 /**
+ * Read a namespaced value, falling back once to a flat (pre-namespacing)
+ * key of the same name. When the namespaced slot is empty and the flat key
+ * has a value, that value is copied into the namespaced slot for the active
+ * Forge — the flat key is left in place, since another Forge's first read
+ * may still need it. Null when neither is present or storage is unavailable.
+ */
+export function readNamespacedWithLegacyFallback(baseKey: string): string | null {
+  const namespaced = readNamespaced(baseKey);
+  if (namespaced !== null) return namespaced;
+  let legacy: string | null = null;
+  try {
+    legacy = localStorage.getItem(baseKey);
+  } catch {
+    return null;
+  }
+  if (legacy !== null) {
+    try {
+      localStorage.setItem(namespacedKey(baseKey), legacy);
+    } catch {
+      // ignore — private mode etc.
+    }
+  }
+  return legacy;
+}
+
+/**
  * A zustand `StateStorage` that namespaces the store's `name` on every call
  * instead of once at import time. Persisted stores are imported long before
  * the active-Forge cache is trustworthy, so a key captured at import time
@@ -105,4 +131,14 @@ export const forgeNamespacedStorage: StateStorage = {
       // ignore
     }
   },
+};
+
+/**
+ * Like `forgeNamespacedStorage`, but for a store migrating off a flat
+ * (non-namespaced) key of the same name — see `readNamespacedWithLegacyFallback`.
+ */
+export const forgeNamespacedStorageWithLegacyFallback: StateStorage = {
+  getItem: (name) => readNamespacedWithLegacyFallback(name),
+  setItem: forgeNamespacedStorage.setItem,
+  removeItem: forgeNamespacedStorage.removeItem,
 };

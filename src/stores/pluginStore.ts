@@ -107,6 +107,7 @@ export const usePluginStore = create<PluginState>()(
       // baked in here: this module is imported before the active Forge is known.
       name: PLUGIN_GRANTS_KEY,
       storage: createJSONStorage(() => forgeNamespacedStorage),
+      version: 0, // Hook for future migrations; no shape changes yet.
       partialize: (s) => ({ grants: s.grants }),
     }
   )

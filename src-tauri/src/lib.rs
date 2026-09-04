@@ -1,9 +1,9 @@
 //! Tauri library entry point and composition root for Moldavite.
 //!
-//! This module owns command registration, application startup, managed shared
-//! state, and the `plugin://` scheme handler. Domain behavior stays in
-//! `commands/` and the sibling service modules; every filesystem-facing
-//! command must preserve their validation and atomic-persistence invariants.
+//! This module owns command registration, application startup, and managed
+//! shared state. Domain behavior stays in `commands/` and the sibling service
+//! modules; every filesystem-facing command must preserve their validation
+//! and atomic-persistence invariants.
 //!
 //! # Security
 //!
@@ -11,7 +11,8 @@
 //! - File permissions are set to 0o600 (owner read/write only)
 //! - Directory permissions are set to 0o700 (owner only)
 //! - Note encryption uses AES-256-GCM with Argon2 key derivation
-//! - Rate limiting prevents brute-force attacks on locked notes
+//! - Unlock attempts are rate limited in-process; a copied `.locked` file is
+//!   protected only by Argon2id and the password itself
 
 // =============================================================================
 // MODULE DECLARATIONS
@@ -31,6 +32,11 @@ mod deep_link;
 
 /// Security utilities (rate limiting)
 mod security;
+
+/// Host-side network execution for the plugin `net.fetch` API — the request
+/// leaves from this process, not the webview, so the CSP's `connect-src`
+/// cannot block it.
+mod plugin_net;
 
 /// YAML frontmatter parsing for note files.
 pub(crate) mod frontmatter;
@@ -114,6 +120,7 @@ use commands::trash::{
     cleanup_old_trash, empty_trash, list_trash, permanently_delete_trash, read_trashed_note,
     restore_note, restore_note_from_folder, trash_folder, trash_note,
 };
+use plugin_net::plugin_fetch;
 use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
 };
@@ -197,41 +204,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
-        .register_uri_scheme_protocol("plugin", |_ctx, request| {
-            use tauri::http::{header, Response, StatusCode};
-            // URI shape: plugin://localhost/<id>/<relative-path>
-            let trimmed = request.uri().path().trim_start_matches('/');
-            let mut parts = trimmed.splitn(2, '/');
-            let id = parts.next().unwrap_or("");
-            let rel = parts.next().unwrap_or("");
-            let not_found = || {
-                Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                    .body(Vec::new())
-                    .unwrap()
-            };
-            match crate::commands::plugins::resolve_plugin_file(id, rel) {
-                Some(path) => match std::fs::read(&path) {
-                    Ok(bytes) => {
-                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                        let content_type = match ext {
-                            "js" | "mjs" => "text/javascript",
-                            "json" => "application/json",
-                            "css" => "text/css",
-                            _ => "application/octet-stream",
-                        };
-                        Response::builder()
-                            .header(header::CONTENT_TYPE, content_type)
-                            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                            .body(bytes)
-                            .unwrap()
-                    }
-                    Err(_) => not_found(),
-                },
-                None => not_found(),
-            }
-        })
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
@@ -347,6 +320,7 @@ pub fn run() {
             plugin_secret_get,
             plugin_secret_set,
             plugin_secret_delete,
+            plugin_fetch,
             // Folder system commands
             list_folders,
             create_folder,

@@ -123,8 +123,10 @@ pub(crate) fn search_notes_content_in(
         let mut match_count: u32 = 0;
         let mut first_line_number: usize = 0;
         let mut first_snippet: Option<String> = None;
-        for (idx, line) in content.lines().enumerate() {
-            let line_lower = line.to_lowercase();
+        // Reuse the already-lowercased content instead of lowercasing each
+        // matched line again; `to_lowercase()` never inserts or removes line
+        // breaks, so the two iterators stay aligned line-for-line.
+        for (idx, (line, line_lower)) in content.lines().zip(content_lower.lines()).enumerate() {
             let occurrences = line_lower.matches(&term_lower).count() as u32;
             if occurrences == 0 {
                 continue;
@@ -178,4 +180,41 @@ pub(crate) fn search_notes_content(query: String, max_results: u32) -> Result<Ve
         &query,
         max_results,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp_notes_dir(tag: &str) -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "moldavite-search-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(base.join("notes")).unwrap();
+        base
+    }
+
+    #[test]
+    fn case_insensitive_match_keeps_the_original_case_in_the_snippet() {
+        let base = tmp_notes_dir("case-insensitive-snippet");
+        fs::write(
+            base.join("notes/alpha.md"),
+            "intro line\nThe Quick Brown Fox jumps\n",
+        )
+        .unwrap();
+
+        let results = search_notes_content_in(&base, &base.join(".trash"), "quick brown", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].match_count, 1);
+        // The snippet must preserve the note's original casing, not the
+        // lowercased text used to find the match.
+        assert!(results[0].snippet.contains("Quick Brown"));
+
+        let _ = fs::remove_dir_all(&base);
+    }
 }

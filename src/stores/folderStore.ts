@@ -5,8 +5,23 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import {
+  forgeNamespacedStorageWithLegacyFallback,
+  onActiveForgeChange,
+  readNamespacedWithLegacyFallback,
+} from '@/lib/forgeStorage';
 import type { FolderInfo } from '@/types';
+
+const FOLDER_STORAGE_KEY = 'moldavite-folders';
+
+const defaultSectionsCollapsed = {
+  notes: false,
+  folders: false,
+  daily: true,
+  tags: false,
+  backlinks: false,
+};
 
 interface FolderState {
   folders: FolderInfo[];
@@ -33,13 +48,7 @@ export const useFolderStore = create<FolderState>()(
     (set) => ({
       folders: [],
       expandedFolders: [],
-      sectionsCollapsed: {
-        notes: false,
-        folders: false,
-        daily: true,
-        tags: false,
-        backlinks: false,
-      },
+      sectionsCollapsed: defaultSectionsCollapsed,
 
       setFolders: (folders) => set({ folders }),
 
@@ -77,7 +86,12 @@ export const useFolderStore = create<FolderState>()(
       setExpandedFolders: (paths) => set({ expandedFolders: paths }),
     }),
     {
-      name: 'moldavite-folders',
+      // The key is namespaced by `forgeNamespacedStorageWithLegacyFallback` on
+      // every access, not baked in here: this module is imported before the
+      // active Forge is known.
+      name: FOLDER_STORAGE_KEY,
+      storage: createJSONStorage(() => forgeNamespacedStorageWithLegacyFallback),
+      version: 0, // Hook for future migrations; no shape changes yet.
       partialize: (state) => ({
         expandedFolders: state.expandedFolders,
         sectionsCollapsed: state.sectionsCollapsed,
@@ -85,3 +99,19 @@ export const useFolderStore = create<FolderState>()(
     }
   )
 );
+
+// Hydration ran at import time, when the cache could still name the Forge we
+// just switched away from. Re-read under the corrected key as soon as the
+// real active Forge is known — and reset to defaults when that Forge (and its
+// legacy flat key) has no slice yet, because expanded-folder state must never
+// leak from one Forge to another.
+onActiveForgeChange(() => {
+  if (readNamespacedWithLegacyFallback(FOLDER_STORAGE_KEY) === null) {
+    useFolderStore.setState({
+      expandedFolders: [],
+      sectionsCollapsed: defaultSectionsCollapsed,
+    });
+    return;
+  }
+  void useFolderStore.persist.rehydrate();
+});

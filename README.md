@@ -20,7 +20,7 @@ calendar, and a built-in MCP server for the AI tools you already use.
 No account. No sync service. No telemetry. If Moldavite disappeared tomorrow,
 you would still have every note, in plain text, exactly where you left it.
 
-Local-first for macOS, and for Windows in beta.
+Local-first for macOS, and for Windows and Linux in beta.
 
 ## Install
 
@@ -38,6 +38,14 @@ installer is not Authenticode-signed yet, so SmartScreen will warn you once:
 choose **More info → Run anyway**. Updates delivered inside the app are
 cryptographically signed and verified before they install.
 
+**Linux (beta)** — download `Moldavite_x.x.x_amd64.AppImage` for any
+distribution, or `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu. Both need
+glibc 2.38 or newer, which means Ubuntu 24.04, Debian 13, Fedora 39 or later;
+the local semantic-search runtime sets that floor. Mark the AppImage executable
+once, and install `libfuse2` if your distribution does not ship it
+(`sudo apt install libfuse2` on Ubuntu). In-app updates work for the AppImage.
+The deb is updated by installing the next one.
+
 ## Connect your AI
 
 The app binary is also the MCP server. There is no separate daemon, and nothing
@@ -48,7 +56,7 @@ claude mcp add moldavite -- moldavite --mcp
 ```
 
 Settings → AI & Agents generates the exact line for Claude Code, Claude Desktop,
-Cursor, or any stdio MCP client — use it on Windows, where the path differs. Add
+Cursor, or any stdio MCP client — use it on Windows and Linux, where the path differs. Add
 `--forge "Work"` to pin a client to one Forge rather than following whichever is
 open.
 
