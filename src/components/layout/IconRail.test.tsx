@@ -175,6 +175,23 @@ describe('IconRail', () => {
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
   });
 
+  it('leaves Settings when another rail destination is picked', () => {
+    // The rail is clickable above the Settings scrim, so a rail click has to
+    // close the sheet itself; before #121 the action ran underneath it.
+    render(<IconRail />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings (Command Comma)' }));
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Graph (Command Shift G)' }));
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
+    expect(useGraphStore.getState().isOpen).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings (Command Comma)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
+    expect(useTimelineStore.getState().isOpen).toBe(true);
+  });
+
   it('toggles pinned columns and ignores a surface whose mode is off', () => {
     useSettingsStore.getState().setIndexMode('pinned');
     useSettingsStore.getState().setAgendaMode('off');
