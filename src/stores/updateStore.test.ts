@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 import { registerAutosaveFlush, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
 import {
   INITIAL_UPDATE_CHECK_DELAY_MS,
   UPDATE_CHECK_INTERVAL_MS,
   __resetUpdateStoreForTests,
+  isNewerVersion,
   isUpdateCheckStale,
   selectHasPendingUpdate,
   useUpdateStore,
@@ -19,8 +21,13 @@ vi.mock('@tauri-apps/plugin-process', () => ({
   relaunch: vi.fn(),
 }));
 
+vi.mock('@tauri-apps/api/app', () => ({
+  getVersion: vi.fn(),
+}));
+
 const mockCheck = vi.mocked(check);
 const mockRelaunch = vi.mocked(relaunch);
+const mockGetVersion = vi.mocked(getVersion);
 
 function mockUpdate(version = '1.8.0') {
   return {
@@ -35,6 +42,7 @@ describe('updateStore', () => {
     __resetUpdateStoreForTests();
     mockCheck.mockReset();
     mockRelaunch.mockReset().mockResolvedValue(undefined);
+    mockGetVersion.mockReset().mockResolvedValue('1.0.0');
   });
 
   afterEach(() => {
@@ -174,6 +182,55 @@ describe('updateStore', () => {
     expect(mockCheck).toHaveBeenCalledTimes(1);
     expect(update.downloadAndInstall).toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBeNull();
+  });
+
+  it('compares versions numerically', () => {
+    expect(isNewerVersion('2.5.1', '2.5.0')).toBe(true);
+    expect(isNewerVersion('2.10.0', '2.9.9')).toBe(true);
+    expect(isNewerVersion('2.5.0', '2.5.0')).toBe(false);
+    expect(isNewerVersion('2.4.9', '2.5.0')).toBe(false);
+  });
+
+  it('drops a persisted pending version that the running app already has', async () => {
+    mockGetVersion.mockResolvedValue('2.5.0');
+    useUpdateStore.setState({ availableVersion: '2.5.0', update: null });
+
+    await useUpdateStore.getState().reconcileWithInstalledVersion();
+
+    expect(useUpdateStore.getState().availableVersion).toBeNull();
+  });
+
+  it('keeps a persisted pending version newer than the running app', async () => {
+    mockGetVersion.mockResolvedValue('2.5.0');
+    useUpdateStore.setState({ availableVersion: '2.5.1', update: null });
+
+    await useUpdateStore.getState().reconcileWithInstalledVersion();
+
+    expect(useUpdateStore.getState().availableVersion).toBe('2.5.1');
+  });
+
+  it('refuses to reinstall a pending version the running app already has', async () => {
+    // Windows: the updater exits the process inside downloadAndInstall, so the
+    // post-install clear never ran and the new app rehydrated the old pending
+    // version (#125). Update must not re-check, download, or relaunch.
+    mockGetVersion.mockResolvedValue('2.5.0');
+    useUpdateStore.setState({ availableVersion: '2.5.0', update: null });
+
+    await useUpdateStore.getState().installUpdate();
+
+    expect(mockCheck).not.toHaveBeenCalled();
+    expect(mockRelaunch).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState().availableVersion).toBeNull();
+    expect(useUpdateStore.getState().downloading).toBe(false);
+  });
+
+  it('reconciles the pending version as soon as periodic checks start', async () => {
+    mockGetVersion.mockResolvedValue('2.5.0');
+    useUpdateStore.setState({ availableVersion: '2.5.0', update: null });
+
+    const stop = useUpdateStore.getState().startPeriodicChecks();
+    await vi.waitFor(() => expect(useUpdateStore.getState().availableVersion).toBeNull());
+    stop();
   });
 
   it('checks after 15 seconds and every 24 hours while running', async () => {

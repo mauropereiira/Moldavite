@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.5.2] - 2026-09-04
+
+### Fixed
+
+- **An update you just installed no longer keeps advertising itself.** On Windows the installer takes over and closes Moldavite before the app can note that the update went through, so the new version started with the old "update available" state and pressing Update restarted the app again. A pending version the running app already has is now dropped at launch and before any install; a manual Check for updates was the only way out before.
+
 ## [2.5.1] - 2026-09-04
 
 ### Fixed
