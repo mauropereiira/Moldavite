@@ -1,6 +1,6 @@
 {
   "name": "moldavite",
-  "version": "2.4.2",
+  "version": "2.5.0",
   "description": "A local-first note-taking app for connected thinking. Forged from cosmic impact.",
   "type": "module",
   "engines": {
