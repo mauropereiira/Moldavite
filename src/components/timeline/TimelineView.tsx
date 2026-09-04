@@ -42,7 +42,7 @@ const PAGE_SIZE = 50;
  * greyed pill rows above the notes for Today and Yesterday.
  */
 export function TimelineView() {
-  const { notes } = useNoteStore();
+  const notes = useNoteStore((state) => state.notes);
   const { close } = useTimelineStore();
   const { loadNote } = useNotes();
   const [previews, setPreviews] = useState<Map<string, string>>(new Map());

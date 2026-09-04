@@ -15,6 +15,7 @@ import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSidebarOrderStore } from '@/stores/sidebarOrderStore';
 import { useTemplateStore } from '@/stores/templateStore';
+import { useToastStore } from '@/stores/toastStore';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import type { Note, NoteFile } from '@/types';
 
@@ -55,6 +56,7 @@ beforeEach(() => {
     isLoading: false,
     isSaving: false,
   });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe('useNotes external-write bases', () => {
@@ -507,7 +509,7 @@ describe('useNotes external-write bases', () => {
     expect(invokeMock.mock.calls.some(([command]) => command === 'trash_note')).toBe(false);
   });
 
-  it('keeps the saved tab when trashing the note fails', async () => {
+  it('keeps the saved tab and shows an error toast when trashing the note fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const note: Note = {
       id: 'notes/failed-trash.md',
@@ -550,6 +552,13 @@ describe('useNotes external-write bases', () => {
 
     expect(useNoteStore.getState().openTabs.map((tab) => tab.id)).toEqual([note.id]);
     expect(useNoteStore.getState().currentNote?.content).toBe('<p>unsaved edit</p>');
+    // The Sidebar delete-confirm dialog closes the same way on failure as on
+    // success (see Sidebar.tsx's handleDeleteConfirm), so this toast is what
+    // tells the user the note was NOT actually removed.
+    expect(useToastStore.getState().toasts[0]).toMatchObject({
+      type: 'error',
+      message: expect.stringContaining('trash unavailable'),
+    });
   });
 
   it('forgets every path-keyed reference after trash succeeds', async () => {

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore, useQuickSwitcherStore } from '@/stores';
@@ -37,17 +38,32 @@ export function MoreOptionsMenu({
   onRenameNote,
   openDirection = 'down',
 }: MoreOptionsMenuProps) {
-  const { currentNote, notes, setNotes } = useNoteStore();
+  // Menu actions only need the current note at the moment they run, and the
+  // note info / rename affordances only need a few primitive fields — none
+  // of that requires `content`, so it is read fresh from the store (never
+  // subscribed) and a content-only edit in the editor does not re-render
+  // this menu.
+  const { currentNoteId, currentNoteIsDaily, currentNoteTitle, currentNoteDate } = useNoteStore(
+    useShallow((state) => ({
+      currentNoteId: state.currentNote?.id ?? null,
+      currentNoteIsDaily: state.currentNote?.isDaily ?? false,
+      currentNoteTitle: state.currentNote?.title ?? '',
+      currentNoteDate: state.currentNote?.date,
+    }))
+  );
+  const notes = useNoteStore((state) => state.notes);
+  const setNotes = useNoteStore((state) => state.setNotes);
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
-  const currentNoteFile = currentNote
-    ? notes.find((note) => note.path === currentNote.id)
+  const currentNoteFile = currentNoteId
+    ? notes.find((note) => note.path === currentNoteId)
     : undefined;
 
   const handleCopyUrl = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
 
     try {
@@ -59,6 +75,7 @@ export function MoreOptionsMenu({
   };
 
   const handleDuplicate = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote || currentNote.isDaily) {
       onShowToast?.('Cannot duplicate daily notes');
       return;
@@ -100,6 +117,7 @@ export function MoreOptionsMenu({
   };
 
   const handleExport = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
 
     try {
@@ -137,7 +155,7 @@ export function MoreOptionsMenu({
   // click responsive — the file picker only opens after the user confirms
   // page size + margin choices.
   const handleExportPdf = () => {
-    if (!currentNote) return;
+    if (!currentNoteId) return;
     setShowPdfOptions(true);
   };
 
@@ -146,6 +164,7 @@ export function MoreOptionsMenu({
     margin: PdfMarginPreset;
   }) => {
     setShowPdfOptions(false);
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
 
     try {
@@ -173,6 +192,7 @@ export function MoreOptionsMenu({
   };
 
   const handleExportPlaintext = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
 
     try {
@@ -211,6 +231,7 @@ export function MoreOptionsMenu({
 
   // Get file size estimate (rough calculation)
   const getFileSizeEstimate = () => {
+    const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return '0 B';
     const markdown = htmlToMarkdown(currentNote.content);
     const bytes = new Blob([markdown]).size;
@@ -218,6 +239,13 @@ export function MoreOptionsMenu({
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Read fresh (not subscribed) only when the modal is about to show, so a
+  // content-only edit never triggers this markdown conversion.
+  const templateInitialContent =
+    currentNoteId && showSaveTemplateModal
+      ? htmlToMarkdown(useNoteStore.getState().currentNote?.content ?? '')
+      : '';
 
   return (
     <>
@@ -230,13 +258,13 @@ export function MoreOptionsMenu({
           </button>
         }
       >
-        {currentNote && (
-          <DropdownItem onClick={() => togglePinned(currentNote.id)}>
-            {isPinned(currentNote.id) ? 'Unpin from the top bar' : 'Pin to the top bar'}
+        {currentNoteId && (
+          <DropdownItem onClick={() => togglePinned(currentNoteId)}>
+            {isPinned(currentNoteId) ? 'Unpin from the top bar' : 'Pin to the top bar'}
           </DropdownItem>
         )}
         <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
-        <DropdownItem onClick={handleDuplicate} disabled={currentNote?.isDaily}>
+        <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
           Duplicate note
         </DropdownItem>
         {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
@@ -255,7 +283,7 @@ export function MoreOptionsMenu({
       </Dropdown>
 
       {/* Note Info Modal */}
-      {showNoteInfo && currentNote && (
+      {showNoteInfo && currentNoteId && (
         <div
           className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
           onClick={(e) => {
@@ -276,7 +304,7 @@ export function MoreOptionsMenu({
               >
                 <span style={{ color: 'var(--text-muted)' }}>Title</span>
                 <span className="truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
-                  {currentNote.title}
+                  {currentNoteTitle}
                 </span>
               </div>
               <div
@@ -285,16 +313,16 @@ export function MoreOptionsMenu({
               >
                 <span style={{ color: 'var(--text-muted)' }}>Type</span>
                 <span style={{ color: 'var(--text-primary)' }}>
-                  {currentNote.isDaily ? 'Daily' : 'Standalone'}
+                  {currentNoteIsDaily ? 'Daily' : 'Standalone'}
                 </span>
               </div>
-              {currentNote.isDaily && currentNote.date && (
+              {currentNoteIsDaily && currentNoteDate && (
                 <div
                   className="flex justify-between py-1.5"
                   style={{ borderBottom: '1px solid var(--border-muted)' }}
                 >
                   <span style={{ color: 'var(--text-muted)' }}>Date</span>
-                  <span style={{ color: 'var(--text-primary)' }}>{currentNote.date}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{currentNoteDate}</span>
                 </div>
               )}
               <div
@@ -326,11 +354,11 @@ export function MoreOptionsMenu({
       )}
 
       {/* Save as Template Modal */}
-      {currentNote && (
+      {currentNoteId && (
         <SaveTemplateModal
           isOpen={showSaveTemplateModal}
           onClose={() => setShowSaveTemplateModal(false)}
-          initialContent={htmlToMarkdown(currentNote.content)}
+          initialContent={templateInitialContent}
         />
       )}
 

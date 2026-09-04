@@ -42,7 +42,13 @@ const DAY_MARKS = [
 ] as const;
 
 export function Calendar({ onNavigate }: CalendarProps = {}) {
-  const { selectedDate, setSelectedDate, selectedWeek, setSelectedWeek, notes } = useNoteStore();
+  // Narrow selectors: none of these change on a content-only edit, unlike
+  // `currentNote` (not read here), so the calendar does not re-render while typing.
+  const selectedDate = useNoteStore((state) => state.selectedDate);
+  const setSelectedDate = useNoteStore((state) => state.setSelectedDate);
+  const selectedWeek = useNoteStore((state) => state.selectedWeek);
+  const setSelectedWeek = useNoteStore((state) => state.setSelectedWeek);
+  const notes = useNoteStore((state) => state.notes);
   const taskStatusByDate = useTaskStatusStore((state) => state.taskStatusByDate);
   const {
     sources,
