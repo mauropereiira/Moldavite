@@ -9,7 +9,7 @@ import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
 import { getReleaseNotes } from '@/lib/releaseNotes';
 import { formatShortcut } from '@/lib/shortcuts';
-import { ShortcutRow } from '../common';
+import { ShortcutRow, Toggle } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
 
 function SoftwareUpdatesSection() {
@@ -22,6 +22,8 @@ function SoftwareUpdatesSection() {
     installUpdate,
     downloading,
     progress,
+    autoCheck,
+    setAutoCheck,
   } = useUpdateStore();
 
   return (
@@ -150,6 +152,26 @@ function SoftwareUpdatesSection() {
               {isChecking ? 'Checking...' : 'Check for Updates'}
             </button>
           )}
+        </div>
+
+        {/* Automatic checks */}
+        <div
+          className="flex items-center justify-between pt-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
+          <div>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Check for updates automatically
+            </span>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              On launch, every 24 hours, and when you switch back to Moldavite
+            </p>
+          </div>
+          <Toggle
+            enabled={autoCheck}
+            onChange={setAutoCheck}
+            ariaLabel="Check for updates automatically"
+          />
         </div>
 
         {/* GitHub link */}

@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { ShieldAlert, X } from 'lucide-react';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 import { formatShortcut } from '@/lib/shortcuts';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 export interface PluginPermissionSheetProps {
   manifest: {
@@ -42,16 +43,14 @@ export function PluginPermissionSheet({
   return createPortal(
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[10000] modal-backdrop-enter"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={onClose}
     >
-      <div
+      <DialogSurface
+        onEscape={onClose}
+        aria-labelledby="plugin-permission-title"
         className="w-full max-w-md mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
         style={{ borderRadius: 'var(--radius-md)' }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="plugin-permission-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -259,7 +258,7 @@ export function PluginPermissionSheet({
             </button>
           )}
         </div>
-      </div>
+      </DialogSurface>
     </div>,
     document.body
   );

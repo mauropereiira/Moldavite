@@ -21,16 +21,22 @@ export interface UpdateState {
   /** Unix timestamp of the last successful updater response. */
   lastCheckedAt: number | null;
   dismissed: boolean;
+  /** Whether the app checks for updates on its own (launch, interval, focus). */
+  autoCheck: boolean;
   /** Live updater handle; intentionally not persisted. */
   update: Update | null;
   checkForUpdate: () => Promise<void>;
   checkForUpdateSilently: () => Promise<void>;
   installUpdate: () => Promise<void>;
   dismiss: () => void;
+  setAutoCheck: (autoCheck: boolean) => void;
   startPeriodicChecks: () => () => void;
 }
 
-type PersistedUpdateState = Pick<UpdateState, 'availableVersion' | 'lastCheckedAt' | 'dismissed'>;
+type PersistedUpdateState = Pick<
+  UpdateState,
+  'availableVersion' | 'lastCheckedAt' | 'dismissed' | 'autoCheck'
+>;
 
 const initialUpdateState = {
   availableVersion: null,
@@ -40,10 +46,16 @@ const initialUpdateState = {
   isChecking: false,
   lastCheckedAt: null,
   dismissed: false,
+  autoCheck: true,
   update: null,
 } satisfies Omit<
   UpdateState,
-  'checkForUpdate' | 'checkForUpdateSilently' | 'installUpdate' | 'dismiss' | 'startPeriodicChecks'
+  | 'checkForUpdate'
+  | 'checkForUpdateSilently'
+  | 'installUpdate'
+  | 'dismiss'
+  | 'setAutoCheck'
+  | 'startPeriodicChecks'
 >;
 
 export function isUpdateCheckStale(lastCheckedAt: number | null, now = Date.now()): boolean {
@@ -194,8 +206,13 @@ export const useUpdateStore = create<UpdateState>()(
           set({ dismissed: true });
         },
 
+        setAutoCheck: (autoCheck) => {
+          set({ autoCheck });
+        },
+
         startPeriodicChecks: () => {
           const runAutomaticCheck = () => {
+            if (!get().autoCheck) return;
             void get().checkForUpdateSilently();
           };
 
@@ -222,10 +239,12 @@ export const useUpdateStore = create<UpdateState>()(
     },
     {
       name: 'moldavite-updates',
+      version: 0, // Hook for future migrations; no shape changes yet.
       partialize: (state): PersistedUpdateState => ({
         availableVersion: state.availableVersion,
         lastCheckedAt: state.lastCheckedAt,
         dismissed: state.dismissed,
+        autoCheck: state.autoCheck,
       }),
     }
   )

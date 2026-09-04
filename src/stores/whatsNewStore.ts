@@ -32,6 +32,7 @@ export const useWhatsNewStore = create<WhatsNewState>()(
     }),
     {
       name: 'moldavite-whats-new',
+      version: 0, // Hook for future migrations; no shape changes yet.
       // Persist only the durable cursor, not transient modal state.
       partialize: (state) => ({ lastSeenVersion: state.lastSeenVersion }),
     }
