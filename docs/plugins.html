@@ -717,9 +717,9 @@ api.commands.<span class="f">add</span>({
           the next request, with at most five redirects.
         </li>
         <li>
-          A missing or WebKit-hidden redirect target is rejected. Cross-origin redirects retain only
-          <code>Accept</code>, <code>Accept-Language</code>, and <code>Content-Type</code> when a
-          body remains. Authorization and cookies are not forwarded.
+          A redirect response with no <code>Location</code> header is rejected. Cross-origin
+          redirects retain only <code>Accept</code>, <code>Accept-Language</code>, and
+          <code>Content-Type</code> when a body remains. Authorization and cookies are not forwarded.
         </li>
         <li>The whole chain has a 30-second timeout and a 10 MiB streamed-response limit.</li>
       </ul>

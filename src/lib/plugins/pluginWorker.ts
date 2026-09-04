@@ -26,9 +26,9 @@ import type {
  * This is deliberately an allowlist: a denylist silently re-opens the sandbox
  * every time a browser ships a new API. It already had — `Worker` survived, and
  * a nested worker starts with a pristine scope, handing any plugin an un-gated
- * `fetch` (bypassing both the `net.fetch` permission and `allowedHosts`) plus a
- * way to read every other installed plugin's source over `plugin://`. `caches`,
- * `indexedDB`, and `navigator.sendBeacon` were reachable for the same reason.
+ * `fetch` that bypasses both the `net.fetch` permission and `allowedHosts`.
+ * `caches`, `indexedDB`, and `navigator.sendBeacon` were reachable for the
+ * same reason.
  *
  * Anything added here must be pure computation: no network, no storage shared
  * with the app or with another plugin, and no way to spawn a fresh scope.

@@ -15,25 +15,10 @@ import { listNotes, noteFileBackendPath, readNote } from '@/lib/fileSystem';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PLUGIN_API_VERSION } from './types';
-import type { PluginPromptField, PluginPromptOptions } from './types';
+import type { PluginFetchResponse, PluginPromptField, PluginPromptOptions } from './types';
 import type { HostMethod } from './rpc';
 import { isValidAllowedHost } from './manifest';
 import { requestPluginHostAccess, requestPluginPrompt } from './dialogs';
-
-const FETCH_TIMEOUT_MS = 30_000;
-const FETCH_MAX_BYTES = 10 * 1024 * 1024;
-const FETCH_MAX_REDIRECTS = 5;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const SAFE_RESPONSE_HEADERS = new Set([
-  'content-type',
-  'content-length',
-  'etag',
-  'last-modified',
-  'link',
-  'retry-after',
-  'x-wp-total',
-  'x-wp-totalpages',
-]);
 
 // App version is injected by the host during initial load so tests don't need Tauri.
 let appVersion = '0.0.0';
@@ -291,129 +276,29 @@ function validateFetchUrl(value: unknown, allowedHosts: readonly string[]): URL 
   return url;
 }
 
+/**
+ * Validates the call, then hands the actual request to the `plugin_fetch`
+ * Tauri command — the webview CSP's fixed `connect-src` would otherwise block
+ * a plugin's request to any host beyond `self` and the registry's GitHub
+ * hosts before this code even ran. The Rust side re-checks every rule here
+ * independently (defense in depth) and owns the redirect loop, response cap,
+ * and timeout; this function's job is the up-front reject-fast validation
+ * plus computing the effective host allowlist for this call.
+ */
 async function pluginFetch(
   urlValue: unknown,
   optionsValue: unknown,
   manifestHosts: readonly string[],
   pluginId: string
-): Promise<{
-  status: number;
-  headers: Record<string, string>;
-  bodyText: string;
-  bodyBase64?: string;
-}> {
-  const effectiveHosts = () => [
-    ...manifestHosts,
-    ...usePluginStore.getState().approvedHosts(pluginId),
-  ];
-  let url = validateFetchUrl(urlValue, effectiveHosts());
-  let { method, headers, body } = normalizeFetchOptions(optionsValue);
-  const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-  try {
-    for (let redirects = 0; ; redirects += 1) {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body,
-        redirect: 'manual',
-        signal: controller.signal,
-      });
-      // WebKit may hide a cross-origin manual redirect as an opaque response.
-      // It has not been followed; reject because its target cannot be validated.
-      if (response.type === 'opaqueredirect') {
-        throw new Error('net.fetch: redirect target was hidden and could not be validated');
-      }
-      if (!REDIRECT_STATUSES.has(response.status)) return await serializeFetchResponse(response);
-      if (redirects >= FETCH_MAX_REDIRECTS) throw new Error('net.fetch: too many redirects');
-      const location = response.headers.get('location');
-      if (!location)
-        throw new Error('net.fetch: redirect response did not expose a Location header');
-      // Re-read user grants at every hop so revocation affects in-flight redirects.
-      const nextUrl = validateFetchUrl(new URL(location, url).href, effectiveHosts());
-
-      if (
-        response.status === 303 ||
-        ((response.status === 301 || response.status === 302) && method === 'POST')
-      ) {
-        method = 'GET';
-        body = undefined;
-        headers = new Headers(headers);
-        headers.delete('content-type');
-        headers.delete('content-length');
-      }
-      if (nextUrl.origin !== url.origin) {
-        const safeHeaders = new Headers();
-        for (const name of ['accept', 'accept-language']) {
-          const value = headers.get(name);
-          if (value !== null) safeHeaders.set(name, value);
-        }
-        if (body !== undefined) {
-          const contentType = headers.get('content-type');
-          if (contentType !== null) safeHeaders.set('content-type', contentType);
-        }
-        headers = safeHeaders;
-      }
-      url = nextUrl;
-    }
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error('net.fetch: request timed out after 30 seconds');
-    throw error;
-  } finally {
-    globalThis.clearTimeout(timeout);
-  }
-}
-
-async function serializeFetchResponse(response: Response) {
-  const declaredLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declaredLength) && declaredLength > FETCH_MAX_BYTES) {
-    throw new Error('net.fetch: response exceeds the 10 MB limit');
-  }
-
-  const reader = response.body?.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  if (reader) {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > FETCH_MAX_BYTES) {
-        await reader.cancel();
-        throw new Error('net.fetch: response exceeds the 10 MB limit');
-      }
-      chunks.push(value);
-    }
-  }
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  const safeHeaders: Record<string, string> = {};
-  for (const [name, value] of response.headers.entries()) {
-    if (SAFE_RESPONSE_HEADERS.has(name.toLowerCase())) safeHeaders[name.toLowerCase()] = value;
-  }
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
-  const isText =
-    contentType.startsWith('text/') ||
-    /(?:json|xml|javascript|x-www-form-urlencoded)/.test(contentType);
-  return {
-    status: response.status,
-    headers: safeHeaders,
-    bodyText: new globalThis.TextDecoder().decode(bytes),
-    ...(isText ? {} : { bodyBase64: bytesToBase64(bytes) }),
-  };
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 32_768;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return globalThis.btoa(binary);
+): Promise<PluginFetchResponse> {
+  const allowedHosts = [...manifestHosts, ...usePluginStore.getState().approvedHosts(pluginId)];
+  const url = validateFetchUrl(urlValue, allowedHosts);
+  const { method, headers, body } = normalizeFetchOptions(optionsValue);
+  return await safeInvoke<PluginFetchResponse>('plugin_fetch', {
+    url: url.href,
+    method,
+    headers: Object.fromEntries(headers.entries()),
+    body,
+    allowedHosts,
+  });
 }
