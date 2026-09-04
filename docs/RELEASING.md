@@ -85,8 +85,8 @@ users see no `.xpi` on that release.
 
 ## 3. Verify
 
-- Confirm the Release has the DMGs, the `.exe`/`.msi`, `latest.json`, and
-  `moldavite-clipper-chrome.zip`.
+- Confirm the Release has the DMGs, the `.exe`/`.msi`, the `.AppImage` and
+  `.deb` with their `.sig` files, `latest.json`, and `moldavite-clipper-chrome.zip`.
 - Open an older install → it should detect the update after about 15s (or via
   Settings → About → Check for Updates), download, install, and relaunch.
 - On relaunch, the "What's New" popup shows this version's notes.

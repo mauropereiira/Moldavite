@@ -402,6 +402,7 @@ jobs:
               `Moldavite_${version}_amd64.AppImage`,
               `Moldavite_${version}_amd64.AppImage.sig`,
               `Moldavite_${version}_amd64.deb`,
+              `Moldavite_${version}_amd64.deb.sig`,
               `latest.json`,
               // The Chrome/Edge/Brave clipper, loaded unpacked. The Firefox XPI
               // is not here: it has to be signed through AMO by hand, and is
@@ -479,6 +480,16 @@ jobs:
               'linux-x86_64': {
                 asset: `Moldavite_${version}_amd64.AppImage`,
                 signature: `Moldavite_${version}_amd64.AppImage.sig`
+              },
+              'linux-x86_64-appimage': {
+                asset: `Moldavite_${version}_amd64.AppImage`,
+                signature: `Moldavite_${version}_amd64.AppImage.sig`
+              },
+              // The updater never installs a deb, but tauri-action signs it and
+              // lists it, so verify the signature it advertises like the rest.
+              'linux-x86_64-deb': {
+                asset: `Moldavite_${version}_amd64.deb`,
+                signature: `Moldavite_${version}_amd64.deb.sig`
               }
             };
 

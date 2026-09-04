@@ -246,7 +246,8 @@ describe('AgendaOverlay', () => {
     });
     await waitFor(
       () => expect(screen.queryByRole('heading', { name: 'Agenda' })).not.toBeInTheDocument(),
-      { timeout: 500 }
+      // The overlay exit is a real 200 ms timer; a loaded CI runner needs more than 500 ms.
+      { timeout: 2000 }
     );
 
     await act(async () => {
