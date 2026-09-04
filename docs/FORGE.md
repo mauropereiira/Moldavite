@@ -83,7 +83,7 @@ The actual note body starts here.
 
 | field   | type   | purpose                                           |
 |---------|--------|---------------------------------------------------|
-| `color` | string | Sidebar color tag. One of `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, or `default`. |
+| `color` | string | Sidebar color tag. One of `default`, `crystal`, `moss`, `fern`, `forest`, `amber`, `gold`, `honey`, `bronze`, `earth`, `stone`, `clay`, `cosmos`, `nebula`, or `midnight`. |
 
 ### Forward compatibility
 
