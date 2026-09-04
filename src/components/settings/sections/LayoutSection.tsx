@@ -1,5 +1,6 @@
 import { useSettingsStore, type ChromeMode, type SettingsState } from '@/stores';
 import { SectionHeading, SegmentedControl, Toggle } from '../common';
+import { formatShortcut } from '@/lib/shortcuts';
 
 type BooleanLayoutSetting =
   | 'showIconRail'
@@ -104,12 +105,12 @@ export function LayoutSection() {
         <SectionHeading>Navigation</SectionHeading>
         <ToggleRow label="Icon rail" setting="showIconRail" enabled={settings.showIconRail} />
         <ModeRow
-          label={'Index · ⌘\\'}
+          label={`Index · ${formatShortcut('⌘\\')}`}
           value={settings.indexMode}
           onChange={settings.setIndexMode}
         />
         <ModeRow
-          label={'Agenda · ⌘⌥\\'}
+          label={`Agenda · ${formatShortcut('⌘⌥\\')}`}
           value={settings.agendaMode}
           onChange={settings.setAgendaMode}
         />

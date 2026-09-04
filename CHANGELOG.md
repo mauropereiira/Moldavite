@@ -28,6 +28,7 @@ All notable changes to Moldavite are documented here.
 - **Folder expansion and template preferences are kept per Forge.** They were shared across every Forge. The values you had carry over to the Forge that was open.
 - **The plugin permission sheet traps focus and closes on Esc**, like every other dialog.
 - **A missing Documents or config folder no longer crashes the app on its first note operation.** It falls back to the home folder and logs the problem.
+- **Shortcut hints show Ctrl on Windows.** The icon rail tooltips, two Layout settings labels, the Appearance hint and the Index and Agenda overlay captions printed ⌘ on every platform.
 - **Dependency advisories in markdown-it, linkify-it, DOMPurify and fflate are patched.** Pull requests now run `npm audit` and `cargo audit`, and the Rust crate is built and tested on macOS as well as Linux and Windows.
 
 ## [2.4.2] - 2026-08-25

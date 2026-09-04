@@ -18,13 +18,15 @@ const secretValues = new Map<string, string>();
 // Command return values vary by command (secrets return strings; net.fetch
 // returns a PluginFetchResponse), so this mock is typed loosely and each test
 // narrows it with mockResolvedValueOnce/mockRejectedValueOnce as needed.
-const safeInvoke = vi.fn(async (command: string, args: Record<string, unknown>): Promise<unknown> => {
-  const account = `${args.pluginId}:${args.key}`;
-  if (command === 'plugin_secret_get') return secretValues.get(account) ?? null;
-  if (command === 'plugin_secret_set') secretValues.set(account, args.value as string);
-  if (command === 'plugin_secret_delete') secretValues.delete(account);
-  return null;
-});
+const safeInvoke = vi.fn(
+  async (command: string, args: Record<string, unknown>): Promise<unknown> => {
+    const account = `${args.pluginId}:${args.key}`;
+    if (command === 'plugin_secret_get') return secretValues.get(account) ?? null;
+    if (command === 'plugin_secret_set') secretValues.set(account, args.value as string);
+    if (command === 'plugin_secret_delete') secretValues.delete(account);
+    return null;
+  }
+);
 vi.mock('@/stores/toastStore', () => ({ useToastStore: { getState: () => ({ addToast }) } }));
 vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => safeInvoke(...(args as [string, Record<string, unknown>])),

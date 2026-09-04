@@ -595,9 +595,7 @@ describe('Editor delete failures', () => {
 
     await waitFor(() => expect(notesSpies.deleteCurrentNote).toHaveBeenCalled());
     await waitFor(() =>
-      expect(toastSpies.error).toHaveBeenCalledWith(
-        expect.stringContaining('disk is full')
-      )
+      expect(toastSpies.error).toHaveBeenCalledWith(expect.stringContaining('disk is full'))
     );
     // The confirm dialog still closes (matching the success path)...
     expect(screen.queryByText('Delete this note? This cannot be undone.')).not.toBeInTheDocument();

@@ -3,6 +3,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface IndexOverlayProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
             pointerEvents: 'none',
           }}
         >
-          ⌘\ · Esc closes
+          {formatShortcut('⌘\\')} · Esc closes
         </span>
         <button
           type="button"

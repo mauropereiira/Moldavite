@@ -5,6 +5,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useSettingsStore } from '@/stores';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface AgendaOverlayProps {
   isOpen: boolean;
@@ -78,7 +79,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
               textTransform: 'uppercase',
             }}
           >
-            ⌘⌥\ · Esc closes
+            {formatShortcut('⌘⌥\\')} · Esc closes
           </p>
         </div>
         <button

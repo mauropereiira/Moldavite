@@ -12,6 +12,7 @@ import {
 import { IconRailTrash } from './IconRailTrash';
 import { captureImpactOrigin } from '@/lib/impactOrigin';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
+import { formatShortcut } from '@/lib/shortcuts';
 
 interface RailButtonProps {
   label: string;
@@ -143,7 +144,7 @@ export function IconRail() {
         <nav className="flex w-full flex-col items-center" aria-label="Navigation surfaces">
           <RailButton
             label="Index (Command Backslash)"
-            tooltip={'Index · ⌘\\'}
+            tooltip={`Index · ${formatShortcut('⌘\\')}`}
             active={indexOpen}
             ariaDisabled={indexMode === 'off'}
             onClick={handleIndex}
@@ -152,7 +153,7 @@ export function IconRail() {
           </RailButton>
           <RailButton
             label="Search (Command P)"
-            tooltip="Search · ⌘P"
+            tooltip={`Search · ${formatShortcut('⌘P')}`}
             surface="search"
             active={quickSwitcherOpen}
             onClick={handleQuickSwitcher}
@@ -161,7 +162,7 @@ export function IconRail() {
           </RailButton>
           <RailButton
             label="Agenda (Command Option Backslash)"
-            tooltip={'Agenda · ⌘⌥\\'}
+            tooltip={`Agenda · ${formatShortcut('⌘⌥\\')}`}
             active={agendaOpen}
             ariaDisabled={agendaMode === 'off'}
             onClick={handleAgenda}
@@ -170,7 +171,7 @@ export function IconRail() {
           </RailButton>
           <RailButton
             label="Graph (Command Shift G)"
-            tooltip="Graph · ⌘⇧G"
+            tooltip={`Graph · ${formatShortcut('⌘⇧G')}`}
             active={graphOpen}
             onClick={toggleGraph}
           >
@@ -196,8 +197,8 @@ export function IconRail() {
           }
           tooltip={
             availableVersion
-              ? `Settings · Update ${availableVersion} available · ⌘,`
-              : 'Settings · ⌘,'
+              ? `Settings · Update ${availableVersion} available · ${formatShortcut('⌘,')}`
+              : `Settings · ${formatShortcut('⌘,')}`
           }
           active={isSettingsOpen}
           onClick={() => setIsSettingsOpen(true)}
