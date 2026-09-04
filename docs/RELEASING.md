@@ -1,7 +1,7 @@
 # Releasing Moldavite
 
 Moldavite ships signed and notarized macOS builds (Apple Silicon and Intel) and
-unsigned Windows builds via GitHub Actions. Every platform's updater artifacts,
+unsigned Windows and Linux builds (an AppImage and a deb) via GitHub Actions. Every platform's updater artifacts,
 including Windows, are signed with `TAURI_SIGNING_PRIVATE_KEY` so the updater can
 verify their integrity. Windows installers are not Authenticode-signed, so
 Windows may show a SmartScreen warning. This is the end-to-end release process.
@@ -43,8 +43,9 @@ Windows may show a SmartScreen warning. This is the end-to-end release process.
 3. The tag push triggers `.github/workflows/release.yml`, which:
    - creates the GitHub Release **as a draft**, with a body extracted from the
      `CHANGELOG.md` section for this version,
-   - builds macOS aarch64 + x86_64 and Windows installers, signs and notarizes
-     the macOS builds, and signs updater artifacts for every platform,
+   - builds macOS aarch64 + x86_64, Windows installers, and a Linux AppImage and
+     deb, signs and notarizes the macOS builds, and signs updater artifacts for
+     every platform,
    - uploads artifacts and generates `latest.json` (the updater manifest),
    - **publishes the draft only once every artifact and signature is present**,
      and triggers the Homebrew bump after that. The release used to be created
