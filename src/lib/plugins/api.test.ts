@@ -15,16 +15,19 @@ const addToast = vi.fn();
 const listNotes = vi.fn();
 const readNote = vi.fn();
 const secretValues = new Map<string, string>();
-const safeInvoke = vi.fn(async (command: string, args: Record<string, string>) => {
+// Command return values vary by command (secrets return strings; net.fetch
+// returns a PluginFetchResponse), so this mock is typed loosely and each test
+// narrows it with mockResolvedValueOnce/mockRejectedValueOnce as needed.
+const safeInvoke = vi.fn(async (command: string, args: Record<string, unknown>): Promise<unknown> => {
   const account = `${args.pluginId}:${args.key}`;
   if (command === 'plugin_secret_get') return secretValues.get(account) ?? null;
-  if (command === 'plugin_secret_set') secretValues.set(account, args.value);
+  if (command === 'plugin_secret_set') secretValues.set(account, args.value as string);
   if (command === 'plugin_secret_delete') secretValues.delete(account);
   return null;
 });
 vi.mock('@/stores/toastStore', () => ({ useToastStore: { getState: () => ({ addToast }) } }));
 vi.mock('@/lib/ipc', () => ({
-  safeInvoke: (...args: unknown[]) => safeInvoke(...(args as [string, Record<string, string>])),
+  safeInvoke: (...args: unknown[]) => safeInvoke(...(args as [string, Record<string, unknown>])),
 }));
 vi.mock('@/lib/fileSystem', () => ({
   listNotes: () => listNotes(),
@@ -55,7 +58,6 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     secretValues.clear();
     usePluginStore.setState({ grants: {} });
     if (getPluginDialogSnapshot()) resolvePluginDialog(null);
-    vi.unstubAllGlobals();
   });
 
   const ALL = ['editor', 'ui', 'notes.read', 'net.fetch', 'secrets'];
@@ -196,9 +198,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     await expect(dispatchPluginCall('demo', [], method, [])).rejects.toThrow(permission);
   });
 
-  it('net.fetch rejects HTTP and non-allowlisted hosts before fetching', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+  it('net.fetch rejects HTTP and non-allowlisted hosts before invoking the backend', async () => {
     await expect(
       dispatchPluginCall('demo', ALL, 'net.fetch', ['http://api.example.com'], ['api.example.com'])
     ).rejects.toThrow(/https/);
@@ -211,7 +211,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
         ['api.example.com']
       )
     ).rejects.toThrow(/allowedHosts/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(safeInvoke).not.toHaveBeenCalled();
   });
 
   it.each(['127.0.0.1', 'intranet', 'api.localhost', '*.example.com', 'Example.com'])(
@@ -253,12 +253,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
   it('net.fetch enforces manifest plus approved-host union and revoke immediately', async () => {
     usePluginStore.getState().grant('demo', '1.0.0', 'hash');
     usePluginStore.getState().approveHost('demo', 'site.example.com');
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } })
-      );
-    vi.stubGlobal('fetch', fetchMock);
+    safeInvoke.mockResolvedValueOnce({ status: 200, headers: {}, bodyText: 'ok' });
 
     await expect(
       dispatchPluginCall(
@@ -282,39 +277,63 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     ).rejects.toThrow(/allowedHosts/);
   });
 
-  it('net.fetch re-reads approved hosts before following each redirect', async () => {
+  // The redirect chain itself (host re-validation per hop, cross-origin header
+  // stripping, size cap, timeout) now runs entirely inside the `plugin_fetch`
+  // Rust command in a single IPC call — see plugin_net.rs's own unit tests.
+  // What's left to verify here is the TS-to-backend contract: the effective
+  // `allowedHosts` union is a snapshot taken when the call starts, request
+  // details cross the boundary unmodified, and a backend rejection propagates.
+
+  it('net.fetch snapshots the effective allowedHosts (manifest + approved) into the backend call', async () => {
     usePluginStore.getState().grant('demo', '1.0.0', 'hash');
     usePluginStore.getState().approveHost('demo', 'site.example.com');
-    const fetchMock = vi.fn().mockImplementationOnce(() => {
-      usePluginStore.getState().revokeHost('demo', 'site.example.com');
-      return Promise.resolve(
-        new Response('', {
-          status: 302,
-          headers: { location: 'https://site.example.com/after-revoke' },
-        })
-      );
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    safeInvoke.mockResolvedValueOnce({ status: 200, headers: {}, bodyText: 'ok' });
 
-    await expect(
-      dispatchPluginCall(
-        'demo',
-        ALL,
-        'net.fetch',
-        ['https://site.example.com/start'],
-        ['api.example.com']
-      )
-    ).rejects.toThrow(/allowedHosts/);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await dispatchPluginCall(
+      'demo',
+      ALL,
+      'net.fetch',
+      ['https://site.example.com/start'],
+      ['api.example.com']
+    );
+
+    expect(safeInvoke).toHaveBeenCalledWith(
+      'plugin_fetch',
+      expect.objectContaining({ allowedHosts: ['api.example.com', 'site.example.com'] })
+    );
   });
 
-  it('net.fetch manually follows allowlisted redirects and rejects an off-list redirect', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('', { status: 302, headers: { location: 'https://evil.example.com/steal' } })
-      );
-    vi.stubGlobal('fetch', fetchMock);
+  it('net.fetch forwards method, headers, and body to the backend unmodified', async () => {
+    safeInvoke.mockResolvedValueOnce({ status: 200, headers: {}, bodyText: '{}' });
+
+    await dispatchPluginCall(
+      'demo',
+      ALL,
+      'net.fetch',
+      [
+        'https://api.example.com/start',
+        {
+          method: 'post',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer secret' },
+          body: '{}',
+        },
+      ],
+      ['api.example.com']
+    );
+
+    expect(safeInvoke).toHaveBeenCalledWith('plugin_fetch', {
+      url: 'https://api.example.com/start',
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer secret' },
+      body: '{}',
+      allowedHosts: ['api.example.com'],
+    });
+  });
+
+  it('net.fetch propagates a backend rejection (e.g. an off-allowlist redirect target)', async () => {
+    safeInvoke.mockRejectedValueOnce(
+      new Error('net.fetch: host "evil.example.com" is not in this plugin\'s allowedHosts')
+    );
     await expect(
       dispatchPluginCall(
         'demo',
@@ -324,106 +343,15 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
         ['api.example.com']
       )
     ).rejects.toThrow(/allowedHosts/);
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.any(URL),
-      expect.objectContaining({ redirect: 'manual' })
-    );
   });
 
-  it('net.fetch keeps only minimal headers on a cross-origin redirect', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response('', { status: 307, headers: { location: 'https://uploads.example.com/post' } })
-      )
-      .mockResolvedValueOnce(
-        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
-      );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await dispatchPluginCall(
-      'demo',
-      ALL,
-      'net.fetch',
-      [
-        'https://api.example.com/start',
-        {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'accept-language': 'en-US',
-            'content-type': 'application/json',
-            authorization: 'Bearer secret',
-            cookie: 'session=secret',
-            'x-api-key': 'secret',
-            'x-custom': 'drop-me',
-          },
-          body: '{}',
-        },
-      ],
-      ['api.example.com', 'uploads.example.com']
-    );
-
-    const secondOptions = fetchMock.mock.calls[1][1] as {
-      headers: Headers;
-      body?: unknown;
+  it('net.fetch returns the backend response unchanged', async () => {
+    const backendResponse = {
+      status: 200,
+      headers: { 'content-type': 'application/json', etag: 'abc' },
+      bodyText: '{"ok":true}',
     };
-    expect(Object.fromEntries(secondOptions.headers.entries())).toEqual({
-      accept: 'application/json',
-      'accept-language': 'en-US',
-      'content-type': 'application/json',
-    });
-    expect(secondOptions.body).toBe('{}');
-  });
-
-  it('net.fetch drops content-type when a cross-origin redirect drops the body', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response('', { status: 302, headers: { location: 'https://other.example.com/get' } })
-      )
-      .mockResolvedValueOnce(
-        new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } })
-      );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await dispatchPluginCall(
-      'demo',
-      ALL,
-      'net.fetch',
-      [
-        'https://api.example.com/start',
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', accept: 'text/plain' },
-          body: '{}',
-        },
-      ],
-      ['api.example.com', 'other.example.com']
-    );
-
-    const secondOptions = fetchMock.mock.calls[1][1] as {
-      headers: Headers;
-      method?: string;
-      body?: unknown;
-    };
-    expect(Object.fromEntries(secondOptions.headers.entries())).toEqual({
-      accept: 'text/plain',
-    });
-    expect(secondOptions.method).toBe('GET');
-    expect(secondOptions.body).toBeUndefined();
-  });
-
-  it('net.fetch returns a capped response with only safe headers', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response('{"ok":true}', {
-          status: 200,
-          headers: { 'content-type': 'application/json', etag: 'abc', 'set-cookie': 'secret=1' },
-        })
-      )
-    );
+    safeInvoke.mockResolvedValueOnce(backendResponse);
     await expect(
       dispatchPluginCall(
         'demo',
@@ -432,11 +360,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
         ['https://api.example.com/data'],
         ['api.example.com']
       )
-    ).resolves.toEqual({
-      status: 200,
-      headers: { 'content-type': 'application/json', etag: 'abc' },
-      bodyText: '{"ok":true}',
-    });
+    ).resolves.toEqual(backendResponse);
   });
 
   it('secrets are isolated by the host-injected plugin id', async () => {

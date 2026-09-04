@@ -422,10 +422,10 @@ hop immediately use the reduced union.
 
 - Request methods contain letters only. `CONNECT`, `TRACE`, and `TRACK` are
   blocked.
-- Redirect handling is manual. Each visible `Location` is resolved and
-  validated before the next request, with at most five redirects.
-- Missing or WebKit-hidden redirect targets are rejected rather than followed
-  without validation.
+- Redirect handling is manual. Each `Location` is resolved and validated
+  before the next request, with at most five redirects.
+- A redirect response with no `Location` header is rejected rather than
+  followed without validation.
 - Cross-origin redirects keep only `Accept`, `Accept-Language`, and—when a
   request body remains—`Content-Type`. Authorization and cookies are not
   forwarded.
