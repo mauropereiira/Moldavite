@@ -824,6 +824,37 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// `search_notes` must be answered by the persistent index when one is
+    /// available. Deleting the file after the index is built is what makes
+    /// that provable: the live scan has nothing left to find, so a hit can
+    /// only have come out of the index.
+    #[test]
+    fn search_notes_is_answered_by_the_persistent_index() {
+        let root = temp_forge("index-search");
+        fs::write(
+            root.join("notes/indexed.md"),
+            "# Indexed\n\nthis mentions kryptonite once",
+        )
+        .unwrap();
+        crate::search_index::reconcile(&root).unwrap();
+        fs::remove_file(root.join("notes/indexed.md")).unwrap();
+
+        let response = ToolContext::new(root.clone(), false, false)
+            .call("search_notes", &json!({"query":"kryptonite","limit":10}));
+        assert_eq!(response["isError"], false);
+        assert_eq!(response["structuredContent"]["mode"], "keyword");
+        let results = response["structuredContent"]["results"].as_array().unwrap();
+        assert_eq!(results.len(), 1, "the index should have answered");
+        assert_eq!(results[0]["path"], "notes/indexed.md");
+        assert!(results[0]["snippet"]
+            .as_str()
+            .unwrap()
+            .contains("kryptonite"));
+
+        crate::search_index::delete_for(&root);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn keyword_search_over_1000_note_forge_is_time_bounded() {
         let root = temp_forge("large-search");

@@ -440,10 +440,15 @@ fn push_note_source(abs: &Path, rel_path: String, out: &mut Vec<NoteSource>) {
     });
 }
 
-/// Collect every unlocked, non-empty markdown note in the Forge. Locked
-/// notes (`.md.locked`), hidden files/dirs (`.index`, `.trash`, …), and
-/// symlinks are skipped.
-pub(crate) fn scan_note_sources(forge_root: &Path) -> Vec<NoteSource> {
+/// Locate every note eligible for indexing without reading any of them:
+/// `(absolute path, Forge-relative path)`. Locked notes (`.md.locked`),
+/// hidden files and dirs (`.index`, `.trash`, `.plugins`, …), and symlinks
+/// are skipped.
+///
+/// The keyword index walks the Forge through this too, so the two indexes
+/// cannot disagree about what a note is — and it can stat a file before
+/// deciding whether reading it is worth the cost.
+pub(crate) fn scan_note_paths(forge_root: &Path) -> Vec<(PathBuf, String)> {
     let mut out = Vec::new();
     // Daily and weekly notes live flat at the top level.
     for top in ["daily", "weekly"] {
@@ -466,7 +471,8 @@ pub(crate) fn scan_note_sources(forge_root: &Path) -> Vec<NoteSource> {
             {
                 continue;
             }
-            push_note_source(&path, format!("{}/{}", top, name), &mut out);
+            let rel = format!("{}/{}", top, name);
+            out.push((path, rel));
         }
     }
     // Standalone notes may live in nested folders.
@@ -475,7 +481,17 @@ pub(crate) fn scan_note_sources(forge_root: &Path) -> Vec<NoteSource> {
     out
 }
 
-fn scan_standalone(dir: &Path, rel: &str, out: &mut Vec<NoteSource>) {
+/// Collect every unlocked, non-empty markdown note in the Forge, bodies
+/// included. Notes that are empty once frontmatter is stripped are dropped.
+pub(crate) fn scan_note_sources(forge_root: &Path) -> Vec<NoteSource> {
+    let mut out = Vec::new();
+    for (path, rel) in scan_note_paths(forge_root) {
+        push_note_source(&path, rel, &mut out);
+    }
+    out
+}
+
+fn scan_standalone(dir: &Path, rel: &str, out: &mut Vec<(PathBuf, String)>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -501,7 +517,8 @@ fn scan_standalone(dir: &Path, rel: &str, out: &mut Vec<NoteSource>) {
         if path.is_dir() {
             scan_standalone(&path, &child_rel, out);
         } else if name.ends_with(".md") && !name.ends_with(".md.locked") {
-            push_note_source(&path, format!("notes/{}", child_rel), out);
+            let rel = format!("notes/{}", child_rel);
+            out.push((path, rel));
         }
     }
 }
