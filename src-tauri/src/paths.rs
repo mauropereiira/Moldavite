@@ -142,7 +142,8 @@ pub(crate) fn get_metadata_path() -> PathBuf {
 
 pub(crate) fn ensure_trash_dir() -> Result<(), String> {
     let trash_dir = get_trash_dir();
-    fs::create_dir_all(&trash_dir).map_err(|e| format!("Failed to create trash directory: {}", e))?;
+    fs::create_dir_all(&trash_dir)
+        .map_err(|e| format!("Failed to create trash directory: {}", e))?;
     Ok(())
 }
 

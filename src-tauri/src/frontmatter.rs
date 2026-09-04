@@ -119,7 +119,11 @@ pub fn parse_note(raw: &str) -> ParsedNote {
 /// Serialize a note back to disk format. If `color` is `None` and `extra` is
 /// empty, the frontmatter block is omitted entirely so we don't pollute every
 /// file.
-pub fn serialize_note(color: Option<&str>, extra: &BTreeMap<String, serde_yaml::Value>, body: &str) -> String {
+pub fn serialize_note(
+    color: Option<&str>,
+    extra: &BTreeMap<String, serde_yaml::Value>,
+    body: &str,
+) -> String {
     let has_color = color.is_some_and(|c| !c.is_empty());
     if !has_color && extra.is_empty() {
         return body.to_string();

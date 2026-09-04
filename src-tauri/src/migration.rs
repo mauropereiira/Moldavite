@@ -81,7 +81,9 @@ pub fn migrate_legacy_single_forge_to_multi() -> Result<bool, String> {
         fs::read_dir(&legacy_dir).map_err(|e| format!("Failed to read legacy dir: {}", e))?;
     for entry in entries.flatten() {
         let path = entry.path();
-        let Some(name) = path.file_name() else { continue };
+        let Some(name) = path.file_name() else {
+            continue;
+        };
         if name == std::ffi::OsStr::new(DEFAULT_FORGE_NAME) {
             continue;
         }
@@ -189,7 +191,11 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
     let raw = match fs::read_to_string(&metadata_path) {
         Ok(s) => s,
         Err(e) => {
-            log::warn!("[forge migration] could not read {:?}: {}", metadata_path, e);
+            log::warn!(
+                "[forge migration] could not read {:?}: {}",
+                metadata_path,
+                e
+            );
             return Ok(0);
         }
     };
@@ -198,7 +204,10 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
         Err(e) => {
             log::warn!("[forge migration] malformed metadata json: {}", e);
             // Still rename so we don't keep retrying on every boot.
-            let _ = fs::rename(&metadata_path, metadata_path.with_extension("json.migrated"));
+            let _ = fs::rename(
+                &metadata_path,
+                metadata_path.with_extension("json.migrated"),
+            );
             return Ok(0);
         }
     };
@@ -256,10 +265,7 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
     // original payload if something went wrong.
     let renamed = metadata_path.with_extension("json.migrated");
     if let Err(e) = fs::rename(&metadata_path, &renamed) {
-        log::warn!(
-            "[forge migration] could not rename metadata file: {}",
-            e
-        );
+        log::warn!("[forge migration] could not rename metadata file: {}", e);
     }
 
     Ok(migrated)
@@ -334,7 +340,10 @@ mod tests {
         fs::write(root.join("daily/keep.md"), "keep").unwrap();
 
         assert_eq!(adopt_stray_root_layout_at(&root, "Default"), Ok(false));
-        assert_eq!(fs::read_to_string(root.join("daily/keep.md")).unwrap(), "keep");
+        assert_eq!(
+            fs::read_to_string(root.join("daily/keep.md")).unwrap(),
+            "keep"
+        );
 
         let _ = fs::remove_dir_all(&root);
     }

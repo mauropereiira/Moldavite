@@ -69,11 +69,7 @@ fn secret_set_with(
     store.set(&secret_account(plugin_id, key)?, value)
 }
 
-fn secret_delete_with(
-    store: &impl SecretStore,
-    plugin_id: &str,
-    key: &str,
-) -> Result<(), String> {
+fn secret_delete_with(store: &impl SecretStore, plugin_id: &str, key: &str) -> Result<(), String> {
     store.delete(&secret_account(plugin_id, key)?)
 }
 

@@ -334,8 +334,8 @@ mod tests {
         let root = temp_forge("agent-write-marker");
         let spool = root.with_extension("agent-writes");
         fs::write(root.join("notes/marked.md"), "old body").unwrap();
-        let context = ToolContext::new(root.clone(), true, false)
-            .with_agent_write_spool(spool.clone());
+        let context =
+            ToolContext::new(root.clone(), true, false).with_agent_write_spool(spool.clone());
         let input = request(
             1,
             "initialize",

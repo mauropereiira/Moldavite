@@ -111,7 +111,9 @@ pub(crate) fn search_notes_content_in(
             continue;
         }
 
-        let Ok(raw) = fs::read_to_string(path) else { continue };
+        let Ok(raw) = fs::read_to_string(path) else {
+            continue;
+        };
         // Don't search YAML frontmatter — it would surface "color: red" as a
         // hit when the user searches for "red".
         let content = crate::frontmatter::parse_note(&raw).body;
@@ -138,7 +140,9 @@ pub(crate) fn search_notes_content_in(
             match_count = match_count.saturating_add(occurrences);
         }
 
-        let Some(snippet) = first_snippet else { continue };
+        let Some(snippet) = first_snippet else {
+            continue;
+        };
         let Some((rel_path, is_daily, is_weekly, folder_path)) =
             classify_note_path(notes_dir, path)
         else {
@@ -171,7 +175,10 @@ pub(crate) fn search_notes_content_in(
 /// Case-insensitive substring match. Skips `.md.locked` files and the
 /// internal `.trash` directory. Results are sorted by match count desc.
 #[tauri::command]
-pub(crate) fn search_notes_content(query: String, max_results: u32) -> Result<Vec<ContentMatch>, String> {
+pub(crate) fn search_notes_content(
+    query: String,
+    max_results: u32,
+) -> Result<Vec<ContentMatch>, String> {
     let notes_dir = get_notes_dir();
     let trash_dir = get_trash_dir();
     Ok(search_notes_content_in(

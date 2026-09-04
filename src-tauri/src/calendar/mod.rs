@@ -648,7 +648,10 @@ mod tests {
         // text the +03:00 event looks later; it is actually two hours earlier.
         let apple = event_instant("2026-08-07T07:00:00Z");
         let google = event_instant("2026-08-07T09:00:00+03:00");
-        assert!(google < apple, "instant ordering should ignore the offset text");
+        assert!(
+            google < apple,
+            "instant ordering should ignore the offset text"
+        );
         assert!("2026-08-07T07:00:00Z" < "2026-08-07T09:00:00+03:00");
     }
 

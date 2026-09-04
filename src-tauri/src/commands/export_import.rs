@@ -175,8 +175,7 @@ fn extract_archive<R: IoRead + Seek>(
             continue;
         }
 
-        let Some((subdir, destination)) =
-            validated_archive_destination(destination_root, &name)
+        let Some((subdir, destination)) = validated_archive_destination(destination_root, &name)
         else {
             return Err(format!("{label} contains unsafe entry path '{name}'"));
         };
@@ -231,9 +230,7 @@ fn create_import_staging_dir(notes_dir: &Path) -> Result<PathBuf, String> {
 
     for _ in 0..32 {
         let suffix = rand::RngCore::next_u64(&mut rand::rngs::OsRng);
-        let path = parent.join(format!(
-            ".{forge_name}.moldavite-import-{suffix:016x}.tmp"
-        ));
+        let path = parent.join(format!(".{forge_name}.moldavite-import-{suffix:016x}.tmp"));
         // Only the Unix branch mutates this, so on Windows `mut` is unused and
         // `-D warnings` fails the build there. Windows inherits the parent
         // directory's ACL, which is the equivalent protection.
@@ -247,7 +244,11 @@ fn create_import_staging_dir(notes_dir: &Path) -> Result<PathBuf, String> {
         match builder.create(&path) {
             Ok(()) => return Ok(path),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(format!("Failed to create import staging directory: {error}")),
+            Err(error) => {
+                return Err(format!(
+                    "Failed to create import staging directory: {error}"
+                ))
+            }
         }
     }
 
@@ -666,14 +667,12 @@ mod tests {
         scaffold(&source);
         fs::write(source.join("notes/note.md"), "private note").unwrap();
 
-        assert!(
-            export_encrypted_backup_to(
-                &source,
-                Path::new("relative.moldavite-backup"),
-                "password"
-            )
-            .is_err()
-        );
+        assert!(export_encrypted_backup_to(
+            &source,
+            Path::new("relative.moldavite-backup"),
+            "password"
+        )
+        .is_err());
 
         let backup = tmp.0.join("vault.moldavite-backup");
         export_encrypted_backup_to(&source, &backup, "password").unwrap();

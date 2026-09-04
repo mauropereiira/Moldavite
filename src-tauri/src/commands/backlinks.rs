@@ -61,10 +61,7 @@ pub(crate) fn create_note_from_link(
     Ok(filename)
 }
 
-fn create_note_from_link_at(
-    notes_dir: &Path,
-    note_name: &str,
-) -> Result<(String, String), String> {
+fn create_note_from_link_at(notes_dir: &Path, note_name: &str) -> Result<(String, String), String> {
     let filename = note_name_to_filename(note_name);
     // `note_name_to_filename` mirrors the frontend slug contract byte-for-
     // byte and must not change; validate its output instead so a Windows

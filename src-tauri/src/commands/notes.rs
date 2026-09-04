@@ -331,8 +331,11 @@ where
         Some(value) => Some(value.to_string()),
         None => parsed_incoming.color.or(parsed_existing.color),
     };
-    let serialized =
-        frontmatter::serialize_note(resolved_color.as_deref(), &merged_extra, &parsed_incoming.body);
+    let serialized = frontmatter::serialize_note(
+        resolved_color.as_deref(),
+        &merged_extra,
+        &parsed_incoming.body,
+    );
     write(path, &serialized)?;
     Ok(conflict)
 }
@@ -553,29 +556,28 @@ pub(crate) fn write_note(
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
     // save below can never silently destroy it.
-    let conflict_copy =
-        match save_note_with_conflict_in(
-            &dir,
-            &path,
-            base_hash.as_deref(),
-            &content,
-            color.as_deref(),
-        )? {
-            Some((conflict_name, disk_body)) => {
-                if let Some(parent) = path.parent() {
-                    // The copy is our own write — suppress the watcher echo.
-                    recent.record(&parent.join(&conflict_name), &sha256_hex(&disk_body));
-                }
-                index.update_note(&conflict_name, &disk_body);
-                // Echo back the same folder-relative shape we were addressed with.
-                let rel = match filename.rsplit_once('/') {
-                    Some((folder, _)) => format!("{}/{}", folder, conflict_name),
-                    None => conflict_name,
-                };
-                Some(rel)
+    let conflict_copy = match save_note_with_conflict_in(
+        &dir,
+        &path,
+        base_hash.as_deref(),
+        &content,
+        color.as_deref(),
+    )? {
+        Some((conflict_name, disk_body)) => {
+            if let Some(parent) = path.parent() {
+                // The copy is our own write — suppress the watcher echo.
+                recent.record(&parent.join(&conflict_name), &sha256_hex(&disk_body));
             }
-            None => None,
-        };
+            index.update_note(&conflict_name, &disk_body);
+            // Echo back the same folder-relative shape we were addressed with.
+            let rel = match filename.rsplit_once('/') {
+                Some((folder, _)) => format!("{}/{}", folder, conflict_name),
+                None => conflict_name,
+            };
+            Some(rel)
+        }
+        None => None,
+    };
 
     let content_hash = sha256_hex(&content);
     recent.record(&path, &content_hash);
@@ -749,8 +751,7 @@ pub(crate) fn duplicate_note(
     };
 
     let source_path = dir.join(&filename);
-    validate_path_within_base(&source_path, &dir)
-        .map_err(|_| "Invalid note path".to_string())?;
+    validate_path_within_base(&source_path, &dir).map_err(|_| "Invalid note path".to_string())?;
 
     if !source_path.exists() {
         return Err("Note not found".to_string());
@@ -770,8 +771,7 @@ pub(crate) fn duplicate_note(
     let new_base = portable_derived_stem(source_stem, " (copy)");
     let new_leaf = generate_unique_filename(source_parent, &new_base, "md");
     let new_path = source_parent.join(&new_leaf);
-    validate_path_within_base(&new_path, &dir)
-        .map_err(|_| "Invalid note path".to_string())?;
+    validate_path_within_base(&new_path, &dir).map_err(|_| "Invalid note path".to_string())?;
     let new_filename = match filename.rsplit_once('/') {
         Some((parent, _)) => format!("{parent}/{new_leaf}"),
         None => new_leaf,
@@ -811,8 +811,7 @@ pub(crate) fn export_single_note(
     };
 
     let source_path = dir.join(&filename);
-    validate_path_within_base(&source_path, &dir)
-        .map_err(|_| "Invalid note path".to_string())?;
+    validate_path_within_base(&source_path, &dir).map_err(|_| "Invalid note path".to_string())?;
 
     if !source_path.exists() {
         return Err("Note not found".to_string());
@@ -827,9 +826,7 @@ pub(crate) fn export_single_note(
         .and_then(|s| s.to_str())
         .map(str::to_ascii_lowercase)
         .filter(|extension| matches!(extension.as_str(), "md" | "markdown" | "txt"))
-        .ok_or_else(|| {
-            "Destination must have a .md, .markdown, or .txt extension".to_string()
-        })?;
+        .ok_or_else(|| "Destination must have a .md, .markdown, or .txt extension".to_string())?;
     crate::validation::validate_user_export_path(dest_path, &extension)?;
     write_atomic(dest_path, content.as_bytes(), Some(0o600))?;
 
@@ -890,13 +887,7 @@ pub(crate) fn rename_note(
         get_standalone_dir()
     };
 
-    let new_path = rename_note_in(
-        &dir,
-        &old_filename,
-        &new_filename,
-        is_daily,
-        is_weekly,
-    )?;
+    let new_path = rename_note_in(&dir, &old_filename, &new_filename, is_daily, is_weekly)?;
 
     let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
     index.rename_note(
@@ -1302,8 +1293,14 @@ mod tests {
         );
         let parsed = frontmatter::parse_note(&written);
         assert_eq!(parsed.body, "new body");
-        assert!(!parsed.body.starts_with("---"), "body still carries a fence");
-        assert!(parsed.extra.contains_key("aliases"), "caller frontmatter kept");
+        assert!(
+            !parsed.body.starts_with("---"),
+            "body still carries a fence"
+        );
+        assert!(
+            parsed.extra.contains_key("aliases"),
+            "caller frontmatter kept"
+        );
     }
 
     #[test]
@@ -1675,19 +1672,16 @@ mod tests {
         fs::write(tmp.path().join("old.md"), "old").unwrap();
         fs::write(tmp.path().join("existing.md"), "existing").unwrap();
 
-        let result = rename_note_in(
-            tmp.path(),
-            "old.md",
-            "existing.md",
-            false,
-            false,
-        );
+        let result = rename_note_in(tmp.path(), "old.md", "existing.md", false, false);
 
         assert_eq!(
             result,
             Err("A note with this name already exists".to_string())
         );
-        assert_eq!(fs::read_to_string(tmp.path().join("old.md")).unwrap(), "old");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join("old.md")).unwrap(),
+            "old"
+        );
         assert_eq!(
             fs::read_to_string(tmp.path().join("existing.md")).unwrap(),
             "existing"
@@ -1707,13 +1701,7 @@ mod tests {
             false,
         )
         .unwrap();
-        let result = rename_note_in(
-            tmp.path(),
-            "current-name.md",
-            "new..name.md",
-            false,
-            false,
-        );
+        let result = rename_note_in(tmp.path(), "current-name.md", "new..name.md", false, false);
 
         assert_eq!(result, Err("Invalid filename".to_string()));
         assert!(tmp.path().join("current-name.md").exists());
@@ -1776,7 +1764,10 @@ mod tests {
         assert_eq!(relative, "pw.md");
         assert!(notes.join("pw.md").is_file());
         assert!(!notes.join("pw (2).md").exists());
-        assert_eq!(fs::read_to_string(notes.join("pw.md")).unwrap(), "root body");
+        assert_eq!(
+            fs::read_to_string(notes.join("pw.md")).unwrap(),
+            "root body"
+        );
 
         let (_, final_filename, relative, _) =
             move_note_in(&notes, "Projects/note.md", Some("Projects")).unwrap();

@@ -202,7 +202,9 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     // Then update per-note tracker
     let mut tracker = lock(&ATTEMPT_TRACKER);
 
-    let info = tracker.entry(note_id.to_string()).or_insert_with(AttemptInfo::new);
+    let info = tracker
+        .entry(note_id.to_string())
+        .or_insert_with(AttemptInfo::new);
 
     // Reset attempts if it's been a while since last attempt
     if info.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
@@ -253,7 +255,8 @@ fn cleanup_old_entries(tracker: &mut HashMap<String, AttemptInfo>) {
 
     tracker.retain(|_, info| {
         // Keep entries that are currently locked out or were recently accessed
-        info.locked_until.is_some_and(|until| Instant::now() < until)
+        info.locked_until
+            .is_some_and(|until| Instant::now() < until)
             || info.last_attempt.elapsed() < cleanup_threshold
     });
 }

@@ -104,7 +104,10 @@ pub fn is_authorized() -> bool {
 /// shaped `{"error": "..."}`. Parse the payload first so an event or calendar
 /// whose text merely contains the substring `"error"` is never misclassified
 /// as a failure.
-fn parse_swift_json<T: serde::de::DeserializeOwned>(json_str: &str, what: &str) -> Result<T, String> {
+fn parse_swift_json<T: serde::de::DeserializeOwned>(
+    json_str: &str,
+    what: &str,
+) -> Result<T, String> {
     match serde_json::from_str::<T>(json_str) {
         Ok(v) => Ok(v),
         Err(parse_err) => {
@@ -154,8 +157,13 @@ pub fn get_events(
         .map(|cs| cs.as_ptr())
         .unwrap_or(std::ptr::null());
 
-    let json_ptr =
-        unsafe { fetch_events(start_cstring.as_ptr(), end_cstring.as_ptr(), calendar_id_ptr) };
+    let json_ptr = unsafe {
+        fetch_events(
+            start_cstring.as_ptr(),
+            end_cstring.as_ptr(),
+            calendar_id_ptr,
+        )
+    };
 
     if json_ptr.is_null() {
         return Err("Failed to fetch events".to_string());

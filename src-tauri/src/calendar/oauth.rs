@@ -465,7 +465,10 @@ mod tests {
     fn s256_challenge_matches_the_rfc7636_example() {
         // RFC 7636 appendix B.
         let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-        assert_eq!(challenge_for(verifier), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+        assert_eq!(
+            challenge_for(verifier),
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+        );
     }
 
     #[test]
@@ -526,7 +529,12 @@ mod tests {
 
     #[test]
     fn authorize_url_encodes_and_pins_the_scope() {
-        let url = authorize_url("id.apps.googleusercontent.com", "http://127.0.0.1:5000", "chal", "st");
+        let url = authorize_url(
+            "id.apps.googleusercontent.com",
+            "http://127.0.0.1:5000",
+            "chal",
+            "st",
+        );
         assert!(url.contains("code_challenge=chal"));
         assert!(url.contains("code_challenge_method=S256"));
         assert!(url.contains("access_type=offline"));
@@ -538,13 +546,22 @@ mod tests {
     #[test]
     fn token_is_unusable_once_inside_the_refresh_margin() {
         let now = Instant::now();
-        let fresh = AccessToken { value: "t".into(), expires_at: now + Duration::from_secs(3600) };
+        let fresh = AccessToken {
+            value: "t".into(),
+            expires_at: now + Duration::from_secs(3600),
+        };
         assert!(fresh.is_usable(now));
 
-        let nearly_done = AccessToken { value: "t".into(), expires_at: now + Duration::from_secs(30) };
+        let nearly_done = AccessToken {
+            value: "t".into(),
+            expires_at: now + Duration::from_secs(30),
+        };
         assert!(!nearly_done.is_usable(now));
 
-        let expired = AccessToken { value: "t".into(), expires_at: now };
+        let expired = AccessToken {
+            value: "t".into(),
+            expires_at: now,
+        };
         assert!(!expired.is_usable(now));
     }
 

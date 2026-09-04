@@ -78,7 +78,11 @@ fn stress_search_over_1000_note_vault() {
     let base = vault.path();
 
     for i in 0..1000 {
-        let dir = if i % 5 == 0 { "notes/Projects" } else { "notes" };
+        let dir = if i % 5 == 0 {
+            "notes/Projects"
+        } else {
+            "notes"
+        };
         let content = lorem_note(i, i % 100 == 0); // 10 notes carry the needle
         fs::write(base.join(dir).join(format!("note-{i}.md")), content).unwrap();
     }
@@ -113,7 +117,10 @@ fn stress_atomic_writes_concurrent_distinct_files() {
             });
         }
     });
-    eprintln!("[stress] 800 concurrent atomic writes took {:?}", started.elapsed());
+    eprintln!(
+        "[stress] 800 concurrent atomic writes took {:?}",
+        started.elapsed()
+    );
 
     let mut count = 0;
     for entry in fs::read_dir(&base).unwrap().flatten() {
@@ -121,7 +128,11 @@ fn stress_atomic_writes_concurrent_distinct_files() {
             continue;
         }
         let content = fs::read_to_string(entry.path()).unwrap();
-        assert!(content.starts_with("thread "), "torn or empty file: {:?}", entry.path());
+        assert!(
+            content.starts_with("thread "),
+            "torn or empty file: {:?}",
+            entry.path()
+        );
         count += 1;
     }
     assert_eq!(count, 800);
