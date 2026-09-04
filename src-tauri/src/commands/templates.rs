@@ -242,7 +242,7 @@ pub(crate) fn create_note_from_template(
             .map_or((None, filename.as_str()), |(parent, leaf)| {
                 (Some(parent), leaf)
             });
-        parent.map_or(true, is_safe_existing_note_path) && is_safe_filename(leaf)
+        parent.is_none_or(is_safe_existing_note_path) && is_safe_filename(leaf)
     };
     if !valid {
         return Err("Invalid filename".to_string());
