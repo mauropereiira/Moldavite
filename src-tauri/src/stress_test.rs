@@ -99,6 +99,88 @@ fn stress_search_over_1000_note_vault() {
     );
 }
 
+/// Scan versus persistent index on a Forge far past the size the live scan
+/// was designed for, plus the cost of the reconcile that builds it.
+///
+/// The bounds are deliberately loose. A loaded CI runner is an order of
+/// magnitude slower than a warm laptop, and these are regression alarms: the
+/// index answers in single-digit milliseconds locally, so 250 ms means
+/// something is structurally wrong, not that the machine was busy.
+fn stress_index_versus_scan(note_count: usize) {
+    let vault = TempVault::new(&format!("index-{note_count}"));
+    let base = vault.path();
+
+    for i in 0..note_count {
+        let dir = if i % 5 == 0 {
+            "notes/Projects"
+        } else {
+            "notes"
+        };
+        let content = lorem_note(i, i % 100 == 0);
+        fs::write(base.join(dir).join(format!("note-{i}.md")), content).unwrap();
+    }
+    let expected = note_count.div_ceil(100);
+
+    let started = Instant::now();
+    let scanned = crate::commands::search::scan_notes_content_in(
+        base,
+        &base.join(".trash"),
+        "moldavite-needle",
+        500,
+    );
+    let scan_query = started.elapsed();
+    assert_eq!(scanned.len(), expected);
+
+    let started = Instant::now();
+    let indexed_count = crate::search_index::reconcile(base).unwrap();
+    let reconcile_time = started.elapsed();
+    assert_eq!(indexed_count as usize, note_count);
+
+    let started = Instant::now();
+    let hits = crate::search_index::query(base, base, "moldavite-needle", 500).unwrap();
+    let index_query = started.elapsed();
+    assert_eq!(hits.len(), expected);
+
+    // A no-op reconcile is the common case: nothing changed, so every note
+    // should be settled by its `(mtime, size)` alone.
+    let started = Instant::now();
+    crate::search_index::reconcile(base).unwrap();
+    let warm_reconcile = started.elapsed();
+
+    eprintln!(
+        "[stress] {note_count} notes — scan query {scan_query:?}, index query {index_query:?}, \
+         cold reconcile {reconcile_time:?}, warm reconcile {warm_reconcile:?}"
+    );
+    crate::search_index::delete_for(base);
+
+    assert!(
+        index_query.as_millis() < 250,
+        "index query over {note_count} notes took {index_query:?}"
+    );
+    assert!(
+        reconcile_time.as_secs() < 60,
+        "reconcile of {note_count} notes took {reconcile_time:?}"
+    );
+}
+
+#[test]
+fn stress_index_versus_scan_over_10000_note_vault() {
+    stress_index_versus_scan(10_000);
+}
+
+/// The 50,000-note figure is a deliberate outlier: it writes about 45 MB
+/// across 50,000 files and takes the better part of a minute, so it runs only
+/// when asked for. Measured on an Apple Silicon SSD on 2026-09-04: scan query
+/// 1.33 s, index query 11 ms, cold reconcile 8.4 s, warm reconcile 477 ms.
+#[test]
+fn stress_index_versus_scan_over_50000_note_vault() {
+    if std::env::var("MOLDAVITE_STRESS_LARGE").as_deref() != Ok("1") {
+        eprintln!("[stress] 50,000-note run skipped; set MOLDAVITE_STRESS_LARGE=1 to include it");
+        return;
+    }
+    stress_index_versus_scan(50_000);
+}
+
 #[test]
 fn stress_atomic_writes_concurrent_distinct_files() {
     let vault = TempVault::new("atomic-distinct");

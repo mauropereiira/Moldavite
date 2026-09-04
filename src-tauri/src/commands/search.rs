@@ -10,6 +10,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 use crate::paths::{get_notes_dir, get_trash_dir};
+use crate::search_index::{self, SearchIndexStatus};
 use crate::types::ContentMatch;
 
 pub(crate) fn classify_note_path(
@@ -60,7 +61,62 @@ pub(crate) fn build_snippet(line: &str, term_lower: &str, max_width: usize) -> S
     format!("{}{}{}", prefix, &line[start_byte..end_byte], suffix)
 }
 
+/// Snippet, 1-based line number and occurrence count for one note body.
+///
+/// Both search engines call this: the scan on the file it just read, the
+/// persistent index on the body it stored. That is what makes a hit look
+/// byte-identical whichever engine produced it. `term_lower` must already be
+/// lowercased and non-empty; `None` means the term never occurs.
+pub(crate) fn content_match_fields(
+    content: &str,
+    term_lower: &str,
+) -> Option<(String, usize, u32)> {
+    let content_lower = content.to_lowercase();
+    if !content_lower.contains(term_lower) {
+        return None;
+    }
+    let mut match_count: u32 = 0;
+    let mut first_line_number: usize = 0;
+    let mut first_snippet: Option<String> = None;
+    // Reuse the already-lowercased content instead of lowercasing each
+    // matched line again; `to_lowercase()` never inserts or removes line
+    // breaks, so the two iterators stay aligned line-for-line.
+    for (idx, (line, line_lower)) in content.lines().zip(content_lower.lines()).enumerate() {
+        let occurrences = line_lower.matches(term_lower).count() as u32;
+        if occurrences == 0 {
+            continue;
+        }
+        if first_snippet.is_none() {
+            first_line_number = idx + 1;
+            first_snippet = Some(build_snippet(line, term_lower, 120));
+        }
+        match_count = match_count.saturating_add(occurrences);
+    }
+    first_snippet.map(|snippet| (snippet, first_line_number, match_count))
+}
+
+/// Ask the persistent index first, fall back to the live scan.
+///
+/// The index answers in single-digit milliseconds but is only trusted once it
+/// has been reconciled against disk; an unbuilt, stale, locked or erroring
+/// index returns `None` and a hit-less answer is retried against the scan, so
+/// the pre-index behaviour always stays reachable.
 pub(crate) fn search_notes_content_in(
+    notes_dir: &Path,
+    trash_dir: &Path,
+    query: &str,
+    max_results: u32,
+) -> Vec<ContentMatch> {
+    if let Some(hits) = search_index::query(notes_dir, notes_dir, query, max_results) {
+        if !hits.is_empty() {
+            return hits;
+        }
+    }
+    scan_notes_content_in(notes_dir, trash_dir, query, max_results)
+}
+
+/// The original engine: walk the Forge and substring-match every note body.
+pub(crate) fn scan_notes_content_in(
     notes_dir: &Path,
     trash_dir: &Path,
     query: &str,
@@ -117,30 +173,9 @@ pub(crate) fn search_notes_content_in(
         // Don't search YAML frontmatter — it would surface "color: red" as a
         // hit when the user searches for "red".
         let content = crate::frontmatter::parse_note(&raw).body;
-        let content_lower = content.to_lowercase();
-        if !content_lower.contains(&term_lower) {
-            continue;
-        }
-
-        let mut match_count: u32 = 0;
-        let mut first_line_number: usize = 0;
-        let mut first_snippet: Option<String> = None;
-        // Reuse the already-lowercased content instead of lowercasing each
-        // matched line again; `to_lowercase()` never inserts or removes line
-        // breaks, so the two iterators stay aligned line-for-line.
-        for (idx, (line, line_lower)) in content.lines().zip(content_lower.lines()).enumerate() {
-            let occurrences = line_lower.matches(&term_lower).count() as u32;
-            if occurrences == 0 {
-                continue;
-            }
-            if first_snippet.is_none() {
-                first_line_number = idx + 1;
-                first_snippet = Some(build_snippet(line, &term_lower, 120));
-            }
-            match_count = match_count.saturating_add(occurrences);
-        }
-
-        let Some(snippet) = first_snippet else {
+        let Some((snippet, first_line_number, match_count)) =
+            content_match_fields(&content, &term_lower)
+        else {
             continue;
         };
         let Some((rel_path, is_daily, is_weekly, folder_path)) =
@@ -187,6 +222,21 @@ pub(crate) fn search_notes_content(
         &query,
         max_results,
     ))
+}
+
+/// Report the persistent keyword index for the active Forge.
+#[tauri::command]
+pub(crate) fn search_index_status() -> SearchIndexStatus {
+    search_index::status(&get_notes_dir())
+}
+
+/// Throw the active Forge's keyword index away and build it again from disk.
+/// Returns as soon as the work is queued; poll `search_index_status` for
+/// `building`.
+#[tauri::command]
+pub(crate) fn search_index_rebuild() -> Result<(), String> {
+    search_index::spawn_rebuild(get_notes_dir());
+    Ok(())
 }
 
 #[cfg(test)]

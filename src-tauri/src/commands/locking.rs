@@ -177,6 +177,9 @@ pub(crate) fn lock_note(
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::search_index::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     Ok(())
 }
 
@@ -337,6 +340,9 @@ pub(crate) fn permanently_unlock_note(
         None,
     )?;
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
+    crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
     Ok(())

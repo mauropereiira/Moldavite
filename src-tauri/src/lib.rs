@@ -65,6 +65,8 @@ pub(crate) mod backlinks_index;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
+/// Persistent keyword search: one SQLite FTS5 index per Forge.
+pub(crate) mod search_index;
 /// Local semantic (vector) search: embeddings index + query engine.
 pub(crate) mod semantic;
 pub(crate) mod templates_data;
@@ -107,7 +109,7 @@ use commands::plugins::{
     plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
 };
 use commands::root_files::{read_forge_root_file, write_forge_root_file};
-use commands::search::search_notes_content;
+use commands::search::{search_index_rebuild, search_index_status, search_notes_content};
 use commands::semantic::{
     semantic_models, semantic_reindex, semantic_related, semantic_search, semantic_set_enabled,
     semantic_set_model, semantic_status,
@@ -258,6 +260,10 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 idx.rebuild_from_disk();
             });
+            // Bring the keyword index in line with disk, also off-thread.
+            // Search is served by the live scan until this finishes.
+            search_index::spawn_reconcile(paths::get_notes_dir());
+            search_index::spawn_periodic_reconcile();
             // Spawn the file watcher into a slot that survives Forge switches.
             // The slot is managed unconditionally, even if this spawn fails, so
             // a later switch still has somewhere to install its watcher.
@@ -294,6 +300,9 @@ pub fn run() {
             set_mcp_writes_enabled,
             list_notes,
             search_notes_content,
+            // Persistent keyword (FTS5) index
+            search_index_status,
+            search_index_rebuild,
             // Semantic (vector) search commands
             semantic_status,
             semantic_models,
