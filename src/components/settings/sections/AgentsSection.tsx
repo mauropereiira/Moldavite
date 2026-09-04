@@ -15,6 +15,11 @@ import { useToast } from '@/hooks/useToast';
 import { ConfirmDialog } from '@/components/ui';
 import { DotLoader } from '@/components/ui/DotLoader';
 import type { SemanticModelInfo } from '@/lib/semantic';
+import {
+  getSearchIndexStatus,
+  rebuildSearchIndex,
+  type SearchIndexStatus,
+} from '@/lib/searchIndex';
 import type { McpClient } from '@/lib';
 import {
   buildMcpSetupSnippet,
@@ -172,6 +177,9 @@ export function AgentsSection() {
 
       {/* Semantic search */}
       <SemanticSearchBlock />
+
+      {/* Search index */}
+      <SearchIndexBlock />
 
       {/* Built-in MCP server */}
       <McpServerBlock />
@@ -622,4 +630,121 @@ function SemanticStatusLine() {
     );
   }
   return null;
+}
+
+/** How often to re-poll `search_index_status` while a rebuild is running. */
+const SEARCH_INDEX_POLL_MS = 2000;
+
+/** "rebuilt 3 minutes ago" / "rebuilt 2 hours ago" — no relative-time helper exists yet. */
+function formatRebuiltAgo(lastReconcileMs: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - lastReconcileMs) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+}
+
+function searchIndexStatusText(status: SearchIndexStatus): string {
+  if (status.building) return 'Indexing…';
+  if (!status.ready) return 'Not built yet';
+  const notes = `${status.noteCount} ${status.noteCount === 1 ? 'note' : 'notes'} indexed`;
+  return status.lastReconcileMs !== null
+    ? `${notes} — rebuilt ${formatRebuiltAgo(status.lastReconcileMs)}`
+    : notes;
+}
+
+/**
+ * "Search index" block: shows the on-disk keyword index's build status and a
+ * manual rebuild action. Rebuilds run in the background, so this polls the
+ * status while one is in progress and stops once it clears.
+ */
+function SearchIndexBlock() {
+  const toast = useToast();
+  const [status, setStatus] = useState<SearchIndexStatus | null>(null);
+
+  // Returns the fetched status rather than setting state itself, so the
+  // `useEffect`s below own their own state updates.
+  const fetchStatus = useCallback(async (): Promise<SearchIndexStatus | null> => {
+    try {
+      return await getSearchIndexStatus();
+    } catch (error) {
+      console.error('[Settings] Failed to load search index status:', error);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus().then((next) => {
+      if (next) setStatus(next);
+    });
+  }, [fetchStatus]);
+
+  useEffect(() => {
+    if (!status?.building) return;
+    const timer = setInterval(() => {
+      fetchStatus().then((next) => {
+        if (next) setStatus(next);
+      });
+    }, SEARCH_INDEX_POLL_MS);
+    return () => clearInterval(timer);
+  }, [status?.building, fetchStatus]);
+
+  const handleRebuild = () => {
+    setStatus((prev) => (prev ? { ...prev, building: true } : prev));
+    rebuildSearchIndex()
+      .then(() => fetchStatus())
+      .then((next) => {
+        if (next) setStatus(next);
+      })
+      .catch((error) => {
+        console.error('[Settings] Failed to rebuild search index:', error);
+        toast.error('Failed to rebuild the search index');
+        void fetchStatus().then((next) => {
+          if (next) setStatus(next);
+        });
+      });
+  };
+
+  const isBuilding = status?.building ?? false;
+
+  return (
+    <div
+      className="p-4 space-y-4"
+      style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
+    >
+      <div>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Search index
+          </h3>
+          <InfoTooltip text="Keeps a keyword index of your notes on disk so search doesn't rescan your Forge on every query." />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        {status && (
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            {searchIndexStatusText(status)}
+          </span>
+        )}
+        <button
+          onClick={handleRebuild}
+          disabled={isBuilding}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+          style={{
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        >
+          {isBuilding ? (
+            <DotLoader label="Rebuilding search index" />
+          ) : (
+            <RefreshCw aria-hidden="true" className="w-4 h-4" />
+          )}
+          {isBuilding ? 'Building…' : 'Rebuild search index'}
+        </button>
+      </div>
+    </div>
+  );
 }
