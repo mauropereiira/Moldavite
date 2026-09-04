@@ -11,7 +11,8 @@
 //! - File permissions are set to 0o600 (owner read/write only)
 //! - Directory permissions are set to 0o700 (owner only)
 //! - Note encryption uses AES-256-GCM with Argon2 key derivation
-//! - Rate limiting prevents brute-force attacks on locked notes
+//! - Unlock attempts are rate limited in-process; a copied `.locked` file is
+//!   protected only by Argon2id and the password itself
 
 // =============================================================================
 // MODULE DECLARATIONS
@@ -203,6 +204,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())

@@ -50,6 +50,8 @@ zeroize = { version = "1.7", features = ["derive"] }
 zip = "2.2"
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"
+# Restores window size and position between launches; no JS side needed.
+tauri-plugin-window-state = "2"
 
 bincode = "1.3"
 

@@ -2,6 +2,34 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Moldavite remembers its window.** Size and position come back on the next launch instead of the default 1200 by 800 in the middle of the screen.
+- **Automatic update checks can be switched off.** Settings → About has a toggle, Check for updates automatically. With it off nothing is contacted on launch, every 24 hours or on focus; the manual check still works.
+
+### Changed
+
+- **Typing no longer redraws the rest of the window.** The Index, the pinned bar, backlinks, the calendar and several menus watched the whole note store, so every keystroke re-rendered all of them. They now subscribe only to the fields they show. A large Forge stays smooth while you write.
+- **New note locks use a stronger key derivation.** Locking a note now derives the key with 64 MiB of Argon2id memory instead of 19, which makes an offline guess at a copied `.locked` file a good deal more expensive. Notes locked earlier open exactly as before and move to the new format the next time they are locked. Encrypted exports keep their existing format.
+- **Smaller downloads.** The app binary is built with link-time optimisation and stripped symbols. Instrument Serif ships only its Latin subset, like the other two fonts. Four packages nothing imported are gone.
+- **Search does half the work per query.** Each query lowercased every note twice, once to match and once more per matching line.
+
+### Fixed
+
+- **Plugins can reach the hosts they are allowed to.** A plugin's `net.fetch` ran from the page, where the app's own content security policy blocks any host it does not list, so the bundled Publish to WordPress plugin could never reach public-api.wordpress.com. Requests now leave from the Rust side, which enforces the same allow-list, redirect, header and size rules a second time. The unused `plugin://` scheme is gone with it.
+- **A note written from outside in the old HTML format is sanitised before it reaches the editor.** The Markdown path always was. The legacy HTML path taken when the Forge watcher reloads a note, or when you choose Use disk version, handed the file to the editor as it was on disk.
+- **A wiki-link cannot probe paths outside the Forge.** Resolving `[[...]]` against the daily folder joined the link text straight into a path, so a link like `[[../../x]]` reported whether a file existed outside the Forge. The name is validated first now, as the standalone path already was.
+- **Emptying the trash, deleting one item and the 7-day cleanup only ever delete inside `.trash/`.** Restore and preview already checked that; the three delete paths did not, so a damaged `.trash/metadata.json` could point them elsewhere.
+- **Deleting a Forge refuses a symlink**, the way deleting a folder already did.
+- **A wiki-link named after a Windows device, such as `[[NUL]]` or `[[COM1]]`, no longer creates a file Windows cannot open.**
+- **Failing to delete a note from the editor now says so.** The dialog closed as if it had worked and the note stayed on disk.
+- **Folder expansion and template preferences are kept per Forge.** They were shared across every Forge. The values you had carry over to the Forge that was open.
+- **The plugin permission sheet traps focus and closes on Esc**, like every other dialog.
+- **A missing Documents or config folder no longer crashes the app on its first note operation.** It falls back to the home folder and logs the problem.
+- **Dependency advisories in markdown-it, linkify-it, DOMPurify and fflate are patched.** Pull requests now run `npm audit` and `cargo audit`, and the Rust crate is built and tested on macOS as well as Linux and Windows.
+
 ## [2.4.2] - 2026-08-25
 
 ### Fixed
