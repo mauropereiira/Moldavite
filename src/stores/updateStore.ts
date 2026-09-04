@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 
 export const INITIAL_UPDATE_CHECK_DELAY_MS = 15 * 1000;
@@ -28,6 +29,8 @@ export interface UpdateState {
   checkForUpdate: () => Promise<void>;
   checkForUpdateSilently: () => Promise<void>;
   installUpdate: () => Promise<void>;
+  /** Drop a pending version the running app already has; see #125. */
+  reconcileWithInstalledVersion: () => Promise<void>;
   dismiss: () => void;
   setAutoCheck: (autoCheck: boolean) => void;
   startPeriodicChecks: () => () => void;
@@ -53,6 +56,7 @@ const initialUpdateState = {
   | 'checkForUpdate'
   | 'checkForUpdateSilently'
   | 'installUpdate'
+  | 'reconcileWithInstalledVersion'
   | 'dismiss'
   | 'setAutoCheck'
   | 'startPeriodicChecks'
@@ -60,6 +64,23 @@ const initialUpdateState = {
 
 export function isUpdateCheckStale(lastCheckedAt: number | null, now = Date.now()): boolean {
   return lastCheckedAt === null || now - lastCheckedAt >= UPDATE_CHECK_INTERVAL_MS;
+}
+
+/**
+ * True when `candidate` is a newer release than `current`. Dotted numeric
+ * parts compare numerically; anything unparseable counts as newer whenever the
+ * strings differ, so a format surprise can never hide a real update.
+ */
+export function isNewerVersion(candidate: string, current: string): boolean {
+  const a = candidate.split('.').map(Number);
+  const b = current.split('.').map(Number);
+  if (a.some(Number.isNaN) || b.some(Number.isNaN)) return candidate !== current;
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return false;
 }
 
 export function selectHasPendingUpdate(state: Pick<UpdateState, 'availableVersion'>): boolean {
@@ -126,7 +147,26 @@ export const useUpdateStore = create<UpdateState>()(
 
         checkForUpdateSilently: () => runCheck(true),
 
+        reconcileWithInstalledVersion: async () => {
+          const pending = get().availableVersion;
+          if (!pending) return;
+          let installed: string;
+          try {
+            installed = await getVersion();
+          } catch {
+            return; // Outside Tauri (tests, previews) there is nothing to compare with.
+          }
+          if (!isNewerVersion(pending, installed) && get().availableVersion === pending) {
+            set({ availableVersion: null, update: null, dismissed: false, progress: 0 });
+          }
+        },
+
         installUpdate: async () => {
+          // On Windows the updater exits the process inside downloadAndInstall,
+          // so the clear that follows it below never runs there and the
+          // installed app comes back with the old version still pending
+          // (#125). Never act on a pending version the running app already has.
+          await get().reconcileWithInstalledVersion();
           let update = get().update;
           if (!update && !get().availableVersion) return;
 
@@ -211,6 +251,7 @@ export const useUpdateStore = create<UpdateState>()(
         },
 
         startPeriodicChecks: () => {
+          void get().reconcileWithInstalledVersion();
           const runAutomaticCheck = () => {
             if (!get().autoCheck) return;
             void get().checkForUpdateSilently();
