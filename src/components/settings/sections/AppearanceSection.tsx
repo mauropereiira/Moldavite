@@ -40,7 +40,7 @@ export function AppearanceSection({
         <div>
           <div className="flex items-center gap-1">
             <SectionHeading>Theme</SectionHeading>
-            <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your macOS appearance setting." />
+            <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your operating system's appearance setting." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Choose your preferred color scheme

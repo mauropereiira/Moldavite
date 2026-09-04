@@ -308,7 +308,10 @@ jobs:
   # here rather than after a tag is pushed.
   build-linux:
     name: build-linux
-    runs-on: ubuntu-22.04
+    # 24.04, not 22.04: the ONNX Runtime binary fastembed downloads is built
+    # against glibc 2.38, so the link fails on 22.04's 2.35. That floor is
+    # also what the shipped bundles require (Ubuntu 24.04, Debian 13, Fedora 39).
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS and Windows with a built-in MCP server."
+      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS, Windows and Linux with a built-in MCP server."
     />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -138,6 +138,19 @@
         <code>Moldavite_x.x.x_x64_en-US.msi</code>. The installers are not Authenticode-signed, so
         SmartScreen may warn you. If you downloaded Moldavite from the official release page, choose
         <strong>More info</strong>, then <strong>Run anyway</strong>.
+      </p>
+      <h3>Linux (beta)</h3>
+      <p>
+        Open the
+        <a href="https://github.com/mauropereiira/Moldavite/releases/latest">latest release</a>
+        and download <code>Moldavite_x.x.x_amd64.AppImage</code> for any distribution, or
+        <code>Moldavite_x.x.x_amd64.deb</code> for Debian and Ubuntu. Both need glibc 2.38 or
+        newer, so Ubuntu 24.04, Debian 13, Fedora 39 or later; the local semantic-search runtime
+        sets that floor. Mark the AppImage executable once, and install <code>libfuse2</code> if
+        your distribution does not ship it (<code>sudo apt install libfuse2</code> on Ubuntu). In-app
+        updates work for the AppImage; the deb is
+        updated by installing the next one. Linux builds pass the same test suite as macOS and
+        Windows but have not yet been exercised by hand, which is why they are beta.
       </p>
       <p>
         A <strong>Forge</strong> is a vault directory. Forges normally live side by side under a
@@ -360,7 +373,7 @@
         <strong>Settings → AI &amp; Agents</strong>.
       </p>
       <p>
-        Windows builds include semantic search. On macOS it requires Apple Silicon; Intel Macs keep
+        Windows and Linux builds include semantic search. On macOS it requires Apple Silicon; Intel Macs keep
         the full keyword search, and MCP <code>search_notes</code> transparently uses keyword mode.
       </p>
 
@@ -478,8 +491,8 @@
         The right panel can show a month and your events from two sources. Both are read-only:
         Moldavite never creates, edits, or deletes an event, and never writes one into a note by
         itself. Connect either or both in <strong>Settings → Calendar</strong>, then tick the
-        individual calendars you want on the timeline. On Windows there is nothing to connect yet —
-        Apple Calendar is macOS-only and Google is not yet enabled in Windows builds (<a
+        individual calendars you want on the timeline. On Windows and Linux there is nothing to connect yet —
+        Apple Calendar is macOS-only and Google is not yet enabled in those builds (<a
           href="https://github.com/mauropereiira/Moldavite/issues/96"
           >issue #96</a
         >). The month grid and your daily-note markers work there regardless.
@@ -492,8 +505,8 @@
         <li>
           <strong>Google Calendar</strong>: connecting opens your browser for Google's consent
           screen and returns to a local port. Moldavite asks only for the read-only calendar scope.
-          The refresh token is stored in the OS credential store (macOS Keychain or Windows
-          Credential Manager) and stays outside notes and settings files.
+          The refresh token is stored in the OS credential store (macOS Keychain, Windows Credential Manager, or the Linux Secret
+          Service) and stays outside notes and settings files.
           <strong>Disconnect</strong> removes it, and you can also revoke access from your
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
         </li>
@@ -706,7 +719,9 @@
       <h3>Claude Code</h3>
       <p>
         Run the generated command in a terminal. The examples below show a standard macOS app
-        installation; on Windows, use the generated snippets so the path matches your installer.
+        installation; on Windows and Linux, use the generated snippets so the path matches your
+        installer. A deb installs <code>/usr/bin/moldavite</code>; for an AppImage the path is the
+        <code>.AppImage</code> file itself, wherever you keep it.
       </p>
       <pre><code>claude mcp add moldavite -- "/Applications/Moldavite.app/Contents/MacOS/moldavite" --mcp</code></pre>
 

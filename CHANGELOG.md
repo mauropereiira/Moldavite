@@ -8,7 +8,7 @@ All notable changes to Moldavite are documented here.
 
 - **Moldavite remembers its window.** Size and position come back on the next launch instead of the default 1200 by 800 in the middle of the screen.
 - **Automatic update checks can be switched off.** Settings → About has a toggle, Check for updates automatically. With it off nothing is contacted on launch, every 24 hours or on focus; the manual check still works.
-- **Linux builds, in beta.** An AppImage for any distribution and a deb for Debian and Ubuntu, built and updater-signed by the same release workflow as macOS and Windows, with a build check on every pull request. Nothing has been exercised on a Linux desktop by hand yet. The AppImage needs `libfuse2` on Ubuntu 22.04 and later; the deb has no in-app updater.
+- **Linux builds, in beta.** An AppImage for any distribution and a deb for Debian and Ubuntu, built and updater-signed by the same release workflow as macOS and Windows, with a build check on every pull request. Nothing has been exercised on a Linux desktop by hand yet. Both need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later), the floor the local semantic-search runtime sets; the AppImage needs `libfuse2` where the distribution lacks it, and the deb has no in-app updater.
 
 ### Changed
 

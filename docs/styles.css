@@ -607,7 +607,7 @@ main:focus {
 
 .install-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border-block-start: 1px solid var(--rule-strong);
 }
 
@@ -618,13 +618,19 @@ main:focus {
   border-inline-start: 1px solid var(--rule);
 }
 
-.install-card:first-child {
+/* Two by two: the left column starts each row, the right column ends it, and
+   the second row gets the rule the grid's top edge gives the first. */
+.install-card:nth-child(odd) {
   padding-inline-start: 0;
   border-inline-start: 0;
 }
 
-.install-card:last-child {
+.install-card:nth-child(even) {
   padding-inline-end: 0;
+}
+
+.install-card:nth-child(n + 3) {
+  border-block-start: 1px solid var(--rule);
 }
 
 .card-index {

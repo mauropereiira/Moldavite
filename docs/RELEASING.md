@@ -4,7 +4,8 @@ Moldavite ships signed and notarized macOS builds (Apple Silicon and Intel) and
 unsigned Windows and Linux builds (an AppImage and a deb) via GitHub Actions. Every platform's updater artifacts,
 including Windows, are signed with `TAURI_SIGNING_PRIVATE_KEY` so the updater can
 verify their integrity. Windows installers are not Authenticode-signed, so
-Windows may show a SmartScreen warning. This is the end-to-end release process.
+Windows may show a SmartScreen warning, and Linux bundles are unsigned as well. This is the
+end-to-end release process.
 
 ## 1. Prepare the release branch
 

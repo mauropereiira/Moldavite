@@ -8,9 +8,7 @@ use crate::persist::{read_config, write_config};
 
 #[tauri::command]
 pub(crate) fn get_app_binary_path() -> Result<String, String> {
-    std::env::current_exe()
-        .map(|path| path.to_string_lossy().into_owned())
-        .map_err(|error| format!("Failed to locate the Moldavite binary: {error}"))
+    crate::paths::app_binary_path().map(|path| path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]

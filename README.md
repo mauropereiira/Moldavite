@@ -39,10 +39,12 @@ choose **More info → Run anyway**. Updates delivered inside the app are
 cryptographically signed and verified before they install.
 
 **Linux (beta)** — download `Moldavite_x.x.x_amd64.AppImage` for any
-distribution, or `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu. Mark the
-AppImage executable once; Ubuntu 22.04 and later also need `libfuse2`
-(`sudo apt install libfuse2`). In-app updates work for the AppImage. The deb
-is updated by installing the next one.
+distribution, or `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu. Both need
+glibc 2.38 or newer, which means Ubuntu 24.04, Debian 13, Fedora 39 or later;
+the local semantic-search runtime sets that floor. Mark the AppImage executable
+once, and install `libfuse2` if your distribution does not ship it
+(`sudo apt install libfuse2` on Ubuntu). In-app updates work for the AppImage.
+The deb is updated by installing the next one.
 
 ## Connect your AI
 
@@ -54,7 +56,7 @@ claude mcp add moldavite -- moldavite --mcp
 ```
 
 Settings → AI & Agents generates the exact line for Claude Code, Claude Desktop,
-Cursor, or any stdio MCP client — use it on Windows, where the path differs. Add
+Cursor, or any stdio MCP client — use it on Windows and Linux, where the path differs. Add
 `--forge "Work"` to pin a client to one Forge rather than following whichever is
 open.
 

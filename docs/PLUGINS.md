@@ -3,7 +3,7 @@
 Moldavite Plugin API v2 lets plugins register commands, inspect and edit the
 active editor, read unlocked Forge notes, collect values through trusted
 app-rendered forms, call explicitly approved HTTPS hosts, store credentials in
-macOS Keychain, and show notifications.
+the OS credential store, and show notifications.
 
 > **Trust model.** Each plugin is an ES module running in its own sandboxed Web
 > Worker with no DOM, Zustand, and no raw Tauri IPC. The worker scope is reduced
@@ -450,7 +450,7 @@ Returns the stored string or `null` when no entry exists.
 
 #### `secrets.set(key, value): Promise<void>`
 
-Stores a string in this plugin's macOS Keychain namespace.
+Stores a string in this plugin's namespace of the OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service).
 
 #### `secrets.delete(key): Promise<void>`
 
@@ -562,8 +562,8 @@ client ID, and the reference plugin intentionally does not embed or fake one.
   manifest instructions. Installation never enables a plugin; enable state and
   consent remain per Forge.
 - Uninstalling in Settings deletes the plugin folder and forgets its
-  consent/runtime-host grant. It does **not** automatically delete macOS
-  Keychain secrets because plugin keys are intentionally not enumerable.
+  consent/runtime-host grant. It does **not** automatically delete stored
+  secrets because plugin keys are intentionally not enumerable.
   Provide a reset command that calls `secrets.delete` for every known key when
   users need credential cleanup before uninstalling.
 - Test cancellation, missing notes, locked-note rejection, denied and revoked

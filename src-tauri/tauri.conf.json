@@ -100,6 +100,13 @@
       "nsis": {
         "installerIcon": "icons/icon.ico"
       }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libc6 (>= 2.38)"
+        ]
+      }
     }
   }
 }

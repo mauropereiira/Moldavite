@@ -6,6 +6,7 @@
 //! leaf names. Daily, weekly, standalone, images, trash, templates, and internal
 //! metadata roots remain distinct.
 
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -161,6 +162,26 @@ pub(crate) fn file_modified_unix(path: &Path) -> Option<i64> {
         .map(|d| d.as_secs() as i64)
 }
 
+/// The path another program should launch to reach this Moldavite binary:
+/// the MCP client config and the browser clipper's native-messaging manifest
+/// both persist it.
+///
+/// Inside an AppImage `current_exe` points into a FUSE mount that exists only
+/// while the app runs, so a config written with it is dead after the first
+/// quit. The AppImage runtime exports the real file as `APPIMAGE`; prefer it.
+pub(crate) fn app_binary_path() -> Result<PathBuf, String> {
+    let current = std::env::current_exe()
+        .map_err(|error| format!("Cannot locate the Moldavite binary: {error}"))?;
+    Ok(app_binary_path_from(std::env::var_os("APPIMAGE"), current))
+}
+
+fn app_binary_path_from(appimage: Option<OsString>, current_exe: PathBuf) -> PathBuf {
+    match appimage.map(PathBuf::from) {
+        Some(path) if path.is_absolute() => path,
+        _ => current_exe,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,5 +202,21 @@ mod tests {
         // rather than hard-crashing the app's first note operation.
         let fallback = os_dir_or_fallback(None, "Test directory");
         assert!(!fallback.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn app_binary_path_prefers_the_appimage_file_over_the_mounted_exe() {
+        let mounted = PathBuf::from("/tmp/.mount_MoldavAbc/usr/bin/moldavite");
+        let appimage = OsString::from("/home/mauro/Apps/Moldavite_2.5.0_amd64.AppImage");
+        assert_eq!(
+            app_binary_path_from(Some(appimage.clone()), mounted.clone()),
+            PathBuf::from(appimage)
+        );
+        assert_eq!(app_binary_path_from(None, mounted.clone()), mounted);
+        assert_eq!(
+            app_binary_path_from(Some(OsString::from("relative.AppImage")), mounted.clone()),
+            mounted,
+            "a relative APPIMAGE is not trusted"
+        );
     }
 }

@@ -1,7 +1,7 @@
 # Moldavite — Project Status
 
 **Last Updated:** September 4, 2026
-**Status:** Shipping on macOS, and on Windows in beta, with in-app auto-update since v1.3.1
+**Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
 > real bug is found (see "Documentation Maintenance" in CLAUDE.md).
@@ -19,7 +19,7 @@
 - `#tags` with sidebar aggregation and global tag rename
 - Sidebar ordering: A–Z, Z–A, or Manual — drag a note onto another to place it, and drag a folder onto a sibling to reorder folders. The arrangement is stored per Forge as an ordered id list, so an unplaced note joins the end of its list rather than displacing anything. Daily notes are excluded by design
 - Templates (defaults + custom JSON) with `{{date}}`/`{{time}}`/`{{day_of_week}}`; default daily/weekly templates
-- Quick switcher / command palette (⌘P on macOS, Ctrl+P on Windows), backend full-text search with snippets, timeline view; opening any note yields transient Timeline/Graph views so navigation cannot remain hidden behind them
+- Quick switcher / command palette (⌘P on macOS, Ctrl+P on Windows and Linux), backend full-text search with snippets, timeline view; opening any note yields transient Timeline/Graph views so navigation cannot remain hidden behind them
 - Local semantic search (v1.6; requires Apple Silicon on macOS, while Intel Macs get keyword search): opt-in per-Forge embeddings index with a curated three-model picker (all-MiniLM-L6-v2 is the default; BGE small English v1.5 and Multilingual E5 small are available). Consent names the active model and download size; model changes trigger a full re-index with live progress. Fully offline afterwards; locked notes are never indexed. Sidebar Keyword/Semantic search mode chip, "Related" notes section under the editor, Settings → AI & Agents toggle + rebuild-index button
 
 ### Navigation & Welcome
@@ -47,10 +47,10 @@
 ### Platform
 
 - Windows is a beta release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed and the platform stays beta until it is not
-- Linux is a beta release target: an AppImage (any distribution, carries the updater) and a deb (Debian and Ubuntu, no in-app updater), built by the release workflow and proven by a `build-linux` job on every PR that asserts the exact artifact names the release verification requires. The crate has compiled and tested on `ubuntu-latest` since CI existed. No Linux runtime journey has been exercised by hand; the AppImage needs `libfuse2` on Ubuntu 22.04 and later
+- Linux is a beta release target: an AppImage (any distribution, carries the updater) and a deb (Debian and Ubuntu, no in-app updater), built by the release workflow and proven by a `build-linux` job on every PR that asserts the exact artifact names the release verification requires. The crate has compiled and tested on `ubuntu-latest` since CI existed. No Linux runtime journey has been exercised by hand. Both bundles need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) because the ONNX Runtime binary fastembed ships is built against it; the deb declares `libc6 (>= 2.38)` so apt refuses cleanly on older systems, and the AppImage needs `libfuse2` where the distribution does not ship it
 - Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS credential store). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
-- macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check, and can be switched off in Settings → About (manual checks still work); automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
-- Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows), settings modal with focus trap
+- macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Linux bundles are unsigned as well; Linux has no equivalent warning. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check, and can be switched off in Settings → About (manual checks still work); automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
+- Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows and Linux), settings modal with focus trap
 - Window size and position are restored between launches
 
 ### Browser clipper
@@ -75,7 +75,7 @@
 
 - Frontend: vitest covers stores, libraries, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, external-write reconciliation, calendar store migration, and plugin RPC/manifest/registry/UI
 - Backend: cargo tests cover the stress suite, Obsidian conversion/path safety, conflict copies, semantic indexing, MCP, plugin install/hash/secret validation, strict deep-link routing, Windows path and persistence behavior, and calendar source dispatch / PKCE / Google response mapping
-- Windows and macOS CI run clippy with warnings denied and the Rust library test suite on every PR; `npm audit` (production dependencies) and `cargo audit` run on every PR too
+- Linux, Windows and macOS CI run clippy with warnings denied and the Rust library test suite on every PR, and Windows and Linux also run a full installer build; `npm audit` (production dependencies) and `cargo audit` run on every PR too
 - Bundle budget enforced via `npm run check:size`
 - ESLint: 0 errors, 16 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
 
