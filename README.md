@@ -20,7 +20,7 @@ calendar, and a built-in MCP server for the AI tools you already use.
 No account. No sync service. No telemetry. If Moldavite disappeared tomorrow,
 you would still have every note, in plain text, exactly where you left it.
 
-Local-first for macOS, and for Windows in beta.
+Local-first for macOS, and for Windows and Linux in beta.
 
 ## Install
 
@@ -37,6 +37,12 @@ Or take the DMG from [the latest release](https://github.com/mauropereiira/Molda
 installer is not Authenticode-signed yet, so SmartScreen will warn you once:
 choose **More info → Run anyway**. Updates delivered inside the app are
 cryptographically signed and verified before they install.
+
+**Linux (beta)** — download `Moldavite_x.x.x_amd64.AppImage` for any
+distribution, or `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu. Mark the
+AppImage executable once; Ubuntu 22.04 and later also need `libfuse2`
+(`sudo apt install libfuse2`). In-app updates work for the AppImage. The deb
+is updated by installing the next one.
 
 ## Connect your AI
 
