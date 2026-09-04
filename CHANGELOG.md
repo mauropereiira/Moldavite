@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.5.1] - 2026-09-04
+
+### Fixed
+
+- **Picking another rail item closes Settings.** The icon rail stays clickable above the Settings sheet so its Settings button can stay lit, but Index, Search, Agenda, Graph, Timeline, Home and Trash ran underneath the sheet and left it open until Esc or the X. They now close Settings first, the way picking another tab would.
+
 ## [2.5.0] - 2026-09-04
 
 ### Added

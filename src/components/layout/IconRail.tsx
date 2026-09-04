@@ -64,6 +64,13 @@ export function IconRail() {
   const agendaMode = useSettingsStore((state) => state.agendaMode);
   const isSettingsOpen = useSettingsStore((state) => state.isSettingsOpen);
   const setIsSettingsOpen = useSettingsStore((state) => state.setIsSettingsOpen);
+  /**
+   * The rail sits above the Settings scrim so its Settings button can stay lit
+   * while the sheet is up. Every other rail destination replaces Settings, the
+   * way picking another tab would; otherwise the action runs underneath the
+   * sheet and the click looks like it did nothing (#121).
+   */
+  const leaveSettings = () => setIsSettingsOpen(false);
   const { activeOverlay, isSidebarHidden, isRightPanelHidden, toggleIndex, toggleAgenda } =
     useOverlayStore();
   const quickSwitcherOpen = useQuickSwitcherStore((state) => state.isOpen);
@@ -83,6 +90,7 @@ export function IconRail() {
 
   const handleIndex = (event: MouseEvent<HTMLButtonElement>) => {
     if (indexMode === 'off') return;
+    leaveSettings();
     if (indexMode === 'overlay' && activeOverlay !== 'index') {
       captureImpactOrigin(event.currentTarget);
     }
@@ -90,6 +98,7 @@ export function IconRail() {
   };
 
   const handleHome = async () => {
+    leaveSettings();
     if (activeOverlay === null && activeTabId === null) return;
 
     await flushPendingAutosave();
@@ -99,6 +108,7 @@ export function IconRail() {
 
   const handleAgenda = (event: MouseEvent<HTMLButtonElement>) => {
     if (agendaMode === 'off') return;
+    leaveSettings();
     if (agendaMode === 'overlay' && activeOverlay !== 'agenda') {
       captureImpactOrigin(event.currentTarget);
     }
@@ -106,11 +116,13 @@ export function IconRail() {
   };
 
   const handleQuickSwitcher = (event: MouseEvent<HTMLButtonElement>) => {
+    leaveSettings();
     if (!quickSwitcherOpen) captureImpactOrigin(event.currentTarget);
     toggleQuickSwitcher();
   };
 
   const handleTrash = (event: MouseEvent<HTMLButtonElement>) => {
+    leaveSettings();
     setTrashAnchor(event.currentTarget);
     setTrashOpen((open) => !open);
   };
@@ -173,7 +185,10 @@ export function IconRail() {
             label="Graph (Command Shift G)"
             tooltip={`Graph · ${formatShortcut('⌘⇧G')}`}
             active={graphOpen}
-            onClick={toggleGraph}
+            onClick={() => {
+              leaveSettings();
+              toggleGraph();
+            }}
           >
             <Network {...iconProps} />
           </RailButton>
@@ -181,7 +196,10 @@ export function IconRail() {
             label="Timeline"
             tooltip="Timeline"
             active={timelineOpen}
-            onClick={toggleTimeline}
+            onClick={() => {
+              leaveSettings();
+              toggleTimeline();
+            }}
           >
             <Clock {...iconProps} />
           </RailButton>
