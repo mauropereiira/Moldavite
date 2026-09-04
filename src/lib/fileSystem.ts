@@ -540,6 +540,25 @@ export function isHtmlContent(content: string): boolean {
 }
 
 /**
+ * Converts raw note content into sanitized HTML for the editor, choosing the
+ * right path for each storage format.
+ *
+ * `markdownToHtml` already sanitizes its output, but the legacy-HTML branch
+ * (`isHtmlContent`) hands the disk content to the editor as-is. Every caller
+ * that does `isHtmlContent(content) ? content : markdownToHtml(content)`
+ * outside of `filenameToNote` bypasses DOMPurify for that branch, so this is
+ * the choke point for those callers too.
+ *
+ * @param content - The raw note content read from disk
+ * @returns Sanitized HTML safe to hand to the editor
+ */
+export function noteContentToEditorHtml(content: string): string {
+  return isHtmlContent(content)
+    ? DOMPurify.sanitize(content, DOMPURIFY_CONFIG)
+    : markdownToHtml(content);
+}
+
+/**
  * Ensures required note directories exist in the file system.
  * @throws {Error} If directory creation fails
  */

@@ -10,10 +10,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   forgeNamespacedStorage,
+  forgeNamespacedStorageWithLegacyFallback,
   getActiveForgeName,
   namespacedKey,
   onActiveForgeChange,
   readNamespaced,
+  readNamespacedWithLegacyFallback,
   rememberActiveForge,
 } from './forgeStorage';
 
@@ -68,6 +70,39 @@ describe('forgeNamespacedStorage', () => {
 
   it('reports a missing slot as null', () => {
     expect(readNamespaced('never-written')).toBeNull();
+  });
+});
+
+describe('readNamespacedWithLegacyFallback', () => {
+  it('copies a flat legacy value into the namespaced slot on first read, once', () => {
+    localStorage.setItem('moldavite-folders', 'legacy-value');
+
+    expect(readNamespacedWithLegacyFallback('moldavite-folders')).toBe('legacy-value');
+    expect(localStorage.getItem('moldavite-folders:Default')).toBe('legacy-value');
+
+    // The legacy key is left in place, but a later read no longer needs it —
+    // the namespaced slot now answers directly.
+    localStorage.setItem('moldavite-folders', 'changed-after-migration');
+    expect(readNamespacedWithLegacyFallback('moldavite-folders')).toBe('legacy-value');
+  });
+
+  it('keeps two Forges separate even when both start from the same legacy value', () => {
+    localStorage.setItem('moldavite-folders', 'legacy-value');
+
+    rememberActiveForge('Alpha');
+    expect(readNamespacedWithLegacyFallback('moldavite-folders')).toBe('legacy-value');
+    forgeNamespacedStorageWithLegacyFallback.setItem('moldavite-folders', 'alpha-edit');
+
+    rememberActiveForge('Beta');
+    expect(readNamespacedWithLegacyFallback('moldavite-folders')).toBe('legacy-value');
+    forgeNamespacedStorageWithLegacyFallback.setItem('moldavite-folders', 'beta-edit');
+
+    expect(localStorage.getItem('moldavite-folders:Alpha')).toBe('alpha-edit');
+    expect(localStorage.getItem('moldavite-folders:Beta')).toBe('beta-edit');
+  });
+
+  it('returns null when neither the namespaced slot nor the legacy key exist', () => {
+    expect(readNamespacedWithLegacyFallback('never-written')).toBeNull();
   });
 });
 

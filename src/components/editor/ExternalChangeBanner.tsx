@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import {
   htmlToMarkdown,
-  isHtmlContent,
   listNotes,
-  markdownToHtml,
+  noteContentToEditorHtml,
   preserveBufferCopy,
   readNoteWithMeta,
 } from '@/lib/fileSystem';
@@ -46,7 +45,7 @@ export function ExternalChangeBanner() {
         currentNote.isWeekly
       );
       const disk = await readNoteWithMeta(filename, currentNote.isDaily, currentNote.isWeekly);
-      const html = isHtmlContent(disk.content) ? disk.content : markdownToHtml(disk.content);
+      const html = noteContentToEditorHtml(disk.content);
       useNoteStore.getState().applyExternalContent(currentNote.id, html);
       resetAutosaveBaseline(currentNote.id, html);
       listNotes()

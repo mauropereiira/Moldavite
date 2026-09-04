@@ -77,6 +77,30 @@ describe('external Forge watcher reconciliation', () => {
     unregisterReset();
   });
 
+  it('sanitizes a legacy HTML-bodied external change before applying it', async () => {
+    invokeMock.mockResolvedValueOnce({ content: 'old body', color: null, contentHash: 'old-hash' });
+    await readNoteWithMeta('2026-07-31.md', true, false);
+    const tab = dailyTab(markdownToHtml('old body'));
+    useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
+    const legacyHtml =
+      '<p>Hello</p><script>alert(1)</script><img src="x.png" onerror="alert(2)" alt="">';
+    invokeMock.mockResolvedValueOnce({
+      content: legacyHtml,
+      color: null,
+      contentHash: 'new-hash',
+    });
+    invokeMock.mockResolvedValueOnce(null);
+    const unregisterProbe = registerAutosavePendingProbe(() => null);
+
+    await reconcileExternalNoteChange('daily/2026-07-31.md');
+
+    const current = useNoteStore.getState().currentNote;
+    expect(current?.content).not.toContain('<script>');
+    expect(current?.content).not.toContain('onerror');
+    expect(current?.content).toContain('<p>Hello</p>');
+    unregisterProbe();
+  });
+
   it('leaves a dirty standalone buffer untouched and records the attributed client', async () => {
     invokeMock.mockResolvedValueOnce({ content: 'old body', color: null, contentHash: 'old-hash' });
     await readNoteWithMeta('folder/note.md', false, false);

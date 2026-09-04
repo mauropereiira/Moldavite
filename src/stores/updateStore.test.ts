@@ -72,6 +72,7 @@ describe('updateStore', () => {
       availableVersion: '1.8.0',
       lastCheckedAt: 1234,
       dismissed: true,
+      autoCheck: true,
     });
   });
 
@@ -210,5 +211,31 @@ describe('updateStore', () => {
     expect(mockCheck).toHaveBeenCalledTimes(1);
 
     cleanup();
+  });
+
+  it('runs no automatic checks — launch, interval, or focus — while autoCheck is off', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T12:00:00Z'));
+    mockCheck.mockResolvedValue(null);
+    useUpdateStore.setState({ autoCheck: false, lastCheckedAt: null });
+    const cleanup = useUpdateStore.getState().startPeriodicChecks();
+
+    await vi.advanceTimersByTimeAsync(UPDATE_CHECK_INTERVAL_MS);
+    window.dispatchEvent(new Event('focus'));
+    await Promise.resolve();
+
+    expect(mockCheck).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it('lets a manual check run while autoCheck is off', async () => {
+    useUpdateStore.setState({ autoCheck: false });
+    mockCheck.mockResolvedValue(mockUpdate() as never);
+
+    await useUpdateStore.getState().checkForUpdate();
+
+    expect(mockCheck).toHaveBeenCalledTimes(1);
+    expect(useUpdateStore.getState().availableVersion).toBe('1.8.0');
   });
 });

@@ -107,6 +107,7 @@ export const useSidebarOrderStore = create<SidebarOrderState>()(
       // imported before the active Forge is known.
       name: SIDEBAR_ORDER_KEY,
       storage: createJSONStorage(() => forgeNamespacedStorage),
+      version: 0, // Hook for future migrations; no shape changes yet.
     }
   )
 );
