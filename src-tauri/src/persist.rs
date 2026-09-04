@@ -118,11 +118,7 @@ fn open_atomic_temp(
 }
 
 /// Atomically replace `path` after writing a securely created same-directory temp file.
-pub(crate) fn write_atomic_with<F>(
-    path: &Path,
-    mode: Option<u32>,
-    write: F,
-) -> Result<(), String>
+pub(crate) fn write_atomic_with<F>(path: &Path, mode: Option<u32>, write: F) -> Result<(), String>
 where
     F: FnOnce(&mut fs::File) -> Result<(), String>,
 {
@@ -191,7 +187,8 @@ pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
 
     // Ensure config directory exists
     if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
     }
 
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
@@ -374,10 +371,9 @@ mod tests {
         let path = tmp.path().join("note.md");
         let outside = tmp.path().join("outside-secret");
         fs::write(&outside, "must survive").unwrap();
-        let predictable = tmp.path().join(format!(
-            ".note.md.{}.0.tmp",
-            std::process::id()
-        ));
+        let predictable = tmp
+            .path()
+            .join(format!(".note.md.{}.0.tmp", std::process::id()));
         symlink(&outside, predictable).unwrap();
 
         write_atomic(&path, b"new note", Some(0o600)).unwrap();

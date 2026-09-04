@@ -358,18 +358,13 @@ impl ToolContext {
         // Resolve through the permissive existing-note check: a note already on
         // disk may carry a name we would refuse to create today.
         let path = self.checked_existing_note(forge_root, &rel)?;
-        let conflict_copy = save_note_with_conflict_using(
-            &path,
-            base_hash,
-            content,
-            None,
-            |path, serialized| {
+        let conflict_copy =
+            save_note_with_conflict_using(&path, base_hash, content, None, |path, serialized| {
                 self.write_agent_note(forge_root, &rel, serialized, || {
                     write_atomic(path, serialized.as_bytes(), Some(0o600))
                 })
-            },
-        )?
-        .map(|(conflict_name, _)| conflict_name);
+            })?
+            .map(|(conflict_name, _)| conflict_name);
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "written": true, "conflictCopy": conflict_copy }))
     }

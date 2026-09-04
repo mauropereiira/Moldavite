@@ -223,7 +223,10 @@ fn is_chrome_origin(arg: &str) -> bool {
     else {
         return false;
     };
-    id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_lowercase() && byte <= b'p')
+    id.len() == 32
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() && byte <= b'p')
 }
 
 /// Chrome passes the calling origin first; Firefox passes the manifest path then
@@ -477,7 +480,9 @@ mod tests {
         assert!(!is_browser_host_launch(&args(&[])));
         assert!(!is_browser_host_launch(&args(&["--mcp"])));
         // Not a Chrome ID: IDs are exactly 32 characters from a–p.
-        assert!(!is_browser_host_launch(&args(&["chrome-extension://short/"])));
+        assert!(!is_browser_host_launch(&args(&[
+            "chrome-extension://short/"
+        ])));
         assert!(!is_browser_host_launch(&args(&[
             "chrome-extension://ABCDEFGHIJKLMNOPabcdefghijklmnop/"
         ])));
@@ -502,9 +507,11 @@ mod tests {
 
         assert_eq!(first["path"], "notes/Clippings/How TLS works.md");
         assert_eq!(second["path"], "notes/Clippings/How TLS works (2).md");
-        assert!(std::fs::read_to_string(forge.join(first["path"].as_str().unwrap()))
-            .unwrap()
-            .contains("first"));
+        assert!(
+            std::fs::read_to_string(forge.join(first["path"].as_str().unwrap()))
+                .unwrap()
+                .contains("first")
+        );
 
         let _ = std::fs::remove_dir_all(&forge);
     }

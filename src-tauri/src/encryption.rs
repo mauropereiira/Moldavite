@@ -16,7 +16,7 @@ use aes_gcm::{
 };
 use argon2::{
     password_hash::{PasswordHasher, SaltString},
-    Argon2, Algorithm, Params, Version,
+    Algorithm, Argon2, Params, Version,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::rngs::OsRng;
@@ -40,11 +40,12 @@ const NOTE_AAD_DOMAIN: &[u8] = b"moldavite-note-v2\0";
 /// - Parallelism: 1 - single thread for consistent timing
 fn legacy_argon2() -> Argon2<'static> {
     let params = Params::new(
-        19456,  // m_cost: 19 MiB memory
-        3,      // t_cost: 3 iterations
-        1,      // p_cost: 1 parallel lane
-        Some(32) // output length: 32 bytes for AES-256
-    ).expect("Invalid Argon2 parameters");
+        19456,    // m_cost: 19 MiB memory
+        3,        // t_cost: 3 iterations
+        1,        // p_cost: 1 parallel lane
+        Some(32), // output length: 32 bytes for AES-256
+    )
+    .expect("Invalid Argon2 parameters");
 
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
@@ -54,11 +55,12 @@ fn legacy_argon2() -> Argon2<'static> {
 /// locks use these.
 fn hardened_argon2_v3() -> Argon2<'static> {
     let params = Params::new(
-        65536,  // m_cost: 64 MiB memory
-        3,      // t_cost: 3 iterations
-        1,      // p_cost: 1 parallel lane
-        Some(32) // output length: 32 bytes for AES-256
-    ).expect("Invalid Argon2 parameters");
+        65536,    // m_cost: 64 MiB memory
+        3,        // t_cost: 3 iterations
+        1,        // p_cost: 1 parallel lane
+        Some(32), // output length: 32 bytes for AES-256
+    )
+    .expect("Invalid Argon2 parameters");
 
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
@@ -82,11 +84,10 @@ fn cipher_from_password(
     }
     let mut key_buffer = [0u8; 32];
     key_buffer.copy_from_slice(&key_bytes[..32]);
-    let cipher = Aes256Gcm::new_from_slice(&key_buffer)
-        .map_err(|e| {
-            key_buffer.zeroize();
-            format!("Failed to create cipher: {}", e)
-        })?;
+    let cipher = Aes256Gcm::new_from_slice(&key_buffer).map_err(|e| {
+        key_buffer.zeroize();
+        format!("Failed to create cipher: {}", e)
+    })?;
     key_buffer.zeroize();
     Ok(cipher)
 }
@@ -125,10 +126,7 @@ fn encrypt_payload(
             "{version}${}${nonce_b64}${ciphertext_b64}",
             salt.as_str()
         )),
-        None => Ok(format!(
-            "{}${nonce_b64}${ciphertext_b64}",
-            salt.as_str()
-        )),
+        None => Ok(format!("{}${nonce_b64}${ciphertext_b64}", salt.as_str())),
     }
 }
 
@@ -147,12 +145,11 @@ fn decrypt_payload(
         .decode(ciphertext_b64)
         .map_err(|e| format!("Failed to decode ciphertext: {}", e))?;
 
-    let salt = SaltString::from_b64(salt_str)
-        .map_err(|e| {
-            nonce_bytes.zeroize();
-            ciphertext.zeroize();
-            format!("Failed to parse salt: {}", e)
-        })?;
+    let salt = SaltString::from_b64(salt_str).map_err(|e| {
+        nonce_bytes.zeroize();
+        ciphertext.zeroize();
+        format!("Failed to parse salt: {}", e)
+    })?;
 
     let cipher = cipher_from_password(password, &salt, argon2).inspect_err(|_| {
         nonce_bytes.zeroize();
@@ -180,11 +177,10 @@ fn decrypt_payload(
         })?;
     nonce_bytes.zeroize();
     ciphertext.zeroize();
-    let result = String::from_utf8(plaintext.clone())
-        .map_err(|e| {
-            plaintext.zeroize();
-            format!("Failed to convert decrypted content to string: {}", e)
-        });
+    let result = String::from_utf8(plaintext.clone()).map_err(|e| {
+        plaintext.zeroize();
+        format!("Failed to convert decrypted content to string: {}", e)
+    });
     plaintext.zeroize();
     result
 }
@@ -209,7 +205,14 @@ pub fn decrypt_content(encrypted: &str, password: &str) -> Result<String, String
     if parts.len() != 3 {
         return Err("Invalid encrypted format".to_string());
     }
-    decrypt_payload(parts[0], parts[1], parts[2], password, &[], &legacy_argon2())
+    decrypt_payload(
+        parts[0],
+        parts[1],
+        parts[2],
+        password,
+        &[],
+        &legacy_argon2(),
+    )
 }
 
 fn note_aad(note_id: &str) -> Vec<u8> {

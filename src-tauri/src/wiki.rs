@@ -121,7 +121,9 @@ pub(crate) fn rewrite_links_for_rename(
                 None => format!("[[{}]]", new_stem),
             }
         } else {
-            caps.get(0).map(|m| m.as_str().to_string()).unwrap_or_default()
+            caps.get(0)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default()
         }
     });
     if changed {
@@ -153,10 +155,7 @@ fn ceil_char_boundary(s: &str, mut i: usize) -> usize {
 
 pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
     // Try both with and without pipe syntax
-    let search_patterns = vec![
-        format!("[[{}]]", link_text),
-        format!("[[{}|", link_text),
-    ];
+    let search_patterns = vec![format!("[[{}]]", link_text), format!("[[{}|", link_text)];
 
     for search in search_patterns {
         if let Some(pos) = content.find(&search) {

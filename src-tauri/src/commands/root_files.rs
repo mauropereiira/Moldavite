@@ -132,10 +132,10 @@ mod tests {
         let tmp = TempDir::new("whitelist");
         for bad in [
             "notes.md",
-            "agents.md",           // case matters
+            "agents.md", // case matters
             "AGENTS.md.bak",
-            "../AGENTS.md",        // traversal
-            "daily/AGENTS.md",     // subpath
+            "../AGENTS.md",    // traversal
+            "daily/AGENTS.md", // subpath
             "/etc/passwd",
             ".gitignore2",
             ".git",
@@ -202,7 +202,10 @@ mod tests {
     #[test]
     fn read_missing_file_returns_none() {
         let tmp = TempDir::new("missing");
-        assert_eq!(read_forge_root_file_in(tmp.path(), "AGENTS.md").unwrap(), None);
+        assert_eq!(
+            read_forge_root_file_in(tmp.path(), "AGENTS.md").unwrap(),
+            None
+        );
     }
 
     #[cfg(unix)]

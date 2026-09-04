@@ -122,12 +122,7 @@ impl BacklinksIndex {
     }
 
     /// Same as `update_note` but allows injecting a resolver for tests.
-    pub(crate) fn update_note_with(
-        &self,
-        filename: &str,
-        content: &str,
-        resolver: &Resolver,
-    ) {
+    pub(crate) fn update_note_with(&self, filename: &str, content: &str, resolver: &Resolver) {
         let title = extract_title(content, filename);
         let link_names = parse_wiki_links(content);
 
@@ -199,7 +194,11 @@ impl BacklinksIndex {
                 }
             };
             if let Some(entries) = state.by_target.remove(old) {
-                state.by_target.entry(new.to_string()).or_default().extend(entries);
+                state
+                    .by_target
+                    .entry(new.to_string())
+                    .or_default()
+                    .extend(entries);
             }
         }
         // Drop old outbound / entries originating from old and re-insert under new.
@@ -262,10 +261,7 @@ impl BacklinksIndex {
     }
 }
 
-fn remove_from_by_target(
-    by_target: &mut HashMap<String, Vec<Entry>>,
-    from_note: &str,
-) {
+fn remove_from_by_target(by_target: &mut HashMap<String, Vec<Entry>>, from_note: &str) {
     let mut empty_keys: Vec<String> = Vec::new();
     for (k, v) in by_target.iter_mut() {
         v.retain(|e| e.from_note != from_note);
@@ -294,7 +290,10 @@ fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
         if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("md") {
             continue;
         }
-        let Some(filename) = path.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())
+        let Some(filename) = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string())
         else {
             continue;
         };
@@ -334,16 +333,18 @@ fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
             }
             collect_md_files_recursive(&path, out);
         } else if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-            let Some(filename) =
-                path.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())
+            let Some(filename) = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
             else {
                 continue;
             };
             match fs::read_to_string(&path) {
                 Ok(content) => {
-                let body = crate::frontmatter::parse_note(&content).body;
-                out.push((filename, body));
-            }
+                    let body = crate::frontmatter::parse_note(&content).body;
+                    out.push((filename, body));
+                }
                 Err(err) => log::warn!("backlinks index: failed to read {:?}: {}", path, err),
             }
         }
