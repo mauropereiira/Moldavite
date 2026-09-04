@@ -261,7 +261,20 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
     if !path.is_dir() {
         return Err(format!("Forge \"{}\" does not exist", name));
     }
-    fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete Forge: {}", e))?;
+    delete_forge_dir(&path)
+}
+
+/// Remove a Forge directory, refusing a symlinked leaf so `remove_dir_all`
+/// can never be pointed at an arbitrary target through a symlink named like
+/// a Forge.
+fn delete_forge_dir(path: &Path) -> Result<(), String> {
+    if fs::symlink_metadata(path)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err("Refusing to delete a symlinked Forge".to_string());
+    }
+    fs::remove_dir_all(path).map_err(|e| format!("Failed to delete Forge: {}", e))?;
     Ok(())
 }
 
@@ -638,6 +651,37 @@ mod tests {
             ensure_forge_at(&link),
             Err("Refusing to use a symlinked Forge".to_string())
         );
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_delete_forge_rejects_symlinked_leaf() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = std::env::temp_dir().join(format!(
+            "moldavite-delete-forge-symlink-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let target = tmp.join("target");
+        let link = tmp.join("LinkedForge");
+        fs::create_dir_all(target.join("daily")).unwrap();
+        fs::write(target.join("daily/keep.md"), "keep").unwrap();
+        symlink(&target, &link).unwrap();
+
+        assert_eq!(
+            delete_forge_dir(&link),
+            Err("Refusing to delete a symlinked Forge".to_string())
+        );
+        assert!(target.join("daily/keep.md").exists());
+        assert_eq!(
+            fs::read_to_string(target.join("daily/keep.md")).unwrap(),
+            "keep"
+        );
+
         let _ = fs::remove_dir_all(&tmp);
     }
 

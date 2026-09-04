@@ -11,17 +11,33 @@ use std::path::{Path, PathBuf};
 
 use crate::persist::read_config;
 
+/// Resolve an OS directory lookup that can return `None` on an unusual
+/// system, falling back to the home directory and finally the current
+/// working directory rather than panicking on the app's first note
+/// operation. The happy path (`primary` is `Some`) is unchanged.
+fn os_dir_or_fallback(primary: Option<PathBuf>, label: &str) -> PathBuf {
+    if let Some(dir) = primary {
+        return dir;
+    }
+    log::error!("{label} unavailable from the OS; falling back to the home directory");
+    if let Some(home) = dirs::home_dir() {
+        return home;
+    }
+    log::error!("{label}: home directory also unavailable; falling back to the current directory");
+    std::env::current_dir().unwrap_or_else(|error| {
+        log::error!("{label}: current directory also unavailable ({error}); using \".\"");
+        PathBuf::from(".")
+    })
+}
+
 pub(crate) fn get_config_path() -> PathBuf {
-    dirs::config_dir()
-        .expect("Could not find config directory")
+    os_dir_or_fallback(dirs::config_dir(), "Config directory")
         .join("Moldavite")
         .join("config.json")
 }
 
 pub(crate) fn get_default_notes_dir() -> PathBuf {
-    dirs::document_dir()
-        .expect("Could not find Documents directory")
-        .join("Moldavite")
+    os_dir_or_fallback(dirs::document_dir(), "Documents directory").join("Moldavite")
 }
 
 /// Default name for the Forge that legacy single-Forge users get migrated
@@ -45,9 +61,7 @@ pub(crate) fn get_forges_root() -> PathBuf {
             return parent.to_path_buf();
         }
     }
-    dirs::document_dir()
-        .expect("Could not find Documents directory")
-        .join("Moldavite")
+    os_dir_or_fallback(dirs::document_dir(), "Documents directory").join("Moldavite")
 }
 
 /// Returns the active Forge name (a directory under `forges_root`).
@@ -145,4 +159,27 @@ pub(crate) fn file_modified_unix(path: &Path) -> Option<i64> {
         .duration_since(std::time::UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn os_dir_or_fallback_keeps_the_happy_path_identical() {
+        let primary = PathBuf::from("/some/os-provided/dir");
+        assert_eq!(
+            os_dir_or_fallback(Some(primary.clone()), "Test directory"),
+            primary
+        );
+    }
+
+    #[test]
+    fn os_dir_or_fallback_falls_back_instead_of_panicking() {
+        // When the OS lookup fails, this must never panic — it should fall
+        // back to the home directory (or further, to the current directory)
+        // rather than hard-crashing the app's first note operation.
+        let fallback = os_dir_or_fallback(None, "Test directory");
+        assert!(!fallback.as_os_str().is_empty());
+    }
 }
