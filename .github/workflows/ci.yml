@@ -3,8 +3,9 @@ name: Checks
 on:
   push:
     branches: [main]
+  # Every pull request, whatever its base. A PR stacked on another branch
+  # used to get no checks at all, so its first CI run happened after it merged.
   pull_request:
-    branches: [main]
 
 # Fork PRs get a read-only token. Nothing here needs to write.
 permissions:
