@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Editor } from '@tiptap/react';
 import { ShareMenu } from './ShareMenu';
 import { WordPressMenu } from './WordPressMenu';
@@ -47,7 +48,14 @@ export function EditorFooter({
   showSaveSuccess,
   onRenameNote,
 }: EditorFooterProps) {
-  const { currentNote } = useNoteStore();
+  // Only id and isDaily are read (note-color path + the "no note" gate), so
+  // a content-only edit in the editor does not re-render the footer.
+  const { currentNoteId, currentNoteIsDaily } = useNoteStore(
+    useShallow((state) => ({
+      currentNoteId: state.currentNote?.id ?? null,
+      currentNoteIsDaily: state.currentNote?.isDaily ?? false,
+    }))
+  );
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
   const { showWordCount, showAutoSaveStatus } = useSettingsStore();
@@ -62,8 +70,8 @@ export function EditorFooter({
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   // Get current note's color
-  const notePath = currentNote
-    ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
+  const notePath = currentNoteId
+    ? buildNotePath(currentNoteId.replace('.md', '') + '.md', currentNoteIsDaily)
     : '';
   const currentColorId = getColor(notePath);
 
@@ -81,7 +89,7 @@ export function EditorFooter({
     toast.success(message);
   };
 
-  if (!currentNote) return null;
+  if (!currentNoteId) return null;
 
   // Every action menu opens upward from wherever it is rendered, so the same
   // markup serves the wide row and the folded menu alike. Rendering it in one

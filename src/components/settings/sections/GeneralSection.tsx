@@ -56,7 +56,10 @@ const IMPORT_MODE_OPTIONS = [
 
 export function GeneralSection() {
   const settings = useSettingsStore();
-  const { setNotes, setCurrentNote } = useNoteStore();
+  // Actions are stable references, so selecting them individually (rather
+  // than the whole store) means this section never re-renders on typing.
+  const setNotes = useNoteStore((state) => state.setNotes);
+  const setCurrentNote = useNoteStore((state) => state.setCurrentNote);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isClearing, setIsClearing] = useState(false);

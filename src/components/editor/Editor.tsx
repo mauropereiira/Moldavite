@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -82,8 +83,22 @@ import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
 
 export function Editor() {
+  // The editor is the one surface that is *supposed* to re-render on every
+  // keystroke — it reads and displays `currentNote.content` directly. Narrowed
+  // to just the fields this component uses (via useShallow) so unrelated store
+  // changes (recent notes, unlocked notes, ...) don't also trigger a re-render.
   const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs, closeTab } =
-    useNoteStore();
+    useNoteStore(
+      useShallow((state) => ({
+        currentNote: state.currentNote,
+        updateNoteContent: state.updateNoteContent,
+        isSaving: state.isSaving,
+        setSelectedDate: state.setSelectedDate,
+        notes: state.notes,
+        openTabs: state.openTabs,
+        closeTab: state.closeTab,
+      }))
+    );
   const currentNoteId = currentNote?.id;
   const currentNoteContent = currentNote?.content;
   const {
@@ -284,6 +299,8 @@ export function Editor() {
       setShowDeleteConfirm(false);
     } catch (error) {
       console.error('[Editor] Delete failed:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to delete note: ${message}`);
       setShowDeleteConfirm(false);
     }
   };

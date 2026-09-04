@@ -8,7 +8,11 @@ interface ShareMenuProps {
 }
 
 export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProps) {
-  const { currentNote } = useNoteStore();
+  // Export needs the note body, so this genuinely reads `content` and
+  // re-renders on every keystroke like the Editor itself — narrowed to just
+  // `currentNote` (rather than the whole store) so unrelated state changes
+  // elsewhere don't also re-render it.
+  const currentNote = useNoteStore((state) => state.currentNote);
 
   const handleCopyLink = async () => {
     if (!currentNote) return;

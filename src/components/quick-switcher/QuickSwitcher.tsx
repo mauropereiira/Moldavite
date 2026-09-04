@@ -251,7 +251,7 @@ function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode 
 export function QuickSwitcher() {
   const { isOpen, close, recentSearches, pinnedNoteIds, addRecentSearch, togglePinned } =
     useQuickSwitcherStore();
-  const { recentNoteIds } = useNoteStore();
+  const recentNoteIds = useNoteStore((state) => state.recentNoteIds);
   const { notes, loadNote, loadDailyNote, createNote } = useNotes();
   const { theme, setTheme } = useThemeStore();
   const { setIsSettingsOpen } = useSettingsStore();

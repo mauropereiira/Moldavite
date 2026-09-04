@@ -410,7 +410,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
 
 // Main Timeline component
 export function Timeline() {
-  const { selectedDate } = useNoteStore();
+  const selectedDate = useNoteStore((state) => state.selectedDate);
   const {
     sources,
     events,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { CollapsibleSection } from './CollapsibleSection';
 import { useNoteStore } from '@/stores';
 import { findBacklinks, readNote, noteFileBackendPath, type BacklinkInfo } from '@/lib';
@@ -21,7 +22,14 @@ export function BacklinksSection({
   onToggle,
   onNoteClick,
 }: BacklinksSectionProps) {
-  const { currentNote } = useNoteStore();
+  // Only id (presence) and title (backlink matching) are read, so a
+  // content-only edit in the editor does not re-render this section.
+  const { currentNoteId, currentNoteTitle } = useNoteStore(
+    useShallow((state) => ({
+      currentNoteId: state.currentNote?.id ?? null,
+      currentNoteTitle: state.currentNote?.title ?? null,
+    }))
+  );
   const [backlinks, setBacklinks] = useState<BacklinkInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [noteContents, setNoteContents] = useState<Map<string, string>>(new Map());
@@ -59,7 +67,7 @@ export function BacklinksSection({
 
   // Find backlinks when current note changes
   useEffect(() => {
-    if (!currentNote || noteContents.size === 0) {
+    if (!currentNoteTitle || noteContents.size === 0) {
       setBacklinks([]);
       return;
     }
@@ -68,13 +76,13 @@ export function BacklinksSection({
 
     // Use setTimeout to avoid blocking UI
     const timer = setTimeout(() => {
-      const links = findBacklinks(currentNote.title, noteContents, noteInfo);
+      const links = findBacklinks(currentNoteTitle, noteContents, noteInfo);
       setBacklinks(links);
       setIsLoading(false);
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [currentNote, noteContents, noteInfo]);
+  }, [currentNoteTitle, noteContents, noteInfo]);
 
   // Handle clicking a backlink
   const handleBacklinkClick = (backlink: BacklinkInfo) => {
@@ -85,7 +93,7 @@ export function BacklinksSection({
   };
 
   // Don't show section if no note is selected
-  if (!currentNote) {
+  if (!currentNoteId) {
     return null;
   }
 
