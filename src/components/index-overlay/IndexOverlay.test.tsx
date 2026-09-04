@@ -238,7 +238,8 @@ describe('IndexOverlay', () => {
     view.rerender(<IndexOverlay isOpen={false} onClose={vi.fn()} />);
     await waitFor(
       () => expect(screen.queryByRole('region', { name: 'Index' })).not.toBeInTheDocument(),
-      { timeout: 500 }
+      // The overlay exit is a real 200 ms timer; a loaded CI runner needs more than 500 ms.
+      { timeout: 2000 }
     );
 
     await act(async () => {
@@ -262,7 +263,8 @@ describe('IndexOverlay', () => {
     fireEvent.keyDown(window, { key: '\\', code: 'Backslash', metaKey: true });
     await waitFor(
       () => expect(screen.queryByRole('region', { name: 'Index' })).not.toBeInTheDocument(),
-      { timeout: 500 }
+      // The overlay exit is a real 200 ms timer; a loaded CI runner needs more than 500 ms.
+      { timeout: 2000 }
     );
 
     fireEvent.keyDown(window, { key: '\\', code: 'Backslash', metaKey: true });
