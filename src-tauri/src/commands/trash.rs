@@ -22,6 +22,9 @@ use crate::validation::{
     is_safe_existing_filename, is_safe_existing_note_path, validate_path_within_base,
 };
 
+/// Trash retention window before an item is eligible for expiry cleanup.
+const TRASH_RETENTION_SECS: i64 = 7 * 24 * 60 * 60;
+
 fn next_trash_id() -> String {
     static LAST_ID: AtomicI64 = AtomicI64::new(0);
     let now = chrono::Utc::now().timestamp_millis();
@@ -255,7 +258,7 @@ pub(crate) fn trash_note(
 pub(crate) fn list_trash() -> Result<Vec<TrashedNote>, String> {
     let metadata = read_trash_metadata();
     let now = chrono::Utc::now().timestamp();
-    let seven_days_secs = 7 * 24 * 60 * 60;
+    let seven_days_secs = TRASH_RETENTION_SECS;
 
     let items: Vec<TrashedNote> = metadata
         .items
@@ -422,7 +425,16 @@ fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
 #[tauri::command]
 pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
     let mut metadata = read_trash_metadata();
+    permanently_delete_trash_in(&get_trash_dir(), &mut metadata, &trash_id)?;
+    write_trash_metadata(&metadata)?;
+    Ok(())
+}
 
+fn permanently_delete_trash_in(
+    trash_dir: &std::path::Path,
+    metadata: &mut TrashMetadata,
+    trash_id: &str,
+) -> Result<(), String> {
     // Find the item in metadata
     let item_index = metadata
         .items
@@ -433,7 +445,9 @@ pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
     let item = &metadata.items[item_index];
 
     // Build trash file/folder path and delete
-    let trash_path = trash_item_path(&get_trash_dir(), item);
+    let trash_path = trash_item_path(trash_dir, item);
+    validate_path_within_base(&trash_path, trash_dir)
+        .map_err(|_| "Invalid trash item path".to_string())?;
 
     if trash_path.exists() {
         if item.is_folder {
@@ -446,19 +460,26 @@ pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
 
     // Update metadata
     metadata.items.remove(item_index);
-    write_trash_metadata(&metadata)?;
-
     Ok(())
 }
 
 #[tauri::command]
 pub(crate) fn empty_trash() -> Result<(), String> {
     let metadata = read_trash_metadata();
-    let trash_dir = get_trash_dir();
+    empty_trash_in(&get_trash_dir(), &metadata);
+    write_trash_metadata(&TrashMetadata::default())?;
+    Ok(())
+}
 
+fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) {
     // Delete all files and folders
     for item in &metadata.items {
-        let trash_path = trash_item_path(&trash_dir, item);
+        let trash_path = trash_item_path(trash_dir, item);
+        if validate_path_within_base(&trash_path, trash_dir).is_err() {
+            // Tampered or sync-mangled metadata pointing outside the trash
+            // dir — skip it rather than deleting whatever it resolves to.
+            continue;
+        }
         if trash_path.exists() {
             if item.is_folder {
                 let _ = fs::remove_dir_all(&trash_path);
@@ -467,11 +488,6 @@ pub(crate) fn empty_trash() -> Result<(), String> {
             }
         }
     }
-
-    // Clear metadata
-    write_trash_metadata(&TrashMetadata::default())?;
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -488,7 +504,7 @@ fn cleanup_old_trash_in(
     metadata: &mut TrashMetadata,
     now: i64,
 ) -> Result<Vec<String>, String> {
-    let seven_days_secs = 7 * 24 * 60 * 60;
+    let seven_days_secs = TRASH_RETENTION_SECS;
     let mut deleted_ids = Vec::new();
 
     // Find expired items
@@ -504,6 +520,13 @@ fn cleanup_old_trash_in(
     for (i, is_folder, id) in expired_items.into_iter().rev() {
         let item = &metadata.items[i];
         let trash_path = trash_item_path(trash_dir, item);
+
+        if validate_path_within_base(&trash_path, trash_dir).is_err() {
+            // Tampered or sync-mangled metadata pointing outside the trash
+            // dir — leave the entry in place rather than deleting whatever
+            // it resolves to.
+            continue;
+        }
 
         if trash_path.exists() {
             let result = if is_folder {
@@ -926,7 +949,7 @@ mod tests {
         let tmp = TempDir::new("cleanup-boundary");
         let trash = tmp.0.join("trash");
         let now = 2_000_000_000_i64;
-        let seven_days = 7 * 24 * 60 * 60;
+        let seven_days = TRASH_RETENTION_SECS;
         let expired = item("expired".into(), "expired.md".into(), now - seven_days);
         let fresh = item("fresh".into(), "fresh.md".into(), now - seven_days + 1);
         fs::write(trash_item_path(&trash, &expired), "old").unwrap();
@@ -1053,5 +1076,46 @@ mod tests {
             "outside secret"
         );
         assert!(!standalone.join("secret.md").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_trash_cleanup_never_deletes_outside_the_trash_dir() {
+        // `trash_item_filename` only strips `/` out of `original_path`, not
+        // `id` — a tampered or sync-mangled id can still carry `..`
+        // segments and resolve outside the trash dir.
+        let tmp = TempDir::new("trash-outside-escape");
+        let trash = tmp.0.join("trash");
+        let outside = tmp.0.join("outside-secret_note.md");
+        fs::write(&outside, "keep").unwrap();
+
+        let malicious = item("../outside-secret".into(), "note.md".into(), 0);
+
+        // permanently_delete_trash_in: single-item command errors and never deletes.
+        let mut single_item_metadata = TrashMetadata {
+            items: vec![malicious.clone()],
+        };
+        assert!(permanently_delete_trash_in(
+            &trash,
+            &mut single_item_metadata,
+            "../outside-secret"
+        )
+        .is_err());
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
+
+        // empty_trash_in: skips the tampered item.
+        let empty_metadata = TrashMetadata {
+            items: vec![malicious.clone()],
+        };
+        empty_trash_in(&trash, &empty_metadata);
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
+
+        // cleanup_old_trash_in: skips the tampered item even once "expired".
+        let mut cleanup_metadata = TrashMetadata {
+            items: vec![malicious],
+        };
+        let deleted = cleanup_old_trash_in(&trash, &mut cleanup_metadata, i64::MAX).unwrap();
+        assert!(deleted.is_empty());
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "keep");
     }
 }

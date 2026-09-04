@@ -7,8 +7,15 @@
 
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
+/// Lock a mutex, recovering the guard on poisoning instead of propagating the
+/// panic. A single panicking holder must not turn every later lock/unlock
+/// into a permanent failure of this in-memory rate limiter.
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// Maximum number of failed attempts before lockout (per note)
 const MAX_ATTEMPTS: u32 = 5;
@@ -98,7 +105,7 @@ pub struct RateLimitResult {
 pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
     // First check global rate limit
     {
-        let global = GLOBAL_TRACKER.lock().unwrap();
+        let global = lock(&GLOBAL_TRACKER);
 
         // Reset global counter if it's been a while
         if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
@@ -116,7 +123,7 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
     }
 
     // Then check per-note rate limit
-    let mut tracker = ATTEMPT_TRACKER.lock().unwrap();
+    let mut tracker = lock(&ATTEMPT_TRACKER);
 
     // Clean up old entries while we have the lock
     cleanup_old_entries(&mut tracker);
@@ -165,7 +172,7 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     // Update global tracker first
     {
-        let mut global = GLOBAL_TRACKER.lock().unwrap();
+        let mut global = lock(&GLOBAL_TRACKER);
 
         // Reset global counter if it's been a while
         if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
@@ -193,7 +200,7 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     }
 
     // Then update per-note tracker
-    let mut tracker = ATTEMPT_TRACKER.lock().unwrap();
+    let mut tracker = lock(&ATTEMPT_TRACKER);
 
     let info = tracker.entry(note_id.to_string()).or_insert_with(AttemptInfo::new);
 
@@ -235,7 +242,7 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
 /// # Arguments
 /// * `note_id` - Unique identifier for the note
 pub fn record_successful_attempt(note_id: &str) {
-    let mut tracker = ATTEMPT_TRACKER.lock().unwrap();
+    let mut tracker = lock(&ATTEMPT_TRACKER);
     tracker.remove(note_id);
 }
 
@@ -308,5 +315,23 @@ mod tests {
         let result = check_rate_limit(note_id);
         assert!(result.allowed);
         assert_eq!(result.remaining_attempts, Some(MAX_ATTEMPTS));
+    }
+
+    #[test]
+    fn lock_recovers_from_a_poisoned_mutex() {
+        // A dedicated local mutex, not the shared trackers — poisoning one of
+        // those would bleed into every other test in this file.
+        let mutex = Mutex::new(0i32);
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = lock(&mutex);
+            panic!("simulated panic while holding the lock");
+        }));
+        assert!(panicked.is_err());
+        assert!(mutex.is_poisoned());
+
+        // A single panicking holder must not turn every later lock into a
+        // permanent failure.
+        *lock(&mutex) += 1;
+        assert_eq!(*lock(&mutex), 1);
     }
 }

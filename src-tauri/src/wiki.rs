@@ -6,10 +6,13 @@
 //! byte compatible with `slugifyNoteName` in `src/lib/fileSystem.ts`; the mirror
 //! cases live in this module's tests and `src/lib/slugify.test.ts`.
 
+use std::path::Path;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::paths::get_notes_dir;
+use crate::validation::is_safe_existing_filename;
 
 // Wiki Link Regex
 lazy_static! {
@@ -61,8 +64,10 @@ pub(crate) fn note_name_to_filename(note_name: &str) -> String {
 }
 
 pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
-    let notes_dir = get_notes_dir();
+    note_exists_in(&get_notes_dir(), note_name)
+}
 
+fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {
     // Try as standalone note first
     let filename = note_name_to_filename(note_name);
     let standalone_path = notes_dir.join("notes").join(&filename);
@@ -71,15 +76,20 @@ pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
         return Ok((true, filename));
     }
 
-    // Try as daily note (YYYY-MM-DD format)
+    // Try as daily note (YYYY-MM-DD format). The raw note name comes straight
+    // from a `[[wiki link]]`, so it must be validated as a bare filename
+    // before it is joined onto the daily dir — otherwise `[[../../../x]]`
+    // could probe for files outside the Forge.
     let daily_filename = if note_name.ends_with(".md") {
         note_name.to_string()
     } else {
         format!("{}.md", note_name)
     };
-    let daily_path = notes_dir.join("daily").join(&daily_filename);
-    if daily_path.exists() {
-        return Ok((true, daily_filename));
+    if is_safe_existing_filename(&daily_filename) {
+        let daily_path = notes_dir.join("daily").join(&daily_filename);
+        if daily_path.exists() {
+            return Ok((true, daily_filename));
+        }
     }
 
     Ok((false, filename))
@@ -318,5 +328,45 @@ mod tests {
     fn get_link_context_handles_multibyte_immediately_around_the_link() {
         let content = format!("{}[[Target]]{}", "é".repeat(200), "→".repeat(200));
         assert!(get_link_context(&content, "Target").contains("[[Target]]"));
+    }
+
+    fn tmp_forge(tag: &str) -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "moldavite-wiki-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(base.join("daily")).unwrap();
+        std::fs::create_dir_all(base.join("notes")).unwrap();
+        base
+    }
+
+    #[test]
+    fn security_regression_note_exists_daily_traversal_never_escapes_forge() {
+        // `note_exists` must never let a `[[../foo]]`-style link probe for
+        // files outside the daily/ dir via the unvalidated daily-note branch.
+        // Plant a neighbor file that a `..` escape would otherwise reach.
+        let base = tmp_forge("note-exists-traversal");
+        std::fs::write(base.join("foo.md"), "outside daily/").unwrap();
+
+        let (exists, _) = note_exists_in(&base, "../foo").unwrap();
+        assert!(!exists);
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn note_exists_in_still_resolves_plain_daily_notes() {
+        let base = tmp_forge("note-exists-daily");
+        std::fs::write(base.join("daily/2026-01-01.md"), "daily body").unwrap();
+
+        let (exists, filename) = note_exists_in(&base, "2026-01-01").unwrap();
+        assert!(exists);
+        assert_eq!(filename, "2026-01-01.md");
+
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
