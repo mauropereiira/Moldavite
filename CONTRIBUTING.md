@@ -9,7 +9,7 @@ reviewed as changes to user data or a trust boundary.
 Prerequisites:
 
 - Node.js 18 or newer
-- Rust 1.77 or newer
+- Rust 1.88 or newer
 - Xcode Command Line Tools on macOS
 
 Clone the repository, install dependencies, and start Tauri with frontend hot

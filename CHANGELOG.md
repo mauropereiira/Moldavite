@@ -30,7 +30,7 @@ All notable changes to Moldavite are documented here.
 - **The plugin permission sheet traps focus and closes on Esc**, like every other dialog.
 - **A missing Documents or config folder no longer crashes the app on its first note operation.** It falls back to the home folder and logs the problem.
 - **Shortcut hints show Ctrl on Windows.** The icon rail tooltips, two Layout settings labels, the Appearance hint and the Index and Agenda overlay captions printed ⌘ on every platform.
-- **Dependency advisories in markdown-it, linkify-it, DOMPurify and fflate are patched.** Pull requests now run `npm audit` and `cargo audit`, and the Rust crate is built and tested on macOS as well as Linux and Windows.
+- **Dependency advisories are patched on both sides.** JavaScript: markdown-it, linkify-it, DOMPurify, fflate, and TipTap 3.31 for a prototype-pollution advisory in `mergeAttributes`. Rust: bytes, h2, quick-xml, quinn-proto, rkyv, rustls-webpki, tar and time, all transitive. Pull requests now run `npm audit` and `cargo audit`, and the Rust crate is built and tested on macOS as well as Linux and Windows. The declared minimum Rust is 1.88, which the dependency set already required.
 
 ## [2.4.2] - 2026-08-25
 
