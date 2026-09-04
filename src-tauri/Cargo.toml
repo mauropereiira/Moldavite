@@ -27,7 +27,7 @@ tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
-dirs = "5.0"
+dirs = "6.0"
 chrono = "0.4"
 regex = "1"
 lazy_static = "1.4"
@@ -80,3 +80,12 @@ swift-rs = "1.0"
 # Native-messaging hosts are discovered through HKCU on Windows; every other
 # platform finds them by directory.
 winreg = "0.52"
+
+[profile.release]
+# Shipped builds only. `lto` and a single codegen unit let the optimiser work
+# across crates, `strip` drops symbol tables nothing reads at runtime, and
+# `panic = "abort"` removes unwinding tables (`catch_unwind` is test-only).
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
