@@ -99,7 +99,8 @@ const BUDGETS = [
 // Bumped 3 KB raw for reversible trash state: optimistic rollback plus archived
 // WordPress mappings keyed by backend trash identity. Measured 606.8 KB raw /
 // 167.8 KB gz locally and 168.2 KB gz on Linux CI.
-const APP_JS_BUDGET = { rawKb: 608, gzipKb: 169 };
+// 614: the search-index status block in Settings added 1.8 KB raw (gzip unchanged).
+const APP_JS_BUDGET = { rawKb: 614, gzipKb: 169 };
 
 async function main() {
   let entries;

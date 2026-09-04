@@ -419,6 +419,7 @@ impl ToolContext {
 
     fn note_changed(&self, forge_root: &Path, rel: &str) {
         crate::semantic::note_changed_in(rel, forge_root.to_path_buf());
+        crate::search_index::note_changed_in(rel, forge_root.to_path_buf());
     }
 }
 

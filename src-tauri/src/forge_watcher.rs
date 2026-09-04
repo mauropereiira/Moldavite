@@ -183,6 +183,31 @@ fn is_relevant(rel: &str) -> bool {
     last.ends_with(".md") || last.ends_with(".md.locked") || last.ends_with(".json")
 }
 
+/// Push one debounced, non-self-write filesystem event into the keyword
+/// index. This is the improvement over the semantic index, which waits for
+/// its next reconcile: an agent, a sync client or another editor touching a
+/// file is searchable without the frontend in the loop.
+///
+/// `notify-debouncer-mini` collapses create, modify and remove into a single
+/// "something happened here" event, so presence on disk decides which way the
+/// index moves. A rename arrives as two such events — the old path now absent,
+/// the new one present — and therefore needs no special case. A `.md.locked`
+/// event removes the plaintext path it replaced.
+fn index_external_change(root: &Path, rel: &str) {
+    let rel = match rel.strip_suffix(".locked") {
+        Some(plain) => plain,
+        None => rel,
+    };
+    if !rel.ends_with(".md") {
+        return;
+    }
+    if root.join(rel).is_file() {
+        crate::search_index::note_changed_in(rel, root.to_path_buf());
+    } else {
+        crate::search_index::note_removed_in(rel, root.to_path_buf());
+    }
+}
+
 /// Spawn a long-lived background thread that watches active-Forge contents and
 /// direct children of the Forges root. Returns a guard whose Drop stops it.
 pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle, String> {
@@ -263,6 +288,7 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         if recent_for_thread.matches_current_content(&path) {
                             continue;
                         }
+                        index_external_change(&root_for_thread, &rel);
                         let payload = ForgeChange {
                             kind: "modified".into(),
                             rel_path: rel,
@@ -379,6 +405,55 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    /// The watcher is what makes an agent's or a sync client's edit
+    /// searchable without the frontend in the loop, so the branch that decides
+    /// upsert-versus-remove is asserted directly. Wiring it to a real notify
+    /// event would only re-test the debouncer.
+    #[test]
+    fn an_external_write_reaches_the_search_index_and_a_deletion_removes_it() {
+        let tmp = TempDir::new("index-external");
+        let root = tmp.path();
+        for sub in ["notes", "daily", "weekly"] {
+            fs::create_dir_all(root.join(sub)).unwrap();
+        }
+        fs::write(root.join("notes/seed.md"), "seed").unwrap();
+        crate::search_index::reconcile(root).unwrap();
+
+        fs::write(root.join("notes/agent.md"), "written by an agent").unwrap();
+        index_external_change(root, "notes/agent.md");
+        wait_for(|| {
+            crate::search_index::query(root, root, "agent", 10)
+                .is_some_and(|hits| hits.iter().any(|hit| hit.path == "notes/agent.md"))
+        });
+
+        fs::remove_file(root.join("notes/agent.md")).unwrap();
+        index_external_change(root, "notes/agent.md");
+        wait_for(|| {
+            crate::search_index::query(root, root, "agent", 10).is_some_and(|hits| hits.is_empty())
+        });
+
+        // A note being locked arrives as an event on the `.locked` path; the
+        // plaintext row it replaced has to go.
+        fs::write(root.join("notes/seed.md.locked"), "ciphertext").unwrap();
+        fs::remove_file(root.join("notes/seed.md")).unwrap();
+        index_external_change(root, "notes/seed.md.locked");
+        wait_for(|| {
+            crate::search_index::query(root, root, "seed", 10).is_some_and(|hits| hits.is_empty())
+        });
+
+        crate::search_index::delete_for(root);
+    }
+
+    fn wait_for(mut check: impl FnMut() -> bool) {
+        for _ in 0..200 {
+            if check() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        panic!("the search index never reached the expected state (waited 5s)");
     }
 
     #[test]

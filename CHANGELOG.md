@@ -2,6 +2,16 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Search index status in Settings → AI & Agents.** It shows how many notes are indexed and when the index was last rebuilt, with a Rebuild search index button for the rare case a Forge changed behind Moldavite's back.
+
+### Changed
+
+- **Search answers from an index instead of re-reading every note.** Each keystroke used to open every file in the Forge and scan it, which stayed under 20 ms for a thousand notes and grew with every note after that. Keyword search now asks a per-Forge SQLite full-text index kept in the app data folder, never inside the Forge, so a synced folder never carries it. Measured on an Apple Silicon Mac: 10,000 notes answer in about 2 ms instead of 222 ms, 50,000 in 11 ms instead of 1.3 s. Results rank by relevance with a title match counting double, and a word matches as you type its prefix. The index follows every save, rename, move, trash, lock and unlock, and an outside edit picked up by the Forge watcher; it is checked against the files on launch, on a Forge switch and once a day, and the old scan still answers whenever the index is missing, still building, or finds nothing. Locked notes are never in it, and it is deleted with its Forge. One behavior changes: several words now match a note that contains all of them anywhere, not only the exact phrase.
+
 ## [2.5.2] - 2026-09-04
 
 ### Fixed

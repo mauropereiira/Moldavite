@@ -16,7 +16,7 @@ flowchart TB
     subgraph BE["Backend · Rust + Tauri 2"]
         CM["Commands<br/>notes · search · trash · forges · plugins"]
         PS["persist::write_atomic"]
-        VA["validation · wiki · backlinks index"]
+        VA["validation · wiki · backlinks index · search index"]
     end
     subgraph OS["Operating system"]
         SW["Swift bridge → EventKit<br/>macOS only"]

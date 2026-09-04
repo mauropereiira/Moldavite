@@ -1,7 +1,7 @@
 # Search Index Design
 
 **Date:** 2026-09-04
-**Status:** Proposed
+**Status:** Implemented 2026-09-04 (`src-tauri/src/search_index.rs`)
 **Priority:** Medium. The only known-debt item users can feel, and only at scale.
 
 ---
@@ -204,3 +204,27 @@ a branch because the hooks are what make the tests meaningful.
   exists. It is rebuilt from disk on every start today; the note table already
   holds everything it needs. Not in scope here, but the schema should not
   prevent it.
+
+---
+
+## Measured
+
+Apple Silicon SSD, warm page cache, from `stress_test.rs` on 2026-09-04. Cold-cache numbers need root to drop the page cache and were not taken.
+
+| Forge | scan query | index query | full reconcile | warm reconcile |
+|---|---|---|---|---|
+| 10,000 notes | 222 ms | 2.1 ms | 1.33 s | 85 ms |
+| 50,000 notes | 1.33 s | 11 ms | 8.35 s | 477 ms |
+
+The bundled SQLite adds about 1.6 MB of code to the binary.
+
+## Deviations from the design above
+
+- `rusqlite` 0.40 has no `fts5` feature; the bundled amalgamation always enables FTS5, and a test proves the virtual table and triggers exist.
+- FTS5 rejects a table alias in `MATCH` and `bm25()`, so the query names `notes_fts` directly.
+- The MCP process opens the index read-write and upserts its own writes, so an agent's search sees its own note even when the app is closed. It still never reconciles or rebuilds.
+- The `notes_au` trigger fires on `title, body` only, so a touched-but-unchanged file refreshes its `(mtime, size)` without rewriting its FTS rows.
+- Readiness means a completed reconcile, not an existing file, so a fresh index seeded by two MCP upserts does not answer for a whole Forge.
+- Multi-word queries AND their prefix tokens; the scan matched the literal phrase. Parity is asserted over single-term and prefix queries, and the empty-result fallback covers the rest.
+- Under `cfg(test)` the index root is a per-process temp dir so tests never touch the real app data dir.
+

@@ -16,7 +16,9 @@ use tauri::State;
 use crate::backlinks_index::BacklinksIndex;
 use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
-use crate::paths::{file_modified_unix, get_daily_dir, get_standalone_dir, get_weekly_dir};
+use crate::paths::{
+    file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
+};
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
 use crate::validation::{
@@ -589,8 +591,14 @@ pub(crate) fn write_note(
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::search_index::note_changed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     if let Some(rel) = conflict_copy.as_deref() {
         crate::semantic::note_changed(&crate::semantic::note_rel_path(rel, is_daily, is_weekly));
+        crate::search_index::note_changed(&crate::semantic::note_rel_path(
+            rel, is_daily, is_weekly,
+        ));
     }
 
     Ok(NoteWriteResult {
@@ -625,6 +633,9 @@ pub(crate) fn delete_note(
     delete_note_within_base(&dir, &path, base_hash.as_deref())?;
     index.remove_note(&index_key(&filename));
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
+    crate::search_index::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
     Ok(())
@@ -673,6 +684,9 @@ pub(crate) fn preserve_buffer_copy(
         None => conflict_name,
     };
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &relative, is_daily, is_weekly,
+    ));
+    crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &relative, is_daily, is_weekly,
     ));
     Ok(relative)
@@ -783,6 +797,11 @@ pub(crate) fn duplicate_note(
     index.update_note(&index_key(&new_filename), &content);
 
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
+        &new_filename,
+        is_daily,
+        is_weekly,
+    ));
+    crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &new_filename,
         is_daily,
         is_weekly,
@@ -912,6 +931,10 @@ pub(crate) fn rename_note(
         is_daily,
         is_weekly,
     ));
+    crate::search_index::note_renamed(
+        &crate::semantic::note_rel_path(&old_filename, is_daily, is_weekly),
+        &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
+    );
 
     Ok(())
 }
@@ -983,6 +1006,7 @@ pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(
 
     index.remove_all();
     crate::semantic::all_notes_removed();
+    crate::search_index::all_notes_removed_in(get_notes_dir());
 
     Ok(())
 }
@@ -1051,6 +1075,10 @@ pub(crate) fn move_note(
 
     crate::semantic::note_removed(&format!("notes/{}", note_path));
     crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
+    crate::search_index::note_renamed(
+        &format!("notes/{}", note_path),
+        &format!("notes/{}", new_relative_path),
+    );
 
     Ok(format!("notes/{}", new_relative_path))
 }

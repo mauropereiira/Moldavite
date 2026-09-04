@@ -204,6 +204,9 @@ pub(crate) fn set_active_forge(
     // Swap the semantic index over to the new Forge (async, no-op if the
     // feature is disabled).
     crate::commands::semantic::on_forge_switched(app.clone());
+    // The keyword index is per-Forge and lives outside the vault; reconcile
+    // the incoming one off-thread. Search falls back to the scan until it lands.
+    crate::search_index::spawn_reconcile(target);
 
     Ok(name)
 }
@@ -261,6 +264,9 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
     if !path.is_dir() {
         return Err(format!("Forge \"{}\" does not exist", name));
     }
+    // Before the directory goes: the index is filed under the hash of the
+    // Forge's canonical path, which stops resolving once it is gone.
+    crate::search_index::delete_for(&path);
     delete_forge_dir(&path)
 }
 

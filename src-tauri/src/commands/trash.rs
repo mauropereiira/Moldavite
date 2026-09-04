@@ -250,6 +250,9 @@ pub(crate) fn trash_note(
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::search_index::note_removed(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
 
     Ok(id)
 }
@@ -364,6 +367,9 @@ pub(crate) fn restore_note(
                 .map(|f| format!("notes/{}/{}", item.original_path, f))
                 .collect(),
         );
+        for f in &item.contained_files {
+            crate::search_index::note_changed(&format!("notes/{}/{}", item.original_path, f));
+        }
         format!("notes/{}", item.original_path)
     } else {
         let dest_path = restore_item_on_disk(
@@ -379,6 +385,11 @@ pub(crate) fn restore_note(
             index.update_note(name, &content);
         }
         crate::semantic::note_changed(&crate::semantic::note_rel_path(
+            &item.original_path,
+            item.is_daily,
+            item.is_weekly,
+        ));
+        crate::search_index::note_changed(&crate::semantic::note_rel_path(
             &item.original_path,
             item.is_daily,
             item.is_weekly,
@@ -667,6 +678,9 @@ pub(crate) fn trash_folder(
             index.remove_note(name);
         }
     }
+    for path in &semantic_paths {
+        crate::search_index::note_removed(path);
+    }
     crate::semantic::notes_removed(semantic_paths);
 
     Ok(())
@@ -712,6 +726,7 @@ pub(crate) fn restore_note_from_folder(
         index.update_note(name, &content);
     }
     crate::semantic::note_changed(&format!("notes/{}", note_filename));
+    crate::search_index::note_changed(&format!("notes/{}", note_filename));
 
     // Update the contained_files list in metadata
     let item = &mut metadata.items[item_index];
