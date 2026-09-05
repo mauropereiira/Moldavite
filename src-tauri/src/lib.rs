@@ -304,6 +304,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            #[cfg(mobile)]
+            commands::misc::open_support_page,
             #[cfg(desktop)]
             commands::browser_bridge::browser_bridge_status,
             #[cfg(desktop)]

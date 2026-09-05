@@ -58,7 +58,15 @@ Gated in `Cargo.toml` target sections and behind `cfg(desktop)`:
 
 Capabilities are split: `capabilities/default.json` is desktop-only through
 `platforms`, and `capabilities/mobile.json` carries the same permissions
-without the plugins that do not exist on mobile.
+without the plugins that do not exist on mobile. Mobile omits JavaScript shell
+permissions. Its public privacy/support links use `open_support_page`, an
+enum-restricted command that calls the shell plugin's native Rust opener. The
+JavaScript shell opener takes a desktop code path and fails on iOS. Both public
+links live in Settings → About.
+
+Mobile Agenda always shows the month calendar for daily/weekly note navigation.
+The external-event panel, its legend entry and its Features settings are
+desktop-only. A saved desktop preference cannot hide the mobile note calendar.
 
 Settings hides on the phone: the Forges folder picker and Open Forge in
 Finder (General), the icon rail toggle, Index and Agenda modes, writing

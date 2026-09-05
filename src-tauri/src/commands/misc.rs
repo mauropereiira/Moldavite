@@ -19,6 +19,35 @@ use std::sync::Arc;
 use tauri::State;
 use walkdir::WalkDir;
 
+/// Public help destinations only. The shell plugin's JS command uses its
+/// desktop opener even on iOS; its Rust method dispatches to UIApplication.
+#[cfg(mobile)]
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum SupportPage {
+    Privacy,
+    Support,
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+pub(crate) async fn open_support_page(
+    app: tauri::AppHandle,
+    page: SupportPage,
+) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    let url = match page {
+        SupportPage::Privacy => "https://mauropereiira.github.io/Moldavite/privacy.html",
+        SupportPage::Support => "https://github.com/mauropereiira/Moldavite/issues",
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        #[allow(deprecated)]
+        app.shell().open(url, None).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub(crate) fn ensure_directories() -> Result<(), String> {
     let notes_dir = get_notes_dir();

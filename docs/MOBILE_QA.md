@@ -34,6 +34,14 @@ completed.
   navigation still works. Four Foundation tests cover placeholder/empty-file
   distinction, unknown download state, path containment and account invalidation.
   No account-backed container, metadata notification or download has been proved.
+- Mobile Agenda was inspected without the desktop event panel or Events legend.
+  Its regression test also covers a saved desktop preference hiding the calendar
+  and verifies that mobile does not request calendar permissions.
+- Settings → About → Privacy policy opens the published page in Safari through
+  the native opener. The earlier JavaScript shell call failed on iOS. The
+  published policy still describes the desktop app and must be updated before
+  the iOS release.
+- Settings → About → Support opens the public GitHub issues page in Safari.
 
 ## Required before shipping
 
@@ -42,6 +50,7 @@ completed.
 | Navigation and dialogs | Every page and dialog, light and dark, portrait and landscape, keyboard open and closed, 44pt targets, no hover-only actions |
 | Editor | Long-note caret scrolling, autocorrect and selection on a physical iPhone, image photo picker, wiki links, tags, tasks, locking, undo/redo and formatting beyond Bold |
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
+| Data portability | Verify exports and encrypted backups contain real bytes at the selected destination; Tauri's iOS save dialog initially exports an empty placeholder before Rust writes the data |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
 | iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated Rust content access, metadata reconciliation, desktop discovery and cross-Forge moves remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |

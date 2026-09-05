@@ -107,8 +107,8 @@ policy. [Apple's collection definition](https://developer.apple.com/app-store/ap
 
 The policy URL is `https://mauropereiira.github.io/Moldavite/privacy.html`.
 Check that the published page reflects the iOS features and that Settings →
-About opens it. The in-app policy link is still to be added. A privacy policy
-URL is required for every app, even one that collects no data.
+About opens it. The in-app policy and support links are implemented. A privacy
+policy URL is required for every app, even one that collects no data.
 [Apple's privacy fields](https://developer.apple.com/help/app-store-connect/reference/app-information/app-privacy)
 
 Moldavite **does use encryption**. `src-tauri/src/encryption.rs` implements note

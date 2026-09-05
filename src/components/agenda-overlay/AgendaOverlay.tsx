@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface AgendaOverlayProps {
   isOpen: boolean;
@@ -15,6 +16,9 @@ interface AgendaOverlayProps {
 export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { showCalendarWidget, showTimelineWidget } = useSettingsStore();
+  const mobile = isMobilePlatform();
+  const calendarVisible = mobile || showCalendarWidget;
+  const timelineVisible = !mobile && showTimelineWidget;
   const { isRendered, isClosing } = useOverlayPresence(isOpen);
 
   useLayoutEffect(() => {
@@ -112,7 +116,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           paddingTop: '24px',
         }}
       >
-        {showCalendarWidget && (
+        {calendarVisible && (
           <section
             className="app-overlay-section app-agenda-calendar"
             style={
@@ -130,7 +134,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           </section>
         )}
 
-        {showTimelineWidget && (
+        {timelineVisible && (
           <section
             className="app-overlay-section app-agenda-timeline"
             style={
@@ -151,7 +155,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           </section>
         )}
 
-        {!showCalendarWidget && !showTimelineWidget && (
+        {!calendarVisible && !timelineVisible && (
           <p
             className="app-overlay-section"
             style={

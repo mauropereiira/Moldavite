@@ -6,13 +6,15 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- Privacy-policy and support links in iOS Settings → About.
+
 - A touch formatting row for the iOS editor, with a keyboard dismissal control and room above the software keyboard.
 
 ### Fixed
 
 - Phone page headings and editor text share a tighter left inset aligned with the iPhone status-bar time; rail controls retain 44-point touch targets.
 
-- iOS no longer exposes desktop software updates, plugin execution or installation, calendar connections, WordPress publishing, or PDF export.
+- iOS no longer exposes desktop software updates, plugin execution or installation, calendar connections, WordPress publishing, or PDF export. Agenda keeps its note calendar without the desktop event panel or its settings.
 
 - iOS onboarding uses the device’s local Forge, introduces touch navigation, and stays visible above open pages. Desktop-only folder selection and AI feature pages stay out of the phone flow.
 

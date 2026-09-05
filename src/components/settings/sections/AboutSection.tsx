@@ -12,6 +12,8 @@ import { getReleaseNotes } from '@/lib/releaseNotes';
 import { formatShortcut } from '@/lib/shortcuts';
 import { ShortcutRow, Toggle } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { useToast } from '@/hooks/useToast';
+import { safeInvoke } from '@/lib/ipc';
 
 function SoftwareUpdatesSection() {
   const {
@@ -190,6 +192,7 @@ function SoftwareUpdatesSection() {
 }
 
 export function AboutSection() {
+  const toast = useToast();
   const [appVersion, setAppVersion] = useState<string>('');
   const setHasSeenAppOnboarding = useSettingsStore((s) => s.setHasSeenAppOnboarding);
   const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
@@ -263,6 +266,29 @@ export function AboutSection() {
 
       {/* Update Status */}
       {!isMobilePlatform() && <SoftwareUpdatesSection />}
+
+      {isMobilePlatform() && (
+        <div className="p-4 flex flex-wrap gap-x-6 gap-y-2">
+          {[
+            ['Privacy policy', 'privacy'],
+            ['Support', 'support'],
+          ].map(([label, page]) => (
+            <button
+              key={page}
+              type="button"
+              className="text-sm underline underline-offset-4 focus-ring"
+              style={{ minHeight: 44, color: 'var(--text-secondary)' }}
+              onClick={() =>
+                void safeInvoke('open_support_page', { page }).catch(() =>
+                  toast.error(`Could not open ${label.toLowerCase()}.`)
+                )
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Onboarding Replay */}
       <div
