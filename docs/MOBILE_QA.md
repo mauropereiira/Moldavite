@@ -26,6 +26,10 @@ completed.
   modules are desktop-only. A regression test covers the consent case.
 - The widget's version and build number now match the containing app in the
   generated plist. The native build previously warned about that mismatch.
+- The iOS iCloud bridge compiles and links into the simulator app; local Forge
+  navigation still works. Four Foundation tests cover placeholder/empty-file
+  distinction, unknown download state, path containment and account invalidation.
+  No account-backed container, metadata notification or download has been proved.
 
 ## Required before shipping
 
@@ -35,9 +39,9 @@ completed.
 | Editor | Long-note caret scrolling, autocorrect and selection on a physical iPhone, image photo picker, wiki links, tags, tasks, locking, undo/redo and formatting beyond Bold |
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
-| iCloud implementation | Optional synced Forge alongside local Forges, native container access, metadata query and download requests, desktop discovery and placeholder handling |
+| iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated Rust content access, metadata reconciliation, desktop discovery and cross-Forge moves remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
-| Brand and distribution | Icon and launch screen inspection, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight |
+| Brand and distribution | Icon and launch screen inspection, status-bar/heading alignment, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight, complete App Store setup and upload instructions |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
 
 ## Final command gates

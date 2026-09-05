@@ -182,12 +182,43 @@ so the tap is the interaction.
 
 The release verification checklist is [MOBILE_QA.md](MOBILE_QA.md).
 
+## iCloud bridge in development
+
+`src-tauri/plugins/tauri-plugin-icloud` is an iOS-only native Tauri plugin.
+It resolves `iCloud.app.moldavite` off the main thread, requests placeholder
+downloads, reports download/upload/conflict state and sends an initial metadata
+snapshot followed by `NSMetadataQuery` changes over a Rust-owned channel. An
+account change stops the query and invalidates access through the old container.
+The generated entitlements and Info.plist declare the public Moldavite Documents
+container, with nested folders visible in Files once provisioned.
+
+This bridge is registered but **does not yet enable a synced Forge**. Forge
+selection, metadata reconciliation, coordinated content I/O, Mac discovery,
+cross-Forge moves and end-to-end sync proof remain to be implemented. A missing
+filesystem entry alone must never authorize creation or deletion: the consumer
+must reconcile it with the metadata snapshot, including remote placeholders.
+Only actual downloaded contents may be read or overwritten. Existing downloaded
+contents remain usable offline, with the normal conflict-copy policy on save.
+
+The Foundation-only core has filesystem regression tests runnable without an
+iCloud account:
+
+```sh
+swift test --package-path src-tauri/plugins/tauri-plugin-icloud/ios/Core
+```
+
+They cover placeholder vs empty-file handling, unknown download state, account
+invalidation and path/symlink containment. They do not prove iCloud delivery.
+Native content access must use [Apple file coordination](https://developer.apple.com/documentation/technologyoverviews/shared-data),
+while retaining Rust's atomic writes and hash-based conflict copies. The public
+container keys follow [Apple's Info.plist reference](https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CocoaKeys.html).
+
 ## Not done yet
 
 - The synced Forge: the app's iCloud Drive container as a Forge, read on
-  the Mac like any other folder, with `NSMetadataQuery` for change and
-  download notifications. A local, unsynced Forge on the phone stays the
-  default.
+  the Mac like any other folder. The native metadata/download bridge exists;
+  integration and account-backed verification remain. A local, unsynced Forge
+  on the phone stays the default.
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor.
 - iPad layout, then Android through Tauri's Android target.

@@ -99,7 +99,7 @@
 2. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 3. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 4. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-5. **iOS app** — in progress on `mobile/ios-spike` (docs/MOBILE.md). Next: the iCloud Drive container as a synced Forge, full editor and iPad verification, a real-device run, TestFlight. Android follows through Tauri's Android target.
+5. **iOS app** — in progress on `mobile/ios-spike` (docs/MOBILE.md). The native iCloud container/download/metadata bridge builds, but synced Forge selection and coordinated content access are not integrated yet. Next: finish sync, full editor and iPad verification, a real-device run, TestFlight and App Store upload instructions. Android follows through Tauri's Android target.
 6. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
 7. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
 8. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.

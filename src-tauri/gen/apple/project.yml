@@ -54,6 +54,11 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 2.6.0
         CFBundleVersion: "2.6.0"
+        NSUbiquitousContainers:
+          iCloud.app.moldavite:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: Moldavite
+            NSUbiquitousContainerSupportedFolderLevels: Any
         # `moldavite://` links (the widget's `moldavite://today`, note and plugin
         # links). The deep-link plugin registers schemes itself on desktop only.
         CFBundleURLTypes:
@@ -61,6 +66,10 @@ targets:
             CFBundleURLSchemes: [moldavite]
     entitlements:
       path: moldavite_iOS/moldavite_iOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.app.moldavite]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.app.moldavite]
+        com.apple.developer.icloud-services: [CloudDocuments]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

@@ -2995,6 +2995,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
+ "tauri-plugin-icloud",
  "tauri-plugin-log",
  "tauri-plugin-process",
  "tauri-plugin-shell",
@@ -5587,6 +5588,16 @@ dependencies = [
  "thiserror 2.0.17",
  "toml 0.9.8",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-icloud"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]
