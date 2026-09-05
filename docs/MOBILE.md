@@ -181,6 +181,9 @@ so the tap is the interaction.
   `tauri ios dev` pattern.
 
 The release verification checklist is [MOBILE_QA.md](MOBILE_QA.md).
+The account setup, signing, privacy/encryption answers, TestFlight and upload
+handoff are in [IOS_APP_STORE.md](IOS_APP_STORE.md). The guide marks remaining
+release work explicitly; it is not a claim that this branch is ready to upload.
 
 ## iCloud bridge in development
 

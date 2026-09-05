@@ -13,6 +13,10 @@ completed.
   original steps. Regression tests cover both flows.
 - Home, Index, two-level Settings, Appearance, About and a daily note were
   inspected on the simulator. This is not yet an exhaustive screen audit.
+- Index title/search and the Settings heading now start beneath the system
+  clock on the iPhone 17. Index was inspected in light and dark mode after the
+  44pt rail and shared phone page inset change. Other device sizes and rotation
+  still need verification; iOS owns the clock's position.
 - The editor formatting row was inspected in Cream light and dark themes.
   Software-keyboard placement was inspected with the native accessory removed.
 - Native word selection followed by tapping Bold retained the selected word and

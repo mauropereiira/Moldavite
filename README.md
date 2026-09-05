@@ -158,4 +158,4 @@ MIT.
 
 ### iOS development
 
-The iOS app is in development, with a phone layout, touch formatting controls and local-device onboarding. It is not yet available on the App Store. See [the mobile status and build guide](docs/MOBILE.md) for implemented features and remaining release work.
+The iOS app is in development, with a phone layout, touch formatting controls and local-device onboarding. It is not yet available on the App Store. See [the mobile status and build guide](docs/MOBILE.md) for implemented features and remaining release work, and [the App Store handoff](docs/IOS_APP_STORE.md) for account setup and upload instructions.

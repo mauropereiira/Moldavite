@@ -91,7 +91,7 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
   const label = active ?? 'Forge';
 
   return (
-    <div ref={wrapRef} className="relative px-3 pt-4">
+    <div ref={wrapRef} className="forge-switcher relative px-3 pt-4">
       <button
         type="button"
         // Re-list on open: the Forge list is otherwise only loaded at mount, so

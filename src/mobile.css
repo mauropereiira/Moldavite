@@ -16,6 +16,7 @@ html[data-platform='mobile'] {
   --safe-right: env(safe-area-inset-right, 0px);
   /* Apple's minimum comfortable touch target. */
   --touch-target: 44px;
+  --mobile-page-inset: 16px;
   /* The shell's height. useVisualViewportHeight overrides this inline with
      the visual viewport so the software keyboard does not cover the editor. */
   --app-height: 100vh;
@@ -141,6 +142,25 @@ html[data-platform='mobile'] .icon-rail {
   padding-bottom: var(--safe-bottom);
 }
 
+/* Keep the phone's main text edge close to the system clock's left edge.
+   The rail still has a full 44pt hit area; an inset hairline consumes none of
+   it. iPad retains the roomier sidebar spacing. */
+@media (max-width: 600px) {
+  html[data-platform='mobile'] {
+    --mobile-page-inset: 6px;
+  }
+
+  html[data-platform='mobile'].has-icon-rail:not(.focus-mode) {
+    --rail-width: 44px;
+  }
+
+  html[data-platform='mobile'] .icon-rail {
+    width: 44px !important;
+    border-right: 0 !important;
+    box-shadow: inset -1px 0 0 var(--border-default);
+  }
+}
+
 html[data-platform='mobile'] [data-tooltip].icon-rail-button {
   height: var(--touch-target);
 }
@@ -177,10 +197,22 @@ html[data-platform='mobile'] .app-overlay-controls {
   gap: 0 !important;
 }
 
-/* The Sidebar root sets its Index padding inline. 4px here plus the 12px the
-   Forge name, search and section headers already carry lands them on 16px. */
+/* The Sidebar root sets its Index padding inline. The title and search own
+   their inset so their text and hairlines share one edge. */
 html[data-platform='mobile'] .app-index-overlay .index-overlay-content {
-  padding: calc(var(--safe-top) + 12px) 4px var(--safe-bottom) !important;
+  padding: calc(var(--safe-top) + 12px) 0 var(--safe-bottom) !important;
+}
+
+html[data-platform='mobile'] .index-overlay-content :is(.forge-switcher, .sidebar-search) {
+  padding-inline: var(--mobile-page-inset);
+}
+
+html[data-platform='mobile'] .forge-switcher > button {
+  padding-inline: 0;
+}
+
+html[data-platform='mobile'] .forge-switcher :is(button, input) {
+  min-height: var(--touch-target);
 }
 
 html[data-platform='mobile'] .app-index-grid {
@@ -191,7 +223,7 @@ html[data-platform='mobile'] .app-index-grid {
 
 /* Agenda: padding and the header are inline in the component. */
 html[data-platform='mobile'] .app-agenda-overlay {
-  padding: calc(var(--safe-top) + 12px) 16px var(--safe-bottom) !important;
+  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) var(--safe-bottom) !important;
 }
 
 html[data-platform='mobile'] .app-overlay-header {
@@ -299,7 +331,7 @@ html[data-platform='mobile'] .index-overlay-content .text-link {
    =========================================== */
 
 html[data-platform='mobile'] .timeline-view-header {
-  padding: calc(var(--safe-top) + 8px) 16px 12px;
+  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 12px;
 }
 
 /* The inline hairline under "Close" would span a 44px box; underline the
@@ -319,7 +351,7 @@ html[data-platform='mobile'] .timeline-view-close {
 }
 
 html[data-platform='mobile'] .timeline-view-feed {
-  padding: 16px 16px calc(var(--safe-bottom) + 24px);
+  padding: 16px var(--mobile-page-inset) calc(var(--safe-bottom) + 24px);
 }
 
 html[data-platform='mobile'] .timeline-view-feed li > button {
@@ -333,7 +365,7 @@ html[data-platform='mobile'] .timeline-view-feed li > button {
 html[data-platform='mobile'] .graph-view-header {
   align-items: center;
   gap: 12px;
-  padding: calc(var(--safe-top) + 8px) 16px 8px;
+  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 8px;
 }
 
 html[data-platform='mobile'] .graph-view-header > div {
@@ -367,7 +399,7 @@ html[data-platform='mobile'] .quick-switcher-container {
 }
 
 html[data-platform='mobile'] .quick-switcher-input-wrapper {
-  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) 12px;
 }
 
 html[data-platform='mobile'] .quick-switcher-input {
@@ -401,7 +433,7 @@ html[data-platform='mobile'] .quick-switcher-footer {
    =========================================== */
 
 html[data-platform='mobile'] .editor-paper {
-  padding-inline: 16px;
+  padding-inline: var(--mobile-page-inset);
 }
 
 /* The note's Close control, out of flow at the top of the paper. */
@@ -767,7 +799,7 @@ html[data-platform='mobile']
 }
 
 /* The note runs the full width of the phone. The writing column measure is a
-   desktop idea; here the paper's 16px gutters are the whole margin. The
+   desktop idea; here the paper's page inset is the whole margin. The
    header sets its measure inline, hence !important. */
 html[data-platform='mobile'] .tiptap,
 html[data-platform='mobile'] .note-header {

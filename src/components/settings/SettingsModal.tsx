@@ -432,7 +432,7 @@ function MobileSettingsPage({
           className="flex items-center flex-shrink-0 gap-1"
           style={{
             minHeight: TOUCH_TARGET,
-            paddingLeft: section ? '4px' : '16px',
+            paddingLeft: section ? '4px' : 'var(--mobile-page-inset)',
             paddingRight: '4px',
             borderBottom: '1px solid var(--border-default)',
           }}
