@@ -127,6 +127,27 @@ get trapped underneath Index.
   a page is positioned against the page and gets `left: 0` instead.
 - Segmented controls with four or more options become a one-per-row list.
 
+## Mobile editing
+
+The formatting row appears when editing a note and stays available until Done,
+including with a hardware or floating keyboard. It sits at the bottom of the
+visual-viewport shell above the software keyboard, with Bold, Italic, heading,
+lists, tasks, wiki links, tags, links, images, undo and redo. The controls scroll
+horizontally; Done remains visible. The desktop selection popup and footer stay
+out of the editing row. Keeping the row present across focus changes is
+necessary on WebKit: hiding it immediately on editor blur removes the tapped
+button before its click can run.
+
+Tauri disables the native input accessory view. Text fields elsewhere get a
+Done row, with room reserved in the shell while the keyboard is open. Mobile
+CSS loads before the first mobile render and is not requested on desktop.
+
+Verified on the iPhone 17 simulator: native word selection, applying Bold via
+the formatting row, the resulting `**works**` on disk, and Done restoring the
+footer. Software-keyboard placement was visually checked. Physical-device
+selection/autocorrect and the remaining formatting/image workflows still need
+verification.
+
 ## Deep links and the widget
 
 `moldavite://today` is a new route in `deep_link.rs`; the frontend handler
@@ -159,14 +180,14 @@ so the tap is the interaction.
   `moldavite` and kills the desktop app. Use the port or the
   `tauri ios dev` pattern.
 
+The release verification checklist is [MOBILE_QA.md](MOBILE_QA.md).
+
 ## Not done yet
 
 - The synced Forge: the app's iCloud Drive container as a Forge, read on
   the Mac like any other folder, with `NSMetadataQuery` for change and
   download notifications. A local, unsynced Forge on the phone stays the
   default.
-- A formatting bar above the keyboard, and hiding the keyboard's accessory
-  bar.
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor.
 - iPad layout, then Android through Tauri's Android target.

@@ -36,6 +36,8 @@ const BUDGETS = [
   // chunk — not to ration release notes. Measured 65.5 KB raw / 25.1 KB gz.
   { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
+  // Mobile CSS loads only on mobile, before the first render.
+  { pattern: /^mobile-.*\.css$/, rawKb: 20, gzipKb: 4 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
@@ -103,7 +105,9 @@ const BUDGETS = [
 // 617 / 171: the phone shell (platform detection, home header, visual-viewport
 // height, the two-level Settings page) added 2 KB raw / 1.3 KB gz. Measured
 // 616.0 KB raw / 170.3 KB gz.
-const APP_JS_BUDGET = { rawKb: 617, gzipKb: 171 };
+// 620 / 172: local-device onboarding, keyboard formatting/dismissal, and mobile
+// integration gates add 2.7 KB raw / 0.9 KB gz. Lazy mobile chunks still count.
+const APP_JS_BUDGET = { rawKb: 620, gzipKb: 172 };
 
 async function main() {
   let entries;

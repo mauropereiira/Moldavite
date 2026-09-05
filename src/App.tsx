@@ -143,6 +143,17 @@ function App() {
     <>
       <Layout />
       <ToastContainer />
+      {isMobilePlatform() && (
+        <div className="mobile-field-keyboard-bar">
+          <button
+            type="button"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => (document.activeElement as HTMLElement | null)?.blur()}
+          >
+            Done
+          </button>
+        </div>
+      )}
       {!isMobilePlatform() && <UpdateNotification />}
       <WhatsNewModal />
       {!isMobilePlatform() && <CalendarOnboardingModal />}

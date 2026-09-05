@@ -19,7 +19,14 @@ export function useVisualViewportHeight(): void {
     const viewport = window.visualViewport;
     const update = () => {
       const height = viewport?.height ?? window.innerHeight;
-      root.style.setProperty('--app-height', `${Math.round(height)}px`);
+      const editingField = document.activeElement?.matches('input, textarea') ?? false;
+      const keyboardOpen = window.innerHeight - height > 120 && (viewport?.scale ?? 1) === 1;
+      root.style.setProperty(
+        '--app-height',
+        `${Math.round(height - (keyboardOpen && editingField ? 44 : 0))}px`
+      );
+      root.dataset.keyboardField = String(editingField);
+      root.dataset.keyboard = keyboardOpen ? 'open' : 'closed';
       // WKWebView also scrolls the whole page to keep the caret clear of the
       // keyboard, which drags the shell under the status bar. The shell has
       // already shrunk to the visual viewport, so the editor's own scroll
@@ -27,6 +34,8 @@ export function useVisualViewportHeight(): void {
       if (window.scrollY > 0 || (viewport?.offsetTop ?? 0) > 0) window.scrollTo(0, 0);
     };
     update();
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
 
     if (viewport) {
       viewport.addEventListener('resize', update);
@@ -41,7 +50,11 @@ export function useVisualViewportHeight(): void {
       } else {
         window.removeEventListener('resize', update);
       }
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
       root.style.removeProperty('--app-height');
+      delete root.dataset.keyboardField;
+      delete root.dataset.keyboard;
     };
   }, []);
 }

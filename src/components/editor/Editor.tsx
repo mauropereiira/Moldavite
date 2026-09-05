@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -81,6 +82,10 @@ import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
 import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
+
+const MobileFormattingBar = React.lazy(() =>
+  import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
+);
 
 export function Editor() {
   // The editor is the one surface that is *supposed* to re-render on every
@@ -1232,7 +1237,7 @@ export function Editor() {
             <EditorContent editor={editor} className="h-full" />
           </div>
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {editor && !editor.isDestroyed && (
+          {!isMobilePlatform() && editor && !editor.isDestroyed && (
             <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
           )}
           {/* Image Toolbar - shows when image is selected */}
@@ -1285,6 +1290,16 @@ export function Editor() {
           showSaveSuccess={showSaveSuccess}
           onRenameNote={renameNote}
         />
+      )}
+
+      {isMobilePlatform() && editor && !editor.isDestroyed && (
+        <React.Suspense fallback={null}>
+          <MobileFormattingBar
+            editor={editor}
+            onInsertLink={handleInsertLink}
+            onInsertImage={() => setIsImageModalOpen(true)}
+          />
+        </React.Suspense>
       )}
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}

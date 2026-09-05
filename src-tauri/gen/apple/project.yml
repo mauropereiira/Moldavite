@@ -105,6 +105,8 @@ targets:
       path: ../../ios/Widget/Info.plist
       properties:
         CFBundleDisplayName: Moldavite
+        CFBundleShortVersionString: 2.6.0
+        CFBundleVersion: "2.6.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

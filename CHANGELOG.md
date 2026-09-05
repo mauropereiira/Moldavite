@@ -4,6 +4,10 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- A touch formatting row for the iOS editor, with a keyboard dismissal control and room above the software keyboard.
+
 ### Fixed
 
 - iOS no longer exposes desktop software updates, plugin execution or installation, calendar connections, WordPress publishing, or PDF export.
