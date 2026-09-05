@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- iOS onboarding uses the device’s local Forge, introduces touch navigation, and stays visible above open pages. Desktop-only folder selection and AI feature pages stay out of the phone flow.
+
 ## [2.6.0] - 2026-09-04
 
 ### Added

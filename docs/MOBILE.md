@@ -75,6 +75,13 @@ absolute path persisted last week names a directory that no longer exists.
 the Forge path hash, so a reinstall starts a fresh index; it rebuilds by
 itself.
 
+## Onboarding
+
+iOS uses a three-step Welcome, local Forge and touch-navigation tour. It uses
+the app-container Forge without offering a directory picker or desktop AI
+features. Replaying onboarding covers the rail and open pages so it cannot
+get trapped underneath Index.
+
 ## Phone layout
 
 - `src/lib/platform.ts` decides phone versus desktop from the user agent
@@ -150,9 +157,6 @@ so the tap is the interaction.
   default.
 - A formatting bar above the keyboard, and hiding the keyboard's accessory
   bar.
-- The onboarding step that picks a Forges root uses a directory dialog,
-  which iOS does not support; on the phone it should default to the
-  container.
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor.
 - iPad layout, then Android through Tauri's Android target.

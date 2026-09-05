@@ -155,3 +155,7 @@ reason while the same commit passes in CI. `npm install` warns if your version
 is outside the supported range.
 
 MIT.
+
+### iOS development
+
+The iOS app is in development, with a phone layout and local-device onboarding. It is not yet available on the App Store. See [the mobile status and build guide](docs/MOBILE.md) for implemented features and remaining release work.

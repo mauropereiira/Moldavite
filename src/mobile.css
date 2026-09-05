@@ -773,3 +773,45 @@ html[data-platform='mobile'] .tiptap,
 html[data-platform='mobile'] .note-header {
   max-width: none !important;
 }
+
+/* Onboarding must cover an already-open Index and the rail when replayed. */
+html[data-platform='mobile'] .app-onboarding-scrim {
+  z-index: 11000;
+  background: var(--bg-base);
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+  height: var(--app-height);
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim .modal-elevated {
+  width: 100% !important;
+  max-height: 100%;
+  background: var(--bg-base) !important;
+  border: 0;
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim .p-8 {
+  padding: 24px 8px;
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim button {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-default);
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],
+html[data-platform='mobile'] .app-onboarding-scrim .p-3 {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+html[data-platform='mobile'] .onboarding-monogram {
+  display: block;
+  width: 44px;
+  height: 44px;
+  background: var(--text-primary);
+  -webkit-mask: url('/monogram.svg') center / contain no-repeat;
+  mask: url('/monogram.svg') center / contain no-repeat;
+}
