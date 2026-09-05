@@ -9,6 +9,7 @@
 //! the frontend. Secrets are namespaced by plugin id in the macOS Keychain and
 //! are never returned across a different plugin identity.
 
+use crate::validation::is_valid_plugin_id;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,17 +22,6 @@ use crate::validation::validate_path_within_base;
 /// Absolute path to the active Forge's `.plugins` directory.
 pub(crate) fn plugins_dir() -> PathBuf {
     get_notes_dir().join(".plugins")
-}
-
-/// A plugin id must match its folder name: lowercase alphanumerics + hyphens,
-/// not starting with a hyphen, max 64 chars.
-pub(crate) fn is_valid_plugin_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 64
-        && id.chars().next().map(|c| c != '-').unwrap_or(false)
-        && id
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn is_valid_secret_key(key: &str) -> bool {

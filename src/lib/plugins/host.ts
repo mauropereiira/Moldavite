@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 /**
  * Main-thread lifecycle manager for sandboxed plugin workers.
  *
@@ -276,6 +277,8 @@ async function loadOne(info: PluginInfo, code: string): Promise<void> {
  * enable/disable/refresh.
  */
 export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
+  // Synced Forge folders may contain desktop plugins. Never execute them on iOS.
+  if (isMobilePlatform()) return [];
   setPluginAppVersion(await getVersion().catch(() => '0.0.0'));
 
   // Tear down any running workers before reloading.

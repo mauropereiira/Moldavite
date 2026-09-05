@@ -79,7 +79,7 @@ import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 
-const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import'];
+const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins', 'calendar'];
 
 interface SettingsTabItem {
   id: SettingsTab;

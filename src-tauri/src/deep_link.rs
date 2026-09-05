@@ -10,8 +10,8 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
-use crate::commands::plugins::is_valid_plugin_id;
 use crate::validation::is_safe_existing_note_path;
+use crate::validation::is_valid_plugin_id;
 
 const PLUGIN_LINK_PREFIX: &str = "moldavite://plugin/";
 const NOTE_LINK_PREFIX: &str = "moldavite://note/";

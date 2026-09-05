@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 /** Cold-start and running-instance delivery for validated app deep links. */
 
 import { useEffect } from 'react';
@@ -53,6 +54,7 @@ export function noteDeepLink(
 
 /** Route only backend-validated plugin ids into Settings; fail closed otherwise. */
 export function routePluginInstallRequest(value: unknown): boolean {
+  if (isMobilePlatform()) return false;
   if (typeof value !== 'string' || !PLUGIN_ID_RE.test(value)) {
     return false;
   }

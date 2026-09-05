@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 /**
  * AboutSection — App info, software updates, and keyboard shortcuts.
  */
@@ -261,7 +262,7 @@ export function AboutSection() {
       </div>
 
       {/* Update Status */}
-      <SoftwareUpdatesSection />
+      {!isMobilePlatform() && <SoftwareUpdatesSection />}
 
       {/* Onboarding Replay */}
       <div

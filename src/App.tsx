@@ -143,9 +143,9 @@ function App() {
     <>
       <Layout />
       <ToastContainer />
-      <UpdateNotification />
+      {!isMobilePlatform() && <UpdateNotification />}
       <WhatsNewModal />
-      <CalendarOnboardingModal />
+      {!isMobilePlatform() && <CalendarOnboardingModal />}
       <AppOnboardingModal />
       <QuickSwitcher />
       <GraphView />

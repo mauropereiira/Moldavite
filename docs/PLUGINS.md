@@ -577,3 +577,7 @@ original `app`, `commands`, `editor`, and `ui.toast` surface, with
 `api.app.apiVersion === 1`. They do not need a manifest or source migration.
 Use API v2 for trusted prompts, Forge note reads, networking, or Keychain
 secrets.
+
+## iOS
+
+Plugins are desktop-only. The iOS app does not execute plugins from a Forge, expose plugin installation commands, or accept plugin installation links. A Forge can retain its desktop plugin files without running them on iOS.

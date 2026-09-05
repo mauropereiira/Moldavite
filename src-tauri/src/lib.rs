@@ -36,6 +36,7 @@ mod security;
 /// Host-side network execution for the plugin `net.fetch` API — the request
 /// leaves from this process, not the webview, so the CSP's `connect-src`
 /// cannot block it.
+#[cfg(desktop)]
 mod plugin_net;
 
 /// YAML frontmatter parsing for note files.
@@ -104,6 +105,7 @@ use commands::notes::{
     fix_note_permissions, list_notes, move_note, preserve_buffer_copy, read_note, rename_note,
     write_note,
 };
+#[cfg(desktop)]
 use commands::plugins::{
     install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
     plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
@@ -122,6 +124,7 @@ use commands::trash::{
     cleanup_old_trash, empty_trash, list_trash, permanently_delete_trash, read_trashed_note,
     restore_note, restore_note_from_folder, trash_folder, trash_note,
 };
+#[cfg(desktop)]
 use plugin_net::plugin_fetch;
 use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
@@ -337,14 +340,23 @@ pub fn run() {
             rename_note,
             clear_all_notes,
             // Plugin system commands
+            #[cfg(desktop)]
             list_plugins,
+            #[cfg(desktop)]
             uninstall_plugin,
+            #[cfg(desktop)]
             install_example_plugin,
+            #[cfg(desktop)]
             install_wordpress_plugin,
+            #[cfg(desktop)]
             install_plugin_from_data,
+            #[cfg(desktop)]
             plugin_secret_get,
+            #[cfg(desktop)]
             plugin_secret_set,
+            #[cfg(desktop)]
             plugin_secret_delete,
+            #[cfg(desktop)]
             plugin_fetch,
             // Folder system commands
             list_folders,

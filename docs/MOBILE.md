@@ -63,7 +63,17 @@ without the plugins that do not exist on mobile.
 Settings hides on the phone: the Forges folder picker and Open Forge in
 Finder (General), the icon rail toggle, Index and Agenda modes, writing
 column width and the asteroid cursor (Layout), and the AI & Agents and
-Import sections entirely.
+Import, Plugins and Calendar connection sections entirely. About omits the
+desktop updater, and the editor omits WordPress publishing and PDF export.
+
+## Plugins on iOS
+
+Third-party plugins are excluded from the first iOS release. The desktop system
+loads executable JavaScript from Forge folders; that distribution model needs
+a separate mobile design under [App Review guideline 2.5.2](https://developer.apple.com/app-store/review/guidelines/#software-requirements).
+The mobile host refuses to load plugins even if a synced Forge carries desktop
+consent. Plugin installation links are ignored and plugin IPC commands are
+desktop-only.
 
 ## Forge location on iOS
 
