@@ -321,7 +321,10 @@ export function Editor() {
 
     event.preventDefault();
     if (/^(https?|mailto):/i.test(href)) {
-      void shellOpen(href).catch((error) => {
+      const opening = isMobilePlatform()
+        ? invoke('open_external_link', { url: href })
+        : shellOpen(href);
+      void opening.catch((error) => {
         console.error('[Editor] Failed to open external link:', error);
         toast.error('Failed to open link');
       });

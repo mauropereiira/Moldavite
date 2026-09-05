@@ -42,6 +42,12 @@ completed.
   published policy still describes the desktop app and must be updated before
   the iOS release.
 - Settings → About → Support opens the public GitHub issues page in Safari.
+- A tapped link in a note opens the intended page in Safari through the native
+  mobile command. Web and mail schemes are checked again in Rust; unsupported
+  schemes are rejected. The desktop opener remains covered by editor tests.
+- The desktop release-notes popup and its About entry are absent on mobile.
+- Swift `.build` products are excluded from Tauri's dev watcher. The previous
+  rebuild loop stopped after restarting the dev session with `.taurignore`.
 - Three macOS tests exercise the native file-coordination boundary from Rust:
   whole-accessor serialization, content preservation before replacement and
   releasing access after errors/panics. Forge content I/O does not use it yet.

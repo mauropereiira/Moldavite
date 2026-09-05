@@ -311,6 +311,8 @@ pub fn run() {
             deep_link::take_pending_deep_links,
             #[cfg(mobile)]
             commands::misc::open_support_page,
+            #[cfg(mobile)]
+            commands::misc::open_external_link,
             #[cfg(desktop)]
             commands::browser_bridge::browser_bridge_status,
             #[cfg(desktop)]

@@ -253,14 +253,16 @@ export function AboutSection() {
           <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
             Moldavite is a tektite — natural glass formed by a meteorite impact, found in Bohemia.
           </p>
-          <button
-            type="button"
-            onClick={handleShowWhatsNew}
-            className="mt-1 text-xs underline-offset-2 hover:underline transition-colors"
-            style={{ color: 'var(--accent-primary)', background: 'transparent' }}
-          >
-            What&apos;s new in this version
-          </button>
+          {!isMobilePlatform() && (
+            <button
+              type="button"
+              onClick={handleShowWhatsNew}
+              className="mt-1 text-xs underline-offset-2 hover:underline transition-colors"
+              style={{ color: 'var(--accent-primary)', background: 'transparent' }}
+            >
+              What&apos;s new in this version
+            </button>
+          )}
         </div>
       </div>
 

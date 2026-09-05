@@ -195,6 +195,10 @@ release work explicitly; it is not a claim that this branch is ready to upload.
 
 ## iCloud bridge in development
 
+`src-tauri/.taurignore` excludes Swift `.build` products from the native dev
+watcher. Keep source files watched; without this exclusion, Swift compilation
+can trigger repeated app rebuilds. See [Tauri's development watcher](https://v2.tauri.app/develop/).
+
 `src-tauri/plugins/tauri-plugin-icloud` is an iOS-only native Tauri plugin.
 It resolves `iCloud.app.moldavite` off the main thread, requests placeholder
 downloads, reports download/upload/conflict state and sends an initial metadata

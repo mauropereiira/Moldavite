@@ -1,0 +1,2 @@
+# Swift package products must not trigger another native build.
+**/.build/**

@@ -35,11 +35,29 @@ pub(crate) async fn open_support_page(
     app: tauri::AppHandle,
     page: SupportPage,
 ) -> Result<(), String> {
-    use tauri_plugin_shell::ShellExt;
     let url = match page {
         SupportPage::Privacy => "https://mauropereiira.github.io/Moldavite/privacy.html",
         SupportPage::Support => "https://github.com/mauropereiira/Moldavite/issues",
     };
+    open_external_link(app, url.to_string()).await
+}
+
+#[cfg(any(mobile, test))]
+fn validate_external_link(url: &str) -> Result<(), String> {
+    let parsed = tauri::Url::parse(url).map_err(|_| "Invalid link".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https" | "mailto") {
+        return Err("Unsupported link scheme".to_string());
+    }
+    Ok(())
+}
+
+/// Open a tapped note link through the mobile system handler. Validate here
+/// too, since note content and webview command arguments are untrusted.
+#[cfg(mobile)]
+#[tauri::command]
+pub(crate) async fn open_external_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    validate_external_link(&url)?;
     tauri::async_runtime::spawn_blocking(move || {
         #[allow(deprecated)]
         app.shell().open(url, None).map_err(|e| e.to_string())
@@ -358,6 +376,27 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn external_links_only_allow_web_and_mail_handlers() {
+        for url in [
+            "https://example.com/a?b=c#d",
+            "http://example.com",
+            "mailto:hello@example.com",
+        ] {
+            assert!(validate_external_link(url).is_ok(), "{url}");
+        }
+        for url in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "moldavite://today",
+            "tel:+15551234567",
+            "relative/path",
+            "https://",
+        ] {
+            assert!(validate_external_link(url).is_err(), "{url}");
+        }
+    }
 
     #[test]
     fn resolve_note_path_rejects_internal_trees_and_accepts_note_categories() {

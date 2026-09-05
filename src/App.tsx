@@ -155,7 +155,7 @@ function App() {
         </div>
       )}
       {!isMobilePlatform() && <UpdateNotification />}
-      <WhatsNewModal />
+      {!isMobilePlatform() && <WhatsNewModal />}
       {!isMobilePlatform() && <CalendarOnboardingModal />}
       <AppOnboardingModal />
       <QuickSwitcher />
