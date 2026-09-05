@@ -19,7 +19,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from 'lucide-react';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import type { AutoLockTimeout } from '@/stores';
@@ -28,9 +28,7 @@ import {
   getNotesDirectory,
   getForgesRoot,
   setForgesRoot,
-  exportNotes,
   importNotes,
-  exportEncryptedBackup,
   importEncryptedBackup,
   rescanForge,
   openForgeInFinder,
@@ -39,6 +37,7 @@ import {
 import type { ImportResult } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
+import { exportDocument } from '@/lib/exportDocument';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 
@@ -165,15 +164,7 @@ export function GeneralSection() {
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      const date = new Date().toISOString().split('T')[0];
-      const destination = await save({
-        title: 'Export Notes',
-        defaultPath: `moldavite-export-${date}.zip`,
-        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
-      });
-
-      if (destination) {
-        await exportNotes(destination);
+      if (await exportDocument({ kind: 'notes' })) {
         setStatusMessage({ type: 'success', text: 'Notes exported successfully!' });
       }
     } catch (error) {
@@ -245,15 +236,7 @@ export function GeneralSection() {
     try {
       setIsExporting(true);
       setShowEncryptedExportModal(false);
-      const date = new Date().toISOString().split('T')[0];
-      const destination = await save({
-        title: 'Export Encrypted Backup',
-        defaultPath: `moldavite-backup-${date}.moldavite-backup`,
-        filters: [{ name: 'Moldavite Backup', extensions: ['moldavite-backup'] }],
-      });
-
-      if (destination) {
-        await exportEncryptedBackup(destination, encryptedPassword);
+      if (await exportDocument({ kind: 'backup', password: encryptedPassword })) {
         setStatusMessage({ type: 'success', text: 'Encrypted backup created successfully!' });
       }
     } catch (error) {

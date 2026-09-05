@@ -29,6 +29,86 @@ const MAX_ARCHIVE_ENTRIES: usize = 50_000;
 const MAX_ENTRY_UNCOMPRESSED_SIZE: u64 = 100 * 1024 * 1024; // 100 MB per file
 const MAX_TOTAL_UNCOMPRESSED_SIZE: u64 = 2 * 1024 * 1024 * 1024; // 2 GB total
 
+#[cfg(any(target_os = "ios", test))]
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub(crate) enum MobileExport {
+    Notes,
+    Backup { password: String },
+    Settings { json: String },
+}
+
+#[cfg(any(target_os = "ios", test))]
+struct PreparedExport {
+    directory: PathBuf,
+    file: PathBuf,
+}
+
+#[cfg(any(target_os = "ios", test))]
+impl Drop for PreparedExport {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.directory);
+    }
+}
+
+/// Build the complete payload in a private, unique staging directory. The
+/// guard stays alive through the native picker and removes it on every exit.
+#[cfg(any(target_os = "ios", test))]
+fn prepare_mobile_export(
+    notes: &Path,
+    cache: &Path,
+    request: MobileExport,
+) -> Result<PreparedExport, String> {
+    let date = chrono::Local::now().format("%Y-%m-%d");
+    let filename = match &request {
+        MobileExport::Notes => format!("moldavite-export-{date}.zip"),
+        MobileExport::Backup { .. } => format!("moldavite-backup-{date}.moldavite-backup"),
+        MobileExport::Settings { .. } => format!("moldavite-settings-{date}.json"),
+    };
+    fs::create_dir_all(cache).map_err(|e| e.to_string())?;
+    let directory = cache.join(format!("moldavite-export-{:032x}", rand::random::<u128>()));
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(&directory).map_err(|e| e.to_string())?;
+    let prepared = PreparedExport {
+        file: directory.join(filename),
+        directory,
+    };
+    match request {
+        MobileExport::Notes => export_notes_to(notes, &prepared.file)?,
+        MobileExport::Backup { password } => {
+            let password = Zeroizing::new(password);
+            export_encrypted_backup_to(notes, &prepared.file, &password)?;
+        }
+        MobileExport::Settings { json } => {
+            export_settings_json(prepared.file.to_string_lossy().into_owned(), json)?;
+        }
+    }
+    Ok(prepared)
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+pub(crate) async fn export_mobile_document(
+    app: tauri::AppHandle,
+    request: MobileExport,
+) -> Result<bool, String> {
+    use tauri::Manager;
+    use tauri_plugin_document_export::DocumentExportExt;
+    let notes = get_notes_dir();
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        prepare_mobile_export(&notes, &cache, request)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    app.document_export().export(&prepared.file).await
+}
+
 /// Basic structure validation for a single ZIP entry name — rejects empty
 /// names, absolute paths, drive letters, NUL bytes, and backslash separators
 /// (which some Windows-created ZIPs use and that our `parts.len() != 2` split
@@ -635,6 +715,72 @@ mod tests {
         for subdir in ["daily", "weekly", "notes", "templates", "images"] {
             fs::create_dir_all(path.join(subdir)).unwrap();
         }
+    }
+
+    #[test]
+    fn mobile_exports_contain_complete_payloads_and_remove_staging_files() {
+        let tmp = ExportTempDir::new("mobile-payloads");
+        let source = tmp.0.join("source");
+        let cache = tmp.0.join("cache");
+        scaffold(&source);
+        fs::write(source.join("notes/note.md"), "private note").unwrap();
+
+        let prepared = prepare_mobile_export(&source, &cache, MobileExport::Notes).unwrap();
+        let path = prepared.file.clone();
+        let mut archive = ZipArchive::new(fs::File::open(&path).unwrap()).unwrap();
+        let mut note = String::new();
+        archive
+            .by_name("notes/note.md")
+            .unwrap()
+            .read_to_string(&mut note)
+            .unwrap();
+        assert_eq!(note, "private note");
+        drop(archive);
+        drop(prepared);
+        assert!(!path.exists());
+
+        let json = "{\"app\":\"moldavite\"}";
+        let prepared = prepare_mobile_export(
+            &source,
+            &cache,
+            MobileExport::Settings { json: json.into() },
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(&prepared.file).unwrap(), json);
+        drop(prepared);
+
+        let prepared = prepare_mobile_export(
+            &source,
+            &cache,
+            MobileExport::Backup {
+                password: "test password".into(),
+            },
+        )
+        .unwrap();
+        let restored = tmp.0.join("restored");
+        scaffold(&restored);
+        import_encrypted_backup_into(&restored, &prepared.file, "test password", true).unwrap();
+        assert_eq!(
+            fs::read_to_string(restored.join("notes/note.md")).unwrap(),
+            "private note"
+        );
+        drop(prepared);
+        assert_eq!(fs::read_dir(&cache).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn a_failed_mobile_export_removes_its_staging_directory() {
+        let tmp = ExportTempDir::new("mobile-failed");
+        let cache = tmp.0.join("cache");
+        let result = prepare_mobile_export(
+            &tmp.0,
+            &cache,
+            MobileExport::Settings {
+                json: "x".repeat(2 * 1024 * 1024 + 1),
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(fs::read_dir(cache).unwrap().count(), 0);
     }
 
     #[test]

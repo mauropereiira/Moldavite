@@ -2995,6 +2995,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
+ "tauri-plugin-document-export",
  "tauri-plugin-icloud",
  "tauri-plugin-log",
  "tauri-plugin-process",
@@ -5566,6 +5567,16 @@ dependencies = [
  "tauri-plugin-fs",
  "thiserror 2.0.17",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-document-export"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

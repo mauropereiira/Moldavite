@@ -94,6 +94,7 @@ swift-rs = "1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-icloud = { path = "plugins/tauri-plugin-icloud" }
+tauri-plugin-document-export = { path = "plugins/tauri-plugin-document-export" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Native-messaging hosts are discovered through HKCU on Windows; every other

@@ -51,6 +51,13 @@ completed.
 - Three macOS tests exercise the native file-coordination boundary from Rust:
   whole-accessor serialization, content preservation before replacement and
   releasing access after errors/panics. Forge content I/O does not use it yet.
+- Settings ZIP export was reproduced as a zero-byte file in On My iPhone.
+  The replacement builds the complete payload before the native document picker
+  copies it. The destination ZIP now contains all three simulator notes with
+  their original text; the settings JSON destination parses correctly. Save and
+  Cancel both release and remove staging files. Rust tests restore the staged
+  encrypted backup and cover cleanup after failed generation. The encrypted
+  picker/import round-trip still needs runtime verification.
 
 ## Required before shipping
 
@@ -59,7 +66,7 @@ completed.
 | Navigation and dialogs | Every page and dialog, light and dark, portrait and landscape, keyboard open and closed, 44pt targets, no hover-only actions |
 | Editor | Long-note caret scrolling, autocorrect and selection on a physical iPhone, image photo picker, wiki links, tags, tasks, locking, undo/redo and formatting beyond Bold |
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
-| Data portability | Verify exports and encrypted backups contain real bytes at the selected destination; Tauri's iOS save dialog initially exports an empty placeholder before Rust writes the data |
+| Data portability | Single-note and selected-note exports still need the native flow; encrypted export/import, plain import, Files providers and interruption tests remain. Settings ZIP and JSON exports are verified in On My iPhone |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
 | iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated Rust content access, metadata reconciliation, desktop discovery and cross-Forge moves remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
