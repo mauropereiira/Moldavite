@@ -107,7 +107,9 @@ const BUDGETS = [
 // 616.0 KB raw / 170.3 KB gz.
 // 620 / 172: local-device onboarding, keyboard formatting/dismissal, and mobile
 // integration gates add 2.7 KB raw / 0.9 KB gz. Lazy mobile chunks still count.
-const APP_JS_BUDGET = { rawKb: 620, gzipKb: 172 };
+// Native mobile note/selection exports add ~3.5 KB raw / 1.4 KB gz across the
+// entry points and a lazy helper. No new frontend dependencies.
+const APP_JS_BUDGET = { rawKb: 624, gzipKb: 174 };
 
 async function main() {
   let entries;

@@ -574,7 +574,7 @@ html[data-platform='mobile'] .modal-elevated {
 }
 
 html[data-platform='mobile'] .modal-elevated .btn {
-  min-height: 40px;
+  min-height: var(--touch-target);
 }
 
 /* Context menus and the trash popover: fixed at the pointer, so they can
@@ -586,6 +586,10 @@ html[data-platform='mobile'] .impact-surface.fixed {
 
 html[data-platform='mobile'] .sidebar-context-menu button {
   min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .sidebar-context-menu {
+  overflow-y: auto;
 }
 
 /* What's New. */

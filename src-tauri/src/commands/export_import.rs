@@ -34,8 +34,23 @@ const MAX_TOTAL_UNCOMPRESSED_SIZE: u64 = 2 * 1024 * 1024 * 1024; // 2 GB total
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum MobileExport {
     Notes,
-    Backup { password: String },
-    Settings { json: String },
+    Backup {
+        password: String,
+    },
+    Settings {
+        json: String,
+    },
+    Note {
+        path: String,
+    },
+    Selection {
+        paths: Vec<String>,
+    },
+    Text {
+        path: String,
+        filename: String,
+        content: String,
+    },
 }
 
 #[cfg(any(target_os = "ios", test))]
@@ -64,6 +79,18 @@ fn prepare_mobile_export(
         MobileExport::Notes => format!("moldavite-export-{date}.zip"),
         MobileExport::Backup { .. } => format!("moldavite-backup-{date}.moldavite-backup"),
         MobileExport::Settings { .. } => format!("moldavite-settings-{date}.json"),
+        MobileExport::Note { path } => mobile_note_source(notes, path)?
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned(),
+        MobileExport::Selection { .. } => format!("moldavite-selected-{date}.zip"),
+        MobileExport::Text { filename, .. } => {
+            if !crate::validation::is_safe_filename(filename) || !filename.ends_with(".txt") {
+                return Err("Invalid text export filename".to_string());
+            }
+            filename.clone()
+        }
     };
     fs::create_dir_all(cache).map_err(|e| e.to_string())?;
     let directory = cache.join(format!("moldavite-export-{:032x}", rand::random::<u128>()));
@@ -87,8 +114,82 @@ fn prepare_mobile_export(
         MobileExport::Settings { json } => {
             export_settings_json(prepared.file.to_string_lossy().into_owned(), json)?;
         }
+        MobileExport::Note { path } => {
+            let source = mobile_note_source(notes, &path)?;
+            let content = fs::read(source).map_err(|e| e.to_string())?;
+            crate::persist::write_atomic(&prepared.file, &content, Some(0o600))?;
+        }
+        MobileExport::Selection { paths } => {
+            export_selected_mobile_notes(notes, &prepared.file, &paths)?;
+        }
+        MobileExport::Text { path, content, .. } => {
+            mobile_note_source(notes, &path)?;
+            crate::persist::write_atomic(&prepared.file, content.as_bytes(), Some(0o600))?;
+        }
     }
     Ok(prepared)
+}
+
+#[cfg(any(target_os = "ios", test))]
+fn mobile_note_source(notes: &Path, path: &str) -> Result<PathBuf, String> {
+    let (category, relative) = path.split_once('/').ok_or("Invalid note path")?;
+    if !matches!(category, "notes" | "daily" | "weekly")
+        || !crate::validation::is_safe_existing_note_path(relative)
+        || !relative.ends_with(".md")
+        || (category != "notes" && relative.contains('/'))
+    {
+        return Err("Invalid note path".to_string());
+    }
+    let base = notes.join(category);
+    let source = base.join(relative);
+    validate_path_within_base(&source, &base).map_err(|_| "Invalid note path")?;
+    let locked = source.with_extension("md.locked");
+    if locked.exists() {
+        return Err("Unlock the selected note before exporting".to_string());
+    }
+    if !source.is_file() {
+        return Err("Note not found".to_string());
+    }
+    Ok(source)
+}
+
+#[cfg(any(target_os = "ios", test))]
+fn export_selected_mobile_notes(
+    notes: &Path,
+    destination: &Path,
+    paths: &[String],
+) -> Result<(), String> {
+    if paths.is_empty() || paths.len() > MAX_ARCHIVE_ENTRIES {
+        return Err("Invalid export selection".to_string());
+    }
+    let sources = paths
+        .iter()
+        .map(|path| mobile_note_source(notes, path))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(destination).map_err(|e| e.to_string())?;
+    let mut archive = zip::ZipWriter::new(file);
+    for (relative, source) in paths.iter().zip(sources) {
+        archive
+            .start_file(
+                relative,
+                SimpleFileOptions::default().unix_permissions(0o600),
+            )
+            .map_err(|e| e.to_string())?;
+        let mut input = fs::File::open(source).map_err(|e| e.to_string())?;
+        std::io::copy(&mut input, &mut archive).map_err(|e| e.to_string())?;
+    }
+    archive
+        .finish()
+        .map_err(|e| e.to_string())?
+        .sync_all()
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(target_os = "ios")]
@@ -781,6 +882,100 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(fs::read_dir(cache).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn mobile_note_exports_preserve_metadata_and_distinguish_nested_names() {
+        let tmp = ExportTempDir::new("mobile-selection");
+        let source = tmp.0.join("source");
+        let cache = tmp.0.join("cache");
+        scaffold(&source);
+        fs::create_dir_all(source.join("notes/Project")).unwrap();
+        let raw = "---\ncolor: sage\ncustom: keep\n---\n# Nested note\n";
+        fs::write(source.join("notes/Project/same.md"), raw).unwrap();
+        fs::write(source.join("notes/same.md"), "root note").unwrap();
+        let prepared = prepare_mobile_export(
+            &source,
+            &cache,
+            MobileExport::Note {
+                path: "notes/Project/same.md".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(prepared.file.file_name().unwrap(), "same.md");
+        assert_eq!(fs::read_to_string(&prepared.file).unwrap(), raw);
+        drop(prepared);
+
+        let prepared = prepare_mobile_export(
+            &source,
+            &cache,
+            MobileExport::Selection {
+                paths: vec!["notes/Project/same.md".into(), "notes/same.md".into()],
+            },
+        )
+        .unwrap();
+        let mut archive = ZipArchive::new(fs::File::open(&prepared.file).unwrap()).unwrap();
+        assert_eq!(archive.len(), 2);
+        let mut content = String::new();
+        archive
+            .by_name("notes/Project/same.md")
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
+        assert_eq!(content, raw);
+        content.clear();
+        archive
+            .by_name("notes/same.md")
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
+        assert_eq!(content, "root note");
+        drop(archive);
+        drop(prepared);
+
+        let prepared = prepare_mobile_export(
+            &source,
+            &cache,
+            MobileExport::Text {
+                path: "notes/Project/same.md".into(),
+                filename: "note.txt".into(),
+                content: "Plain text ✓".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(&prepared.file).unwrap(), "Plain text ✓");
+    }
+
+    #[test]
+    fn mobile_note_exports_reject_internal_paths_traversal_and_locked_notes() {
+        let tmp = ExportTempDir::new("mobile-note-validation");
+        scaffold(&tmp.0);
+        fs::write(tmp.0.join("notes/secret.md"), "stale plaintext").unwrap();
+        fs::write(tmp.0.join("notes/secret.md.locked"), "encrypted").unwrap();
+        for path in [
+            "notes/secret.md",
+            "notes/secret.md.locked",
+            "notes/../secret.md",
+            "daily/sub/note.md",
+            "images/note.md",
+            ".trash/note.md",
+            "/etc/passwd",
+            "notes/missing.md",
+        ] {
+            assert!(mobile_note_source(&tmp.0, path).is_err(), "{path}");
+        }
+        for filename in ["../outside.txt", "/tmp/outside.txt", "note.md"] {
+            assert!(prepare_mobile_export(
+                &tmp.0,
+                &tmp.0.join("cache"),
+                MobileExport::Text {
+                    path: "notes/secret.md".into(),
+                    filename: filename.into(),
+                    content: "text".into()
+                }
+            )
+            .is_err());
+        }
     }
 
     #[test]

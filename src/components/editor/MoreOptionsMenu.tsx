@@ -122,6 +122,11 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(currentNote.id, 'markdown')) onShowToast?.('Note exported');
+        return;
+      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`
@@ -197,6 +202,12 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(currentNote.id, 'plaintext'))
+          onShowToast?.('Exported as plaintext');
+        return;
+      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`

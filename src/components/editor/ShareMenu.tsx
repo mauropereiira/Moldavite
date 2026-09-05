@@ -1,6 +1,7 @@
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { htmlToMarkdown } from '@/lib';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface ShareMenuProps {
   onShowToast?: (message: string) => void;
@@ -34,6 +35,11 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
     if (!currentNote) return;
 
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(currentNote.id, 'plaintext')) onShowToast?.('Exported as text');
+        return;
+      }
       // Convert HTML content to plain text
       const markdown = htmlToMarkdown(currentNote.content);
       const plainText = markdown
@@ -57,6 +63,7 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
       onShowToast?.('Exported as text');
     } catch (error) {
       console.error('[ShareMenu] Failed to export as text:', error);
+      if (isMobilePlatform()) onShowToast?.('Failed to export text');
     }
   };
 

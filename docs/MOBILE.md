@@ -195,14 +195,18 @@ release work explicitly; it is not a claim that this branch is ready to upload.
 
 ## Native document exports
 
-Settings ZIP, encrypted backup and JSON exports use `tauri-plugin-document-export`
+Settings ZIP, encrypted backup and JSON exports, individual Markdown/plaintext
+notes, and selected-note ZIP archives use `tauri-plugin-document-export`
 on iOS. Rust creates a complete file in a private cache directory, then the
 [native document picker](https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller/init(forexporting:ascopy:))
 copies it to the user's selected location. A Rust guard removes the staging
 directory after success, cancellation or failure. No arbitrary file path is
 accepted from JavaScript by this plugin. Desktop still selects a destination
-before writing. Individual-note and selected-note exports need the same mobile
-treatment before shipping.
+before writing. Mobile note exports flush pending autosave first; Markdown keeps
+frontmatter, and selection ZIPs keep full relative paths so same-named notes in
+different folders stay distinct. The backend rejects locked or invalid sources.
+Use a note’s Options → Select note, then tap additional notes to select them;
+the selection bar opens the ZIP export dialog. Mobile PDF export is excluded.
 
 Do not use `dialog.save()` followed by a Rust write on iOS. With the currently
 locked dialog plugin, this exports an empty placeholder and returns a cache

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isMobilePlatform } from '@/lib/platform';
 import { join } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
@@ -51,6 +52,22 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
     const targets: NoteFile[] = allNotes.filter((n) => selectedIds.has(n.path));
     if (targets.length === 0) {
       onClose();
+      return;
+    }
+
+    if (isMobilePlatform()) {
+      setBusy(true);
+      try {
+        const { exportMobileSelection } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileSelection(targets.map((note) => note.path))) {
+          toast.success(`Exported ${targets.length} notes`);
+          onClose();
+        }
+      } catch (error) {
+        toast.error(`Export failed: ${String(error)}`);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
 
@@ -170,45 +187,49 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
           Export {count} note{count === 1 ? '' : 's'}
         </h3>
         <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-          You&apos;ll be asked for a destination folder next. One file is written per note.
+          {isMobilePlatform()
+            ? 'Save the selected Markdown notes as a ZIP archive. Folder paths are preserved.'
+            : "You'll be asked for a destination folder next. One file is written per note."}
         </p>
 
-        <div className="space-y-2 mb-6">
-          {(
-            [
-              { value: 'markdown', label: 'Markdown (.md)' },
-              { value: 'plaintext', label: 'Plaintext (.txt)' },
-              { value: 'pdf', label: 'PDF (.pdf)' },
-            ] as Array<{ value: BulkFormat; label: string }>
-          ).map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer"
-              style={{
-                backgroundColor: format === opt.value ? 'var(--hover-overlay)' : 'transparent',
-              }}
-            >
-              <input
-                type="radio"
-                name="bulk-export-format"
-                value={opt.value}
-                checked={format === opt.value}
-                onChange={() => setFormat(opt.value)}
-                disabled={busy}
-              />
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                {opt.label}
-              </span>
-            </label>
-          ))}
-        </div>
+        {!isMobilePlatform() && (
+          <div className="space-y-2 mb-6">
+            {(
+              [
+                { value: 'markdown', label: 'Markdown (.md)' },
+                { value: 'plaintext', label: 'Plaintext (.txt)' },
+                { value: 'pdf', label: 'PDF (.pdf)' },
+              ] as Array<{ value: BulkFormat; label: string }>
+            ).map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer"
+                style={{
+                  backgroundColor: format === opt.value ? 'var(--hover-overlay)' : 'transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="bulk-export-format"
+                  value={opt.value}
+                  checked={format === opt.value}
+                  onChange={() => setFormat(opt.value)}
+                  disabled={busy}
+                />
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn focus-ring" disabled={busy}>
             Cancel
           </button>
           <button onClick={handleExport} className="btn btn-primary focus-ring" disabled={busy}>
-            {busy ? 'Exporting…' : 'Choose folder'}
+            {busy ? 'Exporting…' : isMobilePlatform() ? 'Save ZIP' : 'Choose folder'}
           </button>
         </div>
       </DialogSurface>

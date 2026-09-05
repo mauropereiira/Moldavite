@@ -1,7 +1,7 @@
 # iOS release verification
 
 This is a working checklist, not a release approval. The iOS app remains in
-development. Verification below was performed on 2026-09-05 using an iPhone 17
+development. Verification below was performed on 2026-09-05–06 using an iPhone 17
 simulator running iOS 26.5. No physical-device or iCloud-account test has been
 completed.
 
@@ -59,6 +59,15 @@ completed.
   encrypted backup and cover cleanup after failed generation. The encrypted
   picker/import round-trip still needs runtime verification.
 
+- Individual Markdown and plaintext notes save through the native Files picker.
+  The destination Markdown retained custom frontmatter and its complete body;
+  the text file contained the stripped text. A two-note selection ZIP retained
+  `notes/QA export nested/Proof.md` and `notes/Untitled (2).md` and both bodies.
+  Selection starts in Options and additional notes toggle with an ordinary tap.
+  The long Options menu now stays below the status bar; modal action buttons
+  have a 44pt minimum. Regression tests cover pending-edit refusal, nested paths,
+  metadata, locked sources and desktop selection behavior.
+
 ## Required before shipping
 
 | Area | Remaining proof |
@@ -66,7 +75,7 @@ completed.
 | Navigation and dialogs | Every page and dialog, light and dark, portrait and landscape, keyboard open and closed, 44pt targets, no hover-only actions |
 | Editor | Long-note caret scrolling, autocorrect and selection on a physical iPhone, image photo picker, wiki links, tags, tasks, locking, undo/redo and formatting beyond Bold |
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
-| Data portability | Single-note and selected-note exports still need the native flow; encrypted export/import, plain import, Files providers and interruption tests remain. Settings ZIP and JSON exports are verified in On My iPhone |
+| Data portability | Encrypted export/import, plain import, other Files providers and interruption tests remain. Settings ZIP/JSON, individual Markdown/plaintext and selected-note ZIP destinations are verified in On My iPhone |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
 | iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated Rust content access, metadata reconciliation, desktop discovery and cross-Forge moves remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |

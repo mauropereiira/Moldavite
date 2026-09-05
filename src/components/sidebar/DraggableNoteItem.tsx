@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { NoteFile } from '@/types';
 import { useNoteSelectionStore } from '@/stores';
+import { isMobilePlatform } from '@/lib/platform';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { dropPlaceFromPointer, isSameFolder } from './dropPlacement';
 import { DropIndicator } from './DropIndicator';
@@ -97,7 +98,7 @@ function DraggableNoteItemImpl({
     // cmd/ctrl when there's already an active selection — shift always
     // intercepts because shift has no prior meaning on a note row.
     const hasExistingSelection = useNoteSelectionStore.getState().selectedIds.size > 0;
-    if (e.shiftKey || ((e.metaKey || e.ctrlKey) && hasExistingSelection)) {
+    if (e.shiftKey || ((e.metaKey || e.ctrlKey || isMobilePlatform()) && hasExistingSelection)) {
       if (onSelectionClick) {
         e.preventDefault();
         e.stopPropagation();
