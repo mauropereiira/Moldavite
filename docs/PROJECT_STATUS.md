@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 4, 2026
+**Last Updated:** September 5, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -52,6 +52,7 @@
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Linux bundles are unsigned as well; Linux has no equivalent warning. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check, and can be switched off in Settings → About (manual checks still work); automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows and Linux), settings modal with focus trap
 - Window size and position are restored between launches
+- iOS is in development on the `mobile/ios-spike` branch, not shipped: the same React app and Rust core build through Tauri's iOS target and run on the iPhone simulator with a phone layout (icon rail navigation, full-screen pages, two-level Settings, keyboard-aware shell), a home screen widget that opens today's note through `moldavite://today`, and the desktop-only parts compiled out. See docs/MOBILE.md for the build, the gates and what is left
 
 ### Browser clipper
 
@@ -98,9 +99,10 @@
 2. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 3. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 4. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-5. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
-6. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
-7. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
+5. **iOS app** — in progress on `mobile/ios-spike` (docs/MOBILE.md). Next: the iCloud Drive container as a synced Forge, a formatting bar above the keyboard, a real-device run, TestFlight. Android follows through Tauri's Android target.
+6. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
+7. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
+8. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
 
