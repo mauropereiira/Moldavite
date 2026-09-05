@@ -78,6 +78,11 @@ pub(crate) mod wiki;
 #[cfg(test)]
 mod stress_test;
 
+// Exercise the exact iOS Rust/Swift boundary on macOS without an iCloud account.
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../plugins/tauri-plugin-icloud/src/coordination.rs"]
+mod file_coordination_tests;
+
 #[cfg(target_os = "macos")]
 use calendar::CalendarPermission;
 use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};

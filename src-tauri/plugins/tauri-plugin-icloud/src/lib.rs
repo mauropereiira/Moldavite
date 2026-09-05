@@ -2,6 +2,8 @@
 //! The app owns Forge selection, content I/O, and conflict-copy policy.
 #![cfg(target_os = "ios")]
 
+pub mod coordination;
+
 use serde::{Deserialize, Serialize};
 use tauri::{
     ipc::Channel,

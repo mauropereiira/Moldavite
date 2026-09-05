@@ -220,8 +220,15 @@ swift test --package-path src-tauri/plugins/tauri-plugin-icloud/ios/Core
 
 They cover placeholder vs empty-file handling, unknown download state, account
 invalidation and path/symlink containment. They do not prove iCloud delivery.
-Native content access must use [Apple file coordination](https://developer.apple.com/documentation/technologyoverviews/shared-data),
-while retaining Rust's atomic writes and hash-based conflict copies. The public
+The native `coordination::read/write` boundary holds [Apple file coordination](https://developer.apple.com/documentation/technologyoverviews/shared-data)
+while a synchronous Rust callback checks and changes a file. Callers must run on
+a worker thread, validate the returned path and download readiness inside the
+callback, and keep conflict detection, preservation and atomic replacement in
+one write accessor. This boundary is not yet connected to Forge content I/O.
+On macOS, `cargo test --lib file_coordination_tests` exercises the same Swift/Rust
+boundary: competing writes wait, a replacement preserves the prior content,
+and errors or panics release access. These local tests do not prove cloud conflict
+resolution. The public
 container keys follow [Apple's Info.plist reference](https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CocoaKeys.html).
 
 ## Not done yet

@@ -42,6 +42,9 @@ completed.
   published policy still describes the desktop app and must be updated before
   the iOS release.
 - Settings → About → Support opens the public GitHub issues page in Safari.
+- Three macOS tests exercise the native file-coordination boundary from Rust:
+  whole-accessor serialization, content preservation before replacement and
+  releasing access after errors/panics. Forge content I/O does not use it yet.
 
 ## Required before shipping
 
