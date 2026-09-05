@@ -1162,7 +1162,7 @@ export function Editor() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="editor-root flex flex-col h-full">
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <ConfirmDialog
@@ -1207,7 +1207,10 @@ export function Editor() {
             flow: a flex child of a zero-height row collapses to its padding
             box and the label overflows below it, which misaligns the hover
             wash from the text. */}
-        <div style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}>
+        <div
+          className="editor-paper-close-rail"
+          style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}
+        >
           <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
         </div>
 

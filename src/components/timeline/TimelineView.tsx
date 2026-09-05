@@ -173,12 +173,12 @@ export function TimelineView() {
 
   return (
     <div
-      className="flex flex-col h-full"
+      className="timeline-view flex flex-col h-full"
       style={{ backgroundColor: 'var(--bg-editor)', color: 'var(--text-primary)' }}
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-6 py-4"
+        className="timeline-view-header flex items-center justify-between px-6 py-4"
         style={{ borderBottom: '1px solid var(--border-muted)' }}
       >
         <h2
@@ -195,7 +195,7 @@ export function TimelineView() {
         <button
           type="button"
           onClick={close}
-          className="focus-ring text-xs transition-colors"
+          className="timeline-view-close focus-ring text-xs transition-colors"
           style={{ color: 'var(--text-muted)', borderBottom: '1px solid currentColor' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -207,7 +207,7 @@ export function TimelineView() {
       </div>
 
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="timeline-view-feed flex-1 overflow-y-auto px-6 py-6">
         {BUCKETS.every((b) => buckets[b.id].length === 0) && (
           <div className="py-16 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             No notes yet — create one to see it here.

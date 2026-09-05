@@ -100,6 +100,8 @@ export interface SettingsState {
   // UI State
   isSettingsOpen: boolean;
   activeSettingsTab: SettingsTab;
+  /** The section the phone's Settings page is showing; `null` is its list. */
+  settingsSection: SettingsTab | null;
 
   // Actions
   setNotesDirectory: (path: string) => void;
@@ -131,6 +133,7 @@ export interface SettingsState {
   setLastSeenOnboardingVersion: (version: number) => void;
   setIsSettingsOpen: (open: boolean) => void;
   setActiveSettingsTab: (tab: SettingsTab) => void;
+  setSettingsSection: (section: SettingsTab | null) => void;
   resetToDefaults: () => void;
 }
 
@@ -173,6 +176,7 @@ const defaultSettings = {
   lastSeenOnboardingVersion: 0,
   isSettingsOpen: false,
   activeSettingsTab: 'general' as SettingsTab,
+  settingsSection: null as SettingsTab | null,
 };
 
 const isChromeMode = (value: unknown): value is ChromeMode =>
@@ -264,8 +268,11 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
       setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
       setLastSeenOnboardingVersion: (version) => set({ lastSeenOnboardingVersion: version }),
-      setIsSettingsOpen: (open) => set({ isSettingsOpen: open }),
+      // Closing forgets the phone section, so Settings reopens at its list.
+      setIsSettingsOpen: (open) =>
+        set(open ? { isSettingsOpen: true } : { isSettingsOpen: false, settingsSection: null }),
       setActiveSettingsTab: (tab) => set({ activeSettingsTab: tab }),
+      setSettingsSection: (section) => set({ settingsSection: section }),
       resetToDefaults: () => set(defaultSettings),
     }),
     {

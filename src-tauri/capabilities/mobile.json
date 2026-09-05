@@ -1,0 +1,36 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capabilities for iOS and Android: the desktop set without the updater, process, and window-state plugins",
+  "platforms": ["iOS", "android"],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-destroy",
+    "shell:default",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        {
+          "url": "https://github.com/mauropereiira/Moldavite/releases"
+        },
+        {
+          "url": "https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md"
+        },
+        {
+          "url": "https://www.google.com/calendar/event?eid=*"
+        },
+        {
+          "url": "https://accounts.google.com/o/oauth2/v2/auth?*"
+        },
+        {
+          "url": "https://public-api.wordpress.com/oauth2/authorize?*"
+        }
+      ]
+    },
+    "dialog:default"
+  ]
+}

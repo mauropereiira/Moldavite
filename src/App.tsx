@@ -28,6 +28,7 @@ import {
   useSemanticStore,
 } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
+import { isMobilePlatform } from './lib/platform';
 import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
 import { registerAutosaveCloseGuard } from './lib/autosaveFlush';
 
@@ -56,6 +57,14 @@ function App() {
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {
     fixNotePermissions().catch(console.error);
+  }, []);
+
+  // A phone has no room for a pinned column and the rail is its only
+  // navigation. Written straight into the store: the setters also open or
+  // close surfaces, which is not wanted at startup.
+  useEffect(() => {
+    if (!isMobilePlatform()) return;
+    useSettingsStore.setState({ indexMode: 'overlay', agendaMode: 'overlay', showIconRail: true });
   }, []);
 
   // Load note colors on startup

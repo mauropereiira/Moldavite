@@ -38,6 +38,7 @@ import {
 } from '@/lib';
 import type { ImportResult } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 
@@ -56,6 +57,9 @@ const IMPORT_MODE_OPTIONS = [
 
 export function GeneralSection() {
   const settings = useSettingsStore();
+  // A phone cannot pick a folder (the dialog plugin has no directory picker
+  // on iOS) or open Finder, so those controls stay desktop-only.
+  const mobile = isMobilePlatform();
   // Actions are stable references, so selecting them individually (rather
   // than the whole store) means this section never re-renders on typing.
   const setNotes = useNoteStore((state) => state.setNotes);
@@ -361,26 +365,68 @@ export function GeneralSection() {
         </div>
 
         <div>
-          <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-            Forges folder
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={forgesRoot}
-              readOnly
-              className="flex-1 px-3 py-2 text-sm"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-tertiary)',
-              }}
-            />
+          {!mobile && (
+            <>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                Forges folder
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={forgesRoot}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-tertiary)',
+                  }}
+                />
+                <button
+                  onClick={handleChangeDirectory}
+                  disabled={isChangingDir}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  <FolderOpen aria-hidden="true" className="w-4 h-4" />
+                  {isChangingDir ? 'Switching...' : 'Change'}
+                </button>
+              </div>
+            </>
+          )}
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+            Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
+            <span
+              className={mobile ? 'font-mono' : 'font-mono break-all'}
+              style={
+                mobile
+                  ? { color: 'var(--text-tertiary)', overflowWrap: 'anywhere', fontSize: '13px' }
+                  : { color: 'var(--text-tertiary)' }
+              }
+            >
+              {notesDirectory}
+            </span>
+            .
+          </p>
+          {!mobile && (
+            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+              Changing this points Moldavite at a different folder — it does not move your files. To
+              relocate a Forge, quit Moldavite, move the folder yourself, then point it here.
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {!mobile && (
             <button
-              onClick={handleChangeDirectory}
-              disabled={isChangingDir}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              onClick={handleOpenInFinder}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
               style={{
                 backgroundColor: 'transparent',
                 border: '1px solid var(--border-default)',
@@ -388,37 +434,10 @@ export function GeneralSection() {
                 color: 'var(--text-secondary)',
               }}
             >
-              <FolderOpen aria-hidden="true" className="w-4 h-4" />
-              {isChangingDir ? 'Switching...' : 'Change'}
+              <ExternalLink aria-hidden="true" className="w-4 h-4" />
+              {CURRENT_PLATFORM === 'windows' ? 'Show in Explorer' : 'Open Forge in Finder'}
             </button>
-          </div>
-          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
-            <span className="font-mono break-all" style={{ color: 'var(--text-tertiary)' }}>
-              {notesDirectory}
-            </span>
-            .
-          </p>
-          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Changing this points Moldavite at a different folder — it does not move your files. To
-            relocate a Forge, quit Moldavite, move the folder yourself, then point it here.
-          </p>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={handleOpenInFinder}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <ExternalLink aria-hidden="true" className="w-4 h-4" />
-            {CURRENT_PLATFORM === 'windows' ? 'Show in Explorer' : 'Open Forge in Finder'}
-          </button>
+          )}
           <button
             onClick={handleRescan}
             disabled={isRescanning}

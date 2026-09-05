@@ -9,7 +9,16 @@ dist-ssr/
 
 # Rust/Tauri build outputs
 src-tauri/target/
-src-tauri/gen/
+# The iOS project is tracked (Info.plist, entitlements, the widget target);
+# only its build products are not. Android is not generated yet.
+src-tauri/gen/schemas/
+src-tauri/gen/apple/assets/
+src-tauri/gen/apple/Externals/
+src-tauri/gen/apple/build/
+src-tauri/gen/apple/Pods/
+src-tauri/gen/apple/Podfile.lock
+src-tauri/gen/apple/**/xcuserdata/
+src-tauri/gen/android/
 
 # IDE
 .idea/

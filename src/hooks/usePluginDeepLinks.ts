@@ -26,7 +26,13 @@ interface NoteDeepLinkRequest {
   path: string;
 }
 
-type DeepLinkRequest = PluginDeepLinkRequest | NoteDeepLinkRequest;
+/** `moldavite://today`: what the home screen widget opens. */
+interface TodayDeepLinkRequest {
+  kind: 'today';
+}
+
+type DeepLinkRequest = PluginDeepLinkRequest | NoteDeepLinkRequest | TodayDeepLinkRequest;
+type LoadDailyNote = (date: Date) => Promise<void>;
 type LoadNote = (note: NoteFile, inNewTab?: boolean) => Promise<void>;
 type RefreshNotes = () => Promise<void>;
 
@@ -122,9 +128,20 @@ export async function routeNoteRequest(
   return true;
 }
 
+/** Leave every page and land in today's daily note, creating it if needed. */
+export async function routeTodayRequest(loadDailyNote: LoadDailyNote): Promise<void> {
+  useTimelineStore.getState().close();
+  useGraphStore.getState().close();
+  useSettingsStore.getState().setIsSettingsOpen(false);
+  const today = new Date();
+  useNoteStore.getState().setSelectedDate(today);
+  await loadDailyNote(today);
+}
+
 function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
+  if (request.kind === 'today') return true;
   if (request.kind === 'plugin') {
     return typeof request.id === 'string' && PLUGIN_ID_RE.test(request.id);
   }
@@ -137,7 +154,7 @@ function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {
  * cold/running routing paths.
  */
 export function usePluginDeepLinks() {
-  const { loadNote, refresh } = useNotes();
+  const { loadNote, refresh, loadDailyNote } = useNotes();
 
   useEffect(() => {
     let disposed = false;
@@ -151,6 +168,8 @@ export function usePluginDeepLinks() {
           if (!isDeepLinkRequest(request)) continue;
           if (request.kind === 'plugin') {
             routePluginInstallRequest(request.id);
+          } else if (request.kind === 'today') {
+            await routeTodayRequest(loadDailyNote);
           } else {
             await routeNoteRequest(request.path, loadNote, refresh);
           }
@@ -177,5 +196,5 @@ export function usePluginDeepLinks() {
       disposed = true;
       unlisten?.();
     };
-  }, [loadNote, refresh]);
+  }, [loadDailyNote, loadNote, refresh]);
 }

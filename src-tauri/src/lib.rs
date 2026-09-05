@@ -200,13 +200,20 @@ pub fn run() {
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|_, _, _| {}));
 
-    builder
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init());
+
+    // The App Store owns updates and the restart after them, and a phone
+    // has no window geometry to restore.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build());
+
+    builder
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
@@ -241,6 +248,7 @@ pub fn run() {
             }
             // A moved app bundle leaves paired browsers pointing at a binary
             // that is no longer there; only already-paired browsers are touched.
+            #[cfg(desktop)]
             commands::browser_bridge::refresh_paired_manifests();
             if let Err(e) = migration::adopt_stray_root_layout() {
                 log::warn!("[forge] stray root layout migration error: {}", e);
@@ -268,9 +276,14 @@ pub fn run() {
             // The slot is managed unconditionally, even if this spawn fails, so
             // a later switch still has somewhere to install its watcher.
             let watcher_slot = forge_watcher::WatcherSlot::default();
-            match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
-                Ok(h) => watcher_slot.replace(Some(h)),
-                Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
+            // iOS has no FSEvents, so `notify` polls there and reports the
+            // app's own writes back as external edits. Nothing else can touch
+            // the sandboxed Forge yet; the iCloud work brings its own watcher.
+            if cfg!(desktop) {
+                match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
+                    Ok(h) => watcher_slot.replace(Some(h)),
+                    Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
+                }
             }
             app.manage(watcher_slot);
             wordpress::init(app.handle());
@@ -285,8 +298,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            #[cfg(desktop)]
             commands::browser_bridge::browser_bridge_status,
+            #[cfg(desktop)]
             commands::browser_bridge::connect_browser_bridge,
+            #[cfg(desktop)]
             commands::browser_bridge::disconnect_browser_bridge,
             wordpress_status,
             wordpress_connect,

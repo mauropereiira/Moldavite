@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { isMobilePlatform } from '@/lib/platform';
 import { X, Search, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useTemplates } from '@/hooks/useTemplates';
@@ -35,6 +36,8 @@ export function TemplatePickerModal({
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
       // Small delay to ensure modal is rendered
+      // A phone would raise the keyboard over the cards before anyone asked.
+      if (isMobilePlatform()) return;
       setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [isOpen]);
@@ -75,7 +78,7 @@ export function TemplatePickerModal({
       aria-labelledby="template-picker-title"
     >
       <div
-        className="rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
+        className="template-picker-modal rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
         {/* Header */}

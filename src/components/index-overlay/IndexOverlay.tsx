@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface IndexOverlayProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
           reason to be independently positioned. As a flex row they keep their
           gap whatever the text, and they stay out of the header entirely. */}
       <div
+        className="app-overlay-controls"
         style={{
           position: 'absolute',
           top: '20px',
@@ -60,6 +62,7 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
         }}
       >
         <span
+          className="app-overlay-hint"
           style={{
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-display)',
@@ -75,7 +78,7 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
         <button
           type="button"
           onClick={onClose}
-          className="focus-ring"
+          className="focus-ring app-overlay-close"
           style={{
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-display)',
@@ -89,7 +92,8 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
         </button>
       </div>
 
-      <Sidebar presentation="index" autoFocusSearch onNavigate={onClose} />
+      {/* Auto-focus would raise the keyboard over the list on a phone. */}
+      <Sidebar presentation="index" autoFocusSearch={!isMobilePlatform()} onNavigate={onClose} />
     </div>
   );
 }

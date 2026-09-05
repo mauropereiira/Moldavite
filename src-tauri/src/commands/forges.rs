@@ -554,6 +554,9 @@ pub(crate) fn validate_storage_location(
 
 #[tauri::command]
 pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
+    if cfg!(target_os = "ios") {
+        return Err("The Forges folder is fixed to the app's container on iOS".to_string());
+    }
     let new_root = PathBuf::from(&path);
     if !new_root.is_absolute() {
         return Err("Path must be absolute".to_string());

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTemplateStore } from '@/stores/templateStore';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 import { TemplateCard } from './TemplateCard';
 
 interface EmptyNoteTemplatePickerProps {
@@ -30,13 +31,36 @@ export function EmptyNoteTemplatePicker({
     return null;
   }
 
+  // A phone has no room for the card grid under the placeholder, and no
+  // keyboard shortcut to mention: one button that opens the full picker.
+  if (isMobilePlatform()) {
+    if (!onOpenAllTemplates) return null;
+    return (
+      <div className="content-enter empty-note-template-mobile text-center px-4">
+        <button
+          type="button"
+          onClick={onOpenAllTemplates}
+          className="px-5 text-sm font-medium"
+          style={{
+            minHeight: 'var(--touch-target)',
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          View templates
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="content-enter max-w-md mx-auto text-center py-8 px-4">
       <h3 className="text-sm font-medium mb-4" style={{ color: 'var(--text-tertiary)' }}>
         Start with a template
       </h3>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="empty-note-template-grid grid grid-cols-3 gap-2 mb-4">
         {displayTemplates.map((template, index) => (
           <div
             key={template.id}
@@ -65,7 +89,7 @@ export function EmptyNoteTemplatePicker({
           View all templates
         </button>
       )}
-      <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+      <p className="empty-note-template-hint text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
         or press{' '}
         <kbd
           className="px-2 py-0.5 text-xs font-medium"

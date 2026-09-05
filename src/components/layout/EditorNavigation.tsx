@@ -3,6 +3,7 @@ import { useOverlayStore, useSettingsStore } from '@/stores';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
 import { captureImpactOrigin } from '@/lib/impactOrigin';
+import { isMobilePlatform } from '@/lib/platform';
 
 /**
  * Below this editor width the three links stop clearing the footer's own
@@ -84,7 +85,9 @@ export function EditorNavigation() {
       {isCollapsed ? (
         <Dropdown
           openDirection="up"
-          position="center"
+          // The phone pins this nav to the footer's left edge (mobile.css), so
+          // a centred popup would run off the screen there.
+          position={isMobilePlatform() ? 'left' : 'center'}
           trigger={
             <button type="button" className="text-link" style={linkStyle}>
               Menu

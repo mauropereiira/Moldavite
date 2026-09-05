@@ -4,6 +4,9 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 const ANALYZE = process.env.ANALYZE === '1';
+// `tauri ios dev` and `tauri android dev` set this to the Mac's LAN address so
+// the simulator or device can reach the dev server; desktop leaves it unset.
+const TAURI_DEV_HOST = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [
@@ -19,8 +22,10 @@ export default defineConfig({
   ].filter(Boolean),
   clearScreen: false,
   server: {
+    host: TAURI_DEV_HOST || false,
     port: 5173,
     strictPort: true,
+    hmr: TAURI_DEV_HOST ? { protocol: 'ws', host: TAURI_DEV_HOST, port: 5174 } : undefined,
     watch: {
       ignored: ['**/src-tauri/**'],
     },

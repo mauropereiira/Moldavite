@@ -9,6 +9,8 @@ import { PinnedBar } from './PinnedBar';
 import { IconRail } from './IconRail';
 import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 import { useElementWidth } from '@/hooks/useElementWidth';
+import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight';
+import { isMobilePlatform } from '@/lib/platform';
 
 // TimelineView pulls in calendar/event aggregation + its own render
 // pipeline — only load it when the user actually toggles the timeline on.
@@ -44,6 +46,12 @@ export function Layout() {
   } = useSettingsStore();
   const isTimelineOpen = useTimelineStore((s) => s.isOpen);
   const { activeOverlay, isSidebarHidden, isRightPanelHidden, closeOverlay } = useOverlayStore();
+
+  // On a phone the shell follows the visual viewport, so the software
+  // keyboard shrinks it instead of covering the bottom of the editor; there
+  // are no resizable columns either. See `useVisualViewportHeight`.
+  const isMobile = isMobilePlatform();
+  useVisualViewportHeight();
 
   const [isResizing, setIsResizing] = useState<ResizeTarget>(null);
   const [isHovering, setIsHovering] = useState<ResizeTarget>(null);
@@ -156,8 +164,15 @@ export function Layout() {
   return (
     <div
       ref={setShell}
-      className="flex flex-col h-screen w-screen overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-base)' }}
+      className={
+        isMobile
+          ? 'flex flex-col w-screen overflow-hidden'
+          : 'flex flex-col h-screen w-screen overflow-hidden'
+      }
+      style={{
+        backgroundColor: 'var(--bg-base)',
+        height: isMobile ? 'var(--app-height)' : undefined,
+      }}
     >
       {/* Full width, above everything including the rail and the index, so a
           pinned note is one click away from wherever you are. It sits outside
@@ -187,31 +202,35 @@ export function Layout() {
             >
               <Sidebar />
 
-              {/* Left Resize Handle */}
-              <div
-                className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
-                style={{
-                  transitionDuration: 'var(--duration-fast)',
-                  backgroundColor:
-                    isResizing === 'left'
-                      ? 'var(--accent-primary)'
-                      : isHovering === 'left'
-                        ? 'var(--border-strong)'
-                        : 'transparent',
-                }}
-                onMouseDown={handleMouseDown('left')}
-                onMouseEnter={() => setIsHovering('left')}
-                onMouseLeave={() => setIsHovering(null)}
-              />
+              {!isMobile && (
+                <>
+                  {/* Left Resize Handle */}
+                  <div
+                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+                    style={{
+                      transitionDuration: 'var(--duration-fast)',
+                      backgroundColor:
+                        isResizing === 'left'
+                          ? 'var(--accent-primary)'
+                          : isHovering === 'left'
+                            ? 'var(--border-strong)'
+                            : 'transparent',
+                    }}
+                    onMouseDown={handleMouseDown('left')}
+                    onMouseEnter={() => setIsHovering('left')}
+                    onMouseLeave={() => setIsHovering(null)}
+                  />
 
-              {/* Extended hit area for easier grabbing */}
-              <div
-                className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-10"
-                style={{ transform: 'translateX(50%)' }}
-                onMouseDown={handleMouseDown('left')}
-                onMouseEnter={() => setIsHovering('left')}
-                onMouseLeave={() => setIsHovering(null)}
-              />
+                  {/* Extended hit area for easier grabbing */}
+                  <div
+                    className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-10"
+                    style={{ transform: 'translateX(50%)' }}
+                    onMouseDown={handleMouseDown('left')}
+                    onMouseEnter={() => setIsHovering('left')}
+                    onMouseLeave={() => setIsHovering(null)}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -242,31 +261,35 @@ export function Layout() {
                 borderLeft: '1px solid var(--border-default)',
               }}
             >
-              {/* Right Resize Handle */}
-              <div
-                className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
-                style={{
-                  transitionDuration: 'var(--duration-fast)',
-                  backgroundColor:
-                    isResizing === 'right'
-                      ? 'var(--accent-primary)'
-                      : isHovering === 'right'
-                        ? 'var(--border-strong)'
-                        : 'transparent',
-                }}
-                onMouseDown={handleMouseDown('right')}
-                onMouseEnter={() => setIsHovering('right')}
-                onMouseLeave={() => setIsHovering(null)}
-              />
+              {!isMobile && (
+                <>
+                  {/* Right Resize Handle */}
+                  <div
+                    className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
+                    style={{
+                      transitionDuration: 'var(--duration-fast)',
+                      backgroundColor:
+                        isResizing === 'right'
+                          ? 'var(--accent-primary)'
+                          : isHovering === 'right'
+                            ? 'var(--border-strong)'
+                            : 'transparent',
+                    }}
+                    onMouseDown={handleMouseDown('right')}
+                    onMouseEnter={() => setIsHovering('right')}
+                    onMouseLeave={() => setIsHovering(null)}
+                  />
 
-              {/* Extended hit area for easier grabbing */}
-              <div
-                className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
-                style={{ transform: 'translateX(-50%)' }}
-                onMouseDown={handleMouseDown('right')}
-                onMouseEnter={() => setIsHovering('right')}
-                onMouseLeave={() => setIsHovering(null)}
-              />
+                  {/* Extended hit area for easier grabbing */}
+                  <div
+                    className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
+                    style={{ transform: 'translateX(-50%)' }}
+                    onMouseDown={handleMouseDown('right')}
+                    onMouseEnter={() => setIsHovering('right')}
+                    onMouseLeave={() => setIsHovering(null)}
+                  />
+                </>
+              )}
 
               <RightPanel />
             </div>

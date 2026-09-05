@@ -46,7 +46,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
       tabIndex={-1}
     >
       <header
-        className="app-overlay-section"
+        className="app-overlay-section app-overlay-header"
         style={
           {
             '--index': 0,
@@ -61,6 +61,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
       >
         <div>
           <h1
+            className="app-overlay-title"
             style={{
               fontFamily: 'var(--font-display)',
               fontSize: '28px',
@@ -71,6 +72,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
             Agenda
           </h1>
           <p
+            className="app-overlay-hint"
             style={{
               marginTop: '4px',
               color: 'var(--text-muted)',
@@ -85,7 +87,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
         <button
           type="button"
           onClick={onClose}
-          className="focus-ring"
+          className="focus-ring app-overlay-close"
           style={{
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-display)',
@@ -100,6 +102,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
       </header>
 
       <div
+        className="app-agenda-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
@@ -111,7 +114,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
       >
         {showCalendarWidget && (
           <section
-            className="app-overlay-section"
+            className="app-overlay-section app-agenda-calendar"
             style={
               {
                 '--index': 1,
@@ -129,7 +132,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
 
         {showTimelineWidget && (
           <section
-            className="app-overlay-section"
+            className="app-overlay-section app-agenda-timeline"
             style={
               {
                 '--index': 2,

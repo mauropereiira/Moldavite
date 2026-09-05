@@ -85,6 +85,9 @@
     "category": "Productivity",
     "shortDescription": "A local-first note-taking app for connected thinking",
     "longDescription": "Moldavite is a privacy-first note-taking app with rich text editing, daily notes, wiki-style linking, and calendar integration. Forged from cosmic impact.",
+    "iOS": {
+      "developmentTeam": "J6Z5WJKHZB"
+    },
     "macOS": {
       "entitlements": "Moldavite.entitlements",
       "exceptionDomain": null,

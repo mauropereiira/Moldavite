@@ -14,6 +14,7 @@ import {
   History,
   Pin,
   Command as CommandIcon,
+  X,
 } from 'lucide-react';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -31,6 +32,7 @@ import {
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import type { NoteFile } from '@/types';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
+import { isMobilePlatform } from '@/lib/platform';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 
@@ -568,6 +570,26 @@ export function QuickSwitcher() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {/* A phone has no Escape key, and the search covers the whole screen. */}
+          {isMobilePlatform() && (
+            <button
+              type="button"
+              className="quick-switcher-close"
+              aria-label="Close search"
+              onClick={close}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                width: 'var(--touch-target)',
+                height: 'var(--touch-target)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <X size={20} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <div className="quick-switcher-results">
