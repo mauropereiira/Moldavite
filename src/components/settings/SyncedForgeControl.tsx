@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForgeStore } from '@/stores';
+import { openForgeInFinder } from '@/lib/fileSystem';
+import { isMobilePlatform } from '@/lib/platform';
 
 export default function SyncedForgeControl() {
   const { forges, loadForges, setSyncedForge } = useForgeStore();
@@ -63,9 +65,19 @@ export default function SyncedForgeControl() {
         </div>
       )}
       <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-        Share this separate Forge between your iPhone, iPad and Mac through iCloud Drive. Your local
-        Forges stay on this device.
+        Turn on to create or open your iCloud Forge on this device. Notes added here will also be
+        available on your other Apple devices when you turn it on there. Your local Forges stay
+        separate.
       </p>
+      {!isMobilePlatform() && synced.isActive && synced.path && (
+        <button
+          type="button"
+          className="btn min-h-11 mt-2 text-xs"
+          onClick={() => void openForgeInFinder().catch((error) => setError(String(error)))}
+        >
+          Open synced folder in Finder
+        </button>
+      )}
     </div>
   );
 }

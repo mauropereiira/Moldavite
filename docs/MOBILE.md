@@ -242,8 +242,9 @@ Settings and Manage Forges now expose a separate **Synced Forge (iCloud Drive)**
 on Apple devices. Connecting waits for an account-bound initial metadata snapshot
 before changing the active Forge. Local Forge selection and storage stay intact;
 a failed connection leaves the current selection unchanged. An unavailable active
-cloud root returns an error, never a local fallback. Mac discovery opens the app's
-public `~/Library/Mobile Documents/iCloud~app~moldavite/Documents` container.
+cloud root returns an error, never a local fallback. Mac initializes the same native container through Foundation, so it can create
+the Forge before iOS is installed. Signed Mac builds include the iCloud
+entitlements and a Developer ID provisioning profile; see [RELEASING.md](RELEASING.md).
 
 Metadata names are merged with local note and folder listings, including pending
 notes, locked notes and empty remote directories. Completed downloads trigger

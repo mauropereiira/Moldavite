@@ -394,14 +394,16 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
           register as the rest of the chrome — it should be readable when you
           look for it and invisible when you are not. */}
       <div className="calendar-legend" aria-label="What the marks under each date mean">
-        {DAY_MARKS.filter(({ kind }) => !mobile || kind !== 'events').map(({ kind, label, color }) => (
-          <span key={kind} className="calendar-legend-item">
-            <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
-              <circle cx="3" cy="3" r="3" fill={color} />
-            </svg>
-            {label}
-          </span>
-        ))}
+        {DAY_MARKS.filter(({ kind }) => !mobile || kind !== 'events').map(
+          ({ kind, label, color }) => (
+            <span key={kind} className="calendar-legend-item">
+              <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+                <circle cx="3" cy="3" r="3" fill={color} />
+              </svg>
+              {label}
+            </span>
+          )
+        )}
       </div>
     </div>
   );

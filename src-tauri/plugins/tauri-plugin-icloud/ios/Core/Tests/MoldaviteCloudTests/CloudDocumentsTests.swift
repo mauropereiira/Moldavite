@@ -17,6 +17,38 @@ final class CloudDocumentsTests: XCTestCase {
         try FileManager.default.removeItem(at: root)
     }
 
+    func testFirstUseResolvesNativeContainerWithoutExistingFolder() throws {
+        let fresh = root.appendingPathComponent("new-container")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fresh.path))
+        var calls = 0
+        let cloud = try CloudDocuments.resolve(identity: { "account" as NSString }, container: {
+            calls += 1
+            return fresh
+        })
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(cloud.root.path, fresh.appendingPathComponent("Documents", isDirectory: true).path)
+    }
+
+    func testUnavailableAccountDoesNotInitializeContainer() {
+        XCTAssertThrowsError(try CloudDocuments.resolve(identity: { nil }, container: {
+            XCTFail("Must not initialize a container without an account")
+            return self.root
+        }))
+        XCTAssertThrowsError(try CloudDocuments.resolve(identity: { "account" as NSString },
+                                                       container: { nil }))
+    }
+
+    func testAccountSwitchDuringAndAfterResolutionRejectsAccess() throws {
+        var identity: NSString = "first"
+        XCTAssertThrowsError(try CloudDocuments.resolve(identity: { identity }, container: {
+            identity = "second"
+            return self.root
+        }))
+        let cloud = try CloudDocuments.resolve(identity: { identity }, container: { self.root })
+        identity = "third"
+        XCTAssertThrowsError(try cloud.validateIdentity())
+    }
+
     func testRejectsTraversalAbsolutePathsAndSymlinkedParents() throws {
         for path in ["", "/notes/a.md", "../a.md", "notes/../a.md", "notes//a.md",
                      "notes/./a.md", "notes\\a.md", "notes/a\0.md"] {

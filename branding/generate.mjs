@@ -1,3 +1,4 @@
+/* global process, console */
 // Uses the existing outlined brand assets. No fonts or network needed to render.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

@@ -2,7 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>NSCalendarsUsageDescription</key>
-    <string>Moldavite needs access to your calendar to display your events in the timeline.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.app.moldavite</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Moldavite</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

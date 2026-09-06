@@ -88,7 +88,8 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
     }
   };
 
-  const label = forges.find((forge) => (forge.id ?? forge.name) === active)?.name ?? active ?? 'Forge';
+  const label =
+    forges.find((forge) => (forge.id ?? forge.name) === active)?.name ?? active ?? 'Forge';
 
   return (
     <div ref={wrapRef} className="forge-switcher relative px-3 pt-4">
@@ -161,7 +162,10 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
               className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between"
               style={{ color: 'var(--text-primary)' }}
             >
-              <span className="truncate">{f.name}{f.isSynced ? ' · iCloud' : ''}</span>
+              <span className="truncate">
+                {f.name}
+                {f.isSynced ? ' · iCloud' : ''}
+              </span>
               {f.isActive && (
                 <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>active</span>
               )}

@@ -3,8 +3,8 @@ import Foundation
 
 public typealias CloudChangeCallback = @convention(c) (UnsafePointer<CChar>?) -> Void
 
-/// macOS uses the public Mobile Documents folder and its normal filesystem
-/// watcher. The metadata query also tracks names whose bytes are still remote.
+/// macOS initializes the same native container as iOS, including on first use.
+/// The metadata query also tracks names whose bytes are still remote.
 private final class DesktopCloudConnection {
     static let shared = DesktopCloudConnection()
     let connecting = NSLock()
@@ -24,7 +24,7 @@ public func connectDesktopCloud(
     guard connection.connecting.try() else { fail(CloudError.preparing); return }
     defer { connection.connecting.unlock() }
     do {
-        let documents = try CloudDocuments.resolveDesktop()
+        let documents = try CloudDocuments.resolve()
         try FileManager.default.createDirectory(at: documents.root, withIntermediateDirectories: true)
         CloudSession.shared.bind(documents)
         let gathered = DispatchSemaphore(value: 0)

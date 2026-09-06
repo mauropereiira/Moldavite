@@ -148,6 +148,20 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: security find-identity -v -p codesigning
 
+      - name: Install Mac iCloud provisioning profile
+        if: matrix.platform == 'macos-latest'
+        env:
+          MAC_ICLOUD_PROFILE: ${{ secrets.APPLE_MAC_ICLOUD_PROFILE }}
+        run: |
+          python3 - <<'PYPROFILE'
+          import base64, os, pathlib
+          value = os.environ.get("MAC_ICLOUD_PROFILE", "")
+          if not value:
+              raise SystemExit("APPLE_MAC_ICLOUD_PROFILE is required for Mac iCloud access")
+          pathlib.Path("src-tauri/Moldavite.provisionprofile").write_bytes(base64.b64decode(value, validate=True))
+          PYPROFILE
+          python3 scripts/check-mac-icloud-profile.py src-tauri/Moldavite.provisionprofile
+
       - name: Build signed and notarized macOS app
         if: matrix.platform == 'macos-latest'
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0

@@ -2,9 +2,11 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [2.7.0] - 2026-09-06
 
 ### Added
+
+- **Start your synced Forge on Mac.** Turn on Use synced Forge in Settings → General to create a separate iCloud folder, write notes, or open it in Finder. Connect the same Forge on iPhone or iPad later using the same iCloud account. Your existing local Forges stay separate.
 
 - A reusable Moldavite brand kit and branded iPhone, iPad and App Store icons.
 

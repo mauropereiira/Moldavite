@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -96,7 +96,10 @@
       "frameworks": [],
       "minimumSystemVersion": "10.15",
       "signingIdentity": "Developer ID Application: Mauro de Brito Marques Pereira (J6Z5WJKHZB)",
-      "providerShortName": "J6Z5WJKHZB"
+      "providerShortName": "J6Z5WJKHZB",
+      "files": {
+        "embedded.provisionprofile": "Moldavite.provisionprofile"
+      }
     },
     "windows": {
       "webviewInstallMode": {

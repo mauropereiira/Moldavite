@@ -79,3 +79,6 @@ skills-lock.json
 
 # Brand working files. Deliverables are copied to docs/ deliberately.
 brand/
+
+# Apple signing profiles are supplied locally or by CI, never committed.
+*.provisionprofile

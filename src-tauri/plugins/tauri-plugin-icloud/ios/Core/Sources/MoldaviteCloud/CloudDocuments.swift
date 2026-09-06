@@ -57,14 +57,20 @@ public final class CloudDocuments {
     /// FileManager may set up iCloud here, so callers must use a background queue.
     public static func resolve() throws -> CloudDocuments {
         let manager = FileManager.default
-        guard let identity = manager.ubiquityIdentityToken,
-              let container = manager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
+        return try resolve(identity: { manager.ubiquityIdentityToken }, container: {
+            manager.url(forUbiquityContainerIdentifier: containerIdentifier)
+        })
+    }
+
+    // Keep identity checks around container initialization: resolving a new
+    // container can take long enough for the signed-in account to change.
+    static func resolve(identity: @escaping () -> (any NSObjectProtocol)?,
+                        container: () -> URL?) throws -> CloudDocuments {
+        guard let initialIdentity = identity(), let container = container() else {
             throw CloudError.unavailable
         }
-        // An account change while resolving must not bind the old identity to
-        // a container belonging to the new account.
         let checkIdentity = {
-            guard let current = manager.ubiquityIdentityToken, identity.isEqual(current) else {
+            guard let current = identity(), initialIdentity.isEqual(current) else {
                 throw CloudError.accountChanged
             }
         }
@@ -72,27 +78,6 @@ public final class CloudDocuments {
         return CloudDocuments(root: container.appendingPathComponent("Documents", isDirectory: true),
                               checkIdentity: checkIdentity)
     }
-
-    #if os(macOS)
-    /// Desktop opens the public iOS container through iCloud Drive without
-    /// changing its local Forges root or requiring a sandbox entitlement.
-    public static func resolveDesktop() throws -> CloudDocuments {
-        let manager = FileManager.default
-        guard let identity = manager.ubiquityIdentityToken else { throw CloudError.unavailable }
-        let root = manager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Mobile Documents/iCloud~app~moldavite/Documents", isDirectory: true)
-        guard manager.fileExists(atPath: root.deletingLastPathComponent().path) else {
-            throw CloudError.unavailable
-        }
-        let checkIdentity = {
-            guard let current = manager.ubiquityIdentityToken, identity.isEqual(current) else {
-                throw CloudError.accountChanged
-            }
-        }
-        try checkIdentity()
-        return CloudDocuments(root: root, checkIdentity: checkIdentity)
-    }
-    #endif
 
     public func validateIdentity() throws {
         try checkIdentity()
