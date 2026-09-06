@@ -2,7 +2,7 @@ name: moldavite
 options:
   bundleIdPrefix: app.moldavite
   deploymentTarget:
-    iOS: 14.0
+    iOS: "17.0"
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -37,6 +37,8 @@ targets:
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
+      - path: ../../ios/PrivacyInfo.xcprivacy
+        buildPhase: resources
     info:
       path: moldavite_iOS/Info.plist
       properties:
@@ -95,6 +97,7 @@ targets:
       - sdk: Security.framework
       - sdk: UIKit.framework
       - sdk: WebKit.framework
+      - sdk: libsqlite3.tbd
     preBuildScripts:
       - script: |
           set -e
@@ -115,6 +118,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ../../ios/Widget/Sources
+      - path: ../../ios/Widget/PrivacyInfo.xcprivacy
+        buildPhase: resources
     info:
       path: ../../ios/Widget/Info.plist
       properties:

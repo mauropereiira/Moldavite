@@ -12,10 +12,13 @@
 		27B94E6842375F904FA33633 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B5E3EFBEE623F8897D9D428F /* LaunchScreen.storyboard */; };
 		33044DAA71C31B7287D50895 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F65318B9FE7325A1CA4A4517 /* UIKit.framework */; };
 		4D7FBAA8FDC3BEC84313766D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 869399E840478B02C0AC2B49 /* WidgetKit.framework */; };
+		4D8FEFEF4E8F8D48584AAB3C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A83135A1FA32922A3A562C8E /* PrivacyInfo.xcprivacy */; };
+		56F453B83FEC5B0F1933B6DF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8329B9E3B671F91116FDD342 /* PrivacyInfo.xcprivacy */; };
 		589E593754417479B0FF21D5 /* MoldaviteWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 619DE246C9125CA5B2B935F0 /* MoldaviteWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		61B7C00C8F7ED32A2E1FE454 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 01DBFF2329E19ECE140A0FB3 /* SwiftUI.framework */; };
 		6525223BC4E21188B1453B77 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ACC26D34547F67ED6ED0F69 /* CoreGraphics.framework */; };
 		68129C11481BF83A35733CCD /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6057468920709FBFAD679EC7 /* MetalKit.framework */; };
+		76715EEACA1CF891CC5998E8 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AEB79AD74D24C73A7C4481F0 /* libsqlite3.tbd */; };
 		7B63F537A8F4D53BA7C2CB9E /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39A3753D11CDBB03F00D913A /* Metal.framework */; };
 		8F0F5B0D28A2C4A2BA2D8EEF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DBA23E36A0D6E96F7D3102E5 /* Assets.xcassets */; };
 		9ABCB585476BF868AE289467 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA862E8841B94EEB9211E537 /* Security.framework */; };
@@ -88,6 +91,7 @@
 		71F5EA62488B2B5F35A2D80A /* secrets.rs */ = {isa = PBXFileReference; path = secrets.rs; sourceTree = "<group>"; };
 		74BDFD90D53CF8C62A2984AD /* moldavite_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = moldavite_iOS.entitlements; sourceTree = "<group>"; };
 		7DEFC6F0E0EF7E8AD54EF299 /* oauth.rs */ = {isa = PBXFileReference; path = oauth.rs; sourceTree = "<group>"; };
+		8329B9E3B671F91116FDD342 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		85D806E55D14E91FC25D8983 /* project-plan.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "project-plan.md"; sourceTree = "<group>"; };
 		8686AFFE6189E8C776DE5942 /* paths.rs */ = {isa = PBXFileReference; path = paths.rs; sourceTree = "<group>"; };
 		869399E840478B02C0AC2B49 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -97,8 +101,10 @@
 		926AA023080B9620023B19F8 /* persist.rs */ = {isa = PBXFileReference; path = persist.rs; sourceTree = "<group>"; };
 		9497DAD96A89C5CBBC9DF183 /* types.rs */ = {isa = PBXFileReference; path = types.rs; sourceTree = "<group>"; };
 		9D8967DEF2060FF5F4C5C780 /* notes.rs */ = {isa = PBXFileReference; path = notes.rs; sourceTree = "<group>"; };
+		A83135A1FA32922A3A562C8E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA614A2B02D4261EC3507722 /* templates_data.rs */ = {isa = PBXFileReference; path = templates_data.rs; sourceTree = "<group>"; };
 		AC542A765E9249F565F3287D /* server.rs */ = {isa = PBXFileReference; path = server.rs; sourceTree = "<group>"; };
+		AEB79AD74D24C73A7C4481F0 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		B08B64F991E7B266E78B1775 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		B2B582A648068F2A8AAFF765 /* cloud_forge.rs */ = {isa = PBXFileReference; path = cloud_forge.rs; sourceTree = "<group>"; };
 		B5E3EFBEE623F8897D9D428F /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -140,6 +146,7 @@
 				9ABCB585476BF868AE289467 /* Security.framework in Frameworks */,
 				33044DAA71C31B7287D50895 /* UIKit.framework in Frameworks */,
 				BA618EF8022B92A131294A27 /* WebKit.framework in Frameworks */,
+				76715EEACA1CF891CC5998E8 /* libsqlite3.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,6 +223,7 @@
 			children = (
 				3ACC26D34547F67ED6ED0F69 /* CoreGraphics.framework */,
 				B08B64F991E7B266E78B1775 /* libapp.a */,
+				AEB79AD74D24C73A7C4481F0 /* libsqlite3.tbd */,
 				39A3753D11CDBB03F00D913A /* Metal.framework */,
 				6057468920709FBFAD679EC7 /* MetalKit.framework */,
 				604788063312C583F84646A1 /* QuartzCore.framework */,
@@ -234,10 +242,12 @@
 				3148A36BEF647A30A0A16533 /* assets */,
 				DBA23E36A0D6E96F7D3102E5 /* Assets.xcassets */,
 				B5E3EFBEE623F8897D9D428F /* LaunchScreen.storyboard */,
+				95AF78D106940D15C3BE7E92 /* ios */,
 				32F4D31C9A72208E6D383C66 /* moldavite_iOS */,
 				72F472913AD3271924938152 /* Sources */,
 				CA4FC2E86AAF685014146F7B /* Sources */,
 				0B3862D5E290FEAE4EC3B4A3 /* src */,
+				D43D0B65C5587C5AC4751683 /* Widget */,
 				3ED2CF7BE96B47E78317F439 /* Frameworks */,
 				6962457A93F33191CE178D3E /* Products */,
 			);
@@ -283,6 +293,15 @@
 				FE940B63479C3D37732A1472 /* trash.rs */,
 			);
 			path = commands;
+			sourceTree = "<group>";
+		};
+		95AF78D106940D15C3BE7E92 /* ios */ = {
+			isa = PBXGroup;
+			children = (
+				8329B9E3B671F91116FDD342 /* PrivacyInfo.xcprivacy */,
+			);
+			name = ios;
+			path = ../../ios;
 			sourceTree = "<group>";
 		};
 		A344AAA82FAB86EE74188AE8 /* calendar */ = {
@@ -332,6 +351,15 @@
 			path = ../../ios/Widget/Sources;
 			sourceTree = "<group>";
 		};
+		D43D0B65C5587C5AC4751683 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				A83135A1FA32922A3A562C8E /* PrivacyInfo.xcprivacy */,
+			);
+			name = Widget;
+			path = ../../ios/Widget;
+			sourceTree = "<group>";
+		};
 		E4912B21458227ED863884B0 /* mcp */ = {
 			isa = PBXGroup;
 			children = (
@@ -350,6 +378,7 @@
 			buildConfigurationList = 474081406DCE14F221E0DA5B /* Build configuration list for PBXNativeTarget "MoldaviteWidget" */;
 			buildPhases = (
 				F00767F164136557AC3A3852 /* Sources */,
+				0D4FF4B5618F4DAC24AF0DEC /* Resources */,
 				33F87D1AD8726BCD30151C89 /* Frameworks */,
 			);
 			buildRules = (
@@ -425,12 +454,21 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0D4FF4B5618F4DAC24AF0DEC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D8FEFEF4E8F8D48584AAB3C /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		57EC02B0E21AE1B40CE68466 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				8F0F5B0D28A2C4A2BA2D8EEF /* Assets.xcassets in Resources */,
 				27B94E6842375F904FA33633 /* LaunchScreen.storyboard in Resources */,
+				56F453B83FEC5B0F1933B6DF /* PrivacyInfo.xcprivacy in Resources */,
 				A7014D9E3E01FD518C9225A0 /* assets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -573,7 +611,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -654,7 +692,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

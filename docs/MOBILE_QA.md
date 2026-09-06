@@ -40,8 +40,7 @@ completed.
   and verifies that mobile does not request calendar permissions.
 - Settings → About → Privacy policy opens the published page in Safari through
   the native opener. The earlier JavaScript shell call failed on iOS. The
-  published policy still describes the desktop app and must be updated before
-  the iOS release.
+  published policy was updated for iPhone and iPad on 6 September 2026.
 - Settings → About → Support opens the public GitHub issues page in Safari.
 - A tapped link in a note opens the intended page in Safari through the native
   mobile command. Web and mail schemes are checked again in Rust; unsupported
@@ -96,7 +95,7 @@ completed.
 | iPad | Native narrow-window multitasking, floating keyboard and remaining hardware shortcuts; two-column layout, rotation and Command-N verified |
 | iCloud implementation | Native bridge, Apple Forge selection, metadata listings and Mac discovery are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
-| Brand and distribution | Icon and launch screen inspection, status-bar/heading alignment, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight, complete App Store setup and upload instructions |
+| Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. App Review validation is blocked on encryption compliance for France. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
 
 ## Final command gates

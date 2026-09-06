@@ -1,48 +1,48 @@
 # iOS App Store handoff
 
-Working release guide, checked against Apple and Tauri documentation on
-2026-09-06. **This branch is not ready to submit for review yet.** A signed
-device archive and App Store IPA export succeeded with team `J6Z5WJKHZB`.
-Nothing has been uploaded. The privacy manifest and export declaration remain
-outstanding. The functional limitations are recorded in
-[MOBILE_QA.md](MOBILE_QA.md); no new device testing was performed for this export.
-Mauro chose direct App Store submission without TestFlight or further testing.
+Checked on 2026-09-06. **Uploaded and processed, but not submitted for review.**
+App Store Connect's Add for Review validation reports one remaining item:
+“This build is missing export compliance information.” Distribution including
+France requires encryption documentation for this implementation.
 
-App Store Connect record `6809157286` now exists as **Moldavite: Notes & Ideas**.
-Version `2.6.0`, the description, automatic release after approval, subtitle
-`Write, journal, connect`, Productivity category and calculated 4+ age rating
-were verified in the account. Reusable copy is in
-[IOS_STORE_LISTING.json](IOS_STORE_LISTING.json). The privacy draft states Data
-Not Collected and includes the policy URL; it has not been published. The local
-policy now describes iPhone/iPad storage, but that website update is not live.
-Mauro requested a free app: the saved schedule was verified at zero across
-the listed currencies. The public description is a short paragraph describing
-a notes app, at Mauro's request. Launch territories and the private
-review-contact email/phone are still needed. iPhone and iPad screenshot assets
-are in [the brand kit](../branding/app-store/README.md).
+## Current release
 
-## Actions Mauro needs to take in his Apple account
+- App: **Moldavite: Notes & Ideas**, Apple ID `6809157286`.
+- Bundle: `app.moldavite`; widget: `app.moldavite.widget`; team: `J6Z5WJKHZB`.
+- Version/build: `2.6.0` / `2.6.0`; minimum iOS/iPadOS **17.0**.
+- Signed archive, App Store export and upload succeeded on 6 September 2026.
+  The processed build is attached to the version and includes the branded icon.
+- Free pricing and all 175 territories, including future territories, are saved.
+  Regional availability remains subject to Apple's requirements and approval.
+- Short notes-app description, Productivity category, 4+ age rating, reviewer
+  contact, no sign-in requirement and automatic release after approval are saved.
+- Three iPhone and two iPad screenshots are saved. Reusable assets are in
+  [the brand kit](../branding/README.md), including logos and social graphics.
+- **Data Not Collected** is published. The updated iPhone/iPad privacy policy is
+  live at `https://mauropereiira.github.io/Moldavite/privacy.html`.
+- App and widget privacy manifests are packaged. The main app declares file
+  timestamps for its own container and user-selected files. iOS now links
+  Apple's SQLite; the archive no longer imports bundled SQLite's disk-volume
+  probes. Signature verification and a system-SQLite FTS5 schema/query probe
+  passed on the installed iOS 26.5 simulator runtime.
+- Further functional/device testing and TestFlight are deferred at Mauro's
+  request. The remaining limitations in [MOBILE_QA.md](MOBILE_QA.md) still apply.
 
-1. Confirm an active Apple Developer Program membership and accept outstanding
-   agreements. Sign into Xcode under Settings → Accounts with that team.
-2. In Certificates, Identifiers & Profiles, register or verify the explicit app
-   ID `app.moldavite` and extension ID `app.moldavite.widget`. The tracked team is
-   `J6Z5WJKHZB`; confirm that it is the intended distribution team.
-3. Enable iCloud Documents for the main app ID, create or select
-   `iCloud.app.moldavite`, and associate that container with the main app. Refresh
-   provisioning profiles after changing capabilities. The current widget only
-   opens a deep link and needs no shared App Group or iCloud entitlement.
-4. Create the iOS app record in App Store Connect using the exact bundle ID
-   `app.moldavite`, the name Moldavite if available, the intended primary language
-   and a private SKU such as `moldavite-ios`. An app record must exist before
-   uploading a build. [Apple's workflow](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-workflow)
-5. Choose territories and price; complete the applicable tax, banking and EU
-   trader-status forms. These are account-owner decisions, not build settings.
-6. Complete the encryption questions described below. Supply the actual review
-   contact details and any documentation requested by Apple.
-7. Attach the uploaded build to the App Store version and submit for App Review
-   after completing the listing and declarations. TestFlight is optional and
-   is skipped for this release.
+The release package is on the Desktop in `Moldavite-App-Store-2026-09-06`:
+`Moldavite.xcarchive`, `Export/Moldavite.ipa`, screenshots and the brand-kit ZIP.
+Its READ-ME records source provenance and the current submission status.
+
+## Finish submission
+
+1. Resolve encryption compliance below. To retain France, obtain the requested
+   French declaration and upload it in App Information → App Encryption
+   Documentation. Do not upload a technical draft as an approved declaration.
+   Alternatively, Mauro can choose to exclude France for this release, then
+   answer the build's France question No. That decision is still pending.
+2. In the version's Build section, resolve Missing Compliance. The build is
+   already attached. Select Add for Review and resolve any further validation.
+3. Submit the version from App Review. Automatic release is selected, so Apple
+   publishes it after approval. An upload is not an approval or a live release.
 
 ## Prepare the release candidate
 
@@ -58,13 +58,8 @@ are in [the brand kit](../branding/app-store/README.md).
   including an opaque 1024px App Store icon. Reusable assets and regeneration
   instructions are in [the brand kit](../branding/README.md). Inspect the icon
   and launch screen on devices. Audit the final app and widget
-  privacy manifests and required-reason APIs. A simulator build does not prove
-  App Store privacy validation; the manifest work is still outstanding.
+  privacy manifests and required-reason APIs. The archive contains both manifests; Apple may still request corrections during review.
   [Apple's required-reason API guidance](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
-  The initial native-symbol audit found file-stat APIs and bundled SQLite's
-  `statfs`/`fstatfs` filesystem-type checks. The latter do not establish a
-  disk-capacity use case; do not blindly declare a low-disk-space reason.
-  Resolve this dependency's declaration against the final distribution binary.
 - Verify a release build starts without the Vite server. Development builds load
   localhost; they are not the build to distribute.
 
@@ -154,7 +149,8 @@ not by itself remove that French requirement. Do not prefill
 `ITSAppUsesNonExemptEncryption=false` merely because AES is standard. Record the
 actual classification and Apple's requested documentation, then set the plist
 value and any supplied compliance code accordingly. This account declaration
-is outstanding. [Apple's encryption table](https://developer.apple.com/help/app-store-connect/reference/export-compliance-documentation-for-encryption/),
+is the current submission blocker, confirmed by Apple’s questionnaire and
+Add for Review validation. [Apple's encryption table](https://developer.apple.com/help/app-store-connect/reference/export-compliance-documentation-for-encryption/),
 [questionnaire and upload steps](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)
 
 ## Store listing and review information
@@ -164,17 +160,17 @@ or desktop-only features:
 
 | Field | Prepared direction / action |
 | --- | --- |
-| Name | Moldavite, subject to name availability |
-| Subtitle | Local-first Markdown notes |
+| Name | Moldavite: Notes & Ideas |
+| Subtitle | Write, journal, connect |
 | Category | Productivity |
-| Description | Explain real Markdown files, local Forges, editing, links, tags, locking and verified optional iCloud sync |
+| Description | Short notes-app paragraph in IOS_STORE_LISTING.json |
 | Support URL | Verify a working public support route; the current project uses `https://github.com/mauropereiira/Moldavite/issues` |
 | Privacy Policy URL | The published privacy URL above, updated for the shipped iOS build |
 | Age rating | Complete Apple's current questionnaire based on actual app features |
 | Copyright | Mauro's chosen legal copyright attribution |
-| Review contact | Real name, email and phone entered by Mauro |
+| Review contact | Mauro’s supplied details are saved privately in App Store Connect |
 | Review login | No app login is required; do not provide an Apple account password |
-| Release | Select manual release for the first submission unless Mauro chooses otherwise |
+| Release | Automatically release after approval, as requested |
 
 Capture screenshots from the final release candidate using sample notes, with
 no personal content. Include iPhone and iPad because the app targets both.

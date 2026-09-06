@@ -52,13 +52,6 @@ tauri-plugin-deep-link = "2"
 
 bincode = "1.3"
 
-# Persistent keyword search index. `bundled` compiles SQLite from source, so
-# every platform gets the same build with FTS5 compiled in, regardless of what
-# the OS ships. rusqlite dropped its separate `fts5` feature — FTS5 is a
-# SQLite build option and the bundled amalgamation always enables it; the
-# schema test in `search_index` proves it is there.
-rusqlite = { version = "0.40", features = ["bundled"] }
-
 # Google Calendar REST + OAuth token exchange. rustls keeps this off the system
 # TLS stack; this is the only outbound HTTP the Rust process makes.
 reqwest = { version = "0.12", default-features = false, features = [
@@ -93,9 +86,17 @@ fastembed = { version = "5.17", default-features = false, features = [
 swift-rs = "1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
+# iOS ships SQLite with FTS5. Use the system library so the app does not
+# bundle SQLite's desktop filesystem probes (statfs/fstatfs). The iOS 17
+# deployment floor also covers rusqlite's SQLite 3.34.1 minimum.
+rusqlite = { version = "0.40" }
 tauri-plugin-icloud = { path = "plugins/tauri-plugin-icloud" }
 tauri-plugin-document-export = { path = "plugins/tauri-plugin-document-export" }
 tauri-plugin-mobile-ui = { path = "plugins/tauri-plugin-mobile-ui" }
+
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+# Keep bundled FTS5 on desktop and Android, independent of the OS library.
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Native-messaging hosts are discovered through HKCU on Windows; every other
