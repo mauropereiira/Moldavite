@@ -120,6 +120,8 @@ and troubleshooting. iOS availability and its full guide will follow separately.
 
 ## What else it does
 
+Settings → Appearance offers S–XL text sizes for the editor and desktop Settings.
+
 Wiki-links with vault-wide rename, backlinks, a graph view, full-text and local
 semantic search, Apple and Google Calendar on a timeline, note locking with
 AES-256-GCM, encrypted export, a one-time Obsidian importer that copies rather

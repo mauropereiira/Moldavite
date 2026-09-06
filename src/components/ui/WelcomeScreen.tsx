@@ -11,7 +11,6 @@ const CONSTELLATION_FIELD = { width: 1200, height: 800 };
 export const BACKGROUND_STAR_COUNT = 180;
 const METEOR_CADENCE_MS = { min: 14_000, max: 22_000 };
 const METEOR_DURATION_MS = { min: 900, max: 1_200 };
-const ASTEROID_LERP = 0.18;
 const ASTEROID_SIZE = 14;
 const ASTEROID_TRAIL = [
   { size: 4, lerp: 0.12, opacity: 0.24 },
@@ -179,11 +178,9 @@ function AsteroidCursor() {
     if (!asteroid || !impact) return;
 
     const target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    const position = { ...target };
     const trail = ASTEROID_TRAIL.map(() => ({ ...target }));
     let frame = 0;
     let visible = false;
-    let overInteractive = false;
 
     document.documentElement.classList.add('welcome-asteroid-cursor-active');
 
@@ -229,9 +226,11 @@ function AsteroidCursor() {
     const handlePointerMove = (event: globalThis.PointerEvent) => {
       target.x = event.clientX;
       target.y = event.clientY;
-      overInteractive =
+      const overInteractive =
         event.target instanceof Element &&
         event.target.closest('button, a, [role="button"], [role="link"]') !== null;
+      // Keep the pointer on the click target; only the decorative trail eases behind it.
+      asteroid.style.transform = `translate3d(${target.x - ASTEROID_SIZE / 2}px, ${target.y - ASTEROID_SIZE / 2}px, 0) scale(${overInteractive ? 1.16 : 1})`;
       reveal();
     };
 
@@ -244,12 +243,8 @@ function AsteroidCursor() {
     };
 
     const tick = () => {
-      position.x += (target.x - position.x) * ASTEROID_LERP;
-      position.y += (target.y - position.y) * ASTEROID_LERP;
-      asteroid.style.transform = `translate3d(${position.x - ASTEROID_SIZE / 2}px, ${position.y - ASTEROID_SIZE / 2}px, 0) scale(${overInteractive ? 1.16 : 1})`;
-
       trail.forEach((dot, index) => {
-        const leader = index === 0 ? position : trail[index - 1];
+        const leader = index === 0 ? target : trail[index - 1];
         const spec = ASTEROID_TRAIL[index];
         dot.x += (leader.x - dot.x) * spec.lerp;
         dot.y += (leader.y - dot.y) * spec.lerp;

@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFolderStore, useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
@@ -82,6 +82,25 @@ describe('WelcomeScreen layout settings', () => {
     });
 
     expect(container.querySelector('[data-testid="welcome-meteor"]')).toBeInTheDocument();
+  });
+
+  it('places the cursor at the pointer immediately, without waiting for animation frames', () => {
+    vi.useFakeTimers();
+    const view = render(
+      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
+    );
+    const cursor = view.getByTestId('welcome-asteroid-cursor');
+
+    // MouseEvent supplies coordinates in jsdom, which has no PointerEvent constructor.
+    fireEvent(document, new MouseEvent('pointermove', { clientX: 120, clientY: 180 }));
+    expect(cursor.style.transform).toBe('translate3d(113px, 173px, 0) scale(1)');
+
+    const button = view.getByRole('button', { name: /new note/i });
+    fireEvent(button, new MouseEvent('pointermove', { bubbles: true, clientX: 400, clientY: 300 }));
+    expect(cursor.style.transform).toBe('translate3d(393px, 293px, 0) scale(1.16)');
+
+    act(() => vi.advanceTimersByTime(100));
+    expect(cursor.style.transform).toBe('translate3d(393px, 293px, 0) scale(1.16)');
   });
 
   it('does not mount the meteor scheduler when reduced motion is preferred', () => {
