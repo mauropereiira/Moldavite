@@ -39,12 +39,13 @@ choose **More info → Run anyway**. Updates delivered inside the app are
 cryptographically signed and verified before they install.
 
 **Linux (beta)** — download `Moldavite_x.x.x_amd64.AppImage` for any
-distribution, or `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu. Both need
-glibc 2.38 or newer, which means Ubuntu 24.04, Debian 13, Fedora 39 or later;
-the local semantic-search runtime sets that floor. Mark the AppImage executable
-once, and install `libfuse2` if your distribution does not ship it
-(`sudo apt install libfuse2` on Ubuntu). In-app updates work for the AppImage.
-The deb is updated by installing the next one.
+distribution, `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu, or
+`Moldavite-x.x.x-1.x86_64.rpm` for Fedora. All need glibc 2.38 or newer, which
+means Ubuntu 24.04, Debian 13, Fedora 39 or later; the local semantic-search
+runtime sets that floor. Mark the AppImage executable once, and install
+`libfuse2` if your distribution does not ship it (`sudo apt install libfuse2`
+on Ubuntu). In-app updates work for the AppImage. The deb and the rpm are
+updated by installing the next one.
 
 ## Connect your AI
 
