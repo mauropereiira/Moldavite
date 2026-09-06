@@ -100,8 +100,9 @@
       <span class="version-badge">Privacy</span>
       <h1>Privacy Policy</h1>
       <p>
-        Moldavite is a local-first desktop app. Your notes live in ordinary files on your own
-        computer, and there is no Moldavite account, server, or analytics to send them to.
+        Moldavite is a local-first notes app for desktop, iPhone and iPad. Your notes live in
+        files on your device or in storage you choose. There is no Moldavite account,
+        developer-operated sync server, or analytics service.
       </p>
     </section>
 
@@ -111,6 +112,7 @@
         <a href="#summary">Summary</a>
         <a href="#what-we-collect">What Moldavite collects</a>
         <a href="#your-notes">Your notes and where they live</a>
+        <a href="#ios">iPhone and iPad</a>
         <a href="#network">Every network connection</a>
         <a href="#wordpress">What connecting WordPress.com grants</a>
         <a href="#calendar">Calendar access</a>
@@ -125,7 +127,7 @@
       <h2 id="summary">Summary</h2>
       <p>
         Moldavite does not operate a service that receives your data. There is no sign-up, no hosted
-        sync, no analytics, and no telemetry. The developer has no access to your notes, your
+        sync operated by the developer, no analytics, and no telemetry. The developer has no access to your notes, your
         calendar, or any credential you give the app. Everything below is detail on that one fact.
       </p>
       <div class="callout">
@@ -138,7 +140,7 @@
       </div>
 
       <h2 id="what-we-collect">What Moldavite collects</h2>
-      <p>Nothing. Specifically, the app does not collect, transmit, or store on any server:</p>
+      <p>Moldavite does not send the following to the developer or to an analytics or advertising service:</p>
       <ul>
         <li>the contents, titles, tags, or file names of your notes</li>
         <li>usage analytics, event tracking, crash reports, or feature telemetry</li>
@@ -154,7 +156,7 @@
       <h2 id="your-notes">Your notes and where they live</h2>
       <p>
         Notes are plain Markdown files with optional YAML frontmatter, written inside a Forge
-        directory you choose. The default root is <code>~/Documents/Moldavite/</code>. You can open,
+        directory you choose. On desktop, the default root is <code>~/Documents/Moldavite/</code>. You can open,
         move, back up, or delete them with any other tool, with or without Moldavite installed.
       </p>
       <ul>
@@ -164,7 +166,7 @@
           you lose it, the note cannot be recovered by anyone, including the developer.
         </li>
         <li>
-          <strong>Local semantic search</strong> is opt-in. After a one-time model download it runs
+          <strong>Local semantic search</strong> is a desktop feature and is opt-in. After a one-time model download it runs
           entirely offline; note text is embedded on your own machine and the index stays inside the
           Forge.
         </li>
@@ -185,12 +187,35 @@
       <p>
         If you place a Forge inside a folder synchronised by iCloud Drive, Dropbox, or a similar
         service, that service receives your files under its own privacy policy. That is your choice
-        to make, and Moldavite is not involved in it.
+        to make; the developer does not receive a copy.
+      </p>
+
+      <h2 id="ios">iPhone and iPad</h2>
+      <p>
+        A local Forge is stored inside Moldavite's application container. If you choose an
+        iCloud Forge, the app uses Apple's iCloud Drive service to store and synchronize its
+        files. Apple handles that storage under
+        <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>.
+        The developer does not operate the sync service or have access to your iCloud account.
+      </p>
+      <p>
+        Files and images you select are used in your notes or exports. When you save an export
+        through the system Files picker, your chosen storage provider handles the exported file
+        under its own policy. Remote images in notes are requested from the image host, which
+        receives ordinary connection information such as your IP address. Links you open in
+        Safari are handled by the destination website under its own policy.
+      </p>
+      <p>
+        The iPhone and iPad app does not run desktop executable plugins, download semantic
+        search models, connect to desktop calendar integrations, or check GitHub for app
+        updates. App updates are distributed through Apple's App Store. The home-screen
+        widget opens today's note and does not send note content to the developer.
       </p>
 
       <h2 id="network">Every network connection</h2>
       <p>
-        This is the complete list of outbound connections the app can make. Each is either triggered
+        The table lists desktop integrations. On iPhone and iPad, the storage and external-content
+        connections are described above. Each desktop connection is either triggered
         by an action you take or, in the case of update checks, disclosed here and limited to
         version information.
       </p>
@@ -368,7 +393,7 @@
         same release, and the network table above is kept exhaustive. Material changes are also
         noted in the changelog.
       </p>
-      <p><strong>Last updated:</strong> 9 August 2026</p>
+      <p><strong>Last updated:</strong> 6 September 2026</p>
 
       <h2 id="contact">Contact</h2>
       <p>

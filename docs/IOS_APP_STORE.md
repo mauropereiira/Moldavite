@@ -3,10 +3,21 @@
 Working release guide, checked against Apple and Tauri documentation on
 2026-09-06. **This branch is not ready to submit for review yet.** A signed
 device archive and App Store IPA export succeeded with team `J6Z5WJKHZB`.
-Nothing has been uploaded. The App Store record, privacy manifest and export
-declaration remain outstanding. The functional limitations are recorded in
+Nothing has been uploaded. The privacy manifest and export declaration remain
+outstanding. The functional limitations are recorded in
 [MOBILE_QA.md](MOBILE_QA.md); no new device testing was performed for this export.
 Mauro chose direct App Store submission without TestFlight or further testing.
+
+App Store Connect record `6809157286` now exists as **Moldavite: Notes & Ideas**.
+Version `2.6.0`, the description, automatic release after approval, subtitle
+`Write, journal, connect`, Productivity category and calculated 4+ age rating
+were verified in the account. Reusable copy is in
+[IOS_STORE_LISTING.json](IOS_STORE_LISTING.json). The privacy draft states Data
+Not Collected and includes the policy URL; it has not been published. The local
+policy now describes iPhone/iPad storage, but that website update is not live.
+Mauro requested a free app: the $0.00 price confirmation was submitted, but
+the browser disconnected before the saved schedule could be verified. Launch
+territories and the private review-contact email/phone are still needed.
 
 ## Actions Mauro needs to take in his Apple account
 
