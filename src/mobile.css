@@ -468,16 +468,16 @@ html[data-platform='mobile'] .toolbar-button {
 /* The labels sit low, just above the home indicator, rather than a full
    safe-area band above it: the row read as a hole under the footer. */
 html[data-platform='mobile'] .editor-footer {
-  min-height: 40px;
+  min-height: var(--touch-target);
   padding: 0 16px max(calc(var(--safe-bottom) - 14px), 0px);
 }
 
-/* Footer controls are their labels: 40px tall, never a fixed width. */
+/* Footer controls keep a full touch target without a fixed label width. */
 html[data-platform='mobile'] .editor-footer .toolbar-button,
 html[data-platform='mobile'] .editor-footer-overflow-toggle {
   width: auto;
   min-width: 0;
-  height: 40px;
+  height: var(--touch-target);
   padding-inline: 4px;
 }
 
@@ -491,7 +491,7 @@ html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar
    padding. Both are inline in the component. */
 html[data-platform='mobile'] .editor-navigation-links {
   bottom: max(calc(var(--safe-bottom) - 14px), 0px) !important;
-  height: 40px !important;
+  height: var(--touch-target) !important;
 }
 
 html[data-platform='mobile'] .editor-navigation-links button {
@@ -940,4 +940,26 @@ html[data-platform='mobile'][data-keyboard='open'] :is(.modal-backdrop-dark, .se
 
 html[data-platform='mobile'][data-keyboard='closed'] .mobile-formatting-bar {
   padding-bottom: var(--safe-bottom);
+}
+
+/* Forge management uses the device's own storage on iOS. */
+html[data-platform='mobile'] .forge-management-backdrop {
+  background: color-mix(in srgb, var(--bg-base) 94%, transparent) !important;
+  left: var(--rail-width);
+  padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
+}
+
+html[data-platform='mobile'] .forge-management-dialog {
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+html[data-platform='mobile'] .forge-management-dialog :is(button, input) {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .app-overlay .forge-management-backdrop {
+  left: 0;
 }

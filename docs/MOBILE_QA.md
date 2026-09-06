@@ -68,6 +68,10 @@ completed.
   have a 44pt minimum. Regression tests cover pending-edit refusal, nested paths,
   metadata, locked sources and desktop selection behavior.
 
+- Manage Forges shows local device storage and hides the desktop root picker on
+  iOS. Its dialog fits beside the rail, with 44pt buttons; the editor footer
+  controls now have the same minimum. Dark portrait layout inspected.
+
 ## Required before shipping
 
 | Area | Remaining proof |
