@@ -43,7 +43,7 @@ describe('GeneralSection', () => {
     expect(screen.getByText(FORGE)).toHaveClass('break-all');
   });
 
-  it('hides the folder picker and Finder button on a phone but keeps the Forge location', async () => {
+  it('hides the folder picker and Finder button on a phone and the internal container path', async () => {
     platform.mobile = true;
     await renderSection();
 
@@ -55,10 +55,6 @@ describe('GeneralSection', () => {
     expect(screen.queryByText(/does not move your files/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rescan Forge' })).toBeInTheDocument();
 
-    const path = screen.getByText(FORGE);
-    expect(path).not.toHaveClass('break-all');
-    expect(path.style.overflowWrap).toBe('anywhere');
-    expect(path.style.fontSize).toBe('13px');
-    expect(path).toHaveClass('font-mono');
+    expect(screen.queryByText(FORGE)).not.toBeInTheDocument();
   });
 });

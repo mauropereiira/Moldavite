@@ -13,13 +13,14 @@ import {
   getLastPersistedMarkdown,
   htmlToMarkdown,
   listNotes,
+  listFolders,
   markdownToHtml,
   noteContentToEditorHtml,
   readNoteSnapshot,
   takeAgentWrite,
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
-import { useForgeStore, useNoteStore, useToastStore } from '@/stores';
+import { useFolderStore, useForgeStore, useNoteStore, useToastStore } from '@/stores';
 import type { Note } from '@/types';
 
 /**
@@ -154,6 +155,7 @@ export function useForgeWatcher(): void {
   useEffect(() => {
     let unlistenForge: (() => void) | undefined;
     let unlistenForges: (() => void) | undefined;
+    const cloudListeners: (() => void)[] = [];
     let cancelled = false;
     let notesRefreshPending = false;
     let forgesRefreshPending = false;
@@ -171,6 +173,11 @@ export function useForgeWatcher(): void {
         forgesRefreshPending = false;
 
         if (shouldRefreshNotes) {
+          listFolders()
+            .then((folders) => {
+              if (!cancelled) useFolderStore.getState().setFolders(folders);
+            })
+            .catch((err) => console.error('[useForgeWatcher] Folder refresh failed:', err));
           listNotes()
             .then((notes) => {
               if (!cancelled) setNotes(notes);
@@ -214,6 +221,20 @@ export function useForgeWatcher(): void {
         } else {
           unlistenForges = offForges;
         }
+        for (const eventName of ['icloud:ready', 'icloud:changed']) {
+          const offCloud = await listen(eventName, () => {
+            notesRefreshPending = true;
+            forgesRefreshPending = true;
+            scheduleRefresh();
+          });
+          if (cancelled) offCloud();
+          else cloudListeners.push(offCloud);
+        }
+        const offCloudError = await listen<string>('icloud:error', (event) => {
+          useToastStore.getState().addToast('error', event.payload);
+        });
+        if (cancelled) offCloudError();
+        else cloudListeners.push(offCloudError);
       } catch (err) {
         console.error('[useForgeWatcher] subscribe failed:', err);
       }
@@ -229,6 +250,7 @@ export function useForgeWatcher(): void {
       }
       if (unlistenForge) unlistenForge();
       if (unlistenForges) unlistenForges();
+      for (const offCloud of cloudListeners) offCloud();
     };
   }, [setNotes]);
 }

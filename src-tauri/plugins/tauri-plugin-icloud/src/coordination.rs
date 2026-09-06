@@ -10,6 +10,16 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 extern "C" {
+    #[cfg(target_os = "macos")]
+    fn moldavite_connect_cloud(
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char),
+        on_change: extern "C" fn(*const c_char),
+    );
+    fn moldavite_cloud_root(
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char),
+    );
     fn moldavite_access_file(
         path: *const c_char,
         writing: bool,
@@ -114,6 +124,42 @@ where
     T: Send,
 {
     coordinate(path, true, false, operation)
+}
+
+type RootAccessor = Accessor<fn(&Path) -> Result<std::path::PathBuf, String>, std::path::PathBuf>;
+
+fn receive_root(
+    call: impl FnOnce(*mut c_void, extern "C" fn(*mut c_void, *const c_char, *const c_char)),
+) -> Result<std::path::PathBuf, String> {
+    let mut state = RootAccessor {
+        operation: Some(|path| Ok(path.to_path_buf())),
+        result: None,
+    };
+    call(
+        (&mut state as *mut RootAccessor).cast(),
+        access::<fn(&Path) -> Result<std::path::PathBuf, String>, std::path::PathBuf>,
+    );
+    match state.result {
+        Some(Ok(result)) => result,
+        Some(Err(panic)) => std::panic::resume_unwind(panic),
+        None => Err("iCloud did not return a Forge location".to_string()),
+    }
+}
+
+pub fn cloud_root() -> Result<std::path::PathBuf, String> {
+    // SAFETY: the getter borrows the live accessor for this synchronous call.
+    receive_root(|context, callback| unsafe { moldavite_cloud_root(context, callback) })
+}
+
+#[cfg(target_os = "macos")]
+pub fn connect_cloud(
+    on_change: extern "C" fn(*const c_char),
+) -> Result<std::path::PathBuf, String> {
+    // SAFETY: only the static change function is retained; context and its
+    // callback are used synchronously until the initial query has completed.
+    receive_root(|context, callback| unsafe {
+        moldavite_connect_cloud(context, callback, on_change)
+    })
 }
 
 /// Direct for local files; coordinated and download-checked for iCloud files.

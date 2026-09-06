@@ -63,6 +63,7 @@ pub(crate) mod wordpress;
 
 // Refactored domain modules.
 pub(crate) mod backlinks_index;
+pub(crate) mod cloud_forge;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
@@ -213,7 +214,7 @@ fn google_calendar_disconnect() -> Result<(), String> {
 pub fn run() {
     use std::sync::Arc;
 
-    use tauri::Manager;
+    use tauri::{Emitter, Manager};
     use tauri_plugin_deep_link::DeepLinkExt;
 
     use crate::backlinks_index::BacklinksIndex;
@@ -252,6 +253,7 @@ pub fn run() {
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
         .setup(move |app| {
+            cloud_forge::initialize(app.handle().clone());
             // Register before WebView hydration. Live URLs wake the frontend;
             // cold-start URLs remain queued until React drains them.
             let app_handle = app.handle().clone();
@@ -304,7 +306,9 @@ pub fn run() {
             });
             // Bring the keyword index in line with disk, also off-thread.
             // Search is served by the live scan until this finishes.
-            search_index::spawn_reconcile(paths::get_notes_dir());
+            if let Ok(root) = paths::get_notes_dir() {
+                search_index::spawn_reconcile(root);
+            }
             search_index::spawn_periodic_reconcile();
             // Spawn the file watcher into a slot that survives Forge switches.
             // The slot is managed unconditionally, even if this spawn fails, so
@@ -320,6 +324,26 @@ pub fn run() {
                 }
             }
             app.manage(watcher_slot);
+            if persist::read_config().active_synced_forge {
+                let handle = app.handle().clone();
+                let recent = recent_writes.clone();
+                let index = backlinks_index.clone();
+                tauri::async_runtime::spawn(async move {
+                    match cloud_forge::connect(&handle).await {
+                        Ok(root) => {
+                            if persist::read_config().active_synced_forge {
+                                commands::forges::refresh_active_forge(
+                                    &handle, recent, index, root,
+                                );
+                                let _ = handle.emit("icloud:ready", ());
+                            }
+                        }
+                        Err(error) => {
+                            let _ = handle.emit("icloud:error", error);
+                        }
+                    }
+                });
+            }
             wordpress::init(app.handle());
             // If the user already enabled semantic search, load/reconcile the
             // index in the background (the model was downloaded during the
@@ -332,6 +356,7 @@ pub fn run() {
         })
         .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            commands::forges::set_synced_forge_enabled,
             #[cfg(mobile)]
             commands::misc::open_support_page,
             #[cfg(mobile)]

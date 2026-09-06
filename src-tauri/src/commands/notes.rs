@@ -116,7 +116,7 @@ fn classify_note_entry(path: &Path) -> Option<(String, bool)> {
 /// True when a daily-note stem is an actual date ("2025-01-01"). Files in
 /// daily/ with other names (e.g. conflict copies) are listed without a
 /// `date` so the frontend never tries to parse them as calendar days.
-fn is_date_stem(stem: &str) -> bool {
+pub(crate) fn is_date_stem(stem: &str) -> bool {
     let b = stem.as_bytes();
     b.len() == 10
         && b.iter().enumerate().all(|(i, c)| match i {
@@ -126,7 +126,7 @@ fn is_date_stem(stem: &str) -> bool {
 }
 
 /// True when a weekly-note stem is an actual ISO week ("2024-W52").
-fn is_week_stem(stem: &str) -> bool {
+pub(crate) fn is_week_stem(stem: &str) -> bool {
     let b = stem.as_bytes();
     b.len() == 8
         && b[..4].iter().all(u8::is_ascii_digit)
@@ -446,7 +446,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     let mut notes = Vec::new();
 
     // List daily notes (non-recursive, daily notes are only at root level)
-    let daily_dir = get_daily_dir();
+    let daily_dir = get_daily_dir()?;
     if daily_dir.exists() {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
@@ -475,7 +475,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List weekly notes (non-recursive, weekly notes are only at root level)
-    let weekly_dir = get_weekly_dir();
+    let weekly_dir = get_weekly_dir()?;
     if weekly_dir.exists() {
         if let Ok(entries) = fs::read_dir(&weekly_dir) {
             for entry in entries.flatten() {
@@ -504,11 +504,12 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List standalone notes (recursive to support folders)
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     if standalone_dir.exists() {
         scan_notes_recursive(&standalone_dir, "", &mut notes);
     }
 
+    crate::cloud_forge::merge_notes(&mut notes)?;
     Ok(notes)
 }
 
@@ -528,11 +529,11 @@ pub(crate) fn read_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -566,11 +567,11 @@ pub(crate) fn write_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -649,11 +650,11 @@ pub(crate) fn delete_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -683,11 +684,11 @@ pub(crate) fn preserve_buffer_copy(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
     let path = dir.join(&filename);
     validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
@@ -726,7 +727,7 @@ pub(crate) fn create_note(
     folder_path: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    let base_dir = get_standalone_dir();
+    let base_dir = get_standalone_dir()?;
     let (filename, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
     index.update_note(&filename, "");
     Ok(relative_path)
@@ -785,11 +786,11 @@ pub(crate) fn duplicate_note(
     }
     // Determine source directory
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let source_path = dir.join(&filename);
@@ -850,11 +851,11 @@ pub(crate) fn export_single_note(
     }
     // Determine source directory
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let source_path = dir.join(&filename);
@@ -927,11 +928,11 @@ pub(crate) fn rename_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let new_path = rename_note_in(&dir, &old_filename, &new_filename, is_daily, is_weekly)?;
@@ -947,7 +948,7 @@ pub(crate) fn rename_note(
     // resolved to the old name in every other note.
     let old_stem = note_ref_stem(&old_filename);
     let new_stem = note_ref_stem(&new_filename);
-    rewrite_inbound_links(old_stem, new_stem, &index);
+    rewrite_inbound_links(old_stem, new_stem, &index)?;
 
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &old_filename,
@@ -970,14 +971,19 @@ pub(crate) fn rename_note(
 /// Rewrite `[[old]]` links across the whole vault after a note rename.
 /// Failures on individual files are logged and skipped so one unreadable
 /// note doesn't abort the rename that already happened.
-fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIndex>) {
+fn rewrite_inbound_links(
+    old_stem: &str,
+    new_stem: &str,
+    index: &Arc<BacklinksIndex>,
+) -> Result<(), String> {
     rewrite_inbound_links_in_roots(
-        &[get_daily_dir(), get_weekly_dir(), get_standalone_dir()],
+        &[get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?],
         old_stem,
         new_stem,
         index,
         None,
     );
+    Ok(())
 }
 
 fn rewrite_inbound_links_in_roots(
@@ -1027,14 +1033,14 @@ fn rewrite_inbound_links_in_roots(
 
 #[tauri::command]
 pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(), String> {
-    let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+    let roots = [get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?];
     visit_note_files(&roots, |path| {
         fs::remove_file(path).map_err(|e| e.to_string())
     })?;
 
     index.remove_all();
     crate::semantic::all_notes_removed();
-    crate::search_index::all_notes_removed_in(get_notes_dir());
+    crate::search_index::all_notes_removed_in(get_notes_dir()?);
 
     Ok(())
 }
@@ -1081,7 +1087,7 @@ pub(crate) fn move_note(
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     let source_path = standalone_dir.join(&note_path);
     let (old_filename, final_filename, new_relative_path, dest_path) =
         move_note_in(&standalone_dir, &note_path, to_folder.as_deref())?;
@@ -1195,7 +1201,7 @@ pub(crate) fn fix_note_permissions() -> Result<u32, String> {
         use std::os::unix::fs::PermissionsExt;
         let mut fixed_count = 0u32;
 
-        let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+        let roots = [get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?];
         fixed_count += visit_note_files(&roots, |path| {
             let permissions = fs::Permissions::from_mode(0o600);
             fs::set_permissions(path, permissions).map_err(|e| e.to_string())

@@ -93,7 +93,7 @@ completed.
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
 | Data portability | Encrypted export/import, plain import, other Files providers and interruption tests remain. Settings ZIP/JSON, individual Markdown/plaintext and selected-note ZIP destinations are verified in On My iPhone |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
-| iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated access for remaining mutations, metadata reconciliation, desktop discovery and cross-Forge moves remain |
+| iCloud implementation | Native bridge, Apple Forge selection, metadata listings and Mac discovery are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
 | Brand and distribution | Icon and launch screen inspection, status-bar/heading alignment, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight, complete App Store setup and upload instructions |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
@@ -133,3 +133,17 @@ hidden. Check the screenshot rather than assuming the keyboard is visible.
 The formatting row remains usable in that state. Native builds reinstall and
 relaunch the app; wait for deployment to settle before interpreting an ignored
 tap or deep link as an app bug.
+
+### Synced Forge selection, 6 September 2026
+
+- iPhone 17 simulator: the separate iCloud control appears in General Settings
+  and Manage Forges. Native accessibility frames measure 52 x 44pt in Settings
+  and 52 x 45pt in the dialog. Light Settings and dark Manage Forges were checked.
+- With no usable iCloud account, connecting displays the native unavailable error
+  inline, keeps the switch off and retains the local Default Forge. Its three
+  existing test notes remain present; persisted `active_synced_forge` stays false.
+- Regression coverage includes separate storage IDs for a same-named local Forge,
+  unsaved-edit refusal, unavailable-account errors inside dialogs, stale native
+  callbacks, remote-only notes/locks and empty nested folder metadata.
+- No account-backed delivery, offline round-trip, cloud collision or physical
+  device test is implied by these checks. Remaining sync work is listed above.

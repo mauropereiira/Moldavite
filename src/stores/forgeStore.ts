@@ -13,6 +13,8 @@ import { rememberActiveForge } from '@/lib/forgeStorage';
 import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 
 export interface Forge {
+  id?: string;
+  isSynced?: boolean;
   name: string;
   path: string;
   isActive: boolean;
@@ -29,6 +31,7 @@ interface ForgeState {
   renameForge: (oldName: string, newName: string) => Promise<Forge>;
   deleteForge: (name: string) => Promise<void>;
   setForgesRoot: (path: string) => Promise<string>;
+  setSyncedForge: (enabled: boolean) => Promise<void>;
 }
 
 async function runForgeTransition<T>(transition: () => Promise<T>): Promise<T> {
@@ -58,7 +61,8 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
         safeInvoke<Forge[]>('list_forges'),
         safeInvoke<string>('get_forges_root_path'),
       ]);
-      const active = forges.find((f) => f.isActive)?.name ?? null;
+      const selected = forges.find((f) => f.isActive);
+      const active = selected?.id ?? selected?.name ?? null;
       rememberActiveForge(active);
       set({ forges, active, forgesRoot: root, loading: false });
     } catch (e) {
@@ -93,6 +97,10 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   deleteForge: async (name) => {
     await safeInvoke<void>('delete_forge', { name });
     await get().loadForges();
+  },
+
+  setSyncedForge: async (enabled) => {
+    await runForgeTransition(() => safeInvoke<string>('set_synced_forge_enabled', { enabled }));
   },
 
   setForgesRoot: async (path) => {

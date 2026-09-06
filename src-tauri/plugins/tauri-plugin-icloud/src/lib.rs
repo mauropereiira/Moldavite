@@ -4,7 +4,6 @@
 
 pub mod coordination;
 
-use serde::{Deserialize, Serialize};
 use tauri::{
     ipc::Channel,
     plugin::{Builder, PluginHandle, TauriPlugin},
@@ -13,47 +12,8 @@ use tauri::{
 
 tauri::ios_plugin_binding!(init_plugin_icloud);
 
-#[derive(Debug, Deserialize)]
-pub struct Container {
-    pub path: String,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum DownloadState {
-    Local,
-    Current,
-    Downloaded,
-    Pending,
-    Unknown,
-    Missing,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CloudItem {
-    pub path: String,
-    pub download_state: DownloadState,
-    pub is_downloading: bool,
-    pub is_uploading: bool,
-    pub has_conflicts: bool,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum ChangeKind {
-    Initial,
-    Changed,
-    AccountChanged,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CloudChange {
-    pub kind: ChangeKind,
-    pub items: Vec<CloudItem>,
-    pub removed: Vec<String>,
-}
+pub mod models;
+pub use models::*;
 
 pub struct ICloud<R: Runtime>(PluginHandle<R>);
 

@@ -1,10 +1,12 @@
 import Foundation
 
 public enum CloudError: LocalizedError {
-    case unavailable, accountChanged, invalidPath
+    case unavailable, accountChanged, invalidPath, preparing, pendingDownload
 
     public var errorDescription: String? {
         switch self {
+        case .preparing: return "iCloud is still preparing this Forge. Try again shortly."
+        case .pendingDownload: return "This note is waiting for iCloud to download. Try again when it is available."
         case .unavailable: return "iCloud Drive is unavailable. Check your iCloud account and app access."
         case .accountChanged: return "The iCloud account changed. Reopen the synced Forge before continuing."
         case .invalidPath: return "The requested file is outside the synced Forge."
@@ -32,6 +34,7 @@ public enum DownloadState: String, Codable {
 
 public struct CloudItem: Codable {
     public let path: String
+    public let isDirectory: Bool
     public let downloadState: DownloadState
     public let isDownloading: Bool
     public let isUploading: Bool
@@ -69,6 +72,27 @@ public final class CloudDocuments {
         return CloudDocuments(root: container.appendingPathComponent("Documents", isDirectory: true),
                               checkIdentity: checkIdentity)
     }
+
+    #if os(macOS)
+    /// Desktop opens the public iOS container through iCloud Drive without
+    /// changing its local Forges root or requiring a sandbox entitlement.
+    public static func resolveDesktop() throws -> CloudDocuments {
+        let manager = FileManager.default
+        guard let identity = manager.ubiquityIdentityToken else { throw CloudError.unavailable }
+        let root = manager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents/iCloud~app~moldavite/Documents", isDirectory: true)
+        guard manager.fileExists(atPath: root.deletingLastPathComponent().path) else {
+            throw CloudError.unavailable
+        }
+        let checkIdentity = {
+            guard let current = manager.ubiquityIdentityToken, identity.isEqual(current) else {
+                throw CloudError.accountChanged
+            }
+        }
+        try checkIdentity()
+        return CloudDocuments(root: root, checkIdentity: checkIdentity)
+    }
+    #endif
 
     public func validateIdentity() throws {
         try checkIdentity()
@@ -119,7 +143,7 @@ public final class CloudDocuments {
         let placeholder = url.deletingLastPathComponent()
             .appendingPathComponent(".\(url.lastPathComponent).icloud")
         let keys: Set<URLResourceKey> = [
-            .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey,
+            .isDirectoryKey, .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey,
             .ubiquitousItemIsDownloadingKey, .ubiquitousItemIsUploadingKey,
             .ubiquitousItemHasUnresolvedConflictsKey,
             .ubiquitousItemDownloadingErrorKey, .ubiquitousItemUploadingErrorKey
@@ -143,6 +167,7 @@ public final class CloudDocuments {
         }
         return CloudItem(
             path: path,
+            isDirectory: values?.isDirectory == true,
             downloadState: state,
             isDownloading: values?.ubiquitousItemIsDownloading == true,
             isUploading: values?.ubiquitousItemIsUploading == true,

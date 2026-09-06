@@ -64,7 +64,7 @@ pub(crate) fn note_name_to_filename(note_name: &str) -> String {
 }
 
 pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
-    note_exists_in(&get_notes_dir(), note_name)
+    note_exists_in(&get_notes_dir()?, note_name)
 }
 
 fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {

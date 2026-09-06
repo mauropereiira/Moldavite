@@ -227,14 +227,24 @@ account change stops the query and invalidates access through the old container.
 The generated entitlements and Info.plist declare the public Moldavite Documents
 container, with nested folders visible in Files once provisioned.
 
-This bridge is registered but **does not yet enable a synced Forge**. Forge
-selection, metadata reconciliation, coordinated access for all remaining content
-operations, Mac discovery,
-cross-Forge moves and end-to-end sync proof remain to be implemented. A missing
-filesystem entry alone must never authorize creation or deletion: the consumer
-must reconcile it with the metadata snapshot, including remote placeholders.
-Only actual downloaded contents may be read or overwritten. Existing downloaded
-contents remain usable offline, with the normal conflict-copy policy on save.
+Settings and Manage Forges now expose a separate **Synced Forge (iCloud Drive)**
+on Apple devices. Connecting waits for an account-bound initial metadata snapshot
+before changing the active Forge. Local Forge selection and storage stay intact;
+a failed connection leaves the current selection unchanged. An unavailable active
+cloud root returns an error, never a local fallback. Mac discovery opens the app's
+public `~/Library/Mobile Documents/iCloud~app~moldavite/Documents` container.
+
+Metadata names are merged with local note and folder listings, including pending
+notes, locked notes and empty remote directories. Completed downloads trigger
+existing open-buffer reconciliation; own writes are suppressed using the existing
+content fingerprint. Session checks reject stale-account callbacks and prevent
+metadata-only names from being overwritten as new files.
+
+**Sync is still in development.** Coordinated access for remaining content
+operations, cross-Forge moves, OS-managed conflict versions and account-backed
+round-trip/offline verification remain. Existing downloaded contents are intended
+to remain usable offline with the normal conflict-copy policy on save; that
+account-backed behavior has not yet been proven.
 
 The Foundation-only core has filesystem regression tests runnable without an
 iCloud account:
@@ -253,8 +263,8 @@ one write accessor. The normal note reader and complete hash/conflict/save path
 now use `read_cloud/write_cloud`: local files stay direct, while ubiquitous files
 receive coordination and download checks. Pending or unknown contents return an
 error and request a download; failed existing-note reads cannot become an empty
-save base. This does not yet cover metadata-only remote names, all mutations,
-account-bound Forge selection or OS-managed conflict versions.
+save base. The account-bound session also guards metadata-only remote names. Remaining
+mutations and OS-managed conflict versions still need integration.
 
 The read/write IPC handlers run, including their replies, on Tauri's blocking
 pool on Apple targets. Do not replace this with `command(async)`: concurrent
@@ -270,10 +280,9 @@ container keys follow [Apple's Info.plist reference](https://developer.apple.com
 
 ## Not done yet
 
-- The synced Forge: the app's iCloud Drive container as a Forge, read on
-  the Mac like any other folder. The native metadata/download bridge exists;
-  integration and account-backed verification remain. A local, unsynced Forge
-  on the phone stays the default.
+- Finish synced-Forge mutation coordination, cross-Forge moves and account-backed
+  verification. Selection and metadata listing are connected; a local, unsynced
+  Forge on the phone stays the default.
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor.
 - iPad layout, then Android through Tauri's Android target.

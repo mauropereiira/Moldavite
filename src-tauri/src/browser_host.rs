@@ -90,10 +90,11 @@ fn respond(result: Result<Value, String>) -> Value {
 fn forges_response(forges: &[crate::types::ForgeInfo]) -> Value {
     let active = forges
         .iter()
+        .filter(|forge| !forge.is_synced)
         .find(|forge| forge.is_active)
         .map(|forge| forge.name.clone());
     json!({
-        "forges": forges.iter().map(|forge| forge.name.clone()).collect::<Vec<_>>(),
+        "forges": forges.iter().filter(|forge| !forge.is_synced).map(|forge| forge.name.clone()).collect::<Vec<_>>(),
         "active": active,
     })
 }
@@ -312,6 +313,8 @@ mod tests {
 
     fn forge_info(name: &str, is_active: bool) -> crate::types::ForgeInfo {
         crate::types::ForgeInfo {
+            id: name.to_string(),
+            is_synced: false,
             name: name.to_string(),
             path: format!("/forges/{name}"),
             is_active,

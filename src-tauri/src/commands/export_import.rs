@@ -200,7 +200,7 @@ pub(crate) async fn export_mobile_document(
 ) -> Result<bool, String> {
     use tauri::Manager;
     use tauri_plugin_document_export::DocumentExportExt;
-    let notes = get_notes_dir();
+    let notes = get_notes_dir()?;
     let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?;
     let prepared = tauri::async_runtime::spawn_blocking(move || {
         prepare_mobile_export(&notes, &cache, request)
@@ -553,7 +553,7 @@ fn replace_from_archive<R: IoRead + Seek>(
 /// Export all notes and templates to a ZIP file
 #[tauri::command]
 pub(crate) fn export_notes(destination: String) -> Result<String, String> {
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     let zip_path = PathBuf::from(&destination);
 
     export_notes_to(&notes_dir, &zip_path)?;
@@ -585,7 +585,7 @@ fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
 /// Import notes and templates from a ZIP file
 #[tauri::command]
 pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     import_notes_into(&notes_dir, Path::new(&zip_path), merge)
 }
 
@@ -614,7 +614,7 @@ pub(crate) fn export_encrypted_backup(
     password: String,
 ) -> Result<String, String> {
     let password = Zeroizing::new(password);
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     let backup_path = PathBuf::from(&destination);
     export_encrypted_backup_to(&notes_dir, &backup_path, &password)?;
     Ok(backup_path.to_string_lossy().to_string())
@@ -676,7 +676,7 @@ pub(crate) fn import_encrypted_backup(
     merge: bool,
 ) -> Result<ImportResult, String> {
     let password = Zeroizing::new(password);
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     import_encrypted_backup_into(&notes_dir, Path::new(&backup_path), &password, merge)
 }
 

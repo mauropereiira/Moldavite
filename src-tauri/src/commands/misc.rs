@@ -68,10 +68,10 @@ pub(crate) async fn open_external_link(app: tauri::AppHandle, url: String) -> Re
 
 #[tauri::command]
 pub(crate) fn ensure_directories() -> Result<(), String> {
-    let notes_dir = get_notes_dir();
-    let daily_dir = get_daily_dir();
-    let standalone_dir = get_standalone_dir();
-    let weekly_dir = get_weekly_dir();
+    let notes_dir = get_notes_dir()?;
+    let daily_dir = get_daily_dir()?;
+    let standalone_dir = get_standalone_dir()?;
+    let weekly_dir = get_weekly_dir()?;
 
     for dir in [&notes_dir, &daily_dir, &standalone_dir, &weekly_dir] {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -90,8 +90,8 @@ pub(crate) fn ensure_directories() -> Result<(), String> {
 
 /// Get the current notes directory path
 #[tauri::command]
-pub(crate) fn get_notes_directory() -> String {
-    get_notes_dir().to_string_lossy().to_string()
+pub(crate) fn get_notes_directory() -> Result<String, String> {
+    Ok(get_notes_dir()?.to_string_lossy().to_string())
 }
 
 /// Force a re-scan of the Forge directory: rebuilds the in-memory backlinks
@@ -108,7 +108,7 @@ pub(crate) fn rescan_forge(
 /// Open the Forge directory in the system file browser.
 #[tauri::command]
 pub(crate) fn open_forge_in_finder() -> Result<(), String> {
-    let dir = get_notes_dir();
+    let dir = get_notes_dir()?;
     if !dir.exists() {
         return Err("Forge directory does not exist".to_string());
     }
@@ -135,12 +135,6 @@ pub(crate) fn open_forge_in_finder() -> Result<(), String> {
     Err("Opening the Forge directory is not supported on this platform".to_string())
 }
 
-/// Resolve a `note_path` (relative, like `daily/foo.md` or `notes/sub/x.md`)
-/// to an absolute path under the notes dir. Refuses traversal attempts.
-fn resolve_note_path(note_path: &str) -> Option<PathBuf> {
-    resolve_note_path_from(&get_notes_dir(), note_path)
-}
-
 fn resolve_note_path_from(root: &Path, note_path: &str) -> Option<PathBuf> {
     let (category, relative) = note_path.split_once('/')?;
     if !matches!(category, "daily" | "weekly" | "notes") || !is_safe_note_path(relative) {
@@ -151,16 +145,17 @@ fn resolve_note_path_from(root: &Path, note_path: &str) -> Option<PathBuf> {
 
 /// Get the color ID for a specific note (reads from YAML frontmatter).
 #[tauri::command]
-pub(crate) fn get_note_color(note_path: String) -> Option<String> {
-    let root = get_notes_dir();
-    let abs = resolve_note_path(&note_path)?;
-    crate::validation::validate_path_within_base(&abs, &root).ok()?;
+pub(crate) fn get_note_color(note_path: String) -> Result<Option<String>, String> {
+    let root = get_notes_dir()?;
+    let Some(abs) = resolve_note_path_from(&root, &note_path) else {
+        return Ok(None);
+    };
+    crate::validation::validate_path_within_base(&abs, &root).map_err(|_| "Invalid note path")?;
     if !abs.exists() {
-        return None;
+        return Ok(None);
     }
-    crate::validation::validate_path_within_base(&abs, &root).ok()?;
-    let raw = fs::read_to_string(&abs).ok()?;
-    frontmatter::parse_note(&raw).color
+    let raw = fs::read_to_string(&abs).map_err(|error| error.to_string())?;
+    Ok(frontmatter::parse_note(&raw).color)
 }
 
 /// Set the color ID for a specific note by updating its YAML frontmatter.
@@ -178,7 +173,7 @@ pub(crate) fn set_note_color(
     {
         return Err("Invalid note path".to_string());
     }
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     let abs = notes_dir.join(category).join(relative);
     crate::validation::validate_path_within_base(&abs, &notes_dir)
         .map_err(|_| "Invalid note path".to_string())?;
@@ -219,11 +214,11 @@ pub(crate) fn set_note_color(
 /// Walk the Forge tree and harvest every note color. Used for the initial
 /// load on app start.
 #[tauri::command]
-pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String> {
+pub(crate) fn get_all_note_colors() -> Result<std::collections::HashMap<String, String>, String> {
     let mut out: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let root = get_notes_dir();
+    let root = get_notes_dir()?;
     if !root.exists() {
-        return out;
+        return Ok(out);
     }
     for sub in ["daily", "notes", "weekly"] {
         let dir = root.join(sub);
@@ -269,7 +264,7 @@ pub(crate) fn get_all_note_colors() -> std::collections::HashMap<String, String>
             }
         }
     }
-    out
+    Ok(out)
 }
 
 /// Write binary data to a file (used for PDF / plaintext export).
@@ -318,8 +313,8 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
         return Err("Invalid image format".to_string());
     }
 
-    let forge_root = get_notes_dir();
-    let images_dir = get_images_dir();
+    let forge_root = get_notes_dir()?;
+    let images_dir = get_images_dir()?;
     crate::validation::validate_path_within_base(&images_dir, &forge_root)
         .map_err(|_| "Invalid images directory".to_string())?;
     fs::create_dir_all(&images_dir)

@@ -281,7 +281,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
 
     // Phase 2: index build/reconcile.
     svc.set_phase(Phase::Indexing);
-    let forge_root = get_notes_dir();
+    let forge_root = get_notes_dir()?;
     let existing = if force {
         Vec::new()
     } else {
@@ -299,7 +299,7 @@ fn run_build(app: &AppHandle, force: bool) -> Result<usize, String> {
             !matches!(semantic::service().phase(), Phase::Disabled)
         })?;
     // A Forge switch mid-build means these entries belong to the old vault.
-    if get_notes_dir() != forge_root {
+    if get_notes_dir()? != forge_root {
         return Err(CANCELLED.to_string());
     }
     semantic::save_index(&forge_root, &entries, &model_id)?;

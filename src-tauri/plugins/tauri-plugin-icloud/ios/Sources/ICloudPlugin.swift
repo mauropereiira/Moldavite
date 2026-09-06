@@ -17,7 +17,9 @@ class ICloudPlugin: Plugin {
         queue.async {
             do {
                 let documents = try CloudDocuments.resolve()
+                try FileManager.default.createDirectory(at: documents.root, withIntermediateDirectories: true)
                 self.documents = documents
+                CloudSession.shared.bind(documents)
                 DispatchQueue.main.async {
                     self.observer?.stop()
                     self.observer = nil
@@ -25,6 +27,7 @@ class ICloudPlugin: Plugin {
                 }
             } catch {
                 self.documents = nil
+                CloudSession.shared.invalidate()
                 DispatchQueue.main.async {
                     self.observer?.stop()
                     self.observer = nil
@@ -66,7 +69,9 @@ class ICloudPlugin: Plugin {
                 let observer = CloudMetadataObserver(documents: documents) { change in
                     // CloudChange contains only strings, booleans and arrays.
                     // Channel encoding cannot contain non-JSON numeric values.
-                    try? args.onChange.send(change)
+                    if CloudSession.shared.apply(change, from: documents) {
+                        try? args.onChange.send(change)
+                    }
                 }
                 do {
                     try observer.start()

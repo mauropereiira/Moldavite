@@ -171,24 +171,22 @@ pub(crate) fn scan_folders_recursive(dir: &Path, relative_path: &str) -> Vec<Fol
 
 #[tauri::command]
 pub(crate) fn list_folders() -> Result<Vec<FolderInfo>, String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
 
-    if !standalone_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    Ok(scan_folders_recursive(&standalone_dir, ""))
+    let mut folders = scan_folders_recursive(&standalone_dir, "");
+    crate::cloud_forge::merge_folders(&mut folders)?;
+    Ok(folders)
 }
 
 #[tauri::command]
 pub(crate) fn create_folder(path: String) -> Result<(), String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     create_folder_in(&standalone_dir, &path)
 }
 
 #[tauri::command]
 pub(crate) fn rename_folder(old_path: String, new_name: String) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     rename_folder_from(&standalone_dir, &old_path, &new_name)
 }
 
@@ -237,7 +235,7 @@ fn rename_folder_from(
 
 #[tauri::command]
 pub(crate) fn delete_folder(path: String, force: bool) -> Result<(), String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     delete_folder_from(&standalone_dir, &path, force)
 }
 
@@ -280,7 +278,7 @@ pub(crate) fn move_folder(
     folder_path: String,
     to_folder: Option<String>,
 ) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     move_folder_from(&standalone_dir, &folder_path, to_folder.as_deref())
 }
 

@@ -245,7 +245,7 @@ fn build_note_graph(root: &Path) -> NoteGraph {
 
 #[tauri::command]
 pub(crate) fn get_note_graph() -> Result<NoteGraph, String> {
-    Ok(build_note_graph(&get_notes_dir()))
+    Ok(build_note_graph(&get_notes_dir()?))
 }
 
 #[cfg(test)]

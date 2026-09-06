@@ -40,6 +40,7 @@ import { isMobilePlatform } from '@/lib/platform';
 import { exportDocument } from '@/lib/exportDocument';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import SyncedForgeControl from '../SyncedForgeControl';
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }> = [
   { value: 5, label: '5 min' },
@@ -383,20 +384,27 @@ export function GeneralSection() {
               </div>
             </>
           )}
-          <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
-            <span
-              className={mobile ? 'font-mono' : 'font-mono break-all'}
-              style={
-                mobile
-                  ? { color: 'var(--text-tertiary)', overflowWrap: 'anywhere', fontSize: '13px' }
-                  : { color: 'var(--text-tertiary)' }
-              }
-            >
-              {notesDirectory}
-            </span>
-            .
-          </p>
+          {mobile ? (
+            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+              Your notes are plain Markdown files. Local Forges stay on this device.
+            </p>
+          ) : (
+            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+              Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
+              <span
+                className={mobile ? 'font-mono' : 'font-mono break-all'}
+                style={
+                  mobile
+                    ? { color: 'var(--text-tertiary)', overflowWrap: 'anywhere', fontSize: '13px' }
+                    : { color: 'var(--text-tertiary)' }
+                }
+              >
+                {notesDirectory}
+              </span>
+              .
+            </p>
+          )}
+          <SyncedForgeControl />
           {!mobile && (
             <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
               Changing this points Moldavite at a different folder — it does not move your files. To

@@ -69,6 +69,7 @@ public func accessFile(
     }
     let url = URL(fileURLWithPath: value)
     do {
+        try CloudSession.shared.validateAccess(to: url)
         let item = try CloudDocuments.inspect(url: url, path: value)
         guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
             try? FileManager.default.startDownloadingUbiquitousItem(at: url)
@@ -111,6 +112,7 @@ private func checkedFileAccessor(
     do {
         guard let path = path, let value = String(validatingUTF8: path) else { throw CloudError.invalidPath }
         let url = URL(fileURLWithPath: value)
+        try CloudSession.shared.validateAccess(to: url)
         let item = try CloudDocuments.inspect(url: url, path: value)
         guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
             try? FileManager.default.startDownloadingUbiquitousItem(at: url)

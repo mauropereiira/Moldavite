@@ -69,7 +69,9 @@ public final class CloudMetadataObserver {
         let error = (metadata.value(forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey)
             ?? metadata.value(forAttribute: NSMetadataUbiquitousItemUploadingErrorKey)) as? Error
         return CloudItem(
-            path: path, downloadState: downloadState,
+            path: path,
+            isDirectory: (metadata.value(forAttribute: NSMetadataItemContentTypeTreeKey) as? [String])?.contains("public.folder") == true,
+            downloadState: downloadState,
             isDownloading: metadata.value(forAttribute: NSMetadataUbiquitousItemIsDownloadingKey) as? Bool == true,
             isUploading: metadata.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool == true,
             hasConflicts: metadata.value(forAttribute: NSMetadataUbiquitousItemHasUnresolvedConflictsKey) as? Bool == true,
@@ -77,7 +79,17 @@ public final class CloudMetadataObserver {
         )
     }
 
+    private func validAccount() -> Bool {
+        do { try documents.validateIdentity(); return true }
+        catch {
+            stop()
+            onChange(CloudChange(kind: "accountChanged", items: [], removed: []))
+            return false
+        }
+    }
+
     private func publishInitial() {
+        guard validAccount() else { return }
         query.disableUpdates()
         defer { query.enableUpdates() }
         let items = (query.results as? [NSMetadataItem] ?? []).compactMap(item)
@@ -85,6 +97,7 @@ public final class CloudMetadataObserver {
     }
 
     private func publishUpdate(_ note: Notification) {
+        guard validAccount() else { return }
         query.disableUpdates()
         defer { query.enableUpdates() }
         let added = note.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem] ?? []

@@ -249,11 +249,11 @@ pub(crate) fn create_note_from_template(
     }
 
     let dir = if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     // Weekly notes are created lazily, so the directory may not exist yet.

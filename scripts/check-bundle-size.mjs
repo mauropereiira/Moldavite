@@ -109,7 +109,9 @@ const BUDGETS = [
 // integration gates add 2.7 KB raw / 0.9 KB gz. Lazy mobile chunks still count.
 // Native mobile note/selection exports add ~3.5 KB raw / 1.4 KB gz across the
 // entry points and a lazy helper. No new frontend dependencies.
-const APP_JS_BUDGET = { rawKb: 624, gzipKb: 174 };
+// Separate iCloud Forge selection, inline connection errors and metadata refresh
+// add ~2.2 KB raw / 0.7 KB gz. Measured 625.4 KB / 173.8 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 626, gzipKb: 174 };
 
 async function main() {
   let entries;

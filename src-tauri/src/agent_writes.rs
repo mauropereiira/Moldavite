@@ -298,7 +298,7 @@ pub(crate) fn take_agent_write(rel_path: String, content_hash: String) -> Option
     let spool = spool_dir()?;
     take_agent_write_from(
         &spool,
-        &crate::paths::get_notes_dir(),
+        &crate::paths::get_notes_dir().ok()?,
         &rel_path,
         &content_hash,
     )

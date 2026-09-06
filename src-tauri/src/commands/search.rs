@@ -214,8 +214,8 @@ pub(crate) fn search_notes_content(
     query: String,
     max_results: u32,
 ) -> Result<Vec<ContentMatch>, String> {
-    let notes_dir = get_notes_dir();
-    let trash_dir = get_trash_dir();
+    let notes_dir = get_notes_dir()?;
+    let trash_dir = get_trash_dir()?;
     Ok(search_notes_content_in(
         &notes_dir,
         &trash_dir,
@@ -226,8 +226,8 @@ pub(crate) fn search_notes_content(
 
 /// Report the persistent keyword index for the active Forge.
 #[tauri::command]
-pub(crate) fn search_index_status() -> SearchIndexStatus {
-    search_index::status(&get_notes_dir())
+pub(crate) fn search_index_status() -> Result<SearchIndexStatus, String> {
+    Ok(search_index::status(&get_notes_dir()?))
 }
 
 /// Throw the active Forge's keyword index away and build it again from disk.
@@ -235,7 +235,7 @@ pub(crate) fn search_index_status() -> SearchIndexStatus {
 /// `building`.
 #[tauri::command]
 pub(crate) fn search_index_rebuild() -> Result<(), String> {
-    search_index::spawn_rebuild(get_notes_dir());
+    search_index::spawn_rebuild(get_notes_dir()?);
     Ok(())
 }
 

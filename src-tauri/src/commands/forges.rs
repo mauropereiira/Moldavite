@@ -14,7 +14,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 use crate::backlinks_index::BacklinksIndex;
-use crate::forge_watcher::{self, RecentWrites, WatcherSlot};
+#[cfg(desktop)]
+use crate::forge_watcher;
+use crate::forge_watcher::{RecentWrites, WatcherSlot};
 use crate::paths::{get_active_forge_name, get_forges_root, DEFAULT_FORGE_NAME};
 use crate::persist::{read_config, write_config};
 use crate::types::ForgeInfo;
@@ -90,6 +92,9 @@ fn ensure_forge_at(path: &Path) -> Result<PathBuf, String> {
 }
 
 pub(crate) fn ensure_active_forge() -> Result<PathBuf, String> {
+    if read_config().active_synced_forge {
+        return crate::cloud_forge::root();
+    }
     let root = get_forges_root();
     let name = get_active_forge_name();
     ensure_forge_at(&root.join(name))
@@ -101,32 +106,43 @@ pub(crate) fn list_forges() -> Result<Vec<ForgeInfo>, String> {
     let active = get_active_forge_name();
     let mut out: Vec<ForgeInfo> = Vec::new();
 
-    if !root.exists() {
-        return Ok(out);
-    }
-
-    let entries = fs::read_dir(&root).map_err(|e| format!("Failed to read forges root: {}", e))?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-            continue;
-        };
-        if name.starts_with('.') {
-            continue;
+    if root.exists() {
+        let entries =
+            fs::read_dir(&root).map_err(|e| format!("Failed to read forges root: {}", e))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if name.starts_with('.') {
+                continue;
+            }
+            if !path.is_dir() {
+                continue;
+            }
+            if !looks_like_forge(&path) {
+                continue;
+            }
+            out.push(ForgeInfo {
+                id: name.to_string(),
+                is_synced: false,
+                name: name.to_string(),
+                path: path.to_string_lossy().to_string(),
+                is_active: !read_config().active_synced_forge && name == active,
+            });
         }
-        if !path.is_dir() {
-            continue;
-        }
-        if !looks_like_forge(&path) {
-            continue;
-        }
-        out.push(ForgeInfo {
-            name: name.to_string(),
-            path: path.to_string_lossy().to_string(),
-            is_active: name == active,
-        });
     }
     out.sort_by_key(|f| f.name.to_lowercase());
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    out.push(ForgeInfo {
+        id: crate::cloud_forge::FORGE_ID.to_string(),
+        name: "Synced Forge".to_string(),
+        is_synced: true,
+        path: crate::cloud_forge::root()
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        is_active: read_config().active_synced_forge,
+    });
     Ok(out)
 }
 
@@ -143,6 +159,8 @@ pub(crate) fn create_forge(name: String) -> Result<ForgeInfo, String> {
     }
     scaffold_forge(&path)?;
     Ok(ForgeInfo {
+        id: name.clone(),
+        is_synced: false,
         name: name.clone(),
         path: path.to_string_lossy().to_string(),
         is_active: false,
@@ -150,12 +168,34 @@ pub(crate) fn create_forge(name: String) -> Result<ForgeInfo, String> {
 }
 
 #[tauri::command]
-pub(crate) fn set_active_forge(
+pub(crate) async fn set_active_forge(
     name: String,
     app: AppHandle,
     recent: State<'_, Arc<RecentWrites>>,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
+    if name == crate::cloud_forge::FORGE_ID {
+        let target = crate::cloud_forge::connect(&app).await?;
+        let scaffold = target.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            // Validate each expected directory against the initial cloud
+            // snapshot before creating it; a placeholder is not a new folder.
+            for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
+                let directory = scaffold.join(sub);
+                crate::note_file_access::write(&directory, |path| {
+                    fs::create_dir_all(path).map_err(|error| error.to_string())
+                })?;
+            }
+            Ok::<_, String>(())
+        })
+        .await
+        .map_err(|error| error.to_string())??;
+        let mut cfg = read_config();
+        cfg.active_synced_forge = true;
+        write_config(&cfg)?;
+        refresh_active_forge(&app, recent.inner().clone(), index.inner().clone(), target);
+        return Ok(name);
+    }
     if !is_valid_forge_name(&name) {
         return Err("Invalid Forge name".to_string());
     }
@@ -175,11 +215,22 @@ pub(crate) fn set_active_forge(
     let mut cfg = read_config();
     cfg.forges_root = Some(root.to_string_lossy().to_string());
     cfg.active_forge = Some(name.clone());
+    cfg.active_synced_forge = false;
     // Clear the deprecated single-Forge field so subsequent reads use the
     // forges_root + active_forge pair only.
     cfg.notes_directory = None;
     write_config(&cfg)?;
 
+    refresh_active_forge(&app, recent.inner().clone(), index.inner().clone(), target);
+    Ok(name)
+}
+
+pub(crate) fn refresh_active_forge(
+    app: &AppHandle,
+    recent: Arc<RecentWrites>,
+    index: Arc<BacklinksIndex>,
+    target: PathBuf,
+) {
     // Tear down old watcher and spin up a new one rooted at the new Forge.
     let slot = app.try_state::<WatcherSlot>();
     // Stop the old watcher before clearing `recent`, so an event still in
@@ -188,7 +239,8 @@ pub(crate) fn set_active_forge(
         slot.replace(None);
     }
     recent.clear();
-    match forge_watcher::spawn(app.clone(), recent.inner().clone()) {
+    #[cfg(desktop)]
+    match forge_watcher::spawn(app.clone(), recent.clone()) {
         Ok(handle) => {
             if let Some(slot) = &slot {
                 slot.replace(Some(handle));
@@ -197,7 +249,7 @@ pub(crate) fn set_active_forge(
         Err(e) => log::warn!("[forge] watcher respawn failed: {}", e),
     }
     // Rebuild the backlinks index off-thread so the UI doesn't block.
-    let idx = index.inner().clone();
+    let idx = index;
     tauri::async_runtime::spawn_blocking(move || {
         idx.rebuild_from_disk();
     });
@@ -207,8 +259,6 @@ pub(crate) fn set_active_forge(
     // The keyword index is per-Forge and lives outside the vault; reconcile
     // the incoming one off-thread. Search falls back to the scan until it lands.
     crate::search_index::spawn_reconcile(target);
-
-    Ok(name)
 }
 
 #[tauri::command]
@@ -220,9 +270,11 @@ pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeIn
         let root = get_forges_root();
         let path = root.join(&old_name);
         return Ok(ForgeInfo {
+            id: old_name.clone(),
+            is_synced: false,
             name: old_name,
             path: path.to_string_lossy().to_string(),
-            is_active: get_active_forge_name() == new_name,
+            is_active: !read_config().active_synced_forge && get_active_forge_name() == new_name,
         });
     }
     let root = get_forges_root();
@@ -245,9 +297,12 @@ pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeIn
     }
 
     Ok(ForgeInfo {
+        id: new_name.clone(),
+        is_synced: false,
         name: new_name.clone(),
         path: to.to_string_lossy().to_string(),
-        is_active: read_config().active_forge.as_deref() == Some(new_name.as_str()),
+        is_active: !read_config().active_synced_forge
+            && read_config().active_forge.as_deref() == Some(new_name.as_str()),
     })
 }
 
@@ -256,7 +311,7 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
     if !is_valid_forge_name(&name) {
         return Err("Invalid Forge name".to_string());
     }
-    if get_active_forge_name() == name {
+    if !read_config().active_synced_forge && get_active_forge_name() == name {
         return Err("Cannot delete the active Forge — switch first".to_string());
     }
     let root = get_forges_root();
@@ -581,6 +636,7 @@ pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
     ensure_forge_at(&canonical.join(DEFAULT_FORGE_NAME))?;
     let mut cfg = read_config();
     cfg.forges_root = Some(canonical.to_string_lossy().to_string());
+    cfg.active_synced_forge = false;
     cfg.notes_directory = None;
     write_config(&cfg)?;
     Ok(canonical.to_string_lossy().to_string())
@@ -931,4 +987,20 @@ mod tests {
             PathBuf::from(r"\\server\share\Moldavite")
         );
     }
+}
+
+/// Settings switches between iCloud and the retained local selection.
+#[tauri::command]
+pub(crate) async fn set_synced_forge_enabled(
+    enabled: bool,
+    app: AppHandle,
+    recent: State<'_, Arc<RecentWrites>>,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
+    let target = if enabled {
+        crate::cloud_forge::FORGE_ID.to_string()
+    } else {
+        get_active_forge_name()
+    };
+    set_active_forge(target, app, recent, index).await
 }

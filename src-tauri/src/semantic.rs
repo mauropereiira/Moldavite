@@ -866,7 +866,9 @@ impl SemanticService {
 /// A note's content changed (save, restore, unlock, …). Debounced so rapid
 /// auto-saves collapse into one re-embed; never blocks the caller.
 pub(crate) fn note_changed(rel_path: &str) {
-    note_changed_in(rel_path, crate::paths::get_notes_dir());
+    if let Ok(root) = crate::paths::get_notes_dir() {
+        note_changed_in(rel_path, root);
+    }
 }
 
 /// MCP-mode variant of [`note_changed`] for an explicitly selected Forge.
@@ -946,6 +948,9 @@ pub(crate) fn notes_changed(rel_paths: Vec<String>) {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
@@ -953,7 +958,6 @@ pub(crate) fn notes_changed(rel_paths: Vec<String>) {
         let Some(embedder) = svc.embedder() else {
             return;
         };
-        let forge_root = crate::paths::get_notes_dir();
         let mut any_changed = false;
         for rel in &rel_paths {
             let Ok(mut entries) = svc.entries.write() else {
@@ -982,6 +986,9 @@ pub(crate) fn notes_removed(rel_paths: Vec<String>) {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
@@ -995,7 +1002,7 @@ pub(crate) fn notes_removed(rel_paths: Vec<String>) {
             entries.len() != before
         };
         if removed {
-            svc.persist_entries(&crate::paths::get_notes_dir());
+            svc.persist_entries(&forge_root);
         }
     });
 }
@@ -1007,12 +1014,15 @@ pub(crate) fn all_notes_removed() {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
         }
         svc.replace_entries(Vec::new());
-        svc.persist_entries(&crate::paths::get_notes_dir());
+        svc.persist_entries(&forge_root);
     });
 }
 

@@ -20,8 +20,8 @@ use crate::secrets::{KeychainSecretStore, SecretStore};
 use crate::validation::validate_path_within_base;
 
 /// Absolute path to the active Forge's `.plugins` directory.
-pub(crate) fn plugins_dir() -> PathBuf {
-    get_notes_dir().join(".plugins")
+pub(crate) fn plugins_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join(".plugins"))
 }
 
 fn is_valid_secret_key(key: &str) -> bool {
@@ -218,7 +218,7 @@ fn list_plugins_in(dir: &Path) -> Vec<RawPlugin> {
 
 #[tauri::command]
 pub(crate) fn list_plugins() -> Result<Vec<RawPlugin>, String> {
-    Ok(list_plugins_in(&plugins_dir()))
+    Ok(list_plugins_in(&plugins_dir()?))
 }
 
 #[tauri::command]
@@ -226,7 +226,7 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
     if !is_valid_plugin_id(&id) {
         return Err("invalid plugin id".into());
     }
-    let base = plugins_dir();
+    let base = plugins_dir()?;
     let target = base.join(&id);
     validate_path_within_base(&target, &base)
         .map_err(|_| "refusing to delete outside the plugins directory".to_string())?;
@@ -445,7 +445,7 @@ fn install_bundled_plugin(
     plugin_id: &str,
 ) -> Result<(), String> {
     let src = bundled_plugin_source(app, resource_name)?;
-    let dest = plugins_dir().join(plugin_id);
+    let dest = plugins_dir()?.join(plugin_id);
     copy_plugin_files(&src, &dest, plugin_id)
 }
 
@@ -493,7 +493,7 @@ pub(crate) fn install_plugin_from_data(
     verify_registry_hash("plugin.js", plugin_js.as_bytes(), &expected_plugin_sha256)?;
 
     install_plugin_files(
-        &plugins_dir().join(&id),
+        &plugins_dir()?.join(&id),
         &id,
         PluginFiles {
             manifest_json: manifest_json.as_bytes(),

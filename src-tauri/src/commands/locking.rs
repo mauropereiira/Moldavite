@@ -167,7 +167,7 @@ pub(crate) fn lock_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     lock_note_in(
-        &get_notes_dir(),
+        &get_notes_dir()?,
         filename.clone(),
         password,
         is_daily,
@@ -245,7 +245,7 @@ pub(crate) fn unlock_note(
     is_daily: bool,
     is_weekly: bool,
 ) -> Result<String, String> {
-    unlock_note_in(&get_notes_dir(), filename, password, is_daily, is_weekly)
+    unlock_note_in(&get_notes_dir()?, filename, password, is_daily, is_weekly)
 }
 
 /// `resolver` mirrors `BacklinksIndex::update_note_with`: the default resolver
@@ -331,7 +331,7 @@ pub(crate) fn permanently_unlock_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     permanently_unlock_note_in(
-        &get_notes_dir(),
+        &get_notes_dir()?,
         filename.clone(),
         password,
         is_daily,
@@ -350,13 +350,17 @@ pub(crate) fn permanently_unlock_note(
 
 /// Check if a note is locked.
 #[tauri::command]
-pub(crate) fn is_note_locked(filename: String, is_daily: bool, is_weekly: bool) -> bool {
+pub(crate) fn is_note_locked(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<bool, String> {
     if !is_valid_note_ref(&filename, is_daily, is_weekly) {
-        return false;
+        return Ok(false);
     }
-    let dir = note_dir(&get_notes_dir(), is_daily, is_weekly);
+    let dir = note_dir(&get_notes_dir()?, is_daily, is_weekly);
     let path = locked_path(&dir, &filename);
-    validate_path_within_base(&path, &dir).is_ok() && path.exists()
+    Ok(validate_path_within_base(&path, &dir).is_ok() && path.exists())
 }
 
 #[cfg(test)]
