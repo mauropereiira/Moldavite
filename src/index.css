@@ -1285,6 +1285,34 @@ time,
   box-shadow: none;
 }
 
+/* Desktop Settings follows the existing S–XL preference. Keep the scale
+   local to the dialog; iOS has its own Larger Text and input-size rules. */
+html:not([data-platform='mobile']) .settings-dialog {
+  --text-xs: calc(var(--editor-font-size) * 0.75);
+  --text-sm: calc(var(--editor-font-size) * 0.875);
+  --text-base: var(--editor-font-size);
+  --text-lg: calc(var(--editor-font-size) * 1.125);
+  --text-xl: calc(var(--editor-font-size) * 1.375);
+  --text-2xl: calc(var(--editor-font-size) * 1.5);
+  font-size: var(--text-sm);
+}
+
+html:not([data-platform='mobile']) .settings-dialog .settings-control-label {
+  font-size: var(--text-sm);
+}
+
+html:not([data-platform='mobile'])
+  .settings-dialog
+  :is(.settings-segmented-option, .text-\[10px\]) {
+  font-size: var(--text-xs);
+}
+
+html:not([data-platform='mobile'])
+  .settings-dialog
+  :is(.settings-section-heading, [role='tabpanel'] h3) {
+  font-size: var(--text-xs) !important;
+}
+
 /* The `:not()` arguments are wrapped in `:where()` on purpose: bare `:not(.x)`
    adds a class to the specificity, and at (0,4,0) this blanket reset outranked
    every `.settings-dialog .thing { background: … !important }` exception below

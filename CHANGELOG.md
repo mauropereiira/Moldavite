@@ -2,6 +2,13 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- Desktop Settings text now follows the S–XL font-size preference, with larger default labels and descriptions. (#130)
+- The welcome screen's asteroid cursor now follows the pointer immediately; only its decorative dots trail behind. (#130)
+
 ## [2.7.0] - 2026-09-06
 
 ### Added
