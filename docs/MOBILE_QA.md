@@ -95,7 +95,7 @@ completed.
 | iPad | Native narrow-window multitasking, floating keyboard and remaining hardware shortcuts; two-column layout, rotation and Command-N verified |
 | iCloud implementation | Native bridge, Apple Forge selection, metadata listings and Mac discovery are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
-| Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. App Review validation is blocked on encryption compliance for France. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
+| Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. Submitted for App Review on 6 September 2026; Waiting for Review. France is excluded pending its encryption documentation. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
 
 ## Final command gates

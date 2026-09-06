@@ -1,9 +1,10 @@
 # iOS App Store handoff
 
-Checked on 2026-09-06. **Uploaded and processed, but not submitted for review.**
-App Store Connect's Add for Review validation reports one remaining item:
-“This build is missing export compliance information.” Distribution including
-France requires encryption documentation for this implementation.
+**Submitted for App Review on 2026-09-06 at 14:26 Europe/Lisbon.**
+App Store Connect confirms **Waiting for Review** for version/build 2.6.0.
+Mauro chose to exclude France until its encryption paperwork is resolved.
+The release is free in the other 174 territories and will publish automatically
+if Apple approves it. Submission is not approval or a live release.
 
 ## Current release
 
@@ -12,7 +13,8 @@ France requires encryption documentation for this implementation.
 - Version/build: `2.6.0` / `2.6.0`; minimum iOS/iPadOS **17.0**.
 - Signed archive, App Store export and upload succeeded on 6 September 2026.
   The processed build is attached to the version and includes the branded icon.
-- Free pricing and all 175 territories, including future territories, are saved.
+- Free pricing and 174 territories, plus future territories, are saved.
+  France is explicitly Not Available.
   Regional availability remains subject to Apple's requirements and approval.
 - Short notes-app description, Productivity category, 4+ age rating, reviewer
   contact, no sign-in requirement and automatic release after approval are saved.
@@ -32,17 +34,19 @@ The release package is on the Desktop in `Moldavite-App-Store-2026-09-06`:
 `Moldavite.xcarchive`, `Export/Moldavite.ipa`, screenshots and the brand-kit ZIP.
 Its READ-ME records source provenance and the current submission status.
 
-## Finish submission
+## Review and adding France later
 
-1. Resolve encryption compliance below. To retain France, obtain the requested
-   French declaration and upload it in App Information → App Encryption
-   Documentation. Do not upload a technical draft as an approved declaration.
-   Alternatively, Mauro can choose to exclude France for this release, then
-   answer the build's France question No. That decision is still pending.
-2. In the version's Build section, resolve Missing Compliance. The build is
-   already attached. Select Add for Review and resolve any further validation.
-3. Submit the version from App Review. Automatic release is selected, so Apple
-   publishes it after approval. An upload is not an approval or a live release.
+1. Watch App Review and the developer email for Apple's decision or requests.
+   The submission passed validation and is Waiting for Review.
+2. Mauro confirmed sending the signed French declaration to ANSSI. No ANSSI
+   response or approval has been provided yet. The current build accurately
+   declares standard encryption outside Apple's OS and no distribution in France.
+3. Before enabling France, resolve its documentation through App Information →
+   App Encryption Documentation and update the encryption declaration accordingly.
+   Apple's upload dialog specifically requests the French encryption declaration
+   approval form. Do not treat an application as an approval.
+4. After compliance clears, select France in Pricing and Availability →
+   Manage Availability. Apple allows countries to be added later.
 
 ## Prepare the release candidate
 
@@ -148,9 +152,8 @@ outside its OS when distributing in France. US mass-market classification does
 not by itself remove that French requirement. Do not prefill
 `ITSAppUsesNonExemptEncryption=false` merely because AES is standard. Record the
 actual classification and Apple's requested documentation, then set the plist
-value and any supplied compliance code accordingly. This account declaration
-is the current submission blocker, confirmed by Apple’s questionnaire and
-Add for Review validation. [Apple's encryption table](https://developer.apple.com/help/app-store-connect/reference/export-compliance-documentation-for-encryption/),
+value and any supplied compliance code accordingly. The current submission excludes France, so its compliance questionnaire is
+complete. Revisit the declaration and documentation before enabling France. [Apple's encryption table](https://developer.apple.com/help/app-store-connect/reference/export-compliance-documentation-for-encryption/),
 [questionnaire and upload steps](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)
 
 ## Store listing and review information
