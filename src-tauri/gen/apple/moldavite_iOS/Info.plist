@@ -63,7 +63,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
 </dict>
 </plist>

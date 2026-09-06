@@ -13,6 +13,7 @@ settingGroups:
       PRODUCT_NAME: Moldavite
       PRODUCT_BUNDLE_IDENTIFIER: app.moldavite
       DEVELOPMENT_TEAM: J6Z5WJKHZB
+      CODE_SIGN_STYLE: Automatic
 targetTemplates:
   app:
     type: application
@@ -31,7 +32,6 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
-      - path: Externals
       - path: moldavite_iOS
       - path: assets
         buildPhase: resources
@@ -60,7 +60,7 @@ targets:
             NSUbiquitousContainerName: Moldavite
             NSUbiquitousContainerSupportedFolderLevels: Any
         # `moldavite://` links (the widget's `moldavite://today`, note and plugin
-        # links). The deep-link plugin registers schemes itself on desktop only.
+        # links). Keep in sync with the restoration after Build Rust Code below.
         CFBundleURLTypes:
           - CFBundleURLName: app.moldavite
             CFBundleURLSchemes: [moldavite]
@@ -96,7 +96,12 @@ targets:
       - sdk: UIKit.framework
       - sdk: WebKit.framework
     preBuildScripts:
-      - script: npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+      - script: |
+          set -e
+          npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+          # The deep-link dependency's build script removes custom iOS schemes.
+          # Restore ours before Xcode processes and signs the app's Info.plist.
+          /usr/bin/plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"app.moldavite","CFBundleURLSchemes":["moldavite"]}]' "${SRCROOT}/moldavite_iOS/Info.plist"
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:
@@ -123,6 +128,7 @@ targets:
         PRODUCT_NAME: MoldaviteWidget
         PRODUCT_BUNDLE_IDENTIFIER: app.moldavite.widget
         DEVELOPMENT_TEAM: J6Z5WJKHZB
+        CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.0"
         ARCHS: [arm64]
         SKIP_INSTALL: true

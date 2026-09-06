@@ -1,9 +1,12 @@
-# iOS App Store and TestFlight handoff
+# iOS App Store handoff
 
 Working release guide, checked against Apple and Tauri documentation on
-2026-09-05. **This branch is not ready to upload yet.** The authoritative
-functional checklist is [MOBILE_QA.md](MOBILE_QA.md). No signed device archive,
-TestFlight upload, App Store record or export declaration has been verified.
+2026-09-06. **This branch is not ready to submit for review yet.** A signed
+device archive and App Store IPA export succeeded with team `J6Z5WJKHZB`.
+Nothing has been uploaded. The App Store record, privacy manifest and export
+declaration remain outstanding. The functional limitations are recorded in
+[MOBILE_QA.md](MOBILE_QA.md); no new device testing was performed for this export.
+Mauro chose direct App Store submission without TestFlight or further testing.
 
 ## Actions Mauro needs to take in his Apple account
 
@@ -24,9 +27,9 @@ TestFlight upload, App Store record or export declaration has been verified.
    trader-status forms. These are account-owner decisions, not build settings.
 6. Complete the encryption questions described below. Supply the actual review
    contact details and any documentation requested by Apple.
-7. Add internal TestFlight testers. Uploading a build, inviting external testers
-   and submitting for App Review are separate actions; none has been performed
-   on Mauro's behalf.
+7. Attach the uploaded build to the App Store version and submit for App Review
+   after completing the listing and declarations. TestFlight is optional and
+   is skipped for this release.
 
 ## Prepare the release candidate
 
@@ -35,10 +38,9 @@ TestFlight upload, App Store record or export declaration has been verified.
   uploads require Xcode 26 or later and an iOS 26 SDK or later. The deployment
   target is a separate setting; building with a newer SDK does not require all
   users to run that OS. [Apple's current SDK requirement](https://developer.apple.com/news/upcoming-requirements/?id=02032026a)
-- Finish every requirement in MOBILE_QA.md, including iPad, photo selection,
-  device keyboard behavior, lifecycle saves and iCloud offline/conflict tests.
-- Run every frontend and Rust gate listed there against the exact commit being
-  archived. Also run the Swift core tests documented in MOBILE.md.
+- Review the unresolved implementation and verification items in MOBILE_QA.md.
+  Further device and regression testing is deferred at Mauro's request; a
+  successful archive does not establish that those items are complete.
 - The branded iPhone/iPad icons are installed in all 18 asset-catalog slots,
   including an opaque 1024px App Store icon. Reusable assets and regeneration
   instructions are in [the brand kit](../branding/README.md). Inspect the icon
@@ -54,6 +56,14 @@ TestFlight upload, App Store record or export declaration has been verified.
   localhost; they are not the build to distribute.
 
 ## Version and signing settings
+
+Both Xcode targets explicitly use automatic signing in `project.yml`. A
+certificate in Keychain alone is not enough: Xcode → Settings → Apple Accounts
+must also show the developer team. For the development-signed archive workflow,
+pair a device and register it with the team. Command-line registration needs
+both `-allowProvisioningUpdates` and `-allowProvisioningDeviceRegistration`, an
+explicit device destination, and automatic signing. App Store distribution is
+separate from installing a development build; this does not require TestFlight.
 
 Choose the public version using the existing repository release process in
 [RELEASING.md](RELEASING.md). Choose an increasing build number for each upload.
@@ -171,16 +181,10 @@ Suggested reviewer notes, to be updated only after the features are verified:
 > opens today's note. Desktop executable plugins, self-updates and desktop
 > integrations are not available in this iOS build.
 
-## TestFlight and final submission
+## Direct App Store submission
 
-In App Store Connect → TestFlight, select the processed build, resolve Missing
-Compliance if shown, and add it to an internal testing group. Supply beta test
-details and App Review information before requesting external testing; external
-distribution can require Beta App Review. Install through TestFlight on a real
-iPhone and iPad and run the release checklist again, including iCloud with the
-distribution build. [Apple's TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/)
-
-After testing, attach that exact build to the App Store version, complete the
+After processing, resolve Missing Compliance if shown. Attach the build to the
+App Store version, complete the
 listing, privacy, age rating, availability and review fields, and submit it for
 review. Respond to App Review requests using reproducible steps. Approval and
 release are separate from a successful upload. Record the approved build and
