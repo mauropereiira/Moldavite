@@ -18,6 +18,8 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- An unpinned MCP client now reports that iCloud is unsupported when the synced Forge is active, instead of silently selecting the previous local Forge. Pin MCP clients to a local Forge with `--forge`.
+
 - iOS native controls and status-bar contrast follow the app theme. Long dialog
   titles wrap, focused fields stay above the keyboard, and expanded sidebar
   sections no longer clip long lists at a fixed height.

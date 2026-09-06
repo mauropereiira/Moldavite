@@ -74,6 +74,7 @@ fn resolve_forge(requested: Option<&str>) -> Result<PathBuf, String> {
         &crate::paths::get_forges_root(),
         &name,
         explicit,
+        crate::persist::read_config().active_synced_forge,
         crate::migration::adopt_stray_root_layout,
     )
 }
@@ -82,11 +83,18 @@ fn resolve_forge_at<F>(
     forges_root: &std::path::Path,
     name: &str,
     explicit: bool,
+    active_synced: bool,
     adopt_strays: F,
 ) -> Result<PathBuf, String>
 where
     F: FnOnce() -> Result<bool, String>,
 {
+    if active_synced && !explicit {
+        return Err(
+            "MCP does not support the synced Forge yet. Connect with --forge <local Forge name>."
+                .to_string(),
+        );
+    }
     if !crate::validation::is_safe_existing_filename(name) {
         return Err("Invalid Forge name".to_string());
     }
@@ -146,11 +154,32 @@ mod tests {
     }
 
     #[test]
+    fn synced_selection_never_routes_unpinned_clients_to_the_previous_local_forge() {
+        let root = temp_root("synced-selection");
+        let local = root.join("Default");
+        std::fs::create_dir_all(&local).unwrap();
+        std::fs::write(local.join("keep.md"), "unchanged").unwrap();
+        let result = resolve_forge_at(&root, "Default", false, true, || {
+            panic!("A synced selection must not migrate local notes")
+        });
+        assert!(result.unwrap_err().contains("--forge"));
+        assert_eq!(
+            std::fs::read_to_string(local.join("keep.md")).unwrap(),
+            "unchanged"
+        );
+        assert_eq!(
+            resolve_forge_at(&root, "Default", true, true, || Ok(false)).unwrap(),
+            local
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn pinned_missing_forge_errors() {
         let root = temp_root("pinned-missing");
 
         assert_eq!(
-            resolve_forge_at(&root, "Missing", true, || Ok(false)),
+            resolve_forge_at(&root, "Missing", true, false, || Ok(false)),
             Err("Forge 'Missing' does not exist".to_string())
         );
         assert!(!root.join("Missing").exists());
@@ -159,7 +188,7 @@ mod tests {
     #[test]
     fn unpinned_missing_forge_is_scaffolded() {
         let root = temp_root("unpinned-missing");
-        let forge = resolve_forge_at(&root, "Default", false, || Ok(false)).unwrap();
+        let forge = resolve_forge_at(&root, "Default", false, false, || Ok(false)).unwrap();
 
         for sub in ["daily", "notes", "weekly", "templates", ".trash"] {
             assert!(forge.join(sub).is_dir(), "missing {sub}");
@@ -175,11 +204,11 @@ mod tests {
         std::fs::create_dir_all(root.join("Q3: Roadmap")).unwrap();
 
         assert_eq!(
-            resolve_forge_at(&root, "Q3: Roadmap", true, || Ok(false)).unwrap(),
+            resolve_forge_at(&root, "Q3: Roadmap", true, false, || Ok(false)).unwrap(),
             root.join("Q3: Roadmap")
         );
         assert_eq!(
-            resolve_forge_at(&root, "Reports.", false, || Ok(false)),
+            resolve_forge_at(&root, "Reports.", false, false, || Ok(false)),
             Err("Invalid Forge name".to_string())
         );
         assert!(!root.join("Reports.").exists());
@@ -193,7 +222,7 @@ mod tests {
         std::fs::create_dir_all(root.join("daily")).unwrap();
         std::fs::write(root.join("daily/stray.md"), "preserved").unwrap();
 
-        let forge = resolve_forge_at(&root, "Default", false, || {
+        let forge = resolve_forge_at(&root, "Default", false, false, || {
             crate::migration::adopt_stray_root_layout_at(&root, "Default")
         })
         .unwrap();
@@ -218,7 +247,7 @@ mod tests {
         symlink(&target, root.join("Default")).unwrap();
 
         assert_eq!(
-            resolve_forge_at(&root, "Default", false, || Ok(false)),
+            resolve_forge_at(&root, "Default", false, false, || Ok(false)),
             Err("Refusing to use a symlinked Forge".to_string())
         );
 

@@ -57,8 +57,9 @@ claude mcp add moldavite -- moldavite --mcp
 
 Settings → AI & Agents generates the exact line for Claude Code, Claude Desktop,
 Cursor, or any stdio MCP client — use it on Windows and Linux, where the path differs. Add
-`--forge "Work"` to pin a client to one Forge rather than following whichever is
-open.
+`--forge "Work"` to pin a client to one local Forge rather than following the
+active local Forge. MCP currently supports local Forges; pin a local Forge when
+using the Mac app’s synced iCloud Forge.
 
 | Tool                   | Does                                                               | Default |
 | ---------------------- | ------------------------------------------------------------------ | ------- |

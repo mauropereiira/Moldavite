@@ -51,6 +51,15 @@ Forge selected; Moldavite does not substitute an unrelated local folder.
 The built-in iCloud Forge is available on Apple devices. Windows and Linux
 support is a later project.
 
+## AI clients and the browser clipper
+
+MCP and the browser clipper support local Forges in this release. Keep those
+connections pointed at a local Forge. For an MCP client, pin it explicitly with
+`moldavite --mcp --forge "Default"` (replace `Default` with your local Forge name).
+An unpinned MCP client reports an error when the synced Forge is selected, so
+it cannot silently write to a different local Forge. Choose a local Forge in
+the browser clipper. Shared iCloud access for these integrations is not yet supported.
+
 ## Maintainer verification
 
 The Mac-first setup was verified with a Developer ID signed native build on
