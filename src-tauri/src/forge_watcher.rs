@@ -211,7 +211,7 @@ fn index_external_change(root: &Path, rel: &str) {
 /// Spawn a long-lived background thread that watches active-Forge contents and
 /// direct children of the Forges root. Returns a guard whose Drop stops it.
 pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle, String> {
-    let root = get_notes_dir();
+    let root = get_notes_dir()?;
     let forges_root = get_forges_root();
     if !root.exists() {
         // Nothing to watch yet; the caller can re-spawn after dirs are made.

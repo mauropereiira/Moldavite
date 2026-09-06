@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Editor } from '@tiptap/react';
@@ -109,11 +110,13 @@ export function EditorFooter({
       </div>
 
       {/* Publish to WordPress — absent unless the build has credentials */}
-      <WordPressMenu
-        onShowToast={showToast}
-        onShowError={(message) => toast.error(message)}
-        openDirection="up"
-      />
+      {!isMobilePlatform() && (
+        <WordPressMenu
+          onShowToast={showToast}
+          onShowError={(message) => toast.error(message)}
+          openDirection="up"
+        />
+      )}
 
       {/* Share Menu */}
       <ShareMenu onShowToast={showToast} openDirection="up" />

@@ -36,6 +36,8 @@ const BUDGETS = [
   // chunk — not to ration release notes. Measured 65.5 KB raw / 25.1 KB gz.
   { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
+  // Mobile CSS loads only on mobile, before the first render.
+  { pattern: /^mobile-.*\.css$/, rawKb: 20, gzipKb: 4 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
@@ -100,7 +102,18 @@ const BUDGETS = [
 // WordPress mappings keyed by backend trash identity. Measured 606.8 KB raw /
 // 167.8 KB gz locally and 168.2 KB gz on Linux CI.
 // 614: the search-index status block in Settings added 1.8 KB raw (gzip unchanged).
-const APP_JS_BUDGET = { rawKb: 614, gzipKb: 169 };
+// 617 / 171: the phone shell (platform detection, home header, visual-viewport
+// height, the two-level Settings page) added 2 KB raw / 1.3 KB gz. Measured
+// 616.0 KB raw / 170.3 KB gz.
+// 620 / 172: local-device onboarding, keyboard formatting/dismissal, and mobile
+// integration gates add 2.7 KB raw / 0.9 KB gz. Lazy mobile chunks still count.
+// Native mobile note/selection exports add ~3.5 KB raw / 1.4 KB gz across the
+// entry points and a lazy helper. No new frontend dependencies.
+// Separate iCloud Forge selection, inline connection errors and metadata refresh
+// add ~2.2 KB raw / 0.7 KB gz. Measured 625.4 KB / 173.8 KB gz; no new dependencies.
+// Native appearance, keyboard field visibility and the adaptive iPad layout add
+// ~0.7 KB raw / 0.2 KB gz. Measured 626.2 KB / 174.0 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 627, gzipKb: 175 };
 
 async function main() {
   let entries;

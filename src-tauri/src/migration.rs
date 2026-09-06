@@ -183,7 +183,7 @@ fn resolve_note_path(notes_dir: &Path, note_path: &str) -> Option<PathBuf> {
 /// into their frontmatter. Errors during individual files are logged but do
 /// not abort the whole migration.
 pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
-    let metadata_path = get_metadata_path();
+    let metadata_path = get_metadata_path()?;
     if !metadata_path.exists() {
         return Ok(0);
     }
@@ -212,7 +212,7 @@ pub fn migrate_metadata_to_frontmatter() -> Result<u32, String> {
         }
     };
 
-    let notes_dir = get_notes_dir();
+    let notes_dir = get_notes_dir()?;
     let mut migrated = 0u32;
 
     for (note_path, color) in &meta.colors {

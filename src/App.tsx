@@ -28,6 +28,8 @@ import {
   useSemanticStore,
 } from './stores';
 import { fixNotePermissions } from './lib/fileSystem';
+import { isMobilePlatform } from './lib/platform';
+import { syncMobileAppearance } from './lib/mobileAppearance';
 import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
 import { registerAutosaveCloseGuard } from './lib/autosaveFlush';
 
@@ -92,6 +94,9 @@ function App() {
   // Apply theme on mount and when it changes
   useEffect(() => {
     applyTheme(theme, preset);
+    void syncMobileAppearance(theme).catch((error) =>
+      console.error('[App] Failed to apply native appearance:', error)
+    );
 
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -134,9 +139,20 @@ function App() {
     <>
       <Layout />
       <ToastContainer />
-      <UpdateNotification />
-      <WhatsNewModal />
-      <CalendarOnboardingModal />
+      {isMobilePlatform() && (
+        <div className="mobile-field-keyboard-bar">
+          <button
+            type="button"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => (document.activeElement as HTMLElement | null)?.blur()}
+          >
+            Done
+          </button>
+        </div>
+      )}
+      {!isMobilePlatform() && <UpdateNotification />}
+      {!isMobilePlatform() && <WhatsNewModal />}
+      {!isMobilePlatform() && <CalendarOnboardingModal />}
       <AppOnboardingModal />
       <QuickSwitcher />
       <GraphView />

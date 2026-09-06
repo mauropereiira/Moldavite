@@ -5,6 +5,9 @@
 //! and stateful indexes are updated only after the corresponding disk operation.
 
 pub mod backlinks;
+/// Pairs desktop browsers with the clipper's native-messaging host; a phone
+/// has no browser extension to pair.
+#[cfg(desktop)]
 pub mod browser_bridge;
 pub mod export_import;
 pub mod folders;
@@ -15,6 +18,7 @@ pub mod locking;
 pub mod mcp_settings;
 pub mod misc;
 pub mod notes;
+#[cfg(desktop)]
 pub mod plugins;
 pub mod root_files;
 pub mod search;

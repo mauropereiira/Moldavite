@@ -212,11 +212,11 @@ pub(crate) fn trash_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
     let source_dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     // Generate unique ID for trash item
@@ -225,7 +225,7 @@ pub(crate) fn trash_note(
     // Create trash directory if needed
     ensure_trash_dir()?;
 
-    let trash_dir = get_trash_dir();
+    let trash_dir = get_trash_dir()?;
     let item = trash_note_on_disk(
         &source_dir,
         &trash_dir,
@@ -238,7 +238,7 @@ pub(crate) fn trash_note(
     )?;
 
     // Update metadata
-    let mut metadata = read_trash_metadata();
+    let mut metadata = read_trash_metadata()?;
     metadata.items.push(item);
     write_trash_metadata(&metadata)?;
 
@@ -259,7 +259,7 @@ pub(crate) fn trash_note(
 
 #[tauri::command]
 pub(crate) fn list_trash() -> Result<Vec<TrashedNote>, String> {
-    let metadata = read_trash_metadata();
+    let metadata = read_trash_metadata()?;
     let now = chrono::Utc::now().timestamp();
     let seven_days_secs = TRASH_RETENTION_SECS;
 
@@ -294,7 +294,7 @@ pub(crate) fn list_trash() -> Result<Vec<TrashedNote>, String> {
 /// but there is no single "file" to preview).
 #[tauri::command]
 pub(crate) fn read_trashed_note(trash_id: String) -> Result<String, String> {
-    let metadata = read_trash_metadata();
+    let metadata = read_trash_metadata()?;
     let item = metadata
         .items
         .iter()
@@ -305,7 +305,7 @@ pub(crate) fn read_trashed_note(trash_id: String) -> Result<String, String> {
         return Ok(String::new());
     }
 
-    let trash_dir = get_trash_dir();
+    let trash_dir = get_trash_dir()?;
     let trash_path = trash_item_path(&trash_dir, item);
     validate_path_within_base(&trash_path, &trash_dir)?;
 
@@ -330,7 +330,7 @@ pub(crate) fn restore_note(
     trash_id: String,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    let mut metadata = read_trash_metadata();
+    let mut metadata = read_trash_metadata()?;
 
     // Find the item in metadata
     let item_index = metadata
@@ -341,7 +341,7 @@ pub(crate) fn restore_note(
 
     let item = metadata.items[item_index].clone();
 
-    let trash_path = trash_item_path(&get_trash_dir(), &item);
+    let trash_path = trash_item_path(&get_trash_dir()?, &item);
 
     if !trash_path.exists() {
         // Remove from metadata anyway
@@ -352,10 +352,10 @@ pub(crate) fn restore_note(
 
     let restored_path = if item.is_folder {
         let dest_path = restore_item_on_disk(
-            &get_trash_dir(),
-            &get_daily_dir(),
-            &get_weekly_dir(),
-            &get_standalone_dir(),
+            &get_trash_dir()?,
+            &get_daily_dir()?,
+            &get_weekly_dir()?,
+            &get_standalone_dir()?,
             &item,
         )?;
 
@@ -373,10 +373,10 @@ pub(crate) fn restore_note(
         format!("notes/{}", item.original_path)
     } else {
         let dest_path = restore_item_on_disk(
-            &get_trash_dir(),
-            &get_daily_dir(),
-            &get_weekly_dir(),
-            &get_standalone_dir(),
+            &get_trash_dir()?,
+            &get_daily_dir()?,
+            &get_weekly_dir()?,
+            &get_standalone_dir()?,
             &item,
         )?;
 
@@ -435,8 +435,8 @@ fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
 
 #[tauri::command]
 pub(crate) fn permanently_delete_trash(trash_id: String) -> Result<(), String> {
-    let mut metadata = read_trash_metadata();
-    permanently_delete_trash_in(&get_trash_dir(), &mut metadata, &trash_id)?;
+    let mut metadata = read_trash_metadata()?;
+    permanently_delete_trash_in(&get_trash_dir()?, &mut metadata, &trash_id)?;
     write_trash_metadata(&metadata)?;
     Ok(())
 }
@@ -476,8 +476,8 @@ fn permanently_delete_trash_in(
 
 #[tauri::command]
 pub(crate) fn empty_trash() -> Result<(), String> {
-    let metadata = read_trash_metadata();
-    empty_trash_in(&get_trash_dir(), &metadata);
+    let metadata = read_trash_metadata()?;
+    empty_trash_in(&get_trash_dir()?, &metadata);
     write_trash_metadata(&TrashMetadata::default())?;
     Ok(())
 }
@@ -503,9 +503,9 @@ fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) {
 
 #[tauri::command]
 pub(crate) fn cleanup_old_trash() -> Result<Vec<String>, String> {
-    let mut metadata = read_trash_metadata();
+    let mut metadata = read_trash_metadata()?;
     let now = chrono::Utc::now().timestamp();
-    let deleted_ids = cleanup_old_trash_in(&get_trash_dir(), &mut metadata, now)?;
+    let deleted_ids = cleanup_old_trash_in(&get_trash_dir()?, &mut metadata, now)?;
     write_trash_metadata(&metadata)?;
     Ok(deleted_ids)
 }
@@ -643,9 +643,9 @@ pub(crate) fn trash_folder(
     path: String,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     ensure_trash_dir()?;
-    let trash_dir = get_trash_dir();
+    let trash_dir = get_trash_dir()?;
     let id = next_trash_id();
     let item = trash_folder_on_disk(
         &standalone_dir,
@@ -663,7 +663,7 @@ pub(crate) fn trash_folder(
         .collect();
 
     // Update metadata
-    let mut metadata = read_trash_metadata();
+    let mut metadata = read_trash_metadata()?;
     metadata.items.push(item.clone());
     write_trash_metadata(&metadata)?;
 
@@ -695,7 +695,7 @@ pub(crate) fn restore_note_from_folder(
     if !is_safe_existing_note_path(&note_filename) {
         return Err("Invalid note filename".to_string());
     }
-    let mut metadata = read_trash_metadata();
+    let mut metadata = read_trash_metadata()?;
 
     // Find the folder item in metadata
     let item_index = metadata
@@ -707,7 +707,7 @@ pub(crate) fn restore_note_from_folder(
     let item = &metadata.items[item_index];
 
     // Build trash folder path
-    let trash_dir = get_trash_dir();
+    let trash_dir = get_trash_dir()?;
     let trash_folder_path = trash_item_path(&trash_dir, item);
     validate_path_within_base(&trash_folder_path, &trash_dir)
         .map_err(|_| "Invalid trashed folder path".to_string())?;
@@ -716,7 +716,7 @@ pub(crate) fn restore_note_from_folder(
         return Err("Trashed folder not found on disk".to_string());
     }
 
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     let dest_path =
         restore_note_from_folder_on_disk(&trash_folder_path, &standalone_dir, &note_filename)?;
 

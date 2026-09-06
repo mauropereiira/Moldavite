@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -81,6 +82,10 @@ import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
 import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
+
+const MobileFormattingBar = React.lazy(() =>
+  import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
+);
 
 export function Editor() {
   // The editor is the one surface that is *supposed* to re-render on every
@@ -316,7 +321,10 @@ export function Editor() {
 
     event.preventDefault();
     if (/^(https?|mailto):/i.test(href)) {
-      void shellOpen(href).catch((error) => {
+      const opening = isMobilePlatform()
+        ? invoke('open_external_link', { url: href })
+        : shellOpen(href);
+      void opening.catch((error) => {
         console.error('[Editor] Failed to open external link:', error);
         toast.error('Failed to open link');
       });
@@ -1162,7 +1170,7 @@ export function Editor() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="editor-root flex flex-col h-full">
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <ConfirmDialog
@@ -1207,7 +1215,10 @@ export function Editor() {
             flow: a flex child of a zero-height row collapses to its padding
             box and the label overflows below it, which misaligns the hover
             wash from the text. */}
-        <div style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}>
+        <div
+          className="editor-paper-close-rail"
+          style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}
+        >
           <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
         </div>
 
@@ -1229,7 +1240,7 @@ export function Editor() {
             <EditorContent editor={editor} className="h-full" />
           </div>
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {editor && !editor.isDestroyed && (
+          {!isMobilePlatform() && editor && !editor.isDestroyed && (
             <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
           )}
           {/* Image Toolbar - shows when image is selected */}
@@ -1282,6 +1293,16 @@ export function Editor() {
           showSaveSuccess={showSaveSuccess}
           onRenameNote={renameNote}
         />
+      )}
+
+      {isMobilePlatform() && editor && !editor.isDestroyed && (
+        <React.Suspense fallback={null}>
+          <MobileFormattingBar
+            editor={editor}
+            onInsertLink={handleInsertLink}
+            onInsertImage={() => setIsImageModalOpen(true)}
+          />
+        </React.Suspense>
       )}
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}

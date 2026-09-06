@@ -497,7 +497,9 @@ fn indexable(rel: &str) -> bool {
 
 /// A note's content changed (save, restore, unlock, duplicate, …).
 pub(crate) fn note_changed(rel_path: &str) {
-    note_changed_in(rel_path, crate::paths::get_notes_dir());
+    if let Ok(root) = crate::paths::get_notes_dir() {
+        note_changed_in(rel_path, root);
+    }
 }
 
 /// [`note_changed`] for an explicitly selected Forge. The MCP process has no
@@ -511,7 +513,9 @@ pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
 
 /// A note went away (delete, trash, lock, move-source).
 pub(crate) fn note_removed(rel_path: &str) {
-    note_removed_in(rel_path, crate::paths::get_notes_dir());
+    if let Ok(root) = crate::paths::get_notes_dir() {
+        note_removed_in(rel_path, root);
+    }
 }
 
 pub(crate) fn note_removed_in(rel_path: &str, forge_root: PathBuf) {
@@ -524,7 +528,9 @@ pub(crate) fn note_removed_in(rel_path: &str, forge_root: PathBuf) {
 /// A note moved: the old row goes and the new path is read fresh, both on the
 /// same worker so the two can never race each other.
 pub(crate) fn note_renamed(old_rel: &str, new_rel: &str) {
-    note_renamed_in(old_rel, new_rel, crate::paths::get_notes_dir());
+    if let Ok(root) = crate::paths::get_notes_dir() {
+        note_renamed_in(old_rel, new_rel, root);
+    }
 }
 
 pub(crate) fn note_renamed_in(old_rel: &str, new_rel: &str, forge_root: PathBuf) {
@@ -800,7 +806,9 @@ pub(crate) fn spawn_periodic_reconcile() {
         .name("search-index-heal".into())
         .spawn(|| loop {
             std::thread::sleep(RECONCILE_INTERVAL);
-            let _ = reconcile(&crate::paths::get_notes_dir());
+            if let Ok(root) = crate::paths::get_notes_dir() {
+                let _ = reconcile(&root);
+            }
         });
     if let Err(error) = spawned {
         log::warn!("[search index] periodic reconcile thread failed to start: {error}");

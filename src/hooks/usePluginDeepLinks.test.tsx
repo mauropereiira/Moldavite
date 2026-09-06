@@ -28,6 +28,7 @@ import {
   noteDeepLink,
   routeNoteRequest,
   routePluginInstallRequest,
+  routeTodayRequest,
   usePluginDeepLinks,
 } from './usePluginDeepLinks';
 
@@ -198,5 +199,33 @@ describe('app deep links', () => {
     expect(await routeNoteRequest('C:/evil.md', loadNote, refresh)).toBe(false);
     expect(loadNote).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('routeTodayRequest', () => {
+  it('leaves every page and opens today through the daily-note path', async () => {
+    useSettingsStore.getState().setIsSettingsOpen(true);
+    useGraphStore.getState().open();
+    const loadDailyNote = vi.fn().mockResolvedValue(undefined);
+
+    await routeTodayRequest(loadDailyNote);
+
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
+    expect(useGraphStore.getState().isOpen).toBe(false);
+    expect(loadDailyNote).toHaveBeenCalledTimes(1);
+    const requested = loadDailyNote.mock.calls[0][0] as Date;
+    expect(requested.toDateString()).toBe(new Date().toDateString());
+    expect(useNoteStore.getState().selectedDate.toDateString()).toBe(new Date().toDateString());
+  });
+
+  it('is accepted by the drain as a pending request', async () => {
+    useNoteStore.getState().setSelectedDate(new Date(2000, 0, 1));
+    pendingRequests = [{ kind: 'today' }];
+
+    renderHook(() => usePluginDeepLinks());
+
+    await waitFor(() => {
+      expect(useNoteStore.getState().selectedDate.toDateString()).toBe(new Date().toDateString());
+    });
   });
 });

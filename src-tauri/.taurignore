@@ -1,0 +1,5 @@
+# Swift package products must not trigger another native build.
+**/.build/**
+
+# Tauri regenerates native plugin API packages while preparing each build.
+**/.tauri/**

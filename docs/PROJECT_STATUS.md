@@ -1,12 +1,18 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 4, 2026
+**Last Updated:** September 6, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
 > real bug is found (see "Documentation Maintenance" in CLAUDE.md).
 
 ## What's Shipped and Working
+
+### Mac iCloud Forge (v2.7.0)
+
+- Mac can initialize the shared `iCloud.app.moldavite` container before iOS is installed. Settings → General → Use synced Forge connects a separate Forge; a Finder button opens it for adding Markdown notes. Existing local Forges are not moved.
+- Signed native first-use initialization and iCloud ownership were verified on macOS, along with the full app bundle's signature and provisioning. Cross-device delivery and offline concurrent editing remain unverified. Windows/Linux iCloud support is deferred.
+- User setup: [MAC_ICLOUD.md](MAC_ICLOUD.md). Signing, embedded profile, and CI requirements: [RELEASING.md](RELEASING.md#mac-icloud-signing). Full iOS user documentation will follow separately.
 
 ### Notes & Editing
 
@@ -46,12 +52,19 @@
 
 ### Platform
 
+- The iOS development branch now has native app-theme appearance, Larger Text
+  support and adaptive iPad Index/editor columns. iPhone SE, iPhone 17 and iPad
+  mini simulator checks are recorded in MOBILE_QA.md. The reusable assets in
+  `branding/` and all iPhone/iPad app-icon slots use the existing Moldavite mark.
+  This does not change the app's unreleased iOS status.
+
 - Windows is a beta release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed and the platform stays beta until it is not
 - Linux is a beta release target: an AppImage (any distribution, carries the updater), a deb (Debian and Ubuntu) and an rpm (Fedora), the last two without an in-app updater, built by the release workflow and proven by a `build-linux` job on every PR that asserts the exact artifact names the release verification requires, then a `smoke-linux-fedora` job that launches the AppImage and the rpm under Xvfb in a Fedora container and fails on an EGL abort, a dead web process or a blank window (the 2.6.0 AppImage shipped exactly that on Fedora, #130). The crate has compiled and tested on `ubuntu-latest` since CI existed. No Linux runtime journey has been exercised by hand. All bundles need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) because the ONNX Runtime binary fastembed ships is built against it; the deb declares `libc6 (>= 2.38)` so apt refuses cleanly on older systems, and the AppImage needs `libfuse2` where the distribution does not ship it
 - Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS credential store). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Linux bundles are unsigned as well; Linux has no equivalent warning. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check, and can be switched off in Settings → About (manual checks still work); automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
 - Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows and Linux), settings modal with focus trap
 - Window size and position are restored between launches
+- iOS is in development on the `mobile/ios-spike` branch, not shipped: the same React app and Rust core build through Tauri's iOS target and run on the iPhone simulator with a phone layout (icon rail navigation, full-screen pages, two-level Settings, keyboard-aware shell and formatting row, local-container onboarding), a home screen widget that opens today's note through `moldavite://today`, and the desktop-only parts compiled out. Third-party plugins and their installation commands are desktop-only. See docs/MOBILE.md for the build, the gates and what is left
 
 ### Browser clipper
 
@@ -98,9 +111,10 @@
 2. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
 3. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
 4. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-5. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
-6. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
-7. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
+5. **iOS app** — in progress on `mobile/ios-spike` (docs/MOBILE.md). The native iCloud container/download/metadata bridge builds. Note reads and complete conflict-check/save transactions now check download state and coordinate cloud files; optional synced Forge selection and metadata listing/reconciliation are connected on Apple devices. Lock/unlock, note moves/renames/direct deletion and folder mutations now coordinate all participating paths; locked notes and containing folders cannot be moved before unlocking. Trash/restore and other remaining content operations, cross-Forge moves and account-backed sync proof are still unfinished. Native complete-file exports cover Settings ZIP/backup/JSON, individual Markdown/plaintext and selected-note ZIPs; simulator destination bytes are verified except the encrypted picker round-trip. Touch selection and native web/mail opening work. The App Store upload guide and in-app privacy/support links exist. Next: finish sync, full editor and iPad verification, a real-device run and TestFlight. Android follows through Tauri's Android target.
+6. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
+7. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
+8. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
 
 ## Explicit Non-Goals
 

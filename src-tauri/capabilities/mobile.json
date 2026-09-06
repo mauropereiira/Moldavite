@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Mobile capabilities: local dialogs and public support links, without desktop integrations",
+  "platforms": ["iOS", "android"],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-destroy",
+    "dialog:default",
+    "mobile-ui:allow-set-appearance"
+  ]
+}

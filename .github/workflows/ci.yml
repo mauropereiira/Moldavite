@@ -12,6 +12,15 @@ permissions:
   contents: read
 
 jobs:
+  test-icloud:
+    name: test-icloud
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - run: swift test --package-path src-tauri/plugins/tauri-plugin-icloud/ios/Core
+
   # One job per check so each reports as its own required status. `matrix.run`
   # is a literal defined below, never event input, so interpolating it is safe.
   web:

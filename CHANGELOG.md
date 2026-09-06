@@ -2,15 +2,39 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [2.7.0] - 2026-09-06
 
 ### Added
 
 - **An rpm for Fedora.** Linux releases now ship `Moldavite-x.x.x-1.x86_64.rpm` next to the AppImage and the deb, installed with `sudo dnf install ./Moldavite-x.x.x-1.x86_64.rpm` and updated by installing the next one.
 
+- **Start your synced Forge on Mac.** Turn on Use synced Forge in Settings → General to create a separate iCloud folder, write notes, or open it in Finder. Connect the same Forge on iPhone or iPad later using the same iCloud account. Your existing local Forges stay separate.
+
+- A reusable Moldavite brand kit and branded iPhone, iPad and App Store icons.
+
+- Adaptive iPad Index/editor columns and support for iOS Larger Text.
+
+- Privacy-policy and support links in iOS Settings → About.
+
+- A touch formatting row for the iOS editor, with a keyboard dismissal control and room above the software keyboard.
+
 ### Fixed
 
 - **The Linux AppImage opened a blank white window on Fedora and Arch.** It carried Ubuntu's Wayland client library, and the newer Mesa on those distributions needs a symbol it lacks, so the WebKit web process aborted with "Could not create default EGL display: EGL_BAD_PARAMETER" before the first paint. The AppImage now leaves that library to the system, and every pull request launches the AppImage and the rpm on Fedora to prove they paint. (#130)
+
+- An unpinned MCP client now reports that iCloud is unsupported when the synced Forge is active, instead of silently selecting the previous local Forge. Pin MCP clients to a local Forge with `--forge`.
+
+- iOS native controls and status-bar contrast follow the app theme. Long dialog
+  titles wrap, focused fields stay above the keyboard, and expanded sidebar
+  sections no longer clip long lists at a fixed height.
+
+- Locked notes and folders containing them must be unlocked before moving or renaming, preserving the path needed to decrypt them.
+
+- Phone page headings and editor text share a tighter left inset aligned with the iPhone status-bar time; rail controls retain 44-point touch targets.
+
+- iOS no longer exposes desktop software updates, plugin execution or installation, calendar connections, WordPress publishing, or PDF export. Agenda keeps its note calendar without the desktop event panel or its settings.
+
+- iOS onboarding uses the device’s local Forge, introduces touch navigation, and stays visible above open pages. Desktop-only folder selection and AI feature pages stay out of the phone flow.
 
 ## [2.6.0] - 2026-09-04
 

@@ -1,0 +1,1080 @@
+/* ===========================================
+   MOBILE LAYER (phone and tablet webviews)
+   ===========================================
+   Loaded after index.css. Every rule here is scoped to
+   html[data-platform='mobile'], which main.tsx stamps from
+   src/lib/platform.ts, so the desktop app never sees any of it. Colours and
+   spacing come from the tokens in index.css; no literal colours here.
+
+   Inline styles in the components win over any selector, so the handful of
+   rules that must beat one carry !important and say so. */
+
+html[data-platform='mobile'] {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /* Apple's minimum comfortable touch target. */
+  --touch-target: 44px;
+  --mobile-text-scale: 1;
+  --mobile-heading-text-adjust: 100%;
+  --mobile-page-inset: 16px;
+  /* The shell's height. useVisualViewportHeight overrides this inline with
+     the visual viewport so the software keyboard does not cover the editor. */
+  --app-height: 100vh;
+}
+
+/* ===========================================
+   1. TOUCH BASICS
+   =========================================== */
+
+html[data-platform='mobile'] {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+html[data-platform='mobile'] body,
+html[data-platform='mobile'] #root,
+html[data-platform='mobile'] #root > * {
+  overscroll-behavior: none;
+}
+
+html[data-platform='mobile'] * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-platform='mobile']
+  :is(
+    button,
+    a,
+    label,
+    summary,
+    input,
+    select,
+    textarea,
+    [role='button'],
+    [role='option'],
+    [role='menuitem'],
+    [role='tab']
+  ) {
+  touch-action: manipulation;
+}
+
+/* iOS zooms the page into any field set below 16px. */
+html[data-platform='mobile'] :is(input, select, textarea) {
+  font-size: calc(16px * var(--mobile-text-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* WebKit excludes editable content from text autosizing. Scale its actual
+   font size so Larger Text also applies to the words being written. */
+html[data-platform='mobile'] .tiptap {
+  font-size: calc(var(--editor-font-size) * var(--mobile-text-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html[data-platform='mobile'] .tiptap h1 {
+  font-size: calc(28px * var(--mobile-text-scale));
+}
+
+html[data-platform='mobile'] .tiptap h2 {
+  font-size: calc(21px * var(--mobile-text-scale));
+}
+
+html[data-platform='mobile'] .tiptap h3 {
+  font-size: calc(17px * var(--mobile-text-scale));
+}
+
+/* Chrome is not text to select; the note and every field still are. */
+html[data-platform='mobile']
+  :is(
+    .icon-rail,
+    .tab-bar,
+    .pinned-bar,
+    .editor-footer,
+    .editor-navigation-links,
+    .app-overlay-controls,
+    .app-overlay-header,
+    .timeline-view-header,
+    .graph-view-header,
+    .section-header
+  ) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html[data-platform='mobile'] :is(.tiptap, input, textarea, [contenteditable='true']) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Scroll surfaces keep their rubber-band to themselves. */
+html[data-platform='mobile']
+  :is(
+    .editor-paper,
+    .index-overlay-content .overflow-y-auto,
+    .app-agenda-grid,
+    .timeline-view-feed,
+    .quick-switcher-results
+  ) {
+  overscroll-behavior: contain;
+}
+
+/* A tap leaves :hover stuck on the element until the next tap lands
+   elsewhere, so hover-only feedback reads as a broken state. Neutralised for
+   touch pointers only: an iPad with a trackpad keeps its hovers. Active and
+   selected states keep their wash. */
+@media (hover: none) {
+  html[data-platform='mobile'] [data-tooltip].icon-rail-button:hover {
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  html[data-platform='mobile'] [data-tooltip].icon-rail-button[data-active='true']:hover {
+    color: var(--text-primary);
+  }
+
+  html[data-platform='mobile']
+    :is(
+      .sidebar-item:not(.sidebar-item-active),
+      .note-card:not(.note-card-active):not(.is-selected),
+      .folder-row:not(.folder-row-expanded):not(.folder-row-note-drop-target),
+      .tag-filter-item:not(.tag-filter-item-selected),
+      .interactive-row,
+      .toolbar-button:not(.toolbar-button-active),
+      .calendar-date,
+      .btn
+    ):hover {
+    background: transparent;
+  }
+
+  html[data-platform='mobile']
+    :is(.text-link, .editor-navigation-links button, .welcome-note-action):hover::after {
+    transform: scaleX(0);
+  }
+}
+
+/* ===========================================
+   2. ICON RAIL
+   =========================================== */
+
+html[data-platform='mobile'] .icon-rail {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Keep the phone's main text edge close to the system clock's left edge.
+   The rail still has a full 44pt hit area; an inset hairline consumes none of
+   it. iPad retains the roomier sidebar spacing. */
+@media (max-width: 600px) {
+  html[data-platform='mobile'] {
+    --mobile-page-inset: 6px;
+  }
+
+  html[data-platform='mobile'].has-icon-rail:not(.focus-mode) {
+    --rail-width: 44px;
+  }
+
+  html[data-platform='mobile'] .icon-rail {
+    width: 44px !important;
+    border-right: 0 !important;
+    box-shadow: inset -1px 0 0 var(--border-default);
+  }
+}
+
+html[data-platform='mobile'] [data-tooltip].icon-rail-button {
+  height: var(--touch-target);
+}
+
+/* Tooltips need a pointer that can hover. The active left border stays. */
+html[data-platform='mobile'] [data-tooltip]::after {
+  display: none;
+}
+
+/* ===========================================
+   3. INDEX AND AGENDA PAGES
+   =========================================== */
+
+/* Keyboard shortcut hints mean nothing on a touch screen. */
+html[data-platform='mobile'] .app-overlay-hint {
+  display: none;
+}
+
+/* The × keeps its 24px glyph inside a 44px hit box. */
+html[data-platform='mobile'] .app-overlay-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+/* Index: the row is absolutely positioned inline, so its offsets are
+   overridden here. Under the status bar, level with the Forge name. */
+html[data-platform='mobile'] .app-overlay-controls {
+  top: calc(var(--safe-top) + 20px) !important;
+  right: 8px !important;
+  gap: 0 !important;
+}
+
+/* The Sidebar root sets its Index padding inline. The title and search own
+   their inset so their text and hairlines share one edge. */
+html[data-platform='mobile'] .app-index-overlay .index-overlay-content,
+html[data-platform='mobile'] .app-sidebar .index-overlay-content {
+  padding: calc(var(--safe-top) + 12px) 0 var(--safe-bottom) !important;
+}
+
+html[data-platform='mobile'] .index-overlay-content :is(.forge-switcher, .sidebar-search) {
+  padding-inline: var(--mobile-page-inset);
+}
+
+html[data-platform='mobile'] .forge-switcher > button {
+  padding-inline: 0;
+}
+
+html[data-platform='mobile'] .forge-switcher :is(button, input) {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .app-index-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 24px !important;
+  padding: 12px 0 24px !important;
+}
+
+/* Agenda: padding and the header are inline in the component. */
+html[data-platform='mobile'] .app-agenda-overlay {
+  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) var(--safe-bottom) !important;
+}
+
+html[data-platform='mobile'] .app-overlay-header {
+  align-items: center !important;
+  gap: 16px !important;
+  padding-bottom: 12px !important;
+}
+
+html[data-platform='mobile'] .app-overlay-title {
+  font-size: 24px !important;
+}
+
+/* One column that scrolls as a page: the calendar, then the timeline. The
+   two-column dividers between them become a hairline across. */
+html[data-platform='mobile'] .app-agenda-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 24px !important;
+  padding: 16px 0 24px !important;
+  overflow-y: auto;
+}
+
+html[data-platform='mobile'] .app-agenda-calendar {
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+html[data-platform='mobile'] .app-agenda-timeline {
+  border-left: 0 !important;
+  padding-left: 0 !important;
+  overflow: visible !important;
+}
+
+html[data-platform='mobile'] .app-agenda-calendar + .app-agenda-timeline {
+  border-top: 1px solid var(--border-default);
+  padding-top: 16px;
+}
+
+/* ===========================================
+   4. SIDEBAR IN INDEX PRESENTATION
+   =========================================== */
+
+/* Rows bleed to the rail's edge for the finger; the text lands on 16px. */
+html[data-platform='mobile']
+  .index-overlay-content
+  :is(.sidebar-item, .note-card, .folder-row, .tag-filter-item) {
+  width: calc(100% + 8px);
+  margin-inline: -4px;
+  min-height: var(--touch-target);
+}
+
+/* Leave room for the always-visible Options control below. */
+html[data-platform='mobile'] .index-overlay-content .draggable-note-item .note-card {
+  padding-right: 56px;
+}
+
+html[data-platform='mobile'] .index-overlay-content .search-input {
+  font-size: calc(16px * var(--mobile-text-scale));
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .index-overlay-content .search-input + button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .index-overlay-content .section-header {
+  margin-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* Header controls (toggle, New, sort) grow a hit area without moving. */
+html[data-platform='mobile'] .index-overlay-content .section-header button {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  margin-block: -8px;
+  padding-inline: 4px;
+}
+
+/* Note and folder Options only appear on hover, which a phone never has:
+   Tailwind wraps group-hover in (hover: hover). Shown quietly instead. */
+html[data-platform='mobile']
+  .index-overlay-content
+  :is(.draggable-note-item, .folder-row)
+  > button.opacity-0 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  right: 0;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  opacity: 0.6;
+}
+
+html[data-platform='mobile'] .index-overlay-content .text-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'][data-large-text='true'] .sidebar-footer-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-platform='mobile'][data-large-text='true'] .draggable-note-item .note-card {
+  padding-right: 8px !important;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .note-card-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .draggable-note-item > button.opacity-0 {
+  position: static;
+  transform: none;
+  margin-left: auto;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .sidebar-footer-links > span {
+  display: none;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .section-header {
+  flex-wrap: wrap;
+  row-gap: 16px;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .section-header > button {
+  flex-basis: 100%;
+}
+
+/* ===========================================
+   5. TIMELINE PAGE
+   =========================================== */
+
+html[data-platform='mobile'] .timeline-view-header {
+  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 12px;
+}
+
+/* The inline hairline under "Close" would span a 44px box; underline the
+   word instead. */
+html[data-platform='mobile'] .timeline-view-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  margin: -12px -12px -12px 0;
+  padding-inline: 8px;
+  border-bottom: 0 !important;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+html[data-platform='mobile'] .timeline-view-feed {
+  padding: 16px var(--mobile-page-inset) calc(var(--safe-bottom) + 24px);
+}
+
+html[data-platform='mobile'] .timeline-view-feed li > button {
+  min-height: var(--touch-target);
+}
+
+/* ===========================================
+   6. GRAPH PAGE
+   =========================================== */
+
+html[data-platform='mobile'] .graph-view-header {
+  align-items: center;
+  gap: 12px;
+  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 8px;
+}
+
+html[data-platform='mobile'] .graph-view-header > div {
+  align-items: center;
+  gap: 12px;
+}
+
+html[data-platform='mobile'] .graph-view-fit {
+  min-height: var(--touch-target);
+  padding-inline: 8px;
+}
+
+/* ===========================================
+   7. QUICK SWITCHER AS A PAGE
+   =========================================== */
+
+html[data-platform='mobile'] .quick-switcher-backdrop {
+  left: var(--rail-width);
+  align-items: stretch;
+  padding: 0;
+  animation: none;
+}
+
+html[data-platform='mobile'] .quick-switcher-container {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  animation: none;
+}
+
+html[data-platform='mobile'] .quick-switcher-input-wrapper {
+  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) 12px;
+}
+
+html[data-platform='mobile'] .quick-switcher-input {
+  font-size: 17px;
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .quick-switcher-results {
+  padding: 8px 8px calc(var(--safe-bottom) + 8px);
+}
+
+html[data-platform='mobile'] .quick-switcher-item {
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+/* The pin star is hover-revealed on desktop. */
+html[data-platform='mobile'] .quick-switcher-pin {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  opacity: 1;
+}
+
+/* Keyboard hints mean nothing on touch. */
+html[data-platform='mobile'] .quick-switcher-footer {
+  display: none;
+}
+
+/* ===========================================
+   8. EDITOR
+   =========================================== */
+
+html[data-platform='mobile'] .editor-paper {
+  padding-inline: var(--mobile-page-inset);
+}
+
+/* The note's Close control, out of flow at the top of the paper. */
+html[data-platform='mobile'] .editor-paper-close-rail button {
+  justify-content: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+/* The 56px left gutter clears macOS window controls; a phone has none. */
+html[data-platform='mobile'] .tab-bar {
+  min-height: var(--touch-target);
+  padding: 0 16px;
+}
+
+html[data-platform='mobile'] .tab {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] :is(.tab-close, .tab-pin) {
+  width: 32px;
+  height: 32px;
+  opacity: 1;
+}
+
+/* Icon-only toolbar buttons (selection and image toolbars). */
+html[data-platform='mobile'] .toolbar-button {
+  min-width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+/* The labels sit low, just above the home indicator, rather than a full
+   safe-area band above it: the row read as a hole under the footer. */
+html[data-platform='mobile'] .editor-footer {
+  min-height: var(--touch-target);
+  padding: 0 16px max(calc(var(--safe-bottom) - 14px), 0px);
+}
+
+/* Footer controls keep a full touch target without a fixed label width. */
+html[data-platform='mobile'] .editor-footer .toolbar-button,
+html[data-platform='mobile'] .editor-footer-overflow-toggle {
+  width: auto;
+  min-width: 0;
+  height: var(--touch-target);
+  padding-inline: 4px;
+}
+
+html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar-button {
+  height: auto;
+  min-height: var(--touch-target);
+  padding: 10px 12px;
+}
+
+/* Shares the footer row's box, so it moves up with the footer's safe-area
+   padding. Both are inline in the component. */
+html[data-platform='mobile'] .editor-navigation-links {
+  bottom: max(calc(var(--safe-bottom) - 14px), 0px) !important;
+  height: var(--touch-target) !important;
+}
+
+html[data-platform='mobile'] .editor-navigation-links button {
+  min-height: var(--touch-target);
+  padding-inline: 6px;
+}
+
+html[data-platform='mobile'] .pinned-bar {
+  gap: 0;
+  padding: 0 16px;
+}
+
+html[data-platform='mobile'] .pinned-bar-item {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] :is(.pinned-bar-open, .pinned-bar-more) {
+  min-height: var(--touch-target);
+  padding-inline: 8px;
+}
+
+/* Unpin is hover-revealed on desktop. */
+html[data-platform='mobile'] .pinned-bar-unpin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  min-height: var(--touch-target);
+  opacity: 0.7;
+}
+
+html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
+  min-height: var(--touch-target);
+}
+
+/* ===========================================
+   9. FIXED SURFACES (dialogs, popovers, toasts)
+   =========================================== */
+
+/* Every centred dialog sits on one of these two scrims. The rail paints above
+   them, so a scrim that starts at the screen edge only hides a dialog's left
+   side under it. */
+html[data-platform='mobile'] :is(.modal-backdrop-dark, .wn-scrim) {
+  left: var(--rail-width);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+/* The template picker is a page, like Settings: a grid of cards with a
+   search box has no business as a centred card on a phone. */
+html[data-platform='mobile'] .modal-backdrop-dark {
+  align-items: stretch;
+}
+
+/* A page keeps the transform from its entry animation, so a fixed scrim
+   inside it is laid out against the page, which already starts at the rail;
+   the offset above would push it a second rail-width to the right. */
+html[data-platform='mobile'] .app-overlay :is(.modal-backdrop-dark, .wn-scrim) {
+  left: 0;
+}
+
+html[data-platform='mobile'] .modal-elevated.template-picker-modal {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-platform='mobile'] .modal-elevated:not(.template-picker-modal) {
+  align-self: center;
+}
+
+html[data-platform='mobile'] .modal-elevated {
+  min-width: 0;
+  max-width: calc(100% - 32px);
+  max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+html[data-platform='mobile'] .modal-elevated .btn {
+  min-height: var(--touch-target);
+  white-space: normal;
+}
+
+/* Context menus and the trash popover: fixed at the pointer, so they can
+   otherwise run off a narrow screen. */
+html[data-platform='mobile'] .impact-surface.fixed {
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px) !important;
+}
+
+html[data-platform='mobile'] .sidebar-context-menu button {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .sidebar-context-menu {
+  overflow-y: auto;
+}
+
+/* What's New. */
+html[data-platform='mobile'] .wn-dialog {
+  width: calc(100% - 32px);
+  max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
+}
+
+html[data-platform='mobile'] .wn-body {
+  padding: 24px 16px 16px;
+}
+
+html[data-platform='mobile'] .wn-version {
+  font-size: 36px;
+}
+
+html[data-platform='mobile'] .wn-close {
+  top: -6px;
+  right: -6px;
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .wn-footer {
+  padding: 16px;
+}
+
+/* Toasts: full width above the home indicator. The container has no class of
+   its own, so it is found through the toast it holds. */
+html[data-platform='mobile'] div:has(> .toast-enter-new),
+html[data-platform='mobile'] div:has(> .toast-exit-new) {
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 16px);
+  left: 16px;
+}
+
+html[data-platform='mobile'] :is(.toast-enter-new, .toast-exit-new) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Update notice: top-right, inline offsets. */
+html[data-platform='mobile'] .update-notification-enter {
+  top: calc(var(--safe-top) + 16px) !important;
+}
+
+/* ---------- After the first simulator pass ----------
+   Seen on the iPhone 17 simulator on 2026-09-05. */
+
+/* Home is today's note and the rail's Home button is the way back to it, so
+   the desktop "Close" on the note itself only invites an empty screen. */
+html[data-platform='mobile'] .editor-paper-close-rail {
+  display: none;
+}
+
+/* Three template cards across a phone truncate every title. */
+html[data-platform='mobile'] .empty-note-template-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+html[data-platform='mobile'] .empty-note-template-hint {
+  display: none;
+}
+
+/* Pages take focus on their container (see useFocusTrap); the browser's own
+   ring on a non-interactive element is noise on a touch screen. */
+html[data-platform='mobile'] [tabindex='-1']:focus {
+  outline: none;
+}
+
+/* The phone empty state is one button; keep it clear of the placeholder line
+   the editor paints above it. */
+html[data-platform='mobile'] .empty-note-template-mobile {
+  padding-top: 40px;
+  padding-bottom: 24px;
+}
+
+/* Footer: Menu on the left, Actions on the right, like two ends of a toolbar.
+   The nav is centred inline on desktop, so both need !important. The save
+   status and word count start after the Menu label. */
+html[data-platform='mobile'] .editor-navigation-links {
+  left: 12px !important;
+  transform: none !important;
+}
+
+html[data-platform='mobile'] .editor-footer-left {
+  margin-left: 60px;
+}
+
+html[data-platform='mobile'] .editor-navigation-links .impact-surface button {
+  min-height: var(--touch-target);
+  font-size: 15px;
+}
+
+/* Welcome screen (Home) on a phone: a wider wordmark, no keyboard hint, and
+   the two actions as touch targets. */
+html[data-platform='mobile'] .welcome-wordmark {
+  width: 84% !important;
+}
+
+html[data-platform='mobile'] .welcome-reveal-hint {
+  display: none;
+}
+
+html[data-platform='mobile'] .welcome-note-action {
+  min-height: var(--touch-target);
+  font-size: 16px;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .welcome-reveal-actions {
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The editor column starts at the top of the screen: keep the note clear of
+   the status bar. Timeline and the welcome screen handle their own top. */
+html[data-platform='mobile'] .editor-root {
+  padding-top: var(--safe-top);
+}
+
+/* index.css paints every button's hover with an !important overlay. A touch
+   screen keeps :hover on whatever was last tapped, so the footer's Menu and
+   the welcome actions kept a square wash after opening. These are text-only
+   controls; the fill means nothing to a finger. */
+@media (hover: none) {
+  html[data-platform='mobile']
+    :is(
+      .editor-navigation-links button,
+      .text-link,
+      .welcome-note-action,
+      .editor-footer-overflow-toggle,
+      .editor-footer .toolbar-button
+    ):hover {
+    background-color: transparent !important;
+  }
+}
+
+/* The note title carried 48px of desktop headroom; the safe-area inset
+   already clears the status bar. */
+html[data-platform='mobile'] .note-header {
+  /* 20px puts the title's centre on the rail's M, the date label on the
+     rail's divider and the hairline on the Index icon; 16px left each of
+     them a few pixels off, which read as a wobble. */
+  padding-top: 20px !important;
+}
+
+html[data-platform='mobile'] .tiptap {
+  padding-top: 20px;
+  padding-bottom: 48px;
+}
+
+html[data-platform='mobile'] .graph-view-fit {
+  white-space: nowrap;
+}
+
+/* ---------- Settings sections on a phone ----------
+   Each section is an inset group with its heading inside, so the eye can tell
+   where one ends and the next begins; the desktop's bare hairlines ran
+   together on a narrow screen. */
+html[data-platform='mobile'] .settings-dialog .settings-section {
+  padding: 14px 16px 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-muted);
+}
+
+html[data-platform='mobile'] .settings-dialog [role='tabpanel'] .space-y-6 > * + * {
+  margin-top: 12px;
+}
+
+html[data-platform='mobile'] .settings-dialog .settings-section > .flex.items-center.gap-1 {
+  margin-bottom: 6px;
+}
+
+html[data-platform='mobile'] .settings-dialog .settings-section .flex.items-center.justify-between {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .settings-dialog .settings-section .text-sm {
+  font-size: 15px;
+}
+
+/* Segmented controls: two or three options stay side by side at touch height;
+   four or more become a list, one option per row, the chosen one marked by
+   an ink bar on the left instead of the desktop's underline. */
+html[data-platform='mobile'] .settings-segmented-option {
+  min-height: var(--touch-target);
+  font-size: 13px;
+}
+
+html[data-platform='mobile'] .settings-segmented-control:has(> :nth-child(4)),
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-control {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html[data-platform='mobile']
+  .settings-segmented-control:has(> :nth-child(4))
+  .settings-segmented-option,
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-option {
+  justify-content: flex-start;
+  padding: 12px 14px;
+  border-left: 0 !important;
+  border-bottom: 1px solid var(--border-muted) !important;
+  text-align: left;
+}
+
+html[data-platform='mobile']
+  .settings-segmented-control:has(> :nth-child(4))
+  .settings-segmented-option:last-child,
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-option:last-child {
+  border-bottom: 0 !important;
+}
+
+html[data-platform='mobile']
+  .settings-segmented-control:has(> :nth-child(4))
+  .settings-segmented-option[aria-checked='true'],
+html[data-platform='mobile'][data-large-text='true']
+  .settings-segmented-option[aria-checked='true'] {
+  background: var(--hover-overlay) !important;
+  box-shadow: inset 3px 0 0 var(--text-primary);
+}
+
+/* The note runs the full width of the phone. The writing column measure is a
+   desktop idea; here the paper's page inset is the whole margin. The
+   header sets its measure inline, hence !important. */
+html[data-platform='mobile'] .tiptap,
+html[data-platform='mobile'] .note-header {
+  max-width: none !important;
+}
+
+/* Onboarding must cover an already-open Index and the rail when replayed. */
+html[data-platform='mobile'] .app-onboarding-scrim {
+  z-index: 11000;
+  background: var(--bg-base);
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+  height: var(--app-height);
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim .modal-elevated {
+  width: 100% !important;
+  max-height: 100%;
+  background: var(--bg-base) !important;
+  border: 0;
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim .p-8 {
+  padding: 24px 8px;
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim button {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-default);
+}
+
+html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],
+html[data-platform='mobile'] .app-onboarding-scrim .p-3 {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+html[data-platform='mobile'] .onboarding-monogram {
+  display: block;
+  width: 44px;
+  height: 44px;
+  background: var(--text-primary);
+  -webkit-mask: url('/monogram.svg') center / contain no-repeat;
+  mask: url('/monogram.svg') center / contain no-repeat;
+}
+
+html[data-platform='mobile'] .mobile-formatting-bar {
+  display: none;
+  flex: 0 0 auto;
+  align-items: stretch;
+  background: var(--bg-base);
+  border-top: 1px solid var(--border-default);
+}
+
+html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
+  .mobile-formatting-bar {
+  display: flex;
+}
+
+html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
+  .editor-navigation-links,
+html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true']) .editor-footer,
+html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
+  .editor-root
+  > .backlinks-panel {
+  /* EditorNavigation sets display inline; it must leave the keyboard row. */
+  display: none !important;
+}
+
+html[data-platform='mobile'] .mobile-formatting-scroll {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html[data-platform='mobile'] .mobile-formatting-bar button {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  flex: 0 0 auto;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+html[data-platform='mobile'] .mobile-formatting-bar button[aria-pressed='true'] {
+  color: var(--text-primary);
+  box-shadow: inset 0 -2px var(--text-primary);
+}
+
+html[data-platform='mobile'] .mobile-formatting-bar button:disabled {
+  color: var(--text-muted);
+}
+
+html[data-platform='mobile'] .mobile-keyboard-done {
+  border-left: 1px solid var(--border-default);
+}
+
+/* Text fields keep a dismissal control after removing the native accessory. */
+html[data-platform='mobile'] .mobile-field-keyboard-bar {
+  display: none;
+  position: fixed;
+  top: var(--app-height);
+  left: 0;
+  right: 0;
+  height: var(--touch-target);
+  justify-content: flex-end;
+  background: var(--bg-base);
+  border-top: 1px solid var(--border-default);
+  z-index: 12000;
+}
+
+html[data-platform='mobile'][data-keyboard='open'][data-keyboard-field='true']
+  .mobile-field-keyboard-bar {
+  display: flex;
+}
+
+html[data-platform='mobile'] .mobile-field-keyboard-bar button {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  padding: 0 16px;
+  color: var(--text-primary);
+}
+
+html[data-platform='mobile'][data-keyboard='open'] :is(.modal-backdrop-dark, .settings-backdrop) {
+  bottom: auto;
+  height: var(--app-height);
+}
+
+html[data-platform='mobile'][data-keyboard='closed'] .mobile-formatting-bar {
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Forge management uses the device's own storage on iOS. */
+html[data-platform='mobile'] .forge-management-backdrop {
+  background: color-mix(in srgb, var(--bg-base) 94%, transparent) !important;
+  left: var(--rail-width);
+  padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
+}
+
+html[data-platform='mobile'] .forge-management-dialog {
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+html[data-platform='mobile'] .forge-management-dialog :is(button, input) {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .app-overlay .forge-management-backdrop {
+  left: 0;
+}
+
+/* Larger Text puts navigation above the section title, leaving a full line for it. */
+html[data-platform='mobile'][data-large-text='true']
+  .settings-dialog
+  > header:has([aria-label='Back to settings']) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* Navigation grows up to twice its original size while body copy follows the
+   full accessibility range, leaving room to reach and scroll the content. */
+html[data-platform='mobile'] .settings-dialog > header,
+html[data-platform='mobile'] .settings-dialog > nav {
+  -webkit-text-size-adjust: var(--mobile-heading-text-adjust);
+  text-size-adjust: var(--mobile-heading-text-adjust);
+}
+
+html[data-platform='mobile'][data-large-text='true']
+  .settings-dialog
+  > header:has([aria-label='Back to settings'])
+  > h2 {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding: 0 12px 8px;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav .truncate {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav button {
+  gap: 12px;
+  padding-block: 8px !important;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav button > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}

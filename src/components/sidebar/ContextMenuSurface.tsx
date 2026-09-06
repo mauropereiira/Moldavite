@@ -5,6 +5,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { applyImpactOrigin, type ImpactPoint } from '@/lib/impactOrigin';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface Size {
   width: number;
@@ -55,6 +56,10 @@ export function ContextMenuSurface({ position, onClose, children }: ContextMenuS
       );
       surface.style.left = `${fitted.x}px`;
       surface.style.top = `${fitted.y}px`;
+      if (isMobilePlatform()) {
+        surface.style.left = `clamp(calc(var(--safe-left) + ${EDGE}px), ${fitted.x}px, calc(100vw - var(--safe-right) - ${surface.offsetWidth + EDGE}px))`;
+        surface.style.top = `clamp(calc(var(--safe-top) + ${EDGE}px), ${fitted.y}px, calc(var(--app-height) - var(--safe-bottom) - ${surface.offsetHeight + EDGE}px))`;
+      }
     };
     const closeOnOutsideScroll = (event: Event) => {
       if (event.target === surface) return;

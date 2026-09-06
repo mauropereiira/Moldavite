@@ -1,9 +1,12 @@
+import { isMobilePlatform } from '@/lib/platform';
 /** Worker-host lifecycle and untrusted-message routing regression coverage. */
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
 vi.mock('@/lib/ipc', () => ({ safeInvoke: vi.fn() }));
 
@@ -73,6 +76,8 @@ async function loadCommand() {
 
 function useGrantedPluginHarness() {
   beforeEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+    mockInvoke.mockClear();
     vi.useFakeTimers();
     workerHarness.MockWorker.instances.length = 0;
     usePluginCommandStore.getState().clear();
@@ -91,6 +96,13 @@ function useGrantedPluginHarness() {
 
 describe('plugin source loading', () => {
   useGrantedPluginHarness();
+
+  it('never reads or executes plugins from a mobile Forge, even with desktop consent', async () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    expect(await loadEnabledPlugins()).toEqual([]);
+    expect(mockInvoke).not.toHaveBeenCalled();
+    expect(workerHarness.MockWorker.instances).toHaveLength(0);
+  });
 
   it('executes the source returned with the consent hash without refetching it', async () => {
     const worker = await loadWorker();

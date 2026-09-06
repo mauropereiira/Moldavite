@@ -16,6 +16,9 @@ const tiptapHarness = vi.hoisted(() => ({
 const safeInvoke = vi.hoisted(() => vi.fn());
 const convertFileSrc = vi.hoisted(() => vi.fn((path: string) => `asset://${path}`));
 const shellOpen = vi.hoisted(() => vi.fn());
+const platform = vi.hoisted(() => ({ mobile: false }));
+
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
 
 vi.mock('@tiptap/react', async () => {
   const actual = await vi.importActual<typeof import('@tiptap/react')>('@tiptap/react');
@@ -252,6 +255,7 @@ async function clickEditorElement(element: HTMLElement) {
 }
 
 beforeEach(() => {
+  platform.mobile = false;
   tiptapHarness.editor = null;
   tiptapHarness.setContentCalls = [];
   tiptapHarness.setTextSelectionCalls = [];
@@ -341,6 +345,18 @@ describe('Editor layout settings', () => {
 });
 
 describe('Editor links', () => {
+  it('opens a tapped mobile link through the native command', async () => {
+    platform.mobile = true;
+    safeInvoke.mockResolvedValue(undefined);
+    const href = 'https://example.com/mobile';
+    await renderEditor(note('notes/links.md', `<p><a href="${href}">Open link</a></p>`));
+
+    await clickEditorElement(screen.getByRole('link', { name: 'Open link' }));
+
+    expect(safeInvoke).toHaveBeenCalledWith('open_external_link', { url: href });
+    expect(shellOpen).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['web URL', 'https://example.com/docs?from=moldavite'],
     ['email address', 'mailto:hello@example.com'],

@@ -3,6 +3,8 @@ import { useForgeStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { isMobilePlatform } from '@/lib/platform';
+import SyncedForgeControl from '@/components/settings/SyncedForgeControl';
 
 interface ManageForgesModalProps {
   isOpen: boolean;
@@ -15,6 +17,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
   const [renamingName, setRenamingName] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const toast = useToast();
+  const mobile = isMobilePlatform();
 
   useEffect(() => {
     if (isOpen) loadForges().catch(() => undefined);
@@ -68,14 +71,14 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      className="forge-management-backdrop fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'color-mix(in srgb, var(--text-primary) 40%, transparent)' }}
       onClick={onClose}
     >
       <DialogSurface
         onEscape={onClose}
         aria-labelledby="manage-forges-title"
-        className="rounded-lg w-full max-w-md p-5"
+        className="forge-management-dialog rounded-lg w-full max-w-md p-5"
         style={{
           background: 'var(--bg-elevated)',
           border: '1px solid var(--border-default)',
@@ -98,7 +101,13 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
         </div>
 
         <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-          Forges root: <span className="font-mono break-all">{forgesRoot ?? '(not set)'}</span>
+          {mobile ? (
+            'These Forges are stored on this device.'
+          ) : (
+            <>
+              Forges root: <span className="font-mono break-all">{forgesRoot ?? '(not set)'}</span>
+            </>
+          )}
         </div>
 
         <div className="space-y-1 max-h-72 overflow-y-auto">
@@ -107,83 +116,89 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
               No Forges yet.
             </div>
           ) : (
-            forges.map((f) => (
-              <div
-                key={f.name}
-                className="flex items-center gap-2 px-2 py-1.5 rounded"
-                style={{ background: 'var(--bg-default)' }}
-              >
-                {renamingName === f.name ? (
-                  <input
-                    type="text"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void handleRename(f.name);
-                      if (e.key === 'Escape') {
-                        e.stopPropagation();
-                        setRenamingName(null);
-                        setRenameValue('');
-                      }
-                    }}
-                    onBlur={() => void handleRename(f.name)}
-                    className="flex-1 px-2 py-1 text-sm rounded border bg-transparent"
-                    style={{
-                      borderColor: 'var(--border-default)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                ) : (
-                  <span className="flex-1 text-sm truncate">
-                    {f.name}
-                    {f.isActive && (
-                      <span
-                        className="ml-2"
-                        style={{ color: 'var(--text-muted)', fontSize: '11px' }}
-                      >
-                        active
-                      </span>
-                    )}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRenamingName(f.name);
-                    setRenameValue(f.name);
-                  }}
-                  className="text-xs px-2 py-0.5 rounded hover:bg-[var(--bg-hover)]"
+            forges
+              .filter((forge) => !forge.isSynced)
+              .map((f) => (
+                <div
+                  key={f.id ?? f.name}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded"
+                  style={{ background: 'var(--bg-default)' }}
                 >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  disabled={f.isActive}
-                  onClick={() => void handleDelete(f.name)}
-                  className="text-xs px-2 py-0.5 rounded hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={f.isActive ? 'Switch first to delete the active Forge' : ''}
-                >
-                  Delete
-                </button>
-              </div>
-            ))
+                  {renamingName === f.name ? (
+                    <input
+                      type="text"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleRename(f.name);
+                        if (e.key === 'Escape') {
+                          e.stopPropagation();
+                          setRenamingName(null);
+                          setRenameValue('');
+                        }
+                      }}
+                      onBlur={() => void handleRename(f.name)}
+                      className="flex-1 min-w-0 px-2 py-1 text-sm rounded border bg-transparent"
+                      style={{
+                        borderColor: 'var(--border-default)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                  ) : (
+                    <span className="flex-1 text-sm truncate">
+                      {f.name}
+                      {f.isActive && (
+                        <span
+                          className="ml-2"
+                          style={{ color: 'var(--text-muted)', fontSize: '11px' }}
+                        >
+                          active
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenamingName(f.name);
+                      setRenameValue(f.name);
+                    }}
+                    className="text-xs px-2 py-0.5 rounded hover:bg-[var(--bg-hover)]"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    disabled={f.isActive}
+                    onClick={() => void handleDelete(f.name)}
+                    className="text-xs px-2 py-0.5 rounded hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={f.isActive ? 'Switch first to delete the active Forge' : ''}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))
           )}
         </div>
 
+        <SyncedForgeControl />
+
         <div className="mt-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => void handlePickRoot()}
-            className="text-xs px-3 py-1.5 rounded border"
-            style={{ borderColor: 'var(--border-default)' }}
-          >
-            Change Forges root…
-          </button>
+          {!mobile && (
+            <button
+              type="button"
+              onClick={() => void handlePickRoot()}
+              className="text-xs px-3 py-1.5 rounded border"
+              style={{ borderColor: 'var(--border-default)' }}
+            >
+              Change Forges root…
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="text-xs px-3 py-1.5 rounded"
+            className="text-xs px-3 py-1.5 rounded ml-auto"
             style={{
               background: 'var(--accent)',
               color: 'var(--accent-text)',

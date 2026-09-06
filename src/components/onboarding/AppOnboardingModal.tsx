@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Link2,
 } from 'lucide-react';
+import { isMobilePlatform } from '@/lib/platform';
 import { formatShortcut } from '@/lib/shortcuts';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -54,6 +55,7 @@ export const APP_ONBOARDING_VERSION = 2;
 
 type StepKey = 'welcome' | 'forge' | 'tour' | 'ai-agents' | 'ai-search';
 
+const MOBILE_FLOW: StepKey[] = ['welcome', 'forge', 'tour'];
 const FULL_FLOW: StepKey[] = ['welcome', 'forge', 'tour', 'ai-agents', 'ai-search'];
 /** Shown to users who completed onboarding before `APP_ONBOARDING_VERSION`. */
 const FEATURE_UPDATE_FLOW: StepKey[] = ['ai-agents', 'ai-search'];
@@ -93,12 +95,13 @@ export function AppOnboardingModal() {
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
+  const mobile = isMobilePlatform();
   const isFirstRun = !hasSeenAppOnboarding;
   const isFeatureUpdate =
-    hasSeenAppOnboarding && lastSeenOnboardingVersion < APP_ONBOARDING_VERSION;
+    !mobile && hasSeenAppOnboarding && lastSeenOnboardingVersion < APP_ONBOARDING_VERSION;
   const isOpen = settingsHydrated && (isFirstRun || isFeatureUpdate);
 
-  const steps = isFirstRun ? FULL_FLOW : FEATURE_UPDATE_FLOW;
+  const steps = mobile ? MOBILE_FLOW : isFirstRun ? FULL_FLOW : FEATURE_UPDATE_FLOW;
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLastStep = stepIndex >= steps.length - 1;
 
@@ -126,12 +129,13 @@ export function AppOnboardingModal() {
     previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     // Defer to ensure the button is rendered.
     const id = window.setTimeout(() => {
-      primaryButtonRef.current?.focus();
+      if (mobile) dialogRef.current?.focus();
+      else primaryButtonRef.current?.focus();
     }, 0);
     return () => {
       window.clearTimeout(id);
     };
-  }, [isOpen, step]);
+  }, [isOpen, step, mobile]);
 
   useEffect(() => {
     return () => {
@@ -199,6 +203,7 @@ export function AppOnboardingModal() {
   }, [isOpen, isLastStep, close]);
 
   const handlePickFolder = useCallback(async () => {
+    if (mobile) return;
     setPickError(null);
     setIsPicking(true);
     try {
@@ -218,7 +223,7 @@ export function AppOnboardingModal() {
     } finally {
       setIsPicking(false);
     }
-  }, []);
+  }, [mobile]);
 
   const tourTiles = useMemo(
     () => [
@@ -230,20 +235,26 @@ export function AppOnboardingModal() {
       {
         icon: <PanelLeft className="w-5 h-5" aria-hidden="true" />,
         title: 'Index',
-        body: `${formatShortcut('⌘\\')} summons notes, folders, and tags.`,
+        body: mobile
+          ? 'Tap Index in the rail for notes, folders, and tags.'
+          : `${formatShortcut('⌘\\')} summons notes, folders, and tags.`,
       },
       {
         icon: <Network className="w-5 h-5" aria-hidden="true" />,
         title: 'Agenda',
-        body: `${formatShortcut('⌘⌥\\')} summons your calendar and events.`,
+        body: mobile
+          ? 'Tap Agenda in the rail to browse your daily notes by date.'
+          : `${formatShortcut('⌘⌥\\')} summons your calendar and events.`,
       },
       {
         icon: <Search className="w-5 h-5" aria-hidden="true" />,
-        title: 'Pin either',
-        body: 'Pin Index and Agenda as columns in Settings.',
+        title: mobile ? 'Search' : 'Pin either',
+        body: mobile
+          ? 'Tap Search in the rail to find words in your notes.'
+          : 'Pin Index and Agenda as columns in Settings.',
       },
     ],
-    []
+    [mobile]
   );
 
   if (!isOpen) return null;
@@ -256,6 +267,7 @@ export function AppOnboardingModal() {
       <div
         ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby="app-onboarding-title"
         className="modal-elevated modal-content-enter overflow-hidden"
@@ -282,11 +294,12 @@ export function AppOnboardingModal() {
             ))}
           </div>
 
-          {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" />}
+          {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" mobile={mobile} />}
 
           {step === 'forge' && (
             <ForgeStep
               titleId="app-onboarding-title"
+              mobile={mobile}
               forgePath={forgePath}
               isPicking={isPicking}
               pickError={pickError}
@@ -368,7 +381,7 @@ export function AppOnboardingModal() {
     </div>
   );
 }
-function WelcomeStep({ titleId }: { titleId: string }) {
+function WelcomeStep({ titleId, mobile }: { titleId: string; mobile: boolean }) {
   return (
     <div className="text-center">
       <div
@@ -376,7 +389,11 @@ function WelcomeStep({ titleId }: { titleId: string }) {
         style={{ backgroundColor: 'var(--accent-subtle)' }}
         aria-hidden="true"
       >
-        <Sparkles className="w-7 h-7" style={{ color: 'var(--accent-primary)' }} />
+        {mobile ? (
+          <span className="onboarding-monogram" />
+        ) : (
+          <Sparkles className="w-7 h-7" style={{ color: 'var(--accent-primary)' }} />
+        )}
       </div>
       <h2
         id={titleId}
@@ -399,12 +416,14 @@ function WelcomeStep({ titleId }: { titleId: string }) {
 function ForgeStep({
   titleId,
   forgePath,
+  mobile,
   isPicking,
   pickError,
   onPickFolder,
 }: {
   titleId: string;
   forgePath: string;
+  mobile: boolean;
   isPicking: boolean;
   pickError: string | null;
   onPickFolder: () => void;
@@ -423,53 +442,58 @@ function ForgeStep({
         className="text-xl font-semibold mb-3 text-center"
         style={{ color: 'var(--text-primary)' }}
       >
-        Pick your Forge
+        {mobile ? 'Your local Forge' : 'Pick your Forge'}
       </h2>
       <p
         className="text-sm leading-relaxed mb-4 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        This folder becomes the location of your Forges, with a Default Forge created inside it.
-        Every note stays a plain .md file.
+        {mobile
+          ? 'Your Default Forge lives on this device, ready to use. Notes stay local as plain Markdown files.'
+          : 'This folder becomes the location of your Forges, with a Default Forge created inside it. Every note stays a plain .md file.'}
       </p>
 
-      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-        Forge location
-      </label>
-      <div
-        className="px-3 py-2 text-sm mb-3 truncate"
-        style={{
-          backgroundColor: 'var(--bg-panel)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--text-secondary)',
-        }}
-        title={forgePath}
-      >
-        {forgePath || 'Loading…'}
-      </div>
+      {!mobile && (
+        <>
+          <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+            Forge location
+          </label>
+          <div
+            className="px-3 py-2 text-sm mb-3 truncate"
+            style={{
+              backgroundColor: 'var(--bg-panel)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+            }}
+            title={forgePath}
+          >
+            {forgePath || 'Loading…'}
+          </div>
 
-      <div className="flex gap-2 mb-4">
-        <button
-          type="button"
-          onClick={onPickFolder}
-          disabled={isPicking}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
-          style={{
-            backgroundColor: 'var(--bg-panel)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          {isPicking ? (
-            <DotLoader label="Moving Forge" />
-          ) : (
-            <FolderOpen className="w-4 h-4" aria-hidden="true" />
-          )}
-          {isPicking ? 'Moving…' : 'Choose another folder…'}
-        </button>
-      </div>
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={onPickFolder}
+              disabled={isPicking}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
+              style={{
+                backgroundColor: 'var(--bg-panel)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {isPicking ? (
+                <DotLoader label="Moving Forge" />
+              ) : (
+                <FolderOpen className="w-4 h-4" aria-hidden="true" />
+              )}
+              {isPicking ? 'Moving…' : 'Choose another folder…'}
+            </button>
+          </div>
+        </>
+      )}
 
       {pickError && (
         <p className="text-xs mb-3" style={{ color: 'var(--error)' }}>

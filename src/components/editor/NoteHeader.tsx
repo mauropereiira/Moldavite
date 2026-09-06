@@ -103,6 +103,7 @@ export function NoteHeader({
 
   return (
     <header
+      className="note-header"
       style={{
         maxWidth: 'var(--editor-measure)',
         margin: '0 auto',

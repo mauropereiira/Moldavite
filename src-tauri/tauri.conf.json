@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -23,7 +23,8 @@
         "center": true,
         "decorations": true,
         "transparent": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "disableInputAccessoryView": true
       }
     ],
     "security": {
@@ -85,13 +86,20 @@
     "category": "Productivity",
     "shortDescription": "A local-first note-taking app for connected thinking",
     "longDescription": "Moldavite is a privacy-first note-taking app with rich text editing, daily notes, wiki-style linking, and calendar integration. Forged from cosmic impact.",
+    "iOS": {
+      "developmentTeam": "J6Z5WJKHZB",
+      "minimumSystemVersion": "17.0"
+    },
     "macOS": {
       "entitlements": "Moldavite.entitlements",
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15",
       "signingIdentity": "Developer ID Application: Mauro de Brito Marques Pereira (J6Z5WJKHZB)",
-      "providerShortName": "J6Z5WJKHZB"
+      "providerShortName": "J6Z5WJKHZB",
+      "files": {
+        "embedded.provisionprofile": "Moldavite.provisionprofile"
+      }
     },
     "windows": {
       "webviewInstallMode": {

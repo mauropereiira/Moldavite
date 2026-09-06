@@ -16,6 +16,7 @@ use tauri::State;
 use crate::backlinks_index::BacklinksIndex;
 use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
+use crate::note_file_access::{self, Access};
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
 };
@@ -116,7 +117,7 @@ fn classify_note_entry(path: &Path) -> Option<(String, bool)> {
 /// True when a daily-note stem is an actual date ("2025-01-01"). Files in
 /// daily/ with other names (e.g. conflict copies) are listed without a
 /// `date` so the frontend never tries to parse them as calendar days.
-fn is_date_stem(stem: &str) -> bool {
+pub(crate) fn is_date_stem(stem: &str) -> bool {
     let b = stem.as_bytes();
     b.len() == 10
         && b.iter().enumerate().all(|(i, c)| match i {
@@ -126,7 +127,7 @@ fn is_date_stem(stem: &str) -> bool {
 }
 
 /// True when a weekly-note stem is an actual ISO week ("2024-W52").
-fn is_week_stem(stem: &str) -> bool {
+pub(crate) fn is_week_stem(stem: &str) -> bool {
     let b = stem.as_bytes();
     b.len() == 8
         && b[..4].iter().all(u8::is_ascii_digit)
@@ -190,8 +191,10 @@ fn preserve_conflict_copy_unlocked(
         return Ok(None);
     };
     // A missing file can't conflict — the save simply creates it.
-    let Ok(raw) = fs::read_to_string(path) else {
-        return Ok(None);
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Cannot read the existing note: {error}")),
     };
     let disk_body = frontmatter::parse_note(&raw).body;
     // No conflict when the disk still matches what the frontend last read,
@@ -244,7 +247,10 @@ fn delete_note_within_base(
     base_hash: Option<&str>,
 ) -> Result<bool, String> {
     validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
-    delete_note_at(path, base_hash)
+    note_file_access::transaction(&[Access::deleting(path)], || {
+        validate_path_within_base(path, base)?;
+        delete_note_at(path, base_hash)
+    })
 }
 
 fn read_note_at(path: &Path) -> Result<NoteRead, String> {
@@ -267,7 +273,11 @@ fn read_note_at(path: &Path) -> Result<NoteRead, String> {
 
 fn read_note_within_base(base: &Path, path: &Path) -> Result<NoteRead, String> {
     validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
-    read_note_at(path)
+    crate::note_file_access::read(path, |coordinated| {
+        validate_path_within_base(coordinated, base)
+            .map_err(|_| "Invalid note path".to_string())?;
+        read_note_at(coordinated)
+    })
 }
 
 /// Serialize conflict detection, frontmatter preservation, and the replacing
@@ -306,6 +316,27 @@ pub(crate) fn save_note_with_conflict_using<F>(
     write: F,
 ) -> Result<Option<(String, String)>, String>
 where
+    F: FnOnce(&Path, &str) -> Result<(), String> + Send,
+{
+    let mut locked_name = path.as_os_str().to_os_string();
+    locked_name.push(".locked");
+    let locked = PathBuf::from(locked_name);
+    note_file_access::transaction(&[Access::write(path), Access::write(&locked)], || {
+        let base = path.parent().ok_or("Invalid note path")?;
+        validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
+        validate_path_within_base(&locked, base).map_err(|_| "Invalid note path".to_string())?;
+        save_note_with_conflict_uncoordinated(path, base_hash, content, color, write)
+    })
+}
+
+fn save_note_with_conflict_uncoordinated<F>(
+    path: &Path,
+    base_hash: Option<&str>,
+    content: &str,
+    color: Option<&str>,
+    write: F,
+) -> Result<Option<(String, String)>, String>
+where
     F: FnOnce(&Path, &str) -> Result<(), String>,
 {
     let _guard = conflict_copy_lock()
@@ -314,7 +345,11 @@ where
     ensure_note_is_writable(path)?;
     let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
     let conflict = preserve_conflict_copy_unlocked(path, base_hash, content, &stamp)?;
-    let existing = fs::read_to_string(path).unwrap_or_default();
+    let existing = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(format!("Cannot read the existing note: {error}")),
+    };
     let parsed_existing = frontmatter::parse_note(&existing);
     // `content` may itself begin with a frontmatter block: the MCP write path
     // and the editor's "Use disk version" both hand over complete Markdown, not
@@ -418,7 +453,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     let mut notes = Vec::new();
 
     // List daily notes (non-recursive, daily notes are only at root level)
-    let daily_dir = get_daily_dir();
+    let daily_dir = get_daily_dir()?;
     if daily_dir.exists() {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
@@ -447,7 +482,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List weekly notes (non-recursive, weekly notes are only at root level)
-    let weekly_dir = get_weekly_dir();
+    let weekly_dir = get_weekly_dir()?;
     if weekly_dir.exists() {
         if let Ok(entries) = fs::read_dir(&weekly_dir) {
             for entry in entries.flatten() {
@@ -476,11 +511,12 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List standalone notes (recursive to support folders)
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     if standalone_dir.exists() {
         scan_notes_recursive(&standalone_dir, "", &mut notes);
     }
 
+    crate::cloud_forge::merge_notes(&mut notes)?;
     Ok(notes)
 }
 
@@ -500,11 +536,11 @@ pub(crate) fn read_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -538,11 +574,11 @@ pub(crate) fn write_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -621,11 +657,11 @@ pub(crate) fn delete_note(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let path = dir.join(&filename);
@@ -655,11 +691,11 @@ pub(crate) fn preserve_buffer_copy(
     }
 
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
     let path = dir.join(&filename);
     validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
@@ -698,7 +734,7 @@ pub(crate) fn create_note(
     folder_path: Option<String>,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    let base_dir = get_standalone_dir();
+    let base_dir = get_standalone_dir()?;
     let (filename, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
     index.update_note(&filename, "");
     Ok(relative_path)
@@ -757,11 +793,11 @@ pub(crate) fn duplicate_note(
     }
     // Determine source directory
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let source_path = dir.join(&filename);
@@ -822,11 +858,11 @@ pub(crate) fn export_single_note(
     }
     // Determine source directory
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let source_path = dir.join(&filename);
@@ -875,17 +911,26 @@ fn rename_note_in(
     let old_path = dir.join(old_filename);
     let new_path = dir.join(new_filename);
 
-    if !old_path.exists() {
-        return Err("Note not found".to_string());
-    }
     validate_path_within_base(&old_path, dir)?;
     validate_path_within_base(&new_path, dir)?;
+    note_file_access::transaction(
+        &[Access::moving(&old_path, 1), Access::write(&new_path)],
+        || {
+            if !old_path.exists() {
+                return Err("Note not found".to_string());
+            }
+            validate_path_within_base(&old_path, dir)?;
+            validate_path_within_base(&new_path, dir)?;
 
-    if new_path.exists() {
-        return Err("A note with this name already exists".to_string());
-    }
+            if new_path.exists() {
+                return Err("A note with this name already exists".to_string());
+            }
 
-    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+            fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+            Ok(())
+        },
+    )?;
+
     Ok(new_path)
 }
 
@@ -899,11 +944,11 @@ pub(crate) fn rename_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<(), String> {
     let dir = if is_weekly {
-        get_weekly_dir()
+        get_weekly_dir()?
     } else if is_daily {
-        get_daily_dir()
+        get_daily_dir()?
     } else {
-        get_standalone_dir()
+        get_standalone_dir()?
     };
 
     let new_path = rename_note_in(&dir, &old_filename, &new_filename, is_daily, is_weekly)?;
@@ -919,7 +964,7 @@ pub(crate) fn rename_note(
     // resolved to the old name in every other note.
     let old_stem = note_ref_stem(&old_filename);
     let new_stem = note_ref_stem(&new_filename);
-    rewrite_inbound_links(old_stem, new_stem, &index);
+    rewrite_inbound_links(old_stem, new_stem, &index)?;
 
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &old_filename,
@@ -942,14 +987,19 @@ pub(crate) fn rename_note(
 /// Rewrite `[[old]]` links across the whole vault after a note rename.
 /// Failures on individual files are logged and skipped so one unreadable
 /// note doesn't abort the rename that already happened.
-fn rewrite_inbound_links(old_stem: &str, new_stem: &str, index: &Arc<BacklinksIndex>) {
+fn rewrite_inbound_links(
+    old_stem: &str,
+    new_stem: &str,
+    index: &Arc<BacklinksIndex>,
+) -> Result<(), String> {
     rewrite_inbound_links_in_roots(
-        &[get_daily_dir(), get_weekly_dir(), get_standalone_dir()],
+        &[get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?],
         old_stem,
         new_stem,
         index,
         None,
     );
+    Ok(())
 }
 
 fn rewrite_inbound_links_in_roots(
@@ -999,14 +1049,14 @@ fn rewrite_inbound_links_in_roots(
 
 #[tauri::command]
 pub(crate) fn clear_all_notes(index: State<'_, Arc<BacklinksIndex>>) -> Result<(), String> {
-    let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+    let roots = [get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?];
     visit_note_files(&roots, |path| {
         fs::remove_file(path).map_err(|e| e.to_string())
     })?;
 
     index.remove_all();
     crate::semantic::all_notes_removed();
-    crate::search_index::all_notes_removed_in(get_notes_dir());
+    crate::search_index::all_notes_removed_in(get_notes_dir()?);
 
     Ok(())
 }
@@ -1053,7 +1103,7 @@ pub(crate) fn move_note(
     index: State<'_, Arc<BacklinksIndex>>,
     recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir();
+    let standalone_dir = get_standalone_dir()?;
     let source_path = standalone_dir.join(&note_path);
     let (old_filename, final_filename, new_relative_path, dest_path) =
         move_note_in(&standalone_dir, &note_path, to_folder.as_deref())?;
@@ -1088,6 +1138,9 @@ fn move_note_in(
     note_path: &str,
     to_folder: Option<&str>,
 ) -> Result<(String, String, String, PathBuf), String> {
+    if note_path.ends_with(".locked") {
+        return Err("Unlock this note before moving it".into());
+    }
     if !is_safe_existing_note_path(note_path) {
         return Err("Invalid note path".to_string());
     }
@@ -1100,10 +1153,6 @@ fn move_note_in(
     let source_path = standalone_dir.join(note_path);
     validate_path_within_base(&source_path, standalone_dir)
         .map_err(|_| "Invalid note path".to_string())?;
-
-    if !source_path.exists() {
-        return Err("Note not found".to_string());
-    }
 
     // Get the filename and extract base name without extension
     let filename = source_path
@@ -1146,8 +1195,30 @@ fn move_note_in(
 
     // Move the file. Same-folder is a no-op rename; skip it rather than trust
     // every platform to treat "rename a path onto itself" as harmless.
-    if !is_same_folder {
-        fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
+    if is_same_folder {
+        note_file_access::transaction(&[Access::read(&source_path)], || {
+            if source_path.exists() {
+                Ok(())
+            } else {
+                Err("Note not found".into())
+            }
+        })?;
+    } else {
+        note_file_access::transaction(
+            &[Access::moving(&source_path, 1), Access::write(&dest_path)],
+            || {
+                validate_path_within_base(&source_path, standalone_dir)?;
+                validate_path_within_base(&dest_path, standalone_dir)?;
+                if !source_path.exists() {
+                    return Err("Note not found".into());
+                }
+                if dest_path.exists() {
+                    return Err("A note with this name already exists. Try the move again.".into());
+                }
+                fs::rename(&source_path, &dest_path)
+                    .map_err(|e| format!("Failed to move note: {}", e))
+            },
+        )?;
     }
 
     // Return new relative path
@@ -1167,7 +1238,7 @@ pub(crate) fn fix_note_permissions() -> Result<u32, String> {
         use std::os::unix::fs::PermissionsExt;
         let mut fixed_count = 0u32;
 
-        let roots = [get_daily_dir(), get_weekly_dir(), get_standalone_dir()];
+        let roots = [get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?];
         fixed_count += visit_note_files(&roots, |path| {
             let permissions = fs::Permissions::from_mode(0o600);
             fs::set_permissions(path, permissions).map_err(|e| e.to_string())
@@ -1210,6 +1281,57 @@ mod tests {
     }
 
     const STAMP: &str = "2026-07-12 1015";
+
+    #[test]
+    fn failed_existing_note_read_never_becomes_an_empty_save_base() {
+        let tmp = TempDir::new("unreadable-note");
+        let path = tmp.path().join("note.md");
+        let invalid_utf8 = [0xff, 0xfe, 0x41];
+        fs::write(&path, invalid_utf8).unwrap();
+        for hash in [None, Some(sha256_hex("old body"))] {
+            let error =
+                save_note_with_conflict(&path, hash.as_deref(), "overwrite", None).unwrap_err();
+            assert!(error.contains("Cannot read the existing note"), "{error}");
+            assert_eq!(fs::read(&path).unwrap(), invalid_utf8);
+        }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn cloud_placeholder_cannot_be_read_as_empty_or_overwritten() {
+        let tmp = TempDir::new("cloud-placeholder");
+        let base = tmp.path().canonicalize().unwrap();
+        let path = base.join("pending.md");
+        let marker = base.join(".pending.md.icloud");
+        fs::write(&marker, "remote placeholder metadata").unwrap();
+        let error = read_note_within_base(&base, &path).unwrap_err();
+        assert!(error.contains("waiting for iCloud"), "{error}");
+        let error =
+            save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "overwrite", None)
+                .unwrap_err();
+        assert!(error.contains("waiting for iCloud"), "{error}");
+        assert!(!path.exists());
+        assert_eq!(
+            fs::read_to_string(&marker).unwrap(),
+            "remote placeholder metadata"
+        );
+
+        // A download completing makes the real note readable; its text and
+        // frontmatter participate in the normal conflict-copy policy again.
+        fs::remove_file(marker).unwrap();
+        fs::write(&path, "---\ncustom: keep\n---\nremote text").unwrap();
+        let read = read_note_within_base(&base, &path).unwrap();
+        assert_eq!(read.content, "remote text");
+        let (copy, _) =
+            save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "my text", None)
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            fs::read_to_string(base.join(copy)).unwrap(),
+            "---\ncustom: keep\n---\nremote text"
+        );
+        assert!(fs::read_to_string(path).unwrap().contains("custom: keep"));
+    }
 
     #[test]
     fn classify_note_entry_strips_locked_suffix_and_skips_other_files() {
@@ -1777,6 +1899,23 @@ mod tests {
     }
 
     #[test]
+    fn moving_a_locked_note_keeps_its_encryption_identity() {
+        let tmp = TempDir::new("move-locked-note");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Archive")).unwrap();
+        fs::write(notes.join("Secret.md.locked"), "encrypted bytes").unwrap();
+
+        assert!(move_note_in(&notes, "Secret.md.locked", Some("Archive"))
+            .unwrap_err()
+            .contains("Unlock"));
+        assert_eq!(
+            fs::read_to_string(notes.join("Secret.md.locked")).unwrap(),
+            "encrypted bytes"
+        );
+        assert_eq!(fs::read_dir(notes.join("Archive")).unwrap().count(), 0);
+    }
+
+    #[test]
     fn move_note_into_its_current_folder_is_a_no_op() {
         // Dropping a note back where it already lives used to dedupe against
         // itself: "pw.md" was renamed to "pw (2).md", which reads as a
@@ -2023,5 +2162,17 @@ mod tests {
             elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
             "link rewrite took {elapsed:?}"
         );
+    }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn a_pending_locked_counterpart_prevents_a_plaintext_save() {
+        let tmp = TempDir::new("pending-lock-save");
+        let path = tmp.0.join("Note.md");
+        let marker = tmp.0.join(".Note.md.locked.icloud");
+        fs::write(&marker, "cloud metadata").unwrap();
+        let result = save_note_with_conflict(&path, None, "must not save", None);
+        assert!(result.unwrap_err().contains("download"));
+        assert!(!path.exists());
+        assert!(marker.exists());
     }
 }

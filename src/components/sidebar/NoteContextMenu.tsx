@@ -1,4 +1,5 @@
 import { save } from '@tauri-apps/plugin-dialog';
+import { isMobilePlatform } from '@/lib/platform';
 import {
   exportSingleNote,
   exportNoteToPdf,
@@ -7,7 +8,7 @@ import {
   noteFileBackendPath,
 } from '@/lib';
 import { useToast } from '@/hooks/useToast';
-import { usePdfExportStore, useQuickSwitcherStore } from '@/stores';
+import { usePdfExportStore, useQuickSwitcherStore, useNoteSelectionStore } from '@/stores';
 import type { NoteFile } from '@/types';
 import { ContextMenuSurface } from './ContextMenuSurface';
 
@@ -42,9 +43,16 @@ export function NoteContextMenu({
 }: NoteContextMenuProps) {
   const toast = useToast();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
+  const selected = useNoteSelectionStore((s) => s.selectedIds.has(note.path));
 
   const handleExportMarkdown = async () => {
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(note.path, 'markdown')) toast.success('Note exported');
+        onClose();
+        return;
+      }
       const defaultName = note.name.replace(/\.md$/, '');
       const destination = await save({
         title: 'Export Note',
@@ -96,6 +104,12 @@ export function NoteContextMenu({
 
   const handleExportPlaintext = async () => {
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(note.path, 'plaintext')) toast.success('Exported as plaintext');
+        onClose();
+        return;
+      }
       const defaultName = note.name.replace(/\.md$/, '');
       const destination = await save({
         title: 'Export as Plaintext',
@@ -130,6 +144,18 @@ export function NoteContextMenu({
 
   return (
     <ContextMenuSurface position={position} onClose={onClose}>
+      {isMobilePlatform() && (
+        <button
+          className={itemClass}
+          style={{ color: 'var(--text-primary)' }}
+          onClick={() => {
+            useNoteSelectionStore.getState().toggle(note.path);
+            onClose();
+          }}
+        >
+          {selected ? 'Deselect note' : 'Select note'}
+        </button>
+      )}
       {note.isLocked ? (
         <>
           <button
@@ -210,7 +236,7 @@ export function NoteContextMenu({
           Export as Markdown
         </button>
       )}
-      {!note.isLocked && (
+      {!note.isLocked && !isMobilePlatform() && (
         <button
           onClick={handleExportPdf}
           className={itemClass}
@@ -228,7 +254,7 @@ export function NoteContextMenu({
           Export as Plaintext
         </button>
       )}
-      {!note.isDaily && (
+      {!note.isDaily && !note.isWeekly && !note.isLocked && (
         <button
           onClick={() => onMoveToFolder(note)}
           className={itemClass}
