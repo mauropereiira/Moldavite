@@ -1,4 +1,5 @@
 import { useNoteSelectionStore } from '@/stores';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface BulkActionBarProps {
   onMoveToFolder: () => void;
@@ -50,7 +51,7 @@ export function BulkActionBar({ onMoveToFolder, onTrash, onExport }: BulkActionB
         onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
         onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
       >
-        Move to folder
+        {isMobilePlatform() ? 'Move' : 'Move to folder'}
       </button>
       <button
         type="button"

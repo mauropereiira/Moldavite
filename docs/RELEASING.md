@@ -136,6 +136,7 @@ Two failure modes worth recognising:
 | Secret                                                            | Purpose                                                                                                                                                                   |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`                 | Developer ID signing cert (base64 .p12)                                                                                                                                   |
+| `APPLE_MAC_ICLOUD_PROFILE` | Base64 Developer ID provisioning profile for `app.moldavite`, authorizing `iCloud.app.moldavite`. |
 | `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`                     | Apple notarization                                                                                                                                                        |
 | `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater artifact signing on every platform (not Windows Authenticode code signing)                                                                                        |
 | `HOMEBREW_TAP_DEPLOY_KEY`                                         | SSH private key of a deploy key with write access on `mauropereiira/homebrew-moldavite` only. Scoped to that one repository, and unlike a PAT it cannot be widened later. |
@@ -153,3 +154,21 @@ old key cannot verify updates signed with the new key — plan a transition.
 
 Semantic versioning: bug-fix-only → patch; new user-facing feature →
 minor; breaking change → major.
+
+## Mac iCloud signing
+
+Mac releases require a Developer ID Application provisioning profile for
+`app.moldavite` with iCloud Documents enabled for `iCloud.app.moldavite`.
+Download it from Apple Developer → Profiles and save it locally as
+`src-tauri/Moldavite.provisionprofile` (ignored by Git). Run
+`python3 scripts/check-mac-icloud-profile.py src-tauri/Moldavite.provisionprofile`
+before a local signed build. CI decodes `APPLE_MAC_ICLOUD_PROFILE` and validates
+it before signing; Tauri embeds it at `Contents/embedded.provisionprofile`.
+Renew the profile before its expiration or after changing its capabilities or
+signing certificate, and update the secret. Never commit signing profiles.
+
+The app initializes the same native container as iOS when a user enables
+Settings → General → Use synced Forge. No iPhone installation is required.
+Local Forges are not moved. Once connected, “Open synced folder in Finder” opens
+its Documents directory; Markdown files belong in `notes/`. Enable the synced
+Forge on other Apple devices signed into the same iCloud account to open it there.

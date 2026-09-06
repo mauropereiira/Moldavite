@@ -88,14 +88,14 @@ pub(crate) fn write_forge_root_file(
     content: String,
     overwrite: bool,
 ) -> Result<String, String> {
-    write_forge_root_file_in(&get_notes_dir(), &filename, &content, overwrite)
+    write_forge_root_file_in(&get_notes_dir()?, &filename, &content, overwrite)
 }
 
 /// Read a whitelisted file from the root of the active Forge.
 /// Returns `None` if the file doesn't exist.
 #[tauri::command]
 pub(crate) fn read_forge_root_file(filename: String) -> Result<Option<String>, String> {
-    read_forge_root_file_in(&get_notes_dir(), &filename)
+    read_forge_root_file_in(&get_notes_dir()?, &filename)
 }
 
 #[cfg(test)]

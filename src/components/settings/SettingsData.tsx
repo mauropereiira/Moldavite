@@ -8,9 +8,10 @@ import {
   EyeOff,
   Settings as SettingsIcon,
 } from 'lucide-react';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { exportNotes, importNotes, exportEncryptedBackup, importEncryptedBackup } from '@/lib';
+import { exportDocument } from '@/lib/exportDocument';
+import { importNotes, importEncryptedBackup } from '@/lib';
 import type { ImportResult } from '@/lib';
 import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
@@ -77,14 +78,7 @@ export function SettingsData() {
   const handleExportNotes = async () => {
     try {
       setIsExportingNotes(true);
-      const date = new Date().toISOString().split('T')[0];
-      const destination = await save({
-        title: 'Export Notes',
-        defaultPath: `moldavite-export-${date}.zip`,
-        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
-      });
-      if (!destination) return;
-      await exportNotes(destination);
+      if (!(await exportDocument({ kind: 'notes' }))) return;
       toast.success('Notes exported successfully');
     } catch (error) {
       console.error('[SettingsData] export notes failed:', error);
@@ -143,14 +137,7 @@ export function SettingsData() {
     try {
       setIsExportingBackup(true);
       setShowEncryptedExport(false);
-      const date = new Date().toISOString().split('T')[0];
-      const destination = await save({
-        title: 'Export Encrypted Backup',
-        defaultPath: `moldavite-backup-${date}.moldavite-backup`,
-        filters: [{ name: 'Moldavite Backup', extensions: ['moldavite-backup'] }],
-      });
-      if (!destination) return;
-      await exportEncryptedBackup(destination, exportPw);
+      if (!(await exportDocument({ kind: 'backup', password: exportPw }))) return;
       toast.success('Encrypted backup created');
     } catch (error) {
       console.error('[SettingsData] encrypted export failed:', error);
@@ -228,17 +215,8 @@ export function SettingsData() {
         exportedAt: new Date().toISOString(),
         entries,
       };
-      const date = new Date().toISOString().split('T')[0];
-      const destination = await save({
-        title: 'Export Settings',
-        defaultPath: `moldavite-settings-${date}.json`,
-        filters: [{ name: 'JSON', extensions: ['json'] }],
-      });
-      if (!destination) return;
-      await invoke('export_settings_json', {
-        path: destination,
-        json: JSON.stringify(payload, null, 2),
-      });
+      if (!(await exportDocument({ kind: 'settings', json: JSON.stringify(payload, null, 2) })))
+        return;
       toast.success('Settings exported successfully');
     } catch (error) {
       console.error('[SettingsData] export settings failed:', error);

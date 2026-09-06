@@ -45,9 +45,7 @@ export function CollapsibleSection({
       </div>
       <div
         hidden={isCollapsed}
-        className={`overflow-hidden ${
-          isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
-        }`}
+        className={`overflow-hidden ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
         style={{
           transform: isCollapsed ? 'translateY(-4px)' : 'translateY(0)',
           transition:

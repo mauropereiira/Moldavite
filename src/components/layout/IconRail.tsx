@@ -13,6 +13,7 @@ import { IconRailTrash } from './IconRailTrash';
 import { captureImpactOrigin } from '@/lib/impactOrigin';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface RailButtonProps {
   label: string;
@@ -219,7 +220,18 @@ export function IconRail() {
               : `Settings · ${formatShortcut('⌘,')}`
           }
           active={isSettingsOpen}
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={() => {
+            if (!isMobilePlatform()) {
+              setIsSettingsOpen(true);
+              return;
+            }
+            // On a phone the button walks back the way it came: a section
+            // returns to the list, the list closes Settings.
+            const { settingsSection, setSettingsSection } = useSettingsStore.getState();
+            if (!isSettingsOpen) setIsSettingsOpen(true);
+            else if (settingsSection !== null) setSettingsSection(null);
+            else setIsSettingsOpen(false);
+          }}
         >
           <span style={{ position: 'relative', display: 'inline-flex' }}>
             <Settings {...iconProps} />

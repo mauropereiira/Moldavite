@@ -1,0 +1,143 @@
+name: moldavite
+options:
+  bundleIdPrefix: app.moldavite
+  deploymentTarget:
+    iOS: "17.0"
+fileGroups: [../../src]
+configs:
+  debug: debug
+  release: release
+settingGroups:
+  app:
+    base:
+      PRODUCT_NAME: Moldavite
+      PRODUCT_BUNDLE_IDENTIFIER: app.moldavite
+      DEVELOPMENT_TEAM: J6Z5WJKHZB
+      CODE_SIGN_STYLE: Automatic
+targetTemplates:
+  app:
+    type: application
+    sources:
+      - path: Sources
+    scheme:
+      environmentVariables:
+        RUST_BACKTRACE: full
+        RUST_LOG: info
+    settings:
+      groups: [app]
+targets:
+  moldavite_iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Assets.xcassets
+      - path: moldavite_iOS
+      - path: assets
+        buildPhase: resources
+        type: folder
+      - path: LaunchScreen.storyboard
+      - path: ../../ios/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: moldavite_iOS/Info.plist
+      properties:
+        LSRequiresIPhoneOS: true
+        UILaunchStoryboardName: LaunchScreen
+        UIRequiredDeviceCapabilities: [arm64, metal]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleShortVersionString: 2.6.0
+        CFBundleVersion: "2.6.0"
+        NSUbiquitousContainers:
+          iCloud.app.moldavite:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: Moldavite
+            NSUbiquitousContainerSupportedFolderLevels: Any
+        # `moldavite://` links (the widget's `moldavite://today`, note and plugin
+        # links). Keep in sync with the restoration after Build Rust Code below.
+        CFBundleURLTypes:
+          - CFBundleURLName: app.moldavite
+            CFBundleURLSchemes: [moldavite]
+    entitlements:
+      path: moldavite_iOS/moldavite_iOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.app.moldavite]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.app.moldavite]
+        com.apple.developer.icloud-services: [CloudDocuments]
+    scheme:
+      environmentVariables:
+        RUST_BACKTRACE: full
+        RUST_LOG: info
+    settings:
+      base:
+        ENABLE_BITCODE: false
+        ARCHS: [arm64]
+        VALID_ARCHS: arm64 
+        LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
+        LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
+        EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+      groups: [app]
+    dependencies:
+      - target: MoldaviteWidget
+      - framework: libapp.a
+        embed: false
+      - sdk: CoreGraphics.framework
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: QuartzCore.framework
+      - sdk: Security.framework
+      - sdk: UIKit.framework
+      - sdk: WebKit.framework
+      - sdk: libsqlite3.tbd
+    preBuildScripts:
+      - script: |
+          set -e
+          npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+          # The deep-link dependency's build script removes custom iOS schemes.
+          # Restore ours before Xcode processes and signs the app's Info.plist.
+          /usr/bin/plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"app.moldavite","CFBundleURLSchemes":["moldavite"]}]' "${SRCROOT}/moldavite_iOS/Info.plist"
+        name: Build Rust Code
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
+          - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  # Home screen widget; sources live outside gen/ so `tauri ios init` cannot
+  # drop them. See src-tauri/ios/Widget.
+  MoldaviteWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ../../ios/Widget/Sources
+      - path: ../../ios/Widget/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: ../../ios/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Moldavite
+        CFBundleShortVersionString: 2.6.0
+        CFBundleVersion: "2.6.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_NAME: MoldaviteWidget
+        PRODUCT_BUNDLE_IDENTIFIER: app.moldavite.widget
+        DEVELOPMENT_TEAM: J6Z5WJKHZB
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        ARCHS: [arm64]
+        SKIP_INSTALL: true
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - sdk: SwiftUI.framework
+      - sdk: WidgetKit.framework

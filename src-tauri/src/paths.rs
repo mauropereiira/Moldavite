@@ -48,6 +48,12 @@ pub(crate) const DEFAULT_FORGE_NAME: &str = "Default";
 /// Returns the parent directory that holds all Forges. Falls back to the
 /// legacy `notes_directory.parent()` if `forges_root` is unset.
 pub(crate) fn get_forges_root() -> PathBuf {
+    // iOS moves the app's data container on every reinstall and update, so an
+    // absolute path persisted last week names a directory that no longer
+    // exists. There the root is always the current container's Documents.
+    if cfg!(target_os = "ios") {
+        return get_default_notes_dir();
+    }
     let config = read_config();
     if let Some(root) = config.forges_root.as_deref() {
         let p = PathBuf::from(root);
@@ -86,7 +92,17 @@ pub(crate) fn get_active_forge_name() -> String {
     DEFAULT_FORGE_NAME.to_string()
 }
 
-pub(crate) fn get_notes_dir() -> PathBuf {
+pub(crate) fn get_notes_dir() -> Result<PathBuf, String> {
+    if read_config().active_synced_forge {
+        return crate::cloud_forge::root();
+    }
+    Ok(get_local_notes_dir())
+}
+
+fn get_local_notes_dir() -> PathBuf {
+    if cfg!(target_os = "ios") {
+        return get_forges_root().join(get_active_forge_name());
+    }
     let config = read_config();
     // Preferred: forges_root + active_forge.
     if let (Some(root), Some(name)) = (
@@ -107,41 +123,41 @@ pub(crate) fn get_notes_dir() -> PathBuf {
     get_default_notes_dir()
 }
 
-pub(crate) fn get_daily_dir() -> PathBuf {
-    get_notes_dir().join("daily")
+pub(crate) fn get_daily_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join("daily"))
 }
 
-pub(crate) fn get_standalone_dir() -> PathBuf {
-    get_notes_dir().join("notes")
+pub(crate) fn get_standalone_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join("notes"))
 }
 
-pub(crate) fn get_weekly_dir() -> PathBuf {
-    get_notes_dir().join("weekly")
+pub(crate) fn get_weekly_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join("weekly"))
 }
 
-pub(crate) fn get_images_dir() -> PathBuf {
-    get_notes_dir().join("images")
+pub(crate) fn get_images_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join("images"))
 }
 
-pub(crate) fn get_trash_dir() -> PathBuf {
-    get_notes_dir().join(".trash")
+pub(crate) fn get_trash_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join(".trash"))
 }
 
-pub(crate) fn get_trash_metadata_path() -> PathBuf {
-    get_trash_dir().join("metadata.json")
+pub(crate) fn get_trash_metadata_path() -> Result<PathBuf, String> {
+    Ok(get_trash_dir()?.join("metadata.json"))
 }
 
 pub(crate) fn get_templates_dir() -> Result<PathBuf, String> {
-    let path = get_notes_dir().join("templates");
+    let path = get_notes_dir()?.join("templates");
     Ok(path)
 }
 
-pub(crate) fn get_metadata_path() -> PathBuf {
-    get_notes_dir().join(".note-metadata.json")
+pub(crate) fn get_metadata_path() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join(".note-metadata.json"))
 }
 
 pub(crate) fn ensure_trash_dir() -> Result<(), String> {
-    let trash_dir = get_trash_dir();
+    let trash_dir = get_trash_dir()?;
     fs::create_dir_all(&trash_dir)
         .map_err(|e| format!("Failed to create trash directory: {}", e))?;
     Ok(())

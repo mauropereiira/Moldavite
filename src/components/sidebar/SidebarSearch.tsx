@@ -17,7 +17,7 @@ interface SidebarSearchProps {
 export const SidebarSearch = forwardRef<HTMLInputElement, SidebarSearchProps>(
   function SidebarSearch({ query, onChange, onKeyDown, onClear, isSearching, placeholder }, ref) {
     return (
-      <div className="px-3 pt-5 pb-1">
+      <div className="sidebar-search px-3 pt-5 pb-1">
         <div className="relative">
           <input
             ref={ref}

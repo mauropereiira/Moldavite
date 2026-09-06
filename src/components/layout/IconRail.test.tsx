@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useGraphStore,
   useNoteStore,
@@ -14,7 +14,10 @@ import type { Note } from '@/types';
 import { IconRail } from './IconRail';
 import { QuickSwitcher } from '@/components/quick-switcher';
 import { WelcomeEmptyState } from '@/components/ui/WelcomeScreen';
+import { isMobilePlatform } from '@/lib/platform';
 import { formatShortcut } from '@/lib/shortcuts';
+
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
 const trash = vi.hoisted(() => ({
   loadTrash: vi.fn(async () => undefined),
@@ -33,16 +36,24 @@ vi.mock('@/components/sidebar/TrashPopover', () => ({
     isOpen ? <div data-testid="trash-popover">Trash</div> : null,
 }));
 
+const notes = vi.hoisted(() => ({
+  loadDailyNote: vi.fn(async (_date: Date) => undefined),
+}));
+
 vi.mock('@/hooks/useNotes', () => ({
   useNotes: () => ({
     notes: [],
     loadNote: vi.fn(async () => undefined),
-    loadDailyNote: vi.fn(async () => undefined),
+    loadDailyNote: notes.loadDailyNote,
     createNote: vi.fn(async () => undefined),
   }),
 }));
 
 describe('IconRail', () => {
+  afterEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+  });
+
   beforeEach(() => {
     localStorage.clear();
     useSettingsStore.getState().resetToDefaults();
@@ -173,6 +184,24 @@ describe('IconRail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings (Command Comma)' }));
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+  });
+
+  it('walks Settings back on a phone: section to list, list to closed', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+    const settings = screen.getByRole('button', { name: 'Settings (Command Comma)' });
+
+    fireEvent.click(settings);
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+    expect(useSettingsStore.getState().settingsSection).toBeNull();
+
+    act(() => useSettingsStore.getState().setSettingsSection('editor'));
+    fireEvent.click(settings);
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+    expect(useSettingsStore.getState().settingsSection).toBeNull();
+
+    fireEvent.click(settings);
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
   });
 
   it('leaves Settings when another rail destination is picked', () => {

@@ -66,7 +66,7 @@ const DEBOUNCE_MS: u64 = 600;
 /// mid-build). Not surfaced to the UI as an error.
 pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
 /// User-facing reason semantic search is unavailable on Intel macOS.
-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+#[cfg(not(semantic_runtime))]
 pub(crate) const UNSUPPORTED_MESSAGE: &str = "Semantic search requires Apple Silicon on macOS";
 
 // =============================================================================
@@ -150,7 +150,7 @@ pub(crate) fn model_info(id: &str) -> Result<ModelInfo, String> {
         })
 }
 
-#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+#[cfg(semantic_runtime)]
 fn fastembed_model(id: &str) -> Result<fastembed::EmbeddingModel, String> {
     match id {
         DEFAULT_MODEL_ID => Ok(fastembed::EmbeddingModel::AllMiniLML6V2),
@@ -168,13 +168,13 @@ pub(crate) trait Embedder: Send + Sync {
 }
 
 /// Real embedder backed by fastembed (ONNX Runtime).
-#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+#[cfg(semantic_runtime)]
 pub(crate) struct FastEmbedder {
     // fastembed's `embed` takes `&mut self`, so serialize access.
     inner: Mutex<fastembed::TextEmbedding>,
 }
 
-#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+#[cfg(semantic_runtime)]
 impl Embedder for FastEmbedder {
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
         let mut model = self
@@ -211,7 +211,7 @@ pub(crate) fn model_files_cached(model_id: &str) -> bool {
 /// [`model_cache_dir`] if it is not cached yet — callers must only invoke
 /// this from the explicit enable flow (or on startup when the user already
 /// enabled the feature).
-#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+#[cfg(semantic_runtime)]
 pub(crate) fn init_fastembed_embedder(model_id: &str) -> Result<FastEmbedder, String> {
     use fastembed::{InitOptions, TextEmbedding};
 
@@ -866,7 +866,9 @@ impl SemanticService {
 /// A note's content changed (save, restore, unlock, …). Debounced so rapid
 /// auto-saves collapse into one re-embed; never blocks the caller.
 pub(crate) fn note_changed(rel_path: &str) {
-    note_changed_in(rel_path, crate::paths::get_notes_dir());
+    if let Ok(root) = crate::paths::get_notes_dir() {
+        note_changed_in(rel_path, root);
+    }
 }
 
 /// MCP-mode variant of [`note_changed`] for an explicitly selected Forge.
@@ -906,7 +908,7 @@ pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
 /// Load an already-built semantic index for MCP mode without rebuilding it.
 /// Returns false when semantic search is not immediately usable, allowing
 /// MCP search to fall back to keyword mode without downloading or indexing.
-#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+#[cfg(semantic_runtime)]
 pub(crate) fn prepare_mcp_search(forge_root: &Path, model_id: &str) -> bool {
     let svc = service();
     if !model_files_cached(model_id) {
@@ -933,7 +935,7 @@ pub(crate) fn prepare_mcp_search(forge_root: &Path, model_id: &str) -> bool {
 
 /// Intel macOS has no ort-sys prebuilt runtime. Returning false keeps MCP's
 /// `search_notes` tool on its existing keyword-search fallback.
-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+#[cfg(not(semantic_runtime))]
 pub(crate) fn prepare_mcp_search(_forge_root: &Path, _model_id: &str) -> bool {
     false
 }
@@ -946,6 +948,9 @@ pub(crate) fn notes_changed(rel_paths: Vec<String>) {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
@@ -953,7 +958,6 @@ pub(crate) fn notes_changed(rel_paths: Vec<String>) {
         let Some(embedder) = svc.embedder() else {
             return;
         };
-        let forge_root = crate::paths::get_notes_dir();
         let mut any_changed = false;
         for rel in &rel_paths {
             let Ok(mut entries) = svc.entries.write() else {
@@ -982,6 +986,9 @@ pub(crate) fn notes_removed(rel_paths: Vec<String>) {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
@@ -995,7 +1002,7 @@ pub(crate) fn notes_removed(rel_paths: Vec<String>) {
             entries.len() != before
         };
         if removed {
-            svc.persist_entries(&crate::paths::get_notes_dir());
+            svc.persist_entries(&forge_root);
         }
     });
 }
@@ -1007,12 +1014,15 @@ pub(crate) fn all_notes_removed() {
         return;
     }
     std::thread::spawn(move || {
+        let Ok(forge_root) = crate::paths::get_notes_dir() else {
+            return;
+        };
         let svc = service();
         if !svc.is_ready() {
             return;
         }
         svc.replace_entries(Vec::new());
-        svc.persist_entries(&crate::paths::get_notes_dir());
+        svc.persist_entries(&forge_root);
     });
 }
 
@@ -1211,7 +1221,7 @@ mod tests {
 
     // ---- index file round trip ----------------------------------------------
 
-    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    #[cfg(semantic_runtime)]
     #[test]
     fn curated_model_registry_maps_exact_fastembed_variants() {
         assert_eq!(MODEL_REGISTRY.len(), 3);

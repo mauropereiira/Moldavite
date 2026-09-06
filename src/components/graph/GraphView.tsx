@@ -752,7 +752,7 @@ export function GraphView() {
     // No `app-overlay` entrance here: its scale transform would be baked into
     // the canvas' backing-store size. The galaxy entrance is this surface's.
     <div
-      className="fixed inset-y-0 right-0 z-[9998] flex flex-col"
+      className="graph-view fixed inset-y-0 right-0 z-[9998] flex flex-col"
       style={{
         backgroundColor: 'var(--bg-base)',
         // Start clear of the icon rail rather than under it: the rail sits in
@@ -766,7 +766,7 @@ export function GraphView() {
       aria-labelledby="graph-view-title"
     >
       <div
-        className="flex items-baseline justify-between gap-6 px-5 py-3"
+        className="graph-view-header flex items-baseline justify-between gap-6 px-5 py-3"
         style={{ borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="flex items-baseline gap-4">
@@ -794,12 +794,14 @@ export function GraphView() {
           )}
         </div>
         <div className="flex items-baseline gap-5">
-          <span style={editorialLabel}>Drag to pan · Scroll to zoom · Double-click to fit</span>
+          <span className="app-overlay-hint" style={editorialLabel}>
+            Drag to pan · Scroll to zoom · Double-click to fit
+          </span>
           {graph && graph.nodes.length > 0 && (
             <button
               type="button"
               onClick={fitToView}
-              className="focus-ring"
+              className="focus-ring graph-view-fit"
               style={{
                 color: 'var(--text-secondary)',
                 fontFamily: 'var(--font-display)',
@@ -817,7 +819,7 @@ export function GraphView() {
             ref={closeBtnRef}
             type="button"
             onClick={close}
-            className="focus-ring"
+            className="focus-ring app-overlay-close"
             style={{
               color: 'var(--text-muted)',
               fontFamily: 'var(--font-display)',
@@ -832,7 +834,7 @@ export function GraphView() {
         </div>
       </div>
 
-      <div ref={containerRef} className="relative flex-1 overflow-hidden">
+      <div ref={containerRef} className="graph-view-canvas relative flex-1 overflow-hidden">
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}

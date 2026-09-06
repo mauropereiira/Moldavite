@@ -1,6 +1,7 @@
 import { useSettingsStore, type ChromeMode, type SettingsState } from '@/stores';
 import { SectionHeading, SegmentedControl, Toggle } from '../common';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 type BooleanLayoutSetting =
   | 'showIconRail'
@@ -98,32 +99,49 @@ function ModeRow<T extends string>({
 
 export function LayoutSection() {
   const settings = useSettingsStore();
+  // A phone forces the rail and overlay mode, has no writing column wider
+  // than the screen, and no pointer for the asteroid cursor
+  // (`WelcomeScreen` already skips it on coarse pointers).
+  const mobile = isMobilePlatform();
+  const welcomeControls = mobile
+    ? WELCOME_CONTROLS.filter(([, setting]) => setting !== 'showAsteroidCursor')
+    : WELCOME_CONTROLS;
 
   return (
     <div className="space-y-7">
       <section>
         <SectionHeading>Navigation</SectionHeading>
-        <ToggleRow label="Icon rail" setting="showIconRail" enabled={settings.showIconRail} />
-        <ModeRow
-          label={`Index · ${formatShortcut('⌘\\')}`}
-          value={settings.indexMode}
-          onChange={settings.setIndexMode}
-        />
-        <ModeRow
-          label={`Agenda · ${formatShortcut('⌘⌥\\')}`}
-          value={settings.agendaMode}
-          onChange={settings.setAgendaMode}
-        />
+        {mobile ? (
+          <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
+            Desktop settings. On a phone the Index and Agenda open as overlays.
+          </p>
+        ) : (
+          <>
+            <ToggleRow label="Icon rail" setting="showIconRail" enabled={settings.showIconRail} />
+            <ModeRow
+              label={`Index · ${formatShortcut('⌘\\')}`}
+              value={settings.indexMode}
+              onChange={settings.setIndexMode}
+            />
+            <ModeRow
+              label={`Agenda · ${formatShortcut('⌘⌥\\')}`}
+              value={settings.agendaMode}
+              onChange={settings.setAgendaMode}
+            />
+          </>
+        )}
       </section>
 
       <section>
         <SectionHeading>Editor</SectionHeading>
-        <ModeRow
-          label="Writing column width"
-          value={settings.editorWidth}
-          onChange={settings.setEditorWidth}
-          options={EDITOR_WIDTHS}
-        />
+        {!mobile && (
+          <ModeRow
+            label="Writing column width"
+            value={settings.editorWidth}
+            onChange={settings.setEditorWidth}
+            options={EDITOR_WIDTHS}
+          />
+        )}
         {EDITOR_CONTROLS.map(([label, setting]) => (
           <ToggleRow key={setting} label={label} setting={setting} enabled={settings[setting]} />
         ))}
@@ -131,7 +149,7 @@ export function LayoutSection() {
 
       <section>
         <SectionHeading>Welcome</SectionHeading>
-        {WELCOME_CONTROLS.map(([label, setting]) => (
+        {welcomeControls.map(([label, setting]) => (
           <ToggleRow key={setting} label={label} setting={setting} enabled={settings[setting]} />
         ))}
       </section>

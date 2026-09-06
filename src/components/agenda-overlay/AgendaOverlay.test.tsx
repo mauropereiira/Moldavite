@@ -11,6 +11,9 @@ import {
 } from '@/stores';
 import { AgendaOverlay } from './AgendaOverlay';
 
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
+
 const ipc = vi.hoisted(() => ({
   notesAvailable: true,
   notes: [] as NoteFile[],
@@ -152,8 +155,23 @@ describe('AgendaOverlay', () => {
   });
 
   beforeEach(() => {
+    platform.mobile = false;
     localStorage.clear();
     resetStores([], [], false);
+  });
+
+  it('keeps the mobile note calendar usable without mounting desktop event connections', async () => {
+    platform.mobile = true;
+    resetStores();
+    // A desktop preference must not leave the phone's Agenda empty.
+    useSettingsStore.setState({ showCalendarWidget: false, showTimelineWidget: true });
+    render(<AgendaOverlay isOpen onClose={vi.fn()} />);
+    await act(async () => {});
+    expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Event timeline' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/connect.*calendar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Events')).not.toBeInTheDocument();
+    expect(useCalendarStore.getState().checkPermission).not.toHaveBeenCalled();
   });
 
   it('renders a realistic vault without throwing', async () => {

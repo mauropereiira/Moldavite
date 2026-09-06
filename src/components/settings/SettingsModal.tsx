@@ -5,6 +5,11 @@
  * tab shell — header, tab sidebar, and content routing. Each tab's UI lives
  * in its own file under `./sections/`.
  *
+ * On a phone (`isMobilePlatform()`) the same sections render as a full-screen
+ * page beside the icon rail instead of a centred dialog: level one is the
+ * section list, level two is one section with a back control. See
+ * `MobileSettingsPage` at the bottom of this file.
+ *
  * ## Tabs
  *
  * - **General** (`GeneralSection`)      — notes directory, backup/restore,
@@ -41,8 +46,11 @@ import {
   type SettingsTab,
 } from '@/stores';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { isMobilePlatform } from '@/lib/platform';
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Settings,
   Palette,
   Type,
@@ -70,6 +78,14 @@ import { ImportSection } from './sections/ImportSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
+
+const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins', 'calendar'];
+
+interface SettingsTabItem {
+  id: SettingsTab;
+  label: string;
+  icon: React.ReactNode;
+}
 
 export function SettingsModal() {
   const settingsStore = useSettingsStore();
@@ -108,7 +124,7 @@ export function SettingsModal() {
     await updateExistingTemplate(id, { name, description, icon, content });
   };
 
-  const tabs = useMemo<{ id: SettingsTab; label: string; icon: React.ReactNode }[]>(
+  const tabs = useMemo<SettingsTabItem[]>(
     () => [
       {
         id: 'general',
@@ -150,6 +166,10 @@ export function SettingsModal() {
     ],
     []
   );
+
+  // Nothing behind these works on a phone: no MCP or agent process, no
+  // semantic-search runtime, no folder picker for an Obsidian vault.
+  const phoneTabs = tabs.filter((tab) => !PHONE_HIDDEN_TABS.includes(tab.id));
 
   if (!settingsStore.isSettingsOpen) return null;
 
@@ -197,6 +217,48 @@ export function SettingsModal() {
 
   const tabButtonId = (id: SettingsTab) => `settings-tab-${id}`;
   const tabPanelId = (id: SettingsTab) => `settings-panel-${id}`;
+
+  const renderSection = (tab: SettingsTab) => (
+    <>
+      {tab === 'general' && <GeneralSection />}
+      {tab === 'appearance' && (
+        <AppearanceSection
+          theme={theme}
+          onThemeChange={handleThemeChange}
+          preset={preset}
+          onPresetChange={handlePresetChange}
+        />
+      )}
+      {tab === 'layout' && <LayoutSection />}
+      {tab === 'editor' && <EditorSection />}
+      {tab === 'features' && <FeaturesSection />}
+      {tab === 'sidebar' && <SidebarSection />}
+      {tab === 'calendar' && <CalendarSection />}
+      {tab === 'templates' && (
+        <SettingsTemplates
+          onDeleteTemplate={handleDeleteTemplate}
+          onUpdateTemplate={handleUpdateTemplate}
+        />
+      )}
+      {tab === 'plugins' && <PluginsSection />}
+      {tab === 'agents' && <AgentsSection />}
+      {tab === 'data' && <SettingsData />}
+      {tab === 'import' && <ImportSection />}
+      {tab === 'about' && <AboutSection />}
+    </>
+  );
+
+  if (isMobilePlatform()) {
+    return (
+      <MobileSettingsPage
+        tabs={phoneTabs}
+        hasPendingUpdate={hasPendingUpdate}
+        onOpenSection={setActiveTab}
+        onClose={() => settingsStore.setIsSettingsOpen(false)}
+        renderSection={renderSection}
+      />
+    );
+  }
 
   return (
     <div
@@ -298,34 +360,165 @@ export function SettingsModal() {
             className="flex-1 overflow-y-auto p-6 min-w-0"
           >
             <div key={activeTab} className="tab-content-enter">
-              {activeTab === 'general' && <GeneralSection />}
-              {activeTab === 'appearance' && (
-                <AppearanceSection
-                  theme={theme}
-                  onThemeChange={handleThemeChange}
-                  preset={preset}
-                  onPresetChange={handlePresetChange}
-                />
-              )}
-              {activeTab === 'layout' && <LayoutSection />}
-              {activeTab === 'editor' && <EditorSection />}
-              {activeTab === 'features' && <FeaturesSection />}
-              {activeTab === 'sidebar' && <SidebarSection />}
-              {activeTab === 'calendar' && <CalendarSection />}
-              {activeTab === 'templates' && (
-                <SettingsTemplates
-                  onDeleteTemplate={handleDeleteTemplate}
-                  onUpdateTemplate={handleUpdateTemplate}
-                />
-              )}
-              {activeTab === 'plugins' && <PluginsSection />}
-              {activeTab === 'agents' && <AgentsSection />}
-              {activeTab === 'data' && <SettingsData />}
-              {activeTab === 'import' && <ImportSection />}
-              {activeTab === 'about' && <AboutSection />}
+              {renderSection(activeTab)}
             </div>
           </div>
         </div>
+      </DialogSurface>
+    </div>
+  );
+}
+
+/** Apple's minimum touch target, 44px; declared in src/mobile.css. */
+const TOUCH_TARGET = 'var(--touch-target)';
+
+/**
+ * Settings as a phone page. It fills the content area to the right of the
+ * icon rail (the rail stays above the scrim at z-10000 so its Settings button
+ * keeps lit and the other rail buttons still switch pages, #121), and opens at
+ * the section list every time: the page only mounts while Settings is open,
+ * so its level-two state resets with it rather than reopening on a remembered
+ * tab.
+ *
+ * The list is a `<nav>` of plain buttons, not a tablist. The section body
+ * keeps `role="tabpanel"` on purpose: index.css keys section typography and
+ * button colour on `.settings-dialog [role='tabpanel']`, and a tabpanel with
+ * no tablist is still valid ARIA — it is labelled by the page heading.
+ */
+function MobileSettingsPage({
+  tabs,
+  hasPendingUpdate,
+  onOpenSection,
+  onClose,
+  renderSection,
+}: {
+  tabs: SettingsTabItem[];
+  hasPendingUpdate: boolean;
+  onOpenSection: (tab: SettingsTab) => void;
+  onClose: () => void;
+  renderSection: (tab: SettingsTab) => React.ReactNode;
+}) {
+  // In the store rather than local state so the rail's Settings button can
+  // walk back to the list from a section.
+  const sectionId = useSettingsStore((state) => state.settingsSection);
+  const setSectionId = useSettingsStore((state) => state.setSettingsSection);
+  const section = sectionId === null ? null : (tabs.find((tab) => tab.id === sectionId) ?? null);
+
+  const openSection = (id: SettingsTab) => {
+    onOpenSection(id);
+    setSectionId(id);
+  };
+
+  return (
+    <div
+      className="settings-scrim fixed z-[9999] modal-backdrop-enter"
+      style={{ top: 0, bottom: 0, left: 'var(--rail-width)', right: 0 }}
+    >
+      {/* iOS zooms into any field under 16px on focus, and a phone needs a
+          thumb-sized button; the sections are shared with desktop, so both
+          are imposed from here rather than in every section. Switches keep
+          their own 20px height. */}
+      <DialogSurface
+        onEscape={onClose}
+        className="settings-dialog flex h-full w-full flex-col [&_input]:text-[16px] [&_select]:text-[16px] [&_textarea]:text-[16px] [&_button:not([role=switch])]:min-h-10"
+        style={{
+          paddingTop: 'var(--safe-top)',
+          paddingBottom: 'var(--safe-bottom)',
+          border: 0,
+        }}
+        aria-labelledby="settings-modal-title"
+      >
+        <header
+          className="flex items-center flex-shrink-0 gap-1"
+          style={{
+            minHeight: TOUCH_TARGET,
+            paddingLeft: section ? '4px' : 'var(--mobile-page-inset)',
+            paddingRight: '4px',
+            borderBottom: '1px solid var(--border-default)',
+          }}
+        >
+          {section && (
+            <button
+              type="button"
+              onClick={() => setSectionId(null)}
+              className="flex items-center pr-2 text-sm font-medium focus-ring"
+              style={{
+                minWidth: TOUCH_TARGET,
+                minHeight: TOUCH_TARGET,
+                color: 'var(--text-secondary)',
+              }}
+              aria-label="Back to settings"
+            >
+              <ChevronLeft aria-hidden="true" className="w-5 h-5" />
+              <span>Settings</span>
+            </button>
+          )}
+          <h2
+            id="settings-modal-title"
+            className="flex-1 min-w-0 truncate text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {section ? section.label : 'Settings'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="settings-close flex items-center justify-center flex-shrink-0"
+            style={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, color: 'var(--text-muted)' }}
+            aria-label="Close settings"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        {section ? (
+          <div
+            id={`settings-panel-${section.id}`}
+            role="tabpanel"
+            aria-labelledby="settings-modal-title"
+            className="flex-1 min-h-0 min-w-0 overflow-y-auto"
+            style={{ padding: '16px 16px 20px' }}
+          >
+            <div key={section.id} className="tab-content-enter">
+              {renderSection(section.id)}
+            </div>
+          </div>
+        ) : (
+          <nav aria-label="Settings sections" className="flex-1 min-h-0 overflow-y-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => openSection(tab.id)}
+                aria-label={
+                  tab.id === 'about' && hasPendingUpdate ? 'About (update available)' : undefined
+                }
+                className="flex w-full items-center gap-3 text-left text-[15px] font-medium focus-ring"
+                style={{
+                  minHeight: '48px',
+                  padding: '0 16px',
+                  borderBottom: '1px solid var(--border-muted)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {tab.icon}
+                <span className="flex-1 min-w-0 truncate">{tab.label}</span>
+                {tab.id === 'about' && hasPendingUpdate && (
+                  <span
+                    aria-hidden="true"
+                    className="settings-update-dot"
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      backgroundColor: 'var(--update-dot)',
+                    }}
+                  />
+                )}
+                <ChevronRight aria-hidden="true" className="w-4 h-4 flex-shrink-0" />
+              </button>
+            ))}
+          </nav>
+        )}
       </DialogSurface>
     </div>
   );

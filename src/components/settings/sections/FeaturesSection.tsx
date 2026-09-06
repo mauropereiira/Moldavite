@@ -3,6 +3,7 @@
  */
 
 import { useSettingsStore } from '@/stores';
+import { isMobilePlatform } from '@/lib/platform';
 import { InfoTooltip, Toggle } from '../common';
 
 export function FeaturesSection() {
@@ -63,52 +64,54 @@ export function FeaturesSection() {
         </div>
       </div>
 
-      {/* Agenda */}
-      <div
-        className="p-4 space-y-1"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex items-center gap-1 mb-3">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Agenda
-          </h3>
-          <InfoTooltip text="Choose which calendar surfaces appear in the Agenda overlay and pinned right panel." />
-        </div>
-
+      {/* Mobile Agenda always shows the note calendar; event sources are desktop-only. */}
+      {!isMobilePlatform() && (
         <div
-          className="flex items-center justify-between py-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
+          className="p-4 space-y-1"
+          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
         >
-          <div className="flex items-center gap-1">
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Calendar Widget
-            </span>
-            <InfoTooltip text="A month calendar with daily and weekly note navigation." />
+          <div className="flex items-center gap-1 mb-3">
+            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Agenda
+            </h3>
+            <InfoTooltip text="Choose which calendar surfaces appear in the Agenda overlay and pinned right panel." />
           </div>
-          <Toggle
-            enabled={settings.showCalendarWidget}
-            onChange={settings.setShowCalendarWidget}
-            ariaLabel="Show calendar widget"
-          />
-        </div>
 
-        <div
-          className="flex items-center justify-between py-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
-        >
-          <div className="flex items-center gap-1">
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Timeline Widget
-            </span>
-            <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
+          <div
+            className="flex items-center justify-between py-2"
+            style={{ borderTop: '1px solid var(--border-muted)' }}
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Calendar Widget
+              </span>
+              <InfoTooltip text="A month calendar with daily and weekly note navigation." />
+            </div>
+            <Toggle
+              enabled={settings.showCalendarWidget}
+              onChange={settings.setShowCalendarWidget}
+              ariaLabel="Show calendar widget"
+            />
           </div>
-          <Toggle
-            enabled={settings.showTimelineWidget}
-            onChange={settings.setShowTimelineWidget}
-            ariaLabel="Show timeline widget"
-          />
+
+          <div
+            className="flex items-center justify-between py-2"
+            style={{ borderTop: '1px solid var(--border-muted)' }}
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Timeline Widget
+              </span>
+              <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
+            </div>
+            <Toggle
+              enabled={settings.showTimelineWidget}
+              onChange={settings.setShowTimelineWidget}
+              ariaLabel="Show timeline widget"
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

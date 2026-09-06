@@ -1,3 +1,4 @@
+import { isMobilePlatform } from '@/lib/platform';
 import { lazy, Suspense, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -121,6 +122,11 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(currentNote.id, 'markdown')) onShowToast?.('Note exported');
+        return;
+      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`
@@ -196,6 +202,12 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
+      if (isMobilePlatform()) {
+        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
+        if (await exportMobileNote(currentNote.id, 'plaintext'))
+          onShowToast?.('Exported as plaintext');
+        return;
+      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`
@@ -271,7 +283,9 @@ export function MoreOptionsMenu({
           <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
         )}
         <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
-        <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>
+        {!isMobilePlatform() && (
+          <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>
+        )}
         <DropdownItem onClick={handleExportPlaintext}>Export as Plaintext</DropdownItem>
         <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>Save as template</DropdownItem>
         <DropdownDivider />

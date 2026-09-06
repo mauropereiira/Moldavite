@@ -1,6 +1,6 @@
 [package]
 name = "moldavite"
-version = "2.6.0"
+version = "2.7.0"
 description = "A local-first note-taking app for connected thinking"
 authors = ["Mauro Pereira"]
 license = "MIT"
@@ -10,7 +10,8 @@ rust-version = "1.88"
 
 [lib]
 name = "moldavite_lib"
-crate-type = ["lib", "cdylib"]
+# `staticlib` is what the generated Xcode project links on iOS.
+crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.5.1", features = [] }
@@ -25,8 +26,6 @@ log = "0.4"
 tauri = { version = "2.9.2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 dirs = "6.0"
 chrono = "0.4"
 regex = "1"
@@ -50,17 +49,8 @@ zeroize = { version = "1.7", features = ["derive"] }
 zip = "2.2"
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"
-# Restores window size and position between launches; no JS side needed.
-tauri-plugin-window-state = "2"
 
 bincode = "1.3"
-
-# Persistent keyword search index. `bundled` compiles SQLite from source, so
-# every platform gets the same build with FTS5 compiled in, regardless of what
-# the OS ships. rusqlite dropped its separate `fts5` feature — FTS5 is a
-# SQLite build option and the bundled amalgamation always enables it; the
-# schema test in `search_index` proves it is there.
-rusqlite = { version = "0.40", features = ["bundled"] }
 
 # Google Calendar REST + OAuth token exchange. rustls keeps this off the system
 # TLS stack; this is the only outbound HTTP the Rust process makes.
@@ -69,14 +59,24 @@ reqwest = { version = "0.12", default-features = false, features = [
   "rustls-tls",
 ] }
 
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+# Desktop only. The App Store owns updates and the restart that follows
+# them, and a phone has no window geometry to restore.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# Restores window size and position between launches; no JS side needed.
+tauri-plugin-window-state = "2"
+
 [target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
 # 2.4.x requires Tauri 2.10; keep this aligned with the app's Tauri 2.9.x line.
 tauri-plugin-single-instance = { version = "=2.3.7", features = ["deep-link"] }
 
-[target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
+[target.'cfg(not(any(all(target_os = "macos", target_arch = "x86_64"), target_os = "ios", target_os = "android")))'.dependencies]
 # Semantic (vector) search — fully local ONNX inference. ort-sys does not
-# publish prebuilt ONNX Runtime binaries for Intel macOS, so that target keeps
-# keyword search but does not compile or ship the semantic-search runtime.
+# publish prebuilt ONNX Runtime binaries for Intel macOS, and mobile keeps
+# the runtime out for app size, so those targets keep keyword search but do
+# not compile or ship the semantic-search runtime. The code gates on the
+# `semantic_runtime` cfg that build.rs derives from the same rule.
 fastembed = { version = "5.17", default-features = false, features = [
     "ort-download-binaries-native-tls",
     "hf-hub-native-tls",
@@ -84,6 +84,19 @@ fastembed = { version = "5.17", default-features = false, features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+# iOS ships SQLite with FTS5. Use the system library so the app does not
+# bundle SQLite's desktop filesystem probes (statfs/fstatfs). The iOS 17
+# deployment floor also covers rusqlite's SQLite 3.34.1 minimum.
+rusqlite = { version = "0.40" }
+tauri-plugin-icloud = { path = "plugins/tauri-plugin-icloud" }
+tauri-plugin-document-export = { path = "plugins/tauri-plugin-document-export" }
+tauri-plugin-mobile-ui = { path = "plugins/tauri-plugin-mobile-ui" }
+
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+# Keep bundled FTS5 on desktop and Android, independent of the OS library.
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Native-messaging hosts are discovered through HKCU on Windows; every other

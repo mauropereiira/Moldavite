@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useTimelineStore } from '@/stores/timelineStore';
+import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
 
 const invokeMock = vi.fn();
@@ -25,6 +26,7 @@ const noteFile: NoteFile = {
 
 beforeEach(() => {
   localStorage.clear();
+  useToastStore.setState({ toasts: [] });
   invokeMock.mockReset();
   invokeMock.mockImplementation(async (command: string) => {
     if (command === 'list_notes') return [noteFile];
@@ -46,6 +48,37 @@ beforeEach(() => {
 });
 
 describe('useNotes navigation', () => {
+  it.each(['daily', 'weekly'] as const)(
+    'keeps the current note when a %s download is pending',
+    async (kind) => {
+      const hook = renderHook(() => useNotes());
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
+      await act(() => hook.result.current.loadNote(noteFile));
+      const current = useNoteStore.getState().currentNote;
+      const message = 'This note is waiting for iCloud to download.';
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'read_note') throw new Error(message);
+        if (command === 'write_note') return { contentHash: 'saved', conflictCopy: null };
+        if (command === 'list_notes') return [noteFile];
+        return undefined;
+      });
+      await act(() =>
+        kind === 'daily'
+          ? hook.result.current.loadDailyNote(new Date(2026, 8, 6))
+          : hook.result.current.loadWeeklyNote(new Date(2026, 8, 6))
+      );
+      expect(useNoteStore.getState().currentNote).toBe(current);
+      expect(useToastStore.getState().toasts.some((toast) => toast.message.includes(message))).toBe(
+        true
+      );
+      expect(
+        invokeMock.mock.calls
+          .filter(([command]) => command === 'write_note')
+          .every(([, payload]) => payload.filename === noteFile.name)
+      ).toBe(true);
+    }
+  );
+
   it('opens a sidebar note after the timeline and yields the editor pane', async () => {
     const hook = renderHook(() => useNotes());
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));

@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { isMobilePlatform } from '@/lib/platform';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -24,6 +25,12 @@ export function useFocusTrap(ref: React.RefObject<HTMLElement | null>, active: b
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const focusFirst = () => {
+      // On a phone there is no Tab key to serve; landing focus on the first
+      // button only paints a focus ring on the close control of every page.
+      if (isMobilePlatform()) {
+        container.focus({ preventScroll: true });
+        return;
+      }
       const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE);
       (focusables.length ? focusables[0] : container).focus();
     };

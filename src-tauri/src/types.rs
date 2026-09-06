@@ -123,6 +123,9 @@ pub(crate) struct AppConfig {
     pub(crate) notes_directory: Option<String>,
     pub(crate) forges_root: Option<String>,
     pub(crate) active_forge: Option<String>,
+    /// Local selection is retained while the separate iCloud Forge is open.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) active_synced_forge: bool,
     /// Whether local semantic (vector) search is enabled. `None` means the
     /// user never enabled it — the embedding model is only downloaded once
     /// this flips to `Some(true)` via the explicit enable flow.
@@ -151,6 +154,7 @@ impl Default for AppConfig {
             notes_directory: None,
             forges_root: None,
             active_forge: None,
+            active_synced_forge: false,
             semantic_enabled: None,
             semantic_model: default_semantic_model(),
             mcp_writes_enabled: None,
@@ -162,6 +166,8 @@ impl Default for AppConfig {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ForgeInfo {
+    pub(crate) id: String,
+    pub(crate) is_synced: bool,
     pub(crate) name: String,
     pub(crate) path: String,
     pub(crate) is_active: bool,

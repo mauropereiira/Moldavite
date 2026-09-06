@@ -1,7 +1,7 @@
 //! Strict routing for URLs that open app content or plugin install prompts.
 //!
-//! Deep-link URLs are untrusted OS input. Only `moldavite://plugin/<id>` and
-//! `moldavite://note/<path>` are routed. Plugin ids follow the installer rules;
+//! Deep-link URLs are untrusted OS input. Only `moldavite://plugin/<id>`,
+//! `moldavite://note/<path>` and `moldavite://today` are routed. Plugin ids follow the installer rules;
 //! note paths use the validator for addressing existing visible notes.
 
 use std::collections::VecDeque;
@@ -10,11 +10,13 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
-use crate::commands::plugins::is_valid_plugin_id;
 use crate::validation::is_safe_existing_note_path;
+use crate::validation::is_valid_plugin_id;
 
 const PLUGIN_LINK_PREFIX: &str = "moldavite://plugin/";
 const NOTE_LINK_PREFIX: &str = "moldavite://note/";
+/// Opens today's daily note; the home screen widget's only route.
+const TODAY_LINK: &str = "moldavite://today";
 pub(crate) const DEEP_LINK_EVENT: &str = "deep-link-requested";
 const MAX_PENDING_DEEP_LINKS: usize = 64;
 
@@ -23,6 +25,7 @@ const MAX_PENDING_DEEP_LINKS: usize = 64;
 pub(crate) enum DeepLinkRequest {
     Plugin { id: String },
     Note { path: String },
+    Today,
 }
 
 /// Valid links wait here until the frontend is ready to drain them.
@@ -97,6 +100,9 @@ pub(crate) fn note_path_from_url(url: &str) -> Option<String> {
 }
 
 fn request_from_url(url: &str) -> Option<DeepLinkRequest> {
+    if url == TODAY_LINK || url == "moldavite://today/" {
+        return Some(DeepLinkRequest::Today);
+    }
     if let Some(id) = plugin_id_from_url(url) {
         return Some(DeepLinkRequest::Plugin { id: id.to_owned() });
     }
@@ -181,6 +187,26 @@ mod tests {
             Some("publish-wordpress")
         );
         assert_eq!(plugin_id_from_url("moldavite://plugin/a"), Some("a"));
+    }
+
+    #[test]
+    fn routes_today_exactly_and_nothing_that_looks_like_it() {
+        assert_eq!(
+            request_from_url("moldavite://today"),
+            Some(DeepLinkRequest::Today)
+        );
+        assert_eq!(
+            request_from_url("moldavite://today/"),
+            Some(DeepLinkRequest::Today)
+        );
+        for url in [
+            "moldavite://today?x=1",
+            "moldavite://todays",
+            "moldavite://Today",
+            "moldavite://today/extra",
+        ] {
+            assert_eq!(request_from_url(url), None, "unexpected route for {url}");
+        }
     }
 
     #[test]

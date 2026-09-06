@@ -6,6 +6,17 @@
 //! symlink redirection, and writes into sensitive system or home directories;
 //! validation must happen before any filesystem mutation.
 
+/// A plugin id must match its folder name: lowercase alphanumerics + hyphens,
+/// not starting with a hyphen, max 64 chars.
+pub(crate) fn is_valid_plugin_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id.chars().next().map(|c| c != '-').unwrap_or(false)
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
 use std::fs;
 use std::path::Path;
 

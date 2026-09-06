@@ -21,6 +21,7 @@ import { fetchCalendarEvents } from '@/lib/calendar';
 import { useCalendarStore, useNoteStore, useTaskStatusStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import type { CalendarEvent } from '@/types';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface CalendarProps {
   onNavigate?: () => void;
@@ -42,6 +43,7 @@ const DAY_MARKS = [
 ] as const;
 
 export function Calendar({ onNavigate }: CalendarProps = {}) {
+  const mobile = isMobilePlatform();
   // Narrow selectors: none of these change on a content-only edit, unlike
   // `currentNote` (not read here), so the calendar does not re-render while typing.
   const selectedDate = useNoteStore((state) => state.selectedDate);
@@ -70,11 +72,11 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const calendarStartKey = format(calendarStart, 'yyyy-MM-dd');
   const calendarEndKey = format(calendarEnd, 'yyyy-MM-dd');
-  const anyConnected = sources.some((source) => source.available && source.connected);
+  const anyConnected = !mobile && sources.some((source) => source.available && source.connected);
 
   React.useEffect(() => {
-    void checkPermission();
-  }, [checkPermission]);
+    if (!mobile) void checkPermission();
+  }, [checkPermission, mobile]);
 
   // The timeline owns a selected-day event range in the shared store. Fetch
   // the visible six-week range locally so month indicators cannot overwrite it.
@@ -392,14 +394,16 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
           register as the rest of the chrome — it should be readable when you
           look for it and invisible when you are not. */}
       <div className="calendar-legend" aria-label="What the marks under each date mean">
-        {DAY_MARKS.map(({ kind, label, color }) => (
-          <span key={kind} className="calendar-legend-item">
-            <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
-              <circle cx="3" cy="3" r="3" fill={color} />
-            </svg>
-            {label}
-          </span>
-        ))}
+        {DAY_MARKS.filter(({ kind }) => !mobile || kind !== 'events').map(
+          ({ kind, label, color }) => (
+            <span key={kind} className="calendar-legend-item">
+              <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+                <circle cx="3" cy="3" r="3" fill={color} />
+              </svg>
+              {label}
+            </span>
+          )
+        )}
       </div>
     </div>
   );

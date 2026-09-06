@@ -11,6 +11,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { NoteFile } from '@/types';
 
+const platform = vi.hoisted(() => ({ mobile: false }));
+const exportMobileSelection = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
+vi.mock('@/lib/mobileNoteExport', () => ({ exportMobileSelection }));
+
 const openDialog = vi.fn();
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: (...args: unknown[]) => openDialog(...args),
@@ -70,6 +75,8 @@ async function exportSelection(format: 'markdown' | 'plaintext' | 'pdf', notes: 
 }
 
 beforeEach(() => {
+  platform.mobile = false;
+  exportMobileSelection.mockReset().mockResolvedValue(true);
   openDialog.mockReset().mockResolvedValue('/tmp/out');
   exportSingleNote.mockReset().mockResolvedValue('');
   exportNoteAsPlaintext.mockReset().mockResolvedValue('');
@@ -80,6 +87,18 @@ beforeEach(() => {
 });
 
 describe('BulkExportModal note addressing', () => {
+  it('exports mobile selection as one ZIP without the desktop folder picker', async () => {
+    platform.mobile = true;
+    useNoteStore.setState({ notes: [folderNote, rootNote] });
+    useNoteSelectionStore.getState().replace([folderNote.path, rootNote.path]);
+    const onClose = vi.fn();
+    render(<BulkExportModal isOpen onClose={onClose} />);
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Save ZIP' }));
+    expect(exportMobileSelection).toHaveBeenCalledWith([folderNote.path, rootNote.path]);
+    expect(openDialog).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
   it('renders a named modal dialog', () => {
     useNoteSelectionStore.getState().replace([folderNote.path]);
     render(<BulkExportModal isOpen onClose={vi.fn()} />);

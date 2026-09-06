@@ -198,21 +198,21 @@ pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn read_trash_metadata() -> TrashMetadata {
-    let metadata_path = get_trash_metadata_path();
+pub(crate) fn read_trash_metadata() -> Result<TrashMetadata, String> {
+    let metadata_path = get_trash_metadata_path()?;
     if metadata_path.exists() {
         if let Ok(content) = fs::read_to_string(&metadata_path) {
             if let Ok(metadata) = serde_json::from_str::<TrashMetadata>(&content) {
-                return metadata;
+                return Ok(metadata);
             }
         }
     }
-    TrashMetadata::default()
+    Ok(TrashMetadata::default())
 }
 
 pub(crate) fn write_trash_metadata(metadata: &TrashMetadata) -> Result<(), String> {
     ensure_trash_dir()?;
-    let metadata_path = get_trash_metadata_path();
+    let metadata_path = get_trash_metadata_path()?;
     let json = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
     write_atomic(&metadata_path, json.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write trash metadata: {}", e))?;

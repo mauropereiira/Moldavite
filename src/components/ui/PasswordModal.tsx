@@ -195,11 +195,14 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mobile:min-w-0">
             {mode === 'lock' ? (
-              <Lock className="w-5 h-5" style={{ color: 'var(--warning)' }} />
+              <Lock className="w-5 h-5 mobile:shrink-0" style={{ color: 'var(--warning)' }} />
             ) : (
-              <Unlock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
+              <Unlock
+                className="w-5 h-5 mobile:shrink-0"
+                style={{ color: 'var(--accent-primary)' }}
+              />
             )}
             <h2
               id="password-modal-title"
@@ -211,7 +214,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
           </div>
           <button
             onClick={onClose}
-            className="btn btn-ghost p-1 focus-ring"
+            className="btn btn-ghost p-1 focus-ring mobile:shrink-0"
             aria-label="Close password dialog"
           >
             <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
@@ -257,7 +260,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
                     style={{ color: 'var(--error)' }}
                   />
                 )}
-                <div className="flex-1">
+                <div className="flex-1 mobile:min-w-0">
                   <p
                     className="text-sm"
                     style={{
@@ -386,7 +389,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
 
           {/* Footer */}
           <div
-            className="flex justify-end gap-3 px-6 py-4 border-t"
+            className="flex justify-end gap-3 px-6 py-4 border-t mobile:flex-wrap"
             style={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-default)' }}
           >
             <button type="button" onClick={onClose} className="btn focus-ring">

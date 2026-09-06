@@ -26,6 +26,10 @@
 /* Tailwind v4: Enable class-based dark mode */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Tailwind v4: `mobile:` utilities apply inside a phone or tablet webview.
+   main.tsx stamps html[data-platform] from src/lib/platform.ts. */
+@custom-variant mobile (&:where([data-platform='mobile'], [data-platform='mobile'] *));
+
 /* Tailwind v4: legacy utility names resolve through the semantic palette. */
 @theme {
   --color-moldavite-deep: var(--accent-active);

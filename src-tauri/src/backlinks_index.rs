@@ -16,7 +16,6 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::RwLock;
 
-use crate::paths::{get_daily_dir, get_standalone_dir, get_weekly_dir};
 use crate::types::BacklinkInfo;
 use crate::wiki::{get_link_context, note_exists, note_name_to_filename, parse_wiki_links};
 
@@ -88,11 +87,14 @@ impl BacklinksIndex {
     pub(crate) fn rebuild_from_disk(&self) {
         let mut files: Vec<(String, String)> = Vec::new();
 
-        let daily = get_daily_dir();
+        let Ok(root) = crate::paths::get_notes_dir() else {
+            return;
+        };
+        let daily = root.join("daily");
         collect_md_files_flat(&daily, &mut files);
-        let weekly = get_weekly_dir();
+        let weekly = root.join("weekly");
         collect_md_files_flat(&weekly, &mut files);
-        let standalone = get_standalone_dir();
+        let standalone = root.join("notes");
         collect_md_files_recursive(&standalone, &mut files);
 
         // Reset state.

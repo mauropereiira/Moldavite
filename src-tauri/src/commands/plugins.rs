@@ -9,6 +9,7 @@
 //! the frontend. Secrets are namespaced by plugin id in the macOS Keychain and
 //! are never returned across a different plugin identity.
 
+use crate::validation::is_valid_plugin_id;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -19,19 +20,8 @@ use crate::secrets::{KeychainSecretStore, SecretStore};
 use crate::validation::validate_path_within_base;
 
 /// Absolute path to the active Forge's `.plugins` directory.
-pub(crate) fn plugins_dir() -> PathBuf {
-    get_notes_dir().join(".plugins")
-}
-
-/// A plugin id must match its folder name: lowercase alphanumerics + hyphens,
-/// not starting with a hyphen, max 64 chars.
-pub(crate) fn is_valid_plugin_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 64
-        && id.chars().next().map(|c| c != '-').unwrap_or(false)
-        && id
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+pub(crate) fn plugins_dir() -> Result<PathBuf, String> {
+    Ok(get_notes_dir()?.join(".plugins"))
 }
 
 fn is_valid_secret_key(key: &str) -> bool {
@@ -228,7 +218,7 @@ fn list_plugins_in(dir: &Path) -> Vec<RawPlugin> {
 
 #[tauri::command]
 pub(crate) fn list_plugins() -> Result<Vec<RawPlugin>, String> {
-    Ok(list_plugins_in(&plugins_dir()))
+    Ok(list_plugins_in(&plugins_dir()?))
 }
 
 #[tauri::command]
@@ -236,7 +226,7 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
     if !is_valid_plugin_id(&id) {
         return Err("invalid plugin id".into());
     }
-    let base = plugins_dir();
+    let base = plugins_dir()?;
     let target = base.join(&id);
     validate_path_within_base(&target, &base)
         .map_err(|_| "refusing to delete outside the plugins directory".to_string())?;
@@ -455,7 +445,7 @@ fn install_bundled_plugin(
     plugin_id: &str,
 ) -> Result<(), String> {
     let src = bundled_plugin_source(app, resource_name)?;
-    let dest = plugins_dir().join(plugin_id);
+    let dest = plugins_dir()?.join(plugin_id);
     copy_plugin_files(&src, &dest, plugin_id)
 }
 
@@ -503,7 +493,7 @@ pub(crate) fn install_plugin_from_data(
     verify_registry_hash("plugin.js", plugin_js.as_bytes(), &expected_plugin_sha256)?;
 
     install_plugin_files(
-        &plugins_dir().join(&id),
+        &plugins_dir()?.join(&id),
         &id,
         PluginFiles {
             manifest_json: manifest_json.as_bytes(),

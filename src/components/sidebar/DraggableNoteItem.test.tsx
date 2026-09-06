@@ -5,6 +5,9 @@ import { DraggableNoteItem } from './DraggableNoteItem';
 import { useNoteSelectionStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
+
 const baseNote: NoteFile = {
   name: 'Hello.md',
   path: 'notes/Hello.md',
@@ -17,6 +20,7 @@ describe('DraggableNoteItem', () => {
   let dragFrame: ((time: number) => void) | null;
 
   beforeEach(() => {
+    platform.mobile = false;
     useNoteSelectionStore.getState().clear();
     dragFrame = null;
     vi.stubGlobal(
@@ -30,6 +34,25 @@ describe('DraggableNoteItem', () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it('toggles mobile selection with an ordinary tap once selection has started', () => {
+    platform.mobile = true;
+    useNoteSelectionStore.getState().replace(['notes/Other.md']);
+    const onClick = vi.fn();
+    const onSelectionClick = vi.fn();
+    render(
+      <DraggableNoteItem
+        note={baseNote}
+        isActive={false}
+        onClick={onClick}
+        onContextMenu={vi.fn()}
+        onSelectionClick={onSelectionClick}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hello' }));
+    expect(onSelectionClick).toHaveBeenCalledWith(baseNote, expect.anything());
+    expect(onClick).not.toHaveBeenCalled();
+  });
 
   it('renders the note name without the .md suffix', () => {
     render(

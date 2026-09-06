@@ -1,8 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
+import { isMobilePlatform } from '@/lib/platform';
 import { QuickSwitcher } from './QuickSwitcher';
+
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
 const notesHarness = vi.hoisted(() => ({
   loadNote: vi.fn().mockResolvedValue(undefined),
@@ -52,5 +55,36 @@ describe('QuickSwitcher nested actions', () => {
     expect(notesHarness.loadNote).not.toHaveBeenCalled();
     expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([notesHarness.note.path]);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(true);
+  });
+});
+
+describe('QuickSwitcher close control', () => {
+  beforeEach(() => {
+    useQuickSwitcherStore.setState({ recentSearches: [], pinnedNoteIds: [] });
+    // Through the surface coordinator, so that `close` has something to close.
+    useQuickSwitcherStore.getState().open();
+  });
+
+  afterEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+  });
+
+  it('has no close button on desktop, where Escape and the rail close it', () => {
+    render(<QuickSwitcher />);
+
+    expect(screen.queryByRole('button', { name: 'Close search' })).not.toBeInTheDocument();
+  });
+
+  it('shows a close button beside the input on a phone that closes the search', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<QuickSwitcher />);
+
+    const close = screen.getByRole('button', { name: 'Close search' });
+    expect(close.parentElement).toBe(screen.getByRole('textbox').parentElement);
+    expect(close.style.width).toBe('var(--touch-target)');
+    expect(close.style.height).toBe('var(--touch-target)');
+
+    fireEvent.click(close);
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
   });
 });

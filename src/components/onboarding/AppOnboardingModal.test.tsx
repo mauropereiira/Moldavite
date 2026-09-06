@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { AppOnboardingModal, APP_ONBOARDING_VERSION } from './AppOnboardingModal';
+import { isMobilePlatform } from '@/lib/platform';
+import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 // The Forge dir picker plugin isn't available in jsdom — stub it.
@@ -8,8 +10,12 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
+
 describe('AppOnboardingModal', () => {
   beforeEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+    vi.mocked(openDirDialog).mockClear();
     // Reset to a known first-run state before each test.
     act(() => {
       useSettingsStore.getState().setHasSeenAppOnboarding(false);
@@ -59,6 +65,29 @@ describe('AppOnboardingModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /get started/i }));
     expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
     expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('uses the local mobile Forge without a folder picker or desktop feature pages', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<AppOnboardingModal />);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    expect(screen.getByRole('heading', { name: 'Your local Forge' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /choose another folder/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    expect(
+      screen.getByText('Tap Index in the rail for notes, folders, and tags.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /get started/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(openDirDialog).not.toHaveBeenCalled();
+    expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
+  });
+
+  it('does not advertise desktop AI features to an existing mobile user', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    useSettingsStore.setState({ hasSeenAppOnboarding: true, lastSeenOnboardingVersion: 0 });
+    render(<AppOnboardingModal />);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

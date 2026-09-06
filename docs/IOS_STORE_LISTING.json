@@ -1,0 +1,18 @@
+{
+  "appId": "6809157286",
+  "bundleId": "app.moldavite",
+  "locale": "en-US",
+  "name": "Moldavite: Notes & Ideas",
+  "subtitle": "Write, journal, connect",
+  "primaryCategory": "PRODUCTIVITY",
+  "releaseType": "AFTER_APPROVAL",
+  "promotionalText": "A simple place to write and organize your notes.",
+  "description": "Moldavite is a simple notes app for iPhone and iPad. Write down thoughts, organize your notes, and find them when you need them. Your notes stay in your own Markdown files, with no account required.",
+  "keywords": "journal,writing,notebook,markdown,organizer,knowledge,thoughts,daily,checklist,editor",
+  "supportUrl": "https://github.com/mauropereiira/Moldavite/issues",
+  "versionString": "2.6.0",
+  "copyright": "2026 Mauro Pereira",
+  "notes": "Moldavite is a local-first Markdown note app for iPhone and iPad. No app account or sign-in is required. Complete the introductory screens to open the local workspace (called a Forge), then create a note. Optional iCloud Drive uses the device owner’s Apple account; local note-taking does not require it.\n\nNote locking uses a passphrase chosen by the reviewer. The developer cannot recover a lost passphrase. The home-screen widget opens today’s note. Desktop executable plugins, desktop calendar integrations and the desktop self-updater are not included in the iOS experience.",
+  "price": "FREE",
+  "priceSaveVerified": true
+}

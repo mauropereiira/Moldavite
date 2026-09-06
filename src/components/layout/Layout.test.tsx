@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { format } from 'date-fns';
 import {
   useNoteStore,
   useOverlayStore,
@@ -7,7 +8,24 @@ import {
   useSettingsStore,
   useTimelineStore,
 } from '@/stores';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
+import { useElementWidth } from '@/hooks/useElementWidth';
+import type { Note } from '@/types';
 import { Layout } from './Layout';
+
+vi.mock('@/lib/platform', () => ({
+  isMobilePlatform: vi.fn(() => false),
+  isTabletPlatform: vi.fn(() => false),
+}));
+vi.mock('@/hooks/useElementWidth', () => ({ useElementWidth: vi.fn(() => null) }));
+
+const notes = vi.hoisted(() => ({
+  loadDailyNote: vi.fn(async (_date: Date) => undefined),
+}));
+
+vi.mock('@/hooks/useNotes', () => ({
+  useNotes: () => ({ loadDailyNote: notes.loadDailyNote }),
+}));
 
 vi.mock('../editor/Editor', () => ({
   Editor: () => <main data-testid="editor">Editor</main>,
@@ -233,5 +251,121 @@ describe('Layout navigation surfaces', () => {
 
       expect(screen.queryByRole('navigation', { name: 'Pinned notes' })).not.toBeInTheDocument();
     });
+  });
+
+  it('renders the resize handles beside pinned columns on desktop', () => {
+    useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' });
+    const { container } = render(<Layout />);
+
+    expect(container.querySelectorAll('.cursor-col-resize').length).toBeGreaterThan(0);
+    expect(container.firstElementChild).toHaveClass('h-screen');
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
+  });
+});
+
+describe('Layout on a phone', () => {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayNote: Note = {
+    id: `daily/${todayStr}.md`,
+    title: 'Today',
+    content: '<p>Hi</p>',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isDaily: true,
+    isWeekly: false,
+    date: todayStr,
+  };
+
+  beforeEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    vi.mocked(isTabletPlatform).mockReturnValue(false);
+    vi.mocked(useElementWidth).mockReturnValue(390);
+    notes.loadDailyNote.mockClear();
+    localStorage.clear();
+    useSettingsStore.getState().resetToDefaults();
+    useOverlayStore.setState({
+      activeOverlay: null,
+      isSidebarHidden: false,
+      isRightPanelHidden: false,
+    });
+    useTimelineStore.getState().close();
+    useNoteStore.setState({
+      notes: [],
+      openTabs: [],
+      activeTabId: null,
+      currentNote: null,
+      isLoading: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+    vi.mocked(isTabletPlatform).mockReturnValue(false);
+    vi.mocked(useElementWidth).mockReturnValue(null);
+    document.documentElement.style.removeProperty('--app-height');
+  });
+
+  it('keeps saved pinned desktop columns out of the phone layout', () => {
+    useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' });
+    useNoteStore.setState({
+      openTabs: [todayNote],
+      activeTabId: todayNote.id,
+      currentNote: todayNote,
+    });
+    const { container } = render(<Layout />);
+
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.cursor-col-resize')).toHaveLength(0);
+  });
+
+  it('keeps an iPhone in page navigation when rotated', () => {
+    vi.mocked(useElementWidth).mockReturnValue(852);
+    render(<Layout />);
+    expect(useSettingsStore.getState().indexMode).toBe('overlay');
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+  });
+
+  it('keeps the iPad editor and note intact while its window changes width', () => {
+    vi.mocked(isTabletPlatform).mockReturnValue(true);
+    vi.mocked(useElementWidth).mockReturnValue(744);
+    useNoteStore.setState({
+      openTabs: [todayNote],
+      activeTabId: todayNote.id,
+      currentNote: todayNote,
+    });
+    const { rerender, container } = render(<Layout />);
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('editor')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar').parentElement).toHaveStyle({ width: '280px' });
+    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.cursor-col-resize')).toHaveLength(0);
+
+    vi.mocked(useElementWidth).mockReturnValue(500);
+    rerender(<Layout />);
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    expect(useSettingsStore.getState().indexMode).toBe('overlay');
+    expect(useNoteStore.getState().currentNote).toEqual(todayNote);
+
+    vi.mocked(useElementWidth).mockReturnValue(1000);
+    rerender(<Layout />);
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    expect(useNoteStore.getState().activeTabId).toBe(todayNote.id);
+  });
+
+  it('sizes the shell from the visual viewport instead of the screen', () => {
+    useNoteStore.setState({
+      openTabs: [todayNote],
+      activeTabId: todayNote.id,
+      currentNote: todayNote,
+    });
+    const { container } = render(<Layout />);
+
+    const shell = container.firstElementChild as HTMLElement;
+    expect(shell).not.toHaveClass('h-screen');
+    expect(shell.style.height).toBe('var(--app-height)');
+    expect(document.documentElement.style.getPropertyValue('--app-height')).toBe(
+      `${window.innerHeight}px`
+    );
   });
 });

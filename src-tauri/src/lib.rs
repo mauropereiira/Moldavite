@@ -36,6 +36,7 @@ mod security;
 /// Host-side network execution for the plugin `net.fetch` API — the request
 /// leaves from this process, not the webview, so the CSP's `connect-src`
 /// cannot block it.
+#[cfg(desktop)]
 mod plugin_net;
 
 /// YAML frontmatter parsing for note files.
@@ -62,6 +63,7 @@ pub(crate) mod wordpress;
 
 // Refactored domain modules.
 pub(crate) mod backlinks_index;
+pub(crate) mod cloud_forge;
 pub(crate) mod commands;
 pub(crate) mod paths;
 pub(crate) mod persist;
@@ -76,6 +78,47 @@ pub(crate) mod wiki;
 
 #[cfg(test)]
 mod stress_test;
+
+// The same Foundation boundary is linked on macOS and iOS.
+#[cfg(target_os = "macos")]
+#[path = "../plugins/tauri-plugin-icloud/src/coordination.rs"]
+mod file_coordination;
+pub(crate) mod note_file_access;
+
+/// File coordination must leave WebKit's main thread free. Run both the note
+/// command and its synchronous IPC reply on the blocking pool. Using Tauri's
+/// `command(async)` instead sends replies from Tokio's async workers: WebKit
+/// waits for main to accept each reply, while the iOS dev asset proxy on main
+/// waits for that same saturated runtime, deadlocking startup note reads.
+fn dispatch_note_io(
+    handler: fn(tauri::ipc::Invoke) -> bool,
+) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        if cfg!(any(target_os = "macos", target_os = "ios"))
+            && matches!(
+                invoke.message.command(),
+                "read_note"
+                    | "write_note"
+                    | "lock_note"
+                    | "unlock_note"
+                    | "permanently_unlock_note"
+                    | "is_note_locked"
+                    | "rename_note"
+                    | "move_note"
+                    | "delete_note"
+                    | "create_folder"
+                    | "rename_folder"
+                    | "move_folder"
+                    | "delete_folder"
+            )
+        {
+            tauri::async_runtime::spawn_blocking(move || handler(invoke));
+            true
+        } else {
+            handler(invoke)
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 use calendar::CalendarPermission;
@@ -104,6 +147,7 @@ use commands::notes::{
     fix_note_permissions, list_notes, move_note, preserve_buffer_copy, read_note, rename_note,
     write_note,
 };
+#[cfg(desktop)]
 use commands::plugins::{
     install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
     plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
@@ -122,6 +166,7 @@ use commands::trash::{
     cleanup_old_trash, empty_trash, list_trash, permanently_delete_trash, read_trashed_note,
     restore_note, restore_note_from_folder, trash_folder, trash_note,
 };
+#[cfg(desktop)]
 use plugin_net::plugin_fetch;
 use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
@@ -184,7 +229,7 @@ fn google_calendar_disconnect() -> Result<(), String> {
 pub fn run() {
     use std::sync::Arc;
 
-    use tauri::Manager;
+    use tauri::{Emitter, Manager};
     use tauri_plugin_deep_link::DeepLinkExt;
 
     use crate::backlinks_index::BacklinksIndex;
@@ -200,17 +245,31 @@ pub fn run() {
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|_, _, _| {}));
 
-    builder
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init());
+
+    #[cfg(target_os = "ios")]
+    let builder = builder
+        .plugin(tauri_plugin_icloud::init())
+        .plugin(tauri_plugin_document_export::init())
+        .plugin(tauri_plugin_mobile_ui::init());
+
+    // The App Store owns updates and the restart after them, and a phone
+    // has no window geometry to restore.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build());
+
+    builder
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
         .setup(move |app| {
+            cloud_forge::initialize(app.handle().clone());
             // Register before WebView hydration. Live URLs wake the frontend;
             // cold-start URLs remain queued until React drains them.
             let app_handle = app.handle().clone();
@@ -241,6 +300,7 @@ pub fn run() {
             }
             // A moved app bundle leaves paired browsers pointing at a binary
             // that is no longer there; only already-paired browsers are touched.
+            #[cfg(desktop)]
             commands::browser_bridge::refresh_paired_manifests();
             if let Err(e) = migration::adopt_stray_root_layout() {
                 log::warn!("[forge] stray root layout migration error: {}", e);
@@ -262,17 +322,44 @@ pub fn run() {
             });
             // Bring the keyword index in line with disk, also off-thread.
             // Search is served by the live scan until this finishes.
-            search_index::spawn_reconcile(paths::get_notes_dir());
+            if let Ok(root) = paths::get_notes_dir() {
+                search_index::spawn_reconcile(root);
+            }
             search_index::spawn_periodic_reconcile();
             // Spawn the file watcher into a slot that survives Forge switches.
             // The slot is managed unconditionally, even if this spawn fails, so
             // a later switch still has somewhere to install its watcher.
             let watcher_slot = forge_watcher::WatcherSlot::default();
-            match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
-                Ok(h) => watcher_slot.replace(Some(h)),
-                Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
+            // iOS has no FSEvents, so `notify` polls there and reports the
+            // app's own writes back as external edits. Nothing else can touch
+            // the sandboxed Forge yet; the iCloud work brings its own watcher.
+            if cfg!(desktop) {
+                match forge_watcher::spawn(app.handle().clone(), recent_writes.clone()) {
+                    Ok(h) => watcher_slot.replace(Some(h)),
+                    Err(e) => log::warn!("[forge] watcher spawn failed: {}", e),
+                }
             }
             app.manage(watcher_slot);
+            if persist::read_config().active_synced_forge {
+                let handle = app.handle().clone();
+                let recent = recent_writes.clone();
+                let index = backlinks_index.clone();
+                tauri::async_runtime::spawn(async move {
+                    match cloud_forge::connect(&handle).await {
+                        Ok(root) => {
+                            if persist::read_config().active_synced_forge {
+                                commands::forges::refresh_active_forge(
+                                    &handle, recent, index, root,
+                                );
+                                let _ = handle.emit("icloud:ready", ());
+                            }
+                        }
+                        Err(error) => {
+                            let _ = handle.emit("icloud:error", error);
+                        }
+                    }
+                });
+            }
             wordpress::init(app.handle());
             // If the user already enabled semantic search, load/reconcile the
             // index in the background (the model was downloaded during the
@@ -283,10 +370,20 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            commands::forges::set_synced_forge_enabled,
+            #[cfg(mobile)]
+            commands::misc::open_support_page,
+            #[cfg(mobile)]
+            commands::misc::open_external_link,
+            #[cfg(target_os = "ios")]
+            commands::export_import::export_mobile_document,
+            #[cfg(desktop)]
             commands::browser_bridge::browser_bridge_status,
+            #[cfg(desktop)]
             commands::browser_bridge::connect_browser_bridge,
+            #[cfg(desktop)]
             commands::browser_bridge::disconnect_browser_bridge,
             wordpress_status,
             wordpress_connect,
@@ -321,14 +418,23 @@ pub fn run() {
             rename_note,
             clear_all_notes,
             // Plugin system commands
+            #[cfg(desktop)]
             list_plugins,
+            #[cfg(desktop)]
             uninstall_plugin,
+            #[cfg(desktop)]
             install_example_plugin,
+            #[cfg(desktop)]
             install_wordpress_plugin,
+            #[cfg(desktop)]
             install_plugin_from_data,
+            #[cfg(desktop)]
             plugin_secret_get,
+            #[cfg(desktop)]
             plugin_secret_set,
+            #[cfg(desktop)]
             plugin_secret_delete,
+            #[cfg(desktop)]
             plugin_fetch,
             // Folder system commands
             list_folders,
@@ -414,7 +520,7 @@ pub fn run() {
             list_calendars,
             google_calendar_connect,
             google_calendar_disconnect
-        ])
+        ]))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
