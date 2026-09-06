@@ -15,9 +15,11 @@ were verified in the account. Reusable copy is in
 [IOS_STORE_LISTING.json](IOS_STORE_LISTING.json). The privacy draft states Data
 Not Collected and includes the policy URL; it has not been published. The local
 policy now describes iPhone/iPad storage, but that website update is not live.
-Mauro requested a free app: the $0.00 price confirmation was submitted, but
-the browser disconnected before the saved schedule could be verified. Launch
-territories and the private review-contact email/phone are still needed.
+Mauro requested a free app: the saved schedule was verified at zero across
+the listed currencies. The public description is a short paragraph describing
+a notes app, at Mauro's request. Launch territories and the private
+review-contact email/phone are still needed. iPhone and iPad screenshot assets
+are in [the brand kit](../branding/app-store/README.md).
 
 ## Actions Mauro needs to take in his Apple account
 

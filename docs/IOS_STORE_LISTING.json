@@ -6,13 +6,13 @@
   "subtitle": "Write, journal, connect",
   "primaryCategory": "PRODUCTIVITY",
   "releaseType": "AFTER_APPROVAL",
-  "promotionalText": "A quiet place for quick notes, daily reflections and bigger ideas. Write, connect your thoughts and keep your notes in your own Markdown files.",
-  "description": "Give your thoughts a place to grow. Moldavite brings everyday notes, daily reflections and longer writing together in a calm workspace on iPhone and iPad.\n\nWRITE YOUR WAY\nCapture a quick thought or settle into a longer note. Add headings, lists, checklists and formatting as you write.\n\nCONNECT YOUR IDEAS\nLink related notes, organize with folders and tags, and find what you need with keyword search. Keep different areas of your life in separate workspaces, called Forges.\n\nMAKE ROOM FOR EVERY DAY\nUse daily and weekly notes for journaling, plans and reflections.\n\nKEEP YOUR NOTES YOURS\nYour notes are stored as Markdown files. Start locally without creating a Moldavite account, and export your writing when you want to use it elsewhere. Protect individual notes with a passphrase using note locking.\n\nSETTLE INTO YOUR SPACE\nChoose light or dark appearance and adjust your writing preferences.\n\nFrom a passing thought to a personal collection of knowledge, Moldavite helps you keep writing.",
+  "promotionalText": "A simple place to write and organize your notes.",
+  "description": "Moldavite is a simple notes app for iPhone and iPad. Write down thoughts, organize your notes, and find them when you need them. Your notes stay in your own Markdown files, with no account required.",
   "keywords": "journal,writing,notebook,markdown,organizer,knowledge,thoughts,daily,checklist,editor",
   "supportUrl": "https://github.com/mauropereiira/Moldavite/issues",
   "versionString": "2.6.0",
   "copyright": "2026 Mauro Pereira",
   "notes": "Moldavite is a local-first Markdown note app for iPhone and iPad. No app account or sign-in is required. Complete the introductory screens to open the local workspace (called a Forge), then create a note. Optional iCloud Drive uses the device owner’s Apple account; local note-taking does not require it.\n\nNote locking uses a passphrase chosen by the reviewer. The developer cannot recover a lost passphrase. The home-screen widget opens today’s note. Desktop executable plugins, desktop calendar integrations and the desktop self-updater are not included in the iOS experience.",
   "price": "FREE",
-  "priceSaveVerified": false
+  "priceSaveVerified": true
 }

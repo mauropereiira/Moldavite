@@ -9,6 +9,7 @@ monogram and wordmark used in the app, without a new logo or altered lettering.
 | `logos/` | Transparent monogram (1024px) and wordmark (2400px wide), in ink or cream. Use ink on light backgrounds and cream on dark backgrounds. |
 | `social/` | Light and dark profile pictures (1080×1080), banners (1500×500), and landscape posts/link cards (1200×630). |
 | `app-icons/` | Opaque 1024×1024 iPhone/iPad/App Store master. iOS applies the rounded corners. |
+| `app-store/` | Actual iPhone and iPad app screenshots with fictional sample notes, ready for the App Store listing. |
 
 The profile pictures leave room for circular cropping. Social platforms crop
 headers differently on phones and computers; check the platform's preview before
