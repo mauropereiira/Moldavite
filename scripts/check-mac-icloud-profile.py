@@ -9,7 +9,8 @@ from pathlib import Path
 profile = plistlib.loads(subprocess.check_output(['security', 'cms', '-D', '-i', sys.argv[1]]))
 entitlements = profile['Entitlements']
 expected = plistlib.loads(Path('src-tauri/Moldavite.entitlements').read_bytes())
-for key in ('com.apple.application-identifier', 'com.apple.developer.team-identifier'):
+for key in ('com.apple.application-identifier', 'com.apple.developer.team-identifier',
+            'com.apple.developer.icloud-container-environment'):
     if entitlements.get(key) != expected[key]:
         raise SystemExit(f'Profile does not authorize {key}')
 for key in ('com.apple.developer.icloud-container-identifiers',

@@ -188,6 +188,25 @@ jobs:
           args: ${{ matrix.args }}
           updaterJsonPreferNsis: true
 
+      - name: Verify signed Mac iCloud bundle
+        if: matrix.platform == 'macos-latest'
+        run: |
+          python3 - <<'PYVERIFY'
+          import pathlib, plistlib, subprocess
+          apps = list(pathlib.Path("src-tauri/target").glob("*/release/bundle/macos/Moldavite.app"))
+          if len(apps) != 1:
+              raise SystemExit("Expected exactly one Mac app bundle")
+          app = apps[0]
+          subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+          subprocess.run(["python3", "scripts/check-mac-icloud-profile.py",
+                          str(app / "Contents/embedded.provisionprofile")], check=True)
+          actual = plistlib.loads(subprocess.check_output(["codesign", "-d", "--entitlements", ":-", str(app)]))
+          expected = plistlib.loads(pathlib.Path("src-tauri/Moldavite.entitlements").read_bytes())
+          for key, value in expected.items():
+              if actual.get(key) != value:
+                  raise SystemExit("Signed app is missing entitlement: " + key)
+          PYVERIFY
+
       - name: Build Windows app
         if: matrix.platform == 'windows-latest'
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
