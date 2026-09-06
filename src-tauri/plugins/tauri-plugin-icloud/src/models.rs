@@ -38,6 +38,7 @@ pub enum ChangeKind {
     AccountChanged,
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CloudChange {
     pub kind: ChangeKind,
