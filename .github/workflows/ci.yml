@@ -357,6 +357,22 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      # Tauri fetches its own linuxdeploy, a July 2024 build, into ~/.cache/tauri
+      # and reuses whatever is there. That build still copies Ubuntu's
+      # libwayland-client into the AppImage, and Fedora's and Arch's Mesa need
+      # a symbol from a newer one, so the WebKit web process aborted with
+      # "Could not create default EGL display" and the window stayed white
+      # (#130). linuxdeploy excludes the library since November 2024; seed the
+      # cache with a release that has it, pinned by checksum.
+      - name: Use a linuxdeploy that leaves libwayland-client to the host
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.cache/tauri
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          echo "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d  $HOME/.cache/tauri/linuxdeploy-x86_64.AppImage" | sha256sum -c
+          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+
       - name: Build app and bundles
         run: npx tauri build --config src-tauri/tauri.ci.conf.json --bundles appimage deb rpm
 
@@ -373,6 +389,13 @@ jobs:
           [ -f "$deb" ] || { echo "::error::Expected $deb"; exit 1; }
           [ -f "$rpm" ] || { echo "::error::Expected $rpm"; exit 1; }
           du -h "$appimage" "$deb" "$rpm"
+          # The host's Mesa resolves against libwayland-client; a bundled copy
+          # is the #130 blank window on Fedora and Arch.
+          extracted=$(mktemp -d)
+          (cd "$extracted" && "$GITHUB_WORKSPACE/$appimage" --appimage-extract >/dev/null)
+          if find "$extracted/squashfs-root" -name 'libwayland-client.so*' | grep -q .; then
+            echo "::error::The AppImage bundles libwayland-client (#130)"; exit 1
+          fi
 
       - name: Keep the bundles for the Fedora smoke test
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

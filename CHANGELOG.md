@@ -8,6 +8,10 @@ All notable changes to Moldavite are documented here.
 
 - **An rpm for Fedora.** Linux releases now ship `Moldavite-x.x.x-1.x86_64.rpm` next to the AppImage and the deb, installed with `sudo dnf install ./Moldavite-x.x.x-1.x86_64.rpm` and updated by installing the next one.
 
+### Fixed
+
+- **The Linux AppImage opened a blank white window on Fedora and Arch.** It carried Ubuntu's Wayland client library, and the newer Mesa on those distributions needs a symbol it lacks, so the WebKit web process aborted with "Could not create default EGL display: EGL_BAD_PARAMETER" before the first paint. The AppImage now leaves that library to the system, and every pull request launches the AppImage and the rpm on Fedora to prove they paint. (#130)
+
 ## [2.6.0] - 2026-09-04
 
 ### Added

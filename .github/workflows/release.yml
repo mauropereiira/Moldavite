@@ -213,6 +213,23 @@ jobs:
       # No code signing on Linux; the AppImage is updater-signed like every
       # other platform. The deb and the rpm have no in-app updater and are
       # replaced by installing the next one.
+      # Tauri fetches its own linuxdeploy, a July 2024 build, into ~/.cache/tauri
+      # and reuses whatever is there. That build still copies Ubuntu's
+      # libwayland-client into the AppImage, and Fedora's and Arch's Mesa need
+      # a symbol from a newer one, so the WebKit web process aborted with
+      # "Could not create default EGL display" and the window stayed white
+      # (#130). linuxdeploy excludes the library since November 2024; seed the
+      # cache with a release that has it, pinned by checksum.
+      - name: Use a linuxdeploy that leaves libwayland-client to the host
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.cache/tauri
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          echo "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d  $HOME/.cache/tauri/linuxdeploy-x86_64.AppImage" | sha256sum -c
+          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+
       - name: Build Linux app
         if: matrix.platform == 'ubuntu-24.04'
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
