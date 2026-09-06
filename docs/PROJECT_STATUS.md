@@ -8,6 +8,12 @@
 
 ## What's Shipped and Working
 
+### Mac iCloud Forge (v2.7.0)
+
+- Mac can initialize the shared `iCloud.app.moldavite` container before iOS is installed. Settings → General → Use synced Forge connects a separate Forge; a Finder button opens it for adding Markdown notes. Existing local Forges are not moved.
+- Signed native first-use initialization and iCloud ownership were verified on macOS, along with the full app bundle's signature and provisioning. Cross-device delivery and offline concurrent editing remain unverified. Windows/Linux iCloud support is deferred.
+- User setup: [MAC_ICLOUD.md](MAC_ICLOUD.md). Signing, embedded profile, and CI requirements: [RELEASING.md](RELEASING.md#mac-icloud-signing). Full iOS user documentation will follow separately.
+
 ### Notes & Editing
 
 - A note is renamed from its own title in the editor: Enter commits, Escape abandons, an empty name is refused, and a failed rename restores the previous name so the page never shows a name the file does not have. Daily and weekly notes stay read-only because they are named by date. The context-menu and more-options rename paths still work and now agree with this field rather than owning it.

@@ -17,7 +17,7 @@
 folder you choose, on your computer. Local search, wiki-links, daily notes, a
 calendar, and a built-in MCP server for the AI tools you already use.
 
-No account. No sync service. No telemetry. If Moldavite disappeared tomorrow,
+No Moldavite account. No telemetry. Optional iCloud Drive sync on Mac. If Moldavite disappeared tomorrow,
 you would still have every note, in plain text, exactly where you left it.
 
 Local-first for macOS, and for Windows and Linux in beta.
@@ -105,6 +105,16 @@ A Forge is a directory. Keep several and switch between them.
 Real Markdown with YAML frontmatter. Point Dropbox, iCloud, git or nothing at
 all at it. Edit the files in another editor while Moldavite is open and it
 notices.
+
+### Start syncing on Mac
+
+In Moldavite 2.7.0 or later, open **Settings → General → Use synced Forge** to
+create a separate iCloud Forge on your Mac. Write notes there or use **Open
+synced folder in Finder** to copy Markdown files into `notes/`. Your local
+Forges stay separate. You can start on Mac before installing the iOS app.
+
+See [the Mac iCloud guide](docs/MAC_ICLOUD.md) for setup, adding existing notes,
+and troubleshooting. iOS availability and its full guide will follow separately.
 
 ## What else it does
 
