@@ -94,7 +94,10 @@ fn prepare_mobile_export(
     };
     fs::create_dir_all(cache).map_err(|e| e.to_string())?;
     let directory = cache.join(format!("moldavite-export-{:032x}", rand::random::<u128>()));
+    #[cfg(unix)]
     let mut builder = fs::DirBuilder::new();
+    #[cfg(not(unix))]
+    let builder = fs::DirBuilder::new();
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
