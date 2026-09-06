@@ -78,10 +78,31 @@ pub(crate) mod wiki;
 #[cfg(test)]
 mod stress_test;
 
-// Exercise the exact iOS Rust/Swift boundary on macOS without an iCloud account.
-#[cfg(all(test, target_os = "macos"))]
+// The same Foundation boundary is linked on macOS and iOS.
+#[cfg(target_os = "macos")]
 #[path = "../plugins/tauri-plugin-icloud/src/coordination.rs"]
-mod file_coordination_tests;
+mod file_coordination;
+pub(crate) mod note_file_access;
+
+/// File coordination must leave WebKit's main thread free. Run both the note
+/// command and its synchronous IPC reply on the blocking pool. Using Tauri's
+/// `command(async)` instead sends replies from Tokio's async workers: WebKit
+/// waits for main to accept each reply, while the iOS dev asset proxy on main
+/// waits for that same saturated runtime, deadlocking startup note reads.
+fn dispatch_note_io(
+    handler: fn(tauri::ipc::Invoke) -> bool,
+) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        if cfg!(any(target_os = "macos", target_os = "ios"))
+            && matches!(invoke.message.command(), "read_note" | "write_note")
+        {
+            tauri::async_runtime::spawn_blocking(move || handler(invoke));
+            true
+        } else {
+            handler(invoke)
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 use calendar::CalendarPermission;
@@ -309,7 +330,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
             #[cfg(mobile)]
             commands::misc::open_support_page,
@@ -458,7 +479,7 @@ pub fn run() {
             list_calendars,
             google_calendar_connect,
             google_calendar_disconnect
-        ])
+        ]))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

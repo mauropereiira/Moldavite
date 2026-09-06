@@ -214,7 +214,8 @@ copy, leaving the Files destination empty.
 
 ## iCloud bridge in development
 
-`src-tauri/.taurignore` excludes Swift `.build` products from the native dev
+`src-tauri/.taurignore` excludes Swift `.build` products and generated `.tauri`
+plugin API packages from the native dev
 watcher. Keep source files watched; without this exclusion, Swift compilation
 can trigger repeated app rebuilds. See [Tauri's development watcher](https://v2.tauri.app/develop/).
 
@@ -227,7 +228,8 @@ The generated entitlements and Info.plist declare the public Moldavite Documents
 container, with nested folders visible in Files once provisioned.
 
 This bridge is registered but **does not yet enable a synced Forge**. Forge
-selection, metadata reconciliation, coordinated content I/O, Mac discovery,
+selection, metadata reconciliation, coordinated access for all remaining content
+operations, Mac discovery,
 cross-Forge moves and end-to-end sync proof remain to be implemented. A missing
 filesystem entry alone must never authorize creation or deletion: the consumer
 must reconcile it with the metadata snapshot, including remote placeholders.
@@ -247,8 +249,20 @@ The native `coordination::read/write` boundary holds [Apple file coordination](h
 while a synchronous Rust callback checks and changes a file. Callers must run on
 a worker thread, validate the returned path and download readiness inside the
 callback, and keep conflict detection, preservation and atomic replacement in
-one write accessor. This boundary is not yet connected to Forge content I/O.
-On macOS, `cargo test --lib file_coordination_tests` exercises the same Swift/Rust
+one write accessor. The normal note reader and complete hash/conflict/save path
+now use `read_cloud/write_cloud`: local files stay direct, while ubiquitous files
+receive coordination and download checks. Pending or unknown contents return an
+error and request a download; failed existing-note reads cannot become an empty
+save base. This does not yet cover metadata-only remote names, all mutations,
+account-bound Forge selection or OS-managed conflict versions.
+
+The read/write IPC handlers run, including their replies, on Tauri's blocking
+pool on Apple targets. Do not replace this with `command(async)`: concurrent
+startup replies can occupy all Tokio workers waiting for WebKit's main thread,
+while the iOS dev asset proxy on main waits for the same runtime. The simulator
+exposed that deadlock during this integration.
+
+On macOS, `cargo test --lib file_coordination` exercises the same Swift/Rust
 boundary: competing writes wait, a replacement preserves the prior content,
 and errors or panics release access. These local tests do not prove cloud conflict
 resolution. The public

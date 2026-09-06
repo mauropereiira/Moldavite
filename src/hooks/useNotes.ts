@@ -274,7 +274,14 @@ export function useNotes() {
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
-        const result = await readNoteWithMeta(filename, true, false);
+        let result;
+        try {
+          result = await readNoteWithMeta(filename, true, false);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
+          return;
+        }
         const virtualFile: NoteFile = {
           name: filename,
           path: filename,
@@ -362,7 +369,14 @@ export function useNotes() {
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
-        const result = await readNoteWithMeta(filename, false, true);
+        let result;
+        try {
+          result = await readNoteWithMeta(filename, false, true);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
+          return;
+        }
         const virtualFile: NoteFile = {
           name: filename,
           path: `weekly/${filename}`,

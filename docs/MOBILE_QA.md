@@ -50,7 +50,7 @@ completed.
   rebuild loop stopped after restarting the dev session with `.taurignore`.
 - Three macOS tests exercise the native file-coordination boundary from Rust:
   whole-accessor serialization, content preservation before replacement and
-  releasing access after errors/panics. Forge content I/O does not use it yet.
+  releasing access after errors/panics. The note reader and complete conflict/save path now use the cloud-aware boundary; the remaining content operations still need integration.
 - Settings ZIP export was reproduced as a zero-byte file in On My iPhone.
   The replacement builds the complete payload before the native document picker
   copies it. The destination ZIP now contains all three simulator notes with
@@ -72,6 +72,18 @@ completed.
   iOS. Its dialog fits beside the rail, with 44pt buttons; the editor footer
   controls now have the same minimum. Dark portrait layout inspected.
 
+- Rust tests drive a synthetic `.icloud` placeholder through the actual note
+  reader/save functions: neither an empty read nor an overwrite is allowed.
+  After local bytes replace the marker, reads and conflict copies preserve the
+  downloaded body and frontmatter. Invalid UTF-8/read failures also refuse saves.
+  Daily and weekly navigation tests keep the current editor and show the error.
+  On the simulator, a synthetic pending daily note showed the download error
+  without leaving Home. Replacing its marker with local contents made the note
+  readable; typing appended text that was verified on disk. The owned fixture
+  was removed afterward. Startup remained responsive after the IPC dispatch fix.
+  The footer Actions button measured 60×44pt through accessibility inspection.
+  These fixtures do not prove account-backed iCloud delivery.
+
 ## Required before shipping
 
 | Area | Remaining proof |
@@ -81,7 +93,7 @@ completed.
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
 | Data portability | Encrypted export/import, plain import, other Files providers and interruption tests remain. Settings ZIP/JSON, individual Markdown/plaintext and selected-note ZIP destinations are verified in On My iPhone |
 | iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
-| iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated Rust content access, metadata reconciliation, desktop discovery and cross-Forge moves remain |
+| iCloud implementation | Native bridge and container declarations exist; optional synced Forge selection, coordinated access for remaining mutations, metadata reconciliation, desktop discovery and cross-Forge moves remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
 | Brand and distribution | Icon and launch screen inspection, status-bar/heading alignment, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight, complete App Store setup and upload instructions |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |

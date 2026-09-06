@@ -108,6 +108,11 @@ public final class CloudDocuments {
 
     public func item(at path: String) throws -> CloudItem {
         let url = try self.url(for: path)
+        return try Self.inspect(url: url, path: path)
+    }
+
+    /// Inspect bytes without interpreting a missing local file as remote deletion.
+    public static func inspect(url: URL, path: String) throws -> CloudItem {
         let manager = FileManager.default
         // Older iCloud Drive versions expose .name.ext.icloud placeholders.
         // Their bytes are metadata, never the contents of the requested note.

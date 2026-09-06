@@ -190,8 +190,10 @@ fn preserve_conflict_copy_unlocked(
         return Ok(None);
     };
     // A missing file can't conflict — the save simply creates it.
-    let Ok(raw) = fs::read_to_string(path) else {
-        return Ok(None);
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Cannot read the existing note: {error}")),
     };
     let disk_body = frontmatter::parse_note(&raw).body;
     // No conflict when the disk still matches what the frontend last read,
@@ -267,7 +269,11 @@ fn read_note_at(path: &Path) -> Result<NoteRead, String> {
 
 fn read_note_within_base(base: &Path, path: &Path) -> Result<NoteRead, String> {
     validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
-    read_note_at(path)
+    crate::note_file_access::read(path, |coordinated| {
+        validate_path_within_base(coordinated, base)
+            .map_err(|_| "Invalid note path".to_string())?;
+        read_note_at(coordinated)
+    })
 }
 
 /// Serialize conflict detection, frontmatter preservation, and the replacing
@@ -306,6 +312,24 @@ pub(crate) fn save_note_with_conflict_using<F>(
     write: F,
 ) -> Result<Option<(String, String)>, String>
 where
+    F: FnOnce(&Path, &str) -> Result<(), String> + Send,
+{
+    crate::note_file_access::write(path, |coordinated| {
+        let base = path.parent().ok_or("Invalid note path")?;
+        validate_path_within_base(coordinated, base)
+            .map_err(|_| "Invalid note path".to_string())?;
+        save_note_with_conflict_uncoordinated(coordinated, base_hash, content, color, write)
+    })
+}
+
+fn save_note_with_conflict_uncoordinated<F>(
+    path: &Path,
+    base_hash: Option<&str>,
+    content: &str,
+    color: Option<&str>,
+    write: F,
+) -> Result<Option<(String, String)>, String>
+where
     F: FnOnce(&Path, &str) -> Result<(), String>,
 {
     let _guard = conflict_copy_lock()
@@ -314,7 +338,11 @@ where
     ensure_note_is_writable(path)?;
     let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
     let conflict = preserve_conflict_copy_unlocked(path, base_hash, content, &stamp)?;
-    let existing = fs::read_to_string(path).unwrap_or_default();
+    let existing = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(format!("Cannot read the existing note: {error}")),
+    };
     let parsed_existing = frontmatter::parse_note(&existing);
     // `content` may itself begin with a frontmatter block: the MCP write path
     // and the editor's "Use disk version" both hand over complete Markdown, not
@@ -1210,6 +1238,57 @@ mod tests {
     }
 
     const STAMP: &str = "2026-07-12 1015";
+
+    #[test]
+    fn failed_existing_note_read_never_becomes_an_empty_save_base() {
+        let tmp = TempDir::new("unreadable-note");
+        let path = tmp.path().join("note.md");
+        let invalid_utf8 = [0xff, 0xfe, 0x41];
+        fs::write(&path, invalid_utf8).unwrap();
+        for hash in [None, Some(sha256_hex("old body"))] {
+            let error =
+                save_note_with_conflict(&path, hash.as_deref(), "overwrite", None).unwrap_err();
+            assert!(error.contains("Cannot read the existing note"), "{error}");
+            assert_eq!(fs::read(&path).unwrap(), invalid_utf8);
+        }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn cloud_placeholder_cannot_be_read_as_empty_or_overwritten() {
+        let tmp = TempDir::new("cloud-placeholder");
+        let base = tmp.path().canonicalize().unwrap();
+        let path = base.join("pending.md");
+        let marker = base.join(".pending.md.icloud");
+        fs::write(&marker, "remote placeholder metadata").unwrap();
+        let error = read_note_within_base(&base, &path).unwrap_err();
+        assert!(error.contains("waiting for iCloud"), "{error}");
+        let error =
+            save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "overwrite", None)
+                .unwrap_err();
+        assert!(error.contains("waiting for iCloud"), "{error}");
+        assert!(!path.exists());
+        assert_eq!(
+            fs::read_to_string(&marker).unwrap(),
+            "remote placeholder metadata"
+        );
+
+        // A download completing makes the real note readable; its text and
+        // frontmatter participate in the normal conflict-copy policy again.
+        fs::remove_file(marker).unwrap();
+        fs::write(&path, "---\ncustom: keep\n---\nremote text").unwrap();
+        let read = read_note_within_base(&base, &path).unwrap();
+        assert_eq!(read.content, "remote text");
+        let (copy, _) =
+            save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "my text", None)
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            fs::read_to_string(base.join(copy)).unwrap(),
+            "---\ncustom: keep\n---\nremote text"
+        );
+        assert!(fs::read_to_string(path).unwrap().contains("custom: keep"));
+    }
 
     #[test]
     fn classify_note_entry_strips_locked_suffix_and_skips_other_files() {

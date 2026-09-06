@@ -10,6 +10,12 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 extern "C" {
+    fn moldavite_access_file(
+        path: *const c_char,
+        writing: bool,
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char),
+    );
     fn moldavite_coordinate_file(
         path: *const c_char,
         writing: bool,
@@ -55,7 +61,7 @@ where
     )));
 }
 
-fn coordinate<T, F>(path: &Path, writing: bool, operation: F) -> Result<T, String>
+fn coordinate<T, F>(path: &Path, writing: bool, cloud_only: bool, operation: F) -> Result<T, String>
 where
     F: FnOnce(&Path) -> Result<T, String> + Send,
     T: Send,
@@ -72,7 +78,12 @@ where
     // SAFETY: path and state outlive the synchronous native call. The generic
     // callback matches the state type; Swift does not retain either pointer.
     unsafe {
-        moldavite_coordinate_file(
+        let native = if cloud_only {
+            moldavite_access_file
+        } else {
+            moldavite_coordinate_file
+        };
+        native(
             path.as_ptr(),
             writing,
             (&mut state as *mut Accessor<F, T>).cast(),
@@ -87,20 +98,39 @@ where
     }
 }
 
+#[cfg(any(test, target_os = "ios"))]
 pub fn read<T, F>(path: &Path, operation: F) -> Result<T, String>
 where
     F: FnOnce(&Path) -> Result<T, String> + Send,
     T: Send,
 {
-    coordinate(path, false, operation)
+    coordinate(path, false, false, operation)
 }
 
+#[cfg(any(test, target_os = "ios"))]
 pub fn write<T, F>(path: &Path, operation: F) -> Result<T, String>
 where
     F: FnOnce(&Path) -> Result<T, String> + Send,
     T: Send,
 {
-    coordinate(path, true, operation)
+    coordinate(path, true, false, operation)
+}
+
+/// Direct for local files; coordinated and download-checked for iCloud files.
+pub fn read_cloud<T, F>(path: &Path, operation: F) -> Result<T, String>
+where
+    F: FnOnce(&Path) -> Result<T, String> + Send,
+    T: Send,
+{
+    coordinate(path, false, true, operation)
+}
+
+pub fn write_cloud<T, F>(path: &Path, operation: F) -> Result<T, String>
+where
+    F: FnOnce(&Path) -> Result<T, String> + Send,
+    T: Send,
+{
+    coordinate(path, true, true, operation)
 }
 
 #[cfg(test)]

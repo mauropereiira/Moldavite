@@ -48,3 +48,77 @@ public func coordinateFile(
         fail(error?.localizedDescription ?? "The file coordinator did not grant access.")
     }
 }
+
+/// The local-Forge path stays direct. Ubiquitous files (including legacy
+/// placeholders) hold coordination across Rust's complete hash/check/save.
+/// Metadata-query reconciliation must additionally guard a remote-only name
+/// that Foundation has not materialized yet; inspection cannot prove absence.
+@_cdecl("moldavite_access_file")
+public func accessFile(
+    _ path: UnsafePointer<CChar>?,
+    _ writing: Bool,
+    _ context: UnsafeMutableRawPointer?,
+    _ accessor: FileAccessor
+) {
+    func fail(_ message: String) {
+        message.withCString { accessor(context, nil, $0) }
+    }
+    guard let path = path, let value = String(validatingUTF8: path), value.hasPrefix("/") else {
+        fail("File access requires an absolute UTF-8 path.")
+        return
+    }
+    let url = URL(fileURLWithPath: value)
+    do {
+        let item = try CloudDocuments.inspect(url: url, path: value)
+        guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            fail(item.error ?? "This note is waiting for iCloud to download. Try again when it is available.")
+            return
+        }
+        // A new note inherits the enclosing cloud directory's coordination.
+        // Do not force NSFileCoordinator onto ordinary desktop or phone files.
+        var ancestor = url
+        var ubiquitous = item.downloadState != .local && item.downloadState != .missing
+        while !ubiquitous && ancestor.path != "/" {
+            ubiquitous = (try? ancestor.resourceValues(forKeys: [.isUbiquitousItemKey]))?.isUbiquitousItem == true
+            ancestor.deleteLastPathComponent()
+        }
+        if !ubiquitous {
+            accessor(context, path, nil)
+            return
+        }
+        var checked = CheckedAccess(context: context, accessor: accessor)
+        withUnsafeMutablePointer(to: &checked) { storage in
+            coordinateFile(path, writing, UnsafeMutableRawPointer(storage), checkedFileAccessor)
+        }
+    } catch { fail(error.localizedDescription) }
+}
+
+private struct CheckedAccess {
+    let context: UnsafeMutableRawPointer?
+    let accessor: FileAccessor
+}
+
+private func checkedFileAccessor(
+    _ raw: UnsafeMutableRawPointer?, _ path: UnsafePointer<CChar>?, _ error: UnsafePointer<CChar>?
+) {
+    guard let raw = raw else { return }
+    let state = raw.assumingMemoryBound(to: CheckedAccess.self).pointee
+    if let error = error {
+        state.accessor(state.context, nil, error)
+        return
+    }
+    do {
+        guard let path = path, let value = String(validatingUTF8: path) else { throw CloudError.invalidPath }
+        let url = URL(fileURLWithPath: value)
+        let item = try CloudDocuments.inspect(url: url, path: value)
+        guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            throw NSError(domain: "MoldaviteCloud", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "This note is waiting for iCloud to download. Try again when it is available."])
+        }
+        state.accessor(state.context, path, nil)
+    } catch {
+        error.localizedDescription.withCString { state.accessor(state.context, nil, $0) }
+    }
+}
