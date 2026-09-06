@@ -20,6 +20,7 @@ describe('useVisualViewportHeight', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined });
     document.documentElement.style.removeProperty('--app-height');
   });
@@ -49,6 +50,30 @@ describe('useVisualViewportHeight', () => {
     renderHook(() => useVisualViewportHeight());
 
     expect(appHeight()).toBe(`${window.innerHeight}px`);
+  });
+
+  it('reveals the focused field after reserving room for the keyboard and Done bar', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const viewport = installViewport(window.innerHeight);
+    const field = document.createElement('input');
+    const reveal = vi.fn(() => {
+      expect(appHeight()).toBe('356px');
+    });
+    field.scrollIntoView = reveal;
+    document.body.appendChild(field);
+    field.focus();
+    const { unmount } = renderHook(() => useVisualViewportHeight());
+    expect(reveal).not.toHaveBeenCalled();
+
+    viewport.height = 400;
+    viewport.dispatchEvent(new Event('resize'));
+    expect(reveal).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+
+    unmount();
+    field.remove();
   });
 
   it('sets nothing on desktop', () => {

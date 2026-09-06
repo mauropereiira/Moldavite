@@ -111,7 +111,9 @@ const BUDGETS = [
 // entry points and a lazy helper. No new frontend dependencies.
 // Separate iCloud Forge selection, inline connection errors and metadata refresh
 // add ~2.2 KB raw / 0.7 KB gz. Measured 625.4 KB / 173.8 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 626, gzipKb: 174 };
+// Native appearance, keyboard field visibility and the adaptive iPad layout add
+// ~0.7 KB raw / 0.2 KB gz. Measured 626.2 KB / 174.0 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 627, gzipKb: 175 };
 
 async function main() {
   let entries;

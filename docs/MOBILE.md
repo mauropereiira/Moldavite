@@ -100,7 +100,7 @@ the app-container Forge without offering a directory picker or desktop AI
 features. Replaying onboarding covers the rail and open pages so it cannot
 get trapped underneath Index.
 
-## Phone layout
+## Phone and iPad layout
 
 - `src/lib/platform.ts` decides phone versus desktop from the user agent
   (iPadOS reports itself as a Mac, so touch points decide that case).
@@ -111,8 +111,10 @@ get trapped underneath Index.
   `--touch-target` tokens. `index.html` sets `viewport-fit=cover`.
 - The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline
   and Settings are full-screen pages, closed with their × or by tapping
-  their rail button again. Home (the M) is the welcome screen. `App.tsx`
-  forces Index and Agenda into overlay mode on a phone.
+  their rail button again. Home (the M) is the welcome screen.
+  `Layout.tsx` keeps phone Index and Agenda in overlay
+  mode. On iPad windows at least 700px wide, a 280px Index sits beside the editor;
+  narrower windows return to page navigation without closing the current note.
 - Settings (`SettingsModal.tsx`) is a two-level page on the phone: the
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
@@ -124,7 +126,9 @@ get trapped underneath Index.
 - `useVisualViewportHeight` keeps `--app-height` equal to the visual
   viewport so the software keyboard never covers the editor, and scrolls
   the page back to the top when WKWebView drags it under the status bar to
-  make room for the caret.
+  make room for the caret. After the shell shrinks, it also reveals a focused
+  dialog field inside its scroll container. Long dialog titles wrap, and their
+  actions remain reachable above the keyboard.
 - Focus traps focus the page container on a phone rather than the first
   button, so no close control wears a focus ring after a tap. The global
   `!important` hover fill in `index.css` sticks after a tap on a touch
@@ -134,6 +138,13 @@ get trapped underneath Index.
   page keeps the transform from its entry animation, so a fixed scrim inside
   a page is positioned against the page and gets `left: 0` instead.
 - Segmented controls with four or more options become a one-per-row list.
+- `tauri-plugin-mobile-ui` follows the system's preferred body-text scale while
+  retaining Cream's fonts. Large text stacks segmented controls and Index footer
+  links, and lets labels wrap. Settings navigation grows up to 200%; body text
+  follows the full accessibility range. Expanded sidebar sections have no fixed
+  height ceiling that could hide larger text or long lists.
+- The same native plugin applies Light, Dark or System to the iOS window, keeping
+  the status bar, keyboard and native dialogs consistent with the app appearance.
 
 ## Mobile editing
 

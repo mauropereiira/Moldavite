@@ -253,7 +253,8 @@ pub fn run() {
     #[cfg(target_os = "ios")]
     let builder = builder
         .plugin(tauri_plugin_icloud::init())
-        .plugin(tauri_plugin_document_export::init());
+        .plugin(tauri_plugin_document_export::init())
+        .plugin(tauri_plugin_mobile_ui::init());
 
     // The App Store owns updates and the restart after them, and a phone
     // has no window geometry to restore.

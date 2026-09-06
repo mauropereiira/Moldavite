@@ -14,3 +14,12 @@ export function isMobilePlatform(): boolean {
   if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) return true;
   return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }
+
+/** iPadOS can use its desktop user agent; phones keep the full-width layout. */
+export function isTabletPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    /iPad/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}

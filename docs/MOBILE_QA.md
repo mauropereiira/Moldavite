@@ -2,6 +2,7 @@
 
 This is a working checklist, not a release approval. The iOS app remains in
 development. Verification below was performed on 2026-09-05–06 using an iPhone 17
+simulator, an iPhone SE (3rd generation) simulator and an iPad mini (A17 Pro)
 simulator running iOS 26.5. No physical-device or iCloud-account test has been
 completed.
 
@@ -92,7 +93,7 @@ completed.
 | Editor | Long-note caret scrolling, autocorrect and selection on a physical iPhone, image photo picker, wiki links, tags, tasks, locking, undo/redo and formatting beyond Bold |
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
 | Data portability | Encrypted export/import, plain import, other Files providers and interruption tests remain. Settings ZIP/JSON, individual Markdown/plaintext and selected-note ZIP destinations are verified in On My iPhone |
-| iPad | Two-column Index/editor layout, rotation and split view, hardware shortcuts, floating keyboard |
+| iPad | Native narrow-window multitasking, floating keyboard and remaining hardware shortcuts; two-column layout, rotation and Command-N verified |
 | iCloud implementation | Native bridge, Apple Forge selection, metadata listings and Mac discovery are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
 | Brand and distribution | Icon and launch screen inspection, status-bar/heading alignment, widget behavior, privacy declaration, encryption export answers, signed archive and TestFlight, complete App Store setup and upload instructions |
@@ -118,7 +119,7 @@ cargo check --target aarch64-apple-ios-sim --lib
 
 Use Node 20 or 22. The frontend tests, typecheck, lint, token check, production
 build and bundle limits have passed during the initial revision. The desktop
-Rust lint and 439 Rust tests have passed. The simulator compile succeeds with
+Rust lint and 459 Rust tests have passed. The simulator compile succeeds with
 12 unused-code warnings in mobile-excluded functionality.
 
 ## Simulator automation notes
@@ -160,3 +161,31 @@ tap or deep link as an app bug.
   daily and weekly notes from Move to Folder.
 - These checks exercise local coordination and synthetic placeholders. They do
   not prove account-backed iCloud delivery or cover trash/restore transactions.
+
+### Mobile text, appearance and iPad layout, 6 September 2026
+
+- iPhone SE: all three onboarding pages fit at 375×667pt. A 164-character
+  unbroken note title wraps in the lock dialog. With the software keyboard
+  visible, the focused passphrase field is revealed and the dialog scrolls to
+  its actions. The Index New button measures 44×44pt.
+- iPhone 17: the native status bar stays black over Cream when the OS is dark,
+  and white over the app's dark theme when the OS is light. System mode restores
+  the OS appearance. The native plugin compiles and links in the simulator.
+- System Larger Text changes the actual WebKit text size while retaining the
+  custom fonts. Appearance was inspected at accessibility-extra-large and at
+  the maximum accessibility size: its full heading, wrapped description and
+  stacked Light/Dark/System choices stay readable and reachable. This is not
+  yet an exhaustive accessibility audit or a VoiceOver verification.
+- WebKit does not autosize editable note text. The mobile layer now scales the
+  editor, its headings and text fields explicitly. On iPad mini at accessibility-
+  extra-large, the sample note grows and wraps within the editor column. Settings
+  navigation remains readable at the maximum size with compact decorative icons.
+- All 18 iPhone/iPad/App Store PNG slots contain the branded monogram at their
+  declared dimensions, with no alpha channel. Apple's asset compiler validates
+  the catalog. Social assets and outlined SVG logos are in `branding/`.
+- iPad mini: a 280pt Index and the editor fit side by side in portrait and
+  landscape. Command-N creates one note; hardware typing writes the exact
+  sentence to its Markdown file. Rotation keeps the same note open. Regression
+  tests cover 744→500→1000px window widths without replacing the note or tabs,
+  and keep an 852px landscape iPhone in page mode. Native Split View/window
+  resizing and floating-keyboard interaction remain unverified.

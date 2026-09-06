@@ -68,7 +68,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
         </button>
       </div>
 
-      <div className="px-3 py-3 flex items-center justify-center gap-2">
+      <div className="sidebar-footer-links px-3 py-3 flex items-center justify-center gap-2">
         <button
           type="button"
           onClick={toggleTimeline}

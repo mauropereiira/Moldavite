@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 5, 2026
+**Last Updated:** September 6, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -45,6 +45,12 @@
 - Built-in MCP stdio server (v1.6): the single app binary switches to headless MCP mode with the exact `--mcp` flag, defaults to the active Forge (`--forge <name>` override), exposes four read tools plus three explicitly gated write tools, validates all client paths, refuses locked notes, and uses atomic writes + semantic-index change hooks. Reads return a content hash that write tools can use to preserve a changed disk version as a conflict copy
 
 ### Platform
+
+- The iOS development branch now has native app-theme appearance, Larger Text
+  support and adaptive iPad Index/editor columns. iPhone SE, iPhone 17 and iPad
+  mini simulator checks are recorded in MOBILE_QA.md. The reusable assets in
+  `branding/` and all iPhone/iPad app-icon slots use the existing Moldavite mark.
+  This does not change the app's unreleased iOS status.
 
 - Windows is a beta release target. Every PR runs clippy and the Rust library test suite on `windows-latest`; no Windows runtime journey has been exercised manually, so Windows coverage is CI-backed and the platform stays beta until it is not
 - Linux is a beta release target: an AppImage (any distribution, carries the updater) and a deb (Debian and Ubuntu, no in-app updater), built by the release workflow and proven by a `build-linux` job on every PR that asserts the exact artifact names the release verification requires. The crate has compiled and tested on `ubuntu-latest` since CI existed. No Linux runtime journey has been exercised by hand. Both bundles need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) because the ONNX Runtime binary fastembed ships is built against it; the deb declares `libc6 (>= 2.38)` so apt refuses cleanly on older systems, and the AppImage needs `libfuse2` where the distribution does not ship it

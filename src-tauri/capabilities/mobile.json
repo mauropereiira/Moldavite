@@ -10,6 +10,7 @@
     "core:default",
     "core:window:default",
     "core:window:allow-destroy",
-    "dialog:default"
+    "dialog:default",
+    "mobile-ui:allow-set-appearance"
   ]
 }

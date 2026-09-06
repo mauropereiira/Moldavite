@@ -10,7 +10,7 @@ import { IconRail } from './IconRail';
 import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight';
-import { isMobilePlatform } from '@/lib/platform';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 
 // TimelineView pulls in calendar/event aggregation + its own render
 // pipeline — only load it when the user actually toggles the timeline on.
@@ -135,10 +135,25 @@ export function Layout() {
    */
   const [shell, setShell] = useState<HTMLDivElement | null>(null);
   const windowWidth = useElementWidth(shell);
+  const tabletSplit = isMobile && isTabletPlatform() && windowWidth !== null && windowWidth >= 700;
+  const leftWidth = isMobile ? 280 : sidebarWidth;
+
+  useEffect(() => {
+    if (!isMobile || windowWidth === null) return;
+    // Follow the iPad's actual window, including Split View. Phones always
+    // keep page navigation, even when rotated to landscape.
+    useSettingsStore.setState({
+      indexMode: tabletSplit ? 'pinned' : 'overlay',
+      agendaMode: 'overlay',
+      showIconRail: true,
+    });
+  }, [isMobile, tabletSplit, windowWidth]);
+
   const pinnedColumnsWidth =
-    (indexMode === 'pinned' ? sidebarWidth : 0) + (agendaMode === 'pinned' ? rightPanelWidth : 0);
+    (indexMode === 'pinned' ? leftWidth : 0) + (agendaMode === 'pinned' ? rightPanelWidth : 0);
   const isTooNarrow =
-    windowWidth !== null && windowWidth - RAIL_WIDTH - pinnedColumnsWidth < EDITOR_MIN_WIDTH;
+    windowWidth !== null &&
+    windowWidth - RAIL_WIDTH - pinnedColumnsWidth < (isMobile ? 360 : EDITOR_MIN_WIDTH);
 
   useEffect(() => {
     const { foldForNarrowWindow, unfoldForWideWindow } = useOverlayStore.getState();
@@ -146,12 +161,12 @@ export function Layout() {
     else unfoldForWideWindow();
   }, [isTooNarrow]);
 
-  const sidebarVisible = indexMode === 'pinned' && !isSidebarHidden;
-  const rightPanelVisible = agendaMode === 'pinned' && !isRightPanelHidden;
+  const sidebarVisible = indexMode === 'pinned' && !isSidebarHidden && (!isMobile || tabletSplit);
+  const rightPanelVisible = !isMobile && agendaMode === 'pinned' && !isRightPanelHidden;
 
   // While folded the rail is the only way back to the Index and the Agenda, so
   // it appears even for someone who has switched it off.
-  const railVisible = showIconRail || isTooNarrow;
+  const railVisible = isMobile || showIconRail || isTooNarrow;
 
   // Publish the rail's presence so full-window surfaces outside this tree —
   // the graph is mounted at the App root, not inside the content area — can
@@ -195,12 +210,12 @@ export function Layout() {
             <div
               className="app-sidebar flex-shrink-0 relative"
               style={{
-                width: `${sidebarWidth}px`,
+                width: `${leftWidth}px`,
                 backgroundColor: 'var(--bg-sidebar)',
                 borderRight: '1px solid var(--border-default)',
               }}
             >
-              <Sidebar />
+              <Sidebar presentation={isMobile ? 'index' : 'panel'} autoFocusSearch={!isMobile} />
 
               {!isMobile && (
                 <>

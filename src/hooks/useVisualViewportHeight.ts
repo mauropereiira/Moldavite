@@ -17,6 +17,7 @@ export function useVisualViewportHeight(): void {
 
     const root = document.documentElement;
     const viewport = window.visualViewport;
+    let revealFrame = 0;
     const update = () => {
       const height = viewport?.height ?? window.innerHeight;
       const editingField = document.activeElement?.matches('input, textarea') ?? false;
@@ -27,6 +28,15 @@ export function useVisualViewportHeight(): void {
       );
       root.dataset.keyboardField = String(editingField);
       root.dataset.keyboard = keyboardOpen ? 'open' : 'closed';
+      // A shrinking dialog can clip the field even though the native keyboard
+      // has already scrolled the page. Reveal it inside its own scroll surface.
+      cancelAnimationFrame(revealFrame);
+      if (keyboardOpen && editingField) {
+        revealFrame = requestAnimationFrame(() => {
+          document.activeElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
+          if (window.scrollY > 0 || (viewport?.offsetTop ?? 0) > 0) window.scrollTo(0, 0);
+        });
+      }
       // WKWebView also scrolls the whole page to keep the caret clear of the
       // keyboard, which drags the shell under the status bar. The shell has
       // already shrunk to the visual viewport, so the editor's own scroll
@@ -44,6 +54,7 @@ export function useVisualViewportHeight(): void {
       window.addEventListener('resize', update);
     }
     return () => {
+      cancelAnimationFrame(revealFrame);
       if (viewport) {
         viewport.removeEventListener('resize', update);
         viewport.removeEventListener('scroll', update);

@@ -39,10 +39,17 @@ TestFlight upload, App Store record or export declaration has been verified.
   device keyboard behavior, lifecycle saves and iCloud offline/conflict tests.
 - Run every frontend and Rust gate listed there against the exact commit being
   archived. Also run the Swift core tests documented in MOBILE.md.
-- Inspect the icon and launch screen on devices. Audit the final app and widget
+- The branded iPhone/iPad icons are installed in all 18 asset-catalog slots,
+  including an opaque 1024px App Store icon. Reusable assets and regeneration
+  instructions are in [the brand kit](../branding/README.md). Inspect the icon
+  and launch screen on devices. Audit the final app and widget
   privacy manifests and required-reason APIs. A simulator build does not prove
   App Store privacy validation; the manifest work is still outstanding.
   [Apple's required-reason API guidance](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
+  The initial native-symbol audit found file-stat APIs and bundled SQLite's
+  `statfs`/`fstatfs` filesystem-type checks. The latter do not establish a
+  disk-capacity use case; do not blindly declare a low-disk-space reason.
+  Resolve this dependency's declaration against the final distribution binary.
 - Verify a release build starts without the Vite server. Development builds load
   localhost; they are not the build to distribute.
 

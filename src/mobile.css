@@ -16,6 +16,8 @@ html[data-platform='mobile'] {
   --safe-right: env(safe-area-inset-right, 0px);
   /* Apple's minimum comfortable touch target. */
   --touch-target: 44px;
+  --mobile-text-scale: 1;
+  --mobile-heading-text-adjust: 100%;
   --mobile-page-inset: 16px;
   /* The shell's height. useVisualViewportHeight overrides this inline with
      the visual viewport so the software keyboard does not cover the editor. */
@@ -61,7 +63,29 @@ html[data-platform='mobile']
 
 /* iOS zooms the page into any field set below 16px. */
 html[data-platform='mobile'] :is(input, select, textarea) {
-  font-size: 16px;
+  font-size: calc(16px * var(--mobile-text-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* WebKit excludes editable content from text autosizing. Scale its actual
+   font size so Larger Text also applies to the words being written. */
+html[data-platform='mobile'] .tiptap {
+  font-size: calc(var(--editor-font-size) * var(--mobile-text-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html[data-platform='mobile'] .tiptap h1 {
+  font-size: calc(28px * var(--mobile-text-scale));
+}
+
+html[data-platform='mobile'] .tiptap h2 {
+  font-size: calc(21px * var(--mobile-text-scale));
+}
+
+html[data-platform='mobile'] .tiptap h3 {
+  font-size: calc(17px * var(--mobile-text-scale));
 }
 
 /* Chrome is not text to select; the note and every field still are. */
@@ -199,7 +223,8 @@ html[data-platform='mobile'] .app-overlay-controls {
 
 /* The Sidebar root sets its Index padding inline. The title and search own
    their inset so their text and hairlines share one edge. */
-html[data-platform='mobile'] .app-index-overlay .index-overlay-content {
+html[data-platform='mobile'] .app-index-overlay .index-overlay-content,
+html[data-platform='mobile'] .app-sidebar .index-overlay-content {
   padding: calc(var(--safe-top) + 12px) 0 var(--safe-bottom) !important;
 }
 
@@ -280,7 +305,7 @@ html[data-platform='mobile'] .index-overlay-content .draggable-note-item .note-c
 }
 
 html[data-platform='mobile'] .index-overlay-content .search-input {
-  font-size: 16px;
+  font-size: calc(16px * var(--mobile-text-scale));
   min-height: var(--touch-target);
 }
 
@@ -299,7 +324,8 @@ html[data-platform='mobile'] .index-overlay-content .section-header {
 
 /* Header controls (toggle, New, sort) grow a hit area without moving. */
 html[data-platform='mobile'] .index-overlay-content .section-header button {
-  min-height: 32px;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
   margin-block: -8px;
   padding-inline: 4px;
 }
@@ -324,6 +350,39 @@ html[data-platform='mobile'] .index-overlay-content .text-link {
   align-items: center;
   justify-content: center;
   min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'][data-large-text='true'] .sidebar-footer-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-platform='mobile'][data-large-text='true'] .draggable-note-item .note-card {
+  padding-right: 8px !important;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .note-card-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .draggable-note-item > button.opacity-0 {
+  position: static;
+  transform: none;
+  margin-left: auto;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .sidebar-footer-links > span {
+  display: none;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .section-header {
+  flex-wrap: wrap;
+  row-gap: 16px;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .section-header > button {
+  flex-basis: 100%;
 }
 
 /* ===========================================
@@ -568,13 +627,16 @@ html[data-platform='mobile'] .modal-elevated:not(.template-picker-modal) {
 }
 
 html[data-platform='mobile'] .modal-elevated {
-  max-width: calc(100vw - 32px);
+  min-width: 0;
+  max-width: calc(100% - 32px);
   max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
   overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 
 html[data-platform='mobile'] .modal-elevated .btn {
   min-height: var(--touch-target);
+  white-space: normal;
 }
 
 /* Context menus and the trash popover: fixed at the pointer, so they can
@@ -700,6 +762,11 @@ html[data-platform='mobile'] .welcome-note-action {
   font-size: 16px;
 }
 
+html[data-platform='mobile'][data-large-text='true'] .welcome-reveal-actions {
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* The editor column starts at the top of the screen: keep the note clear of
    the status bar. Timeline and the welcome screen handle their own top. */
 html[data-platform='mobile'] .editor-root {
@@ -775,13 +842,15 @@ html[data-platform='mobile'] .settings-segmented-option {
   font-size: 13px;
 }
 
-html[data-platform='mobile'] .settings-segmented-control:has(> :nth-child(4)) {
+html[data-platform='mobile'] .settings-segmented-control:has(> :nth-child(4)),
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-control {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
 html[data-platform='mobile']
   .settings-segmented-control:has(> :nth-child(4))
-  .settings-segmented-option {
+  .settings-segmented-option,
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-option {
   justify-content: flex-start;
   padding: 12px 14px;
   border-left: 0 !important;
@@ -791,12 +860,15 @@ html[data-platform='mobile']
 
 html[data-platform='mobile']
   .settings-segmented-control:has(> :nth-child(4))
-  .settings-segmented-option:last-child {
+  .settings-segmented-option:last-child,
+html[data-platform='mobile'][data-large-text='true'] .settings-segmented-option:last-child {
   border-bottom: 0 !important;
 }
 
 html[data-platform='mobile']
   .settings-segmented-control:has(> :nth-child(4))
+  .settings-segmented-option[aria-checked='true'],
+html[data-platform='mobile'][data-large-text='true']
   .settings-segmented-option[aria-checked='true'] {
   background: var(--hover-overlay) !important;
   box-shadow: inset 3px 0 0 var(--text-primary);
@@ -962,4 +1034,47 @@ html[data-platform='mobile'] .forge-management-dialog :is(button, input) {
 
 html[data-platform='mobile'] .app-overlay .forge-management-backdrop {
   left: 0;
+}
+
+/* Larger Text puts navigation above the section title, leaving a full line for it. */
+html[data-platform='mobile'][data-large-text='true']
+  .settings-dialog
+  > header:has([aria-label='Back to settings']) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* Navigation grows up to twice its original size while body copy follows the
+   full accessibility range, leaving room to reach and scroll the content. */
+html[data-platform='mobile'] .settings-dialog > header,
+html[data-platform='mobile'] .settings-dialog > nav {
+  -webkit-text-size-adjust: var(--mobile-heading-text-adjust);
+  text-size-adjust: var(--mobile-heading-text-adjust);
+}
+
+html[data-platform='mobile'][data-large-text='true']
+  .settings-dialog
+  > header:has([aria-label='Back to settings'])
+  > h2 {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding: 0 12px 8px;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav .truncate {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav button {
+  gap: 12px;
+  padding-block: 8px !important;
+}
+
+html[data-platform='mobile'][data-large-text='true'] .settings-dialog nav button > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }

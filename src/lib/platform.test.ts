@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isMobilePlatform } from './platform';
+import { isMobilePlatform, isTabletPlatform } from './platform';
 
 function stubNavigator(overrides: Partial<typeof navigator>) {
   vi.stubGlobal('navigator', { userAgent: '', platform: '', maxTouchPoints: 0, ...overrides });
@@ -14,6 +14,7 @@ describe('isMobilePlatform', () => {
       platform: 'MacIntel',
     });
     expect(isMobilePlatform()).toBe(false);
+    expect(isTabletPlatform()).toBe(false);
   });
 
   it('is true on an iPhone', () => {
@@ -22,6 +23,7 @@ describe('isMobilePlatform', () => {
       platform: 'iPhone',
     });
     expect(isMobilePlatform()).toBe(true);
+    expect(isTabletPlatform()).toBe(false);
   });
 
   it('is true on an iPad that reports itself as a Mac', () => {
@@ -31,6 +33,7 @@ describe('isMobilePlatform', () => {
       maxTouchPoints: 5,
     });
     expect(isMobilePlatform()).toBe(true);
+    expect(isTabletPlatform()).toBe(true);
   });
 
   it('is true on Android', () => {
@@ -39,5 +42,11 @@ describe('isMobilePlatform', () => {
       platform: 'Linux armv8l',
     });
     expect(isMobilePlatform()).toBe(true);
+    expect(isTabletPlatform()).toBe(false);
+  });
+
+  it('recognizes an iPad using its mobile user agent', () => {
+    stubNavigator({ userAgent: 'Mozilla/5.0 (iPad; CPU OS 26_5 like Mac OS X)', platform: 'iPad' });
+    expect(isTabletPlatform()).toBe(true);
   });
 });

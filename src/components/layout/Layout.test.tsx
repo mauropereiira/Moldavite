@@ -8,11 +8,16 @@ import {
   useSettingsStore,
   useTimelineStore,
 } from '@/stores';
-import { isMobilePlatform } from '@/lib/platform';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import type { Note } from '@/types';
 import { Layout } from './Layout';
 
-vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
+vi.mock('@/lib/platform', () => ({
+  isMobilePlatform: vi.fn(() => false),
+  isTabletPlatform: vi.fn(() => false),
+}));
+vi.mock('@/hooks/useElementWidth', () => ({ useElementWidth: vi.fn(() => null) }));
 
 const notes = vi.hoisted(() => ({
   loadDailyNote: vi.fn(async (_date: Date) => undefined),
@@ -273,6 +278,8 @@ describe('Layout on a phone', () => {
 
   beforeEach(() => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
+    vi.mocked(isTabletPlatform).mockReturnValue(false);
+    vi.mocked(useElementWidth).mockReturnValue(390);
     notes.loadDailyNote.mockClear();
     localStorage.clear();
     useSettingsStore.getState().resetToDefaults();
@@ -293,12 +300,12 @@ describe('Layout on a phone', () => {
 
   afterEach(() => {
     vi.mocked(isMobilePlatform).mockReturnValue(false);
+    vi.mocked(isTabletPlatform).mockReturnValue(false);
+    vi.mocked(useElementWidth).mockReturnValue(null);
     document.documentElement.style.removeProperty('--app-height');
   });
 
-  // The columns cannot be dragged on a phone, and `App` forces both to overlay
-  // mode anyway; even if a pinned column did render, it must carry no handle.
-  it('renders no resize handles', () => {
+  it('keeps saved pinned desktop columns out of the phone layout', () => {
     useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' });
     useNoteStore.setState({
       openTabs: [todayNote],
@@ -307,9 +314,43 @@ describe('Layout on a phone', () => {
     });
     const { container } = render(<Layout />);
 
-    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
-    expect(screen.getByTestId('right-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.cursor-col-resize')).toHaveLength(0);
+  });
+
+  it('keeps an iPhone in page navigation when rotated', () => {
+    vi.mocked(useElementWidth).mockReturnValue(852);
+    render(<Layout />);
+    expect(useSettingsStore.getState().indexMode).toBe('overlay');
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+  });
+
+  it('keeps the iPad editor and note intact while its window changes width', () => {
+    vi.mocked(isTabletPlatform).mockReturnValue(true);
+    vi.mocked(useElementWidth).mockReturnValue(744);
+    useNoteStore.setState({
+      openTabs: [todayNote],
+      activeTabId: todayNote.id,
+      currentNote: todayNote,
+    });
+    const { rerender, container } = render(<Layout />);
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('editor')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar').parentElement).toHaveStyle({ width: '280px' });
+    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.cursor-col-resize')).toHaveLength(0);
+
+    vi.mocked(useElementWidth).mockReturnValue(500);
+    rerender(<Layout />);
+    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    expect(useSettingsStore.getState().indexMode).toBe('overlay');
+    expect(useNoteStore.getState().currentNote).toEqual(todayNote);
+
+    vi.mocked(useElementWidth).mockReturnValue(1000);
+    rerender(<Layout />);
+    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    expect(useNoteStore.getState().activeTabId).toBe(todayNote.id);
   });
 
   it('sizes the shell from the visual viewport instead of the screen', () => {

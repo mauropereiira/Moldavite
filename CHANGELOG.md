@@ -6,11 +6,19 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- A reusable Moldavite brand kit and branded iPhone, iPad and App Store icons.
+
+- Adaptive iPad Index/editor columns and support for iOS Larger Text.
+
 - Privacy-policy and support links in iOS Settings → About.
 
 - A touch formatting row for the iOS editor, with a keyboard dismissal control and room above the software keyboard.
 
 ### Fixed
+
+- iOS native controls and status-bar contrast follow the app theme. Long dialog
+  titles wrap, focused fields stay above the keyboard, and expanded sidebar
+  sections no longer clip long lists at a fixed height.
 
 - Locked notes and folders containing them must be unlocked before moving or renaming, preserving the path needed to decrypt them.
 
