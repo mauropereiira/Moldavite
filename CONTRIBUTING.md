@@ -33,7 +33,7 @@ npm run format:check                      # Prettier check
 (cd src-tauri && cargo clippy --all-targets -- -D warnings)
 npm run build                             # Frontend production build
 npm run tauri build                       # Packaged app (DMG on macOS, EXE and MSI on Windows;
-                                          #   add --bundles appimage deb on Linux)
+                                          #   add --bundles appimage deb rpm on Linux)
 ```
 
 Run the checks relevant to your change while iterating. Before requesting review,

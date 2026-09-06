@@ -74,9 +74,10 @@ jobs:
               `3. Windows may show SmartScreen warning - click "More info" → "Run anyway"`,
               ``,
               `### Linux (beta)`,
-              `1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.AppImage\` (any distribution) or \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.deb\` (Debian, Ubuntu)`,
+              `1. Download \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.AppImage\` (any distribution), \`Moldavite_${process.env.PACKAGE_VERSION}_amd64.deb\` (Debian, Ubuntu) or \`Moldavite-${process.env.PACKAGE_VERSION}-1.x86_64.rpm\` (Fedora)`,
               `2. AppImage: mark it executable and run it. Needs glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) and \`libfuse2\` (\`sudo apt install libfuse2\` on Ubuntu)`,
               `3. deb: \`sudo apt install ./Moldavite_${process.env.PACKAGE_VERSION}_amd64.deb\``,
+              `4. rpm: \`sudo dnf install ./Moldavite-${process.env.PACKAGE_VERSION}-1.x86_64.rpm\``,
             ].join('\n');
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -107,7 +108,7 @@ jobs:
           # 24.04: the ONNX Runtime binary fastembed downloads needs glibc 2.38,
           # which 22.04 lacks. The bundles therefore need 2.38 at runtime too.
           - platform: 'ubuntu-24.04'
-            args: '--bundles appimage deb'
+            args: '--bundles appimage deb rpm'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -210,8 +211,8 @@ jobs:
             patchelf
 
       # No code signing on Linux; the AppImage is updater-signed like every
-      # other platform. The deb has no in-app updater and is replaced by
-      # installing the next one.
+      # other platform. The deb and the rpm have no in-app updater and are
+      # replaced by installing the next one.
       - name: Build Linux app
         if: matrix.platform == 'ubuntu-24.04'
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
@@ -403,6 +404,8 @@ jobs:
               `Moldavite_${version}_amd64.AppImage.sig`,
               `Moldavite_${version}_amd64.deb`,
               `Moldavite_${version}_amd64.deb.sig`,
+              `Moldavite-${version}-1.x86_64.rpm`,
+              `Moldavite-${version}-1.x86_64.rpm.sig`,
               `latest.json`,
               // The Chrome/Edge/Brave clipper, loaded unpacked. The Firefox XPI
               // is not here: it has to be signed through AMO by hand, and is
@@ -485,11 +488,16 @@ jobs:
                 asset: `Moldavite_${version}_amd64.AppImage`,
                 signature: `Moldavite_${version}_amd64.AppImage.sig`
               },
-              // The updater never installs a deb, but tauri-action signs it and
-              // lists it, so verify the signature it advertises like the rest.
+              // The updater never installs a deb or an rpm, but tauri-action
+              // signs and lists both, so verify the signatures it advertises
+              // like the rest.
               'linux-x86_64-deb': {
                 asset: `Moldavite_${version}_amd64.deb`,
                 signature: `Moldavite_${version}_amd64.deb.sig`
+              },
+              'linux-x86_64-rpm': {
+                asset: `Moldavite-${version}-1.x86_64.rpm`,
+                signature: `Moldavite-${version}-1.x86_64.rpm.sig`
               }
             };
 

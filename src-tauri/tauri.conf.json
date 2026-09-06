@@ -106,6 +106,12 @@
         "depends": [
           "libc6 (>= 2.38)"
         ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ]
       }
     }
   }

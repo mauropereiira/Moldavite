@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **An rpm for Fedora.** Linux releases now ship `Moldavite-x.x.x-1.x86_64.rpm` next to the AppImage and the deb, installed with `sudo dnf install ./Moldavite-x.x.x-1.x86_64.rpm` and updated by installing the next one.
+
 ## [2.6.0] - 2026-09-04
 
 ### Added
