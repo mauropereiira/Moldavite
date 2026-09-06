@@ -260,11 +260,21 @@ while a synchronous Rust callback checks and changes a file. Callers must run on
 a worker thread, validate the returned path and download readiness inside the
 callback, and keep conflict detection, preservation and atomic replacement in
 one write accessor. The normal note reader and complete hash/conflict/save path
-now use `read_cloud/write_cloud`: local files stay direct, while ubiquitous files
+use the cloud-aware accessors: local files stay direct, while ubiquitous files
 receive coordination and download checks. Pending or unknown contents return an
 error and request a download; failed existing-note reads cannot become an empty
 save base. The account-bound session also guards metadata-only remote names. Remaining
 mutations and OS-managed conflict versions still need integration.
+
+Note lock/unlock, rename/move, direct deletion and folder creation/move/rename/
+deletion now use a single native transaction for all participating paths. This
+keeps readiness checks, destination checks and the filesystem change inside one
+coordination accessor. Folder moves/deletes also check pending metadata descendants.
+Normal saves reserve the locked counterpart so an undownloaded lock cannot become
+a new plaintext note. Locked notes, and folders containing them, must be unlocked
+before moving or renaming because encryption authenticates the original path.
+Trash/restore, imports, conflict-copy destinations and other content operations
+are not yet covered by this transaction integration.
 
 The read/write IPC handlers run, including their replies, on Tauri's blocking
 pool on Apple targets. Do not replace this with `command(async)`: concurrent

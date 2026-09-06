@@ -254,7 +254,7 @@ export function NoteContextMenu({
           Export as Plaintext
         </button>
       )}
-      {!note.isDaily && (
+      {!note.isDaily && !note.isWeekly && !note.isLocked && (
         <button
           onClick={() => onMoveToFolder(note)}
           className={itemClass}

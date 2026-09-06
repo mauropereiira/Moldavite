@@ -12,6 +12,8 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- Locked notes and folders containing them must be unlocked before moving or renaming, preserving the path needed to decrypt them.
+
 - Phone page headings and editor text share a tighter left inset aligned with the iPhone status-bar time; rail controls retain 44-point touch targets.
 
 - iOS no longer exposes desktop software updates, plugin execution or installation, calendar connections, WordPress publishing, or PDF export. Agenda keeps its note calendar without the desktop event panel or its settings.

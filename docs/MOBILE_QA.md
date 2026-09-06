@@ -147,3 +147,16 @@ tap or deep link as an app bug.
   callbacks, remote-only notes/locks and empty nested folder metadata.
 - No account-backed delivery, offline round-trip, cloud collision or physical
   device test is implied by these checks. Remaining sync work is listed above.
+
+### Locking and coordinated mutations, 6 September 2026
+
+- iPhone 17 simulator: locking removes the plaintext file, temporary unlock
+  displays the original text, and permanent unlock restores the exact original
+  bytes. The separate existing notes remain unchanged.
+- Rust/Swift regression tests cover multi-path reservation, concurrent access,
+  absent destinations, pending locks and destinations, error/panic cleanup, and
+  pending folder descendants. Locked-note and containing-folder move attempts
+  retain their original ciphertext and path. Context-menu tests exclude locked,
+  daily and weekly notes from Move to Folder.
+- These checks exercise local coordination and synthetic placeholders. They do
+  not prove account-backed iCloud delivery or cover trash/restore transactions.

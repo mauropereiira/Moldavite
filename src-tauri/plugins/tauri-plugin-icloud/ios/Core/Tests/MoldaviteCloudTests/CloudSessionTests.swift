@@ -44,4 +44,21 @@ final class CloudSessionTests: XCTestCase {
         XCTAssertNoThrow(try session.validateAccess(to: path))
         XCTAssertNoThrow(try session.validateAccess(to: documents.url(for: "new-note.md")))
     }
+    func testDestructiveFolderAccessWaitsForMetadataOnlyChildren() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = root.appendingPathComponent("Folder", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let documents = CloudDocuments(root: root)
+        let session = CloudSession()
+        session.bind(documents)
+        let remote = CloudItem(path: "Folder/remote.md", isDirectory: false, downloadState: .pending,
+                               isDownloading: false, isUploading: false, hasConflicts: false, error: nil)
+        session.apply(CloudChange(kind: "initial", items: [remote], removed: []), from: documents)
+        XCTAssertNoThrow(try session.validateAccess(to: folder))
+        XCTAssertThrowsError(try session.validateAccess(to: folder, includingDescendants: true))
+        try Data("remote contents".utf8).write(to: folder.appendingPathComponent("remote.md"))
+        XCTAssertNoThrow(try session.validateAccess(to: folder, includingDescendants: true))
+    }
+
 }

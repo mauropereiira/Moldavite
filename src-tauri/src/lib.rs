@@ -95,7 +95,22 @@ fn dispatch_note_io(
 ) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     move |invoke| {
         if cfg!(any(target_os = "macos", target_os = "ios"))
-            && matches!(invoke.message.command(), "read_note" | "write_note")
+            && matches!(
+                invoke.message.command(),
+                "read_note"
+                    | "write_note"
+                    | "lock_note"
+                    | "unlock_note"
+                    | "permanently_unlock_note"
+                    | "is_note_locked"
+                    | "rename_note"
+                    | "move_note"
+                    | "delete_note"
+                    | "create_folder"
+                    | "rename_folder"
+                    | "move_folder"
+                    | "delete_folder"
+            )
         {
             tauri::async_runtime::spawn_blocking(move || handler(invoke));
             true

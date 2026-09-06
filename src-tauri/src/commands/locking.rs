@@ -15,6 +15,7 @@ use zeroize::Zeroizing;
 
 use crate::backlinks_index::BacklinksIndex;
 use crate::encryption;
+use crate::note_file_access::{self, Access};
 use crate::paths::get_notes_dir;
 use crate::security;
 use crate::validation::{
@@ -128,29 +129,42 @@ fn lock_note_in(
     validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
     validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
 
-    if !original_path.exists() {
-        return Err("Note not found".to_string());
-    }
-    if locked_path.exists() {
-        return Err("Note is already locked".to_string());
-    }
+    note_file_access::transaction(
+        &[
+            Access::moving(&original_path, 1),
+            Access::write(&locked_path),
+        ],
+        || {
+            if !original_path.exists() {
+                return Err("Note not found".to_string());
+            }
+            if locked_path.exists() {
+                return Err("Note is already locked".to_string());
+            }
 
-    validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    let content =
-        fs::read_to_string(&original_path).map_err(|e| format!("Failed to read note: {e}"))?;
-    let encrypted = encryption::encrypt_note_content(
-        &content,
-        &password,
-        &note_id(&filename, is_daily, is_weekly),
-    )?;
-    validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    publish_locked_file(
-        &original_path,
-        &locked_path,
-        &content,
-        &encrypted,
-        |original, locked| fs::rename(original, locked),
+            validate_path_within_base(&original_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            let content = fs::read_to_string(&original_path)
+                .map_err(|e| format!("Failed to read note: {e}"))?;
+            let encrypted = encryption::encrypt_note_content(
+                &content,
+                &password,
+                &note_id(&filename, is_daily, is_weekly),
+            )?;
+            validate_path_within_base(&original_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            validate_path_within_base(&locked_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            publish_locked_file(
+                &original_path,
+                &locked_path,
+                &content,
+                &encrypted,
+                |original, locked| fs::rename(original, locked),
+            )?;
+
+            Ok(())
+        },
     )?;
 
     index.remove_note(index_key(&filename));
@@ -207,33 +221,36 @@ fn unlock_note_in(
     let dir = note_dir(forge_root, is_daily, is_weekly);
     let locked_path = locked_path(&dir, &filename);
     validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    if !locked_path.exists() {
-        return Err("Locked note not found".to_string());
-    }
-    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    let encrypted =
-        fs::read_to_string(&locked_path).map_err(|e| format!("Failed to read locked note: {e}"))?;
-
-    match encryption::decrypt_note_content(&encrypted, &password, &note_id) {
-        Ok(content) => {
-            security::record_successful_attempt(&note_id);
-            Ok(content)
+    note_file_access::transaction(&[Access::read(&locked_path)], || {
+        if !locked_path.exists() {
+            return Err("Locked note not found".to_string());
         }
-        Err(_) => {
-            let result = security::record_failed_attempt(&note_id);
-            if !result.allowed {
-                let secs = result.retry_after_secs.unwrap_or(30);
-                Err(format!(
+        validate_path_within_base(&locked_path, &dir)
+            .map_err(|_| "Invalid note path".to_string())?;
+        let encrypted = fs::read_to_string(&locked_path)
+            .map_err(|e| format!("Failed to read locked note: {e}"))?;
+
+        match encryption::decrypt_note_content(&encrypted, &password, &note_id) {
+            Ok(content) => {
+                security::record_successful_attempt(&note_id);
+                Ok(content)
+            }
+            Err(_) => {
+                let result = security::record_failed_attempt(&note_id);
+                if !result.allowed {
+                    let secs = result.retry_after_secs.unwrap_or(30);
+                    Err(format!(
                     "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
                 ))
-            } else {
-                let remaining = result.remaining_attempts.unwrap_or(0);
-                Err(format!(
+                } else {
+                    let remaining = result.remaining_attempts.unwrap_or(0);
+                    Err(format!(
                     "WRONG_PASSWORD:{remaining}:Incorrect password. {remaining} attempts remaining."
                 ))
+                }
             }
         }
-    }
+    })
 }
 
 /// Return authenticated plaintext without modifying the encrypted file.
@@ -279,38 +296,52 @@ fn permanently_unlock_note_in(
     let original_path = dir.join(&filename);
     validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
     validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    if !locked_path.exists() {
-        return Err("Locked note not found".to_string());
-    }
-    if original_path.exists() {
-        return Err("Note is already unlocked".to_string());
-    }
-    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    let encrypted =
-        fs::read_to_string(&locked_path).map_err(|e| format!("Failed to read locked note: {e}"))?;
-    let decrypted = match encryption::decrypt_note_content(&encrypted, &password, &note_id) {
-        Ok(content) => {
-            security::record_successful_attempt(&note_id);
-            content
-        }
-        Err(_) => {
-            let result = security::record_failed_attempt(&note_id);
-            if !result.allowed {
-                let secs = result.retry_after_secs.unwrap_or(30);
-                return Err(format!(
+    let decrypted = note_file_access::transaction(
+        &[
+            Access::moving(&locked_path, 1),
+            Access::write(&original_path),
+        ],
+        || {
+            if !locked_path.exists() {
+                return Err("Locked note not found".to_string());
+            }
+            if original_path.exists() {
+                return Err("Note is already unlocked".to_string());
+            }
+            validate_path_within_base(&locked_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            let encrypted = fs::read_to_string(&locked_path)
+                .map_err(|e| format!("Failed to read locked note: {e}"))?;
+            let decrypted = match encryption::decrypt_note_content(&encrypted, &password, &note_id)
+            {
+                Ok(content) => {
+                    security::record_successful_attempt(&note_id);
+                    content
+                }
+                Err(_) => {
+                    let result = security::record_failed_attempt(&note_id);
+                    if !result.allowed {
+                        let secs = result.retry_after_secs.unwrap_or(30);
+                        return Err(format!(
                     "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
                 ));
-            }
-            let remaining = result.remaining_attempts.unwrap_or(0);
-            return Err(format!(
+                    }
+                    let remaining = result.remaining_attempts.unwrap_or(0);
+                    return Err(format!(
                 "WRONG_PASSWORD:{remaining}:Incorrect password. {remaining} attempts remaining."
             ));
-        }
-    };
+                }
+            };
 
-    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    publish_unlocked_file(&locked_path, &original_path, &decrypted)?;
+            validate_path_within_base(&locked_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            validate_path_within_base(&original_path, &dir)
+                .map_err(|_| "Invalid note path".to_string())?;
+            publish_unlocked_file(&locked_path, &original_path, &decrypted)?;
+
+            Ok(decrypted)
+        },
+    )?;
 
     let body = crate::frontmatter::parse_note(&decrypted).body;
     match resolver {
@@ -360,7 +391,8 @@ pub(crate) fn is_note_locked(
     }
     let dir = note_dir(&get_notes_dir()?, is_daily, is_weekly);
     let path = locked_path(&dir, &filename);
-    Ok(validate_path_within_base(&path, &dir).is_ok() && path.exists())
+    validate_path_within_base(&path, &dir)?;
+    note_file_access::transaction(&[Access::read(&path)], || Ok(path.exists()))
 }
 
 #[cfg(test)]
@@ -613,6 +645,25 @@ mod tests {
             plaintext
         );
         assert!(!root.join("notes/legacy-v1.md.locked").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn pending_lock_source_is_never_treated_as_missing_plaintext() {
+        let root = temp_forge("pending-lock");
+        let marker = root.join("notes/.pending.md.icloud");
+        fs::write(&marker, "remote metadata").unwrap();
+        let result = lock_note_in(
+            &root,
+            "pending.md".into(),
+            "password".into(),
+            false,
+            false,
+            &BacklinksIndex::new(),
+        );
+        assert!(result.unwrap_err().contains("download"));
+        assert!(marker.exists());
+        assert!(!root.join("notes/pending.md.locked").exists());
         fs::remove_dir_all(root).unwrap();
     }
 }

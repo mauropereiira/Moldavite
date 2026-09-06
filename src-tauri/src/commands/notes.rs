@@ -16,6 +16,7 @@ use tauri::State;
 use crate::backlinks_index::BacklinksIndex;
 use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
+use crate::note_file_access::{self, Access};
 use crate::paths::{
     file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
 };
@@ -246,7 +247,10 @@ fn delete_note_within_base(
     base_hash: Option<&str>,
 ) -> Result<bool, String> {
     validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
-    delete_note_at(path, base_hash)
+    note_file_access::transaction(&[Access::deleting(path)], || {
+        validate_path_within_base(path, base)?;
+        delete_note_at(path, base_hash)
+    })
 }
 
 fn read_note_at(path: &Path) -> Result<NoteRead, String> {
@@ -314,11 +318,14 @@ pub(crate) fn save_note_with_conflict_using<F>(
 where
     F: FnOnce(&Path, &str) -> Result<(), String> + Send,
 {
-    crate::note_file_access::write(path, |coordinated| {
+    let mut locked_name = path.as_os_str().to_os_string();
+    locked_name.push(".locked");
+    let locked = PathBuf::from(locked_name);
+    note_file_access::transaction(&[Access::write(path), Access::write(&locked)], || {
         let base = path.parent().ok_or("Invalid note path")?;
-        validate_path_within_base(coordinated, base)
-            .map_err(|_| "Invalid note path".to_string())?;
-        save_note_with_conflict_uncoordinated(coordinated, base_hash, content, color, write)
+        validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
+        validate_path_within_base(&locked, base).map_err(|_| "Invalid note path".to_string())?;
+        save_note_with_conflict_uncoordinated(path, base_hash, content, color, write)
     })
 }
 
@@ -904,17 +911,26 @@ fn rename_note_in(
     let old_path = dir.join(old_filename);
     let new_path = dir.join(new_filename);
 
-    if !old_path.exists() {
-        return Err("Note not found".to_string());
-    }
     validate_path_within_base(&old_path, dir)?;
     validate_path_within_base(&new_path, dir)?;
+    note_file_access::transaction(
+        &[Access::moving(&old_path, 1), Access::write(&new_path)],
+        || {
+            if !old_path.exists() {
+                return Err("Note not found".to_string());
+            }
+            validate_path_within_base(&old_path, dir)?;
+            validate_path_within_base(&new_path, dir)?;
 
-    if new_path.exists() {
-        return Err("A note with this name already exists".to_string());
-    }
+            if new_path.exists() {
+                return Err("A note with this name already exists".to_string());
+            }
 
-    fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+            fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+            Ok(())
+        },
+    )?;
+
     Ok(new_path)
 }
 
@@ -1122,6 +1138,9 @@ fn move_note_in(
     note_path: &str,
     to_folder: Option<&str>,
 ) -> Result<(String, String, String, PathBuf), String> {
+    if note_path.ends_with(".locked") {
+        return Err("Unlock this note before moving it".into());
+    }
     if !is_safe_existing_note_path(note_path) {
         return Err("Invalid note path".to_string());
     }
@@ -1134,10 +1153,6 @@ fn move_note_in(
     let source_path = standalone_dir.join(note_path);
     validate_path_within_base(&source_path, standalone_dir)
         .map_err(|_| "Invalid note path".to_string())?;
-
-    if !source_path.exists() {
-        return Err("Note not found".to_string());
-    }
 
     // Get the filename and extract base name without extension
     let filename = source_path
@@ -1180,8 +1195,30 @@ fn move_note_in(
 
     // Move the file. Same-folder is a no-op rename; skip it rather than trust
     // every platform to treat "rename a path onto itself" as harmless.
-    if !is_same_folder {
-        fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move note: {}", e))?;
+    if is_same_folder {
+        note_file_access::transaction(&[Access::read(&source_path)], || {
+            if source_path.exists() {
+                Ok(())
+            } else {
+                Err("Note not found".into())
+            }
+        })?;
+    } else {
+        note_file_access::transaction(
+            &[Access::moving(&source_path, 1), Access::write(&dest_path)],
+            || {
+                validate_path_within_base(&source_path, standalone_dir)?;
+                validate_path_within_base(&dest_path, standalone_dir)?;
+                if !source_path.exists() {
+                    return Err("Note not found".into());
+                }
+                if dest_path.exists() {
+                    return Err("A note with this name already exists. Try the move again.".into());
+                }
+                fs::rename(&source_path, &dest_path)
+                    .map_err(|e| format!("Failed to move note: {}", e))
+            },
+        )?;
     }
 
     // Return new relative path
@@ -1862,6 +1899,23 @@ mod tests {
     }
 
     #[test]
+    fn moving_a_locked_note_keeps_its_encryption_identity() {
+        let tmp = TempDir::new("move-locked-note");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Archive")).unwrap();
+        fs::write(notes.join("Secret.md.locked"), "encrypted bytes").unwrap();
+
+        assert!(move_note_in(&notes, "Secret.md.locked", Some("Archive"))
+            .unwrap_err()
+            .contains("Unlock"));
+        assert_eq!(
+            fs::read_to_string(notes.join("Secret.md.locked")).unwrap(),
+            "encrypted bytes"
+        );
+        assert_eq!(fs::read_dir(notes.join("Archive")).unwrap().count(), 0);
+    }
+
+    #[test]
     fn move_note_into_its_current_folder_is_a_no_op() {
         // Dropping a note back where it already lives used to dedupe against
         // itself: "pw.md" was renamed to "pw (2).md", which reads as a
@@ -2108,5 +2162,17 @@ mod tests {
             elapsed.as_secs() < crate::stress_test::REGRESSION_BUDGET_SECS,
             "link rewrite took {elapsed:?}"
         );
+    }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn a_pending_locked_counterpart_prevents_a_plaintext_save() {
+        let tmp = TempDir::new("pending-lock-save");
+        let path = tmp.0.join("Note.md");
+        let marker = tmp.0.join(".Note.md.locked.icloud");
+        fs::write(&marker, "cloud metadata").unwrap();
+        let result = save_note_with_conflict(&path, None, "must not save", None);
+        assert!(result.unwrap_err().contains("download"));
+        assert!(!path.exists());
+        assert!(marker.exists());
     }
 }

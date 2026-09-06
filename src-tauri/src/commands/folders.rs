@@ -8,6 +8,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::note_file_access::{self, Access};
 use crate::paths::get_standalone_dir;
 use crate::persist::generate_unique_folder_name;
 use crate::types::FolderInfo;
@@ -92,20 +93,23 @@ fn create_folder_in(standalone_dir: &Path, path: &str) -> Result<(), String> {
             return Err("Invalid folder path".to_string());
         }
         current.push(name);
-        match fs::symlink_metadata(&current) {
-            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
-                return Err("Folder path contains an unsafe item".to_string())
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                if !path_is_strict {
-                    validate_new_folder_name(name)?;
+        note_file_access::transaction(&[Access::write(&current)], || {
+            match fs::symlink_metadata(&current) {
+                Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                    return Err("Folder path contains an unsafe item".to_string())
                 }
-                fs::create_dir(&current)
-                    .map_err(|error| format!("Failed to create folder: {error}"))?;
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    if !path_is_strict {
+                        validate_new_folder_name(name)?;
+                    }
+                    fs::create_dir(&current)
+                        .map_err(|error| format!("Failed to create folder: {error}"))?;
+                }
+                Err(error) => return Err(format!("Failed to inspect folder path: {error}")),
             }
-            Err(error) => return Err(format!("Failed to inspect folder path: {error}")),
-        }
+            Ok(())
+        })?;
     }
 
     #[cfg(unix)]
@@ -190,6 +194,21 @@ pub(crate) fn rename_folder(old_path: String, new_name: String) -> Result<String
     rename_folder_from(&standalone_dir, &old_path, &new_name)
 }
 
+/// Locked note encryption is bound to its notes-relative path. Changing an
+/// ancestor without the password would make the ciphertext unreadable.
+fn ensure_folder_notes_can_move(dir: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(dir).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let kind = entry.file_type().map_err(|error| error.to_string())?;
+        if kind.is_dir() {
+            ensure_folder_notes_can_move(&entry.path())?;
+        } else if kind.is_file() && entry.file_name().to_string_lossy().ends_with(".md.locked") {
+            return Err("Unlock the notes in this folder before moving or renaming it.".into());
+        }
+    }
+    Ok(())
+}
+
 fn rename_folder_from(
     standalone_dir: &Path,
     old_path: &str,
@@ -206,22 +225,35 @@ fn rename_folder_from(
     validate_path_within_base(&old_folder_path, standalone_dir)
         .map_err(|_| "Invalid folder path".to_string())?;
 
-    if !old_folder_path.exists() {
-        return Err("Folder not found".to_string());
-    }
-
     // Calculate new path (same parent directory, new name)
     let parent = old_folder_path
         .parent()
         .ok_or_else(|| "Cannot rename root folder".to_string())?;
     let new_folder_path = parent.join(new_name);
 
-    if new_folder_path.exists() {
-        return Err("A folder with this name already exists".to_string());
-    }
+    validate_path_within_base(&new_folder_path, standalone_dir)?;
+    note_file_access::transaction(
+        &[
+            Access::moving(&old_folder_path, 1),
+            Access::write(&new_folder_path),
+        ],
+        || {
+            validate_path_within_base(&old_folder_path, standalone_dir)?;
+            validate_path_within_base(&new_folder_path, standalone_dir)?;
+            if !old_folder_path.exists() {
+                return Err("Folder not found".into());
+            }
+            if new_folder_path.exists() {
+                return Err("A folder with this name already exists".to_string());
+            }
 
-    fs::rename(&old_folder_path, &new_folder_path)
-        .map_err(|e| format!("Failed to rename folder: {}", e))?;
+            ensure_folder_notes_can_move(&old_folder_path)?;
+            fs::rename(&old_folder_path, &new_folder_path)
+                .map_err(|e| format!("Failed to rename folder: {}", e))?;
+
+            Ok(())
+        },
+    )?;
 
     // Return the new relative path
     let new_relative_path = new_folder_path
@@ -247,28 +279,32 @@ fn delete_folder_from(standalone_dir: &Path, path: &str, force: bool) -> Result<
     validate_path_within_base(&folder_path, standalone_dir)
         .map_err(|_| "Invalid folder path".to_string())?;
 
-    if !folder_path.exists() {
-        return Ok(()); // Already deleted
-    }
-
-    // Check if folder is empty (unless force is true)
-    if !force {
-        let has_contents = fs::read_dir(&folder_path)
-            .map(|mut entries| entries.next().is_some())
-            .unwrap_or(false);
-
-        if has_contents {
-            return Err("Folder is not empty. Use force=true to delete anyway.".to_string());
+    note_file_access::transaction(&[Access::deleting(&folder_path)], || {
+        validate_path_within_base(&folder_path, standalone_dir)?;
+        if !folder_path.exists() {
+            return Ok(()); // Already deleted
         }
-    }
 
-    if force {
-        fs::remove_dir_all(&folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
-    } else {
-        fs::remove_dir(&folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
-    }
+        // Check if folder is empty (unless force is true)
+        if !force {
+            let has_contents = fs::read_dir(&folder_path)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
 
-    Ok(())
+            if has_contents {
+                return Err("Folder is not empty. Use force=true to delete anyway.".to_string());
+            }
+        }
+
+        if force {
+            fs::remove_dir_all(&folder_path)
+                .map_err(|e| format!("Failed to delete folder: {}", e))?;
+        } else {
+            fs::remove_dir(&folder_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+        }
+
+        Ok(())
+    })
 }
 
 /// Move a folder (and all its contents) to another folder or to root.
@@ -299,14 +335,6 @@ fn move_folder_from(
     let source_path = standalone_dir.join(folder_path);
     validate_path_within_base(&source_path, standalone_dir)
         .map_err(|_| "Invalid folder path".to_string())?;
-
-    if !source_path.exists() {
-        return Err("Folder not found".to_string());
-    }
-
-    if !source_path.is_dir() {
-        return Err("Path is not a folder".to_string());
-    }
 
     // Get the folder name
     let folder_name = source_path
@@ -343,7 +371,13 @@ fn move_folder_from(
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| standalone_dir.to_path_buf());
     if source_parent == dest_parent {
-        return Ok(folder_path.to_string()); // Already in the right place
+        return note_file_access::transaction(&[Access::read(&source_path)], || {
+            if source_path.is_dir() {
+                Ok(folder_path.to_string())
+            } else {
+                Err("Source folder is unavailable".into())
+            }
+        });
     }
 
     // Generate unique folder name if needed
@@ -353,7 +387,22 @@ fn move_folder_from(
         .map_err(|_| "Invalid destination path".to_string())?;
 
     // Move the folder
-    fs::rename(&source_path, &dest_path).map_err(|e| format!("Failed to move folder: {}", e))?;
+    note_file_access::transaction(
+        &[Access::moving(&source_path, 1), Access::write(&dest_path)],
+        || {
+            validate_path_within_base(&source_path, standalone_dir)?;
+            validate_path_within_base(&dest_path, standalone_dir)?;
+            if !source_path.is_dir() {
+                return Err("Source folder is unavailable".into());
+            }
+            if dest_path.exists() {
+                return Err("A folder with this name already exists. Try the move again.".into());
+            }
+            ensure_folder_notes_can_move(&source_path)?;
+            fs::rename(&source_path, &dest_path)
+                .map_err(|e| format!("Failed to move folder: {}", e))
+        },
+    )?;
 
     // Return new relative path
     let new_relative_path = match to_folder {
@@ -490,5 +539,23 @@ mod tests {
         let renamed = rename_folder_from(&notes, "Q3: Roadmap.", "Portable").unwrap();
         assert_eq!(renamed, "Portable");
         assert!(notes.join("Portable").is_dir());
+    }
+    #[test]
+    fn moving_or_renaming_a_folder_keeps_locked_notes_at_their_encryption_identity() {
+        let tmp = TempDir::new("locked-tree");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Project/Nested")).unwrap();
+        fs::create_dir_all(notes.join("Destination")).unwrap();
+        let locked = notes.join("Project/Nested/Secret.md.locked");
+        fs::write(&locked, "encrypted payload").unwrap();
+        assert!(rename_folder_from(&notes, "Project", "Renamed")
+            .unwrap_err()
+            .contains("Unlock"));
+        assert!(move_folder_from(&notes, "Project", Some("Destination"))
+            .unwrap_err()
+            .contains("Unlock"));
+        assert_eq!(fs::read_to_string(locked).unwrap(), "encrypted payload");
+        assert!(!notes.join("Renamed").exists());
+        assert!(!notes.join("Destination/Project").exists());
     }
 }

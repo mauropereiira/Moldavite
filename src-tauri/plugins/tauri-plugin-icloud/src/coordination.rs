@@ -10,6 +10,12 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 extern "C" {
+    fn moldavite_access_transaction(
+        requests: *const c_char,
+        force_coordination: bool,
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char) -> bool,
+    );
     #[cfg(target_os = "macos")]
     fn moldavite_connect_cloud(
         context: *mut c_void,
@@ -179,6 +185,74 @@ where
     coordinate(path, true, true, operation)
 }
 
+extern "C" fn transaction_access<F, T>(
+    context: *mut c_void,
+    paths: *const c_char,
+    error: *const c_char,
+) -> bool
+where
+    F: FnOnce(&[std::path::PathBuf]) -> Result<T, String> + Send,
+    T: Send,
+{
+    // SAFETY: native coordination finishes this callback before returning;
+    // no native code retains the uniquely borrowed state or its operation.
+    let state = unsafe { &mut *context.cast::<Accessor<F, T>>() };
+    state.result = Some(std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+        || {
+            if !error.is_null() {
+                return Err(unsafe { CStr::from_ptr(error) }
+                    .to_string_lossy()
+                    .into_owned());
+            }
+            if paths.is_null() {
+                return Err("The file coordinator returned no paths".into());
+            }
+            let paths: Vec<std::path::PathBuf> =
+                serde_json::from_slice(unsafe { CStr::from_ptr(paths) }.to_bytes())
+                    .map_err(|error| error.to_string())?;
+            let operation = state
+                .operation
+                .take()
+                .ok_or("The file coordinator invoked its accessor twice")?;
+            operation(&paths)
+        },
+    )));
+    matches!(state.result, Some(Ok(Ok(_))))
+}
+
+/// Internal JSON describes all read/write/move/delete intents in one request.
+/// The callback receives Foundation's current paths and runs exactly once.
+pub fn transaction<T, F>(
+    requests: &str,
+    force_coordination: bool,
+    operation: F,
+) -> Result<T, String>
+where
+    F: FnOnce(&[std::path::PathBuf]) -> Result<T, String> + Send,
+    T: Send,
+{
+    let requests = CString::new(requests).map_err(|error| error.to_string())?;
+    let mut state = Accessor {
+        operation: Some(operation),
+        result: None,
+    };
+    // SAFETY: the native call waits for its accessor, retaining no pointers
+    // after returning. A panic is captured until coordination is released.
+    unsafe {
+        moldavite_access_transaction(
+            requests.as_ptr(),
+            force_coordination,
+            (&mut state as *mut Accessor<F, T>).cast(),
+            transaction_access::<F, T>,
+        );
+    }
+    match state.result {
+        Some(Ok(result)) => result,
+        Some(Err(panic)) => std::panic::resume_unwind(panic),
+        None => Err("The file coordinator did not run its accessor".into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +354,112 @@ mod tests {
         .is_err());
         assert_eq!(read(&path, |_| Ok(42)).unwrap(), 42);
         assert_eq!(fs::read_to_string(path).unwrap(), "keep");
+    }
+    #[test]
+    fn transaction_can_reserve_a_new_note_and_its_absent_locked_counterpart() {
+        let fixture = Fixture::new();
+        let note = fixture.0.join("new.md");
+        let locked = fixture.0.join("new.md.locked");
+        let requests = serde_json::json!([
+            {"path": note, "mode": "write"}, {"path": locked, "mode": "write"},
+        ])
+        .to_string();
+        transaction(&requests, true, |paths| {
+            assert!(!paths[0].exists());
+            assert!(!paths[1].exists());
+            fs::write(&paths[0], "new note").map_err(|error| error.to_string())
+        })
+        .unwrap();
+        assert_eq!(fs::read_to_string(note).unwrap(), "new note");
+        assert!(!locked.exists());
+    }
+
+    #[test]
+    fn transaction_coordinates_a_move_and_propagates_failures() {
+        let fixture = Fixture::new();
+        let source = fixture.0.join("source.md");
+        let destination = fixture.0.join("destination.md");
+        fs::write(&source, "keep every byte").unwrap();
+        let requests = serde_json::json!([
+            {"path": source, "mode": "move", "moveTo": 1},
+            {"path": destination, "mode": "write"},
+        ])
+        .to_string();
+        assert_eq!(
+            transaction::<(), _>(&requests, true, |_| Err("cancelled".into())),
+            Err("cancelled".into())
+        );
+        assert!(source.exists());
+        assert!(!destination.exists());
+        assert!(std::panic::catch_unwind(|| {
+            let _ = transaction::<(), _>(&requests, true, |_| panic!("transaction panic"));
+        })
+        .is_err());
+        transaction(&requests, true, |paths| {
+            assert_eq!(paths, &[source.clone(), destination.clone()]);
+            fs::rename(&paths[0], &paths[1]).map_err(|error| error.to_string())
+        })
+        .unwrap();
+        assert!(!source.exists());
+        assert_eq!(fs::read_to_string(destination).unwrap(), "keep every byte");
+    }
+
+    #[test]
+    fn transaction_reserves_the_destination_until_the_accessor_finishes() {
+        let fixture = Fixture::new();
+        let source = fixture.0.join("source.md");
+        let destination = fixture.0.join("destination.md");
+        fs::write(&source, "source").unwrap();
+        fs::write(&destination, "original destination").unwrap();
+        let requests = serde_json::json!([
+            {"path": source, "mode": "read"}, {"path": destination, "mode": "write"},
+        ])
+        .to_string();
+        let (held_tx, held_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (waiting_tx, waiting_rx) = mpsc::channel();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let first = std::thread::spawn(move || {
+            transaction(&requests, true, move |paths| {
+                held_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                fs::write(&paths[1], "transaction completed").map_err(|error| error.to_string())
+            })
+        });
+        held_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let second = std::thread::spawn(move || {
+            waiting_tx.send(()).unwrap();
+            write(&destination, |path| {
+                entered_tx.send(()).unwrap();
+                fs::read_to_string(path).map_err(|error| error.to_string())
+            })
+        });
+        waiting_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(entered_rx.recv_timeout(Duration::from_millis(100)).is_err());
+        release_tx.send(()).unwrap();
+        first.join().unwrap().unwrap();
+        assert_eq!(second.join().unwrap().unwrap(), "transaction completed");
+    }
+
+    #[test]
+    fn transaction_refuses_a_pending_destination_before_touching_the_source() {
+        let fixture = Fixture::new();
+        let source = fixture.0.join("source.md");
+        let destination = fixture.0.join("destination.md");
+        let placeholder = fixture.0.join(".destination.md.icloud");
+        fs::write(&source, "source").unwrap();
+        fs::write(&placeholder, "remote metadata").unwrap();
+        let requests = serde_json::json!([
+            {"path": source, "mode": "move", "moveTo": 1}, {"path": destination, "mode": "write"},
+        ])
+        .to_string();
+        assert!(
+            transaction::<(), _>(&requests, false, |_| panic!("must not enter"))
+                .unwrap_err()
+                .contains("download")
+        );
+        assert_eq!(fs::read_to_string(source).unwrap(), "source");
+        assert!(!destination.exists());
+        assert!(placeholder.exists());
     }
 }

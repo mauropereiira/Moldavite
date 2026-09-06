@@ -158,7 +158,11 @@ public final class CloudDocuments {
             values = nil
         }
         let state: DownloadState
-        if values?.isUbiquitousItem == true {
+        if values?.isDirectory == true && manager.fileExists(atPath: url.path) {
+            // A materialized directory has no document body to download.
+            // Destructive tree operations validate its metadata-listed children.
+            state = .local
+        } else if values?.isUbiquitousItem == true {
             state = DownloadState.from(status: values?.ubiquitousItemDownloadingStatus, ubiquitous: true)
         } else if !manager.fileExists(atPath: url.path) {
             state = manager.fileExists(atPath: placeholder.path) ? .pending : .missing

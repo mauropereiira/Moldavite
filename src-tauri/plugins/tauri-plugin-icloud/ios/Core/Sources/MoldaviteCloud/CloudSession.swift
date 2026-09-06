@@ -59,7 +59,7 @@ public final class CloudSession {
 
     /// Called again inside the file coordinator. A remotely listed name (or
     /// ancestor folder) cannot be mistaken for a new empty local file.
-    public func validateAccess(to url: URL) throws {
+    public func validateAccess(to url: URL, includingDescendants: Bool = false) throws {
         lock.lock()
         defer { lock.unlock() }
         guard let documents = documents,
@@ -69,8 +69,16 @@ public final class CloudSession {
         guard ready else { throw CloudError.preparing }
         if url.path == documents.root.path { return }
         guard let relative = documents.relativePath(for: url) else { throw CloudError.invalidPath }
+        var candidates: [String] = []
         var candidate = relative
         while !candidate.isEmpty {
+            candidates.append(candidate)
+            candidate = (candidate as NSString).deletingLastPathComponent
+        }
+        if includingDescendants {
+            candidates.append(contentsOf: items.keys.filter { $0.hasPrefix(relative + "/") })
+        }
+        for candidate in candidates {
             if items[candidate] != nil {
                 let actual = try documents.item(at: candidate)
                 if !actual.downloadState.hasLocalContents {
@@ -80,7 +88,6 @@ public final class CloudSession {
                     throw CloudError.pendingDownload
                 }
             }
-            candidate = (candidate as NSString).deletingLastPathComponent
         }
     }
 }
