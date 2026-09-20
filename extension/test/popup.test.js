@@ -13,8 +13,12 @@ const dom = () => {
     <p id="status"></p>`;
 };
 
-/** @param {(message: object) => object | null} reply — null means "never answers". */
-function stubBrowser(reply, { connectThrows = false } = {}) {
+/**
+ * @param {(message: object) => object | null} reply — null means "never answers".
+ * @returns {object[]} every message the popup sent, in order.
+ */
+function stubBrowser(reply, { connectThrows = false, injection = { result: {} } } = {}) {
+  const sent = [];
   const port = {
     messageListeners: [],
     disconnectListeners: [],
@@ -22,6 +26,7 @@ function stubBrowser(reply, { connectThrows = false } = {}) {
     onDisconnect: { addListener: (fn) => port.disconnectListeners.push(fn) },
     disconnect: () => {},
     postMessage: (message) => {
+      sent.push(message);
       const response = reply(message);
       if (response === null) {
         port.disconnectListeners.forEach((fn) => fn());
@@ -39,9 +44,18 @@ function stubBrowser(reply, { connectThrows = false } = {}) {
       },
     },
     tabs: { query: async () => [{ id: 1 }] },
-    scripting: { executeScript: async () => [{ result: {} }] },
+    scripting: { executeScript: async () => [injection] },
   });
+  return sent;
 }
+
+const forgesThen = (clipReply) => (message) =>
+  message.op === 'forges' ? { ok: true, forges: ['Default', 'Work'], active: 'Work' } : clipReply;
+
+const clickClip = async () => {
+  document.getElementById('clip').click();
+  await settle();
+};
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const status = () => document.getElementById('status').textContent;
@@ -91,5 +105,60 @@ describe('popup', () => {
     await settle();
 
     expect(status()).toBe("Forge 'Work' does not exist");
+  });
+
+  it('sends the converted page and reports where it landed', async () => {
+    const sent = stubBrowser(forgesThen({ ok: true, path: 'notes/Clippings/How TLS works.md' }), {
+      injection: {
+        result: {
+          html: '<html><body><p>First paragraph.</p></body></html>',
+          url: 'https://example.com/tls',
+          title: 'How TLS works',
+        },
+      },
+    });
+
+    await import('../src/popup.js');
+    await settle();
+    await clickClip();
+
+    expect(sent[1]).toEqual({
+      op: 'clip',
+      forge: 'Work',
+      title: 'How TLS works',
+      url: 'https://example.com/tls',
+      markdown: 'First paragraph.',
+    });
+    expect(status()).toBe('Saved to notes/Clippings/How TLS works.md');
+  });
+
+  it('says the page could not be read rather than clipping an empty injection result', async () => {
+    const sent = stubBrowser(forgesThen({ ok: true, path: 'notes/Clippings/whatever.md' }));
+
+    await import('../src/popup.js');
+    await settle();
+    await clickClip();
+
+    expect(status()).toBe('Moldavite could not read this page.');
+    expect(sent.map((message) => message.op)).toEqual(['forges']);
+  });
+
+  it('stops a page that converts to nothing before it reaches the host', async () => {
+    const sent = stubBrowser(forgesThen({ ok: false, error: 'markdown is required' }), {
+      injection: {
+        result: {
+          html: '<html><body><img src="/a.png"><img src="/b.png"></body></html>',
+          url: 'https://example.com/gallery',
+          title: 'Gallery',
+        },
+      },
+    });
+
+    await import('../src/popup.js');
+    await settle();
+    await clickClip();
+
+    expect(status()).toBe('There is nothing to clip on this page.');
+    expect(sent.map((message) => message.op)).toEqual(['forges']);
   });
 });

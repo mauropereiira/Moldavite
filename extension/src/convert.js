@@ -31,6 +31,12 @@ function service() {
     emDelimiter: '*',
   });
   turndown.use(gfm);
+  // Turndown escapes Markdown punctuation but not `<`, so a page that displayed
+  // the text `<section>` would clip a real tag. The app renders notes with HTML
+  // enabled and then sanitizes, which would delete the words the reader saw.
+  // Only a tag-shaped `<` is escaped, so `a < b` stays readable.
+  const escapeMarkdown = turndown.escape.bind(turndown);
+  turndown.escape = (text) => escapeMarkdown(text).replace(/<(?=[a-zA-Z/!?])/g, '\\<');
   // A rule, not `remove()`: Turndown consults its built-in rules first, so the
   // stock `image` rule would beat a remove filter and emit `![]()` anyway.
   turndown.addRule('stripVisuals', {

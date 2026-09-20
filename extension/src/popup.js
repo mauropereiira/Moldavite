@@ -7,7 +7,7 @@
 import { htmlToMarkdown } from './convert.js';
 
 const HOST = 'com.moldavite.clipper';
-/** Above this the host would refuse it anyway; failing here says something useful. */
+/** No real article is this big, and failing here says something the host cannot. */
 const MAX_MARKDOWN_BYTES = 5 * 1024 * 1024;
 const NOT_CONNECTED =
   "Moldavite isn't connected yet — open Settings → Plugins and press Connect browser.";
@@ -74,12 +74,24 @@ async function clip() {
   say('Clipping…');
   try {
     const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-    const [{ result }] = await api.scripting.executeScript({
+    const [injection] = await api.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['content.js'],
     });
 
-    const markdown = htmlToMarkdown(result.html, result.url);
+    // A tab that navigated mid-injection answers without a result, and the
+    // TypeError that follows is not a sentence anyone can act on.
+    const page = injection?.result;
+    if (!page?.html || !page?.url) {
+      throw new Error('Moldavite could not read this page.');
+    }
+
+    const markdown = htmlToMarkdown(page.html, page.url);
+    // A page of nothing but images converts to nothing, and the host answers an
+    // empty note with "markdown is required".
+    if (!markdown) {
+      throw new Error('There is nothing to clip on this page.');
+    }
     if (new Blob([markdown]).size > MAX_MARKDOWN_BYTES) {
       throw new Error('This page is too large to clip.');
     }
@@ -87,8 +99,8 @@ async function clip() {
     const { path } = await ask({
       op: 'clip',
       forge: forgeSelect.value,
-      title: result.title,
-      url: result.url,
+      title: page.title,
+      url: page.url,
       markdown,
     });
     say(`Saved to ${path}`);

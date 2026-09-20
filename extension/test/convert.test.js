@@ -59,4 +59,24 @@ describe('htmlToMarkdown', () => {
 
     expect(md).toBe('Just a sentence.');
   });
+  it('escapes tag-shaped text so it survives as text in the note', () => {
+    const md = htmlToMarkdown(
+      '<article><p>Wrap it in a &lt;section&gt; element.</p></article>',
+      'https://example.com/'
+    );
+
+    // The app renders a note with markdown-it (`html: true`) and then sanitizes,
+    // so an unescaped `<section>` here is a tag that gets stripped, not text.
+    expect(md).toContain('\\<section>');
+    expect(md).not.toMatch(/(^|[^\\])<section>/);
+  });
+
+  it('leaves a less-than that is not a tag alone', () => {
+    const md = htmlToMarkdown(
+      '<article><p>keep going while a &lt; b holds</p></article>',
+      'https://example.com/'
+    );
+
+    expect(md).toContain('a < b');
+  });
 });

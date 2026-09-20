@@ -13,6 +13,7 @@ import { build } from 'esbuild';
 const TARGETS = ['chrome', 'firefox'];
 const COPIED = [
   ['manifest.json', 'manifest.json'],
+  ['icon-128.png', 'icon-128.png'],
   ['src/popup.html', 'popup.html'],
   ['src/popup.css', 'popup.css'],
 ];
