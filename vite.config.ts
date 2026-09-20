@@ -50,7 +50,6 @@ export default defineConfig({
           if (id.includes('markdown-it') || id.includes('turndown') || id.includes('dompurify'))
             return 'markdown-vendor';
           if (id.includes('date-fns')) return 'date-vendor';
-          if (id.includes('@dnd-kit')) return 'dnd-vendor';
           if (
             id.includes('react-dom') ||
             id.includes('/react/') ||

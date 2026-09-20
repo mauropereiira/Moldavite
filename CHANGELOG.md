@@ -2,6 +2,16 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Security
+
+- Updated rustls to 0.23.45 for RUSTSEC-2026-0285, a TLS 1.3 handshake flaw, and cleared 14 advisories in build and test dependencies. No shipped application code changed for the latter.
+
+- Moldavite's search index and note metadata are no longer reachable through the app's own image loader.
+
+- macOS 14 and later: added the calendar permission description Apple requires for full calendar access.
+
 ## [2.7.1] - 2026-09-06
 
 ### Fixed

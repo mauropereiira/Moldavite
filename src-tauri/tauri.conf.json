@@ -38,8 +38,10 @@
           "deny": [
             "$DOCUMENT/Moldavite/**/.plugins/**",
             "$DOCUMENT/Moldavite/**/.trash/**",
+            "$DOCUMENT/Moldavite/**/.index/**",
             "$DOCUMENT/Moldavite/**/*.md",
-            "$DOCUMENT/Moldavite/**/*.md.locked"
+            "$DOCUMENT/Moldavite/**/*.locked",
+            "$DOCUMENT/Moldavite/**/*.json"
           ]
         }
       }
