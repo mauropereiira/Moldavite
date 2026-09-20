@@ -4,6 +4,13 @@ import Foundation
 // Shared event store instance
 private let eventStore = EKEventStore()
 
+/// The same binary serves two stdout-framed protocols (`--mcp` and the browser
+/// native-messaging host), so nothing in this process may write diagnostics to
+/// stdout. Keep every message on stderr.
+private func logError(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+}
+
 // MARK: - Permission Functions
 
 /// Check calendar authorization status
@@ -32,7 +39,7 @@ public func requestCalendarPermission() -> Bool {
         eventStore.requestFullAccessToEvents { success, error in
             granted = success
             if let error = error {
-                print("EventKit permission error: \(error.localizedDescription)")
+                logError("EventKit permission error: \(error.localizedDescription)")
             }
             semaphore.signal()
         }
@@ -40,7 +47,7 @@ public func requestCalendarPermission() -> Bool {
         eventStore.requestAccess(to: .event) { success, error in
             granted = success
             if let error = error {
-                print("EventKit permission error: \(error.localizedDescription)")
+                logError("EventKit permission error: \(error.localizedDescription)")
             }
             semaphore.signal()
         }
@@ -49,7 +56,7 @@ public func requestCalendarPermission() -> Bool {
     // Wait with a 60-second timeout to give user time to respond
     let result = semaphore.wait(timeout: .now() + 60)
     if result == .timedOut {
-        print("EventKit permission request timed out")
+        logError("EventKit permission request timed out")
         return false
     }
     return granted

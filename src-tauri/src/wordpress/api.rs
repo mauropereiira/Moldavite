@@ -58,7 +58,7 @@ pub struct PublishedPost {
 }
 
 async fn authed(token: &str, url: String) -> reqwest::RequestBuilder {
-    reqwest::Client::new()
+    super::http_client()
         .get(url)
         .bearer_auth(token)
         .header("accept", "application/json")
@@ -121,7 +121,7 @@ pub async fn publish(
         form.push(("status", "draft".to_string()));
     }
 
-    let response = reqwest::Client::new()
+    let response = super::http_client()
         .post(url)
         .bearer_auth(token)
         .header("accept", "application/json")

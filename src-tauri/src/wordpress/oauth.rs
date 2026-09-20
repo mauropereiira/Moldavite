@@ -292,7 +292,7 @@ async fn exchange<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), Strin
         .filter(|v| !v.is_empty())
         .ok_or_else(not_configured_message)?;
 
-    let response = reqwest::Client::new()
+    let response = super::http_client()
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id),

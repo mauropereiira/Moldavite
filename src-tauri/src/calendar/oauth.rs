@@ -210,6 +210,23 @@ fn percent_decode(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Cap on the request line a loopback client can make us buffer. Google's
+/// redirect is a few hundred bytes; anything on this machine can also connect,
+/// and an unbounded `read_line` would grow a `String` for as long as such a
+/// caller keeps sending bytes without a newline.
+const MAX_REQUEST_LINE_BYTES: u64 = 8 * 1024;
+
+/// Read the HTTP request line, never retaining more than the cap. `None` means
+/// the connection produced nothing usable, which the caller treats as "not our
+/// redirect" and moves on to the next connection.
+fn read_request_line(stream: impl std::io::Read) -> Option<String> {
+    let mut line = String::new();
+    BufReader::new(stream.take(MAX_REQUEST_LINE_BYTES))
+        .read_line(&mut line)
+        .ok()?;
+    Some(line)
+}
+
 const CALLBACK_PAGE: &str = "<!doctype html><meta charset=\"utf-8\"><title>Moldavite</title>\
 <body style=\"font-family:system-ui;padding:3rem;text-align:center\">\
 <h1>Moldavite is connected</h1><p>You can close this tab and return to the app.</p>";
@@ -252,17 +269,13 @@ fn await_callback(listener: TcpListener, expected_state: &str) -> Result<Callbac
         stream.set_nonblocking(false).ok();
         stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
 
-        let mut line = String::new();
-        if BufReader::new(
+        let Some(line) = read_request_line(
             stream
                 .try_clone()
                 .map_err(|e| format!("callback connection failed: {e}"))?,
-        )
-        .read_line(&mut line)
-        .is_err()
-        {
+        ) else {
             continue;
-        }
+        };
 
         let callback = parse_callback(&line);
         if callback.state.as_deref() != Some(expected_state) {
@@ -477,6 +490,28 @@ mod tests {
         assert_eq!(challenge_for(&pkce.verifier), pkce.challenge);
         // RFC 7636 requires 43-128 characters.
         assert!((43..=128).contains(&pkce.verifier.len()));
+    }
+
+    /// Any local process can connect to the loopback port. One that sends
+    /// bytes without ever sending a newline must not be able to grow the
+    /// buffer we keep for it.
+    #[test]
+    fn a_request_line_that_never_ends_is_capped_not_buffered_whole() {
+        let flood = vec![b'x'; (MAX_REQUEST_LINE_BYTES as usize) * 4];
+        let line = read_request_line(std::io::Cursor::new(flood)).unwrap();
+
+        assert_eq!(line.len(), MAX_REQUEST_LINE_BYTES as usize);
+        assert_eq!(parse_callback(&line), Callback::default());
+    }
+
+    /// The cap is far above a real redirect, so the flow itself is unchanged.
+    #[test]
+    fn a_real_redirect_line_still_reads_whole() {
+        let request = "GET /?code=abc123&state=xyz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        let line = read_request_line(std::io::Cursor::new(request.as_bytes())).unwrap();
+
+        assert_eq!(line, "GET /?code=abc123&state=xyz HTTP/1.1\r\n");
+        assert_eq!(parse_callback(&line).code.as_deref(), Some("abc123"));
     }
 
     #[test]

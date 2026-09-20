@@ -9,12 +9,31 @@
 pub(crate) mod api;
 pub(crate) mod oauth;
 
+use std::time::Duration;
+
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_shell::ShellExt;
 
 pub(crate) use oauth::PendingAuth;
 
 use api::{PublishedPost, WordPressSite};
+
+/// A stalled connection must not leave a publish pending forever. `reqwest`'s
+/// default client has no request timeout at all, so every call here shares one
+/// that does — and keeps its connection pool while it is at it.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn build_client(timeout: Duration) -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .build()
+        .unwrap_or_default()
+}
+
+pub(crate) fn http_client() -> reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| build_client(REQUEST_TIMEOUT)).clone()
+}
 
 /// What Settings needs to draw the WordPress section without guessing.
 #[derive(serde::Serialize)]
@@ -123,4 +142,52 @@ pub(crate) fn handle_callback<R: Runtime>(app: &AppHandle<R>, url: String) {
 /// Register the one piece of state the flow needs.
 pub(crate) fn init<R: Runtime>(app: &AppHandle<R>) {
     app.manage(PendingAuth::default());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::TcpListener;
+
+    /// A peer that completes the TCP handshake and then says nothing is what
+    /// `reqwest::Client::new()` waits on forever, taking `wordpress_publish`
+    /// with it. The shared client must give up instead.
+    #[test]
+    fn the_shared_client_gives_up_on_a_peer_that_never_answers() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let _ = stream.read(&mut [0u8; 1]);
+                std::thread::sleep(Duration::from_secs(2));
+            }
+        });
+
+        let client = build_client(Duration::from_millis(250));
+        let error = tauri::async_runtime::block_on(async move {
+            client
+                .get(format!("http://127.0.0.1:{port}/"))
+                .send()
+                .await
+                .expect_err("a silent peer must not be waited on forever")
+        });
+
+        assert!(error.is_timeout(), "{error}");
+    }
+
+    /// Every WordPress.com request has to go through [`http_client`]; a call
+    /// site that builds its own gets reqwest's untimed default back.
+    #[test]
+    fn no_call_site_builds_its_own_client() {
+        for (name, source) in [
+            ("api.rs", include_str!("api.rs")),
+            ("oauth.rs", include_str!("oauth.rs")),
+        ] {
+            assert!(
+                !source.contains("Client::new()"),
+                "{name} builds its own client instead of using super::http_client()"
+            );
+        }
+    }
 }
