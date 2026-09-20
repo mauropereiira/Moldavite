@@ -12,6 +12,8 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Images did not load in a Forge kept outside the default folder, including the iCloud one.** The app could only serve images from `Documents/Moldavite`, so anyone who moved their Forges root, or turned on the synced Forge, saw every embedded image break. The active Forge's images folder is now granted at launch and on every Forge switch. Only that folder is granted, so notes stay unreachable to the app's image loader.
+
 - **Clipper: a page with nothing to convert, or a tab that could not be read, showed an internal error or saved a note containing the word "undefined".** Both now say what happened in plain language.
 
 - Clipper: text that looks like an HTML tag, such as `<section>` written out in an article, is kept as text instead of vanishing from the saved note.

@@ -231,6 +231,9 @@ pub(crate) fn refresh_active_forge(
     index: Arc<BacklinksIndex>,
     target: PathBuf,
 ) {
+    // The new Forge may sit outside the static asset scope, which would leave
+    // every embedded image unreachable until the next launch.
+    crate::paths::grant_forge_asset_access(app, &target);
     // Tear down old watcher and spin up a new one rooted at the new Forge.
     let slot = app.try_state::<WatcherSlot>();
     // Stop the old watcher before clearing `recent`, so an event still in

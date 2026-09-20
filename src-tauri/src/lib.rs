@@ -308,6 +308,12 @@ pub fn run() {
             if let Err(e) = commands::forges::ensure_active_forge() {
                 log::warn!("[forge] active Forge bootstrap error: {}", e);
             }
+            // The static asset scope only covers the default Forge location, so
+            // a relocated or iCloud Forge needs its images granted before the
+            // first note renders.
+            if let Ok(root) = paths::get_notes_dir() {
+                paths::grant_forge_asset_access(app.handle(), &root);
+            }
             // Run sidecar-metadata → frontmatter migration once. Idempotent,
             // safe to call on every launch.
             match migration::migrate_metadata_to_frontmatter() {
