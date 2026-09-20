@@ -4,6 +4,14 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Frontmatter that could not be parsed was deleted on the next save.** A tab-indented block or an unclosed list, both easy to write by hand, cost you the whole block permanently. It is now kept as part of the note.
+
+- **A note that was just saved could be lost to a crash or power cut.** Saving made the note's contents durable but not the directory entry naming them.
+
+- A wiki link to a locked note showed as broken, because a locked note was only ever looked for under its unencrypted name.
+
 ### Security
 
 - Updated rustls to 0.23.45 for RUSTSEC-2026-0285, a TLS 1.3 handshake flaw, and cleared 14 advisories in build and test dependencies. No shipped application code changed for the latter.
@@ -11,6 +19,12 @@ All notable changes to Moldavite are documented here.
 - Moldavite's search index and note metadata are no longer reachable through the app's own image loader.
 
 - macOS 14 and later: added the calendar permission description Apple requires for full calendar access.
+
+- A symlink placed in the daily or weekly folder could pull a file from outside the Forge into the backlinks index, exposing its name, title and a snippet.
+
+- On Windows, a note-colour metadata file carrying an absolute path could make the one-time startup migration write outside the Forge.
+
+- A lockout after repeated failed unlock attempts now runs its full length instead of being cleared by waiting.
 
 ## [2.7.1] - 2026-09-06
 

@@ -20,6 +20,20 @@
 /// simply reports Windows as broken.
 pub(crate) const REGRESSION_BUDGET_SECS: u64 = 120;
 
+/// How many times slower than its own same-run baseline an operation may be.
+///
+/// A wall-clock ceiling alone cannot tell a real regression from a busy
+/// machine: raising it until CI stops flaking is what turned a 5-second budget
+/// into two minutes, and two minutes catches almost nothing. So each timing
+/// test also measures the irreducible work it depends on — reading the same
+/// files, parsing the same links, scanning the same Forge — inside the same
+/// run, and asserts a ratio against that. Load slows both halves together, so
+/// the ratio holds on a loaded runner while still failing on the
+/// order-of-magnitude regressions these tests exist to catch. The measured
+/// ratios sit between 1.3 and 1.6 (and near 0.01 for the index versus the
+/// scan), so this leaves well over a decimal order of headroom.
+const SAME_RUN_RATIO_LIMIT: f64 = 20.0;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -87,12 +101,39 @@ fn stress_search_over_1000_note_vault() {
         fs::write(base.join(dir).join(format!("note-{i}.md")), content).unwrap();
     }
 
+    // Same-run floor: every note read once, which is the irreducible work the
+    // search has to do. Running it first means the search meets a warm page
+    // cache, so the ratio below is if anything pessimistic.
+    let started = Instant::now();
+    let mut baseline_bytes = 0usize;
+    for i in 0..1000 {
+        let dir = if i % 5 == 0 {
+            "notes/Projects"
+        } else {
+            "notes"
+        };
+        baseline_bytes += fs::read_to_string(base.join(dir).join(format!("note-{i}.md")))
+            .unwrap()
+            .len();
+    }
+    let read_all = started.elapsed();
+    assert!(baseline_bytes > 0);
+
     let started = Instant::now();
     let results = search_notes_content_in(base, &base.join(".trash"), "moldavite-needle", 50);
     let elapsed = started.elapsed();
 
     assert_eq!(results.len(), 10, "expected exactly the 10 seeded matches");
-    eprintln!("[stress] search over 1000 notes took {elapsed:?}");
+    let ratio = elapsed.as_secs_f64() / read_all.as_secs_f64();
+    eprintln!(
+        "[stress] search over 1000 notes took {elapsed:?}; reading them all took {read_all:?} \
+         (ratio {ratio:.2})"
+    );
+    assert!(
+        ratio < SAME_RUN_RATIO_LIMIT,
+        "search over 1000 notes took {elapsed:?}, {ratio:.1}x the {read_all:?} it takes to read \
+         them — order-of-magnitude regression"
+    );
     assert!(
         elapsed.as_secs() < REGRESSION_BUDGET_SECS,
         "search over 1000 notes took {elapsed:?} — order-of-magnitude regression"
@@ -102,10 +143,9 @@ fn stress_search_over_1000_note_vault() {
 /// Scan versus persistent index on a Forge far past the size the live scan
 /// was designed for, plus the cost of the reconcile that builds it.
 ///
-/// The bounds are deliberately loose. A loaded CI runner is an order of
-/// magnitude slower than a warm laptop, and these are regression alarms: the
-/// index answers in single-digit milliseconds locally, so 250 ms means
-/// something is structurally wrong, not that the machine was busy.
+/// The query bound is relative to the scan measured in the same run, so a
+/// loaded CI runner — an order of magnitude slower than a warm laptop — slows
+/// both sides and the assertion still means what it says.
 fn stress_index_versus_scan(note_count: usize) {
     let vault = TempVault::new(&format!("index-{note_count}"));
     let base = vault.path();
@@ -153,9 +193,14 @@ fn stress_index_versus_scan(note_count: usize) {
     );
     crate::search_index::delete_for(base);
 
+    // Against the scan measured in the same run, not a fixed millisecond
+    // ceiling a loaded runner can blow through on healthy code. The index is
+    // there to be an order of magnitude faster than walking the Forge; that is
+    // the claim, and it is the one worth failing on.
     assert!(
-        index_query.as_millis() < 250,
-        "index query over {note_count} notes took {index_query:?}"
+        index_query.as_secs_f64() * 10.0 < scan_query.as_secs_f64(),
+        "index query over {note_count} notes took {index_query:?} against a {scan_query:?} scan \
+         — the index is no longer an order of magnitude faster"
     );
     assert!(
         reconcile_time.as_secs() < 60,
@@ -269,6 +314,14 @@ fn stress_rewrite_links_across_large_corpus() {
     let corpus: Vec<String> = (0..500).map(|i| lorem_note(i, false)).collect();
 
     let started = Instant::now();
+    let mut found = 0usize;
+    for content in &corpus {
+        found += crate::wiki::parse_wiki_links(content).len();
+    }
+    let parse_all = started.elapsed();
+    assert!(found > 0);
+
+    let started = Instant::now();
     let mut touched = 0;
     for content in &corpus {
         if let Some(rewritten) = rewrite_links_for_rename(content, "note-42", "renamed-note") {
@@ -277,13 +330,19 @@ fn stress_rewrite_links_across_large_corpus() {
             touched += 1;
         }
     }
+    let elapsed = started.elapsed();
+    let ratio = elapsed.as_secs_f64() / parse_all.as_secs_f64();
     eprintln!(
-        "[stress] link rewrite across 500 notes took {:?} ({touched} touched)",
-        started.elapsed()
+        "[stress] link rewrite across 500 notes took {elapsed:?} ({touched} touched); parsing \
+         the same links took {parse_all:?} (ratio {ratio:.2})"
     );
     // note i links to (i+para)%1000 for para 0..8 — several notes link to 42.
     assert!(touched > 0, "expected at least one note to link to note-42");
-    let elapsed = started.elapsed();
+    assert!(
+        ratio < SAME_RUN_RATIO_LIMIT,
+        "link rewrite across 500 notes took {elapsed:?}, {ratio:.1}x the {parse_all:?} it takes \
+         to parse the same links — order-of-magnitude regression"
+    );
     assert!(
         elapsed.as_secs() < REGRESSION_BUDGET_SECS,
         "link rewrite across 500 notes took {elapsed:?} — order-of-magnitude regression"

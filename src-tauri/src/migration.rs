@@ -172,8 +172,10 @@ struct MetadataFile {
 /// `notes/sub/bar.md`) to an absolute on-disk path under the configured
 /// Forge directory.
 fn resolve_note_path(notes_dir: &Path, note_path: &str) -> Option<PathBuf> {
-    // Reject anything that tries to escape the notes_dir.
-    if note_path.contains("..") || note_path.starts_with('/') || note_path.contains('\0') {
+    // Reject anything that tries to escape the notes_dir. The shared syntax
+    // check also covers backslash separators and `C:` drive prefixes, which
+    // `Path::join` would otherwise treat as absolute and let out of the Forge.
+    if note_path.contains("..") || !crate::validation::has_safe_relative_path_syntax(note_path) {
         return None;
     }
     Some(notes_dir.join(note_path))
@@ -291,6 +293,20 @@ mod tests {
         assert!(resolve_note_path(&base, "../etc/passwd").is_none());
         assert!(resolve_note_path(&base, "/etc/passwd").is_none());
         assert!(resolve_note_path(&base, "notes/foo\0.md").is_none());
+    }
+
+    #[test]
+    fn security_regression_resolve_rejects_windows_absolute_forms() {
+        // A `.note-metadata.json` can arrive from another machine or another
+        // tool. On Windows `Path::join` treats these as absolute and replaces
+        // the Forge prefix outright, so the migration would rewrite a file
+        // outside the Forge.
+        let base = PathBuf::from("/tmp/forge");
+        assert!(resolve_note_path(&base, r"C:\Windows\system.ini").is_none());
+        assert!(resolve_note_path(&base, "C:/Windows/system.ini").is_none());
+        assert!(resolve_note_path(&base, r"\\server\share\note.md").is_none());
+        assert!(resolve_note_path(&base, r"notes\sub\foo.md").is_none());
+        assert!(resolve_note_path(&base, "").is_none());
     }
 
     #[test]

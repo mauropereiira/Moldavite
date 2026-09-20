@@ -839,9 +839,14 @@ pub(crate) fn delete_for(forge_root: &Path) {
     };
     if let Some(index) = removed {
         // Close the connection first: Windows will not delete an open file.
-        if let Ok(mut slot) = index.conn.lock() {
-            slot.take();
-        }
+        // A poisoned lock is recovered rather than skipped, as everywhere else
+        // in this module — otherwise the handle stays open and the removal
+        // below fails on Windows.
+        index
+            .conn
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
     }
     if let Err(error) = fs::remove_dir_all(&dir) {
         if error.kind() != std::io::ErrorKind::NotFound {
