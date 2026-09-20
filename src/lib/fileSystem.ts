@@ -19,7 +19,6 @@ import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import DOMPurify from 'dompurify';
 
-// Initialize conversion libraries
 const turndownService = new TurndownService({
   headingStyle: 'atx',
   hr: '---',
@@ -59,7 +58,6 @@ turndownService.addRule('textAlign', {
   },
 });
 
-// Add rule for wiki links (must be before we use turndownService)
 turndownService.addRule('wikiLink', {
   filter: (node) => {
     return (
@@ -69,10 +67,8 @@ turndownService.addRule('wikiLink', {
   },
   replacement: (content, node) => {
     const element = node as HTMLElement;
-    // Use data-label attribute if available, otherwise use text content
     const label = element.getAttribute('data-label') || content || '';
 
-    // Simple syntax - just use the label
     return `[[${label}]]`;
   },
 });
@@ -85,14 +81,13 @@ turndownService.addRule('taskItemCheckbox', {
     );
   },
   replacement: function () {
-    return ''; // Don't output anything for checkboxes
+    return '';
   },
 });
 
 // Add rule to ignore labels inside task items (they just wrap the checkbox)
 turndownService.addRule('taskItemLabel', {
   filter: function (node) {
-    // Only match labels that are direct children of task items
     const parent = node.parentNode as HTMLElement | null;
     return !!(
       node.nodeName === 'LABEL' &&
@@ -102,11 +97,10 @@ turndownService.addRule('taskItemLabel', {
     );
   },
   replacement: function () {
-    return ''; // Don't output anything for task item labels
+    return '';
   },
 });
 
-// Add rule for divs inside task items - strip block formatting
 // TipTap wraps task text in <div><p>text</p></div>, and Turndown treats <div>
 // as a block element, adding newlines. This rule prevents that.
 turndownService.addRule('taskItemDiv', {
@@ -124,7 +118,6 @@ turndownService.addRule('taskItemDiv', {
   },
 });
 
-// Add rule for TipTap task list items - converts to GFM checkbox syntax
 turndownService.addRule('taskItem', {
   filter: function (node) {
     return (
@@ -135,10 +128,9 @@ turndownService.addRule('taskItem', {
     const element = node as HTMLElement;
     const isChecked = element.getAttribute('data-checked') === 'true';
     const checkbox = isChecked ? '[x]' : '[ ]';
-    // Clean up the content - remove any whitespace artifacts
     const cleanContent = content
-      .replace(/^\s+/, '') // Strip ALL leading whitespace
-      .replace(/\s+$/, '') // Strip ALL trailing whitespace
+      .replace(/^\s+/, '')
+      .replace(/\s+$/, '')
       .replace(/\\\[[\sx]?\\\]/g, '') // Remove any escaped checkbox remnants
       .trim()
       // A blank line would close the list, so a nested task list has to stay
@@ -149,7 +141,6 @@ turndownService.addRule('taskItem', {
   },
 });
 
-// Add rule for TipTap task list container
 turndownService.addRule('taskList', {
   filter: function (node) {
     return (
@@ -157,7 +148,6 @@ turndownService.addRule('taskList', {
     );
   },
   replacement: function (content) {
-    // Content is already processed by taskItem rule
     return '\n' + content + '\n';
   },
 });
@@ -185,7 +175,6 @@ turndownService.addRule('image', {
     const width = element.getAttribute('width');
     const alignment = element.getAttribute('data-alignment');
 
-    // Build attribute string
     let attrs = `src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}"`;
     if (width) attrs += ` width="${escapeHtmlAttribute(width)}"`;
     if (alignment) attrs += ` data-alignment="${escapeHtmlAttribute(alignment)}"`;
@@ -208,14 +197,12 @@ const md = new MarkdownIt({
   typographer: false,
 });
 
-// Add task list plugin for GFM checkbox syntax (- [ ] and - [x])
 // Note: label: false produces simpler HTML that's easier to convert to TipTap format
 md.use(markdownItTaskLists, {
   enabled: true,
   label: false,
 });
 
-// Configure DOMPurify for safe HTML rendering
 // Allow only tags and attributes needed for note content
 const DOMPURIFY_CONFIG = {
   ALLOWED_TAGS: [
@@ -297,7 +284,6 @@ const DOMPURIFY_CONFIG = {
   ],
   // Only allow explicitly listed data-* attributes above (not all data-* attributes)
   ALLOW_DATA_ATTR: false,
-  // Forbid potentially dangerous attributes
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   // Don't allow javascript: URLs. `src` is deliberately NOT marked URI-safe:
   // that would skip the scheme check entirely and let `javascript:` through.
@@ -305,7 +291,6 @@ const DOMPURIFY_CONFIG = {
   ALLOW_UNKNOWN_PROTOCOLS: false,
 };
 
-// Add DOMPurify hook to allow asset.localhost URLs
 DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
   if (data.attrName === 'src' && data.attrValue) {
     // Allow asset.localhost URLs (Tauri's convertFileSrc output)
@@ -474,20 +459,17 @@ function taskListsToTipTapHtml(html: string): string {
 export function markdownToHtml(markdown: string): string {
   if (!markdown || markdown.trim() === '') return '';
 
-  // Pre-process wiki links BEFORE markdown-it
   let processed = markdown;
 
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
   processed = processed.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, text, target) => {
     const displayText = text.trim();
     const targetNote = (target || text).trim();
-    // Convert to filename format
     const filename = noteNameToFilename(targetNote);
 
     return `<wiki-link data-target="${filename}">${displayText}</wiki-link>`;
   });
 
-  // Render markdown to HTML
   let html = md.render(processed);
 
   // markdown-it emits `<ul class="contains-task-list">` with a leading checkbox
@@ -496,7 +478,6 @@ export function markdownToHtml(markdown: string): string {
   html = taskListsToTipTapHtml(html);
 
   // Sanitize HTML to prevent XSS attacks
-  // This removes any potentially dangerous scripts, event handlers, and malicious content
   return DOMPurify.sanitize(html, DOMPURIFY_CONFIG);
 }
 
@@ -509,14 +490,11 @@ export function markdownToHtml(markdown: string): string {
 export function parseTaskStatus(html: string): { totalTasks: number; completedTasks: number } {
   if (!html) return { totalTasks: 0, completedTasks: 0 };
 
-  // Count total task items (TipTap format)
   const taskItemRegex = /data-type="taskItem"/g;
   const totalMatches = html.match(taskItemRegex);
   const totalTasks = totalMatches ? totalMatches.length : 0;
 
   // Count completed task items - handle both attribute orders
-  // Pattern 1: data-checked="true" comes before data-type="taskItem"
-  // Pattern 2: data-type="taskItem" comes before data-checked="true"
   const checkedRegex1 = /data-checked="true"[^>]*data-type="taskItem"/g;
   const checkedRegex2 = /data-type="taskItem"[^>]*data-checked="true"/g;
   const checkedMatches1 = html.match(checkedRegex1) || [];
@@ -581,10 +559,6 @@ export function noteContentToEditorHtml(content: string): string {
     : markdownToHtml(content);
 }
 
-/**
- * Ensures required note directories exist in the file system.
- * @throws {Error} If directory creation fails
- */
 export async function ensureDirectories(): Promise<void> {
   await invoke('ensure_directories');
 }
@@ -692,14 +666,6 @@ export function getLastPersistedMarkdown(
   return lastPersistedMarkdown.get(noteHashKey(filename, isDaily, isWeekly));
 }
 
-/**
- * Reads the content of a specific note file. Strips YAML frontmatter from the
- * body and surfaces `color` separately.
- * @param filename - The note filename (e.g., "2025-01-01.md")
- * @param isDaily - Whether this is a daily note
- * @param isWeekly - Whether this is a weekly note
- * @returns Parsed body plus any color from frontmatter
- */
 /**
  * Backend note commands address standalone notes by their path relative to
  * the notes/ directory (folder included); daily and weekly notes use a bare
@@ -856,12 +822,6 @@ export async function drainNoteWrites(
   if (pending) await Promise.all([...pending]);
 }
 
-/**
- * Deletes a note file from the file system.
- * @param filename - The note filename to delete
- * @param isDaily - Whether this is a daily note
- * @param isWeekly - Whether this is a weekly note
- */
 export async function deleteNote(
   filename: string,
   isDaily: boolean,
@@ -908,13 +868,6 @@ export async function createNote(title: string, folderPath?: string): Promise<st
   return await invoke('create_note', { title, folderPath });
 }
 
-/**
- * Renames a note file.
- * @param oldFilename - Current filename
- * @param newFilename - New filename
- * @param isDaily - Whether this is a daily note
- * @param isWeekly - Whether this is a weekly note
- */
 export async function renameNote(
   oldFilename: string,
   newFilename: string,
@@ -933,10 +886,6 @@ export async function renameNote(
   }
 }
 
-/**
- * Deletes all notes from the file system.
- * @throws {Error} If deletion fails
- */
 export async function clearAllNotes(): Promise<void> {
   await invoke('clear_all_notes');
 }
@@ -1028,8 +977,6 @@ export function filenameToNote(file: NoteFile, content: string): Note {
   };
 }
 
-// Note Locking Functions
-
 /**
  * Locks a note by encrypting it with a password.
  * The note will be stored as filename.md.locked with AES-256 encryption.
@@ -1096,8 +1043,6 @@ export async function permanentlyUnlockNote(
   forgetNoteBaseHash(filename, isDaily, isWeekly);
 }
 
-// Directory Management Functions
-
 /**
  * Gets the current notes directory path.
  * @returns The absolute path to the notes directory
@@ -1135,8 +1080,6 @@ export async function rescanForge(): Promise<void> {
 export async function openForgeInFinder(): Promise<void> {
   await invoke('open_forge_in_finder');
 }
-
-// Export/Import Functions
 
 export interface ImportResult {
   dailyNotes: number;
@@ -1333,8 +1276,6 @@ export async function exportSingleNote(
   return await invoke('export_single_note', { filename, destination, isDaily, isWeekly });
 }
 
-// Note Color/Metadata Functions
-
 /**
  * Sets the color ID for a specific note.
  * @param notePath - The path identifier for the note
@@ -1351,8 +1292,6 @@ export async function setNoteColor(notePath: string, colorId: string | null): Pr
 export async function getAllNoteColors(): Promise<Record<string, string>> {
   return await invoke('get_all_note_colors');
 }
-
-// Folder System Functions
 
 /**
  * Lists all folders in the notes directory recursively.
@@ -1421,8 +1360,6 @@ export async function moveFolder(folderPath: string, toFolder?: string): Promise
   return await invoke('move_folder', { folderPath, toFolder });
 }
 
-// Trash System Functions
-
 /**
  * Moves a note to the trash instead of permanently deleting it.
  * @param filename - The note filename (relative path within notes/ or daily/ or weekly/)
@@ -1449,10 +1386,6 @@ export async function trashNote(
   }
 }
 
-/**
- * Lists all notes currently in the trash.
- * @returns Array of trashed notes with metadata
- */
 export async function listTrash(): Promise<TrashedNote[]> {
   return await invoke('list_trash');
 }
@@ -1465,17 +1398,10 @@ export async function restoreNote(trashId: string): Promise<string> {
   return await invoke<string>('restore_note', { trashId });
 }
 
-/**
- * Permanently deletes a single note from the trash.
- * @param trashId - The unique ID of the trashed note
- */
 export async function permanentlyDeleteTrash(trashId: string): Promise<void> {
   await invoke('permanently_delete_trash', { trashId });
 }
 
-/**
- * Empties the entire trash, permanently deleting all notes.
- */
 export async function emptyTrash(): Promise<void> {
   await invoke('empty_trash');
 }
@@ -1506,8 +1432,6 @@ export async function restoreNoteFromFolder(trashId: string, noteFilename: strin
   await invoke('restore_note_from_folder', { trashId, noteFilename });
 }
 
-// Tag Management Functions
-
 /**
  * Renames a tag across all notes in the system.
  * @param oldTag - The tag to rename (without #)
@@ -1524,18 +1448,14 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
     // that happens to share its basename at the vault root.
     const backendPath = noteFileBackendPath(note);
     try {
-      // Read the note content (returns markdown)
       const content = await readNote(backendPath, note.isDaily, note.isWeekly);
 
-      // Check if this note has the tag
       if (!hasTag(content, oldTag)) {
         continue;
       }
 
-      // Rename the tag in content
       const updatedContent = renameTagInContent(content, oldTag, newTag);
 
-      // Only write if content actually changed
       if (updatedContent !== content) {
         await writeNote(backendPath, updatedContent, note.isDaily, note.isWeekly);
         updatedCount++;
@@ -1548,8 +1468,6 @@ export async function renameTagGlobally(oldTag: string, newTag: string): Promise
 
   return updatedCount;
 }
-
-// PDF Export Functions
 
 /**
  * Page size options accepted by {@link exportNoteToPdf}. These map 1:1 to
@@ -1566,8 +1484,7 @@ export type PdfExportMargin = 'narrow' | 'normal' | 'wide';
 
 /**
  * Optional layout overrides for PDF export. When omitted we fall back to
- * Letter / Normal margins — matching the previous hardcoded behaviour
- * closely enough that callers that haven't been updated keep working.
+ * Letter / Normal margins.
  */
 export interface PdfExportOptions {
   pageSize?: PdfExportPageSize;
@@ -1635,7 +1552,6 @@ export async function exportNoteToPdf(
   wrapper.appendChild(body);
   container.appendChild(wrapper);
 
-  // Apply some styling fixes for PDF
   container.querySelectorAll('a').forEach((link) => {
     link.style.color = '#2563eb';
     link.style.textDecoration = 'underline';
@@ -1663,7 +1579,6 @@ export async function exportNoteToPdf(
     bq.style.color = '#6b7280';
   });
 
-  // Generate PDF
   const html2pdfOptions = {
     margin: marginMm,
     filename: destination,
@@ -1674,14 +1589,11 @@ export async function exportNoteToPdf(
     jsPDF: { unit: 'mm', format: pageSize, orientation: 'portrait' as const },
   };
 
-  // Generate and save PDF
   const pdfBlob = await html2pdf().set(html2pdfOptions).from(container).outputPdf('blob');
 
-  // Convert blob to array buffer for Tauri
   const arrayBuffer = await pdfBlob.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
 
-  // Write the PDF file using Tauri
   await invoke('write_binary_file', {
     path: destination,
     contents: Array.from(uint8Array),
@@ -1689,8 +1601,6 @@ export async function exportNoteToPdf(
 
   return destination;
 }
-
-// Image handling
 
 /**
  * Saves an image to the local images directory.
@@ -1702,11 +1612,6 @@ export async function saveImage(data: string, filename: string): Promise<string>
   return await invoke('save_image', { data, filename });
 }
 
-/**
- * Converts a File object to a base64 data URL.
- * @param file - The file to convert
- * @returns A promise resolving to the base64 data URL
- */
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1716,9 +1621,6 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/**
- * Image resize options
- */
 interface ResizeOptions {
   /** Maximum width in pixels (default: 1200) */
   maxWidth?: number;
@@ -1757,7 +1659,6 @@ export async function resizeImage(
     img.onload = () => {
       let { width, height } = img;
 
-      // Calculate new dimensions maintaining aspect ratio
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height);
         width = Math.round(width * ratio);
@@ -1767,16 +1668,13 @@ export async function resizeImage(
       canvas.width = width;
       canvas.height = height;
 
-      // Draw resized image
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Determine output format
       let outputFormat: string;
       let outputExt: string;
       const originalExt = file.name.split('.').pop()?.toLowerCase() || '';
 
       if (format === 'auto') {
-        // Keep PNG for images that might have transparency, otherwise use JPEG
         if (['png', 'gif', 'svg'].includes(originalExt)) {
           // Check if image actually has transparency by sampling alpha channel
           const imageData = ctx.getImageData(0, 0, width, height);
@@ -1798,10 +1696,8 @@ export async function resizeImage(
         outputExt = format === 'jpeg' ? 'jpg' : format;
       }
 
-      // Generate resized data URL
       const dataUrl = canvas.toDataURL(outputFormat, quality);
 
-      // Generate new filename
       const baseName = file.name.replace(/\.[^/.]+$/, '');
       const filename = `${baseName}.${outputExt}`;
 
@@ -1812,7 +1708,6 @@ export async function resizeImage(
       reject(new Error('Failed to load image'));
     };
 
-    // Load image from file
     const reader = new FileReader();
     reader.onload = () => {
       img.src = reader.result as string;
@@ -1842,9 +1737,7 @@ export async function processAndSaveImage(
     return await saveImage(dataUrl, file.name);
   }
 
-  // Resize the image
   const { dataUrl, filename } = await resizeImage(file, options);
 
-  // Save the resized image
   return await saveImage(dataUrl, filename);
 }

@@ -5,7 +5,6 @@
  * value before privileged work.
  */
 
-/** Maximum length for note titles */
 export const MAX_NOTE_TITLE_LENGTH = 100;
 
 /** Pattern for valid note titles: letters, numbers, spaces, hyphens only */
@@ -144,23 +143,16 @@ export function isContentEmpty(content: string): boolean {
   // image-only daily note must never be treated as empty (and deleted).
   if (/<(img|video|audio|iframe)[\s/>]/i.test(content)) return false;
 
-  // Remove HTML tags and check if anything remains
   const textOnly = content
-    .replace(/<[^>]*>/g, '') // Remove all HTML tags
-    .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
     .trim();
 
   return textOnly === '';
 }
 
-/**
- * Password strength levels
- */
 export type PasswordStrengthLevel = 'weak' | 'fair' | 'good' | 'strong';
 
-/**
- * Result of password strength check
- */
 export interface PasswordStrength {
   /** Numerical score from 0-4 */
   score: 0 | 1 | 2 | 3 | 4;
@@ -198,7 +190,6 @@ export function checkPasswordStrength(password: string): PasswordStrength {
     suggestions.push('Consider using 12+ characters for better security');
   }
 
-  // Character variety checks
   const hasLowercase = /[a-z]/.test(password);
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumbers = /\d/.test(password);
@@ -222,7 +213,6 @@ export function checkPasswordStrength(password: string): PasswordStrength {
     suggestions.push('Include a special character (!@#$%...)');
   }
 
-  // Check for common patterns (weak passwords)
   const commonPatterns = [
     /^(password|123456|qwerty|abc123|letmein|welcome|admin|login)/i,
     /^(.)\1+$/, // All same character
@@ -236,10 +226,8 @@ export function checkPasswordStrength(password: string): PasswordStrength {
     suggestions.unshift('Avoid common passwords and patterns');
   }
 
-  // Normalize score to 0-4 range
   const normalizedScore = Math.min(4, Math.max(0, Math.round(score))) as 0 | 1 | 2 | 3 | 4;
 
-  // Determine level and feedback
   let level: PasswordStrengthLevel;
   let feedback: string;
 
@@ -269,7 +257,6 @@ export function checkPasswordStrength(password: string): PasswordStrength {
       feedback = 'Weak password';
   }
 
-  // Password is acceptable if score >= 2 and length >= 8
   const isAcceptable = normalizedScore >= 2 && password.length >= 8;
 
   return {
@@ -277,6 +264,6 @@ export function checkPasswordStrength(password: string): PasswordStrength {
     level,
     feedback,
     isAcceptable,
-    suggestions: suggestions.slice(0, 3), // Max 3 suggestions
+    suggestions: suggestions.slice(0, 3),
   };
 }

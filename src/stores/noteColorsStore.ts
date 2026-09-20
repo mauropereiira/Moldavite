@@ -45,7 +45,6 @@ export const useNoteColorsStore = create<NoteColorsState>((set, get) => ({
         set({ colors: { ...get().colors, [notePath]: colorId } });
       }
 
-      // Persist to backend
       await setNoteColor(notePath, colorId === 'default' ? null : colorId);
     } catch (error) {
       console.error('[noteColorsStore] Failed to set color:', error);
@@ -63,9 +62,6 @@ export const useNoteColorsStore = create<NoteColorsState>((set, get) => ({
   },
 }));
 
-/**
- * Helper to build the note path identifier.
- */
 export function buildNotePath(filename: string, isDaily: boolean): string {
   return isDaily ? `daily/${filename}` : `notes/${filename}`;
 }

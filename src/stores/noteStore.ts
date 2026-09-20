@@ -16,7 +16,6 @@ import { useTimelineStore } from './timelineStore';
 
 interface NoteState {
   notes: NoteFile[];
-  // Tab management
   openTabs: Note[];
   activeTabId: string | null;
   // Compatibility alias for the tab selected by activeTabId; never independent state.
@@ -33,7 +32,6 @@ interface NoteState {
   unlockedNotes: Set<string>;
   externallyChanged: Map<string, string | null>;
 
-  // Actions
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
   /** Return to the welcome screen without closing any loaded tabs. */
@@ -44,7 +42,6 @@ interface NoteState {
   setSelectedWeek: (date: Date | null) => void;
   updateNoteContent: (content: string, noteId?: string) => void;
 
-  // Tab actions
   openTab: (note: Note, inNewTab?: boolean) => void;
   closeTab: (noteId: string) => void;
   switchTab: (noteId: string) => void;
@@ -66,11 +63,9 @@ interface NoteState {
   lockNote: (noteId: string) => void;
   lockAllNotes: () => void;
 
-  // Recent notes tracking
   addRecentNote: (noteId: string) => void;
 }
 
-// Load recent notes from localStorage
 const loadRecentNotes = (): string[] => {
   try {
     const stored = localStorage.getItem(namespacedKey('moldavite-recent-notes'));
@@ -96,17 +91,13 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   unlockedNotes: new Set<string>(),
   externallyChanged: new Map<string, string | null>(),
 
-  /**
-   * Replaces the entire notes list.
-   * @param notes - New list of note files
-   */
   setNotes: (notes) => {
     set({ notes });
   },
 
   /**
    * Sets the currently loaded note in the editor.
-   * Now also opens the note as a tab.
+   * Also opens the note as a tab.
    * @param note - The note to load, or null to clear
    */
   setCurrentNote: (note) => {
@@ -120,22 +111,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   deactivateNote: () => set({ activeTabId: null, currentNote: null }),
 
-  /**
-   * Sets the loading state for note operations.
-   * @param loading - True when loading notes
-   */
   setIsLoading: (loading) => set({ isLoading: loading }),
 
-  /**
-   * Sets the saving state for auto-save operations.
-   * @param saving - True when saving notes
-   */
   setIsSaving: (saving) => set({ isSaving: saving }),
 
-  /**
-   * Sets the selected date for daily note navigation.
-   * @param date - The date to select
-   */
   setSelectedDate: (date) => set({ selectedDate: date }),
 
   /**
@@ -183,15 +162,12 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     useTimelineStore.getState().close();
     useGraphStore.getState().close();
 
-    // Track in recent notes
     get().addRecentNote(note.id);
 
     return set((state) => {
-      // Check if note is already open
       const existingTabIndex = state.openTabs.findIndex((t) => t.id === note.id);
 
       if (existingTabIndex >= 0) {
-        // Tab already exists - switch to it and update its content
         const updatedTabs = state.openTabs.map((t, i) =>
           i === existingTabIndex ? { ...t, content: note.content } : t
         );
@@ -274,12 +250,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       let newCurrentNote: Note | null = null;
 
       if (newTabs.length > 0 && state.activeTabId === noteId) {
-        // Switch to adjacent tab
         const newIndex = Math.min(tabIndex, newTabs.length - 1);
         newActiveId = newTabs[newIndex].id;
         newCurrentNote = newTabs[newIndex];
       } else if (newTabs.length > 0) {
-        // Keep current active tab
         newActiveId = state.activeTabId;
         newCurrentNote = newTabs.find((t) => t.id === state.activeTabId) || null;
       }
@@ -292,9 +266,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
-  /**
-   * Switches to a different tab.
-   */
   switchTab: (noteId) =>
     set((state) => {
       const tab = state.openTabs.find((t) => t.id === noteId);
@@ -306,9 +277,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
-  /**
-   * Updates content for a specific tab.
-   */
   updateTabContent: (noteId, content) =>
     set((state) => {
       const updatedTabs = state.openTabs.map((tab) =>
@@ -511,7 +479,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     const pinnedCount = state.openTabs.filter((t) => t.isPinned).length;
     const isCurrentlyPinned = tab.isPinned;
 
-    // Check max limit when pinning
     if (!isCurrentlyPinned && pinnedCount >= 5) {
       return { success: false, message: 'Maximum 5 pinned tabs allowed' };
     }
@@ -521,7 +488,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         t.id === noteId ? { ...t, isPinned: !t.isPinned } : t
       );
 
-      // Sort tabs: pinned first, then regular
       const sortedTabs = [
         ...updatedTabs.filter((t) => t.isPinned),
         ...updatedTabs.filter((t) => !t.isPinned),
@@ -587,7 +553,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           isPinned: pinnedIds.includes(t.id),
         }));
 
-        // Sort tabs: pinned first
         const sortedTabs = [
           ...updatedTabs.filter((t) => t.isPinned),
           ...updatedTabs.filter((t) => !t.isPinned),
@@ -646,7 +611,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     const state = get();
     const notesToLock = Array.from(state.unlockedNotes);
 
-    // Close all tabs for locked notes
     notesToLock.forEach((noteId) => {
       const tabExists = state.openTabs.some((t) => t.id === noteId);
       if (tabExists) {
@@ -664,11 +628,9 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    */
   addRecentNote: (noteId) =>
     set((state) => {
-      // Remove if already exists, then add to front
       const filtered = state.recentNoteIds.filter((id) => id !== noteId);
       const updated = [noteId, ...filtered].slice(0, 7);
 
-      // Persist to localStorage
       try {
         localStorage.setItem(namespacedKey('moldavite-recent-notes'), JSON.stringify(updated));
       } catch (error) {

@@ -23,14 +23,12 @@
  * @module stores
  */
 
-// Core stores
 export { useNoteStore } from './noteStore';
 export { useThemeStore, applyTheme, PRESETS } from './themeStore';
 export type { BaseMode, ThemePreset, PresetCoverage, PresetMeta } from './themeStore';
 export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
-// Settings with helper functions
 export {
   useSettingsStore,
   applyFontSize,
@@ -51,7 +49,6 @@ export type {
   SettingsTab,
 } from './settingsStore';
 
-// Feature stores
 export { useCalendarStore } from './calendarStore';
 export { useTemplateStore } from './templateStore';
 export { useNoteColorsStore, buildNotePath } from './noteColorsStore';

@@ -7,10 +7,6 @@
 import { safeInvoke as invoke } from './ipc';
 import type { Template, SaveTemplateInput } from '@/types/template';
 
-/**
- * Retrieves all available templates from the backend.
- * @returns Array of template objects
- */
 export async function listTemplates(): Promise<Template[]> {
   return await invoke<Template[]>('list_templates');
 }
@@ -24,20 +20,10 @@ export async function saveTemplate(input: SaveTemplateInput): Promise<Template> 
   return await invoke<Template>('save_template', { input });
 }
 
-/**
- * Updates an existing template.
- * @param id - Template ID to update
- * @param input - Updated template data
- * @returns The updated template
- */
 export async function updateTemplate(id: string, input: SaveTemplateInput): Promise<Template> {
   return await invoke<Template>('update_template', { id, input });
 }
 
-/**
- * Deletes a template.
- * @param id - Template ID to delete
- */
 export async function deleteTemplate(id: string): Promise<void> {
   await invoke('delete_template', { id });
 }
