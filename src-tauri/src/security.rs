@@ -93,6 +93,26 @@ pub struct RateLimitResult {
     pub remaining_attempts: Option<u32>,
 }
 
+/// Time left on a lockout that has not expired, or `None` when there is none.
+fn lockout_remaining(locked_until: Option<Instant>, now: Instant) -> Option<Duration> {
+    locked_until
+        .filter(|until| now < *until)
+        .map(|until| until.duration_since(now))
+}
+
+/// The refusal an unexpired global lockout produces, if there is one.
+///
+/// A lockout outlives the attempt-counter reset. `MAX_LOCKOUT_SECS` is twice
+/// `ATTEMPT_RESET_SECS`, so deciding on the quiet period first would let a
+/// caller sit out five minutes and walk away from the remaining five.
+fn global_denial(global: &GlobalAttemptInfo, now: Instant) -> Option<RateLimitResult> {
+    lockout_remaining(global.locked_until, now).map(|remaining| RateLimitResult {
+        allowed: false,
+        retry_after_secs: Some(remaining.as_secs() + 1),
+        remaining_attempts: None,
+    })
+}
+
 /// Checks if an unlock attempt is allowed for the given note.
 ///
 /// Checks both per-note and global rate limits.
@@ -106,19 +126,8 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
     // First check global rate limit
     {
         let global = lock(&GLOBAL_TRACKER);
-
-        // Reset global counter if it's been a while
-        if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
-            // Will be reset on next failed attempt
-        } else if let Some(locked_until) = global.locked_until {
-            if Instant::now() < locked_until {
-                let remaining = locked_until.duration_since(Instant::now());
-                return RateLimitResult {
-                    allowed: false,
-                    retry_after_secs: Some(remaining.as_secs() + 1),
-                    remaining_attempts: None,
-                };
-            }
+        if let Some(denial) = global_denial(&global, Instant::now()) {
+            return denial;
         }
     }
 
@@ -130,15 +139,12 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 
     if let Some(info) = tracker.get(note_id) {
         // Check if currently locked out
-        if let Some(locked_until) = info.locked_until {
-            if Instant::now() < locked_until {
-                let remaining = locked_until.duration_since(Instant::now());
-                return RateLimitResult {
-                    allowed: false,
-                    retry_after_secs: Some(remaining.as_secs() + 1), // Round up
-                    remaining_attempts: None,
-                };
-            }
+        if let Some(remaining) = lockout_remaining(info.locked_until, Instant::now()) {
+            return RateLimitResult {
+                allowed: false,
+                retry_after_secs: Some(remaining.as_secs() + 1), // Round up
+                remaining_attempts: None,
+            };
         }
 
         // Not locked out, return remaining attempts
@@ -174,8 +180,11 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     {
         let mut global = lock(&GLOBAL_TRACKER);
 
-        // Reset global counter if it's been a while
-        if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
+        // Reset the global counter after a quiet period, but never shorten a
+        // lockout that is still running.
+        if global.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS)
+            && lockout_remaining(global.locked_until, Instant::now()).is_none()
+        {
             global.attempts = 0;
             global.locked_until = None;
         }
@@ -206,8 +215,11 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
         .entry(note_id.to_string())
         .or_insert_with(AttemptInfo::new);
 
-    // Reset attempts if it's been a while since last attempt
-    if info.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS) {
+    // Reset attempts after a quiet period, but never shorten a lockout that is
+    // still running.
+    if info.last_attempt.elapsed() > Duration::from_secs(ATTEMPT_RESET_SECS)
+        && lockout_remaining(info.locked_until, Instant::now()).is_none()
+    {
         info.attempts = 0;
         info.locked_until = None;
     }
@@ -318,6 +330,29 @@ mod tests {
         let result = check_rate_limit(note_id);
         assert!(result.allowed);
         assert_eq!(result.remaining_attempts, Some(MAX_ATTEMPTS));
+    }
+
+    #[test]
+    fn security_regression_a_quiet_period_does_not_clear_a_running_global_lockout() {
+        // Built by hand rather than through the shared tracker: planting a real
+        // global lockout would deny every other test running beside this one.
+        let now = Instant::now();
+        let global = GlobalAttemptInfo {
+            attempts: GLOBAL_MAX_ATTEMPTS,
+            // Quiet for longer than the attempt-counter reset...
+            last_attempt: now - Duration::from_secs(ATTEMPT_RESET_SECS + 1),
+            // ...but the ten-minute lockout it earned still has half to run.
+            locked_until: Some(now + Duration::from_secs(MAX_LOCKOUT_SECS / 2)),
+            lockout_count: 1,
+        };
+
+        let denial = global_denial(&global, now).expect("the lockout has not expired");
+        assert!(!denial.allowed);
+        assert_eq!(denial.retry_after_secs, Some(MAX_LOCKOUT_SECS / 2 + 1));
+
+        // It does stop mattering once it actually expires.
+        let after = now + Duration::from_secs(MAX_LOCKOUT_SECS);
+        assert!(global_denial(&global, after).is_none());
     }
 
     #[test]

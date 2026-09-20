@@ -67,12 +67,21 @@ pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
     note_exists_in(&get_notes_dir()?, note_name)
 }
 
+/// Whether `dir` holds this note under either spelling of its address.
+///
+/// A locked note is on disk only as `<name>.md.locked`, so a bare `exists()`
+/// reports it missing and the plaintext name it still owns looks free. The
+/// plaintext name is what every caller keys on, so only the probe widens here;
+/// the name handed back does not. `filename` is already validated as a bare
+/// filename, and `.locked` adds no path separator, so this cannot leave `dir`.
+fn note_file_exists(dir: &Path, filename: &str) -> bool {
+    dir.join(filename).exists() || dir.join(format!("{filename}.locked")).exists()
+}
+
 fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {
     // Try as standalone note first
     let filename = note_name_to_filename(note_name);
-    let standalone_path = notes_dir.join("notes").join(&filename);
-
-    if standalone_path.exists() {
+    if note_file_exists(&notes_dir.join("notes"), &filename) {
         return Ok((true, filename));
     }
 
@@ -85,11 +94,10 @@ fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), S
     } else {
         format!("{}.md", note_name)
     };
-    if is_safe_existing_filename(&daily_filename) {
-        let daily_path = notes_dir.join("daily").join(&daily_filename);
-        if daily_path.exists() {
-            return Ok((true, daily_filename));
-        }
+    if is_safe_existing_filename(&daily_filename)
+        && note_file_exists(&notes_dir.join("daily"), &daily_filename)
+    {
+        return Ok((true, daily_filename));
     }
 
     Ok((false, filename))
@@ -353,6 +361,36 @@ mod tests {
 
         let (exists, _) = note_exists_in(&base, "../foo").unwrap();
         assert!(!exists);
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn regression_note_exists_in_finds_a_locked_standalone_note() {
+        // A locked note is on disk only as `<name>.md.locked`. Reporting it
+        // missing drew every `[[link]]` to it as a dead link, and clicking one
+        // tried to create a note over it.
+        let base = tmp_forge("note-exists-locked");
+        std::fs::write(base.join("notes/secret.md.locked"), "ciphertext").unwrap();
+
+        let (exists, filename) = note_exists_in(&base, "Secret").unwrap();
+        assert!(exists, "a locked note is not a missing note");
+        assert_eq!(
+            filename, "secret.md",
+            "callers key on the plaintext name, not the .locked spelling"
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn regression_note_exists_in_finds_a_locked_daily_note() {
+        let base = tmp_forge("note-exists-locked-daily");
+        std::fs::write(base.join("daily/2026-01-01.md.locked"), "ciphertext").unwrap();
+
+        let (exists, filename) = note_exists_in(&base, "2026-01-01").unwrap();
+        assert!(exists, "a locked daily note is not a missing note");
+        assert_eq!(filename, "2026-01-01.md");
 
         let _ = std::fs::remove_dir_all(&base);
     }

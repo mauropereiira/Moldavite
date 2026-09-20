@@ -2,8 +2,9 @@
 //!
 //! [`write_atomic`] is the only write primitive for config, metadata, indexes,
 //! and note data: it creates a same-directory temporary file, applies restrictive
-//! permissions before data becomes visible, writes and `fsync`s the file, then
-//! renames it over the destination. Same-directory rename provides atomic
+//! permissions before data becomes visible, writes and `fsync`s the file, renames
+//! it over the destination, then `fsync`s the directory so the new entry is as
+//! durable as the bytes it names. Same-directory rename provides atomic
 //! replacement; unique temp names keep concurrent writers isolated. Failed
 //! writes remove their temp file and leave the previous destination intact.
 
@@ -79,6 +80,25 @@ fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
     retry_windows_rename(|| fs::rename(from, to), std::thread::sleep)
 }
 
+/// `fsync` the directory the rename just published into.
+///
+/// `File::sync_all` on the file makes its bytes durable; it says nothing about
+/// the directory entry that now names them, so a crash can leave the previous
+/// contents (or, on a freshly created note, nothing at all). Not every
+/// filesystem allows it — some network mounts refuse a directory handle — so a
+/// failure is logged rather than failing a write that already landed.
+#[cfg(unix)]
+fn sync_parent_dir(parent: &Path) {
+    match fs::File::open(parent) {
+        Ok(dir) => {
+            if let Err(error) = dir.sync_all() {
+                log::debug!("[persist] fsync of {parent:?} failed: {error}");
+            }
+        }
+        Err(error) => log::debug!("[persist] could not open {parent:?} to fsync: {error}"),
+    }
+}
+
 fn open_atomic_temp(
     parent: &Path,
     file_name: &str,
@@ -149,7 +169,10 @@ where
         }
         #[cfg(not(windows))]
         {
-            fs::rename(&tmp_path, path).map_err(|e| e.to_string())
+            fs::rename(&tmp_path, path).map_err(|e| e.to_string())?;
+            #[cfg(unix)]
+            sync_parent_dir(parent);
+            Ok(())
         }
     })();
 
@@ -159,7 +182,8 @@ where
     result.map_err(|e| format!("Failed to write {}: {}", path.display(), e))
 }
 
-/// Atomically replace `path` after a same-directory temp write and file `fsync`.
+/// Atomically replace `path` after a same-directory temp write, a file `fsync`
+/// and a directory `fsync`.
 ///
 /// The temporary name has OS entropy, is reserved exclusively without following
 /// symlinks, and receives its final mode at creation. On failure the prior
@@ -232,6 +256,33 @@ fn build_name(base: &str, counter: Option<u32>, extension: Option<&str>) -> Stri
     }
 }
 
+/// The other spelling of the same note address, for names that have one.
+///
+/// A locked note exists on disk only as `<name>.md.locked`, so `<name>.md` and
+/// `<name>.md.locked` are two spellings of one note and neither is free while
+/// the other is on disk. Only those two pair up: a folder, or a file with any
+/// other extension, has no locked twin and must not be pushed aside by one.
+fn paired_note_name(name: &str) -> Option<String> {
+    if let Some(stem) = name.strip_suffix(".md.locked") {
+        return Some(format!("{stem}.md"));
+    }
+    if name.ends_with(".md") {
+        return Some(format!("{name}.locked"));
+    }
+    None
+}
+
+/// Whether `name` is already spoken for in `dir`, under either spelling.
+///
+/// Every note-name generator flows through here, so this is the one place that
+/// has to know about locked notes. Without it a new note takes a locked note's
+/// name, the two sit side by side under one address, the list shows the note
+/// twice, and neither copy can be locked or unlocked again.
+pub(crate) fn name_is_taken(dir: &Path, name: &str) -> bool {
+    dir.join(name).exists()
+        || paired_note_name(name).is_some_and(|paired| dir.join(paired).exists())
+}
+
 /// Core uniqueness search shared by file and folder name generation.
 ///
 /// If `extension` is `Some(ext)`, the returned name is `"<base>.<ext>"`
@@ -239,7 +290,7 @@ fn build_name(base: &str, counter: Option<u32>, extension: Option<&str>) -> Stri
 /// extension (folder case).
 fn generate_unique_name(dir: &Path, base_name: &str, extension: Option<&str>) -> String {
     let initial = build_name(base_name, None, extension);
-    if !dir.join(&initial).exists() {
+    if !name_is_taken(dir, &initial) {
         return initial;
     }
 
@@ -265,7 +316,7 @@ fn generate_unique_name(dir: &Path, base_name: &str, extension: Option<&str>) ->
 
     loop {
         let candidate = build_name(&actual_base, Some(counter), extension);
-        if !dir.join(&candidate).exists() {
+        if !name_is_taken(dir, &candidate) {
             return candidate;
         }
         let Some(next) = counter.checked_add(1) else {
@@ -287,7 +338,9 @@ fn timestamped_name(base: &str, extension: Option<&str>) -> String {
 }
 
 /// Generate a unique filename in the given directory.
-/// If "name.md" exists, tries "name (2).md", "name (3).md", etc.
+/// If "name.md" exists, tries "name (2).md", "name (3).md", etc. A locked note
+/// occupies both spellings of its name, so "name.md.locked" blocks "name.md"
+/// and vice versa.
 pub(crate) fn generate_unique_filename(dir: &Path, base_name: &str, extension: &str) -> String {
     generate_unique_name(dir, base_name, Some(extension))
 }
@@ -520,6 +573,51 @@ mod tests {
         let name = generate_unique_filename(tmp.path(), "hello (4294967295)", "md");
 
         assert_ne!(name, "hello (4294967295).md");
+    }
+
+    #[test]
+    fn regression_unique_filename_treats_a_locked_note_as_taken() {
+        // A locked note lives on disk only under its `.locked` spelling, so the
+        // plaintext name it still owns looked free and a new note took it,
+        // leaving `hello.md` and `hello.md.locked` side by side.
+        let tmp = TempDir::new("unique-locked");
+        fs::write(tmp.path().join("hello.md.locked"), "").unwrap();
+
+        let name = generate_unique_filename(tmp.path(), "hello", "md");
+
+        assert_eq!(name, "hello (2).md");
+    }
+
+    #[test]
+    fn regression_unique_locked_filename_avoids_an_existing_plaintext_note() {
+        // The same collision from the other side: restoring a locked note from
+        // the trash asks for the `md.locked` extension, and must not land
+        // beside a plaintext note that already owns the name.
+        let tmp = TempDir::new("unique-locked-restore");
+        fs::write(tmp.path().join("hello.md"), "").unwrap();
+
+        let name = generate_unique_filename(tmp.path(), "hello", "md.locked");
+
+        assert_eq!(name, "hello (2).md.locked");
+    }
+
+    #[test]
+    fn only_markdown_notes_have_a_locked_twin() {
+        // Pins the boundary of the rule above rather than a past bug: nothing
+        // but `.md`/`.md.locked` pairs up, so an unrelated `.locked` entry must
+        // not push a folder or another file type aside.
+        let tmp = TempDir::new("unique-locked-boundary");
+        fs::create_dir(tmp.path().join("projects.locked")).unwrap();
+        fs::write(tmp.path().join("photo.png.locked"), "").unwrap();
+
+        assert_eq!(
+            generate_unique_folder_name(tmp.path(), "projects"),
+            "projects"
+        );
+        assert_eq!(
+            generate_unique_filename(tmp.path(), "photo", "png"),
+            "photo.png"
+        );
     }
 
     #[test]
