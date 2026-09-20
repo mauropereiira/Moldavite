@@ -1,9 +1,10 @@
 //! Safe Rust wrappers around the macOS EventKit Swift bridge.
 //!
 //! This module owns the FFI boundary and JSON decoding for Apple calendar
-//! data. Swift owns returned C strings; every non-null pointer is reclaimed
-//! exactly once with `CString::from_raw`, and malformed bridge output becomes
-//! an error rather than crossing into the command layer.
+//! data. Swift allocates the returned C strings, so every non-null pointer
+//! goes back to the bridge's own `free_string` exactly once and never to
+//! Rust's allocator; malformed bridge output becomes an error rather than
+//! crossing into the command layer.
 //!
 //! The types here mirror the Swift payload exactly. Mapping them onto the
 //! source-agnostic shapes — including id namespacing — is `super`'s job, so

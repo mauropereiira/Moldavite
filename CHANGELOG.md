@@ -6,6 +6,8 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Publishing to WordPress.com could hang forever.** A connection that opened and then stalled left the editor on "Publishing…" with no way out short of restarting. Every WordPress.com request now gives up after 30 seconds.
+
 - **A new note could take a locked note's name.** A locked note exists on disk only as an encrypted file, so its name looked free to every check. Creating, moving, renaming, duplicating or creating a note from a template could put a second note at the same address, after which the locked note could not be unlocked at all. A wiki link to a locked note also showed as broken, and following it wrote a blank note over the locked one.
 
 - **Restoring from the Trash could overwrite a newer note.** Deleting a note, writing a new one with the same name, then restoring replaced the new note with no warning. The restored copy now lands beside it, and a locked note is never restored next to its unencrypted twin.
@@ -17,6 +19,8 @@ All notable changes to Moldavite are documented here.
 - Search results no longer include hidden files that could not be opened.
 
 ### Security
+
+- The Google sign-in listener no longer lets another program on your machine make it buffer an endless request.
 
 - A note addressed by its encrypted filename could be overwritten with unencrypted text.
 
