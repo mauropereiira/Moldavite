@@ -46,9 +46,31 @@ Its READ-ME records source provenance and the current submission status.
 
 1. Watch App Review and the developer email for Apple's decision or requests.
    The submission passed validation and is Waiting for Review.
-2. Mauro confirmed sending the signed French declaration to ANSSI. No ANSSI
-   response or approval has been provided yet. The current build accurately
-   declares standard encryption outside Apple's OS and no distribution in France.
+2. **ANSSI acknowledged receipt of the declaration on 6 September 2026.** That
+   acknowledgement is a receipt, not an attestation, and it sets the clock:
+
+   - ANSSI has **one month** to examine a declaration, **two months** where it
+     covers supplying cryptologic services or exporting cryptologic means to
+     non-EU states. App Store distribution across 174 territories plausibly
+     falls under the second reading, so treat 6 November 2026 as the safe date
+     and 6 October 2026 as the earliest possible one.
+   - If the agency stays silent past the applicable deadline, the declarant may
+     proceed and then request an attestation confirming the obligation was met.
+     Prefer waiting for the attestation over relying on silence, so there is a
+     paper trail.
+   - Contact for follow-up: `controle@ssi.gouv.fr`. Their letter invites it, and
+     which deadline applies to an App Store release is worth asking rather than
+     inferring.
+
+   Until an attestation arrives, every build answers **No** to "available for
+   distribution in France" and France stays Not Available in the territory list.
+   Those two must agree, or the submission contradicts itself.
+
+   The encryption answer itself is settled and does not change per release:
+   the app implements **standard algorithms outside Apple's OS**, AES-256-GCM
+   with Argon2id key derivation via the `aes-gcm` and `argon2` crates. Never
+   answer "none of the algorithms" and never prefill
+   `ITSAppUsesNonExemptEncryption`, since note locking is real encryption.
 3. Before enabling France, resolve its documentation through App Information →
    App Encryption Documentation and update the encryption declaration accordingly.
    Apple's upload dialog specifically requests the French encryption declaration
