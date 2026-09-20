@@ -215,6 +215,27 @@ mod tests {
 
         let _ = fs::remove_dir_all(templates_dir);
     }
+
+    #[test]
+    fn a_template_note_never_takes_a_locked_note_s_name() {
+        let dir = std::env::temp_dir().join(format!(
+            "moldavite-template-locked-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("secret.md.locked"), "ciphertext").unwrap();
+
+        let error = template_note_destination(&dir, "secret.md").unwrap_err();
+
+        assert_eq!(error, "A note with this name already exists");
+        assert!(!dir.join("secret.md").exists());
+
+        let _ = fs::remove_dir_all(dir);
+    }
 }
 
 #[tauri::command]
@@ -222,6 +243,26 @@ pub(crate) fn apply_template(template_id: String) -> Result<String, String> {
     let template = get_template(template_id)?;
     let content = replace_template_variables(template.content);
     Ok(content)
+}
+
+/// Resolve where a template-created note lands, refusing a name already in use.
+fn template_note_destination(dir: &Path, filename: &str) -> Result<PathBuf, String> {
+    let path = dir.join(filename);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    if !parent.is_dir() {
+        return Err("Destination folder does not exist".to_string());
+    }
+    validate_path_within_base(&path, dir).map_err(|_| "Invalid note path".to_string())?;
+    // A locked note is absent under its plaintext name, so the `.locked` form
+    // has to be checked too or the new note shadows it on disk.
+    let mut locked = path.as_os_str().to_os_string();
+    locked.push(".locked");
+    if path.exists() || PathBuf::from(locked).exists() {
+        return Err("A note with this name already exists".to_string());
+    }
+    Ok(path)
 }
 
 #[tauri::command]
@@ -261,18 +302,7 @@ pub(crate) fn create_note_from_template(
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
 
-    let path = dir.join(&filename);
-    let parent = path
-        .parent()
-        .ok_or_else(|| "Invalid note path".to_string())?;
-    if !parent.is_dir() {
-        return Err("Destination folder does not exist".to_string());
-    }
-    validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
-
-    if path.exists() {
-        return Err("A note with this name already exists".to_string());
-    }
+    let path = template_note_destination(&dir, &filename)?;
 
     let template = get_template(template_id)?;
     let content = replace_template_variables(template.content);

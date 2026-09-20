@@ -155,8 +155,53 @@ fn restore_item_on_disk(
     }
     validate_path_within_base(&destination, root)
         .map_err(|_| "Invalid restore destination".to_string())?;
+    // The name may have been reused since the delete. Renaming onto it would
+    // destroy the newer note without a trace, so land beside it instead. A
+    // locked note occupies both spellings of its address, so the plaintext
+    // twin counts as taken even though this exact filename is free.
+    let taken = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| crate::persist::name_is_taken(parent, name));
+    let destination = if taken {
+        let free = collision_free_restore_name(parent, &destination, item.is_folder)?;
+        let destination = parent.join(free);
+        validate_path_within_base(&destination, root)
+            .map_err(|_| "Invalid restore destination".to_string())?;
+        destination
+    } else {
+        destination
+    };
     fs::rename(&source, &destination).map_err(|e| format!("Failed to restore: {e}"))?;
     Ok(destination)
+}
+
+/// Pick a free sibling name for a restore whose recorded name is taken.
+///
+/// `.md.locked` is split off whole so an encrypted note keeps both suffixes
+/// and stays recognisable as locked.
+fn collision_free_restore_name(
+    parent: &std::path::Path,
+    destination: &std::path::Path,
+    is_folder: bool,
+) -> Result<String, String> {
+    let leaf = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Invalid restore destination".to_string())?;
+    if is_folder {
+        return Ok(crate::persist::generate_unique_folder_name(parent, leaf));
+    }
+    let (stem, extension) = match leaf.strip_suffix(".md.locked") {
+        Some(stem) => (stem, "md.locked"),
+        None => match leaf.rsplit_once('.') {
+            Some((stem, extension)) if !stem.is_empty() => (stem, extension),
+            _ => return Ok(crate::persist::generate_unique_folder_name(parent, leaf)),
+        },
+    };
+    Ok(crate::persist::generate_unique_filename(
+        parent, stem, extension,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -350,56 +395,65 @@ pub(crate) fn restore_note(
         return Err("Trash file not found on disk".to_string());
     }
 
-    let restored_path = if item.is_folder {
-        let dest_path = restore_item_on_disk(
-            &get_trash_dir()?,
-            &get_daily_dir()?,
-            &get_weekly_dir()?,
-            &get_standalone_dir()?,
-            &item,
-        )?;
+    let daily_dir = get_daily_dir()?;
+    let weekly_dir = get_weekly_dir()?;
+    let standalone_dir = get_standalone_dir()?;
+    let dest_path = restore_item_on_disk(
+        &get_trash_dir()?,
+        &daily_dir,
+        &weekly_dir,
+        &standalone_dir,
+        &item,
+    )?;
 
+    // A taken name makes the restore land beside the newer note, so every
+    // address below has to come from where it actually landed.
+    let root = if item.is_weekly {
+        &weekly_dir
+    } else if item.is_daily {
+        &daily_dir
+    } else {
+        &standalone_dir
+    };
+    let relative = dest_path
+        .strip_prefix(root)
+        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| item.original_path.clone());
+
+    let restored_path = if item.is_folder {
         // Re-index every contained .md file by walking the restored folder.
         reindex_folder(&dest_path, &index);
         crate::semantic::notes_changed(
             item.contained_files
                 .iter()
-                .map(|f| format!("notes/{}/{}", item.original_path, f))
+                .map(|f| format!("notes/{relative}/{f}"))
                 .collect(),
         );
         for f in &item.contained_files {
-            crate::search_index::note_changed(&format!("notes/{}/{}", item.original_path, f));
+            crate::search_index::note_changed(&format!("notes/{relative}/{f}"));
         }
-        format!("notes/{}", item.original_path)
+        format!("notes/{relative}")
     } else {
-        let dest_path = restore_item_on_disk(
-            &get_trash_dir()?,
-            &get_daily_dir()?,
-            &get_weekly_dir()?,
-            &get_standalone_dir()?,
-            &item,
-        )?;
-
         if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
             let content = fs::read_to_string(&dest_path).unwrap_or_default();
             index.update_note(name, &content);
         }
         crate::semantic::note_changed(&crate::semantic::note_rel_path(
-            &item.original_path,
+            &relative,
             item.is_daily,
             item.is_weekly,
         ));
         crate::search_index::note_changed(&crate::semantic::note_rel_path(
-            &item.original_path,
+            &relative,
             item.is_daily,
             item.is_weekly,
         ));
         if item.is_weekly {
-            format!("weekly/{}", item.original_path)
+            format!("weekly/{relative}")
         } else if item.is_daily {
-            format!("daily/{}", item.original_path)
+            format!("daily/{relative}")
         } else {
-            format!("notes/{}", item.original_path)
+            format!("notes/{relative}")
         }
     };
 
@@ -1006,6 +1060,77 @@ mod tests {
                 .unwrap();
         assert_eq!(restored, notes.join("Projects/Deep/note.md"));
         assert_eq!(fs::read_to_string(restored).unwrap(), "restored");
+    }
+
+    #[test]
+    fn restore_never_overwrites_a_note_written_since_the_delete() {
+        let tmp = TempDir::new("restore-collision");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let notes = tmp.0.join("notes");
+
+        let trashed = item("collide".into(), "Plan.md".into(), 0);
+        fs::write(trash_item_path(&trash, &trashed), "the deleted version").unwrap();
+        fs::write(notes.join("Plan.md"), "the note written afterwards").unwrap();
+
+        let restored =
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &trashed).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(notes.join("Plan.md")).unwrap(),
+            "the note written afterwards"
+        );
+        assert_eq!(restored, notes.join("Plan (2).md"));
+        assert_eq!(
+            fs::read_to_string(&restored).unwrap(),
+            "the deleted version"
+        );
+    }
+
+    #[test]
+    fn restoring_a_locked_note_onto_a_taken_name_keeps_the_locked_suffix() {
+        let tmp = TempDir::new("restore-collision-locked");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let notes = tmp.0.join("notes");
+
+        let trashed = item("collide".into(), "Secret.md.locked".into(), 0);
+        fs::write(trash_item_path(&trash, &trashed), "ciphertext").unwrap();
+        fs::write(notes.join("Secret.md.locked"), "newer ciphertext").unwrap();
+
+        let restored =
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &trashed).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(notes.join("Secret.md.locked")).unwrap(),
+            "newer ciphertext"
+        );
+        assert_eq!(restored, notes.join("Secret (2).md.locked"));
+    }
+
+    /// A locked note and its plaintext name are one address, so restoring
+    /// `Secret.md.locked` beside an existing `Secret.md` must not produce the
+    /// pair that makes the locked note impossible to unlock.
+    #[test]
+    fn restoring_a_locked_note_never_pairs_it_with_an_existing_plaintext_note() {
+        let tmp = TempDir::new("restore-collision-locked-twin");
+        let trash = tmp.0.join("trash");
+        let daily = tmp.0.join("daily");
+        let notes = tmp.0.join("notes");
+
+        let trashed = item("collide".into(), "Secret.md.locked".into(), 0);
+        fs::write(trash_item_path(&trash, &trashed), "ciphertext").unwrap();
+        fs::write(notes.join("Secret.md"), "a plaintext note of that name").unwrap();
+
+        let restored =
+            restore_item_on_disk(&trash, &daily, &tmp.0.join("weekly"), &notes, &trashed).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(notes.join("Secret.md")).unwrap(),
+            "a plaintext note of that name"
+        );
+        assert_eq!(restored, notes.join("Secret (2).md.locked"));
+        assert!(!notes.join("Secret.md.locked").exists());
     }
 
     #[test]

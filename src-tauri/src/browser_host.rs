@@ -124,14 +124,26 @@ fn clip_stem(title: &str, url: &str) -> String {
     sanitize_path_segment(title, fallback)
 }
 
+/// Collapse every run of whitespace into one space. A page title is untrusted
+/// text, while a Markdown heading is a single-line construct.
+fn single_line(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 fn clip_document(title: &str, url: &str, markdown: &str, clipped: &str) -> String {
     // The URL is quoted so a colon or a `#` cannot break the YAML block, and any
-    // quote inside it is escaped.
-    let source = url.replace('\\', "\\\\").replace('"', "\\\"");
-    let heading = if title.trim().is_empty() {
+    // quote, backslash or line break inside it is escaped so it cannot end the
+    // scalar — or the frontmatter block — a line early.
+    let source = url
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n");
+    let title = single_line(title);
+    let heading = if title.is_empty() {
         String::new()
     } else {
-        format!("# {}\n\n", title.trim())
+        format!("# {title}\n\n")
     };
     let body = markdown.trim_end();
     format!("---\nsource: \"{source}\"\nclipped: {clipped}\n---\n\n{heading}{body}\n")
@@ -164,7 +176,13 @@ fn required_str<'a>(request: &'a Value, key: &str) -> Result<&'a str, String> {
 /// config and panics without a Documents directory.
 fn clip_into(forge_root: &Path, request: &Value, clipped: &str) -> Result<Value, String> {
     let url = required_str(request, "url")?;
-    if http_host(url).is_none() {
+    // A real URL carries no whitespace or control characters; one that does is
+    // a caller trying to write its own lines into the note's frontmatter.
+    if http_host(url).is_none()
+        || url
+            .chars()
+            .any(|character| character.is_whitespace() || character.is_control())
+    {
         return Err("source must be an http(s) URL".to_string());
     }
     let markdown = required_str(request, "markdown")?;
@@ -373,6 +391,55 @@ mod tests {
             note,
             "---\nsource: \"https://example.com/tls\"\nclipped: 2026-08-17\n---\n\n# How TLS works\n\nFirst paragraph.\n"
         );
+    }
+
+    #[test]
+    fn a_multi_line_title_stays_one_heading_line() {
+        let note = clip_document(
+            "Post\n\n## Injected heading\n\nInjected body",
+            "https://example.com/a",
+            "Real body.",
+            "2026-08-17",
+        );
+
+        assert_eq!(
+            note,
+            "---\nsource: \"https://example.com/a\"\nclipped: 2026-08-17\n---\n\n# Post ## Injected heading Injected body\n\nReal body.\n"
+        );
+    }
+
+    #[test]
+    fn a_source_url_cannot_break_out_of_the_frontmatter_block() {
+        let forge = temp_dir("yaml-escape");
+
+        let error = clip_into(
+            &forge,
+            &json!({
+                "url": "https://example.com/a\n---\ncolor: red",
+                "title": "x",
+                "markdown": "body",
+            }),
+            "2026-08-17",
+        )
+        .unwrap_err();
+
+        assert_eq!(error, "source must be an http(s) URL");
+        assert!(!forge.join("notes").exists(), "nothing should be written");
+
+        // The serializer does not rely on that gate: a line break in the URL
+        // stays inside the quoted scalar.
+        let note = clip_document(
+            "x",
+            "https://example.com/a\n---\ncolor: red",
+            "body",
+            "2026-08-17",
+        );
+        let parsed = crate::frontmatter::parse_note(&note);
+        assert_eq!(parsed.body.trim(), "# x\n\nbody");
+        assert!(parsed.color.is_none(), "color must not be injectable");
+        assert_eq!(parsed.extra.len(), 2, "unexpected keys: {:?}", parsed.extra);
+
+        let _ = std::fs::remove_dir_all(&forge);
     }
 
     #[test]

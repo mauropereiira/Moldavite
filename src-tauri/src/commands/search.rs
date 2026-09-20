@@ -159,8 +159,10 @@ pub(crate) fn scan_notes_content_in(
             Some(n) => n,
             None => continue,
         };
-        // Only unlocked markdown files
-        if filename.ends_with(".md.locked") {
+        // Only unlocked markdown files. Hidden files are internal state or an
+        // external tool's scratch copy: the indexed engine skips them and the
+        // read commands refuse to open them, so a hit here is unusable.
+        if filename.starts_with('.') || filename.ends_with(".md.locked") {
             continue;
         }
         if !filename.ends_with(".md") {
@@ -271,6 +273,27 @@ mod tests {
         // The snippet must preserve the note's original casing, not the
         // lowercased text used to find the match.
         assert!(results[0].snippet.contains("Quick Brown"));
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn hidden_notes_are_not_returned_by_the_scan_engine() {
+        // The indexed engine skips hidden files and `read_note` refuses to
+        // open them, so a scan hit on one is a result nobody can act on.
+        let base = tmp_notes_dir("hidden-file");
+        fs::write(base.join("notes/.scratch.md"), "shared needle here").unwrap();
+        fs::write(base.join("notes/visible.md"), "shared needle here").unwrap();
+
+        let results = scan_notes_content_in(&base, &base.join(".trash"), "needle", 10);
+
+        assert_eq!(
+            results
+                .iter()
+                .map(|hit| hit.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["notes/visible.md"]
+        );
 
         let _ = fs::remove_dir_all(&base);
     }

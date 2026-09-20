@@ -333,16 +333,8 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     let timestamp = Local::now().format("%Y%m%d_%H%M%S_%3f").to_string();
     let random_suffix = rand::RngCore::next_u64(&mut rand::rngs::OsRng);
     let extension = filename.rsplit('.').next().unwrap_or("png");
-    let unique_filename = format!(
-        "{}_{}_{random_suffix:016x}.{}",
-        filename
-            .rsplit('.')
-            .next_back()
-            .map(|_| filename.trim_end_matches(&format!(".{}", extension)))
-            .unwrap_or("image"),
-        timestamp,
-        extension
-    );
+    let stem = filename.trim_end_matches(&format!(".{extension}"));
+    let unique_filename = format!("{stem}_{timestamp}_{random_suffix:016x}.{extension}");
 
     let file_path = images_dir.join(&unique_filename);
     crate::validation::validate_path_within_base(&file_path, &forge_root)

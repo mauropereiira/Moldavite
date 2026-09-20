@@ -6,13 +6,21 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **A new note could take a locked note's name.** A locked note exists on disk only as an encrypted file, so its name looked free to every check. Creating, moving, renaming, duplicating or creating a note from a template could put a second note at the same address, after which the locked note could not be unlocked at all. A wiki link to a locked note also showed as broken, and following it wrote a blank note over the locked one.
+
+- **Restoring from the Trash could overwrite a newer note.** Deleting a note, writing a new one with the same name, then restoring replaced the new note with no warning. The restored copy now lands beside it, and a locked note is never restored next to its unencrypted twin.
+
 - **Frontmatter that could not be parsed was deleted on the next save.** A tab-indented block or an unclosed list, both easy to write by hand, cost you the whole block permanently. It is now kept as part of the note.
 
 - **A note that was just saved could be lost to a crash or power cut.** Saving made the note's contents durable but not the directory entry naming them.
 
-- A wiki link to a locked note showed as broken, because a locked note was only ever looked for under its unencrypted name.
+- Search results no longer include hidden files that could not be opened.
 
 ### Security
+
+- A note addressed by its encrypted filename could be overwritten with unencrypted text.
+
+- A clipped page can no longer use its title or address to write extra headings or its own metadata into the saved note.
 
 - A symlink placed in the daily or weekly folder could pull a file from outside the Forge into the backlinks index, exposing its name, title and a snippet.
 
