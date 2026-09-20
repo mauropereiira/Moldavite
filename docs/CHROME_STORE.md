@@ -35,9 +35,12 @@ After the item is created, the dashboard shows its id. Add it to
 ```rust
 pub(crate) const CHROME_EXTENSION_IDS: &[&str] = &[
     "dgidmimgcpmanonfbijebppdmfhnhhem", // unpacked, from extension/key.pem
-    "<the id the dashboard shows>",     // Chrome Web Store
+    "ngdbcbhchiifacekdkjpjbjmegkeodig", // Chrome Web Store
 ];
 ```
+
+Both ids are in place as of the first upload, so this step is done unless the
+item is ever recreated, which assigns a new one.
 
 Both stay listed, so a contributor running unpacked and a user on the store
 build both work. The manifest test asserts every listed id reaches
@@ -135,5 +138,6 @@ having:
       clip path and use the store build to confirm it loads and renders.
 - [ ] Version in `extension/manifest.json` is higher than the published one.
       The store rejects a re-upload at the same version.
-- [ ] The store id is in `CHROME_EXTENSION_IDS` and an app release carrying it
-      is out, or goes out with the listing.
+- [x] The store id is in `CHROME_EXTENSION_IDS`.
+- [ ] An app release carrying that id is out, or goes out with the listing.
+      Until then a store install cannot reach Moldavite.

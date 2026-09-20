@@ -27,7 +27,8 @@ pub(crate) const HOST_NAME: &str = "com.moldavite.clipper";
 pub(crate) const CHROME_EXTENSION_IDS: &[&str] = &[
     // Unpacked, from extension/key.pem.
     "dgidmimgcpmanonfbijebppdmfhnhhem",
-    // Chrome Web Store. Added once the item exists; see docs/CHROME_STORE.md.
+    // Chrome Web Store, item "Moldavite Clipper".
+    "ngdbcbhchiifacekdkjpjbjmegkeodig",
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
