@@ -278,7 +278,7 @@ export function AppOnboardingModal() {
         }}
       >
         <div className="p-8">
-          <div className="flex justify-center gap-2 mb-6" aria-hidden="true">
+          <div className="app-onboarding-steps flex justify-center gap-2 mb-6" aria-hidden="true">
             {steps.map((key, i) => (
               <div
                 key={key}
@@ -292,28 +292,30 @@ export function AppOnboardingModal() {
             ))}
           </div>
 
-          {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" mobile={mobile} />}
+          <div className="app-onboarding-body">
+            {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" mobile={mobile} />}
 
-          {step === 'forge' && (
-            <ForgeStep
-              titleId="app-onboarding-title"
-              mobile={mobile}
-              forgePath={forgePath}
-              isPicking={isPicking}
-              pickError={pickError}
-              onPickFolder={handlePickFolder}
-            />
-          )}
+            {step === 'forge' && (
+              <ForgeStep
+                titleId="app-onboarding-title"
+                mobile={mobile}
+                forgePath={forgePath}
+                isPicking={isPicking}
+                pickError={pickError}
+                onPickFolder={handlePickFolder}
+              />
+            )}
 
-          {step === 'tour' && <TourStep titleId="app-onboarding-title" tiles={tourTiles} />}
+            {step === 'tour' && <TourStep titleId="app-onboarding-title" tiles={tourTiles} />}
 
-          {step === 'ai-agents' && (
-            <AiAgentsStep titleId="app-onboarding-title" isFeatureUpdate={isFeatureUpdate} />
-          )}
+            {step === 'ai-agents' && (
+              <AiAgentsStep titleId="app-onboarding-title" isFeatureUpdate={isFeatureUpdate} />
+            )}
 
-          {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
+            {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
+          </div>
 
-          <div className="flex items-center justify-between mt-8">
+          <div className="app-onboarding-footer flex items-center justify-between mt-8">
             <div>
               {stepIndex > 0 && (
                 <button
