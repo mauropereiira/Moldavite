@@ -15,10 +15,7 @@
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta
-      property="og:image:alt"
-      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS, Windows and Linux with a built-in MCP server."
-    />
+    <meta property="og:image:alt" content="The Moldavite wordmark, ink on cream." />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Using Moldavite" />
@@ -280,7 +277,7 @@
         <li>Drag nodes, drag empty space to pan, and use the wheel or trackpad to zoom.</li>
         <li>
           Panning is free in every direction, and the graph keeps your zoom and position for the
-          rest of the session. Use <strong>Fit view</strong> — or double-click empty space — to
+          rest of the session. Use <strong>Fit view</strong>, or double-click empty space, to
           recover a useful framing.
         </li>
         <li>
@@ -347,25 +344,63 @@
         </li>
         <li>
           <strong>Keyword search</strong>: full-text search with snippets across unlocked,
-          non-trashed notes, answered from a local index so it stays instant as a Forge grows.
-          Several words match a note that contains all of them, in any order.
+          non-trashed notes, answered from a local SQLite index so it stays instant as a Forge
+          grows. Several words match a note that contains all of them, in any order. The index file
+          sits in the app data directory rather than in the Forge, so a synced folder never carries
+          it, and it is removed when its Forge is.
         </li>
         <li>
           <strong>Folders</strong>: a drag-and-drop tree for standalone notes when hierarchy helps.
         </li>
         <li><strong>Colors</strong>: assign a sidebar color to individual notes.</li>
         <li>
-          <strong>Tabs and pinning</strong>: reorder open tabs and pin up to five frequent notes.
+          <strong>Tabs</strong>: reorder open tabs, and pin up to five of them so they stay at the
+          front of the tab strip.
         </li>
         <li>
           <strong>Timeline</strong>: browse notes grouped into Today, Yesterday, This Week, This
           Month, and Earlier.
         </li>
         <li>
-          <strong>Shortcut help</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>?</kbd> for the
+          <strong>Shortcut help</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>/</kbd> for the
           current shortcut list.
         </li>
       </ul>
+
+      <h3>Keyboard shortcuts</h3>
+      <p>
+        The app reads <kbd>⌘</kbd> and <kbd>Ctrl</kbd> interchangeably, so the same bindings work
+        everywhere: on Windows and Linux, read <kbd>⌘</kbd> as <kbd>Ctrl</kbd> and <kbd>⌥</kbd> as
+        <kbd>Alt</kbd>. The in-app list under <kbd>⌘</kbd> <kbd>/</kbd> is generated from the same
+        registry as this table.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Shortcut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd>⌘</kbd> <kbd>P</kbd></td><td>Open quick switcher</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>F</kbd></td><td>Focus sidebar search</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>N</kbd></td><td>Create a new note</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>T</kbd></td><td>Apply a template</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>W</kbd></td><td>Close the active tab</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>⌥</kbd> <kbd>→</kbd> / <kbd>←</kbd></td><td>Next or previous open tab</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>K</kbd></td><td>Insert a link</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>G</kbd></td><td>Toggle graph view</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>\</kbd></td><td>Toggle the Index</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>⌥</kbd> <kbd>\</kbd></td><td>Toggle the Agenda</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>.</kbd></td><td>Focus mode, hiding all chrome</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>L</kbd></td><td>Toggle light and dark theme</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>,</kbd></td><td>Open settings</td></tr>
+            <tr><td><kbd>⌘</kbd> <kbd>/</kbd></td><td>Show keyboard shortcuts</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close the open note, or clear the sidebar selection</td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <h2 id="semantic-search">Local semantic search</h2>
       <p>
@@ -401,7 +436,7 @@
               <td>Fastest, English-focused; default</td>
             </tr>
             <tr>
-              <td>BGE small English</td>
+              <td>BGE small English v1.5</td>
               <td>130 MB</td>
               <td>Higher-quality English retrieval</td>
             </tr>
@@ -507,11 +542,9 @@
         The right panel can show a month and your events from two sources. Both are read-only:
         Moldavite never creates, edits, or deletes an event, and never writes one into a note by
         itself. Connect either or both in <strong>Settings → Calendar</strong>, then tick the
-        individual calendars you want on the timeline. On Windows and Linux there is nothing to connect yet —
-        Apple Calendar is macOS-only and Google is not yet enabled in those builds (<a
-          href="https://github.com/mauropereiira/Moldavite/issues/96"
-          >issue #96</a
-        >). The month grid and your daily-note markers work there regardless.
+        individual calendars you want on the timeline. Apple Calendar is macOS-only; Google
+        Calendar works on macOS, Windows and Linux. The month grid and your daily-note markers work
+        with no calendar connected at all.
       </p>
       <ul>
         <li>
@@ -608,7 +641,7 @@
         site, so the same note published to two blogs is two posts.
       </p>
       <p>
-        Sites you can only read are left out of the list — they look like a choice and fail on use.
+        Sites you can only read are left out of the list: they look like a choice and fail on use.
         <strong>Disconnect</strong> removes the stored token and forgets which posts came from which
         notes. You can also revoke access from WordPress.com under Security → Connected
         Applications.
@@ -651,7 +684,7 @@
         <p>
           Self-hosted WordPress and WordPress.com Jetpack/Atomic sites work when they expose the
           standard REST API and Application Passwords. WordPress.com Simple sites cannot use
-          Application Passwords at all, so this plugin does not reach them — that is what the
+          Application Passwords at all, so this plugin does not reach them. That is what the
           built-in <strong>WordPress</strong> button in the editor footer is for.
         </p>
       </div>
@@ -671,21 +704,24 @@
       </p>
       <ul>
         <li>
-          <strong>Chrome, Edge, and Brave</strong> — download and unzip the archive, open
+          <strong>Chrome, Edge, and Brave</strong>: download and unzip the archive, open
           <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>, then choose
           <strong>Load unpacked</strong>. Chrome only permits extensions from outside its store in
           Developer mode; that is Chrome's rule for anything unlisted.
         </li>
         <li>
-          <strong>Firefox</strong> — download the <code>.xpi</code> and open it. Firefox installs
+          <strong>Firefox</strong>: download the <code>.xpi</code> and open it. Firefox installs
           only signed add-ons, so the file is signed by Mozilla. It is not listed in their store.
+          The Chrome archive is built and attached automatically on every release; the
+          <code>.xpi</code> has to be signed and uploaded by hand afterwards, so a given release
+          may not have one yet.
         </li>
       </ul>
       <p>
         Then open <strong>Settings → Plugins → Browser clipper</strong> and press
         <strong>Connect browser</strong>. Nothing can reach your notes until you do: pairing writes
         a native-messaging manifest naming the exact extension allowed to connect, and the browser
-        enforces it. The channel is write-only — it can create a clipping and list your Forge names,
+        enforces it. The channel is write-only: it can create a clipping and list your Forge names,
         and there is no way to read a note through it. Because the browser starts Moldavite's binary
         on demand, clipping works whether or not the app is open. The
         <a href="https://github.com/mauropereiira/Moldavite/blob/main/docs/CLIPPER.md"
@@ -823,12 +859,23 @@
             </tr>
             <tr>
               <td><code>append_to_daily_note</code></td>
-              <td>Appends Markdown to a date's daily note, creating it when absent.</td>
+              <td>
+                Appends Markdown to a date's daily note, creating it when absent. Append carries no
+                conflict guard: a full-file write landing at the same moment can interleave with
+                its read-modify-write.
+              </td>
               <td>Hidden</td>
             </tr>
             <tr>
               <td><code>write_note</code></td>
-              <td>Fully replaces an existing unlocked Markdown note.</td>
+              <td>
+                Fully replaces an existing unlocked Markdown note. Pass
+                <code>read_note</code>'s <code>contentHash</code> as <code>baseHash</code> and a
+                disk version that changed since that read is preserved as a conflict copy first;
+                the response's <code>conflictCopy</code> names it, or is <code>null</code> after a
+                clean write. Omitting <code>baseHash</code> keeps the older last-write-wins
+                behaviour, so agents should send it.
+              </td>
               <td>Hidden</td>
             </tr>
           </tbody>
@@ -837,9 +884,11 @@
       <p>
         Enable the three write tools only through
         <strong>Settings → AI &amp; Agents → Allow agents to write notes</strong>. The setting is
-        re-read for every request, so turning it off removes and blocks write tools in
-        already-running sessions. Locked notes remain inaccessible, and every client-supplied path
-        is validated.
+        re-read for every request, so turning it off blocks the very next write call in a session
+        that is already running. The tool list is a separate matter: Moldavite sends no
+        list-changed notification, so a connected client keeps showing the write tools until it
+        asks for the list again. No tool returns a locked note's contents, and every
+        client-supplied path is validated.
       </p>
 
       <div class="next-links">

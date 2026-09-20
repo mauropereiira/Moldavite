@@ -15,10 +15,7 @@
     <meta property="og:image" content="https://mauropereiira.github.io/Moldavite/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta
-      property="og:image:alt"
-      content="Moldavite. Notes that stay yours. Local Markdown notes for macOS with a built-in MCP server."
-    />
+    <meta property="og:image:alt" content="The Moldavite wordmark, ink on cream." />
     <meta property="og:site_name" content="Moldavite" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Moldavite Privacy Policy" />
@@ -166,15 +163,38 @@
           you lose it, the note cannot be recovered by anyone, including the developer.
         </li>
         <li>
-          <strong>Local semantic search</strong> is a desktop feature and is opt-in. After a one-time model download it runs
-          entirely offline; note text is embedded on your own machine and the index stays inside the
-          Forge.
+          <strong>Local semantic search</strong> is opt-in and runs on Apple Silicon Macs, Windows
+          and Linux (Intel Macs and the iPhone and iPad app do not ship the runtime). After a
+          one-time model download it runs entirely offline: note text is embedded on your own
+          machine and the index stays inside the Forge, at
+          <code>.index/embeddings.v1.bin</code>. The downloaded model files are cached outside the
+          Forge, in <code>~/Library/Application Support/Moldavite/models/</code> on macOS,
+          <code>%APPDATA%\Moldavite\models\</code> on Windows and
+          <code>~/.local/share/Moldavite/models/</code> on Linux. The download happens once, when
+          you turn the feature on. If that cache is later deleted while the feature is still on,
+          the next launch fetches the model again without asking a second time; turning semantic
+          search off stops that.
         </li>
         <li>
-          <strong>Keyword search</strong> keeps an index of your note text in Moldavite's own
+          <strong>Keyword search</strong> keeps an SQLite index of your note text in Moldavite's own
           application-data folder on your computer, outside the Forge so a synced folder never
-          carries it. Locked notes are never in it, it never leaves your machine, and it is deleted
-          with its Forge.
+          carries it: <code>Moldavite/index/&lt;forge&gt;/search.sqlite</code> under the same
+          application-data directory as the models. Locked notes are never in it, it never leaves
+          your machine, and it is deleted with its Forge.
+        </li>
+        <li>
+          <strong>Agent write markers</strong> are left in
+          <code>Moldavite/agent-writes/</code> in the configuration folder whenever an MCP client
+          writes a note, so the app can tell an agent's write from your own and name the agent when
+          it asks you which version to keep. A marker holds the Forge path, the note's path, a hash
+          of the content and the client name the MCP client reported. It never holds note text.
+        </li>
+        <li>
+          <strong>Settings</strong> live in <code>config.json</code> in Moldavite's configuration
+          folder (<code>~/Library/Application Support/Moldavite/</code> on macOS,
+          <code>%APPDATA%\Moldavite\</code> on Windows, <code>~/.config/Moldavite/</code> on Linux).
+          It holds preferences and the paths of your Forges, never note text and never a
+          credential.
         </li>
         <li>
           <strong>Trash</strong> retains deleted notes locally for 7 days before permanent removal.
@@ -189,6 +209,14 @@
         service, that service receives your files under its own privacy policy. That is your choice
         to make; the developer does not receive a copy.
       </p>
+      <p>
+        On a Mac, <strong>Settings → General → Synced Forge</strong> offers the same thing without
+        moving anything: turning it on opens a Forge inside Moldavite's own iCloud Drive container,
+        which Apple then syncs to your other Apple devices under
+        <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>. It is off by
+        default, your local Forges stay where they are, and neither the search index nor the
+        semantic model cache is stored there.
+      </p>
 
       <h2 id="ios">iPhone and iPad</h2>
       <p>
@@ -201,9 +229,10 @@
       <p>
         Files and images you select are used in your notes or exports. When you save an export
         through the system Files picker, your chosen storage provider handles the exported file
-        under its own policy. Remote images in notes are requested from the image host, which
-        receives ordinary connection information such as your IP address. Links you open in
-        Safari are handled by the destination website under its own policy.
+        under its own policy. Images are stored in the Forge; the app's content security policy
+        does not allow the editor to load an image from a remote host, so a note never quietly
+        contacts one. Links you open in Safari are handled by the destination website under its
+        own policy.
       </p>
       <p>
         The iPhone and iPad app does not run desktop executable plugins, download semantic
@@ -230,22 +259,34 @@
           </thead>
           <tbody>
             <tr>
-              <td>Update check (GitHub)</td>
-              <td>About 15 seconds after launch and once a day while open</td>
+              <td>Update check (<code>github.com</code>)</td>
+              <td>15 seconds after launch and every 24 hours while the app stays open</td>
               <td>A request for the signed release manifest. No note data, no identifier.</td>
             </tr>
             <tr>
-              <td>Plugin registry (GitHub)</td>
+              <td>Update download (<code>objects.githubusercontent.com</code>)</td>
+              <td>Only after you accept an update</td>
+              <td>
+                A request for the release asset the manifest names. Its signature is verified
+                before anything is installed.
+              </td>
+            </tr>
+            <tr>
+              <td>Plugin registry (<code>raw.githubusercontent.com</code>)</td>
               <td>Only when you press Browse in the plugin settings</td>
               <td>A request for the registry file and the plugin you choose to install.</td>
             </tr>
             <tr>
-              <td>Semantic model download (Hugging Face)</td>
+              <td>Semantic model download (<code>huggingface.co</code>)</td>
               <td>Once, after you opt in to semantic search</td>
               <td>A request for the model files. No note data.</td>
             </tr>
             <tr>
-              <td>Google Calendar</td>
+              <td>
+                Google Calendar (<code>accounts.google.com</code> and
+                <code>oauth2.googleapis.com</code> to connect,
+                <code>www.googleapis.com</code> to read)
+              </td>
               <td>Only while a Google account is connected</td>
               <td>An access token and a date range. See below.</td>
             </tr>
@@ -258,7 +299,7 @@
               </td>
             </tr>
             <tr>
-              <td>Publishing to WordPress</td>
+              <td>Publishing to WordPress (<code>public-api.wordpress.com</code>)</td>
               <td>Only when you publish a note, and once when you connect</td>
               <td>
                 The note you chose to publish, to the site you chose. Connecting also asks
@@ -268,10 +309,22 @@
           </tbody>
         </table>
       </div>
+      <p>
+        Two local connections are worth naming, because neither leaves your machine. Connecting a
+        Google account opens a listener on <code>127.0.0.1</code> on a port the operating system
+        picks, so Google's consent page can hand the authorization code back; it closes as soon as
+        the code arrives or the attempt times out. And the browser clipper talks to the app over
+        the browser's native-messaging pipe, not a network port: your browser starts the Moldavite
+        binary, the page you clip is written into your Forge, and nothing is sent anywhere else.
+      </p>
+      <p>
+        Release builds write no log file. The logging plugin is only compiled into development
+        builds, so there is no place on disk where note content, tokens or URLs accumulate.
+      </p>
 
       <h2 id="wordpress">What connecting WordPress.com grants</h2>
       <p>
-        WordPress.com's consent screen lists nine permissions — your profile, posts, comments,
+        WordPress.com's consent screen lists nine permissions: your profile, posts, comments,
         categories and more. That is broader than what Moldavite does, and it is worth explaining
         rather than hoping you skim it.
       </p>
@@ -301,7 +354,7 @@
           What someone could do with them is present a different application under Moldavite's name
           on a WordPress.com consent screen. You would still have to approve it. The reason the
           credentials cannot simply be kept out of the app is that WordPress.com's OAuth offers no
-          public-client or PKCE flow — the token exchange requires the secret — so a desktop app
+          public-client or PKCE flow, and the token exchange requires the secret, so a desktop app
           either embeds it or routes every sign-in through a server. Moldavite is local-first and
           runs no server, and adding one so that connecting a blog depends on it would cost more
           than this is worth. If a consent screen ever names Moldavite when you did not ask for it,
@@ -360,8 +413,11 @@
 
       <h2 id="credentials">Credentials and secrets</h2>
       <p>
-        Tokens and passwords are stored in the macOS Keychain under the service name
-        <code>Moldavite</code>. They are never written into notes, settings files, exports, or logs.
+        Tokens and passwords are stored in your operating system's own credential store under the
+        service name <code>Moldavite</code>: the Keychain on macOS and iOS, Credential Manager on
+        Windows, and the Secret Service (GNOME Keyring, KWallet) on Linux. Each entry is namespaced
+        by the feature that owns it, so a plugin cannot read the calendar's token by guessing a
+        key. They are never written into notes, settings files, or exports.
       </p>
       <p>
         The Google connection stores a refresh token there and keeps the short-lived access token in
@@ -372,8 +428,8 @@
       <p>
         Plugins run in a sandboxed worker with no network access and no direct system access by
         default. A plugin must declare the exact hosts it wants to reach and the capabilities it
-        wants to use, and you approve that list before it runs. Consent is bound to a hash of the
-        plugin's code, so any change re-prompts.
+        wants to use, and you approve that list before it runs. Consent is bound to a SHA-256 of
+        the plugin's manifest and code together, so any change to either re-prompts.
       </p>
       <p>
         A plugin you approve can send data to the hosts you approved. Moldavite enforces the
@@ -393,7 +449,7 @@
         same release, and the network table above is kept exhaustive. Material changes are also
         noted in the changelog.
       </p>
-      <p><strong>Last updated:</strong> 6 September 2026</p>
+      <p><strong>Last updated:</strong> 20 September 2026</p>
 
       <h2 id="contact">Contact</h2>
       <p>

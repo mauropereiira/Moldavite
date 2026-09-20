@@ -8,7 +8,9 @@ reviewed as changes to user data or a trust boundary.
 
 Prerequisites:
 
-- Node.js 18 or newer
+- Node.js 20 (the version in `.nvmrc`; `package.json` accepts `^20 || ^22`, and
+  CI runs 20). On newer Node, vitest fails to give jsdom's globals to the test
+  context and a couple of hundred tests fail for reasons unrelated to the code.
 - Rust 1.88 or newer
 - Xcode Command Line Tools on macOS; on Linux, the apt packages listed in the
   `build-linux` job of `.github/workflows/ci.yml`
@@ -42,8 +44,10 @@ Clippy with warnings denied.
 
 ## Where things live
 
-The current feature status, storage model, and known debt are documented in
-[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Keep it accurate when
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) shows how the entrypoints, the
+MCP path and the plugin sandbox fit together. The current feature status,
+storage model, and known debt are documented in
+[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Keep both accurate when
 architecture or commands change.
 
 - `src/components/` contains React UI grouped by feature.

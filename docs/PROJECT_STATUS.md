@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 6, 2026
+**Last Updated:** September 20, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -39,7 +39,7 @@
 ### Storage & Data Safety
 
 - Real Markdown on disk with YAML frontmatter (color + extensible keys); legacy HTML-bodied files still readable
-- **Atomic writes everywhere** (temp + fsync + rename), with bounded retries when Windows temporarily blocks a replace. Owner-only `0600` permissions are applied before the file becomes visible **on Unix**; on Windows the file inherits its directory's ACLs and no explicit owner-only guarantee is made
+- **Atomic writes everywhere** (temp + fsync + rename + directory fsync on Unix), with bounded retries when Windows temporarily blocks a replace. Owner-only `0600` permissions are applied before the file becomes visible **on Unix**; on Windows the file inherits its directory's ACLs and no explicit owner-only guarantee is made
 - Portable note and folder name validation blocks Windows device names, illegal characters, trailing dots, and drive-relative paths before they can discard or hide data
 - Folder-relative note addressing (fixed folder-note round-trip data bug) — v1.5
 - **External-edit conflict safety** (v1.6): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
@@ -63,9 +63,9 @@
 - Linux is a beta release target: an AppImage (any distribution, carries the updater), a deb (Debian and Ubuntu) and an rpm (Fedora), the last two without an in-app updater, built by the release workflow and proven by a `build-linux` job on every PR that asserts the exact artifact names the release verification requires, then a `smoke-linux-fedora` job that launches the AppImage and the rpm under Xvfb in a Fedora container and fails on an EGL abort, a dead web process or a blank window (the 2.6.0 AppImage shipped exactly that on Fedora, #130). The crate has compiled and tested on `ubuntu-latest` since CI existed. No Linux runtime journey has been exercised by hand. All bundles need glibc 2.38 or newer (Ubuntu 24.04, Debian 13, Fedora 39 or later) because the ONNX Runtime binary fastembed ships is built against it; the deb declares `libc6 (>= 2.38)` so apt refuses cleanly on older systems, and the AppImage needs `libfuse2` where the distribution does not ship it
 - Calendar in right panel + timeline, read-only, from two sources: Apple (EventKit, permission-gated, macOS only) and Google (Calendar API v3 over PKCE loopback OAuth, all platforms, refresh token in the OS credential store). Per-source failures are reported without blanking the other source; Google needs `MOLDAVITE_GOOGLE_CLIENT_ID`/`_SECRET` at build time or it reports unavailable
 - macOS builds are signed and notarized. Windows installers are unsigned and may trigger SmartScreen because they are not Authenticode-signed. Linux bundles are unsigned as well; Linux has no equivalent warning. Updater artifacts are signed for every platform, including Windows, and clients verify them before installation. Checks run about 15 seconds after launch, every 24 hours while open, and on focus after 24 hours without a successful check, and can be switched off in Settings → About (manual checks still work); automatic network/404 failures stay silent and retry, while pending versions add accent dots to Settings and About plus the existing install action. Manual checks retain explicit errors, and completed upgrades show the CHANGELOG-backed "What's New" popup (see docs/RELEASING.md)
-- Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘? on macOS, Ctrl+? on Windows and Linux), settings modal with focus trap
+- Themes/presets, platform-specific keyboard shortcut labels and overlay (⌘/ on macOS, Ctrl+/ on Windows and Linux, from the single registry in `src/lib/shortcuts.ts`), settings modal with focus trap
 - Window size and position are restored between launches
-- iOS is in development on the `mobile/ios-spike` branch, not shipped: the same React app and Rust core build through Tauri's iOS target and run on the iPhone simulator with a phone layout (icon rail navigation, full-screen pages, two-level Settings, keyboard-aware shell and formatting row, local-container onboarding), a home screen widget that opens today's note through `moldavite://today`, and the desktop-only parts compiled out. Third-party plugins and their installation commands are desktop-only. See docs/MOBILE.md for the build, the gates and what is left
+- iOS is in development, not shipped. The Xcode project, the widget sources and the `cfg(desktop)` gates are tracked on `main` (`src-tauri/gen/apple`, `src-tauri/ios/`) while further iOS work continues on the diverged `mobile/ios-spike` branch: the same React app and Rust core build through Tauri's iOS target and run on the iPhone simulator with a phone layout (icon rail navigation, full-screen pages, two-level Settings, keyboard-aware shell and formatting row, local-container onboarding), a home screen widget that opens today's note through `moldavite://today`, and the desktop-only parts compiled out. Third-party plugins and their installation commands are desktop-only. See docs/MOBILE.md for the build, the gates and what is left
 
 ### Browser clipper
 
@@ -91,14 +91,13 @@
 - Backend: cargo tests cover the stress suite, Obsidian conversion/path safety, conflict copies, semantic indexing, MCP, plugin install/hash/secret validation, strict deep-link routing, Windows path and persistence behavior, and calendar source dispatch / PKCE / Google response mapping
 - Linux, Windows and macOS CI run clippy with warnings denied and the Rust library test suite on every PR, and Windows and Linux also run a full installer build; `npm audit` (production dependencies) and `cargo audit` run on every PR too
 - Bundle budget enforced via `npm run check:size`
-- ESLint: 0 errors, 16 pre-existing warnings (set-state-in-effect patterns in modals; tracked below)
+- ESLint: 0 errors, 3 pre-existing warnings (DOM-measurement effects; tracked below)
 
 ## Known Issues / Debt
 
-- **Search scales linearly** — live WalkDir scan per query; fine to ~1k notes. Planned: persistent incremental index (would also speed backlinks + previews).
 - **Plugin API has no note writes or panels yet** — v2 adds note reads, trusted prompt forms, dynamically approved exact-host HTTPS, and OS credential-store secrets while keeping the Worker boundary narrow.
 - All note metadata held in memory (no pagination); startup daily-note scan capped at 8 concurrent reads but still O(vault age).
-- ESLint set-state-in-effect warnings in ImageModal/LinkModal/SlashCommandList et al. — cosmetic, no user impact observed.
+- ESLint set-state-in-effect warnings in ImageToolbar, TrashPopover and ImageModal. Each measures the DOM after commit or clears state the instant a field empties, so deriving the value would change behaviour.
 - No automatic scheduled backups (manual + encrypted export exist).
 - No multi-window support.
 - **`Editor.tsx`'s tests mock `useKeyboardShortcuts` wholesale** — which is how ⌘N stayed wired to an empty function unnoticed until a user reported it. The mock now records the options it is handed so the wiring itself can be asserted, but most of the component is still only reachable through mocks.
@@ -110,9 +109,9 @@
 
 1. **Google brand verification** — needs the now-live `privacy.html`, a homepage, and a Search Console-verified authorized domain. Removes the unverified-app warning and the 100-user cap.
 2. **Plugin UI/write extensions** — build on the shipped Worker/RPC boundary and v2 read/network/secrets surface with conflict-safe note writes and narrow panel slots.
-3. **Persistent search index** — incremental, on-disk; unlocks instant search, better snippets, cheaper backlinks.
+3. ~~**Persistent search index**~~ — Done (v2.6): a per-Forge SQLite FTS5 index in the app data directory, reconciled incrementally, with the live scan kept as the fallback.
 4. **Automatic local backups** — scheduled snapshots of the Forge with retention (fits the local-first/no-cloud identity).
-5. **iOS app** — in progress on `mobile/ios-spike` (docs/MOBILE.md). The native iCloud container/download/metadata bridge builds. Note reads and complete conflict-check/save transactions now check download state and coordinate cloud files; optional synced Forge selection and metadata listing/reconciliation are connected on Apple devices. Lock/unlock, note moves/renames/direct deletion and folder mutations now coordinate all participating paths; locked notes and containing folders cannot be moved before unlocking. Trash/restore and other remaining content operations, cross-Forge moves and account-backed sync proof are still unfinished. Native complete-file exports cover Settings ZIP/backup/JSON, individual Markdown/plaintext and selected-note ZIPs; simulator destination bytes are verified except the encrypted picker round-trip. Touch selection and native web/mail opening work. The App Store upload guide and in-app privacy/support links exist. Next: finish sync, full editor and iPad verification, a real-device run and TestFlight. Android follows through Tauri's Android target.
+5. **iOS app** — in progress; the project builds from `main` and further work continues on `mobile/ios-spike` (docs/MOBILE.md). The native iCloud container/download/metadata bridge builds. Note reads and complete conflict-check/save transactions now check download state and coordinate cloud files; optional synced Forge selection and metadata listing/reconciliation are connected on Apple devices. Lock/unlock, note moves/renames/direct deletion and folder mutations now coordinate all participating paths; locked notes and containing folders cannot be moved before unlocking. Trash/restore and other remaining content operations, cross-Forge moves and account-backed sync proof are still unfinished. Native complete-file exports cover Settings ZIP/backup/JSON, individual Markdown/plaintext and selected-note ZIPs; simulator destination bytes are verified except the encrypted picker round-trip. Touch selection and native web/mail opening work. The App Store upload guide and in-app privacy/support links exist. Next: finish sync, full editor and iPad verification, a real-device run and TestFlight. Android follows through Tauri's Android target.
 6. ~~**Conflict-safe MCP writes**~~ — Done: reads can return a content hash and writes preserve a changed disk version as a conflict copy.
 7. ~~**Note rename UI**~~ — Done (v1.6): sidebar/editor rename keeps tabs, recents, colors, selection, and backlinks synchronized while the backend safely rewrites inbound links.
 8. ~~External-edit conflict handling beyond the file-watcher refresh.~~ Done (v1.6): conflict copies preserve both versions on divergent saves.
