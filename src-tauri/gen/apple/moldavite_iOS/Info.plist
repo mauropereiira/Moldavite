@@ -31,6 +31,10 @@
 	<string>2.7.2</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.app.moldavite</key>
