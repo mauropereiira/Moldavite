@@ -12,10 +12,11 @@ describe('QuickSwitcher command filter', () => {
     const results = filterCommands('settings');
     const ids = results.map((r) => r.command.id);
     expect(ids).toContain('open-settings');
-    const settings = results.find((r) => r.command.id === 'open-settings')!;
+    const settings = results.find((r) => r.command.id === 'open-settings');
+    expect(settings).toBeDefined();
     // "settings" appears verbatim in "Open Settings", so we expect indices for
     // each matched character.
-    expect(settings.titleIndices.length).toBe('settings'.length);
+    expect(settings?.titleIndices.length).toBe('settings'.length);
   });
 
   it('matches via keywords without highlighting the title', () => {

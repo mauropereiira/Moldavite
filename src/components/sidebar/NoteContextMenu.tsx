@@ -4,7 +4,7 @@ import {
   exportSingleNote,
   exportNoteToPdf,
   exportNoteAsPlaintext,
-  readNote,
+  readNoteSnapshot,
   noteFileBackendPath,
 } from '@/lib';
 import { useToast } from '@/hooks/useToast';
@@ -83,7 +83,7 @@ export function NoteContextMenu({
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
       });
       if (destination) {
-        const content = await readNote(
+        const { content } = await readNoteSnapshot(
           noteFileBackendPath(note),
           note.isDaily || false,
           note.isWeekly || false

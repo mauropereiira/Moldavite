@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
-import { filenameToNote, markdownToHtml, applyTemplate } from '@/lib';
+import { filenameToNote, markdownToHtml, applyTemplate, readNoteWithMeta } from '@/lib';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
@@ -77,7 +77,10 @@ export function useKeyboardShortcuts({
 
           const noteFile: NoteFile = {
             name: filename,
-            path: filename,
+            // Standalone notes are addressed by their notes/-relative path.
+            // A bare filename leaves the open tab unmatchable by external-change
+            // reconciliation and by the sidebar's own note list.
+            path: `notes/${filename}`,
             isDaily: false,
             isWeekly: false,
             isLocked: false,
@@ -85,10 +88,8 @@ export function useKeyboardShortcuts({
 
           setNotes([...notes, noteFile]);
 
-          const readContent = await invoke<string>('read_note', {
-            filename,
-            isDaily: false,
-          });
+          // Seeds the save-conflict baseline for the new file, as createNote does.
+          const { content: readContent } = await readNoteWithMeta(filename, false, false);
 
           const htmlContent = markdownToHtml(readContent);
           const note = filenameToNote(noteFile, htmlContent);

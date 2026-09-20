@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { NoteFile } from '@/types';
 
 export interface WikiLinkSuggestionListProps {
@@ -16,9 +16,14 @@ export const WikiLinkSuggestionList = forwardRef<
 >((props, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  useEffect(() => {
+  // Reset the highlight when the filter yields a new item list. Adjusted
+  // during render rather than in an effect, so the first render of the new
+  // list never highlights — or lets Enter choose — a row from the old one.
+  const [renderedItems, setRenderedItems] = useState<NoteFile[]>(props.items);
+  if (renderedItems !== props.items) {
+    setRenderedItems(props.items);
     setSelectedIndex(0);
-  }, [props.items]);
+  }
 
   const selectItem = (index: number) => {
     const item = props.items[index];

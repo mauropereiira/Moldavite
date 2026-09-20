@@ -113,8 +113,13 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     }
   };
 
-  // Reset state when modal opens
-  useEffect(() => {
+  // Reset state when modal opens. Adjusted during render rather than in an
+  // effect, so the first frame never shows the previous image's values.
+  // Focus is left to the tab-change effect below: the URL input only exists on
+  // the URL tab, and opening always lands on the File tab.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
       setUrl('');
       setAlt('');
@@ -123,14 +128,8 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
       setPreviewUrl('');
       setSelectedFile(null);
       setActiveTab('file');
-      // Focus appropriate input when modal opens
-      setTimeout(() => {
-        if (activeTab === 'url') {
-          urlInputRef.current?.focus();
-        }
-      }, 100);
     }
-  }, [isOpen]);
+  }
 
   // Validate and preview image when URL changes
   useEffect(() => {

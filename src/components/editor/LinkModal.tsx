@@ -27,15 +27,27 @@ export function LinkModal({
   const [text, setText] = useState(initialText);
   const [error, setError] = useState('');
 
-  // Reset state when modal opens
-  useEffect(() => {
+  // Reset state when modal opens. Adjusted during render rather than in an
+  // effect, so the first frame never shows the previous link's values.
+  const [seeded, setSeeded] = useState({ isOpen, initialUrl, initialText });
+  if (
+    seeded.isOpen !== isOpen ||
+    seeded.initialUrl !== initialUrl ||
+    seeded.initialText !== initialText
+  ) {
+    setSeeded({ isOpen, initialUrl, initialText });
     if (isOpen) {
       setUrl(initialUrl);
       setText(initialText);
       setError('');
-      // Focus URL input when modal opens
-      setTimeout(() => urlInputRef.current?.focus(), 100);
     }
+  }
+
+  // Focus URL input when modal opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => urlInputRef.current?.focus(), 100);
+    return () => clearTimeout(timer);
   }, [isOpen, initialUrl, initialText]);
 
   const validateUrl = (urlString: string): boolean => {
