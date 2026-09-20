@@ -116,7 +116,10 @@ codegen-units = 1
 strip = true
 panic = "abort"
 
-[dev-dependencies]
 # `test` gives us `tauri::test::mock_app`, the only way to exercise a real
-# asset-protocol scope without launching a window.
+# asset-protocol scope without launching a window. Not on Windows: the mock
+# runtime it pulls in leaves the test binary unable to load there
+# (STATUS_ENTRYPOINT_NOT_FOUND), so the scope test is Unix-only. The behaviour
+# under test is platform-independent.
+[target.'cfg(not(windows))'.dev-dependencies]
 tauri = { version = "2.9.2", features = ["protocol-asset", "test"] }

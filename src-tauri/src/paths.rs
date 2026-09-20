@@ -228,6 +228,7 @@ mod tests {
     /// A Forge anywhere else, including the iCloud container, must still be
     /// able to serve its images, and must not leak anything but its images.
     #[test]
+    #[cfg(not(windows))]
     fn a_forge_outside_the_static_scope_can_still_serve_its_images() {
         use tauri::Manager;
 
