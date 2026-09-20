@@ -209,7 +209,6 @@ pub(crate) fn read_config() -> AppConfig {
 pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
     let config_path = get_config_path();
 
-    // Ensure config directory exists
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create config directory: {}", e))?;

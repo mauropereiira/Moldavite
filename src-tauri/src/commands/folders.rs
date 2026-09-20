@@ -18,8 +18,6 @@ use crate::validation::{
     MAX_PORTABLE_FILENAME_LENGTH,
 };
 
-// Folder System Helper Functions
-
 fn validate_new_folder_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("Folder name cannot be empty".to_string());
@@ -142,7 +140,6 @@ pub(crate) fn scan_folders_recursive(dir: &Path, relative_path: &str) -> Vec<Fol
                     .unwrap_or("")
                     .to_string();
 
-                // Skip hidden directories
                 if name.starts_with('.') {
                     continue;
                 }
@@ -153,7 +150,6 @@ pub(crate) fn scan_folders_recursive(dir: &Path, relative_path: &str) -> Vec<Fol
                     format!("{}/{}", relative_path, name)
                 };
 
-                // Recursively scan subdirectories
                 let children = scan_folders_recursive(&path, &folder_relative_path);
 
                 folders.push(FolderInfo {
@@ -165,13 +161,10 @@ pub(crate) fn scan_folders_recursive(dir: &Path, relative_path: &str) -> Vec<Fol
         }
     }
 
-    // Sort folders alphabetically
     folders.sort_by_key(|a| a.name.to_lowercase());
 
     folders
 }
-
-// Folder System Commands
 
 #[tauri::command]
 pub(crate) fn list_folders() -> Result<Vec<FolderInfo>, String> {
@@ -225,7 +218,6 @@ fn rename_folder_from(
     validate_path_within_base(&old_folder_path, standalone_dir)
         .map_err(|_| "Invalid folder path".to_string())?;
 
-    // Calculate new path (same parent directory, new name)
     let parent = old_folder_path
         .parent()
         .ok_or_else(|| "Cannot rename root folder".to_string())?;
@@ -255,7 +247,6 @@ fn rename_folder_from(
         },
     )?;
 
-    // Return the new relative path
     let new_relative_path = new_folder_path
         .strip_prefix(standalone_dir)
         .map_err(|_| "Failed to compute new path".to_string())?
@@ -285,7 +276,6 @@ fn delete_folder_from(standalone_dir: &Path, path: &str, force: bool) -> Result<
             return Ok(()); // Already deleted
         }
 
-        // Check if folder is empty (unless force is true)
         if !force {
             let has_contents = fs::read_dir(&folder_path)
                 .map(|mut entries| entries.next().is_some())
@@ -336,14 +326,12 @@ fn move_folder_from(
     validate_path_within_base(&source_path, standalone_dir)
         .map_err(|_| "Invalid folder path".to_string())?;
 
-    // Get the folder name
     let folder_name = source_path
         .file_name()
         .ok_or_else(|| "Invalid folder path".to_string())?
         .to_string_lossy()
         .to_string();
 
-    // Calculate destination parent directory
     let dest_parent = match to_folder {
         Some(dest) => standalone_dir.join(dest),
         None => standalone_dir.to_path_buf(),
@@ -353,7 +341,6 @@ fn move_folder_from(
             .map_err(|_| "Invalid destination path".to_string())?;
     }
 
-    // Ensure destination parent exists
     if !dest_parent.exists() {
         return Err("Destination folder does not exist".to_string());
     }
@@ -365,7 +352,6 @@ fn move_folder_from(
         }
     }
 
-    // Check if we're moving to the same parent (no-op)
     let source_parent = source_path
         .parent()
         .map(|p| p.to_path_buf())
@@ -380,13 +366,11 @@ fn move_folder_from(
         });
     }
 
-    // Generate unique folder name if needed
     let final_name = generate_unique_folder_name(&dest_parent, &folder_name);
     let dest_path = dest_parent.join(&final_name);
     validate_path_within_base(&dest_path, standalone_dir)
         .map_err(|_| "Invalid destination path".to_string())?;
 
-    // Move the folder
     note_file_access::transaction(
         &[Access::moving(&source_path, 1), Access::write(&dest_path)],
         || {
@@ -404,7 +388,6 @@ fn move_folder_from(
         },
     )?;
 
-    // Return new relative path
     let new_relative_path = match to_folder {
         Some(dest) => format!("{}/{}", dest, final_name),
         None => final_name,

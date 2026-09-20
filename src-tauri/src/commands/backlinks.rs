@@ -82,7 +82,6 @@ fn create_note_from_link_at(notes_dir: &Path, note_name: &str) -> Result<(String
         return Err(format!("Note '{}' already exists", filename));
     }
 
-    // Create with a basic heading
     let initial_content = format!("# {}\n\n", note_name);
 
     crate::persist::write_atomic(&file_path, initial_content.as_bytes(), Some(0o600))

@@ -22,7 +22,6 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::rngs::OsRng;
 use zeroize::Zeroize;
 
-// Constants
 const NONCE_LENGTH: usize = 12;
 const NOTE_FORMAT_V2: &str = "v2";
 const NOTE_FORMAT_V3: &str = "v3";

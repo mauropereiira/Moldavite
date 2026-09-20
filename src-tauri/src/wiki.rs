@@ -14,7 +14,6 @@ use regex::Regex;
 use crate::paths::get_notes_dir;
 use crate::validation::is_safe_existing_filename;
 
-// Wiki Link Regex
 lazy_static! {
     // Matches [[Note Name]] or [[Display|note-name]]
     static ref WIKI_LINK_REGEX: Regex = Regex::new(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]").unwrap();
@@ -25,7 +24,6 @@ pub(crate) fn parse_wiki_links(content: &str) -> Vec<String> {
     let mut links = Vec::new();
 
     for cap in WIKI_LINK_REGEX.captures_iter(content) {
-        // Get the target (second capture group if exists, otherwise first)
         let target = cap
             .get(2)
             .or_else(|| cap.get(1))
@@ -170,9 +168,7 @@ pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
             let start = floor_char_boundary(content, pos.saturating_sub(50));
             let end = ceil_char_boundary(content, pos + search.len() + 50);
 
-            // Find the actual end of the link
             let actual_end = if search.ends_with('|') {
-                // Find the closing ]]
                 content[pos..]
                     .find("]]")
                     .map(|p| ceil_char_boundary(content, pos + p + 2 + 50))
@@ -183,7 +179,6 @@ pub(crate) fn get_link_context(content: &str, link_text: &str) -> String {
 
             let context = &content[start..actual_end];
 
-            // Add ellipsis if truncated
             let mut result = String::new();
             if start > 0 {
                 result.push_str("...");

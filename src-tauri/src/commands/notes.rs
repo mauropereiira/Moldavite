@@ -197,7 +197,6 @@ fn conflict_copy_destination(path: &Path, stamp: &str) -> Result<(PathBuf, Strin
     Ok((dir.join(&name), name))
 }
 
-/// Test wrapper with an injectable timestamp.
 #[cfg(test)]
 fn preserve_conflict_copy_at(
     path: &Path,
@@ -416,7 +415,6 @@ fn ensure_note_is_writable(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-// Helper function to recursively scan notes in a directory
 pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut Vec<NoteFile>) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -433,12 +431,10 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
             };
 
             if path.is_dir() {
-                // Skip hidden directories
                 if filename.starts_with('.') {
                     continue;
                 }
 
-                // Recurse into subdirectory
                 let new_relative_path = if relative_path.is_empty() {
                     filename.clone()
                 } else {
@@ -446,7 +442,6 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                 };
                 scan_notes_recursive(&path, &new_relative_path, notes);
             } else if path.is_file() {
-                // Determine folder_path (None if at root level)
                 let folder_path = if relative_path.is_empty() {
                     None
                 } else {
@@ -787,19 +782,16 @@ fn create_note_in(
         validate_path_within_base(&dir, base_dir).map_err(|_| "Invalid folder path".to_string())?;
     }
 
-    // Ensure the folder exists
     if !dir.exists() {
         return Err("Folder does not exist".to_string());
     }
 
-    // Generate unique filename if needed
     let filename = unique_unlocked_filename(&dir, title);
     let path = dir.join(&filename);
     validate_path_within_base(&path, base_dir).map_err(|_| "Invalid note path".to_string())?;
 
     write_atomic(&path, b"", Some(0o600))?;
 
-    // Return the full relative path
     match folder_path {
         Some(folder) => Ok((filename.clone(), format!("{}/{}", folder, filename))),
         None => Ok((filename.clone(), filename)),
@@ -816,7 +808,6 @@ pub(crate) fn duplicate_note(
     if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
-    // Determine source directory
     let dir = if is_weekly {
         get_weekly_dir()?
     } else if is_daily {
@@ -832,10 +823,8 @@ pub(crate) fn duplicate_note(
         return Err("Note not found".to_string());
     }
 
-    // Read source content
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
-    // Generate new filename with " (copy)" suffix
     let source_parent = source_path
         .parent()
         .ok_or_else(|| "Invalid note path".to_string())?;
@@ -852,7 +841,6 @@ pub(crate) fn duplicate_note(
         None => new_leaf,
     };
 
-    // Write content to new file
     write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
     index.update_note(&index_key(&new_filename), &content);
@@ -881,7 +869,6 @@ pub(crate) fn export_single_note(
     if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
-    // Determine source directory
     let dir = if is_weekly {
         get_weekly_dir()?
     } else if is_daily {
@@ -897,7 +884,6 @@ pub(crate) fn export_single_note(
         return Err("Note not found".to_string());
     }
 
-    // Read source content
     let content = fs::read_to_string(&source_path).map_err(|e| e.to_string())?;
 
     let dest_path = Path::new(&destination);
@@ -1179,14 +1165,12 @@ fn move_note_in(
     validate_path_within_base(&source_path, standalone_dir)
         .map_err(|_| "Invalid note path".to_string())?;
 
-    // Get the filename and extract base name without extension
     let filename = source_path
         .file_name()
         .ok_or_else(|| "Invalid note path".to_string())?
         .to_string_lossy()
         .to_string();
 
-    // Calculate destination path
     let dest_dir = match to_folder {
         Some(folder) => standalone_dir.join(folder),
         None => standalone_dir.to_path_buf(),
@@ -1196,13 +1180,12 @@ fn move_note_in(
             .map_err(|_| "Invalid folder path".to_string())?;
     }
 
-    // Ensure destination folder exists
     if !dest_dir.exists() {
         return Err("Destination folder does not exist".to_string());
     }
 
-    // Generate unique filename if needed (handle conflicts). A note already
-    // living in the destination is not a conflict — it is its own only match.
+    // A note already living in the destination is not a conflict — it is its
+    // own only match.
     // Deduplicating there renamed the note to "name (2).md" ON TOP OF itself,
     // so dropping a root note back onto the root list (or re-picking its own
     // folder in Move to Folder…) appeared to duplicate it and delete the
@@ -1246,7 +1229,6 @@ fn move_note_in(
         )?;
     }
 
-    // Return new relative path
     let new_relative_path = match to_folder {
         Some(folder) => format!("{}/{}", folder, final_filename),
         None => final_filename.clone(),
@@ -1255,7 +1237,6 @@ fn move_note_in(
     Ok((filename, final_filename, new_relative_path, dest_path))
 }
 
-// Fix permissions on existing note files
 #[tauri::command]
 pub(crate) fn fix_note_permissions() -> Result<u32, String> {
     #[cfg(unix)]
@@ -1424,7 +1405,6 @@ mod tests {
         // Simulate the main write that follows the copy.
         write_atomic(&path, b"mine", Some(0o600)).unwrap();
 
-        // Both versions are intact on disk.
         assert_eq!(fs::read_to_string(&path).unwrap(), "mine");
         assert_eq!(
             fs::read_to_string(tmp.path().join(&result.0)).unwrap(),

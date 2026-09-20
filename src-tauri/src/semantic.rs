@@ -1074,8 +1074,6 @@ mod tests {
         }
     }
 
-    // ---- chunking + embedding ----------------------------------------------
-
     #[test]
     fn chunk_text_empty_body_yields_no_chunks() {
         assert!(chunk_text("").is_empty());
@@ -1111,8 +1109,6 @@ mod tests {
         assert!(embed_note_body(&fake, "").unwrap().is_none());
         assert_eq!(fake.embed_calls(), 0);
     }
-
-    // ---- cosine ranking ------------------------------------------------------
 
     #[test]
     fn top_k_ranks_by_cosine_similarity() {
@@ -1182,8 +1178,6 @@ mod tests {
         assert_eq!(hits[0].path, "notes/rust.md");
         assert!(hits[0].score > hits[1].score);
     }
-
-    // ---- index file round trip ----------------------------------------------
 
     #[cfg(semantic_runtime)]
     #[test]
@@ -1258,8 +1252,6 @@ mod tests {
         fs::write(index_path(forge.path()), b"not bincode").unwrap();
         assert!(load_index(forge.path(), DEFAULT_MODEL_ID).is_none());
     }
-
-    // ---- reconcile -----------------------------------------------------------
 
     fn seed_vault(forge: &TempForge) {
         let base = forge.path();
@@ -1453,8 +1445,6 @@ mod tests {
         assert_eq!(err, CANCELLED);
     }
 
-    // ---- single-note refresh --------------------------------------------------
-
     #[test]
     fn refresh_entry_updates_removes_and_skips_unchanged() {
         let forge = TempForge::new("refresh");
@@ -1505,8 +1495,6 @@ mod tests {
         // hidden/locked names fail path validation inside refresh_entry.
         assert!(!refresh_entry(forge.path(), &fake, &mut entries, "notes/../etc/passwd").unwrap());
     }
-
-    // ---- path helpers -----------------------------------------------------------
 
     #[test]
     fn note_rel_path_maps_note_kinds() {

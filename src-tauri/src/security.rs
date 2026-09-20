@@ -116,14 +116,7 @@ fn global_denial(global: &GlobalAttemptInfo, now: Instant) -> Option<RateLimitRe
 /// Checks if an unlock attempt is allowed for the given note.
 ///
 /// Checks both per-note and global rate limits.
-///
-/// # Arguments
-/// * `note_id` - Unique identifier for the note (e.g., filename)
-///
-/// # Returns
-/// A `RateLimitResult` indicating whether the attempt is allowed
 pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
-    // First check global rate limit
     {
         let global = lock(&GLOBAL_TRACKER);
         if let Some(denial) = global_denial(&global, Instant::now()) {
@@ -131,14 +124,12 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
         }
     }
 
-    // Then check per-note rate limit
     let mut tracker = lock(&ATTEMPT_TRACKER);
 
     // Clean up old entries while we have the lock
     cleanup_old_entries(&mut tracker);
 
     if let Some(info) = tracker.get(note_id) {
-        // Check if currently locked out
         if let Some(remaining) = lockout_remaining(info.locked_until, Instant::now()) {
             return RateLimitResult {
                 allowed: false,
@@ -147,7 +138,6 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
             };
         }
 
-        // Not locked out, return remaining attempts
         let remaining = MAX_ATTEMPTS.saturating_sub(info.attempts);
 
         RateLimitResult {
@@ -169,14 +159,7 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 ///
 /// If the maximum number of attempts is exceeded (per-note or globally),
 /// a lockout is triggered.
-///
-/// # Arguments
-/// * `note_id` - Unique identifier for the note
-///
-/// # Returns
-/// A `RateLimitResult` with the current state after recording the failure
 pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
-    // Update global tracker first
     {
         let mut global = lock(&GLOBAL_TRACKER);
 
@@ -192,7 +175,6 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
         global.attempts += 1;
         global.last_attempt = Instant::now();
 
-        // Check if we need to trigger a global lockout
         if global.attempts >= GLOBAL_MAX_ATTEMPTS {
             let lockout_multiplier = 2u64.pow(global.lockout_count);
             let lockout_secs = (BASE_LOCKOUT_SECS * lockout_multiplier).min(MAX_LOCKOUT_SECS);
@@ -208,7 +190,6 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
         }
     }
 
-    // Then update per-note tracker
     let mut tracker = lock(&ATTEMPT_TRACKER);
 
     let info = tracker
@@ -224,13 +205,10 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
         info.locked_until = None;
     }
 
-    // Increment attempts
     info.attempts += 1;
     info.last_attempt = Instant::now();
 
-    // Check if we need to trigger a per-note lockout
     if info.attempts >= MAX_ATTEMPTS {
-        // Calculate lockout duration with exponential backoff
         let lockout_multiplier = 2u64.pow(info.lockout_count);
         let lockout_secs = (BASE_LOCKOUT_SECS * lockout_multiplier).min(MAX_LOCKOUT_SECS);
 
@@ -252,9 +230,6 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
 }
 
 /// Records a successful unlock attempt, clearing the attempt history.
-///
-/// # Arguments
-/// * `note_id` - Unique identifier for the note
 pub fn record_successful_attempt(note_id: &str) {
     let mut tracker = lock(&ATTEMPT_TRACKER);
     tracker.remove(note_id);
@@ -266,7 +241,6 @@ fn cleanup_old_entries(tracker: &mut HashMap<String, AttemptInfo>) {
     let cleanup_threshold = Duration::from_secs(ATTEMPT_RESET_SECS * 2);
 
     tracker.retain(|_, info| {
-        // Keep entries that are currently locked out or were recently accessed
         info.locked_until
             .is_some_and(|until| Instant::now() < until)
             || info.last_attempt.elapsed() < cleanup_threshold
@@ -292,7 +266,6 @@ mod tests {
         let note_id = "test_note_2";
         record_successful_attempt(note_id); // Clear any previous state
 
-        // Record a failed attempt
         let result = record_failed_attempt(note_id);
         assert!(result.allowed);
         assert_eq!(result.remaining_attempts, Some(MAX_ATTEMPTS - 1));
@@ -303,12 +276,10 @@ mod tests {
         let note_id = "test_note_3";
         record_successful_attempt(note_id); // Clear any previous state
 
-        // Exhaust all attempts
         for _ in 0..MAX_ATTEMPTS {
             record_failed_attempt(note_id);
         }
 
-        // Should now be locked
         let result = check_rate_limit(note_id);
         assert!(!result.allowed);
         assert!(result.retry_after_secs.is_some());
@@ -319,14 +290,11 @@ mod tests {
         let note_id = "test_note_4";
         record_successful_attempt(note_id); // Clear any previous state
 
-        // Record some failed attempts
         record_failed_attempt(note_id);
         record_failed_attempt(note_id);
 
-        // Clear with successful attempt
         record_successful_attempt(note_id);
 
-        // Should be back to full attempts
         let result = check_rate_limit(note_id);
         assert!(result.allowed);
         assert_eq!(result.remaining_attempts, Some(MAX_ATTEMPTS));

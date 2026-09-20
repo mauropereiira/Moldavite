@@ -370,8 +370,6 @@ mod tests {
         list.iter().map(|s| s.to_string()).collect()
     }
 
-    // ---- validate_url / validate_parsed_url ----
-
     #[test]
     fn validate_url_accepts_https_on_allowlist() {
         let allowed = hosts(&["api.example.com"]);
@@ -420,8 +418,6 @@ mod tests {
         assert!(err.contains("allowedHosts"), "unexpected error: {err}");
     }
 
-    // ---- resolve_redirect_target ----
-
     #[test]
     fn resolve_redirect_target_follows_allowlisted_relative_location() {
         let allowed = hosts(&["api.example.com"]);
@@ -448,8 +444,6 @@ mod tests {
         assert!(err.contains("https"), "unexpected error: {err}");
     }
 
-    // ---- normalize_method ----
-
     #[test]
     fn normalize_method_uppercases_and_accepts_letters_only() {
         assert_eq!(normalize_method("get").unwrap(), Method::GET);
@@ -468,8 +462,6 @@ mod tests {
         assert!(normalize_method("Trace").is_err());
         assert!(normalize_method("TRACK").is_err());
     }
-
-    // ---- build_header_map ----
 
     #[test]
     fn build_header_map_accepts_ordinary_headers() {
@@ -513,8 +505,6 @@ mod tests {
         assert!(build_header_map(&headers).is_err());
     }
 
-    // ---- should_downgrade_to_get ----
-
     #[test]
     fn should_downgrade_to_get_matches_fetch_spec_redirect_rules() {
         assert!(should_downgrade_to_get(303, &Method::POST));
@@ -525,8 +515,6 @@ mod tests {
         assert!(!should_downgrade_to_get(307, &Method::POST));
         assert!(!should_downgrade_to_get(308, &Method::POST));
     }
-
-    // ---- origins_match ----
 
     #[test]
     fn origins_match_treats_default_port_as_equal() {
@@ -541,8 +529,6 @@ mod tests {
         let b = Url::parse("https://other.example.com/a").unwrap();
         assert!(!origins_match(&a, &b));
     }
-
-    // ---- cross_origin_safe_headers ----
 
     #[test]
     fn cross_origin_safe_headers_keeps_only_the_minimal_set() {
@@ -569,8 +555,6 @@ mod tests {
         assert!(without_body.get("authorization").is_none());
     }
 
-    // ---- filter_response_headers ----
-
     #[test]
     fn filter_response_headers_keeps_only_the_allowlist() {
         let mut headers = HeaderMap::new();
@@ -590,8 +574,6 @@ mod tests {
         assert!(!filtered.contains_key("set-cookie"));
     }
 
-    // ---- is_text_content_type ----
-
     #[test]
     fn is_text_content_type_classifies_common_types() {
         assert!(is_text_content_type("text/plain"));
@@ -603,8 +585,6 @@ mod tests {
         assert!(!is_text_content_type("application/octet-stream"));
         assert!(!is_text_content_type(""));
     }
-
-    // ---- check_declared_length ----
 
     #[test]
     fn check_declared_length_rejects_over_cap() {

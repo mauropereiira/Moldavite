@@ -1,7 +1,6 @@
 import EventKit
 import Foundation
 
-// Shared event store instance
 private let eventStore = EKEventStore()
 
 /// The same binary serves two stdout-framed protocols (`--mcp` and the browser
@@ -26,8 +25,6 @@ public func checkCalendarPermission() -> Int32 {
     }
 }
 
-/// Request calendar access permission
-/// Returns: true if granted, false otherwise
 @_cdecl("request_calendar_permission")
 public func requestCalendarPermission() -> Bool {
     var granted = false
@@ -124,7 +121,6 @@ public func fetchEvents(
         return jsonToPointer(["error": "Failed to advance past end day"])
     }
 
-    // Get calendars to search
     var calendarsToSearch: [EKCalendar]? = nil
     if let calIdPtr = calendarId {
         let calId = String(cString: calIdPtr)
@@ -133,7 +129,6 @@ public func fetchEvents(
         }
     }
 
-    // Create predicate and fetch events
     let predicate = eventStore.predicateForEvents(
         withStart: startOfDay,
         end: endExclusive,
@@ -173,7 +168,6 @@ public func fetchEvents(
 
 // MARK: - Helper Functions
 
-/// Convert any value to JSON string pointer
 private func jsonToPointer(_ value: Any) -> UnsafeMutablePointer<CChar>? {
     do {
         let data = try JSONSerialization.data(withJSONObject: value, options: [])
@@ -186,7 +180,6 @@ private func jsonToPointer(_ value: Any) -> UnsafeMutablePointer<CChar>? {
     }
 }
 
-/// Convert CGColor to hex string
 private func hexString(from cgColor: CGColor?) -> String {
     guard let color = cgColor,
           let components = color.components,
@@ -201,7 +194,6 @@ private func hexString(from cgColor: CGColor?) -> String {
     return String(format: "#%02X%02X%02X", r, g, b)
 }
 
-/// Convert Date to ISO 8601 string
 private func isoString(from date: Date) -> String {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime]

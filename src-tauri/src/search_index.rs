@@ -881,8 +881,6 @@ mod tests {
         paths
     }
 
-    // ---- open and create ---------------------------------------------------
-
     #[test]
     fn default_index_root_sits_in_the_app_data_dir_not_a_forge() {
         let root = default_index_root();
@@ -952,8 +950,6 @@ mod tests {
         assert_eq!(index_paths(&forge, "indexed"), vec!["notes/alpha.md"]);
     }
 
-    // ---- upsert, remove, rename -------------------------------------------
-
     #[test]
     fn upsert_remove_and_rename_move_the_row() {
         let forge = TempForge::new("crud");
@@ -1015,8 +1011,6 @@ mod tests {
         note_removed_in("notes/../../etc/passwd", forge.path().into());
         assert_eq!(status(forge.path()).note_count, before);
     }
-
-    // ---- querying ----------------------------------------------------------
 
     #[test]
     fn prefix_queries_match_as_you_type() {
@@ -1172,8 +1166,6 @@ mod tests {
         panic!("the index never {what} (waited 5s)");
     }
 
-    // ---- reconcile ---------------------------------------------------------
-
     #[test]
     fn reconcile_picks_up_a_changed_file_by_mtime_and_size() {
         let forge = TempForge::new("reconcile-stat");
@@ -1323,8 +1315,6 @@ mod tests {
         }
     }
 
-    // ---- status and rebuild ------------------------------------------------
-
     #[test]
     fn status_reports_readiness_count_and_path() {
         let forge = TempForge::new("status");
@@ -1386,8 +1376,6 @@ mod tests {
         // Deleting an index that is already gone is not an error.
         delete_for(forge.path());
     }
-
-    // ---- hooks -------------------------------------------------------------
 
     #[test]
     fn a_gui_write_reaches_the_index_through_the_hook() {
@@ -1463,8 +1451,6 @@ mod tests {
         let hit = &query(forge.path(), forge.path(), "movable", 10).unwrap()[0];
         assert!(hit.is_daily);
     }
-
-    // ---- parity with the scan ---------------------------------------------
 
     /// A corpus with a deliberately shared vocabulary, so most queries hit
     /// many notes and the two engines have plenty to disagree about.

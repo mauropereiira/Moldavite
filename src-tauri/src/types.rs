@@ -22,8 +22,6 @@ pub(crate) struct NoteFile {
     pub(crate) modified_at: Option<i64>,
 }
 
-// Folder System Data Structures
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FolderInfo {
@@ -31,8 +29,6 @@ pub(crate) struct FolderInfo {
     pub(crate) path: String,
     pub(crate) children: Vec<FolderInfo>,
 }
-
-// Trash System Data Structures
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -68,8 +64,6 @@ pub(crate) struct TrashedNoteMetadata {
     pub(crate) trashed_at: i64,
 }
 
-// Template System Data Structures
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Template {
@@ -88,8 +82,6 @@ pub(crate) struct SaveTemplateInput {
     pub(crate) icon: String,
     pub(crate) content: String,
 }
-
-// Wiki Link System Data Structures
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -173,7 +165,6 @@ pub(crate) struct ForgeInfo {
     pub(crate) is_active: bool,
 }
 
-// Export/Import Result structures
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImportResult {
