@@ -289,6 +289,12 @@ fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
+        if fs::symlink_metadata(&path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(true)
+        {
+            continue;
+        }
         if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("md") {
             continue;
         }
@@ -443,6 +449,39 @@ mod tests {
         let idx = BacklinksIndex::new();
         idx.update_note_with("a.md", "# A\n[[a]]", &slug_resolver);
         assert_eq!(idx.get("a.md", "a").len(), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_flat_scan_never_follows_a_symlink() {
+        // The recursive standalone walk already skipped symlinks; the flat
+        // daily/weekly walk used `is_file()`, which follows them, so a link
+        // planted in `daily/` pulled a file from outside the Forge into the
+        // index (filename, title and a context snippet of its contents).
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-backlinks-symlink-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let daily = root.join("daily");
+        fs::create_dir_all(&daily).unwrap();
+        let outside = root.join("outside.md");
+        fs::write(&outside, "# Outside\nnot a note in this Forge\n").unwrap();
+        symlink(&outside, daily.join("2026-01-01.md")).unwrap();
+        fs::write(daily.join("2026-01-02.md"), "# Real\n").unwrap();
+
+        let mut files = Vec::new();
+        collect_md_files_flat(&daily, &mut files);
+
+        let names: Vec<&str> = files.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["2026-01-02.md"]);
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

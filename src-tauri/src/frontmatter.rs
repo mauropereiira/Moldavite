@@ -108,7 +108,23 @@ pub fn parse_note(raw: &str) -> ParsedNote {
         .or_else(|| after_close.strip_prefix("...\n"))
         .unwrap_or("");
 
-    let parsed: RawFrontmatter = serde_yaml::from_str(yaml_block).unwrap_or_default();
+    // A fenced block YAML cannot parse is not frontmatter. Returning it as body
+    // is what stops the next save — which re-serializes `color` + `extra` over
+    // the body — from silently deleting metadata the file still carries.
+    let parsed: RawFrontmatter = if yaml_block.trim().is_empty() {
+        RawFrontmatter::default()
+    } else {
+        match serde_yaml::from_str(yaml_block) {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                return ParsedNote {
+                    color: None,
+                    extra: BTreeMap::new(),
+                    body: text.to_string(),
+                }
+            }
+        }
+    };
     ParsedNote {
         color: parsed.color.filter(|s| !s.is_empty()),
         extra: parsed.extra,
@@ -236,5 +252,32 @@ mod tests {
     fn empty_color_treated_as_none() {
         let p = parse_note("---\ncolor: \n---\nbody");
         assert_eq!(p.color, None);
+    }
+
+    #[test]
+    fn regression_unparseable_frontmatter_survives_a_round_trip() {
+        // A block YAML rejects used to be discarded silently: `extra` came back
+        // empty and `body` excluded the block, so the next save wrote the note
+        // without it and the user's metadata was gone for good.
+        for raw in [
+            "---\ncolor: blue\ntags: [a, b\n---\nthe body\n",
+            "---\ntags:\n\t- tabbed\n---\nthe body\n",
+            "---\nnot a mapping\n---\nthe body\n",
+        ] {
+            let parsed = parse_note(raw);
+            assert_eq!(parsed.body, raw, "block must survive as text: {raw:?}");
+            let written = serialize_note(parsed.color.as_deref(), &parsed.extra, &parsed.body);
+            assert_eq!(written, raw, "round trip must not drop anything: {raw:?}");
+        }
+    }
+
+    #[test]
+    fn an_empty_frontmatter_block_is_still_an_empty_frontmatter_block() {
+        for raw in ["---\n---\nbody\n", "---\n\n---\nbody\n"] {
+            let p = parse_note(raw);
+            assert_eq!(p.color, None);
+            assert!(p.extra.is_empty());
+            assert_eq!(p.body, "body\n", "{raw:?}");
+        }
     }
 }
