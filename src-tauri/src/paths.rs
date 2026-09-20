@@ -139,6 +139,29 @@ pub(crate) fn get_images_dir() -> Result<PathBuf, String> {
     Ok(get_notes_dir()?.join("images"))
 }
 
+/// Let the webview load images from `forge_root`'s images directory.
+///
+/// `tauri.conf.json` can only express a static asset scope, and it names
+/// `$DOCUMENT/Moldavite` because that is where Forges live by default. A
+/// `forges_root` pointed elsewhere, or the iCloud Forge under Mobile Documents,
+/// falls outside it, and every embedded image 404s at the asset protocol. The
+/// active Forge therefore has to be granted at runtime, on startup and on every
+/// switch.
+///
+/// Only `images/` is granted, never the Forge root: notes must stay unreadable
+/// through `asset:` even though the process can read them.
+pub(crate) fn grant_forge_asset_access<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    forge_root: &Path,
+) {
+    use tauri::Manager;
+
+    let images = forge_root.join("images");
+    if let Err(error) = app.asset_protocol_scope().allow_directory(&images, true) {
+        log::warn!("[paths] could not grant asset access to {images:?}: {error}");
+    }
+}
+
 pub(crate) fn get_trash_dir() -> Result<PathBuf, String> {
     Ok(get_notes_dir()?.join(".trash"))
 }
@@ -201,6 +224,42 @@ fn app_binary_path_from(appimage: Option<OsString>, current_exe: PathBuf) -> Pat
 
 #[cfg(test)]
 mod tests {
+    /// The static scope in tauri.conf.json only names `$DOCUMENT/Moldavite`.
+    /// A Forge anywhere else, including the iCloud container, must still be
+    /// able to serve its images, and must not leak anything but its images.
+    #[test]
+    fn a_forge_outside_the_static_scope_can_still_serve_its_images() {
+        use tauri::Manager;
+
+        let app = tauri::test::mock_app();
+        let handle = app.handle();
+        let forge = std::env::temp_dir().join(format!(
+            "moldavite-asset-scope-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let image = forge.join("images").join("pasted.png");
+        let note = forge.join("notes").join("secret.md");
+
+        assert!(
+            !handle.asset_protocol_scope().is_allowed(&image),
+            "precondition: the image is outside the static scope"
+        );
+
+        grant_forge_asset_access(handle, &forge);
+
+        assert!(
+            handle.asset_protocol_scope().is_allowed(&image),
+            "an image in a relocated Forge must load"
+        );
+        assert!(
+            !handle.asset_protocol_scope().is_allowed(&note),
+            "granting images must not expose notes over asset://"
+        );
+    }
+
     use super::*;
 
     #[test]
