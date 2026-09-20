@@ -2,7 +2,8 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
-  resetKey?: string; // When this changes, reset the error state
+  /** Changing this clears the caught error and remounts the subtree. */
+  resetKey?: string;
   onError?: (error: Error) => void;
 }
 
@@ -29,14 +30,11 @@ export class EditorErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // Log the error but don't crash the app
     console.error('[EditorErrorBoundary] Caught error:', error.message);
     console.error('[EditorErrorBoundary] Component stack:', errorInfo.componentStack);
 
-    // Increment error count
     this.setState((prev) => ({ errorCount: prev.errorCount + 1 }));
 
-    // Call optional error handler
     this.props.onError?.(error);
   }
 
@@ -49,7 +47,6 @@ export class EditorErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      // If we've had too many errors, show a message instead of empty div
       if (this.state.errorCount >= MAX_ERROR_COUNT) {
         return (
           <div

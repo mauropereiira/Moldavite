@@ -75,7 +75,6 @@ export function useAutoSave() {
       try {
         setIsSaving(true);
 
-        // Determine filename based on note type
         let filename: string;
         if (note.isDaily && note.date) {
           filename = `${note.date}.md`;
@@ -115,12 +114,10 @@ export function useAutoSave() {
             }
           } else {
             // Content is not empty - save and add to list if needed
-            // Convert HTML to Markdown before saving
             const markdownContent = htmlToMarkdown(currentNote.content);
             notifyConflictCopy(await writeNote(filename, markdownContent, true, false));
 
             if (!existsInList) {
-              // Add to notes list
               const noteFile: NoteFile = {
                 name: filename,
                 path: filename,
@@ -132,7 +129,6 @@ export function useAutoSave() {
               setNotes([...freshNotes, noteFile]);
             }
 
-            // Update task status for this date
             if (dateStr) {
               const taskStatus = parseTaskStatus(currentNote.content);
               setTaskStatus(dateStr, taskStatus);
@@ -156,12 +152,10 @@ export function useAutoSave() {
             }
           } else {
             // Content is not empty - save and add to list if needed
-            // Convert HTML to Markdown before saving
             const markdownContent = htmlToMarkdown(currentNote.content);
             notifyConflictCopy(await writeNote(filename, markdownContent, false, true));
 
             if (!existsInList) {
-              // Add to notes list
               const noteFile: NoteFile = {
                 name: filename,
                 path: `weekly/${filename}`,
@@ -175,7 +169,6 @@ export function useAutoSave() {
           }
         } else {
           // Standalone note - just save normally
-          // Convert HTML to Markdown before saving
           const markdownContent = htmlToMarkdown(currentNote.content);
           notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
         }
@@ -383,7 +376,6 @@ export function useAutoSave() {
       return;
     }
 
-    // Check if this is a new note being loaded
     const isNewNote = currentNote.id !== lastNoteIdRef.current;
 
     if (isNewNote) {

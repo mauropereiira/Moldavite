@@ -281,7 +281,6 @@ export function QuickSwitcher() {
     /** Map from row index → header to render BEFORE that row. */
     const headers = new Map<number, { label: string; icon?: React.ReactNode }>();
 
-    // Built-in actions + live plugin commands, matched by the same filter.
     const commandCatalog: QuickSwitcherCommand[] = [
       ...QUICK_SWITCHER_COMMANDS,
       ...pluginCommands.map((c) => ({
@@ -347,7 +346,6 @@ export function QuickSwitcher() {
         }
       }
 
-      // Quick actions catalog (full list, in canonical order).
       const allCommands = filterCommands('', commandCatalog);
       if (allCommands.length > 0) {
         headers.set(rows.length, {
@@ -424,7 +422,6 @@ export function QuickSwitcher() {
     }
   }
 
-  // Auto-focus input when opened.
   useEffect(() => {
     if (!isOpen) return;
     const timer = setTimeout(() => inputRef.current?.focus(), 50);
@@ -516,7 +513,6 @@ export function QuickSwitcher() {
     [query, addRecentSearch, selectNote, close, runCommand]
   );
 
-  // Keyboard navigation.
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -543,7 +539,6 @@ export function QuickSwitcher() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, rows, selectedIndex, close, activate]);
 
-  // Click outside to close.
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {

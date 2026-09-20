@@ -32,7 +32,6 @@ export function BacklinksSection({
   );
   const [noteContents, setNoteContents] = useState<Map<string, string>>(new Map());
 
-  // Build note info map
   const noteInfo = useMemo(() => {
     const map = new Map<string, { name: string; isDaily: boolean }>();
     for (const note of notes) {
@@ -41,7 +40,6 @@ export function BacklinksSection({
     return map;
   }, [notes]);
 
-  // Load note contents for backlink detection
   useEffect(() => {
     let cancelled = false;
 
@@ -93,7 +91,6 @@ export function BacklinksSection({
   const backlinks = isFresh ? computed.links : [];
   const isLoading = Boolean(currentNoteTitle) && noteContents.size > 0 && !isFresh;
 
-  // Find backlinks when current note changes
   useEffect(() => {
     if (!currentNoteTitle || noteContents.size === 0) return;
 
@@ -110,7 +107,6 @@ export function BacklinksSection({
     return () => clearTimeout(timer);
   }, [currentNoteTitle, noteContents, noteInfo]);
 
-  // Handle clicking a backlink
   const handleBacklinkClick = (backlink: BacklinkInfo) => {
     const note = notes.find((n) => n.path === backlink.sourcePath);
     if (note) {
@@ -118,7 +114,6 @@ export function BacklinksSection({
     }
   };
 
-  // Don't show section if no note is selected
   if (!currentNoteId) {
     return null;
   }

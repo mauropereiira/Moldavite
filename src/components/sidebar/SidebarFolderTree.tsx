@@ -35,11 +35,6 @@ interface SidebarFolderTreeProps {
 /**
  * The "Folders" sidebar section. Renders the recursive folder tree with
  * drag-and-drop delegated to FolderTree / FolderItem (HTML5 drag API).
- *
- * Step 3 note: v1.1 scope calls for migrating the DnD layer to @dnd-kit
- * for keyboard-accessible reorder. That migration is deferred; this
- * wrapper exists so the migration happens in one file rather than
- * touching the 1400-line Sidebar.tsx.
  */
 export function SidebarFolderTree({
   folders,

@@ -26,7 +26,6 @@ export function SidebarDailyList({
   isNoteActive,
   onOpenToday,
 }: SidebarDailyListProps) {
-  // Sort daily notes newest first by date/name
   const sorted = [...notes].sort((a, b) => {
     const ad = a.date ?? a.name;
     const bd = b.date ?? b.name;

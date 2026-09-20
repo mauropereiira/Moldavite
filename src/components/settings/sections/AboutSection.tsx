@@ -90,7 +90,6 @@ function SoftwareUpdatesSection() {
           </div>
         )}
 
-        {/* Error message */}
         {error && (
           <p className="text-xs px-3" style={{ color: 'var(--text-error)' }}>
             {error}
@@ -199,7 +198,6 @@ export function AboutSection() {
 
   const openWhatsNew = useWhatsNewStore((s) => s.open);
 
-  // Fetch app version on mount
   useEffect(() => {
     getVersion()
       .then(setAppVersion)

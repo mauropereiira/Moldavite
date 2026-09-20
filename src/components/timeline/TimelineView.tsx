@@ -183,7 +183,6 @@ export function TimelineView() {
       className="timeline-view flex flex-col h-full"
       style={{ backgroundColor: 'var(--bg-editor)', color: 'var(--text-primary)' }}
     >
-      {/* Header */}
       <div
         className="timeline-view-header flex items-center justify-between px-6 py-4"
         style={{ borderBottom: '1px solid var(--border-muted)' }}
@@ -213,7 +212,6 @@ export function TimelineView() {
         </button>
       </div>
 
-      {/* Feed */}
       <div className="timeline-view-feed flex-1 overflow-y-auto px-6 py-6">
         {BUCKETS.every((b) => buckets[b.id].length === 0) && (
           <div className="py-16 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -403,8 +401,6 @@ function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
     }
   }
 
-  // Within each bucket, sort by modifiedAt desc when present, else daily
-  // date desc, else alphabetical.
   const sortBucket = (arr: NoteFile[]) =>
     arr.sort((a, b) => {
       if (typeof a.modifiedAt === 'number' && typeof b.modifiedAt === 'number') {

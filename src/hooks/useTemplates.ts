@@ -12,7 +12,6 @@ import type { SaveTemplateInput } from '@/types/template';
 /**
  * Manages template operations including loading, creating, updating, and deleting templates.
  * Provides access to template list and default daily template configuration.
- * @returns Template management functions and state
  */
 export function useTemplates() {
   const {
@@ -29,7 +28,6 @@ export function useTemplates() {
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load templates on mount
   useEffect(() => {
     loadTemplates();
     // Mount-only initialization; template actions update the store directly afterward.
@@ -58,7 +56,6 @@ export function useTemplates() {
    * Creates a new template.
    * @param input - Template name and content
    * @returns The created template
-   * @throws {Error} If template creation fails
    */
   const saveNewTemplate = async (input: SaveTemplateInput) => {
     try {
@@ -76,7 +73,6 @@ export function useTemplates() {
    * @param id - Template ID to update
    * @param input - Updated template name and content
    * @returns The updated template
-   * @throws {Error} If template update fails
    */
   const updateExistingTemplate = async (id: string, input: SaveTemplateInput) => {
     try {
@@ -92,7 +88,6 @@ export function useTemplates() {
   /**
    * Deletes a template.
    * @param id - Template ID to delete
-   * @throws {Error} If template deletion fails
    */
   const deleteExistingTemplate = async (id: string) => {
     try {
@@ -108,7 +103,6 @@ export function useTemplates() {
    * Gets the processed content of a template with variables applied.
    * @param id - Template ID
    * @returns The processed template content
-   * @throws {Error} If template retrieval fails
    */
   const getTemplateContent = async (id: string) => {
     try {

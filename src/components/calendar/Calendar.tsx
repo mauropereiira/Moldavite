@@ -64,7 +64,6 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
   const [viewDate, setViewDate] = React.useState(selectedDate);
   const [monthEvents, setMonthEvents] = React.useState<CalendarEvent[]>([]);
 
-  // Get all days to display in the calendar grid
   const monthStart = startOfMonth(viewDate);
   const monthEnd = endOfMonth(viewDate);
   const calendarStart = startOfWeek(monthStart);
@@ -115,19 +114,16 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     showAllDayEvents,
   ]);
 
-  // Group days into weeks (7 days per row)
   const weeks: Date[][] = [];
   for (let i = 0; i < days.length; i += 7) {
     weeks.push(days.slice(i, i + 7));
   }
 
-  // Check if a day has a note
   const hasNote = (date: Date): boolean => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return notes.some((n) => n.isDaily && n.date === dateStr);
   };
 
-  // Check if a week has a note
   const hasWeeklyNote = (date: Date): boolean => {
     const weekYear = getISOWeekYear(date);
     const weekNum = getISOWeek(date);
@@ -159,7 +155,6 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     return count;
   };
 
-  // Check if a week is selected
   const isWeekSelected = (date: Date): boolean => {
     if (!selectedWeek) return false;
     return (
@@ -170,7 +165,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
-    setSelectedWeek(null); // Clear week selection when selecting a day
+    setSelectedWeek(null);
     loadDailyNote(date);
     onNavigate?.();
   };
@@ -192,7 +187,6 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
 
   return (
     <div className="select-none min-w-0 w-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4 min-w-0 gap-3">
         <button
           onClick={handlePrevMonth}

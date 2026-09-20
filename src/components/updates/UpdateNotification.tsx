@@ -14,13 +14,11 @@ export function UpdateNotification() {
     startPeriodicChecks,
   } = useUpdateStore();
 
-  // Start periodic update checks on mount
   useEffect(() => {
     const cleanup = startPeriodicChecks();
     return cleanup;
   }, [startPeriodicChecks]);
 
-  // Don't render if no update available or dismissed
   if (!availableVersion || dismissed) {
     return null;
   }

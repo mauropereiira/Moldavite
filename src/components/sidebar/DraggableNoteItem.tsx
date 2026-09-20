@@ -111,7 +111,6 @@ function DraggableNoteItemImpl({
   const handleContextMenu = (e: React.MouseEvent) => onContextMenu(note, e);
   const handleDragStart = (e: React.DragEvent) => {
     if (!canMoveToFolder && !onReorder) return;
-    // Store the note path for drag-and-drop
     // Strip "notes/" prefix for the relative path within notes folder
     const relativePath = note.path.startsWith('notes/') ? note.path.slice(6) : note.path;
     e.dataTransfer.setData('text/plain', relativePath);

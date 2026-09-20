@@ -29,12 +29,10 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Validate and preview image URL
   const validateAndPreviewImage = (imageUrl: string) => {
     setIsLoading(true);
     setError('');
 
-    // Basic URL validation
     const urlPattern = /^(https?:\/\/)|(data:image\/)/;
     if (!urlPattern.test(imageUrl)) {
       setError('URL must start with http://, https://, or be a data URL');
@@ -58,16 +56,13 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     img.src = imageUrl;
   };
 
-  // Handle file selection
   const handleFileSelect = async (file: File) => {
-    // Validate file type
     const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
     if (!validTypes.includes(file.type)) {
       setError('Please select a valid image file (PNG, JPG, GIF, WebP, or SVG)');
       return;
     }
 
-    // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       setError('Image must be smaller than 10MB');
@@ -79,7 +74,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     setIsLoading(true);
 
     try {
-      // Create preview from file
       const dataUrl = await fileToBase64(file);
       setPreviewUrl(dataUrl);
       setIsLoading(false);
@@ -89,7 +83,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     }
   };
 
-  // Handle drag events
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -131,7 +124,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     }
   }
 
-  // Validate and preview image when URL changes
   useEffect(() => {
     if (activeTab !== 'url' || !url.trim()) {
       if (activeTab === 'url') {
@@ -149,7 +141,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
     return () => clearTimeout(timeoutId);
   }, [url, activeTab]);
 
-  // Focus input when switching tabs
   useEffect(() => {
     if (activeTab === 'url') {
       setTimeout(() => urlInputRef.current?.focus(), 100);
@@ -165,9 +156,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
 
       setIsLoading(true);
       try {
-        // Resize and save image
         const savedPath = await processAndSaveImage(selectedFile);
-        // Convert the file path to a URL that Tauri can serve
         const imageUrl = convertFileSrc(savedPath);
         onInsert(imageUrl, alt.trim() || undefined);
         handleClose();
@@ -223,7 +212,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -247,7 +235,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b" style={{ borderColor: 'var(--border-default)' }}>
           <button
             onClick={() => {
@@ -284,7 +271,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-4">
           {activeTab === 'file' ? (
             /* File Upload */
@@ -414,7 +400,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
             </p>
           </div>
 
-          {/* Preview */}
           {(previewUrl || isLoading) && (
             <div>
               <label
@@ -446,7 +431,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           )}
         </div>
 
-        {/* Footer */}
         <div
           className="flex items-center justify-end gap-3 px-6 py-4 border-t"
           style={{ borderColor: 'var(--border-default)' }}
@@ -471,7 +455,6 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           </button>
         </div>
 
-        {/* Keyboard hints */}
         <div className="px-6 pb-4">
           <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
             Press{' '}

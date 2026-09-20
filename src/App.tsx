@@ -43,13 +43,10 @@ function App() {
     useSettingsStore();
   const { loadColors } = useNoteColorsStore();
 
-  // Auto-lock: Monitor inactivity and re-lock notes after timeout
   useAutoLock();
 
-  // Forge watcher: refresh notes list when files change on disk
   useForgeWatcher();
 
-  // Plugin host: load enabled plugins for the active Forge on startup
   usePluginHost();
 
   // Website install links: subscribe first, then drain cold-start requests.
@@ -60,7 +57,6 @@ function App() {
     fixNotePermissions().catch(console.error);
   }, []);
 
-  // Load note colors on startup
   useEffect(() => {
     loadColors();
   }, [loadColors]);
@@ -91,14 +87,12 @@ function App() {
     };
   }, []);
 
-  // Apply theme on mount and when it changes
   useEffect(() => {
     applyTheme(theme, preset);
     void syncMobileAppearance(theme).catch((error) =>
       console.error('[App] Failed to apply native appearance:', error)
     );
 
-    // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
       if (theme === 'system') {
@@ -110,7 +104,6 @@ function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme, preset]);
 
-  // Apply settings on mount and when they change
   useEffect(() => {
     applyFontSize(fontSize);
   }, [fontSize]);

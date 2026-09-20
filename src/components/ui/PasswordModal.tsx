@@ -26,13 +26,11 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
   const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate password strength for lock mode
   const passwordStrength: PasswordStrength | null = useMemo(() => {
     if (mode !== 'lock' || !password) return null;
     return checkPasswordStrength(password);
   }, [mode, password]);
 
-  // Parse error message from backend
   const parseError = useCallback((errorMessage: string): ErrorInfo => {
     // Format: TYPE:VALUE:MESSAGE
     // e.g., "RATE_LIMITED:30:Too many failed attempts..."
@@ -52,7 +50,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
     return { type: 'generic', message: errorMessage };
   }, []);
 
-  // Countdown timer for lockout
   useEffect(() => {
     if (lockoutSeconds === null || lockoutSeconds <= 0) {
       setLockoutSeconds(null);
@@ -72,7 +69,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
     return () => clearInterval(timer);
   }, [lockoutSeconds]);
 
-  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setPassword('');
@@ -81,7 +77,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
       setErrorInfo(null);
       setIsSubmitting(false);
       setLockoutSeconds(null);
-      // Focus the input when modal opens
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
@@ -90,18 +85,15 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
     e.preventDefault();
     setErrorInfo(null);
 
-    // Don't allow submit if locked out
     if (lockoutSeconds !== null && lockoutSeconds > 0) {
       return;
     }
 
-    // Validation
     if (!password) {
       setErrorInfo({ type: 'generic', message: 'Password is required' });
       return;
     }
 
-    // For lock mode, enforce stronger password requirements
     if (mode === 'lock') {
       if (password.length < 8) {
         setErrorInfo({
@@ -124,7 +116,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
         return;
       }
     } else {
-      // For unlock modes, just require minimum length
       if (password.length < 4) {
         setErrorInfo({ type: 'generic', message: 'Password must be at least 4 characters' });
         return;
@@ -140,7 +131,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
       const parsed = parseError(errorMessage);
       setErrorInfo(parsed);
 
-      // Start lockout countdown if rate limited
       if (parsed.type === 'rate_limited' && parsed.value) {
         setLockoutSeconds(parsed.value);
       }
@@ -181,16 +171,13 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop-dark modal-backdrop-enter">
-      {/* Backdrop */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Modal */}
       <DialogSurface
         onEscape={isSubmitting ? undefined : onClose}
         aria-labelledby="password-modal-title"
         className="relative modal-elevated modal-content-enter w-full max-w-md mx-4 overflow-hidden"
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -221,22 +208,18 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
           </button>
         </div>
 
-        {/* Content */}
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-4 space-y-4">
-            {/* Note title */}
             <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                 {noteTitle}
               </span>
             </div>
 
-            {/* Description */}
             <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               {descriptions[mode]}
             </p>
 
-            {/* Error message */}
             {errorInfo && (
               <div
                 className="flex items-start gap-2 p-3 rounded-md border"
@@ -281,7 +264,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
               </div>
             )}
 
-            {/* Password input */}
             <div className="space-y-1">
               <label
                 htmlFor="password"
@@ -315,7 +297,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
               {/* Password strength indicator (only for lock mode) */}
               {mode === 'lock' && passwordStrength && (
                 <div className="mt-2 space-y-1">
-                  {/* Strength bar */}
                   <div className="flex gap-1">
                     {[0, 1, 2, 3].map((index) => (
                       <div
@@ -336,7 +317,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
                       {passwordStrength.feedback}
                     </span>
                   </div>
-                  {/* Suggestions */}
                   {passwordStrength.suggestions.length > 0 && passwordStrength.score < 3 && (
                     <ul className="text-xs space-y-0.5" style={{ color: 'var(--text-tertiary)' }}>
                       {passwordStrength.suggestions.map((suggestion, index) => (
@@ -387,7 +367,6 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
             )}
           </div>
 
-          {/* Footer */}
           <div
             className="flex justify-end gap-3 px-6 py-4 border-t mobile:flex-wrap"
             style={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-default)' }}

@@ -44,7 +44,6 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
     setIsDeleting(true);
 
     try {
-      // If deleting the default daily template, unset it first
       if (defaultDailyTemplate === deletingTemplate.id) {
         setDefaultDailyTemplate(null);
       }

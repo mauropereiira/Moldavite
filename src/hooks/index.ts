@@ -4,18 +4,6 @@
  * Hooks own component-facing effects and orchestration; filesystem and durable
  * state invariants remain in `lib/` and `stores/` rather than this re-export layer.
  *
- * ## Available Hooks
- *
- * - `useAutoSave` - Auto-saves notes after typing stops
- * - `useAutoLock` - Auto-locks notes after inactivity
- * - `useKeyboardShortcuts` - Global keyboard shortcuts
- * - `useNotes` - Note CRUD operations
- * - `useToast` - Toast notification display
- * - `useSettings` / `useSettingsModal` - Settings management
- * - `useTemplates` - Template operations
- * - `useFolders` - Folder operations
- * - `useTrash` - Trash operations
- *
  * @module hooks
  */
 

@@ -33,7 +33,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
   const toast = useToast();
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset form when template changes
   useEffect(() => {
     if (template) {
       setName(template.name);
@@ -44,7 +43,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
     }
   }, [template]);
 
-  // Focus name input when modal opens
   useEffect(() => {
     if (isOpen && template && !template.isDefault && nameInputRef.current) {
       setTimeout(() => nameInputRef.current?.focus(), 100);
@@ -104,7 +102,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
     }
   };
 
-  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape' && !isSaving) {
       handleClose();
@@ -113,7 +110,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
 
   if (!isOpen || !template) return null;
 
-  // Can't edit default templates
   if (template.isDefault) {
     return createPortal(
       <div
@@ -173,7 +169,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
       aria-labelledby="edit-template-title"
     >
       <div className="w-full max-w-lg mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter">
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
           style={{ borderColor: 'var(--border-default)' }}
@@ -243,7 +238,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <label
               htmlFor="edit-template-description"
@@ -268,7 +262,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
             </div>
           </div>
 
-          {/* Icon */}
           <div>
             <label
               htmlFor="edit-template-icon"
@@ -316,7 +309,6 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
             </div>
           </div>
 
-          {/* Content */}
           <div>
             <label
               htmlFor="edit-template-content"

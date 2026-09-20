@@ -25,25 +25,20 @@ export function useAutoLock() {
   // Initialized in the effect below (cannot call Date.now() during render).
   const lastActivityRef = useRef<number | null>(null);
 
-  // Reset the inactivity timer
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
 
-    // Clear existing timeout
     if (timeoutRef.current) {
       window.clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
 
-    // Don't set timer if auto-lock is disabled (0) or no unlocked notes
     if (autoLockTimeout === 0 || unlockedNotes.size === 0) {
       return;
     }
 
-    // Set new timeout
-    const timeoutMs = autoLockTimeout * 60 * 1000; // Convert minutes to ms
+    const timeoutMs = autoLockTimeout * 60 * 1000;
     timeoutRef.current = window.setTimeout(() => {
-      // Lock all temporarily unlocked notes
       const notesToLock = Array.from(unlockedNotes);
       notesToLock.forEach((noteId) => {
         lockNote(noteId);
@@ -51,35 +46,27 @@ export function useAutoLock() {
     }, timeoutMs);
   }, [autoLockTimeout, unlockedNotes, lockNote]);
 
-  // Handle activity events
   const handleActivity = useCallback(() => {
     resetTimer();
   }, [resetTimer]);
 
-  // Set up event listeners
   useEffect(() => {
-    // Initialize the "last activity" timestamp on mount.
     if (lastActivityRef.current === null) {
       lastActivityRef.current = Date.now();
     }
 
-    // Skip if auto-lock is disabled
     if (autoLockTimeout === 0) {
       return;
     }
 
-    // Activity events to track
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
 
-    // Add event listeners with passive option for performance
     events.forEach((event) => {
       window.addEventListener(event, handleActivity, { passive: true });
     });
 
-    // Initialize timer when hook mounts
     resetTimer();
 
-    // Cleanup
     return () => {
       events.forEach((event) => {
         window.removeEventListener(event, handleActivity);
@@ -91,14 +78,12 @@ export function useAutoLock() {
     };
   }, [autoLockTimeout, handleActivity, resetTimer]);
 
-  // Also reset timer when unlocked notes change
   useEffect(() => {
     if (unlockedNotes.size > 0 && autoLockTimeout > 0) {
       resetTimer();
     }
   }, [unlockedNotes, autoLockTimeout, resetTimer]);
 
-  // Return the time remaining until auto-lock (useful for UI indicators)
   const getTimeRemaining = useCallback((): number | null => {
     if (autoLockTimeout === 0 || unlockedNotes.size === 0) {
       return null;

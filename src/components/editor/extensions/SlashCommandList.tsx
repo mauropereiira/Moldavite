@@ -19,9 +19,6 @@ export interface SlashCommandListRef {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
-/**
- * All available slash commands
- */
 export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Heading 1',
@@ -123,9 +120,6 @@ export const slashCommands: SlashCommandItem[] = [
   },
 ];
 
-/**
- * Filter commands based on search query
- */
 export function filterCommands(query: string): SlashCommandItem[] {
   if (!query) return slashCommands;
 

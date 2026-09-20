@@ -75,7 +75,6 @@ export function TrashPopover({
   const handleHeaderMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!position) return;
-      // Ignore drags that start on a button (close button, etc.).
       if ((e.target as HTMLElement).closest('button')) return;
       e.preventDefault();
       dragStateRef.current = {
@@ -111,7 +110,6 @@ export function TrashPopover({
     };
   }, [isDragging]);
 
-  // Close when clicking outside.
   useEffect(() => {
     if (!isOpen) return;
 

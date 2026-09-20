@@ -122,7 +122,6 @@ export function Editor() {
   const { allTags, setSelectedTag } = useTagStore();
   const toast = useToast();
 
-  // Handle tag clicks - filter notes by tag
   const handleTagClick = useCallback(
     (tag: string) => {
       setSelectedTag(tag);
@@ -130,12 +129,10 @@ export function Editor() {
     [setSelectedTag]
   );
 
-  // Determine if dark mode
   const isDark =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  // Get current note's background color
   const notePath = currentNote
     ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
     : '';
@@ -163,17 +160,13 @@ export function Editor() {
   const [linkInitialValues, setLinkInitialValues] = useState({ url: '', text: '' });
   const prevIsSavingRef = useRef(isSaving);
 
-  // Ref to always access latest notes for wiki link handler
   const notesRef = useRef(notes);
   notesRef.current = notes;
 
-  // Ref to always access latest tags for tag suggestion handler
   const tagsRef = useRef(allTags);
   tagsRef.current = allTags;
 
-  // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
-  // Ref for scrollable editor container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // Ref for image file handler (to break circular dependency with useEditor)
   const handleImageFileRef = useRef<((file: File) => Promise<void>) | null>(null);
@@ -186,18 +179,14 @@ export function Editor() {
     };
   }, []);
 
-  // Handle wiki link clicks
   const handleWikiLinkClick = useCallback(
     async (target: string) => {
       const currentNotes = notesRef.current;
 
-      // Check if target is a daily note (YYYY-MM-DD.md format)
       const isDailyNote = /^\d{4}-\d{2}-\d{2}\.md$/.test(target);
 
-      // Direct match first (for properly formatted targets like "Test 1.md")
       let actualNote = currentNotes.find((n) => n.name === target);
 
-      // If no direct match, try slugified match (for targets like "test-1.md")
       if (!actualNote) {
         const targetSlug = slugifyNoteName(target);
         actualNote = currentNotes.find((n) => slugifyNoteName(n.name) === targetSlug);
@@ -206,7 +195,6 @@ export function Editor() {
       const noteExists = !!actualNote;
 
       if (noteExists && actualNote) {
-        // Load the existing note
         await loadNote(actualNote);
       } else {
         // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
@@ -229,7 +217,6 @@ export function Editor() {
       });
       const filename = createdFilename || target;
 
-      // Load the newly created note
       await loadNote({
         name: filename,
         path: `notes/${filename}`,
@@ -256,10 +243,8 @@ export function Editor() {
     await createNote('Untitled');
   };
 
-  // Track save completion to show success indicator
   useEffect(() => {
     if (prevIsSavingRef.current && !isSaving) {
-      // Save just completed
       setShowSaveSuccess(true);
       const timer = setTimeout(() => setShowSaveSuccess(false), 2000);
       return () => clearTimeout(timer);
@@ -267,7 +252,6 @@ export function Editor() {
     prevIsSavingRef.current = isSaving;
   }, [isSaving]);
 
-  // Check if note is empty and show template picker
   useEffect(() => {
     if (currentNoteId) {
       // Shared emptiness rule: media-only notes count as content.
@@ -277,12 +261,10 @@ export function Editor() {
     }
   }, [currentNoteId, currentNoteContent]);
 
-  // Handle template selection for empty note
   const handleTemplateSelect = async (templateId: string) => {
     try {
       const markdownContent = await getTemplateContent(templateId);
       if (editor) {
-        // Convert markdown to HTML before setting in editor
         const htmlContent = markdownToHtml(markdownContent);
         editor.commands.setContent(htmlContent);
         setShowInlineTemplatePicker(false);
@@ -381,7 +363,6 @@ export function Editor() {
         WikiLink.configure({
           onLinkClick: handleWikiLinkClick,
         }),
-        // Only include TagMark and TagSuggestion when tags are enabled
         ...(tagsEnabled
           ? [
               TagMark.configure({
@@ -401,7 +382,6 @@ export function Editor() {
                   allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
                     isActive === true || editor.isFocused,
                   items: ({ query }: { query: string }) => {
-                    // Get tags from ref and filter based on query
                     const currentTags = tagsRef.current;
                     const tagItems: TagItem[] = [];
 
@@ -411,13 +391,12 @@ export function Editor() {
                       }
                     });
 
-                    // Sort by count (descending), then alphabetically
                     tagItems.sort((a, b) => {
                       if (b.count !== a.count) return b.count - a.count;
                       return a.name.localeCompare(b.name);
                     });
 
-                    return tagItems.slice(0, 10); // Limit to 10 results
+                    return tagItems.slice(0, 10);
                   },
                   render: () => {
                     let component: ReactRenderer | null = null;
@@ -505,7 +484,6 @@ export function Editor() {
                     props: TagItem;
                   }) => {
                     const tag = props;
-                    // Insert the tag text (the # is already typed, just add the name)
                     editor.chain().focus().deleteRange(range).insertContent(`#${tag.name} `).run();
                   },
                 },
@@ -524,14 +502,13 @@ export function Editor() {
             allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
               isActive === true || editor.isFocused,
             items: ({ query }: { query: string }) => {
-              // Filter notes based on query
               const currentNotes = notesRef.current;
               const filtered = currentNotes.filter((note) => {
                 const noteName = note.name.replace('.md', '');
                 return noteName.toLowerCase().includes(query.toLowerCase());
               });
 
-              return filtered.slice(0, 10); // Limit to 10 results
+              return filtered.slice(0, 10);
             },
             render: () => {
               let component: ReactRenderer | null = null;
@@ -593,7 +570,6 @@ export function Editor() {
                 },
 
                 onExit() {
-                  // CRITICAL: Proper cleanup to allow re-triggering
                   try {
                     if (popup?.[0]) {
                       popup[0].destroy();
@@ -741,7 +717,6 @@ export function Editor() {
               props: SlashCommandItem;
             }) => {
               const item = props;
-              // Delete the "/" and run the command
               editor.chain().focus().deleteRange(range).run();
               item.command(editor);
             },
@@ -755,7 +730,6 @@ export function Editor() {
           // Pass current note ID to prevent race conditions when switching notes
           const noteId = currentNoteRef.current?.id;
           updateNoteContent(html, noteId);
-          // Hide template picker when user adds any content (text or images)
           if (showInlineTemplatePicker && !editor.isEmpty) {
             setShowInlineTemplatePicker(false);
           }
@@ -863,20 +837,17 @@ export function Editor() {
       },
     },
     [tagsEnabled]
-  ); // Recreate editor when tagsEnabled changes
+  );
   editorRef.current = editor;
 
-  // Handle image file from paste or drop
   const handleImageFile = useCallback(
     async (file: File) => {
-      // Validate file type
       const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
       if (!validTypes.includes(file.type)) {
         toast.error('Unsupported image format');
         return;
       }
 
-      // Validate file size (max 10MB)
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         toast.error('Image must be smaller than 10MB');
@@ -884,11 +855,9 @@ export function Editor() {
       }
 
       try {
-        // Resize and save image
         const savedPath = await processAndSaveImage(file);
         const imageUrl = convertFileSrc(savedPath);
 
-        // Insert the image at the current cursor position
         if (editor && !editor.isDestroyed) {
           editor.chain().focus().setImage({ src: imageUrl }).run();
           toast.success('Image added');
@@ -900,10 +869,8 @@ export function Editor() {
     [editor, toast]
   );
 
-  // Keep ref updated for use in editorProps
   handleImageFileRef.current = handleImageFile;
 
-  // Update editor content when note changes
   // Use a ref to access the latest currentNote without adding it to deps
   const currentNoteRef = React.useRef(currentNote);
   currentNoteRef.current = currentNote;
@@ -926,12 +893,10 @@ export function Editor() {
   React.useEffect(() => {
     const note = currentNoteRef.current;
 
-    // Check if editor is valid and not destroyed
     if (!editor || editor.isDestroyed) {
       return;
     }
 
-    // Check if component is still mounted
     if (!isMountedRef.current) {
       return;
     }
@@ -966,7 +931,6 @@ export function Editor() {
         // Use a microtask to ensure React has finished its commit phase
         queueMicrotask(() => {
           try {
-            // Double-check mounted and editor state before DOM operations
             if (isMountedRef.current && editor && !editor.isDestroyed) {
               // An external reload swaps the body out from under whoever is
               // reading it, so hold their scroll position and cursor. A note
@@ -1026,7 +990,6 @@ export function Editor() {
       } else {
         queueMicrotask(() => {
           try {
-            // Double-check mounted and editor state before DOM operations
             if (isMountedRef.current && editor && !editor.isDestroyed) {
               editor.commands.clearContent();
             }
@@ -1089,14 +1052,11 @@ export function Editor() {
     return () => cancelAnimationFrame(raf);
   }, [editor, currentNoteId, notes]);
 
-  // Auto-save hook
   useAutoSave();
 
-  // Link and image insertion handlers
   const handleInsertLink = useCallback(() => {
     if (!editor) return;
 
-    // Check if cursor is on an existing link
     const previousUrl = editor.getAttributes('link').href || '';
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
@@ -1114,10 +1074,8 @@ export function Editor() {
       const hasSelection = from !== to;
 
       if (hasSelection) {
-        // Apply link to selected text
         editor.chain().focus().setLink({ href: url }).run();
       } else {
-        // Insert new link with text
         const linkText = text || url;
         editor
           .chain()
@@ -1141,7 +1099,6 @@ export function Editor() {
     [editor]
   );
 
-  // Keyboard shortcuts
   const {
     showTemplatePicker: showShortcutTemplatePicker,
     handleTemplateSelect: handleShortcutTemplateSelect,

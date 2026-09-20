@@ -8,7 +8,6 @@ export function CalendarOnboardingModal() {
   const isAuthorized = sources.some((s) => s.available && s.connected);
   const [step, setStep] = useState(0);
 
-  // Only show if authorized and hasn't seen onboarding
   if (!isAuthorized || hasSeenOnboarding) return null;
 
   const steps = [
@@ -44,7 +43,6 @@ export function CalendarOnboardingModal() {
         className="max-w-md mx-4 modal-elevated modal-content-enter overflow-hidden"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
-        {/* Close button */}
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 focus-ring text-xs transition-colors"
@@ -62,17 +60,14 @@ export function CalendarOnboardingModal() {
             {steps[step].label}
           </div>
 
-          {/* Title */}
           <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
             {steps[step].title}
           </h2>
 
-          {/* Description */}
           <p className="mb-8 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {steps[step].description}
           </p>
 
-          {/* Step indicators */}
           <div className="flex justify-center gap-2 mb-6">
             {steps.map((_, i) => (
               <div
@@ -85,7 +80,6 @@ export function CalendarOnboardingModal() {
             ))}
           </div>
 
-          {/* Actions */}
           <div className="flex justify-between items-center">
             <button
               onClick={handleClose}

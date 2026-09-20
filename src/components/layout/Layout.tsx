@@ -16,7 +16,6 @@ import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 // pipeline — only load it when the user actually toggles the timeline on.
 const TimelineView = lazy(() => import('../timeline').then((m) => ({ default: m.TimelineView })));
 
-// Sidebar constraints
 const LEFT_SIDEBAR_MIN = 200;
 const LEFT_SIDEBAR_MAX = 400;
 const RIGHT_PANEL_MIN = 250;
@@ -96,12 +95,10 @@ export function Layout() {
     setIsResizing(null);
   }, []);
 
-  // Global mouse event listeners for smooth dragging
   useEffect(() => {
     if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      // Prevent text selection while dragging
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
     }

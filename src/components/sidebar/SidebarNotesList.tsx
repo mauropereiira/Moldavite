@@ -49,8 +49,7 @@ const SORT_TOGGLE = {
 
 /**
  * The "Notes" sidebar section — standalone notes not in any folder and
- * not daily/weekly. Mirrors the prior inline JSX from Sidebar.tsx with
- * no behavior change (refactor only).
+ * not daily/weekly.
  */
 export function SidebarNotesList({
   notes,

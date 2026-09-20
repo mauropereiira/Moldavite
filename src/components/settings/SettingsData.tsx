@@ -58,23 +58,19 @@ export function SettingsData() {
   const [isExportingSettings, setIsExportingSettings] = useState(false);
   const [isImportingSettings, setIsImportingSettings] = useState(false);
 
-  // Import-mode picker (merge vs replace) for plain notes import
   const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
 
-  // Encrypted export modal
   const [showEncryptedExport, setShowEncryptedExport] = useState(false);
   const [exportPw, setExportPw] = useState('');
   const [exportPwConfirm, setExportPwConfirm] = useState('');
   const [showExportPw, setShowExportPw] = useState(false);
 
-  // Encrypted import modal
   const [showEncryptedImport, setShowEncryptedImport] = useState(false);
   const [pendingBackupPath, setPendingBackupPath] = useState<string | null>(null);
   const [importPw, setImportPw] = useState('');
   const [showImportPw, setShowImportPw] = useState(false);
   const [importMerge, setImportMerge] = useState(true);
 
-  // ---- Plain notes export ---------------------------------------------------
   const handleExportNotes = async () => {
     try {
       setIsExportingNotes(true);
@@ -88,7 +84,6 @@ export function SettingsData() {
     }
   };
 
-  // ---- Plain notes import ---------------------------------------------------
   const handleSelectZip = async () => {
     try {
       const selected = await open({
@@ -124,7 +119,6 @@ export function SettingsData() {
     }
   };
 
-  // ---- Encrypted backup export ---------------------------------------------
   const handleEncryptedExport = async () => {
     if (exportPw.length < 8) {
       toast.error('Password must be at least 8 characters');
@@ -149,7 +143,6 @@ export function SettingsData() {
     }
   };
 
-  // ---- Encrypted backup import ---------------------------------------------
   const handleSelectBackup = async () => {
     try {
       const selected = await open({
@@ -199,7 +192,6 @@ export function SettingsData() {
     }
   };
 
-  // ---- Settings JSON export / import (frontend-only) -----------------------
   const handleExportSettings = async () => {
     try {
       setIsExportingSettings(true);

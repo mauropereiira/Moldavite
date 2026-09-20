@@ -32,7 +32,6 @@ export function TemplatePickerModal({
     );
   }, [templates, searchQuery]);
 
-  // Focus search input when modal opens
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
       // Small delay to ensure modal is rendered
@@ -59,7 +58,6 @@ export function TemplatePickerModal({
     setSearchQuery('');
   };
 
-  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       handleClose();
@@ -81,7 +79,6 @@ export function TemplatePickerModal({
         className="template-picker-modal rounded-md w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -103,7 +100,6 @@ export function TemplatePickerModal({
           </button>
         </div>
 
-        {/* Search */}
         <div className="px-6 py-3 border-b" style={{ borderColor: 'var(--border-default)' }}>
           <div className="relative">
             <Search
@@ -126,10 +122,8 @@ export function TemplatePickerModal({
           </div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {loadError ? (
-            // Error state with retry
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--error)' }} />
               <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -147,7 +141,6 @@ export function TemplatePickerModal({
               </button>
             </div>
           ) : isLoading ? (
-            // Loading skeleton
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div
@@ -162,7 +155,6 @@ export function TemplatePickerModal({
               ))}
             </div>
           ) : filteredTemplates.length === 0 ? (
-            // Empty state
             <div className="text-center py-12">
               <Search className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
               <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -175,7 +167,6 @@ export function TemplatePickerModal({
               </p>
             </div>
           ) : (
-            // Template grid
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {/* Blank Note option */}
               {!searchQuery && (

@@ -65,7 +65,6 @@ export function useFolders() {
 
   /**
    * Creates a new folder.
-   * @param path - The folder path to create
    */
   const createNewFolder = useCallback(
     async (path: string) => {
@@ -233,7 +232,6 @@ export function useFolders() {
 
   /**
    * Checks if a folder is currently expanded.
-   * @param path - Folder path to check
    */
   const isFolderExpanded = useCallback(
     (path: string) => expandedFolders.includes(path),
@@ -241,12 +239,10 @@ export function useFolders() {
   );
 
   return {
-    // State
     folders,
     expandedFolders,
     sectionsCollapsed,
 
-    // Actions
     initialize,
     createNewFolder,
     renameExistingFolder,
@@ -254,7 +250,6 @@ export function useFolders() {
     moveNoteToFolder,
     moveFolderToFolder,
 
-    // UI state actions
     toggleFolder,
     expandFolder,
     collapseFolder,

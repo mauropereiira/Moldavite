@@ -124,7 +124,6 @@ export function FolderItem({
     onFolderReorder?.(dragged, folder.path, intent);
   };
 
-  // Handle drag start for this folder
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation(); // Prevent parent folders from also starting drag
     e.dataTransfer.setData('text/plain', folder.path);
@@ -179,18 +178,15 @@ export function FolderItem({
   const handleDrop = async (e: React.DragEvent) => {
     setIsNoteDropTarget(false);
 
-    // Check for folder drop first
     const folderPath = e.dataTransfer.getData('application/x-folder-path');
     if (folderPath) {
       e.preventDefault();
       const isSelf = folderPath === folder.path;
       if (isSelf) {
-        // Can't drop folder on itself
         e.stopPropagation();
         return;
       }
 
-      // Check if dragged folder is a DIRECT child of this folder
       // Direct child: path starts with folder.path/ and has no more slashes after
       const isDescendant = folderPath.startsWith(folder.path + '/');
       const remainingPath = isDescendant ? folderPath.slice(folder.path.length + 1) : '';
@@ -208,7 +204,6 @@ export function FolderItem({
         return;
       }
 
-      // Accept the drop - move folder into this folder
       // This includes deeper descendants (grandchildren, etc.) being moved up
       e.stopPropagation();
       try {
@@ -260,7 +255,6 @@ export function FolderItem({
     }, 400);
   };
 
-  // Filter notes that belong to this folder
   const folderNotes = notes.filter((n) => n.folderPath === folder.path);
 
   return (
@@ -382,7 +376,6 @@ export function FolderItem({
             marginLeft: `${12 + level * 12}px`,
           }}
         >
-          {/* Indent line */}
           <div
             className="absolute left-0 top-0 bottom-0 w-px transition-all duration-200"
             style={{ backgroundColor: 'var(--indent-line)' }}

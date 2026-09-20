@@ -32,7 +32,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset form each time the modal opens.
   useEffect(() => {
     if (isOpen) {
       setName('');
@@ -107,7 +106,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
           backgroundColor: 'var(--bg-base)',
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4"
           style={{ borderBottom: '1px solid var(--border-default)' }}
@@ -132,7 +130,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
           </button>
         </div>
 
-        {/* Body */}
         <form
           id="template-editor-form"
           onSubmit={handleSubmit}
@@ -216,7 +213,6 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
           </div>
         </form>
 
-        {/* Footer */}
         <div
           className="flex justify-end gap-3 px-6 py-4"
           style={{

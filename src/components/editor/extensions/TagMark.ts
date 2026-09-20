@@ -83,7 +83,6 @@ export const TagMark = Mark.create<TagMarkOptions>({
     const { onTagClick } = this.options;
 
     return [
-      // Click handler for tags
       new Plugin({
         key: new PluginKey('tagMarkClickHandler'),
         props: {
@@ -107,7 +106,6 @@ export const TagMark = Mark.create<TagMarkOptions>({
           },
         },
       }),
-      // Decoration plugin to auto-detect and style tags
       new Plugin({
         key: new PluginKey('tagMarkDecorator'),
         props: {
@@ -115,27 +113,21 @@ export const TagMark = Mark.create<TagMarkOptions>({
             const { doc } = state;
             const decorations: Decoration[] = [];
 
-            // Regex to match hashtags
             const tagRegex = /#([a-zA-Z][a-zA-Z0-9-]*)/g;
-            // Regex to detect if text looks like a URL
             const urlPattern = /https?:\/\/|www\./i;
 
             doc.descendants((node, pos) => {
               if (!node.isText || !node.text) return;
 
-              // Skip if node has a link mark (it's inside a hyperlink)
               if (node.marks.some((mark) => mark.type.name === 'link')) return;
 
               const text = node.text;
 
-              // Skip if the text looks like it's part of a URL
               if (urlPattern.test(text)) return;
 
               let match;
 
               while ((match = tagRegex.exec(text)) !== null) {
-                // Check if this hashtag is part of a URL fragment
-                // Look backwards from the match to see if there's a URL pattern
                 const textBefore = text.slice(0, match.index);
                 if (textBefore.includes('://') || textBefore.includes('www.')) {
                   continue;
@@ -153,7 +145,6 @@ export const TagMark = Mark.create<TagMarkOptions>({
                 );
               }
 
-              // Reset regex
               tagRegex.lastIndex = 0;
             });
 

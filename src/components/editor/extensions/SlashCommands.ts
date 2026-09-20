@@ -16,7 +16,7 @@ export const SlashCommands = Extension.create({
       suggestion: {
         char: '/',
         allowSpaces: false,
-        startOfLine: true, // Only trigger at start of line
+        startOfLine: true,
         allowedPrefixes: null,
         pluginKey: slashCommandsPluginKey,
       } as Partial<SuggestionOptions>,

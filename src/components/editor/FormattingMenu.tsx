@@ -18,7 +18,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
   if (!editor) return null;
 
   const handleLink = () => {
-    // Check if cursor is on an existing link
     const previousUrl = editor.getAttributes('link').href || '';
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
@@ -33,10 +32,8 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
     const hasSelection = from !== to;
 
     if (hasSelection) {
-      // Apply link to selected text
       editor.chain().focus().setLink({ href: url }).run();
     } else {
-      // Insert new link with text
       const linkText = text || url;
       editor
         .chain()
@@ -73,7 +70,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         }
       >
         <div className="max-h-80 overflow-y-auto">
-          {/* Text Formatting */}
           <DropdownLabel>Text</DropdownLabel>
           <DropdownItem onClick={() => editor.chain().focus().toggleBold().run()}>
             Bold
@@ -105,7 +101,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           <DropdownDivider />
 
-          {/* Headings */}
           <DropdownLabel>Headings</DropdownLabel>
           <DropdownItem onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
             Heading 1
@@ -119,7 +114,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           <DropdownDivider />
 
-          {/* Lists */}
           <DropdownLabel>Lists</DropdownLabel>
           <DropdownItem onClick={() => editor.chain().focus().toggleBulletList().run()}>
             Bullet List
@@ -132,7 +126,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
           </DropdownItem>
           <DropdownDivider />
 
-          {/* Blocks */}
           <DropdownLabel>Blocks</DropdownLabel>
           <DropdownItem onClick={() => editor.chain().focus().toggleBlockquote().run()}>
             Quote
@@ -146,7 +139,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
 
           <DropdownDivider />
 
-          {/* Insert */}
           <DropdownLabel>Insert</DropdownLabel>
           <DropdownItem onClick={handleLink}>
             Link
@@ -158,7 +150,6 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         </div>
       </Dropdown>
 
-      {/* Modals */}
       <LinkModal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}

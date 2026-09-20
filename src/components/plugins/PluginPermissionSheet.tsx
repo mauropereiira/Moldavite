@@ -52,7 +52,6 @@ export function PluginPermissionSheet({
         style={{ borderRadius: 'var(--radius-md)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border-default)' }}
@@ -81,7 +80,6 @@ export function PluginPermissionSheet({
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <div>
             <p className="text-base font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -218,7 +216,6 @@ export function PluginPermissionSheet({
           </div>
         </div>
 
-        {/* Footer */}
         <div
           className="flex justify-end gap-2 px-6 py-4 flex-shrink-0"
           style={{ borderTop: '1px solid var(--border-default)' }}

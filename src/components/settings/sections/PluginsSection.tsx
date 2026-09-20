@@ -262,7 +262,6 @@ export function PluginsSection() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start gap-3">
         <div
           className="flex-shrink-0 p-2"
@@ -398,7 +397,6 @@ export function PluginsSection() {
         </div>
       )}
 
-      {/* Actions */}
       <div
         className="p-4 space-y-3"
         style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}

@@ -64,12 +64,10 @@
   --color-panel-dark: var(--bg-panel);
 }
 
-/* ===========================================
-   MOLDAVITE DESIGN SYSTEM
-   =========================================== */
+/* MOLDAVITE DESIGN SYSTEM */
 
 :root {
-  /* ===== BACKGROUNDS - Light mode (Cream) ===== */
+  /* BACKGROUNDS - Light mode (Cream) */
   --bg-base: #f9f6ed;
   --bg-sidebar: #f2eee1;
   --bg-editor: #fffdf6;
@@ -77,18 +75,18 @@
   --bg-elevated: #fffdf6;
   --bg-inset: #ede8d9;
 
-  /* ===== BORDERS - Ink hairlines ===== */
+  /* BORDERS - Ink hairlines */
   --border-default: rgba(14, 13, 10, 0.13);
   --border-strong: rgba(14, 13, 10, 0.24);
   --border-muted: rgba(14, 13, 10, 0.08);
 
-  /* ===== TEXT - Ink on cream ===== */
+  /* TEXT - Ink on cream */
   --text-primary: #0e0d0a;
   --text-secondary: rgba(14, 13, 10, 0.62);
   --text-tertiary: rgba(14, 13, 10, 0.45);
   --text-muted: rgba(14, 13, 10, 0.34);
 
-  /* ===== ACCENT - rationed Moldavite green ===== */
+  /* ACCENT - rationed Moldavite green */
   --accent-primary: #2e5b3c;
   --accent-hover: #3a6e49;
   --accent-active: #24482f;
@@ -100,8 +98,7 @@
      the active-note marker and today's date. */
   --accent-subtle: rgba(14, 13, 10, 0.06);
 
-  /* ===== SYNTAX — the writing surface, and the one place colour lives =====
-
+  /* SYNTAX — the writing surface, and the one place colour lives
      The accent-rationing rule governs CHROME, not content. Stripping colour
      out of the editor too was over-application: a note is the user's document,
      not the app's furniture, and structure in a long document reads far faster
@@ -120,7 +117,7 @@
   --syntax-link: #3a4e7a; /* indigo — never a heading hue */
   --syntax-highlight: rgba(176, 138, 42, 0.22);
 
-  /* ===== SEMANTIC ===== */
+  /* SEMANTIC */
   --success: #3d7a52;
   --success-muted: #e0f0e6;
   --error: #b03a1a;
@@ -133,17 +130,17 @@
      badge reads as the same alert red in every theme. */
   --update-dot: #e5484d;
 
-  /* ===== INTERACTIVE ===== */
+  /* INTERACTIVE */
   --hover-overlay: rgba(14, 13, 10, 0.06);
   --active-overlay: rgba(14, 13, 10, 0.12);
   --focus-ring: var(--text-primary);
 
-  /* ===== SIDEBAR SPECIFIC ===== */
+  /* SIDEBAR SPECIFIC */
   --folder-icon-bg: rgba(176, 138, 42, 0.12);
   --count-badge-bg: var(--hover-overlay);
   --indent-line: var(--border-muted);
 
-  /* ===== SHADOWS - elevation is a hairline ===== */
+  /* SHADOWS - elevation is a hairline */
   --shadow-xs: none;
   --shadow-sm: none;
   --shadow-md: none;
@@ -151,7 +148,7 @@
   --shadow-inset: none;
   --shadow-inset-strong: none;
 
-  /* ===== TYPOGRAPHY ===== */
+  /* TYPOGRAPHY */
   --font-display: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -172,7 +169,7 @@
   --editor-font-family: var(--font-sans);
   --editor-measure: 68ch;
 
-  /* ===== SIZING ===== */
+  /* SIZING */
   --radius-xs: 0;
   --radius-sm: 0;
   --radius-md: 0;
@@ -182,7 +179,7 @@
   --radius-3xl: 0;
   --radius-4xl: 0;
 
-  /* ===== MOTION ===== */
+  /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;
   --dur-base: 200ms;
@@ -214,7 +211,7 @@
   --ease-out-expo: var(--ease-standard);
 }
 
-/* ===== DARK MODE - warm ink with cream type ===== */
+/* DARK MODE - warm ink with cream type */
 .dark {
   --bg-base: #14120c;
   --bg-sidebar: #0d0b07;
@@ -282,7 +279,7 @@
   --shadow-inset-strong: none;
 }
 
-/* ===========================================
+/* =
    COLOR PRESETS
 
    Each preset overrides a curated subset of the design tokens defined in
@@ -299,7 +296,7 @@
      - `gruvbox`  — light + dark
    =========================================== */
 
-/* ----- Solarized Light ----- */
+/* Solarized Light */
 :root[data-theme='solarized'] {
   --bg-base: #fdf6e3;
   --bg-sidebar: #f5efdc;
@@ -337,7 +334,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Solarized Dark ----- */
+/* Solarized Dark */
 :root[data-theme='solarized'].dark {
   --bg-base: #002b36;
   --bg-sidebar: #073642;
@@ -375,7 +372,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Dracula (dark only) ----- */
+/* Dracula (dark only) */
 :root[data-theme='dracula'].dark {
   --bg-base: #282a36;
   --bg-sidebar: #21222c;
@@ -413,7 +410,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Nord (dark only) ----- */
+/* Nord (dark only) */
 :root[data-theme='nord'].dark {
   --bg-base: #2e3440;
   --bg-sidebar: #292e39;
@@ -451,7 +448,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Sepia (light only) ----- */
+/* Sepia (light only) */
 :root[data-theme='sepia'] {
   --bg-base: #f4ecd8;
   --bg-sidebar: #ede2c8;
@@ -489,7 +486,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Gruvbox Light ----- */
+/* Gruvbox Light */
 :root[data-theme='gruvbox'] {
   --bg-base: #fbf1c7;
   --bg-sidebar: #f2e5bc;
@@ -527,7 +524,7 @@
   --focus-ring: var(--text-primary);
 }
 
-/* ----- Gruvbox Dark ----- */
+/* Gruvbox Dark */
 :root[data-theme='gruvbox'].dark {
   --bg-base: #282828;
   --bg-sidebar: #1d2021;
@@ -591,9 +588,7 @@
   --accent-danger: var(--error);
 }
 
-/* ===========================================
-   BASE STYLES
-   =========================================== */
+/* BASE STYLES */
 
 body {
   background-color: var(--bg-base);
@@ -627,15 +622,12 @@ time,
   color: var(--bg-base);
 }
 
-/* Prevent text selection on UI elements */
 .no-select {
   -webkit-user-select: none;
   user-select: none;
 }
 
-/* ===========================================
-   SCROLLBAR - Minimal, precise
-   =========================================== */
+/* SCROLLBAR - Minimal, precise */
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -655,9 +647,7 @@ time,
   background-color: var(--border-strong);
 }
 
-/* ===========================================
-   TYPOGRAPHY SYSTEM
-   =========================================== */
+/* TYPOGRAPHY SYSTEM */
 
 /* Sidebar section headers - editorial index labels */
 .section-header {
@@ -699,7 +689,6 @@ time,
   transform: rotate(45deg);
 }
 
-/* Mono text for UI elements */
 .text-mono {
   font-family: var(--font-mono);
   letter-spacing: 0;
@@ -717,11 +706,8 @@ time,
   font-family: var(--font-display);
 }
 
-/* ===========================================
-   BUTTON SYSTEM - TE Tactile Style
-   =========================================== */
+/* BUTTON SYSTEM - TE Tactile Style */
 
-/* Base button */
 .btn {
   font-family: var(--font-sans);
   font-size: 13px;
@@ -751,14 +737,12 @@ time,
   color: var(--text-primary);
 }
 
-/* Subtle tactile press */
 .btn:active {
   background: var(--active-overlay);
   transform: scale(0.98);
   box-shadow: var(--shadow-inset);
 }
 
-/* Primary button */
 .btn-primary {
   background: transparent;
   color: var(--text-primary);
@@ -782,7 +766,6 @@ time,
   box-shadow: var(--shadow-inset-strong);
 }
 
-/* Danger button */
 .btn-danger {
   background: transparent;
   color: var(--error);
@@ -794,7 +777,6 @@ time,
   border-color: var(--border-strong);
 }
 
-/* Ghost button */
 .btn-ghost {
   background: transparent;
   border-color: var(--border-default);
@@ -805,7 +787,6 @@ time,
   border-color: var(--border-strong);
 }
 
-/* Disabled state */
 .btn:disabled,
 .btn-disabled {
   opacity: 0.5;
@@ -813,14 +794,12 @@ time,
   pointer-events: none;
 }
 
-/* Icon button */
 .btn-icon {
   padding: 6px;
   min-width: 28px;
   min-height: 28px;
 }
 
-/* Legacy gradient buttons - converted to flat */
 .btn-primary-gradient {
   background: transparent;
   color: var(--text-primary);
@@ -843,7 +822,6 @@ time,
   border-color: var(--border-strong);
 }
 
-/* Elevated button - minimal shadow version */
 .btn-elevated {
   box-shadow: var(--shadow-xs);
 }
@@ -857,9 +835,7 @@ time,
   transform: scale(0.98);
 }
 
-/* ===========================================
-   TOOLBAR - Modern Clean Style
-   =========================================== */
+/* TOOLBAR - Modern Clean Style */
 
 .toolbar-button {
   width: auto;
@@ -925,7 +901,6 @@ time,
   text-decoration: line-through;
 }
 
-/* Toolbar divider */
 .toolbar-divider {
   width: 1px;
   height: 16px;
@@ -933,9 +908,7 @@ time,
   margin: 0 4px;
 }
 
-/* ===========================================
-   SIDEBAR ITEMS - Taskplus Style
-   =========================================== */
+/* SIDEBAR ITEMS - Taskplus Style */
 
 .sidebar-item {
   padding: 6px 12px 6px 14px;
@@ -975,7 +948,6 @@ time,
   font-weight: 500;
 }
 
-/* Animated sidebar item */
 .sidebar-item-animated {
   transition:
     border-color var(--dur-micro) var(--ease-standard),
@@ -992,9 +964,7 @@ time,
   transform: scale(0.98);
 }
 
-/* ===========================================
-   NOTE CARDS
-   =========================================== */
+/* NOTE CARDS */
 
 .note-card {
   padding: 6px 12px 6px 14px;
@@ -1149,9 +1119,7 @@ time,
   transform: scale(0.98);
 }
 
-/* ===========================================
-   INPUT FIELDS - TE Precise Style
-   =========================================== */
+/* INPUT FIELDS - TE Precise Style */
 
 .input {
   font-family: var(--font-sans);
@@ -1178,7 +1146,6 @@ time,
   color: var(--text-muted);
 }
 
-/* Search input - mono style */
 .search-input {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1205,9 +1172,7 @@ time,
   color: var(--text-muted);
 }
 
-/* ===========================================
-   MODALS - Soft Elevated
-   =========================================== */
+/* MODALS - Soft Elevated */
 
 .modal-backdrop-dark {
   background-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
@@ -1225,9 +1190,7 @@ time,
   border-color: var(--border-default);
 }
 
-/* ===========================================
-   TOGGLE SWITCH - Modern Pill Style
-   =========================================== */
+/* TOGGLE SWITCH - Modern Pill Style */
 
 .toggle {
   position: relative;
@@ -1267,9 +1230,7 @@ time,
   transform: translateX(18px);
 }
 
-/* ===========================================
-   SETTINGS — Cream / ink
-   =========================================== */
+/* SETTINGS — Cream / ink */
 
 .settings-scrim {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent);
@@ -1536,9 +1497,7 @@ html:not([data-platform='mobile'])
   backdrop-filter: none;
 }
 
-/* ===========================================
-   TAB BAR - typographic index
-   =========================================== */
+/* TAB BAR - typographic index */
 
 .tab-bar {
   display: flex;
@@ -1651,7 +1610,6 @@ html:not([data-platform='mobile'])
   color: var(--text-primary);
 }
 
-/* Tab entrance animation */
 @keyframes tab-enter {
   from {
     opacity: 0;
@@ -1663,7 +1621,6 @@ html:not([data-platform='mobile'])
   }
 }
 
-/* Pin button */
 .tab-pin {
   flex-shrink: 0;
   display: flex;
@@ -1695,7 +1652,6 @@ html:not([data-platform='mobile'])
   color: var(--text-primary);
 }
 
-/* Pinned tabs container */
 .pinned-tabs {
   display: flex;
   align-items: center;
@@ -1703,7 +1659,6 @@ html:not([data-platform='mobile'])
   flex-shrink: 0;
 }
 
-/* Regular tabs container */
 .regular-tabs {
   display: flex;
   align-items: center;
@@ -1718,7 +1673,6 @@ html:not([data-platform='mobile'])
   display: none;
 }
 
-/* Tabs divider */
 .tabs-divider {
   width: 1px;
   height: 16px;
@@ -1797,7 +1751,6 @@ html:not([data-platform='mobile'])
   color: var(--text-primary);
 }
 
-/* Drag and drop styles */
 .tab-dragging {
   opacity: 0.5;
 }
@@ -1812,18 +1765,14 @@ html:not([data-platform='mobile'])
   background: var(--border-strong);
 }
 
-/* ===========================================
-   EDITOR STYLES
-   =========================================== */
+/* EDITOR STYLES */
 
 .editor-paper {
   background: var(--bg-editor);
   padding-inline: clamp(20px, 4vw, 56px);
 }
 
-/* ===========================================
-   CALENDAR & TIMELINE
-   =========================================== */
+/* CALENDAR & TIMELINE */
 
 .calendar-date {
   background: transparent;
@@ -1882,24 +1831,20 @@ html:not([data-platform='mobile'])
   color: var(--text-primary) !important;
 }
 
-/* ===========================================
-   FOCUS STATES
-   =========================================== */
+/* FOCUS STATES */
 
 .focus-ring:focus-visible {
   outline: 1px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
-/* ===========================================
-   DIVIDERS
-   =========================================== */
+/* DIVIDERS */
 
 .divider-soft {
   border-color: var(--border-muted);
 }
 
-/* ===========================================
+/* =
    FOCUS MODE
 
    The design thesis, made operable. The reference this palette comes from is
@@ -1945,9 +1890,7 @@ html.has-icon-rail.focus-mode {
   --rail-width: 0px;
 }
 
-/* ===========================================
-   COMPACT MODE
-   =========================================== */
+/* COMPACT MODE */
 
 .compact-mode .sidebar-item {
   padding: 5px 10px 5px 12px;
@@ -1975,9 +1918,7 @@ html.has-icon-rail.focus-mode {
   padding: 1rem;
 }
 
-/* ===========================================
-   EDITOR WIDTH
-   =========================================== */
+/* EDITOR WIDTH */
 
 .tiptap {
   width: 100%;
@@ -1985,9 +1926,7 @@ html.has-icon-rail.focus-mode {
   margin: 0 auto;
 }
 
-/* ===========================================
-   SHADOW UTILITIES
-   =========================================== */
+/* SHADOW UTILITIES */
 
 .shadow-system-xs {
   box-shadow: var(--shadow-xs);
@@ -2002,9 +1941,7 @@ html.has-icon-rail.focus-mode {
   box-shadow: var(--shadow-lg);
 }
 
-/* ===========================================
-   TIPTAP EDITOR STYLES
-   =========================================== */
+/* TIPTAP EDITOR STYLES */
 
 .tiptap {
   outline: none;
@@ -2030,7 +1967,6 @@ html.has-icon-rail.focus-mode {
   }
 }
 
-/* Paragraphs */
 .tiptap p {
   margin: 0 0 1em;
   line-height: inherit;
@@ -2044,19 +1980,16 @@ html.has-icon-rail.focus-mode {
   margin-bottom: 0;
 }
 
-/* Bold */
 .tiptap strong {
   font-weight: 600;
   color: var(--syntax-bold);
 }
 
-/* Italic */
 .tiptap em {
   font-style: italic;
   color: var(--syntax-italic);
 }
 
-/* Bold + Italic combined */
 .tiptap strong em,
 .tiptap em strong {
   font-weight: 600;
@@ -2099,7 +2032,6 @@ html.has-icon-rail.focus-mode {
   color: var(--syntax-h3);
 }
 
-/* Lists */
 .tiptap ul,
 .tiptap ol {
   padding-left: 1.6em;
@@ -2139,7 +2071,6 @@ html.has-icon-rail.focus-mode {
   margin-bottom: 0;
 }
 
-/* Task List / Checklists */
 .tiptap ul[data-type='taskList'] {
   list-style: none !important;
   padding: 0 !important;
@@ -2216,7 +2147,6 @@ html.has-icon-rail.focus-mode {
   outline: none !important;
 }
 
-/* Hover state */
 .tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label input[type='checkbox']:hover,
 .tiptap ul[data-type='taskList'] input[type='checkbox']:hover,
 .tiptap .task-item input[type='checkbox']:hover,
@@ -2225,7 +2155,6 @@ html.has-icon-rail.focus-mode {
   transform: scale(1.05);
 }
 
-/* Checked state */
 .tiptap ul[data-type='taskList'] li[data-type='taskItem'] > label input[type='checkbox']:checked,
 .tiptap ul[data-type='taskList'] input[type='checkbox']:checked,
 .tiptap .task-item input[type='checkbox']:checked,
@@ -2235,7 +2164,6 @@ html.has-icon-rail.focus-mode {
   background-color: var(--text-primary) !important;
 }
 
-/* Checkmark via ::after on checked input */
 .tiptap
   ul[data-type='taskList']
   li[data-type='taskItem']
@@ -2255,7 +2183,6 @@ html.has-icon-rail.focus-mode {
   transform: translate(-50%, -50%) rotate(45deg) !important;
 }
 
-/* Checked item text - strikethrough */
 .tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div,
 .tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div p,
 .tiptap ul[data-type='taskList'] li[data-type='taskItem'][data-checked='true'] > div span,
@@ -2299,12 +2226,10 @@ html.has-icon-rail.focus-mode {
   -webkit-text-fill-color: var(--bg-base) !important;
 }
 
-/* Nested task lists */
 .tiptap ul[data-type='taskList'] ul[data-type='taskList'] {
   margin-left: 1.5em;
 }
 
-/* Blockquotes */
 .tiptap blockquote {
   border-left: 2px solid var(--border-strong);
   padding: 0.15em 0 0.15em 1em;
@@ -2313,7 +2238,6 @@ html.has-icon-rail.focus-mode {
   color: var(--text-secondary);
 }
 
-/* Inline code */
 .tiptap code {
   background: transparent;
   padding: 0 0.15em;
@@ -2323,7 +2247,6 @@ html.has-icon-rail.focus-mode {
   border-bottom: 1px solid var(--border-muted);
 }
 
-/* Code blocks */
 .tiptap pre {
   background: transparent;
   padding: 1em 0;
@@ -2381,7 +2304,6 @@ wiki-link:focus-visible::after {
   opacity: 1;
 }
 
-/* Images */
 .tiptap img {
   max-width: 100%;
   height: auto;
@@ -2389,14 +2311,12 @@ wiki-link:focus-visible::after {
   border: 0;
 }
 
-/* Horizontal rule */
 .tiptap hr {
   border: none;
   border-top: 1px solid var(--border-default);
   margin: 2.25em 0;
 }
 
-/* Highlight/Mark - Warm yellow */
 .tiptap mark {
   background-color: var(--syntax-highlight);
   padding: 0.125rem 0.25rem;
@@ -2436,20 +2356,17 @@ wiki-link:focus-visible::after {
   color: var(--text-primary);
 }
 
-/* Strikethrough */
 .tiptap s {
   text-decoration: line-through;
   color: var(--text-muted);
 }
 
-/* Underline */
 .tiptap u {
   text-decoration: underline;
   text-decoration-color: var(--border-strong);
   text-underline-offset: 2px;
 }
 
-/* Task lists */
 .tiptap ul[data-type='taskList'] {
   list-style: none;
   padding-left: 0;
@@ -2472,13 +2389,11 @@ wiki-link:focus-visible::after {
   flex: 1;
 }
 
-/* Selection */
 .tiptap ::selection {
   background-color: var(--text-primary) !important;
   color: var(--bg-base) !important;
 }
 
-/* TipTap/ProseMirror node selection */
 .tiptap .ProseMirror-selectednode {
   outline: 1px solid var(--border-strong) !important;
 }
@@ -2488,7 +2403,6 @@ wiki-link:focus-visible::after {
   background-color: var(--hover-overlay) !important;
 }
 
-/* Placeholder */
 .tiptap p.is-editor-empty:first-child::before {
   color: var(--text-muted);
   content: attr(data-placeholder);
@@ -2497,11 +2411,8 @@ wiki-link:focus-visible::after {
   pointer-events: none;
 }
 
-/* ===========================================
-   ANIMATIONS - TE Snappy Style
-   =========================================== */
+/* ANIMATIONS - TE Snappy Style */
 
-/* Modal animations */
 @keyframes modal-backdrop-in {
   from {
     opacity: 0;
@@ -2771,7 +2682,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: modal-content-out var(--dur-micro) var(--ease-exit) forwards;
 }
 
-/* Content transitions */
 @keyframes content-fade-in {
   from {
     opacity: 0;
@@ -2813,9 +2723,7 @@ button[aria-expanded='true'] .wn-caret {
   animation: note-switch-crossfade var(--dur-base) var(--ease-standard) both;
 }
 
-/* ===========================================
-   SIDEBAR ANIMATIONS - Subtle & Playful
-   =========================================== */
+/* SIDEBAR ANIMATIONS - Subtle & Playful */
 
 /* Slide in from left - for list items */
 @keyframes slide-in-left {
@@ -2885,7 +2793,6 @@ button[aria-expanded='true'] .wn-caret {
   }
 }
 
-/* Animation utility classes */
 .animate-slide-in {
   animation: slide-in-left 200ms var(--ease-out-expo) forwards;
 }
@@ -2930,7 +2837,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: content-fade-out var(--dur-micro) var(--ease-exit) forwards;
 }
 
-/* Toast animations */
 @keyframes toast-rise-in {
   from {
     transform: translateY(8px);
@@ -2995,7 +2901,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: toast-progress var(--duration) linear forwards;
 }
 
-/* Dropdown animations */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -3043,7 +2948,6 @@ button[aria-expanded='true'] .wn-caret {
   animation-duration: var(--duration-normal);
 }
 
-/* Button interactions */
 .btn-interactive {
   transition:
     transform var(--dur-micro) var(--ease-standard),
@@ -3060,7 +2964,6 @@ button[aria-expanded='true'] .wn-caret {
   transform: scale(0.98);
 }
 
-/* Delete button fade */
 .delete-btn-fade {
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
@@ -3070,7 +2973,6 @@ button[aria-expanded='true'] .wn-caret {
   opacity: 1;
 }
 
-/* Skeleton loading */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -3100,7 +3002,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
-/* Save indicator */
 @keyframes saving-pulse {
   0%,
   100% {
@@ -3148,7 +3049,6 @@ button[aria-expanded='true'] .wn-caret {
     save-success-fade 2s ease-in-out forwards;
 }
 
-/* List stagger */
 @keyframes list-item-in {
   from {
     opacity: 0;
@@ -3167,7 +3067,6 @@ button[aria-expanded='true'] .wn-caret {
   opacity: 0;
 }
 
-/* Calendar/timeline */
 @keyframes event-fade-in {
   from {
     opacity: 0;
@@ -3194,7 +3093,6 @@ button[aria-expanded='true'] .wn-caret {
   border-color: var(--border-strong);
 }
 
-/* Time indicator */
 @keyframes time-indicator-pulse {
   0%,
   100% {
@@ -3209,7 +3107,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: time-indicator-pulse 2s ease-in-out infinite;
 }
 
-/* Search clear rotation */
 @keyframes search-clear-rotate {
   from {
     transform: rotate(0deg);
@@ -3223,7 +3120,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: search-clear-rotate var(--duration-normal) var(--ease-bounce) forwards;
 }
 
-/* Tab transitions */
 @keyframes settings-panel-crossfade {
   from {
     opacity: 0;
@@ -3239,7 +3135,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: settings-panel-crossfade var(--dur-base) var(--ease-standard) both;
 }
 
-/* Success/error states */
 @keyframes success-bounce {
   0% {
     transform: scale(0);
@@ -3282,7 +3177,6 @@ button[aria-expanded='true'] .wn-caret {
   animation: error-shake 400ms ease-in-out;
 }
 
-/* Checkmark animation */
 @keyframes checkmark-draw {
   0% {
     stroke-dashoffset: 24;
@@ -3299,7 +3193,6 @@ button[aria-expanded='true'] .wn-caret {
   animation-delay: 80ms;
 }
 
-/* Dot-matrix loader */
 @keyframes dot-loader-wave {
   0%,
   100% {
@@ -3327,7 +3220,6 @@ button[aria-expanded='true'] .wn-caret {
   animation-delay: calc(var(--dot-loader-index) * 75ms);
 }
 
-/* Tooltip */
 @keyframes tooltip-in {
   from {
     opacity: 0;
@@ -3378,7 +3270,6 @@ button[aria-expanded='true'] .wn-caret {
   color: var(--text-primary);
 }
 
-/* Info tooltip (appears below) */
 @keyframes tooltipFadeInBelow {
   from {
     opacity: 0;
@@ -3390,9 +3281,7 @@ button[aria-expanded='true'] .wn-caret {
   }
 }
 
-/* ===========================================
-   UTILITY CLASSES
-   =========================================== */
+/* UTILITY CLASSES */
 
 .transition-fast {
   transition-duration: var(--duration-fast);
@@ -3417,9 +3306,7 @@ button[aria-expanded='true'] .wn-caret {
   will-change: opacity;
 }
 
-/* ===========================================
-   SELECTION TOOLBAR (Bubble Menu)
-   =========================================== */
+/* SELECTION TOOLBAR (Bubble Menu) */
 
 .selection-toolbar {
   display: flex;
@@ -3456,9 +3343,7 @@ button[aria-expanded='true'] .wn-caret {
   transform: translateY(0) scale(1);
 }
 
-/* ===========================================
-   EDITOR FOOTER
-   =========================================== */
+/* EDITOR FOOTER */
 
 /* Pinned notes, above the editor. Same typographic register as the footer —
    Geist Mono, uppercase, letter-spaced — so it reads as chrome rather than as
@@ -4058,9 +3943,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   transition-timing-function: var(--ease-standard) !important;
 }
 
-/* ===========================================
-   REDUCED MOTION
-   =========================================== */
+/* REDUCED MOTION */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -4102,9 +3985,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   }
 }
 
-/* ===========================================
-   SUMMONED INDEX / AGENDA
-   =========================================== */
+/* SUMMONED INDEX / AGENDA */
 
 @keyframes app-overlay-enter {
   from {
@@ -4171,9 +4052,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   }
 }
 
-/* ===========================================
-   SEARCH HIGHLIGHT
-   =========================================== */
+/* SEARCH HIGHLIGHT */
 
 .search-preview mark {
   background-color: var(--syntax-highlight);
@@ -4187,9 +4066,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   color: var(--text-primary);
 }
 
-/* ===========================================
-   RESIZABLE IMAGE
-   =========================================== */
+/* RESIZABLE IMAGE */
 
 .resizable-image-wrapper {
   display: block;
@@ -4237,7 +4114,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   cursor: default;
 }
 
-/* Resize handles */
 .resize-handle {
   position: absolute;
   top: 50%;
@@ -4273,7 +4149,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   user-select: none !important;
 }
 
-/* Image alignment */
 .resizable-image-wrapper.align-left {
   text-align: left;
 }
@@ -4286,9 +4161,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   text-align: right;
 }
 
-/* ===========================================
-   IMAGE TOOLBAR
-   =========================================== */
+/* IMAGE TOOLBAR */
 
 .image-toolbar {
   position: absolute;
@@ -4366,9 +4239,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   background: var(--border-primary);
 }
 
-/* ==========================================================================
-   Quick Switcher (Cmd+P)
-   ========================================================================== */
+/* Quick Switcher (Cmd+P) */
 
 .quick-switcher-backdrop {
   position: fixed;
@@ -4422,7 +4293,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   }
 }
 
-/* Search Input */
 .quick-switcher-input-wrapper {
   display: flex;
   align-items: center;
@@ -4460,7 +4330,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   color: var(--text-muted);
 }
 
-/* Results List */
 .quick-switcher-results {
   flex: 1;
   overflow-y: auto;
@@ -4485,7 +4354,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   flex-direction: column;
 }
 
-/* Result Item */
 .quick-switcher-item {
   display: flex;
   align-items: center;
@@ -4559,7 +4427,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   margin-top: 2px;
 }
 
-/* Matched characters highlighting */
 .quick-switcher-match {
   color: var(--text-primary);
   font-weight: 600;
@@ -4570,7 +4437,6 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   color: var(--text-primary);
 }
 
-/* Footer with keyboard hints */
 .quick-switcher-footer {
   display: flex;
   align-items: center;
@@ -4666,11 +4532,8 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   color: var(--text-secondary);
 }
 
-/* ==========================================================================
-   Visual Polish - Premium Micro-interactions
-   ========================================================================== */
+/* Visual Polish - Premium Micro-interactions */
 
-/* Global smooth transitions for interactive elements */
 button,
 a,
 input,
@@ -4730,24 +4593,24 @@ select,
   pointer-events: none;
 }
 
-/* ===== Enhanced Sidebar Items ===== */
+/* Enhanced Sidebar Items */
 .sidebar-item {
   position: relative;
   overflow: hidden;
 }
 
-/* ===== Note Card Enhancements ===== */
+/* Note Card Enhancements */
 .note-card {
   position: relative;
 }
 
-/* ===== Toolbar Button Polish ===== */
+/* Toolbar Button Polish */
 .toolbar-button {
   position: relative;
   overflow: hidden;
 }
 
-/* ===== Input Field Polish ===== */
+/* Input Field Polish */
 input[type='text'],
 input[type='search'],
 input[type='email'],
@@ -4781,7 +4644,7 @@ button.editor-index-trigger:not(:disabled):hover {
   transform: scale(1.06);
 }
 
-/* ===== Smooth Panel Transitions ===== */
+/* Smooth Panel Transitions */
 .panel-collapsible {
   transition:
     opacity var(--dur-slow) var(--ease-standard),
@@ -4793,7 +4656,7 @@ button.editor-index-trigger:not(:disabled):hover {
   transform: translateX(-20px);
 }
 
-/* ===== Loading Skeleton Animation ===== */
+/* Loading Skeleton Animation */
 @keyframes skeleton-shimmer {
   0% {
     background-position: -200% 0;
@@ -4809,7 +4672,7 @@ button.editor-index-trigger:not(:disabled):hover {
   border-radius: var(--radius-sm);
 }
 
-/* ===== Smooth Scrollbar ===== */
+/* Smooth Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -4830,7 +4693,6 @@ button.editor-index-trigger:not(:disabled):hover {
   background-clip: content-box;
 }
 
-/* Hide scrollbar until hover (optional, for cleaner look) */
 .scrollbar-hidden {
   scrollbar-width: none;
 }
@@ -4852,13 +4714,13 @@ button.editor-index-trigger:not(:disabled):hover {
   background-clip: content-box;
 }
 
-/* ===== Clickable Surface ===== */
+/* Clickable Surface */
 .ripple {
   position: relative;
   overflow: hidden;
 }
 
-/* ===== Fade Transitions ===== */
+/* Fade Transitions */
 .fade-enter {
   opacity: 0;
   transform: translateY(-8px);
@@ -4885,7 +4747,7 @@ button.editor-index-trigger:not(:disabled):hover {
     transform var(--dur-micro) var(--ease-exit);
 }
 
-/* ===== Scale Transitions ===== */
+/* Scale Transitions */
 .scale-enter {
   opacity: 0;
   transform: scale(0.95);
@@ -4912,7 +4774,7 @@ button.editor-index-trigger:not(:disabled):hover {
     transform var(--dur-micro) var(--ease-exit);
 }
 
-/* ===== Tooltip Styles ===== */
+/* Tooltip Styles */
 [data-tooltip].icon-rail-button {
   display: flex;
   position: relative;
@@ -5012,7 +4874,7 @@ button.editor-index-trigger:not(:disabled):hover {
   transform: translateX(0) translateY(-50%);
 }
 
-/* ===== Badge/Pill Styles ===== */
+/* Badge/Pill Styles */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -5047,9 +4909,7 @@ button.editor-index-trigger:not(:disabled):hover {
   color: var(--error);
 }
 
-/* ==========================================================================
-   Slash Commands Menu
-   ========================================================================== */
+/* Slash Commands Menu */
 
 .slash-command-menu {
   background: var(--bg-elevated);

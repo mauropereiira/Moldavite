@@ -84,7 +84,6 @@ export function TrashPreviewModal({
         style={{ borderRadius: 'var(--radius-md)', maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3"
           style={{ borderBottom: '1px solid var(--border-default)' }}

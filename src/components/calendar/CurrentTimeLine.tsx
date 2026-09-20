@@ -11,13 +11,12 @@ interface CurrentTimeLineProps {
 export function CurrentTimeLine({ isToday, dayStart }: CurrentTimeLineProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update current time every minute
   useEffect(() => {
     if (!isToday) return;
 
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [isToday]);

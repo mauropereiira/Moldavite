@@ -1,4 +1,3 @@
-/* Wiki link base styles */
 wiki-link {
   cursor: pointer;
   padding: 0;
@@ -11,7 +10,6 @@ wiki-link {
     transform var(--dur-press) var(--ease-standard);
 }
 
-/* Existing note */
 wiki-link.wiki-link-exists {
   color: inherit;
   background-color: transparent;
@@ -22,7 +20,6 @@ wiki-link.wiki-link-exists:hover {
   color: var(--text-primary);
 }
 
-/* Non-existing note */
 wiki-link.wiki-link-missing {
   color: inherit;
   background-color: transparent;
@@ -44,7 +41,6 @@ wiki-link:focus-visible {
   outline-offset: 2px;
 }
 
-/* Suggestion dropdown */
 .wiki-link-suggestions {
   background: var(--bg-elevated);
   border-top: 1px solid var(--border-default);

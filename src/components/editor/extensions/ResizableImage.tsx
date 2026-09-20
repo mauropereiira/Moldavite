@@ -40,7 +40,6 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
 
   const { src, alt, width, alignment = 'center' } = node.attrs;
 
-  // Get current width (use stored width or natural width)
   const currentWidth = width
     ? typeof width === 'number'
       ? width
@@ -69,10 +68,8 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
       const multiplier = resizeDirection === 'left' ? -1 : 1;
       let newWidth = initialWidth + deltaX * multiplier;
 
-      // Minimum and maximum width constraints
       newWidth = Math.max(100, Math.min(newWidth, 1200));
 
-      // Update the image width in real-time
       imageRef.current.style.width = `${newWidth}px`;
     };
 
@@ -94,7 +91,6 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
     };
   }, [isResizing, initialWidth, initialX, resizeDirection, updateAttributes]);
 
-  // Get alignment style
   const alignmentStyle: React.CSSProperties = {
     display: 'block',
     textAlign: alignment as 'left' | 'center' | 'right',

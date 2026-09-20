@@ -105,7 +105,6 @@ export function AppOnboardingModal() {
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLastStep = stepIndex >= steps.length - 1;
 
-  // Load Forge path when entering the Forge step.
   useEffect(() => {
     if (!isOpen) return;
     if (step !== 'forge') return;
@@ -279,7 +278,6 @@ export function AppOnboardingModal() {
         }}
       >
         <div className="p-8">
-          {/* Step indicators */}
           <div className="flex justify-center gap-2 mb-6" aria-hidden="true">
             {steps.map((key, i) => (
               <div
@@ -315,7 +313,6 @@ export function AppOnboardingModal() {
 
           {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
 
-          {/* Actions */}
           <div className="flex items-center justify-between mt-8">
             <div>
               {stepIndex > 0 && (

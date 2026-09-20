@@ -57,11 +57,9 @@ export function EventBlock({
   if (!layout) return null;
   const { start, end, top: topPosition, height } = layout;
 
-  // Calculate width and left position for overlapping events
   const width = `calc((100% - 60px - ${(totalColumns - 1) * 2}px) / ${totalColumns})`;
   const left = `calc(60px + ${columnIndex} * ((100% - 60px) / ${totalColumns}) + ${columnIndex * 2}px)`;
 
-  // Format time for display
   const timeDisplay = `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
 
   const sourceColor = event.calendarColor || 'var(--calendar-google)';
@@ -104,7 +102,6 @@ export function EventBlock({
         aria-hidden="true"
       />
 
-      {/* Content */}
       <div className="relative flex h-full min-w-0 items-start overflow-hidden py-1 pl-2 pr-1">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-1.5">
@@ -189,7 +186,6 @@ export function EventBlock({
   );
 }
 
-// All-day event component
 interface AllDayEventProps {
   event: CalendarEvent;
   index?: number;
