@@ -1,19 +1,29 @@
 {
   "manifest_version": 3,
   "name": "Moldavite Clipper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Save the page you are reading as a Markdown note in Moldavite.",
+  "homepage_url": "https://mauropereiira.github.io/Moldavite/",
   "permissions": [
     "activeTab",
     "scripting",
     "nativeMessaging"
   ],
   "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
     "128": "icon-128.png"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Clip to Moldavite"
+    "default_title": "Clip to Moldavite",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'none'"

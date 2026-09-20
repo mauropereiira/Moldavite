@@ -6,3 +6,6 @@ dist/
 # host manifest will accept. Keep it in 1Password, never here.
 key.pem
 key.pub.txt
+
+# Packaged uploads are build output, built on demand and by CI.
+*.zip

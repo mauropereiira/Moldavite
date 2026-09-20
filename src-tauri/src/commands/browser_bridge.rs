@@ -15,9 +15,20 @@ use crate::persist::write_atomic;
 
 pub(crate) const HOST_NAME: &str = "com.moldavite.clipper";
 
-/// Derived from `extension/key.pem`; see `extension/README.md`. Regenerating
-/// that key changes this ID and unpairs every install.
-pub(crate) const CHROME_EXTENSION_ID: &str = "dgidmimgcpmanonfbijebppdmfhnhhem";
+/// Every Chromium extension id the bridge will talk to.
+///
+/// An id is the hash of the packaging key, so the unpacked build and the Web
+/// Store build of the *same* extension have different ones: the store re-signs
+/// with its own key. Pinning a single id therefore means whichever build is not
+/// pinned gets refused by the browser with no error the user can act on.
+///
+/// The first entry is the unpacked build, derived from `extension/key.pem`.
+/// Regenerating that key changes it and unpairs every unpacked install.
+pub(crate) const CHROME_EXTENSION_IDS: &[&str] = &[
+    // Unpacked, from extension/key.pem.
+    "dgidmimgcpmanonfbijebppdmfhnhhem",
+    // Chrome Web Store. Added once the item exists; see docs/CHROME_STORE.md.
+];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Flavor {
@@ -41,7 +52,10 @@ fn manifest_body(flavor: Flavor, binary: &Path) -> Value {
     });
     match flavor {
         Flavor::Chromium => {
-            body["allowed_origins"] = json!([format!("chrome-extension://{CHROME_EXTENSION_ID}/")]);
+            body["allowed_origins"] = json!(CHROME_EXTENSION_IDS
+                .iter()
+                .map(|id| format!("chrome-extension://{id}/"))
+                .collect::<Vec<_>>());
         }
         Flavor::Firefox => {
             body["allowed_extensions"] = json!([GECKO_EXTENSION_ID]);
@@ -288,10 +302,18 @@ mod tests {
         assert_eq!(manifest["name"], HOST_NAME);
         assert_eq!(manifest["type"], "stdio");
         assert_eq!(manifest["path"], "/Applications/M.app/M");
-        assert_eq!(
-            manifest["allowed_origins"][0],
-            format!("chrome-extension://{CHROME_EXTENSION_ID}/")
-        );
+        let origins = manifest["allowed_origins"].as_array().unwrap();
+        assert_eq!(origins.len(), CHROME_EXTENSION_IDS.len());
+        // Every id the app claims to support has to reach the manifest, or the
+        // browser refuses that build and the user sees only a dead button.
+        for id in CHROME_EXTENSION_IDS {
+            assert!(
+                origins
+                    .iter()
+                    .any(|origin| origin == &format!("chrome-extension://{id}/")),
+                "{id} is missing from allowed_origins"
+            );
+        }
         assert!(manifest.get("allowed_extensions").is_none());
 
         let _ = std::fs::remove_dir_all(&home);

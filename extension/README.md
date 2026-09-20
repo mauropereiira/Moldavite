@@ -64,6 +64,23 @@ manifest that **Connect browser** writes.
   built-in PDF viewer — cannot be clipped.
 - Above 5 MB of Markdown the clip is refused rather than truncated.
 
+## Publishing
+
+`npm run build` produces three directories. They differ only in manifest keys.
+
+- `dist/chrome` keeps `key`, which pins the extension id the desktop app allows.
+  This is the one to load unpacked.
+- `dist/chrome-store` drops `key`, because the Web Store re-signs with its own
+  and Chrome refuses a package whose key implies a different id. This is the one
+  to upload.
+- `dist/firefox` drops `key` and keeps the Gecko id.
+
+The store assigns an id that will not match the unpacked one, and the app only
+opens the bridge to ids it knows, so the new id has to be added to
+`CHROME_EXTENSION_IDS` in `src-tauri/src/commands/browser_bridge.rs` and shipped
+in an app release. Full checklist, listing copy and permission justifications:
+`docs/CHROME_STORE.md`.
+
 ## Development
 
 ```bash

@@ -335,14 +335,23 @@ jobs:
           npm ci
           npm test
           npm run build
-          cd dist/chrome && zip -r ../../moldavite-clipper-chrome.zip .
+          # The unpacked build, for loading with developer mode on. It keeps
+          # `key`, which pins the id the app's native-messaging host allows.
+          (cd dist/chrome && zip -r ../../moldavite-clipper-chrome.zip .)
+          # The Web Store upload. `key` is stripped: the store re-signs with
+          # its own, and Chrome refuses a package whose key implies a
+          # different id than the one it was signed under.
+          (cd dist/chrome-store && zip -r ../../moldavite-clipper-chrome-store.zip .)
         working-directory: extension
 
       - name: Attach it to the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release upload "$RELEASE_TAG" extension/moldavite-clipper-chrome.zip --clobber
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            extension/moldavite-clipper-chrome.zip \
+            extension/moldavite-clipper-chrome-store.zip --clobber
 
   publish-release:
     needs: [create-release, build-tauri, build-extension]
@@ -493,7 +502,8 @@ jobs:
               // The Chrome/Edge/Brave clipper, loaded unpacked. The Firefox XPI
               // is not here: it has to be signed through AMO by hand, and is
               // uploaded to the published release afterwards.
-              `moldavite-clipper-chrome.zip`
+              `moldavite-clipper-chrome.zip`,
+              `moldavite-clipper-chrome-store.zip`
             ];
             for (const name of expectedAssets) {
               const asset = assetsByName.get(name);
