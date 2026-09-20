@@ -76,8 +76,9 @@ fn create_note_from_link_at(notes_dir: &Path, note_name: &str) -> Result<(String
 
     let file_path = notes_path.join(&filename);
 
-    // Check if file already exists
-    if file_path.exists() {
+    // A locked note keeps its name as `<name>.md.locked`, so the plaintext name
+    // looks free while the note is locked.
+    if file_path.exists() || notes_path.join(format!("{filename}.locked")).exists() {
         return Err(format!("Note '{}' already exists", filename));
     }
 
@@ -117,6 +118,27 @@ mod tests {
         }
         assert!(!base.join("notes/nul.md").exists());
         assert!(!base.join("notes/com1.md").exists());
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_note_from_link_never_shadows_a_locked_note() {
+        // A locked note has no `.md` on disk, so a `[[link]]` to it reads as a
+        // dead link. Following it must not write a plaintext note beside the
+        // ciphertext — that pair can no longer be permanently unlocked.
+        let base = tmp_notes_dir("locked-target");
+        std::fs::create_dir_all(base.join("notes")).unwrap();
+        std::fs::write(base.join("notes/meeting-notes.md.locked"), "ciphertext").unwrap();
+
+        let error = create_note_from_link_at(&base, "Meeting Notes").unwrap_err();
+
+        assert!(error.contains("already exists"), "{error}");
+        assert!(!base.join("notes/meeting-notes.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(base.join("notes/meeting-notes.md.locked")).unwrap(),
+            "ciphertext"
+        );
 
         let _ = std::fs::remove_dir_all(&base);
     }
