@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [2.7.2] - 2026-09-20
 
 ### Changed
 
@@ -11,6 +11,8 @@ All notable changes to Moldavite are documented here.
 - The user guide has a keyboard shortcut reference, and its calendar section no longer claims Google Calendar is unavailable on Windows and Linux.
 
 ### Fixed
+
+- **iPhone and iPad onboarding no longer shifts as you move through it.** The step dots and the buttons sat at a different height on every page, because the sheet was centred and each step is a different length. They now hold their place, and only the step's own action is underlined.
 
 - **Images did not load in a Forge kept outside the default folder, including the iCloud one.** The app could only serve images from `Documents/Moldavite`, so anyone who moved their Forges root, or turned on the synced Forge, saw every embedded image break. The active Forge's images folder is now granted at launch and on every Forge switch. Only that folder is granted, so notes stay unreachable to the app's image loader.
 

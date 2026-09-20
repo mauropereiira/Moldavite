@@ -84,6 +84,33 @@ describe('AppOnboardingModal', () => {
     expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
   });
 
+  /// jsdom does no layout, so this asserts the structure the fix relies on
+  /// rather than the pixel positions the bug showed up as: the indicator and
+  /// the footer must stay siblings of a single flex body, in that order, on
+  /// every step. Nesting a step's content outside the body, or emitting a
+  /// second body, is what would let them drift again.
+  it('keeps the step indicator and footer pinned around one body on every step', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<AppOnboardingModal />);
+
+    for (const heading of [/welcome to moldavite/i, /your local forge/i, /a quick tour/i]) {
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+
+      const dialog = screen.getByRole('dialog');
+      const column = dialog.querySelector('.p-8');
+      const children = Array.from(column?.children ?? []);
+      const classes = children.map((child) => child.className);
+
+      expect(dialog.querySelectorAll('.app-onboarding-body')).toHaveLength(1);
+      expect(classes[0]).toContain('app-onboarding-steps');
+      expect(classes[1]).toContain('app-onboarding-body');
+      expect(classes[children.length - 1]).toContain('app-onboarding-footer');
+
+      const next = screen.queryByRole('button', { name: /next/i });
+      if (next) fireEvent.click(next);
+    }
+  });
+
   it('does not advertise desktop AI features to an existing mobile user', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     useSettingsStore.setState({ hasSeenAppOnboarding: true, lastSeenOnboardingVersion: 0 });
