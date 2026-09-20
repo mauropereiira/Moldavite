@@ -1,5 +1,11 @@
 # iOS App Store handoff
 
+**2.7.2 was submitted on 2026-09-20 at 17:22 Europe/Lisbon and is Waiting for
+Review.** Submission ID `47a72d03-1c98-4340-ac07-f61e6afa39e5`. Build 2.7.2
+(2.7.2), uploaded with Transporter from `src-tauri/gen/apple/build/arm64/`.
+It carries the onboarding layout fix and answers No to French distribution,
+matching the territory list. Submission is not approval.
+
 **2.6.0 is approved and live on the App Store.** It was submitted on
 2026-09-06 and has since been released. France stays excluded until its
 encryption paperwork is resolved; the app is free in the other 174 territories.
