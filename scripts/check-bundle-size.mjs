@@ -37,7 +37,10 @@ const BUDGETS = [
   { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
   { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
   // Mobile CSS loads only on mobile, before the first render.
-  { pattern: /^mobile-.*\.css$/, rawKb: 20, gzipKb: 4 },
+  // 22: pinning the onboarding step indicator and footer needs a real flex
+  // column rather than an auto-height centred sheet, which is ~0.4 KB raw.
+  // Measured 20.3 KB raw / 3.7 KB gz; gzip stays inside its existing cap.
+  { pattern: /^mobile-.*\.css$/, rawKb: 22, gzipKb: 4 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.

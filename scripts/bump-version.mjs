@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Keep the app version synchronized across all five release manifests.
+// Keep the app version synchronized across every release manifest, including
+// the iOS project and its two tracked Info.plists.
 // Usage:
 //   node scripts/bump-version.mjs 2.2.0
 //   node scripts/bump-version.mjs --check
@@ -119,9 +120,14 @@ const manifests = [
       return assertVersion(matches[0][2], this.label);
     },
     transform(contents, version) {
-      return replaceExactlyOnce(contents, this.pattern, (before, after) => {
-        return `${before}${version}${after}`;
-      }, this.label);
+      return replaceExactlyOnce(
+        contents,
+        this.pattern,
+        (before, after) => {
+          return `${before}${version}${after}`;
+        },
+        this.label
+      );
     },
   },
   {
@@ -136,12 +142,81 @@ const manifests = [
       return assertVersion(matches[0][2], this.label);
     },
     transform(contents, version) {
-      return replaceExactlyOnce(contents, this.pattern, (before, after) => {
-        return `${before}${version}${after}`;
-      }, this.label);
+      return replaceExactlyOnce(
+        contents,
+        this.pattern,
+        (before, after) => {
+          return `${before}${version}${after}`;
+        },
+        this.label
+      );
     },
   },
+  {
+    label: 'src-tauri/gen/apple/project.yml',
+    path: join(root, 'src-tauri', 'gen', 'apple', 'project.yml'),
+    // xcodegen regenerates the Xcode project from this file, so it is the
+    // source the two tracked Info.plists are derived from. Both keys appear
+    // once per target, app and widget, and all four must agree or the App
+    // Store rejects the upload for a version mismatch between them.
+    pattern: /(CFBundleShortVersionString: |CFBundleVersion: ")([0-9]+\.[0-9]+\.[0-9]+)("?)/g,
+    expectedMatches: 4,
+    readVersion(contents) {
+      const matches = [...contents.matchAll(this.pattern)];
+      if (matches.length !== this.expectedMatches) {
+        fail(
+          `${this.label}: expected ${this.expectedMatches} version matches, found ${matches.length}`
+        );
+      }
+      const versions = new Set(matches.map((match) => match[2]));
+      if (versions.size !== 1) {
+        fail(`${this.label}: targets disagree on the version (${[...versions].join(', ')})`);
+      }
+      return assertVersion(matches[0][2], this.label);
+    },
+    transform(contents, version) {
+      return contents.replace(this.pattern, (_match, before, _old, after) => {
+        return `${before}${version}${after}`;
+      });
+    },
+  },
+  {
+    label: 'src-tauri/gen/apple/moldavite_iOS/Info.plist',
+    path: join(root, 'src-tauri', 'gen', 'apple', 'moldavite_iOS', 'Info.plist'),
+    pattern: /(<key>CFBundle(?:ShortVersionString|Version)<\/key>\s*<string>)([^<]+)(<\/string>)/g,
+    expectedMatches: 2,
+    readVersion: readPlistVersion,
+    transform: transformPlistVersion,
+  },
+  {
+    label: 'src-tauri/ios/Widget/Info.plist',
+    path: join(root, 'src-tauri', 'ios', 'Widget', 'Info.plist'),
+    pattern: /(<key>CFBundle(?:ShortVersionString|Version)<\/key>\s*<string>)([^<]+)(<\/string>)/g,
+    expectedMatches: 2,
+    readVersion: readPlistVersion,
+    transform: transformPlistVersion,
+  },
 ];
+
+function readPlistVersion(contents) {
+  const matches = [...contents.matchAll(this.pattern)];
+  if (matches.length !== this.expectedMatches) {
+    fail(
+      `${this.label}: expected ${this.expectedMatches} version matches, found ${matches.length}`
+    );
+  }
+  const versions = new Set(matches.map((match) => match[2]));
+  if (versions.size !== 1) {
+    fail(`${this.label}: CFBundleVersion and CFBundleShortVersionString disagree`);
+  }
+  return assertVersion(matches[0][2], this.label);
+}
+
+function transformPlistVersion(contents, version) {
+  return contents.replace(this.pattern, (_match, before, _old, after) => {
+    return `${before}${version}${after}`;
+  });
+}
 
 function usage() {
   console.error('Usage: node scripts/bump-version.mjs <x.y.z> | --check');
@@ -175,7 +250,7 @@ function main() {
       fail(`version mismatch: ${versions}`);
     }
 
-    console.log(`Version ${expected} is synchronized across all five manifests`);
+    console.log(`Version ${expected} is synchronized across all ${manifests.length} manifests`);
     return;
   }
 

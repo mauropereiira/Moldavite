@@ -1,16 +1,24 @@
 # iOS App Store handoff
 
-**Submitted for App Review on 2026-09-06 at 14:26 Europe/Lisbon.**
-App Store Connect confirms **Waiting for Review** for version/build 2.6.0.
-Mauro chose to exclude France until its encryption paperwork is resolved.
-The release is free in the other 174 territories and will publish automatically
-if Apple approves it. Submission is not approval or a live release.
+**2.6.0 is approved and live on the App Store.** It was submitted on
+2026-09-06 and has since been released. France stays excluded until its
+encryption paperwork is resolved; the app is free in the other 174 territories.
+
+Everything after this point is therefore an **update** to a live app, not a
+first submission. Create a new version in App Store Connect, attach a build with
+a higher version and build number, and submit that. The listing, pricing,
+territories, age rating and privacy answers carry over and only need changing if
+the app's behaviour changed.
 
 ## Current release
 
 - App: **Moldavite: Notes & Ideas**, Apple ID `6809157286`.
 - Bundle: `app.moldavite`; widget: `app.moldavite.widget`; team: `J6Z5WJKHZB`.
-- Version/build: `2.6.0` / `2.6.0`; minimum iOS/iPadOS **17.0**.
+- Live version/build: `2.6.0` / `2.6.0`; minimum iOS/iPadOS **17.0**.
+  The next upload must carry a higher build number than the live one.
+  `bundle.iOS.bundleVersion` is unset in `tauri.conf.json`, so Tauri uses the
+  top-level version for the app plist, and the widget plist carries the same
+  value. `bump-version.mjs` keeps all three in step and fails if they drift.
 - Signed archive, App Store export and upload succeeded on 6 September 2026.
   The processed build is attached to the version and includes the branded icon.
 - Free pricing and 174 territories, plus future territories, are saved.

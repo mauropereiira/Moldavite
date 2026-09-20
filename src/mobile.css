@@ -871,13 +871,42 @@ html[data-platform='mobile'] .app-onboarding-scrim {
 
 html[data-platform='mobile'] .app-onboarding-scrim .modal-elevated {
   width: 100% !important;
-  max-height: 100%;
+  height: 100%;
   background: var(--bg-base) !important;
   border: 0;
 }
 
+/* The step indicator and the footer are fixed landmarks: they must not move
+   between steps. Steps differ a lot in height (the tour is a four-tile grid,
+   the welcome is a paragraph), and an auto-height sheet centred in the scrim
+   re-centres on every step, sliding both. A full-height column with the body
+   taking the slack keeps them put. */
 html[data-platform='mobile'] .app-onboarding-scrim .p-8 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 24px 8px;
+}
+
+html[data-platform='mobile'] .app-onboarding-steps {
+  flex: none;
+  margin-bottom: 32px;
+}
+
+html[data-platform='mobile'] .app-onboarding-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='mobile'] .app-onboarding-footer {
+  flex: none;
+  margin-top: 24px;
+  gap: 8px;
 }
 
 html[data-platform='mobile'] .app-onboarding-scrim button {
@@ -885,7 +914,12 @@ html[data-platform='mobile'] .app-onboarding-scrim button {
   min-width: var(--touch-target);
   background: transparent !important;
   color: var(--text-primary) !important;
-  border-bottom: 1px solid var(--border-default);
+}
+
+/* Only the step's own action is underlined. Underlining every button gave the
+   last step three different-looking rules at three different widths. */
+html[data-platform='mobile'] .app-onboarding-footer > div:last-child button:last-child {
+  border-bottom: 1px solid var(--accent-primary);
 }
 
 html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],

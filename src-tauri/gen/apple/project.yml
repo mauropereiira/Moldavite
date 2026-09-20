@@ -54,8 +54,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 2.6.0
-        CFBundleVersion: "2.6.0"
+        CFBundleShortVersionString: 2.7.2
+        CFBundleVersion: "2.7.2"
         NSUbiquitousContainers:
           iCloud.app.moldavite:
             NSUbiquitousContainerIsDocumentScopePublic: true
@@ -124,8 +124,8 @@ targets:
       path: ../../ios/Widget/Info.plist
       properties:
         CFBundleDisplayName: Moldavite
-        CFBundleShortVersionString: 2.6.0
-        CFBundleVersion: "2.6.0"
+        CFBundleShortVersionString: 2.7.2
+        CFBundleVersion: "2.7.2"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
