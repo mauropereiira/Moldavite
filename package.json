@@ -12,6 +12,7 @@
     "build:analyze": "tsc && ANALYZE=1 vite build",
     "check:size": "node scripts/check-bundle-size.mjs",
     "check:tokens": "node scripts/check-tokens.mjs",
+    "check:comments": "node scripts/check-comments.mjs",
     "release:version": "node scripts/bump-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -48,6 +48,10 @@ jobs:
           # raw hex in a component. The script existed but nothing ran it.
           - task: check-tokens
             run: npm run check:tokens
+          # Banners and filler openers only: a restating comment cannot be
+          # detected mechanically. See the Comments section of CONTRIBUTING.md.
+          - task: check-comments
+            run: npm run check:comments
           # Ratchet: main sits at 3 warnings, 0 errors. Blocks new ones
           # without demanding the backlog get fixed first. Lower it as
           # warnings get cleared; never raise it.
