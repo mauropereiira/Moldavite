@@ -30,6 +30,14 @@ use crate::validation::{
 /// Standalone notes may live in folders and are addressed by a notes/-relative
 /// path; daily and weekly notes are always addressed by a bare filename.
 fn is_valid_existing_note_ref(filename: &str, is_daily: bool, is_weekly: bool) -> bool {
+    // A note is addressed by its plaintext name whether it is locked or not;
+    // the `.locked` ciphertext belongs to the locking commands alone. Accepting
+    // it here would let a save replace an encrypted note with plaintext, since
+    // the "is this locked" probe looks for a `.locked` suffix that such a ref
+    // already carries.
+    if filename.ends_with(".locked") {
+        return false;
+    }
     if is_daily || is_weekly {
         is_safe_existing_filename(filename)
     } else {
@@ -86,6 +94,32 @@ fn index_key(filename: &str) -> String {
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| filename.to_string())
+}
+
+/// A locked note lives as `<name>.md.locked`, so `exists()` on the plaintext
+/// name reports a taken name as free. Every check that picks or accepts a new
+/// note name has to see both forms; otherwise a new note lands beside a locked
+/// one under the same address and the pair can no longer be unlocked.
+fn locked_sibling(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".locked");
+    PathBuf::from(name)
+}
+
+fn note_name_is_taken(path: &Path) -> bool {
+    path.exists() || locked_sibling(path).exists()
+}
+
+/// `generate_unique_filename` only sees plaintext names, so step past any
+/// candidate whose locked form is already on disk.
+fn unique_unlocked_filename(dir: &Path, base_name: &str) -> String {
+    let mut name = generate_unique_filename(dir, base_name, "md");
+    let mut counter = 2u32;
+    while locked_sibling(&dir.join(&name)).exists() && counter <= 10_000 {
+        name = generate_unique_filename(dir, &format!("{base_name} ({counter})"), "md");
+        counter += 1;
+    }
+    name
 }
 
 /// SHA-256 hex digest of a note body. The frontend keeps the hash from its
@@ -159,7 +193,7 @@ fn conflict_copy_destination(path: &Path, stamp: &str) -> Result<(PathBuf, Strin
         .ok_or_else(|| "Invalid note path".to_string())?;
     let suffix = format!(" (conflict {stamp})");
     let base = portable_derived_stem(stem, &suffix);
-    let name = generate_unique_filename(dir, &base, "md");
+    let name = unique_unlocked_filename(dir, &base);
     Ok((dir.join(&name), name))
 }
 
@@ -318,9 +352,7 @@ pub(crate) fn save_note_with_conflict_using<F>(
 where
     F: FnOnce(&Path, &str) -> Result<(), String> + Send,
 {
-    let mut locked_name = path.as_os_str().to_os_string();
-    locked_name.push(".locked");
-    let locked = PathBuf::from(locked_name);
+    let locked = locked_sibling(path);
     note_file_access::transaction(&[Access::write(path), Access::write(&locked)], || {
         let base = path.parent().ok_or("Invalid note path")?;
         validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
@@ -378,9 +410,7 @@ where
 }
 
 fn ensure_note_is_writable(path: &Path) -> Result<(), String> {
-    let mut locked_name = path.as_os_str().to_os_string();
-    locked_name.push(".locked");
-    if PathBuf::from(locked_name).exists() {
+    if locked_sibling(path).exists() {
         return Err("Note is locked".to_string());
     }
     Ok(())
@@ -582,12 +612,7 @@ pub(crate) fn write_note(
     };
 
     let path = dir.join(&filename);
-    let mut locked_name = path.as_os_str().to_os_string();
-    locked_name.push(".locked");
-    if !path.exists()
-        && !PathBuf::from(locked_name).exists()
-        && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly)
-    {
+    if !note_name_is_taken(&path) && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
     // External-edit conflict safety: if the disk copy changed since the
@@ -768,7 +793,7 @@ fn create_note_in(
     }
 
     // Generate unique filename if needed
-    let filename = generate_unique_filename(&dir, title, "md");
+    let filename = unique_unlocked_filename(&dir, title);
     let path = dir.join(&filename);
     validate_path_within_base(&path, base_dir).map_err(|_| "Invalid note path".to_string())?;
 
@@ -819,7 +844,7 @@ pub(crate) fn duplicate_note(
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Invalid note path".to_string())?;
     let new_base = portable_derived_stem(source_stem, " (copy)");
-    let new_leaf = generate_unique_filename(source_parent, &new_base, "md");
+    let new_leaf = unique_unlocked_filename(source_parent, &new_base);
     let new_path = source_parent.join(&new_leaf);
     validate_path_within_base(&new_path, &dir).map_err(|_| "Invalid note path".to_string())?;
     let new_filename = match filename.rsplit_once('/') {
@@ -922,7 +947,7 @@ fn rename_note_in(
             validate_path_within_base(&old_path, dir)?;
             validate_path_within_base(&new_path, dir)?;
 
-            if new_path.exists() {
+            if note_name_is_taken(&new_path) {
                 return Err("A note with this name already exists".to_string());
             }
 
@@ -1187,7 +1212,7 @@ fn move_note_in(
     let final_filename = if is_same_folder {
         filename.clone()
     } else {
-        generate_unique_filename(&dest_dir, base_name, "md")
+        unique_unlocked_filename(&dest_dir, base_name)
     };
     let dest_path = dest_dir.join(&final_filename);
     validate_path_within_base(&dest_path, standalone_dir)
@@ -1212,7 +1237,7 @@ fn move_note_in(
                 if !source_path.exists() {
                     return Err("Note not found".into());
                 }
-                if dest_path.exists() {
+                if note_name_is_taken(&dest_path) {
                     return Err("A note with this name already exists. Try the move again.".into());
                 }
                 fs::rename(&source_path, &dest_path)
@@ -1896,6 +1921,82 @@ mod tests {
         assert_eq!(final_filename, "note.md");
         assert_eq!(relative, "Archive/note.md");
         assert_eq!(fs::read_to_string(destination).unwrap(), "body");
+    }
+
+    #[test]
+    fn a_locked_note_is_never_addressable_by_its_ciphertext_name() {
+        // `ensure_note_is_writable` looks for `<ref>.locked`, which does not
+        // exist when the ref already IS the ciphertext — so a save addressed
+        // that way would replace an encrypted note with plaintext.
+        for (is_daily, is_weekly) in [(false, false), (true, false), (false, true)] {
+            assert!(!is_valid_existing_note_ref(
+                "secret.md.locked",
+                is_daily,
+                is_weekly
+            ));
+        }
+        assert!(!is_valid_existing_note_ref(
+            "Projects/secret.md.locked",
+            false,
+            false
+        ));
+        assert!(is_valid_existing_note_ref("secret.md", false, false));
+        assert!(is_valid_existing_note_ref("2026-01-01.md", true, false));
+    }
+
+    #[test]
+    fn a_new_note_never_takes_a_locked_note_s_name() {
+        // `secret.md` is absent while the note is locked, so an existence
+        // check that only looks at the plaintext name reports it as free and
+        // leaves both forms of the same note on disk.
+        let tmp = TempDir::new("create-onto-locked");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("secret.md.locked"), "ciphertext").unwrap();
+
+        let (filename, relative) = create_note_in(&notes, "secret", None).unwrap();
+
+        assert_eq!(filename, "secret (2).md");
+        assert_eq!(relative, "secret (2).md");
+        assert!(!notes.join("secret.md").exists());
+        assert_eq!(
+            fs::read_to_string(notes.join("secret.md.locked")).unwrap(),
+            "ciphertext"
+        );
+    }
+
+    #[test]
+    fn moving_a_note_never_takes_a_locked_note_s_name() {
+        let tmp = TempDir::new("move-onto-locked");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Archive")).unwrap();
+        fs::write(notes.join("plan.md"), "plaintext body").unwrap();
+        fs::write(notes.join("Archive/plan.md.locked"), "ciphertext").unwrap();
+
+        let (_, final_filename, relative, _) =
+            move_note_in(&notes, "plan.md", Some("Archive")).unwrap();
+
+        assert_eq!(final_filename, "plan (2).md");
+        assert_eq!(relative, "Archive/plan (2).md");
+        assert_eq!(
+            fs::read_to_string(notes.join("Archive/plan.md.locked")).unwrap(),
+            "ciphertext"
+        );
+    }
+
+    #[test]
+    fn renaming_onto_a_locked_note_is_refused() {
+        let tmp = TempDir::new("rename-onto-locked");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("draft.md"), "plaintext body").unwrap();
+        fs::write(notes.join("secret.md.locked"), "ciphertext").unwrap();
+
+        let error = rename_note_in(&notes, "draft.md", "secret.md", false, false).unwrap_err();
+
+        assert_eq!(error, "A note with this name already exists");
+        assert!(notes.join("draft.md").exists());
+        assert!(!notes.join("secret.md").exists());
     }
 
     #[test]
