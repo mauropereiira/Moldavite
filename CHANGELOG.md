@@ -6,6 +6,12 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Clipper: a page with nothing to convert, or a tab that could not be read, showed an internal error or saved a note containing the word "undefined".** Both now say what happened in plain language.
+
+- Clipper: text that looks like an HTML tag, such as `<section>` written out in an article, is kept as text instead of vanishing from the saved note.
+
+- Clipper: the extension ships its icon, so the toolbar button is no longer a blank placeholder.
+
 - **An external edit to an open note could be destroyed instead of preserved.** The sidebar, the timeline and an export re-read notes to do their own work, and those reads quietly became the save baseline. If a note was open with unsaved edits when something else wrote to it, Keep mine overwrote the other version without leaving the conflict copy it promises.
 
 - Weekly notes contribute backlinks and tags in the sidebar again.
@@ -37,6 +43,8 @@ All notable changes to Moldavite are documented here.
 - Search results no longer include hidden files that could not be opened.
 
 ### Security
+
+- Clipper: the extension now declares a content security policy that blocks it from making any network request, so "makes no network requests" is enforced rather than promised.
 
 - Image sources are checked against the allowed URL schemes again. A `javascript:` source could previously survive sanitizing.
 
