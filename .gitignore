@@ -80,5 +80,10 @@ skills-lock.json
 # Brand working files. Deliverables are copied to docs/ deliberately.
 brand/
 
-# Apple signing profiles are supplied locally or by CI, never committed.
+# Signing material is supplied locally or by CI, never committed. CI gets it
+# from Actions secrets; a local export must not become a `git add -A` accident.
+# The clipper's Chrome key is covered by extension/.gitignore.
 *.provisionprofile
+*.mobileprovision
+*.p12
+*.pem

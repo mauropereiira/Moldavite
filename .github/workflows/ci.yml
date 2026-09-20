@@ -11,10 +11,17 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR makes the previous run's result irrelevant. Pushes to main
+# are never cancelled: every commit there keeps its own result.
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test-icloud:
     name: test-icloud
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -26,6 +33,7 @@ jobs:
   web:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       # Report every failure in one pass instead of cancelling siblings.
       fail-fast: false
@@ -35,6 +43,11 @@ jobs:
             run: node scripts/bump-version.mjs --check
           - task: check-format
             run: npm run format:check
+          # Guards the three token failures that have shipped here before: an
+          # undefined `var(--x)`, a `var(--x, #fallback)` that hides one, and a
+          # raw hex in a component. The script existed but nothing ran it.
+          - task: check-tokens
+            run: npm run check:tokens
           # Ratchet: main sits at 16 warnings, 0 errors. Blocks new ones
           # without demanding the backlog get fixed first. Lower it as
           # warnings get cleared; never raise it.
@@ -71,6 +84,7 @@ jobs:
   extension:
     name: test-extension
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -98,6 +112,7 @@ jobs:
   rust:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -252,6 +267,7 @@ jobs:
   audit-rust:
     name: audit-rust
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

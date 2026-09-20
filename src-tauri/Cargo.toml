@@ -52,8 +52,15 @@ tauri-plugin-deep-link = "2"
 
 bincode = "1.3"
 
-# Google Calendar REST + OAuth token exchange. rustls keeps this off the system
-# TLS stack; this is the only outbound HTTP the Rust process makes.
+# Google Calendar REST + OAuth token exchange, WordPress.com, and plugin
+# `net.fetch`. Not the process's only outbound HTTP: `fastembed` downloads
+# models from Hugging Face over its own clients and `tauri-plugin-updater`
+# brings its own; see docs/privacy.html for the documented destinations.
+# `rustls-tls` is requested here, but fastembed's `hf-hub-native-tls` and
+# `ort-download-binaries-native-tls` also turn on reqwest's `default-tls` for
+# the whole graph, so a bare `Client::builder()` still picks the system TLS
+# stack. Switching those two to the `-rustls-tls` variants is what would make
+# rustls actually hold.
 reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
@@ -81,9 +88,6 @@ fastembed = { version = "5.17", default-features = false, features = [
     "ort-download-binaries-native-tls",
     "hf-hub-native-tls",
 ] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-swift-rs = "1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 # iOS ships SQLite with FTS5. Use the system library so the app does not

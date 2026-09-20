@@ -4,6 +4,10 @@
 <dict>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
+	<!-- EventKitBridge calls requestFullAccessToEvents on macOS 14+, which Apple
+	     requires this key for; the legacy key above still covers macOS 13 and older. -->
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Moldavite needs access to your calendar to display your events in the timeline.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.app.moldavite</key>
