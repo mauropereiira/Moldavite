@@ -160,6 +160,9 @@ fn handle_request(context: &ToolContext, request: Value) -> Option<Value> {
                     "tools/call requires a tool name",
                 ));
             };
+            if !ToolContext::is_known_tool(name) {
+                return Some(error_response(id, -32602, &format!("Unknown tool: {name}")));
+            }
             let arguments = params
                 .get("arguments")
                 .cloned()
@@ -653,10 +656,39 @@ mod tests {
         }
         let responses = run(input, ToolContext::new(root.clone(), true, false));
         assert_eq!(responses.len(), 6);
-        assert!(responses
+        // The five real tools refuse the traversal as a tool error.
+        assert!(responses[..5]
             .iter()
             .all(|response| response["result"]["isError"] == true));
+        // A name that is not a tool at all is a caller mistake, not a tool
+        // result: the spec asks for -32602, and nothing may have run.
+        assert_eq!(responses[5]["error"]["code"], -32602);
+        assert!(responses[5]["result"].is_null());
         assert!(!root.parent().unwrap().join("escape.md").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A write tool the user has switched off is a real tool, so it keeps
+    /// answering with `isError` and an explanation. Only a name that is not a
+    /// tool at all is a caller mistake worth a protocol error.
+    #[test]
+    fn a_gated_write_tool_is_a_tool_error_not_an_unknown_tool() {
+        let root = temp_forge("gated-not-unknown");
+        let input = request(
+            0,
+            "tools/call",
+            json!({"name":"write_note","arguments":{"path":"notes/a.md","content":"x"}}),
+        ) + &request(
+            1,
+            "tools/call",
+            json!({"name":"definitely_not_a_tool","arguments":{}}),
+        );
+
+        let responses = run(input, ToolContext::new(root.clone(), false, false));
+
+        assert_eq!(responses[0]["result"]["isError"], true);
+        assert!(responses[0]["error"].is_null());
+        assert_eq!(responses[1]["error"]["code"], -32602);
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -134,6 +134,25 @@ impl ToolContext {
         tools
     }
 
+    /// Whether `name` is one of the seven tools, regardless of the write gate.
+    ///
+    /// A gated write tool is a real tool the user has switched off, so it keeps
+    /// answering with `isError` and an explanation. Only a name that exists
+    /// nowhere is a caller mistake, which the spec asks us to report as
+    /// `-32602` rather than as a successful result carrying an error.
+    pub(super) fn is_known_tool(name: &str) -> bool {
+        matches!(
+            name,
+            "search_notes"
+                | "read_note"
+                | "list_notes"
+                | "get_backlinks"
+                | "create_note"
+                | "append_to_daily_note"
+                | "write_note"
+        )
+    }
+
     pub(super) fn call(&self, name: &str, arguments: &Value) -> Value {
         let result = match name {
             "create_note" | "append_to_daily_note" | "write_note" if !self.writes_enabled() => {

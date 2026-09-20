@@ -97,3 +97,30 @@ describe('image URL schemes', () => {
     }
   });
 });
+
+describe('link target hardening', () => {
+  it('gives every new-tab link a rel that severs the opener', () => {
+    const dom = parse(markdownToHtml('<a href="https://example.com" target="_blank">x</a>'));
+    const link = dom.querySelector('a');
+
+    // Without `noopener`, the opened page gets `window.opener` back and can
+    // navigate this one. `noreferrer` also covers older WebKit, which honours
+    // it but not `noopener`.
+    expect(link?.getAttribute('rel')).toContain('noopener');
+    expect(link?.getAttribute('rel')).toContain('noreferrer');
+  });
+
+  it('keeps a rel the note already carried', () => {
+    const dom = parse(
+      markdownToHtml('<a href="https://example.com" target="_blank" rel="author">x</a>')
+    );
+
+    expect(dom.querySelector('a')?.getAttribute('rel')).toContain('author');
+  });
+
+  it('leaves a same-tab link alone', () => {
+    const dom = parse(markdownToHtml('<a href="https://example.com">x</a>'));
+
+    expect(dom.querySelector('a')?.hasAttribute('rel')).toBe(false);
+  });
+});

@@ -304,6 +304,20 @@ DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
   }
 });
 
+// A `target="_blank"` link hands the opened page a live `window.opener`, which
+// it can use to navigate this one. Note bodies are untrusted: they arrive from
+// clipped pages, imported vaults, MCP writes and plugins. `noreferrer` is there
+// for older WebKit, which honours it but not `noopener`.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (!(node instanceof Element) || node.tagName !== 'A') return;
+  if (node.getAttribute('target') !== '_blank') return;
+
+  const rel = new Set((node.getAttribute('rel') ?? '').split(/\s+/).filter(Boolean));
+  rel.add('noopener');
+  rel.add('noreferrer');
+  node.setAttribute('rel', [...rel].join(' '));
+});
+
 /**
  * Slugifies a note name (or filename) for wiki-link resolution. Unicode-aware
  * and NFC-normalized so "Café" keeps its accent — this MUST stay in sync with

@@ -52,6 +52,10 @@ All notable changes to Moldavite are documented here.
 
 ### Security
 
+- Links in a note that open in a new tab now carry `rel="noopener noreferrer"`, so the page they open cannot reach back and navigate Moldavite. Note bodies come from clipped pages, imported vaults, agents and plugins, so they are not trusted input.
+
+- An encrypted backup no longer leaves the whole Forge in the clear in memory after it is written or read. Both buffers are wiped rather than left for the allocator to hand out again.
+
 - Clipper: the extension now declares a content security policy that blocks it from making any network request, so "makes no network requests" is enforced rather than promised.
 
 - Image sources are checked against the allowed URL schemes again. A `javascript:` source could previously survive sanitizing.
