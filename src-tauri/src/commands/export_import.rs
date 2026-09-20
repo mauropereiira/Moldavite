@@ -651,9 +651,16 @@ fn export_encrypted_backup_from(
             .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     }
 
-    let zip_data = zip_buffer.into_inner();
+    // Both buffers hold every note in the Forge in the clear, including the
+    // locked ones. Nothing writes them to disk, but they are the longest-lived
+    // plaintext in the process, so wipe them rather than leave them for the
+    // allocator to hand out again.
+    let zip_data = Zeroizing::new(zip_buffer.into_inner());
 
-    let zip_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &zip_data);
+    let zip_b64 = Zeroizing::new(base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        zip_data.as_slice(),
+    ));
     let encrypted = encryption::encrypt_content(&zip_b64, password)?;
 
     let backup_content = format!("MOLDAVITE_ENCRYPTED_BACKUP_V1\n{}", encrypted);
@@ -691,12 +698,19 @@ fn import_encrypted_backup_into(
     }
     let encrypted = lines[1];
 
-    let zip_b64 = encryption::decrypt_content(encrypted, password)?;
+    // Decrypted, so this is every note in the backup in the clear. Same
+    // reasoning as the export side: wipe both buffers on the way out.
+    let zip_b64 = Zeroizing::new(encryption::decrypt_content(encrypted, password)?);
 
-    let zip_data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &zip_b64)
-        .map_err(|e| format!("Failed to decode backup data: {}", e))?;
+    let zip_data = Zeroizing::new(
+        base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            zip_b64.as_bytes(),
+        )
+        .map_err(|e| format!("Failed to decode backup data: {}", e))?,
+    );
 
-    let cursor = Cursor::new(zip_data);
+    let cursor = Cursor::new(zip_data.as_slice());
     let mut archive =
         ZipArchive::new(cursor).map_err(|e| format!("Failed to read backup archive: {}", e))?;
 
