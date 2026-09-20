@@ -97,7 +97,6 @@ impl BacklinksIndex {
         let standalone = root.join("notes");
         collect_md_files_recursive(&standalone, &mut files);
 
-        // Reset state.
         {
             let mut state = match self.inner.write() {
                 Ok(g) => g,
@@ -166,7 +165,6 @@ impl BacklinksIndex {
         remove_from_by_target(&mut state.by_target, filename);
         state.outbound.remove(filename);
 
-        // Insert new entries.
         for (key, entry) in new_entries {
             state.by_target.entry(key).or_default().push(entry);
         }

@@ -15,7 +15,6 @@ export function extractWikiLinks(content: string): string[] {
 
   const links = new Set<string>();
 
-  // Match wiki-link elements with data-target attribute
   const elementRegex = /<wiki-link[^>]*data-target="([^"]+)"[^>]*>/gi;
   let match;
 
@@ -61,7 +60,6 @@ export function linkMatchesNote(linkTarget: string, noteName: string): boolean {
   const normalizedTarget = normalizeNoteName(linkTarget);
   const normalizedNote = normalizeNoteName(noteName);
 
-  // Direct match
   if (normalizedTarget === normalizedNote) return true;
 
   // Match if target is just the filename without path
@@ -96,17 +94,14 @@ export function findBacklinks(
   const normalizedTarget = normalizeNoteName(targetNoteName);
 
   for (const [path, content] of noteContents) {
-    // Don't include self-references
     const info = noteInfo.get(path);
     if (!info) continue;
 
     const normalizedSource = normalizeNoteName(info.name);
     if (normalizedSource === normalizedTarget) continue;
 
-    // Extract wiki links from this note
     const links = extractWikiLinks(content);
 
-    // Check if any link points to our target
     const hasLink = links.some((link) => linkMatchesNote(link, targetNoteName));
 
     if (hasLink) {
@@ -123,10 +118,8 @@ export function findBacklinks(
     if (a.isDaily && !b.isDaily) return -1;
     if (!a.isDaily && b.isDaily) return 1;
     if (a.isDaily && b.isDaily) {
-      // Sort dates descending (most recent first)
       return b.sourceName.localeCompare(a.sourceName);
     }
-    // Regular notes alphabetically
     return a.sourceName.localeCompare(b.sourceName);
   });
 }

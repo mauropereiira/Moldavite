@@ -234,7 +234,6 @@ pub(crate) fn refresh_active_forge(
     // The new Forge may sit outside the static asset scope, which would leave
     // every embedded image unreachable until the next launch.
     crate::paths::grant_forge_asset_access(app, &target);
-    // Tear down old watcher and spin up a new one rooted at the new Forge.
     let slot = app.try_state::<WatcherSlot>();
     // Stop the old watcher before clearing `recent`, so an event still in
     // flight from the previous Forge cannot repopulate it after the clear.

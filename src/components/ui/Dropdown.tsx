@@ -19,7 +19,6 @@ export function Dropdown({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -36,7 +35,6 @@ export function Dropdown({
     };
   }, [isOpen]);
 
-  // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -133,7 +131,6 @@ export function Dropdown({
   );
 }
 
-// Menu item component
 interface DropdownItemProps {
   children: React.ReactNode;
   onClick?: () => void;
@@ -238,12 +235,10 @@ export function DropdownStatic({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Divider component
 export function DropdownDivider() {
   return <div className="my-1" style={{ borderTop: '1px solid var(--border-muted)' }} />;
 }
 
-// Label/header component
 export function DropdownLabel({ children }: { children: React.ReactNode }) {
   return <div className="section-header px-3 py-1.5">{children}</div>;
 }

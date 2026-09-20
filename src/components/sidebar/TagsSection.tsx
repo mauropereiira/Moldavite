@@ -46,19 +46,15 @@ export function TagsSection({
     null
   );
 
-  // Sort and filter tags
   const sortedTags = useMemo(() => {
     const filtered = Array.from(allTags.entries()).filter(([tag]) =>
       tag.toLowerCase().includes(tagSearchQuery.toLowerCase())
     );
     return filtered.sort((a, b) => {
-      // Selected tags first
       const aSelected = selectedTags.includes(a[0]);
       const bSelected = selectedTags.includes(b[0]);
       if (aSelected !== bSelected) return aSelected ? -1 : 1;
-      // Then by count
       if (b[1] !== a[1]) return b[1] - a[1];
-      // Then alphabetically
       return a[0].localeCompare(b[0]);
     });
   }, [allTags, tagSearchQuery, selectedTags]);
@@ -103,11 +99,9 @@ export function TagsSection({
         `Renamed #${renamingTag} to #${trimmedNew} in ${count} note${count !== 1 ? 's' : ''}`
       );
       setRenamingTag(null);
-      // If the renamed tag was selected, update selection
       if (selectedTag === renamingTag) {
         onSelectTag(trimmedNew);
       }
-      // Trigger refresh of notes
       onTagsChanged?.();
     } catch (err) {
       console.error('[TagsSection] Failed to rename tag:', err);
@@ -122,14 +116,11 @@ export function TagsSection({
     setNewTagName('');
   };
 
-  // Don't render if no tags exist at all
   if (allTags.size === 0) {
     return null;
   }
 
   const handleTagClick = (e: React.MouseEvent, tag: string) => {
-    // Cmd/Ctrl+Click: Single select (replace current selection)
-    // Regular click: Toggle (add/remove from multi-selection)
     if (e.metaKey || e.ctrlKey) {
       const isOnlySelected = selectedTags.length === 1 && selectedTags[0] === tag;
       onSelectTag(isOnlySelected ? null : tag);
@@ -169,7 +160,6 @@ export function TagsSection({
           ) : undefined
         }
       >
-        {/* Search Input */}
         <div className="px-3 pb-2">
           <div className="relative">
             <input
@@ -194,7 +184,6 @@ export function TagsSection({
           </div>
         </div>
 
-        {/* Tags List */}
         <div className="px-3 max-h-[240px] overflow-y-auto scrollbar-on-hover">
           {sortedTags.length === 0 ? (
             <SignatureEmptyState className="py-3 text-center text-xs" vertical>
@@ -222,7 +211,6 @@ export function TagsSection({
           )}
         </div>
 
-        {/* Filter hint */}
         {hasActiveFilter && (
           <div className="px-3 pt-2 pb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
             Showing notes with {selectedTags.length === 1 ? 'tag' : 'all tags'}:{' '}

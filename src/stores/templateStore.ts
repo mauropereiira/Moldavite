@@ -16,13 +16,11 @@ import type { Template } from '@/types/template';
 const TEMPLATE_STORAGE_KEY = 'template-storage';
 
 interface TemplateStore {
-  // State
   templates: Template[];
   defaultDailyTemplate: string | null; // template ID
   pinnedTemplateIds: string[]; // templates to show in "Start with template" picker
   isLoading: boolean;
 
-  // Actions
   setTemplates: (templates: Template[]) => void;
   addTemplate: (template: Template) => void;
   updateTemplateInStore: (id: string, template: Template) => void;

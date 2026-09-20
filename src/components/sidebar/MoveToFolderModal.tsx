@@ -133,7 +133,6 @@ export function MoveToFolderModal({
           border: '1px solid var(--border-default)',
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -154,7 +153,6 @@ export function MoveToFolderModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-4">
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
             {bulkCount && bulkCount > 1
@@ -210,7 +208,6 @@ export function MoveToFolderModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div
           className="flex justify-end gap-2 px-4 py-3 border-t"
           style={{ borderColor: 'var(--border-default)' }}

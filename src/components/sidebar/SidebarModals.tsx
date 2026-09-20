@@ -9,33 +9,28 @@ import { DialogSurface } from '@/components/ui/DialogSurface';
  * lean.
  */
 export interface SidebarModalsProps {
-  // Delete Note
   deleteNote: NoteFile | null;
   onDeleteNoteConfirm: () => void;
   onDeleteNoteCancel: () => void;
 
-  // Create Note
   isCreatingNote: boolean;
   newNoteTitle: string;
   onNewNoteTitleChange: (v: string) => void;
   onCreateNote: () => void;
   onCancelCreateNote: () => void;
 
-  // Create Folder
   isCreatingFolder: boolean;
   newFolderName: string;
   onNewFolderNameChange: (v: string) => void;
   onCreateFolder: () => void;
   onCancelCreateFolder: () => void;
 
-  // Rename Folder
   renamingFolder: FolderInfo | null;
   renameFolderName: string;
   onRenameFolderNameChange: (v: string) => void;
   onRenameFolderSubmit: () => void;
   onCancelRenameFolder: () => void;
 
-  // Delete Folder
   deleteFolder: FolderInfo | null;
   onDeleteFolderConfirm: () => void;
   onDeleteFolderCancel: () => void;

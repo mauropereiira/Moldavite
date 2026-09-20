@@ -134,10 +134,8 @@ export function useTrash() {
         discardPendingAutosaveForNote(noteId, closedTab?.note.content ?? '');
         useWordPressStore.getState().noteTrashed(noteId, trashId);
         forgetTrashedNoteReferences(noteId);
-        // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
-        // Refresh trash list
         await loadTrash();
         toast.success('Note moved to trash');
       } catch (error) {
@@ -173,7 +171,6 @@ export function useTrash() {
 
   /**
    * Restores a note from the trash.
-   * @param trashId - The unique ID of the trashed note
    */
   const restoreNote = useCallback(
     async (trashId: string) => {
@@ -182,7 +179,6 @@ export function useTrash() {
         useWordPressStore.getState().noteRestored(trashId, restoredPath);
         removeFromTrash(trashId);
         await useNoteColorsStore.getState().loadColors();
-        // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
         toast.success('Note restored');
@@ -196,7 +192,6 @@ export function useTrash() {
 
   /**
    * Permanently deletes a note from the trash.
-   * @param trashId - The unique ID of the trashed note
    */
   const permanentlyDelete = useCallback(
     async (trashId: string) => {
@@ -248,19 +243,15 @@ export function useTrash() {
 
   /**
    * Moves a folder (and all its contents) to the trash.
-   * @param path - The folder path to trash
    */
   const trashFolder = useCallback(
     async (path: string) => {
       try {
         await trashFolderApi(path);
-        // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
-        // Refresh folders list
         const folders = await listFolders();
         setFolders(folders);
-        // Refresh trash list
         await loadTrash();
         toast.success('Folder moved to trash');
       } catch (error) {
@@ -281,9 +272,7 @@ export function useTrash() {
       try {
         await restoreNoteFromFolderApi(trashId, noteFilename);
         await useNoteColorsStore.getState().loadColors();
-        // Refresh trash list
         await loadTrash();
-        // Refresh notes list
         const notes = await listNotes();
         setNotes(notes);
         toast.success('Note restored');
@@ -296,10 +285,8 @@ export function useTrash() {
   );
 
   return {
-    // State
     trashedNotes,
 
-    // Actions
     loadTrash,
     trashNote,
     trashFolder,

@@ -37,7 +37,6 @@ export function SaveTemplateModal({
   const toast = useToast();
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus name input when modal opens
   useEffect(() => {
     if (isOpen && nameInputRef.current) {
       setTimeout(() => nameInputRef.current?.focus(), 100);
@@ -104,7 +103,6 @@ export function SaveTemplateModal({
     onClose();
   };
 
-  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape' && !isSaving) {
       handleClose();
@@ -126,7 +124,6 @@ export function SaveTemplateModal({
         className="rounded-xl w-full max-w-md mx-4 modal-elevated modal-content-enter"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -191,7 +188,6 @@ export function SaveTemplateModal({
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <label
               htmlFor="template-description"
@@ -218,7 +214,6 @@ export function SaveTemplateModal({
             </div>
           </div>
 
-          {/* Icon */}
           <div>
             <label
               htmlFor="template-icon"
@@ -267,7 +262,6 @@ export function SaveTemplateModal({
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"

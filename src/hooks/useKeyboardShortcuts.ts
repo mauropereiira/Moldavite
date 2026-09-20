@@ -29,8 +29,6 @@ interface ShortcutOptions {
  *   1. Append an entry to `SHORTCUTS` in `shortcuts.ts` (updates the help modal)
  *   2. Add a case for its `id` in `runShortcut` below (wires the handler)
  *
- * @param options - Configuration including editor instance and callback handlers
- * @returns Template picker state and handlers
  */
 export function useKeyboardShortcuts({
   editor,
@@ -54,18 +52,15 @@ export function useKeyboardShortcuts({
 
       if (!templateId) return;
 
-      // Get current note from store
       const { currentNote } = useNoteStore.getState();
 
       try {
         if (currentNote && editor) {
-          // Apply template to current note - update editor directly
           const markdownContent = await applyTemplate(templateId);
           const htmlContent = markdownToHtml(markdownContent);
           editor.commands.setContent(htmlContent);
           toast.success('Template applied');
         } else {
-          // No note open - create a new note from template
           const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
           const filename = `Note ${timestamp}.md`;
 
@@ -105,12 +100,10 @@ export function useKeyboardShortcuts({
     [editor, notes, setNotes, setCurrentNote, toast]
   );
 
-  // Close template picker
   const handleTemplatePickerClose = useCallback(() => {
     setShowTemplatePicker(false);
   }, []);
 
-  // Open template picker programmatically
   const openTemplatePicker = useCallback(() => {
     setShowTemplatePicker(true);
   }, []);

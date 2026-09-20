@@ -553,7 +553,6 @@ fn replace_from_archive<R: IoRead + Seek>(
     Ok(imported)
 }
 
-/// Export all notes and templates to a ZIP file
 #[tauri::command]
 pub(crate) fn export_notes(destination: String) -> Result<String, String> {
     let notes_dir = get_notes_dir()?;
@@ -585,7 +584,6 @@ fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
     .map_err(|e| format!("Failed to create ZIP file: {e}"))
 }
 
-/// Import notes and templates from a ZIP file
 #[tauri::command]
 pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
     let notes_dir = get_notes_dir()?;
@@ -610,7 +608,6 @@ fn import_notes_into(
     }
 }
 
-/// Export all notes and templates to an encrypted backup file
 #[tauri::command]
 pub(crate) fn export_encrypted_backup(
     destination: String,
@@ -639,7 +636,6 @@ fn export_encrypted_backup_from(
 ) -> Result<(), String> {
     use std::io::Cursor;
 
-    // Create ZIP in memory
     let mut zip_buffer = Cursor::new(Vec::new());
     {
         let mut zip = zip::ZipWriter::new(&mut zip_buffer);
@@ -655,23 +651,18 @@ fn export_encrypted_backup_from(
             .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     }
 
-    // Get the ZIP data
     let zip_data = zip_buffer.into_inner();
 
-    // Encrypt the ZIP data using our encryption module
     let zip_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &zip_data);
     let encrypted = encryption::encrypt_content(&zip_b64, password)?;
 
-    // Add a header to identify encrypted backups
     let backup_content = format!("MOLDAVITE_ENCRYPTED_BACKUP_V1\n{}", encrypted);
 
-    // Write to destination
     crate::persist::write_atomic(backup_path, backup_content.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write backup file: {}", e))?;
     Ok(())
 }
 
-/// Import notes and templates from an encrypted backup file
 #[tauri::command]
 pub(crate) fn import_encrypted_backup(
     backup_path: String,
@@ -691,25 +682,20 @@ fn import_encrypted_backup_into(
 ) -> Result<ImportResult, String> {
     use std::io::Cursor;
 
-    // Read the backup file
     let backup_content = fs::read_to_string(backup_path)
         .map_err(|e| format!("Failed to read backup file: {}", e))?;
 
-    // Verify header and extract encrypted data
     let lines: Vec<&str> = backup_content.splitn(2, '\n').collect();
     if lines.len() != 2 || lines[0] != "MOLDAVITE_ENCRYPTED_BACKUP_V1" {
         return Err("Invalid backup file format".to_string());
     }
     let encrypted = lines[1];
 
-    // Decrypt the data
     let zip_b64 = encryption::decrypt_content(encrypted, password)?;
 
-    // Decode base64 to get ZIP data
     let zip_data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &zip_b64)
         .map_err(|e| format!("Failed to decode backup data: {}", e))?;
 
-    // Open the ZIP archive from memory
     let cursor = Cursor::new(zip_data);
     let mut archive =
         ZipArchive::new(cursor).map_err(|e| format!("Failed to read backup archive: {}", e))?;

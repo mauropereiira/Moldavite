@@ -264,10 +264,8 @@ pub(crate) fn trash_note(
         get_standalone_dir()?
     };
 
-    // Generate unique ID for trash item
     let id = next_trash_id();
 
-    // Create trash directory if needed
     ensure_trash_dir()?;
 
     let trash_dir = get_trash_dir()?;
@@ -282,7 +280,6 @@ pub(crate) fn trash_note(
         chrono::Utc::now().timestamp(),
     )?;
 
-    // Update metadata
     let mut metadata = read_trash_metadata()?;
     metadata.items.push(item);
     write_trash_metadata(&metadata)?;
@@ -377,7 +374,6 @@ pub(crate) fn restore_note(
 ) -> Result<String, String> {
     let mut metadata = read_trash_metadata()?;
 
-    // Find the item in metadata
     let item_index = metadata
         .items
         .iter()
@@ -389,7 +385,6 @@ pub(crate) fn restore_note(
     let trash_path = trash_item_path(&get_trash_dir()?, &item);
 
     if !trash_path.exists() {
-        // Remove from metadata anyway
         metadata.items.remove(item_index);
         write_trash_metadata(&metadata)?;
         return Err("Trash file not found on disk".to_string());
@@ -421,7 +416,6 @@ pub(crate) fn restore_note(
         .unwrap_or_else(|_| item.original_path.clone());
 
     let restored_path = if item.is_folder {
-        // Re-index every contained .md file by walking the restored folder.
         reindex_folder(&dest_path, &index);
         crate::semantic::notes_changed(
             item.contained_files
@@ -457,7 +451,6 @@ pub(crate) fn restore_note(
         }
     };
 
-    // Update metadata
     metadata.items.remove(item_index);
     write_trash_metadata(&metadata)?;
 
@@ -500,7 +493,6 @@ fn permanently_delete_trash_in(
     metadata: &mut TrashMetadata,
     trash_id: &str,
 ) -> Result<(), String> {
-    // Find the item in metadata
     let item_index = metadata
         .items
         .iter()
@@ -509,7 +501,6 @@ fn permanently_delete_trash_in(
 
     let item = &metadata.items[item_index];
 
-    // Build trash file/folder path and delete
     let trash_path = trash_item_path(trash_dir, item);
     validate_path_within_base(&trash_path, trash_dir)
         .map_err(|_| "Invalid trash item path".to_string())?;
@@ -523,7 +514,6 @@ fn permanently_delete_trash_in(
         }
     }
 
-    // Update metadata
     metadata.items.remove(item_index);
     Ok(())
 }
@@ -537,7 +527,6 @@ pub(crate) fn empty_trash() -> Result<(), String> {
 }
 
 fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) {
-    // Delete all files and folders
     for item in &metadata.items {
         let trash_path = trash_item_path(trash_dir, item);
         if validate_path_within_base(&trash_path, trash_dir).is_err() {
@@ -572,7 +561,6 @@ fn cleanup_old_trash_in(
     let seven_days_secs = TRASH_RETENTION_SECS;
     let mut deleted_ids = Vec::new();
 
-    // Find expired items
     let expired_items: Vec<(usize, bool, String)> = metadata
         .items
         .iter()
@@ -716,7 +704,6 @@ pub(crate) fn trash_folder(
         .map(|rel| format!("notes/{}/{}", path, rel))
         .collect();
 
-    // Update metadata
     let mut metadata = read_trash_metadata()?;
     metadata.items.push(item.clone());
     write_trash_metadata(&metadata)?;
@@ -751,7 +738,6 @@ pub(crate) fn restore_note_from_folder(
     }
     let mut metadata = read_trash_metadata()?;
 
-    // Find the folder item in metadata
     let item_index = metadata
         .items
         .iter()
@@ -760,7 +746,6 @@ pub(crate) fn restore_note_from_folder(
 
     let item = &metadata.items[item_index];
 
-    // Build trash folder path
     let trash_dir = get_trash_dir()?;
     let trash_folder_path = trash_item_path(&trash_dir, item);
     validate_path_within_base(&trash_folder_path, &trash_dir)
@@ -774,7 +759,6 @@ pub(crate) fn restore_note_from_folder(
     let dest_path =
         restore_note_from_folder_on_disk(&trash_folder_path, &standalone_dir, &note_filename)?;
 
-    // Re-index the restored note.
     if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
         let content = fs::read_to_string(&dest_path).unwrap_or_default();
         index.update_note(name, &content);
@@ -782,11 +766,9 @@ pub(crate) fn restore_note_from_folder(
     crate::semantic::note_changed(&format!("notes/{}", note_filename));
     crate::search_index::note_changed(&format!("notes/{}", note_filename));
 
-    // Update the contained_files list in metadata
     let item = &mut metadata.items[item_index];
     item.contained_files.retain(|f| f != &note_filename);
 
-    // If folder is now empty, remove it from trash entirely
     let remaining_files = fs::read_dir(&trash_folder_path)
         .map(|entries| entries.flatten().count())
         .unwrap_or(0);

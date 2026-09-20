@@ -88,7 +88,6 @@ pub(crate) fn ensure_directories() -> Result<(), String> {
     Ok(())
 }
 
-/// Get the current notes directory path
 #[tauri::command]
 pub(crate) fn get_notes_directory() -> Result<String, String> {
     Ok(get_notes_dir()?.to_string_lossy().to_string())
@@ -231,7 +230,6 @@ pub(crate) fn get_all_note_colors() -> Result<std::collections::HashMap<String, 
             .filter_map(Result::ok)
         {
             let p = entry.path();
-            // Skip directories starting with "."
             if entry.file_name().to_string_lossy().starts_with('.') && entry.depth() > 0 {
                 continue;
             }
@@ -294,16 +292,12 @@ pub(crate) fn write_binary_file(
     crate::persist::write_atomic(file_path, &contents, Some(0o600))
 }
 
-/// Save an image to the images directory
-/// Takes base64-encoded image data and returns the saved file path
 #[tauri::command]
 pub(crate) fn save_image(data: String, filename: String) -> Result<String, String> {
-    // Validate filename - only allow safe characters
     if !is_safe_filename(&filename) {
         return Err("Invalid filename".to_string());
     }
 
-    // Ensure it has a valid image extension
     let lower_filename = filename.to_lowercase();
     let valid_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
     if !valid_extensions
@@ -320,7 +314,6 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     fs::create_dir_all(&images_dir)
         .map_err(|e| format!("Failed to create images directory: {}", e))?;
 
-    // Set directory permissions
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -340,7 +333,6 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     crate::validation::validate_path_within_base(&file_path, &forge_root)
         .map_err(|_| "Invalid image path".to_string())?;
 
-    // Decode base64 data
     // Handle data URLs (e.g., "data:image/png;base64,...")
     let base64_data = if data.contains(",") {
         data.split(',').nth(1).unwrap_or(&data)
@@ -356,7 +348,6 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
     crate::persist::write_atomic(&file_path, &image_bytes, Some(0o600))
         .map_err(|e| format!("Failed to write image data: {e}"))?;
 
-    // Return the absolute path
     Ok(file_path.to_string_lossy().to_string())
 }
 

@@ -220,10 +220,8 @@ function send(msg: WorkerToHost): void {
   (self as unknown as Worker).postMessage(msg);
 }
 
-// -----------------------------------------------------------------------------
 // Host-call plumbing: turns a method name + args into a Promise that resolves
 // when the host posts back a `callResult` with the matching requestId.
-// -----------------------------------------------------------------------------
 
 let nextRequestId = 1;
 const pendingCalls = new Map<
@@ -240,11 +238,9 @@ function callHost(method: HostMethod, args: unknown[]): Promise<unknown> {
   });
 }
 
-// -----------------------------------------------------------------------------
 // Plugin API proxy (worker-side). Every editor/ui method is one host call.
 // Permission checks are also enforced server-side; these throw locally so a
 // well-behaved plugin author sees the error at the call site.
-// -----------------------------------------------------------------------------
 
 const commandHandlers = new Map<string, () => void | Promise<void>>();
 
@@ -355,10 +351,6 @@ export function buildPluginAPI(
     },
   });
 }
-
-// -----------------------------------------------------------------------------
-// Message handler.
-// -----------------------------------------------------------------------------
 
 self.addEventListener('message', async (event: MessageEvent<HostToWorker>) => {
   const msg = event.data;

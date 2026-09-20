@@ -4,7 +4,6 @@
  * numbers, or hyphens. Public extractors return lowercase, de-duplicated names.
  */
 
-// Regex to match hashtags: must start with letter, can contain letters, numbers, hyphens
 const TAG_REGEX = /#([a-zA-Z][a-zA-Z0-9-]*)/g;
 
 /**
@@ -17,11 +16,9 @@ const TAG_REGEX = /#([a-zA-Z][a-zA-Z0-9-]*)/g;
 export function extractTags(content: string): string[] {
   if (!content) return [];
 
-  // Strip HTML tags to get plain text
   let plainText = content.replace(/<[^>]*>/g, ' ');
 
   // Remove URLs to avoid matching fragment identifiers as tags
-  // Matches http://, https://, and www. URLs
   plainText = plainText.replace(/https?:\/\/[^\s<>"']+/gi, ' ');
   plainText = plainText.replace(/www\.[^\s<>"']+/gi, ' ');
 

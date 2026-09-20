@@ -7,16 +7,13 @@
 import { create } from 'zustand';
 
 interface TagState {
-  // All tags with their counts (tag -> count)
   allTags: Map<string, number>;
   // Currently selected tags for filtering (empty = no filter)
   selectedTags: string[];
   // Legacy: single selected tag (for backwards compatibility)
   selectedTag: string | null;
-  // Search query for filtering tag list
   tagSearchQuery: string;
 
-  // Actions
   setAllTags: (tags: Map<string, number>) => void;
   setSelectedTag: (tag: string | null) => void;
   toggleTag: (tag: string) => void;
@@ -26,21 +23,12 @@ interface TagState {
   setTagSearchQuery: (query: string) => void;
 }
 
-/**
- * Store for managing tags across all notes.
- * Tags are extracted from note content and aggregated here.
- * Supports multi-tag filtering.
- */
 export const useTagStore = create<TagState>((set, get) => ({
   allTags: new Map(),
   selectedTags: [],
   selectedTag: null,
   tagSearchQuery: '',
 
-  /**
-   * Updates the complete tag list with counts.
-   * @param tags - Map of tag name to count
-   */
   setAllTags: (tags) => set({ allTags: tags }),
 
   /**
@@ -54,10 +42,6 @@ export const useTagStore = create<TagState>((set, get) => ({
       selectedTags: tag ? [tag] : [],
     }),
 
-  /**
-   * Toggles a tag in the selection (for multi-select).
-   * @param tag - Tag name to toggle
-   */
   toggleTag: (tag) => {
     const { selectedTags } = get();
     const isSelected = selectedTags.includes(tag);
@@ -69,10 +53,6 @@ export const useTagStore = create<TagState>((set, get) => ({
     });
   },
 
-  /**
-   * Adds a tag to the selection.
-   * @param tag - Tag name to add
-   */
   addTag: (tag) => {
     const { selectedTags } = get();
     if (!selectedTags.includes(tag)) {
@@ -84,10 +64,6 @@ export const useTagStore = create<TagState>((set, get) => ({
     }
   },
 
-  /**
-   * Removes a tag from the selection.
-   * @param tag - Tag name to remove
-   */
   removeTag: (tag) => {
     const { selectedTags } = get();
     const newTags = selectedTags.filter((t) => t !== tag);
@@ -98,18 +74,11 @@ export const useTagStore = create<TagState>((set, get) => ({
     });
   },
 
-  /**
-   * Clears all tag filters.
-   */
   clearFilter: () =>
     set({
       selectedTag: null,
       selectedTags: [],
     }),
 
-  /**
-   * Sets the search query for filtering the tag list.
-   * @param query - Search string
-   */
   setTagSearchQuery: (query) => set({ tagSearchQuery: query }),
 }));

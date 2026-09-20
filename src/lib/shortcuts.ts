@@ -94,7 +94,6 @@ export function formatShortcut(
 }
 
 export const SHORTCUTS: Shortcut[] = [
-  // Navigation
   {
     id: 'quickSwitcher',
     keys: ['⌘', 'P'],
@@ -120,7 +119,6 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'navigation',
   },
 
-  // Files
   {
     id: 'newNote',
     keys: ['⌘', 'N'],
@@ -187,7 +185,6 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'files',
   },
 
-  // Selection
   {
     id: 'clearSelection',
     keys: ['Esc'],
@@ -195,7 +192,6 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'navigation',
   },
 
-  // Editing
   {
     id: 'insertLink',
     keys: ['⌘', 'K'],
@@ -203,7 +199,6 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'editing',
   },
 
-  // Formatting
   {
     id: 'toggleTheme',
     keys: ['⌘', '⇧', 'L'],

@@ -64,7 +64,6 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       role="alert"
     >
       <div className="flex items-center p-3 px-4">
-        {/* Icon */}
         <span
           className="w-5 h-5 mr-3 flex-shrink-0 flex items-center justify-center"
           style={{ color: accent }}
@@ -98,10 +97,8 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
           )}
         </span>
 
-        {/* Message */}
         <span className="text-sm font-medium flex-1">{toast.message}</span>
 
-        {/* Close button */}
         <button
           onClick={handleDismiss}
           className="ml-3 p-1 rounded transition-colors focus-ring"
@@ -125,7 +122,6 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="h-1 w-full" style={{ backgroundColor: 'var(--border-muted)' }}>
         <div
           className="h-full toast-progress-bar"

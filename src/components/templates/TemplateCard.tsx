@@ -27,7 +27,6 @@ export function TemplateCard({
         borderColor: selected ? 'var(--border-strong)' : 'var(--border-default)',
       }}
     >
-      {/* Icon */}
       <div
         className={compact ? 'mb-2' : 'mb-3'}
         style={{ color: selected ? 'var(--text-primary)' : 'var(--text-muted)' }}
@@ -43,14 +42,12 @@ export function TemplateCard({
         {template.name}
       </h3>
 
-      {/* Description */}
       {!compact && template.description && (
         <p className="text-sm mt-1 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
           {template.description}
         </p>
       )}
 
-      {/* Default badge */}
       {template.isDefault && (
         <span
           className={`inline-block px-2 py-0.5 text-xs font-medium ${compact ? 'mt-1' : 'mt-2'}`}

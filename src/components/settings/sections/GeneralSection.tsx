@@ -80,7 +80,6 @@ export function GeneralSection() {
     text: string;
   } | null>(null);
 
-  // Encrypted backup state
   const [showEncryptedExportModal, setShowEncryptedExportModal] = useState(false);
   const [showEncryptedImportModal, setShowEncryptedImportModal] = useState(false);
   const [encryptedPassword, setEncryptedPassword] = useState('');
@@ -96,7 +95,6 @@ export function GeneralSection() {
     getForgesRoot().then(setForgesRootState).catch(console.error);
   }, []);
 
-  // Clear status message after 3 seconds
   useEffect(() => {
     if (statusMessage) {
       const timeout = setTimeout(() => setStatusMessage(null), 3000);
@@ -206,7 +204,6 @@ export function GeneralSection() {
         text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
       });
       setPendingImportPath(null);
-      // Refresh notes list
       window.location.reload();
     } catch (error) {
       console.error('[Settings] Failed to import notes:', error);
@@ -216,7 +213,6 @@ export function GeneralSection() {
     }
   };
 
-  // Encrypted backup handlers
   const handleEncryptedExportStart = () => {
     setEncryptedPassword('');
     setEncryptedConfirmPassword('');
@@ -286,7 +282,6 @@ export function GeneralSection() {
         text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
       });
       setPendingEncryptedImportPath(null);
-      // Refresh notes list
       window.location.reload();
     } catch (error) {
       console.error('[Settings] Failed to import encrypted backup:', error);

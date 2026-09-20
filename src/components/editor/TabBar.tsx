@@ -12,7 +12,6 @@ function getTabTitle(note: Note): string {
     const today = new Date();
     const noteDate = new Date(note.date + 'T00:00:00');
 
-    // Check if it's today
     if (
       noteDate.getFullYear() === today.getFullYear() &&
       noteDate.getMonth() === today.getMonth() &&
@@ -21,7 +20,6 @@ function getTabTitle(note: Note): string {
       return 'Today';
     }
 
-    // Check if it's yesterday
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     if (
@@ -32,7 +30,6 @@ function getTabTitle(note: Note): string {
       return 'Yesterday';
     }
 
-    // Otherwise show formatted date
     return noteDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -46,17 +43,14 @@ export function TabBar() {
   const { openTabs, activeTabId, switchTab, closeTab, pinTab, reorderTabs } = useNoteStore();
   const toast = useToast();
 
-  // Drag state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragCounter = useRef(0);
 
-  // Don't render if no tabs
   if (openTabs.length === 0) {
     return null;
   }
 
-  // Separate pinned and regular tabs
   const pinnedTabs = openTabs.filter((t) => t.isPinned);
   const regularTabs = openTabs.filter((t) => !t.isPinned);
 
@@ -77,12 +71,10 @@ export function TabBar() {
     }
   };
 
-  // Drag handlers
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(index));
-    // Add drag styling after a brief delay
     requestAnimationFrame(() => {
       (e.target as HTMLElement).classList.add('tab-dragging');
     });
@@ -126,7 +118,6 @@ export function TabBar() {
     dragCounter.current = 0;
   };
 
-  // Render a single tab
   const renderTab = (note: Note, index: number, isPinned: boolean) => {
     const isActive = note.id === activeTabId;
     const title = getTabTitle(note);

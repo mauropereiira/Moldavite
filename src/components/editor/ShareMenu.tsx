@@ -40,7 +40,6 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
         if (await exportMobileNote(currentNote.id, 'plaintext')) onShowToast?.('Exported as text');
         return;
       }
-      // Convert HTML content to plain text
       const markdown = htmlToMarkdown(currentNote.content);
       const plainText = markdown
         .replace(/#{1,6}\s/g, '') // Remove heading markers
@@ -49,7 +48,6 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
         .replace(/`([^`]+)`/g, '$1') // Remove inline code
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Replace links with text
 
-      // Create and download file
       const blob = new Blob([plainText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

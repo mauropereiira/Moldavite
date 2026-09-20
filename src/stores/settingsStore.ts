@@ -40,19 +40,16 @@ export type SettingsTab =
   | 'about';
 
 export interface SettingsState {
-  // General
   notesDirectory: string;
   autoSaveDelay: number;
   showAutoSaveStatus: boolean;
 
-  // Appearance
   fontSize: FontSize;
   fontFamily: FontFamily;
   sidebarWidth: number;
   rightPanelWidth: number;
   compactMode: boolean;
 
-  // Editor
   defaultNoteType: DefaultNoteType;
   spellCheck: boolean;
   autoCapitalize: boolean;
@@ -62,7 +59,6 @@ export interface SettingsState {
   tagsEnabled: boolean;
   focusModeEnabled: boolean;
 
-  // Layout
   showIconRail: boolean;
   indexMode: ChromeMode;
   agendaMode: ChromeMode;
@@ -75,20 +71,16 @@ export interface SettingsState {
   showWelcomeDate: boolean;
   showAsteroidCursor: boolean;
 
-  // Sidebar
   sortOption: SortOption;
   showFoldersSection: boolean;
   showBacklinksSection: boolean;
   backlinksEnabled: boolean;
 
-  // Right Panel
   showCalendarWidget: boolean;
   showTimelineWidget: boolean;
 
-  // Security
   autoLockTimeout: AutoLockTimeout;
 
-  // Onboarding
   hasSeenAppOnboarding: boolean;
   /**
    * Highest onboarding content version the user has seen. Bumped when new
@@ -97,13 +89,11 @@ export interface SettingsState {
    */
   lastSeenOnboardingVersion: number;
 
-  // UI State
   isSettingsOpen: boolean;
   activeSettingsTab: SettingsTab;
   /** The section the phone's Settings page is showing; `null` is its list. */
   settingsSection: SettingsTab | null;
 
-  // Actions
   setNotesDirectory: (path: string) => void;
   setAutoSaveDelay: (delay: number) => void;
   setShowAutoSaveStatus: (show: boolean) => void;
@@ -328,7 +318,6 @@ export const useSettingsStore = create<SettingsState>()(
   )
 );
 
-// Helper to apply font size CSS variable
 export function applyFontSize(size: FontSize) {
   const sizes = {
     small: '14px',
@@ -339,7 +328,6 @@ export function applyFontSize(size: FontSize) {
   document.documentElement.style.setProperty('--editor-font-size', sizes[size]);
 }
 
-// Helper to apply line height CSS variable
 export function applyLineHeight(height: LineHeight) {
   const heights = {
     comfortable: '1.75',
@@ -356,9 +344,7 @@ export function applyLineHeight(height: LineHeight) {
  * These are deliberately wider, and each caps against the viewport so a narrow
  * window still keeps its margins instead of running text to the edges.
  *
- * (An `editorWidth` setting existed here before and was deleted as dead code:
- * it had no consumer and no UI. This one is wired to `--editor-measure`, which
- * both `.tiptap` and the note header read.)
+ * Wired to `--editor-measure`, which both `.tiptap` and the note header read.
  */
 export function applyEditorWidth(width: EditorWidth) {
   const widths = {
@@ -370,7 +356,6 @@ export function applyEditorWidth(width: EditorWidth) {
   document.documentElement.style.setProperty('--editor-measure', widths[width]);
 }
 
-// Helper to apply compact mode
 export function applyCompactMode(compact: boolean) {
   if (compact) {
     document.documentElement.classList.add('compact-mode');
@@ -379,7 +364,6 @@ export function applyCompactMode(compact: boolean) {
   }
 }
 
-// Helper to apply font family CSS variable
 export function applyFontFamily(family: FontFamily) {
   const fonts: Record<FontFamily, string> = {
     'system-sans':
@@ -392,7 +376,6 @@ export function applyFontFamily(family: FontFamily) {
   document.documentElement.style.setProperty('--editor-font-family', fonts[family]);
 }
 
-// Helper to apply focus mode
 export function applyFocusMode(enabled: boolean) {
   if (enabled) {
     document.documentElement.classList.add('focus-mode');

@@ -43,7 +43,6 @@ export function LinkModal({
     }
   }
 
-  // Focus URL input when modal opens.
   useEffect(() => {
     if (!isOpen) return;
     const timer = setTimeout(() => urlInputRef.current?.focus(), 100);
@@ -56,7 +55,6 @@ export function LinkModal({
       return false;
     }
 
-    // Basic URL validation - allow common formats
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
     const isValid =
       urlPattern.test(urlString) || urlString.startsWith('/') || urlString.startsWith('#');
@@ -73,7 +71,6 @@ export function LinkModal({
   const handleInsert = () => {
     if (!validateUrl(url)) return;
 
-    // Auto-add https:// if no protocol is specified
     let finalUrl = url.trim();
     if (
       !finalUrl.startsWith('http://') &&
@@ -116,7 +113,6 @@ export function LinkModal({
         style={{ backgroundColor: 'var(--bg-elevated)' }}
         onKeyDown={handleKeyDown}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
@@ -140,9 +136,7 @@ export function LinkModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-4">
-          {/* URL Input */}
           <div>
             <label
               htmlFor="link-url"
@@ -184,7 +178,6 @@ export function LinkModal({
             )}
           </div>
 
-          {/* Text Input */}
           <div>
             <label
               htmlFor="link-text"
@@ -215,7 +208,6 @@ export function LinkModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div
           className="flex items-center justify-end gap-3 px-6 py-4 border-t"
           style={{ borderColor: 'var(--border-default)' }}
@@ -235,7 +227,6 @@ export function LinkModal({
           </button>
         </div>
 
-        {/* Keyboard hints */}
         <div className="px-6 pb-4">
           <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
             Press{' '}

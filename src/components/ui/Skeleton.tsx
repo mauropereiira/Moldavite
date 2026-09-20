@@ -23,7 +23,6 @@ export function Skeleton({ className = '', variant = 'text', width, height }: Sk
   return <div className={`${baseClasses} ${variantClasses[variant]} ${className}`} style={style} />;
 }
 
-// Pre-built skeleton layouts
 export function NoteSkeleton() {
   return (
     <div className="p-2 space-y-2">
@@ -40,7 +39,6 @@ export function NoteSkeleton() {
 export function EditorSkeleton() {
   return (
     <div className="p-6 space-y-4">
-      {/* Title */}
       <Skeleton variant="text" height={32} width="60%" />
 
       {/* Paragraphs */}

@@ -56,20 +56,17 @@ interface CalendarState {
   isAuthorized: boolean;
   isRequestingPermission: boolean;
 
-  // Source connections
   sources: CalendarSourceStatus[];
   isConnectingGoogle: boolean;
   /** Failure from the connect flow itself. Shown in Settings, never over the timeline. */
   connectError: string | null;
 
-  // Events state
   events: CalendarEvent[];
   isLoadingEvents: boolean;
   eventsError: string | null;
   sourceErrors: CalendarSourceError[];
   lastSynced: Date | null;
 
-  // Calendars
   calendars: CalendarInfo[];
   selectedCalendarIds: string[];
   /** Source metadata for opaque persisted ids, learned from CalendarInfo. */
@@ -77,15 +74,12 @@ interface CalendarState {
   /** Pending v0 migration, resolved against backend-owned id metadata. */
   legacySelectedAppleCalendarId: string | null;
 
-  // Settings
   calendarEnabled: boolean;
   showAllDayEvents: boolean;
   refreshIntervalMinutes: number;
 
-  // Onboarding
   hasSeenOnboarding: boolean;
 
-  // Actions
   checkPermission: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
   refreshSources: () => Promise<void>;
@@ -219,7 +213,6 @@ function mergeSourceListings(
 export const useCalendarStore = create<CalendarState>()(
   persist(
     (set, get) => ({
-      // Initial state
       permissionStatus: 'NotDetermined',
       isAuthorized: false,
       isRequestingPermission: false,
@@ -496,16 +489,8 @@ export const useCalendarStore = create<CalendarState>()(
         }));
       },
 
-      /**
-       * Enables or disables calendar integration.
-       * @param enabled - True to show calendar events
-       */
       setCalendarEnabled: (enabled) => set({ calendarEnabled: enabled }),
 
-      /**
-       * Controls whether all-day events are displayed.
-       * @param show - True to show all-day events
-       */
       // The cache holds unfiltered events and both read paths apply this
       // filter, so clearing it here would force a needless network round trip
       // for a purely local preference.
@@ -518,10 +503,6 @@ export const useCalendarStore = create<CalendarState>()(
        */
       setRefreshIntervalMinutes: (minutes) => set({ refreshIntervalMinutes: minutes }),
 
-      /**
-       * Marks the onboarding as seen.
-       * @param seen - True if onboarding has been seen
-       */
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
 
       /**

@@ -12,7 +12,6 @@ import { eventsOverlappingLocalDay, localDayInterval, MILLISECONDS_PER_HOUR } fr
 
 const TIME_COLUMN_WIDTH = 60; // pixels
 
-// Helper to detect overlapping events and assign columns
 interface EventWithColumn extends CalendarEvent {
   columnIndex: number;
   totalColumns: number;
@@ -21,11 +20,9 @@ interface EventWithColumn extends CalendarEvent {
 function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
   if (events.length === 0) return [];
 
-  // Sort events by start time, then by duration (longer events first)
   const sortedEvents = [...events].sort((a, b) => {
     const startDiff = new Date(a.start).getTime() - new Date(b.start).getTime();
     if (startDiff !== 0) return startDiff;
-    // Longer events first
     const durationA = new Date(a.end).getTime() - new Date(a.start).getTime();
     const durationB = new Date(b.end).getTime() - new Date(b.start).getTime();
     return durationB - durationA;
@@ -38,7 +35,6 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
     const eventStart = new Date(event.start).getTime();
     const eventEnd = new Date(event.end).getTime();
 
-    // Find the first column where this event doesn't overlap
     let columnIndex = 0;
     let placed = false;
 
@@ -47,7 +43,6 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
       const canPlace = column.every((existing) => {
         const existingStart = new Date(existing.start).getTime();
         const existingEnd = new Date(existing.end).getTime();
-        // No overlap if event ends before existing starts or event starts after existing ends
         return eventEnd <= existingStart || eventStart >= existingEnd;
       });
 
@@ -60,7 +55,6 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
     }
 
     if (!placed) {
-      // Create new column
       columns.push([event]);
       columnIndex = columns.length - 1;
     }
@@ -68,25 +62,20 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
     result.push({ ...event, columnIndex, totalColumns: 0 });
   }
 
-  // Calculate total columns for each event group
-  // Events that overlap need to know how many columns are in their group
   for (const event of result) {
     const eventStart = new Date(event.start).getTime();
     const eventEnd = new Date(event.end).getTime();
 
-    // Find all overlapping events
     const overlapping = result.filter((other) => {
       const otherStart = new Date(other.start).getTime();
       const otherEnd = new Date(other.end).getTime();
       return !(eventEnd <= otherStart || eventStart >= otherEnd);
     });
 
-    // Find max column index among overlapping events
     const maxColumn = Math.max(...overlapping.map((e) => e.columnIndex));
     event.totalColumns = maxColumn + 1;
   }
 
-  // Update all overlapping events to have the same totalColumns
   for (const event of result) {
     const eventStart = new Date(event.start).getTime();
     const eventEnd = new Date(event.end).getTime();
@@ -106,7 +95,6 @@ function calculateEventColumns(events: CalendarEvent[]): EventWithColumn[] {
   return result;
 }
 
-// Loading state component
 function LoadingState() {
   return (
     <div className="flex flex-col p-4">
@@ -135,7 +123,6 @@ function LoadingState() {
   );
 }
 
-// Error state component
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -161,7 +148,6 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   );
 }
 
-// Permission denied state
 function PermissionDeniedState() {
   const handleOpenSettings = async () => {
     try {
@@ -202,7 +188,6 @@ function PermissionDeniedState() {
   );
 }
 
-// Connect prompt for the no-source-connected state
 export function ConnectCalendarPrompt() {
   const {
     requestPermission,
@@ -270,7 +255,6 @@ export function ConnectCalendarPrompt() {
   );
 }
 
-// Time grid component
 interface TimeGridProps {
   events: CalendarEvent[];
   selectedDate: Date;
@@ -294,14 +278,11 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
     [day]
   );
 
-  // Separate all-day and timed events
   const allDayEvents = dayEvents.filter((e) => e.isAllDay);
   const timedEvents = dayEvents.filter((e) => !e.isAllDay);
 
-  // Calculate columns for overlapping events
   const eventsWithColumns = useMemo(() => calculateEventColumns(timedEvents), [timedEvents]);
 
-  // Scroll to current time on mount if viewing today
   useEffect(() => {
     if (isTodaySelected && scrollContainerRef.current) {
       const now = new Date();
@@ -408,7 +389,6 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
   );
 }
 
-// Main Timeline component
 export function Timeline() {
   const selectedDate = useNoteStore((state) => state.selectedDate);
   const {
@@ -429,7 +409,6 @@ export function Timeline() {
   const anyConnected = sources.some((s) => s.available && s.connected);
   const noConnectableSource = hasNoConnectableCalendarSource(sources);
 
-  // Check source state on mount
   useEffect(() => {
     checkPermission();
   }, [checkPermission]);
@@ -470,12 +449,10 @@ export function Timeline() {
     return <CalendarSyncComingSoon />;
   }
 
-  // A source exists but nothing is connected - show the existing connect prompt.
   if (!anyConnected) {
     return <ConnectCalendarPrompt />;
   }
 
-  // Calendar disabled
   if (!calendarEnabled) {
     return (
       <div className="flex-1 p-4">
@@ -493,12 +470,10 @@ export function Timeline() {
     fetchEvents(selectedDate, undefined, { force: true });
   };
 
-  // Format the header date
   const headerDate = isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEE, MMM d');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3"
         style={{ borderBottom: '1px solid var(--border-muted)' }}
@@ -553,7 +528,6 @@ export function Timeline() {
         </div>
       )}
 
-      {/* Content */}
       {isLoadingEvents && events.length === 0 ? (
         <LoadingState />
       ) : eventsError ? (

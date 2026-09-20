@@ -44,7 +44,6 @@ fn validated_new_template_path(templates_dir: &Path, id: &str) -> Result<PathBuf
 pub(crate) fn list_templates() -> Result<Vec<Template>, String> {
     let mut templates = get_default_templates();
 
-    // Load custom templates from disk
     let templates_dir = get_templates_dir()?;
     if templates_dir.exists() {
         if let Ok(entries) = fs::read_dir(&templates_dir) {
@@ -66,13 +65,11 @@ pub(crate) fn list_templates() -> Result<Vec<Template>, String> {
 
 #[tauri::command]
 pub(crate) fn get_template(id: String) -> Result<Template, String> {
-    // Check default templates first
     let defaults = get_default_templates();
     if let Some(template) = defaults.into_iter().find(|t| t.id == id) {
         return Ok(template);
     }
 
-    // Check custom templates
     ensure_templates_dir()?;
     let templates_dir = get_templates_dir()?;
     let template_path = validated_existing_template_path(&templates_dir, &id)?;
@@ -94,7 +91,6 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
     let templates_dir = get_templates_dir()?;
     let template_path = validated_new_template_path(&templates_dir, &id)?;
 
-    // Check if template with this ID already exists
     if template_path.exists() {
         return Err(format!(
             "A template with the name '{}' already exists",
@@ -102,7 +98,6 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
         ));
     }
 
-    // Check if trying to overwrite a default template
     let defaults = get_default_templates();
     if defaults.iter().any(|t| t.id == id) {
         return Err("Cannot overwrite a default template".to_string());
@@ -125,7 +120,6 @@ pub(crate) fn save_template(input: SaveTemplateInput) -> Result<Template, String
 
 #[tauri::command]
 pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Template, String> {
-    // Check if trying to update a default template
     let defaults = get_default_templates();
     if defaults.iter().any(|t| t.id == id) {
         return Err("Cannot modify a default template".to_string());
@@ -156,7 +150,6 @@ pub(crate) fn update_template(id: String, input: SaveTemplateInput) -> Result<Te
 
 #[tauri::command]
 pub(crate) fn delete_template(id: String) -> Result<(), String> {
-    // Check if trying to delete a default template
     let defaults = get_default_templates();
     if defaults.iter().any(|t| t.id == id) {
         return Err("Cannot delete a default template".to_string());

@@ -11,7 +11,6 @@ interface TrashState {
   trashedNotes: TrashedNote[];
   isLoading: boolean;
 
-  // Actions
   setTrashedNotes: (notes: TrashedNote[]) => void;
   setLoading: (loading: boolean) => void;
   removeFromTrash: (trashId: string) => void;

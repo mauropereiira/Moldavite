@@ -82,7 +82,6 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
         className="w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col modal-elevated modal-content-enter"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4"
           style={{ borderBottom: '1px solid var(--border-default)' }}
@@ -104,7 +103,6 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {CATEGORY_ORDER.map((category) => {
             const items = grouped.get(category);
@@ -144,7 +142,6 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
           })}
         </div>
 
-        {/* Footer hint */}
         <div
           className="px-6 py-3 text-xs"
           style={{

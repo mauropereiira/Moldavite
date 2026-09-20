@@ -65,18 +65,15 @@ export function EditorFooter({
   const footerWidth = useElementWidth(footerNode);
   const isCollapsed = footerWidth !== null && footerWidth < ACTIONS_COLLAPSE_WIDTH;
 
-  // Determine if dark mode
   const isDark =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  // Get current note's color
   const notePath = currentNoteId
     ? buildNotePath(currentNoteId.replace('.md', '') + '.md', currentNoteIsDaily)
     : '';
   const currentColorId = getColor(notePath);
 
-  // Get word and character counts
   const wordCount = editor
     ? editor
         .getText()
@@ -85,7 +82,6 @@ export function EditorFooter({
     : 0;
   const characterCount = editor ? editor.getText().length : 0;
 
-  // Show toast helper
   const showToast = (message: string) => {
     toast.success(message);
   };

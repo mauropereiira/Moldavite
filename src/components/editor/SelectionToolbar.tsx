@@ -28,13 +28,11 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       updateDelay: 100,
       shouldShow: ({ editor: e, state }) => {
         try {
-          // Don't show if editor is destroyed or cleanup has started
           if (!e || e.isDestroyed || isCleanedUp) {
             setIsVisible(false);
             return false;
           }
 
-          // Don't show when selecting nodes or when selection is empty
           const { from, to } = state.selection;
           const hasSelection = from !== to;
           const isNodeSelection = state.selection.constructor.name === 'NodeSelection';
@@ -44,7 +42,6 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
             return false;
           }
 
-          // Don't show in code blocks or when image is selected
           if (e.isActive('codeBlock') || e.isActive('image')) {
             setIsVisible(false);
             return false;
@@ -89,7 +86,6 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       className={`selection-toolbar ${isVisible ? 'selection-toolbar-visible' : ''}`}
       style={{ visibility: isVisible ? 'visible' : 'hidden' }}
     >
-      {/* Text Formatting */}
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`toolbar-button ${editor.isActive('bold') ? 'toolbar-button-active' : ''}`}
@@ -123,10 +119,8 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         <span className="toolbar-label-strike">S</span>
       </button>
 
-      {/* Divider */}
       <div className="toolbar-divider" />
 
-      {/* Link */}
       <button
         onClick={onInsertLink}
         className={`toolbar-button ${editor.isActive('link') ? 'toolbar-button-active' : ''}`}
@@ -136,10 +130,8 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         Link
       </button>
 
-      {/* Divider */}
       <div className="toolbar-divider" />
 
-      {/* Lists */}
       <button
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={`toolbar-button ${editor.isActive('orderedList') ? 'toolbar-button-active' : ''}`}
@@ -157,10 +149,8 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         List
       </button>
 
-      {/* Divider */}
       <div className="toolbar-divider" />
 
-      {/* Quote */}
       <button
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         className={`toolbar-button ${editor.isActive('blockquote') ? 'toolbar-button-active' : ''}`}
@@ -170,7 +160,6 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         Quote
       </button>
 
-      {/* Code */}
       <button
         onClick={() => editor.chain().focus().toggleCode().run()}
         className={`toolbar-button ${editor.isActive('code') ? 'toolbar-button-active' : ''}`}
@@ -188,7 +177,6 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         Block
       </button>
 
-      {/* Divider */}
       <div className="toolbar-divider" />
 
       {/* Text Alignment */}

@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
-// Link to Swift functions
 extern "C" {
     fn check_calendar_permission() -> i32;
     fn request_calendar_permission() -> bool;

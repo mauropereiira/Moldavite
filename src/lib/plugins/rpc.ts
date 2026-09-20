@@ -22,10 +22,6 @@ export type HostMethod =
   | 'secrets.set'
   | 'secrets.delete';
 
-// -----------------------------------------------------------------------------
-// Host → Worker
-// -----------------------------------------------------------------------------
-
 export interface InitMessage {
   kind: 'init';
   pluginId: string;
@@ -55,10 +51,6 @@ export interface CallResultMessage {
 }
 
 export type HostToWorker = InitMessage | InvokeMessage | CallResultMessage;
-
-// -----------------------------------------------------------------------------
-// Worker → Host
-// -----------------------------------------------------------------------------
 
 export interface LoadedMessage {
   kind: 'loaded';

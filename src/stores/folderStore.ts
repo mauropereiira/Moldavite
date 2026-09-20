@@ -34,7 +34,6 @@ interface FolderState {
     backlinks: boolean;
   };
 
-  // Actions
   setFolders: (folders: FolderInfo[]) => void;
   toggleFolder: (path: string) => void;
   expandFolder: (path: string) => void;

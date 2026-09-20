@@ -147,7 +147,6 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
         </button>
       </div>
 
-      {/* App Info */}
       <div className="px-3 pb-3 flex flex-col items-center">
         <div className="text-center">
           <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>

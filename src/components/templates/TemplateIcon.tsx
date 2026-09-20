@@ -37,7 +37,6 @@ export function TemplateIcon({ icon, size = 24, className = '' }: TemplateIconPr
   return <IconComponent size={size} className={className} />;
 }
 
-// Export available icons for dropdowns
 export const availableIcons = [
   { value: 'blank', label: 'Document' },
   { value: 'users', label: 'Meeting' },

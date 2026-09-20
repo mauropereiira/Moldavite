@@ -379,7 +379,6 @@ pub(crate) fn permanently_unlock_note(
     Ok(())
 }
 
-/// Check if a note is locked.
 #[tauri::command]
 pub(crate) fn is_note_locked(
     filename: String,

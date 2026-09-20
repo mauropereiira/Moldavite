@@ -83,24 +83,19 @@ export function MoreOptionsMenu({
     }
 
     try {
-      // Create new note with "Copy" suffix
       let newTitle = `${currentNote.title} Copy`;
       let attempt = 1;
 
-      // Check if name already exists
       while (notes.some((n) => n.name === `${newTitle}.md`)) {
         attempt++;
         newTitle = `${currentNote.title} Copy ${attempt}`;
       }
 
-      // Create the new file
       const filename = await createNote(newTitle);
 
-      // Copy content
       const markdownContent = htmlToMarkdown(currentNote.content);
       await writeNote(filename, markdownContent, false);
 
-      // Update notes list
       const noteFile: NoteFile = {
         name: filename,
         path: filename,
@@ -241,7 +236,6 @@ export function MoreOptionsMenu({
     setShowNoteInfo(true);
   };
 
-  // Get file size estimate (rough calculation)
   const getFileSizeEstimate = () => {
     const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return '0 B';

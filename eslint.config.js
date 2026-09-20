@@ -19,7 +19,6 @@ export default [
         },
       },
       globals: {
-        // Core globals
         console: 'readonly',
         window: 'readonly',
         document: 'readonly',
@@ -31,7 +30,6 @@ export default [
         Promise: 'readonly',
         Map: 'readonly',
         Set: 'readonly',
-        // DOM types
         HTMLElement: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
@@ -55,7 +53,6 @@ export default [
         HTMLCanvasElement: 'readonly',
         CanvasRenderingContext2D: 'readonly',
         getComputedStyle: 'readonly',
-        // Browser APIs
         Blob: 'readonly',
         File: 'readonly',
         FileReader: 'readonly',
@@ -64,10 +61,8 @@ export default [
         FormData: 'readonly',
         Image: 'readonly',
         Audio: 'readonly',
-        // Storage
         localStorage: 'readonly',
         sessionStorage: 'readonly',
-        // Misc
         fetch: 'readonly',
         Request: 'readonly',
         Response: 'readonly',
@@ -98,7 +93,6 @@ export default [
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
 
-      // TypeScript specific
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -112,7 +106,6 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
 
-      // React specific
       'react/react-in-jsx-scope': 'off', // Not needed in React 19
       'react/prop-types': 'off', // Using TypeScript
       'react/display-name': 'off',
@@ -121,7 +114,6 @@ export default [
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn',
 
-      // General
       'no-console': ['warn', { allow: ['error'] }],
       'no-debugger': 'warn',
       'prefer-const': 'error',

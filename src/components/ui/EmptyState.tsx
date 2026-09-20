@@ -90,7 +90,6 @@ export function EmptyState({
       className={`flex flex-col items-center justify-center text-center max-w-md mx-auto content-enter ${containerClasses[variant]} ${className}`}
       style={containerStyles[variant]}
     >
-      {/* Icon */}
       <div className="mb-6" style={{ color: iconColor || 'var(--text-muted)' }}>
         <Icon className={iconClassName ?? iconSizes[variant]} strokeWidth={1.5} />
       </div>
@@ -103,7 +102,6 @@ export function EmptyState({
         {heading}
       </h3>
 
-      {/* Message */}
       {message && (
         <p className="text-sm mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {message}
@@ -122,7 +120,6 @@ export function EmptyState({
         </ul>
       )}
 
-      {/* Actions */}
       {actions && actions.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-3 mt-2">
           {actions.map((action, index) => {

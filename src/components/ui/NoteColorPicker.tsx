@@ -43,7 +43,6 @@ export function NoteColorPicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -57,7 +56,6 @@ export function NoteColorPicker({
     }
   }, [isOpen]);
 
-  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -154,7 +152,6 @@ export function NoteColorPicker({
   );
 }
 
-// Helper to get the actual color value
 export function getNoteBackgroundColor(colorId: NoteColorId, isDark: boolean): string | undefined {
   const color = NOTE_COLORS.find((c) => c.id === colorId);
   if (!color || color.id === 'default') return undefined;

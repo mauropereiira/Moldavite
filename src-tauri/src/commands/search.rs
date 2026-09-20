@@ -134,7 +134,6 @@ pub(crate) fn scan_notes_content_in(
         .follow_links(false)
         .into_iter()
         .filter_entry(|entry| {
-            // Skip the trash directory entirely
             if entry.path() == trash_dir {
                 return false;
             }

@@ -1,6 +1,4 @@
-/* ===========================================
-   MOBILE LAYER (phone and tablet webviews)
-   ===========================================
+/* MOBILE LAYER (phone and tablet webviews)
    Loaded after index.css. Every rule here is scoped to
    html[data-platform='mobile'], which main.tsx stamps from
    src/lib/platform.ts, so the desktop app never sees any of it. Colours and
@@ -24,9 +22,7 @@ html[data-platform='mobile'] {
   --app-height: 100vh;
 }
 
-/* ===========================================
-   1. TOUCH BASICS
-   =========================================== */
+/* 1. TOUCH BASICS */
 
 html[data-platform='mobile'] {
   -webkit-text-size-adjust: 100%;
@@ -157,9 +153,7 @@ html[data-platform='mobile']
   }
 }
 
-/* ===========================================
-   2. ICON RAIL
-   =========================================== */
+/* 2. ICON RAIL */
 
 html[data-platform='mobile'] .icon-rail {
   padding-top: var(--safe-top);
@@ -194,9 +188,7 @@ html[data-platform='mobile'] [data-tooltip]::after {
   display: none;
 }
 
-/* ===========================================
-   3. INDEX AND AGENDA PAGES
-   =========================================== */
+/* 3. INDEX AND AGENDA PAGES */
 
 /* Keyboard shortcut hints mean nothing on a touch screen. */
 html[data-platform='mobile'] .app-overlay-hint {
@@ -286,9 +278,7 @@ html[data-platform='mobile'] .app-agenda-calendar + .app-agenda-timeline {
   padding-top: 16px;
 }
 
-/* ===========================================
-   4. SIDEBAR IN INDEX PRESENTATION
-   =========================================== */
+/* 4. SIDEBAR IN INDEX PRESENTATION */
 
 /* Rows bleed to the rail's edge for the finger; the text lands on 16px. */
 html[data-platform='mobile']
@@ -385,9 +375,7 @@ html[data-platform='mobile'][data-large-text='true'] .section-header > button {
   flex-basis: 100%;
 }
 
-/* ===========================================
-   5. TIMELINE PAGE
-   =========================================== */
+/* 5. TIMELINE PAGE */
 
 html[data-platform='mobile'] .timeline-view-header {
   padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 12px;
@@ -417,9 +405,7 @@ html[data-platform='mobile'] .timeline-view-feed li > button {
   min-height: var(--touch-target);
 }
 
-/* ===========================================
-   6. GRAPH PAGE
-   =========================================== */
+/* 6. GRAPH PAGE */
 
 html[data-platform='mobile'] .graph-view-header {
   align-items: center;
@@ -437,9 +423,7 @@ html[data-platform='mobile'] .graph-view-fit {
   padding-inline: 8px;
 }
 
-/* ===========================================
-   7. QUICK SWITCHER AS A PAGE
-   =========================================== */
+/* 7. QUICK SWITCHER AS A PAGE */
 
 html[data-platform='mobile'] .quick-switcher-backdrop {
   left: var(--rail-width);
@@ -487,9 +471,7 @@ html[data-platform='mobile'] .quick-switcher-footer {
   display: none;
 }
 
-/* ===========================================
-   8. EDITOR
-   =========================================== */
+/* 8. EDITOR */
 
 html[data-platform='mobile'] .editor-paper {
   padding-inline: var(--mobile-page-inset);
@@ -586,9 +568,7 @@ html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
   min-height: var(--touch-target);
 }
 
-/* ===========================================
-   9. FIXED SURFACES (dialogs, popovers, toasts)
-   =========================================== */
+/* 9. FIXED SURFACES (dialogs, popovers, toasts) */
 
 /* Every centred dialog sits on one of these two scrims. The rail paints above
    them, so a scrim that starts at the screen edge only hides a dialog's left
@@ -654,7 +634,6 @@ html[data-platform='mobile'] .sidebar-context-menu {
   overflow-y: auto;
 }
 
-/* What's New. */
 html[data-platform='mobile'] .wn-dialog {
   width: calc(100% - 32px);
   max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
@@ -698,7 +677,7 @@ html[data-platform='mobile'] .update-notification-enter {
   top: calc(var(--safe-top) + 16px) !important;
 }
 
-/* ---------- After the first simulator pass ----------
+/* After the first simulator pass
    Seen on the iPhone 17 simulator on 2026-09-05. */
 
 /* Home is today's note and the rail's Home button is the way back to it, so
@@ -808,7 +787,7 @@ html[data-platform='mobile'] .graph-view-fit {
   white-space: nowrap;
 }
 
-/* ---------- Settings sections on a phone ----------
+/* Settings sections on a phone
    Each section is an inset group with its heading inside, so the eye can tell
    where one ends and the next begins; the desktop's bare hairlines ran
    together on a narrow screen. */

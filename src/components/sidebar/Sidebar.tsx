@@ -153,7 +153,6 @@ export function Sidebar({
   const [pendingNoteTitle, setPendingNoteTitle] = useState('');
   const [noteToRename, setNoteToRename] = useState<NoteFile | null>(null);
 
-  // Folder state
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
   const [noteToMove, setNoteToMove] = useState<NoteFile | null>(null);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -164,19 +163,15 @@ export function Sidebar({
   const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderInfo | null>(null);
 
-  // Trash state (popover anchored to footer Trash button + preview modal)
   const [trashPopoverAnchor, setTrashPopoverAnchor] = useState<HTMLElement | null>(null);
   const [trashPreviewNote, setTrashPreviewNote] = useState<TrashedNote | null>(null);
 
-  // Track target folder for new note creation
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
 
-  // Initialize folders
   useEffect(() => {
     initializeFolders();
   }, [initializeFolders]);
 
-  // Initialize trash and cleanup old items
   useEffect(() => {
     loadTrash();
     cleanupOldTrash();
@@ -217,7 +212,6 @@ export function Sidebar({
   const noteOrder = useSidebarOrderStore((s) => s.noteOrder);
   const folderOrder = useSidebarOrderStore((s) => s.folderOrder);
 
-  // Sort function based on current sort option
   const sortNotes = (notesToSort: NoteFile[]) => {
     if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
     return [...notesToSort].sort((a, b) => {
@@ -231,10 +225,8 @@ export function Sidebar({
     });
   };
 
-  // Notes that are NOT in any folder (for the Notes section)
   const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
 
-  // All standalone notes (for FolderTree to filter by folder)
   const allStandaloneNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly));
 
   // The tree with every level put in the user's order. Each level is ranked
@@ -306,7 +298,6 @@ export function Sidebar({
     []
   );
 
-  // Daily notes
   const dailyNotes = useMemo(() => notes.filter((n) => n.isDaily), [notes]);
 
   // Filter notes based on tag (search is handled separately with
@@ -501,7 +492,6 @@ export function Sidebar({
     closeContextMenu();
   };
 
-  // Folder handlers
   const handleMoveToFolder = (note: NoteFile) => {
     setNoteToMove(note);
     setShowMoveToFolder(true);
@@ -607,7 +597,6 @@ export function Sidebar({
     const ids: string[] = [];
     // Unfiled notes first, matching the Notes section render order
     for (const n of displayedNotes) ids.push(n.path);
-    // Then folder notes, depth-first, only when the folder is expanded
     const walk = (fs: FolderInfo[]) => {
       for (const f of fs) {
         if (!expandedFolders.includes(f.path)) continue;
@@ -867,7 +856,6 @@ export function Sidebar({
           <SemanticIndexingHint />
         )}
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {isSearchActive ? (
           searchMode === 'semantic' && semanticReady ? (
@@ -1096,7 +1084,6 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Footer */}
       <SidebarFooter
         onToday={handleTodayClick}
         onNewNote={() => setIsCreating(true)}

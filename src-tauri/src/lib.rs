@@ -14,10 +14,6 @@
 //! - Unlock attempts are rate limited in-process; a copied `.locked` file is
 //!   protected only by Argon2id and the password itself
 
-// =============================================================================
-// MODULE DECLARATIONS
-// =============================================================================
-
 /// Calendar integration: Apple (EventKit, macOS) and Google (REST, all platforms)
 mod calendar;
 
@@ -61,7 +57,6 @@ pub(crate) mod agent_writes;
 /// Publish a note to WordPress.com over an account the user signs in to.
 pub(crate) mod wordpress;
 
-// Refactored domain modules.
 pub(crate) mod backlinks_index;
 pub(crate) mod cloud_forge;
 pub(crate) mod commands;
@@ -172,8 +167,6 @@ use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
 };
 
-// Calendar Commands
-//
 // The three EventKit permission commands stay macOS-only because they wrap an
 // Apple-specific authorization model. Everything else dispatches across sources
 // and compiles everywhere, so Google Calendar works on Windows and Linux too.
@@ -539,8 +532,6 @@ mod tests {
     use crate::commands::search::search_notes_content_in;
     use crate::validation::{is_safe_filename, validate_path_within_base};
 
-    // ---- is_safe_filename --------------------------------------------------
-
     #[test]
     fn is_safe_filename_accepts_simple_names() {
         assert!(is_safe_filename("note.md"));
@@ -579,8 +570,6 @@ mod tests {
     fn is_safe_filename_rejects_null_bytes() {
         assert!(!is_safe_filename("note\0.md"));
     }
-
-    // ---- validate_path_within_base -----------------------------------------
 
     fn make_tmp_base() -> PathBuf {
         let base = std::env::temp_dir().join(format!(
@@ -648,7 +637,6 @@ mod tests {
         use std::os::unix::fs::symlink;
 
         let base = make_tmp_base();
-        // Create a real directory outside of base
         let outside = base.parent().unwrap().join(format!(
             "moldavite-test-symtarget-{}-{}",
             std::process::id(),
@@ -659,7 +647,6 @@ mod tests {
         ));
         fs::create_dir_all(&outside).unwrap();
 
-        // Create a symlink inside base pointing to the outside directory
         let link = base.join("evil");
         symlink(&outside, &link).unwrap();
 
@@ -674,8 +661,6 @@ mod tests {
         fs::remove_dir_all(&base).ok();
         fs::remove_dir_all(&outside).ok();
     }
-
-    // ---- search_notes_content_in ------------------------------------------
 
     fn seed_notes(base: &Path) {
         fs::create_dir_all(base.join("notes")).unwrap();

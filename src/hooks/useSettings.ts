@@ -10,7 +10,6 @@ import { useSettingsStore, applyFontSize, applyLineHeight, applyCompactMode } fr
 export function useSettings() {
   const settings = useSettingsStore();
 
-  // Apply visual settings on mount and when they change
   useEffect(() => {
     applyFontSize(settings.fontSize);
   }, [settings.fontSize]);
@@ -26,7 +25,6 @@ export function useSettings() {
   return settings;
 }
 
-// Hook to open/close settings modal
 export function useSettingsModal() {
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore();
 
