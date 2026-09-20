@@ -29,7 +29,7 @@ vi.mock('@tauri-apps/api/path', () => ({
 const exportSingleNote = vi.fn();
 const exportNoteAsPlaintext = vi.fn();
 const exportNoteToPdf = vi.fn();
-const readNote = vi.fn();
+const readNoteSnapshot = vi.fn();
 
 vi.mock('@/lib', async () => {
   const actual = await vi.importActual<typeof import('@/lib')>('@/lib');
@@ -38,7 +38,7 @@ vi.mock('@/lib', async () => {
     exportSingleNote: (...args: unknown[]) => exportSingleNote(...args),
     exportNoteAsPlaintext: (...args: unknown[]) => exportNoteAsPlaintext(...args),
     exportNoteToPdf: (...args: unknown[]) => exportNoteToPdf(...args),
-    readNote: (...args: unknown[]) => readNote(...args),
+    readNoteSnapshot: (...args: unknown[]) => readNoteSnapshot(...args),
   };
 });
 
@@ -81,7 +81,9 @@ beforeEach(() => {
   exportSingleNote.mockReset().mockResolvedValue('');
   exportNoteAsPlaintext.mockReset().mockResolvedValue('');
   exportNoteToPdf.mockReset().mockResolvedValue('');
-  readNote.mockReset().mockResolvedValue('# body');
+  readNoteSnapshot
+    .mockReset()
+    .mockResolvedValue({ content: '# body', color: null, contentHash: 'h' });
   joinPath.mockClear();
   useNoteSelectionStore.getState().clear();
 });
@@ -122,7 +124,7 @@ describe('BulkExportModal note addressing', () => {
 
   it('reads the PDF source by the notes/-relative path', async () => {
     await exportSelection('pdf', [folderNote]);
-    expect(readNote).toHaveBeenCalledWith('Projects/roadmap.md', false, false);
+    expect(readNoteSnapshot).toHaveBeenCalledWith('Projects/roadmap.md', false, false);
   });
 });
 

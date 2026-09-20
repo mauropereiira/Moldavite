@@ -3,7 +3,7 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { useNoteStore, useTimelineStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useNotes } from '@/hooks';
-import { readNote, noteFileBackendPath } from '@/lib';
+import { readNoteSnapshot, noteFileBackendPath } from '@/lib';
 import { fetchCalendarEvents, listCalendarSources } from '@/lib/calendar';
 import type { CalendarEvent, NoteFile } from '@/types';
 import { eventsOverlappingLocalDay } from '@/components/calendar/timeLayout';
@@ -149,8 +149,15 @@ export function TimelineView() {
       const next = new Map(cache);
       for (const note of missing) {
         try {
-          const raw = await readNote(noteFileBackendPath(note), note.isDaily, note.isWeekly);
-          next.set(note.path, stripForPreview(raw));
+          // Snapshot read: building previews must not adopt a note's save
+          // baseline, or a later save could overwrite an external edit
+          // without preserving it as a conflict copy.
+          const { content } = await readNoteSnapshot(
+            noteFileBackendPath(note),
+            note.isDaily,
+            note.isWeekly
+          );
+          next.set(note.path, stripForPreview(content));
         } catch {
           // skip unreadable notes
         }

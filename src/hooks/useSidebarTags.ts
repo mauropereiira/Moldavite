@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { aggregateTags, hasTag, extractTags, readNote, noteFileBackendPath } from '@/lib';
+import { aggregateTags, hasTag, extractTags, readNoteSnapshot, noteFileBackendPath } from '@/lib';
 import { useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
@@ -35,14 +35,25 @@ export function useSidebarTags(notes: NoteFile[]) {
       return;
     }
 
+    let cancelled = false;
+
     const run = async () => {
       const contents: string[] = [];
       for (const note of notes) {
+        if (cancelled) return;
         if (note.isLocked) continue;
         let content = noteContentCacheRef.current.get(note.path);
         if (content === undefined) {
           try {
-            content = await readNote(noteFileBackendPath(note), note.isDaily || false);
+            // Snapshot read: tag scanning must not adopt the note's save
+            // baseline, or a later save could overwrite an external edit
+            // without preserving it as a conflict copy.
+            const snapshot = await readNoteSnapshot(
+              noteFileBackendPath(note),
+              note.isDaily || false,
+              note.isWeekly || false
+            );
+            content = snapshot.content;
             noteContentCacheRef.current.set(note.path, content);
           } catch (_error) {
             console.error('[Sidebar] Failed to read note for tags:', note.name);
@@ -51,10 +62,14 @@ export function useSidebarTags(notes: NoteFile[]) {
         }
         contents.push(content);
       }
-      setAllTags(aggregateTags(contents));
+      if (!cancelled) setAllTags(aggregateTags(contents));
     };
 
     run();
+    // A slower scan of an older note list must not overwrite a newer result.
+    return () => {
+      cancelled = true;
+    };
   }, [notes, setAllTags, tagsEnabled]);
 
   // Clear tag filter when the tag it references vanishes.

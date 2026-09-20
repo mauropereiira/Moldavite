@@ -26,30 +26,34 @@ export function TrashPreviewModal({
   onRestore,
   onPermanentDelete,
 }: TrashPreviewModalProps) {
-  const [html, setHtml] = useState<string>('');
+  // The loaded body carries the trash id it belongs to, so the preview never
+  // renders the previously previewed note's body while the new one loads.
+  const [loaded, setLoaded] = useState<{ id: string; html: string } | null>(null);
+
+  const html = !note
+    ? ''
+    : note.isFolder
+      ? `<p><em>Folder trash — restore to browse its contents.</em></p>
+         <ul><li><strong>Folder:</strong> ${escapeHtml(note.filename)}</li></ul>`
+      : loaded?.id === note.id
+        ? loaded.html
+        : '';
 
   useEffect(() => {
+    if (!note || note.isFolder) return;
     let cancelled = false;
-    if (!note) {
-      setHtml('');
-      return;
-    }
-    if (note.isFolder) {
-      setHtml(
-        `<p><em>Folder trash — restore to browse its contents.</em></p>
-         <ul><li><strong>Folder:</strong> ${escapeHtml(note.filename)}</li></ul>`
-      );
-      return;
-    }
     invoke<string>('read_trashed_note', { trashId: note.id })
       .then((markdown) => {
         if (cancelled) return;
         const rendered = md.render(markdown || '*(empty note)*');
-        setHtml(DOMPurify.sanitize(rendered));
+        setLoaded({ id: note.id, html: DOMPurify.sanitize(rendered) });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setHtml(`<p><em>Could not read this note: ${escapeHtml(String(err))}.</em></p>`);
+        setLoaded({
+          id: note.id,
+          html: `<p><em>Could not read this note: ${escapeHtml(String(err))}.</em></p>`,
+        });
       });
     return () => {
       cancelled = true;

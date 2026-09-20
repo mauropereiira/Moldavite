@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from 'react';
+import { forwardRef, useImperativeHandle, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 
 export interface SlashCommandItem {
@@ -163,9 +163,14 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
   (props, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
 
-    useEffect(() => {
+    // Reset the highlight when the filter yields a new item list. Adjusted
+    // during render rather than in an effect, so the first render of the new
+    // list never highlights — or lets Enter choose — a row from the old one.
+    const [renderedItems, setRenderedItems] = useState<SlashCommandItem[]>(props.items);
+    if (renderedItems !== props.items) {
+      setRenderedItems(props.items);
       setSelectedIndex(0);
-    }, [props.items]);
+    }
 
     const selectItem = useCallback(
       (index: number) => {

@@ -1976,18 +1976,6 @@ html.has-icon-rail.focus-mode {
 }
 
 /* ===========================================
-   REDUCED ANIMATIONS
-   =========================================== */
-
-.reduce-animations *,
-.reduce-animations *::before,
-.reduce-animations *::after {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-}
-
-/* ===========================================
    EDITOR WIDTH
    =========================================== */
 

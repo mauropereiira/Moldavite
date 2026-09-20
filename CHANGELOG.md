@@ -6,6 +6,16 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **An external edit to an open note could be destroyed instead of preserved.** The sidebar, the timeline and an export re-read notes to do their own work, and those reads quietly became the save baseline. If a note was open with unsaved edits when something else wrote to it, Keep mine overwrote the other version without leaving the conflict copy it promises.
+
+- Weekly notes contribute backlinks and tags in the sidebar again.
+
+- A note created from a template with no note open is addressed correctly, so edits made to it on disk are picked up while it is open.
+
+- The trash preview no longer flashes the previously previewed note while the next one loads.
+
+- The slash menu, tag menu and wiki-link menu no longer briefly highlight a result from the previous search.
+
 - **Nested task lists lost their nesting.** Sub-tasks were flattened into siblings every time a note was opened and saved.
 
 - An image whose alt text contained a quote turned into plain text on the next load, and text written between angle brackets, such as `<Name>`, was dropped entirely.

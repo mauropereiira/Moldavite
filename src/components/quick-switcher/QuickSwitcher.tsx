@@ -406,18 +406,29 @@ export function QuickSwitcher() {
     return { rows, headers };
   }, [query, notes, recentNoteIds, recentSearches, pinnedNoteIds, pluginCommands]);
 
-  // Reset selection when the visible result set changes.
-  useEffect(() => {
+  // Reset selection when the visible result set changes, and clear the query
+  // when the switcher opens. Adjusted during render rather than in an effect,
+  // so no frame ever shows a highlight or a query belonging to the last pass.
+  const [renderedQuery, setRenderedQuery] = useState(query);
+  if (renderedQuery !== query) {
+    setRenderedQuery(query);
     setSelectedIndex(0);
-  }, [query]);
+  }
 
-  // Auto-focus input when opened.
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }
+
+  // Auto-focus input when opened.
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   const runCommand = useCallback(

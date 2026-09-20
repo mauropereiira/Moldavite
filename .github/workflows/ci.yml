@@ -48,11 +48,11 @@ jobs:
           # raw hex in a component. The script existed but nothing ran it.
           - task: check-tokens
             run: npm run check:tokens
-          # Ratchet: main sits at 16 warnings, 0 errors. Blocks new ones
+          # Ratchet: main sits at 3 warnings, 0 errors. Blocks new ones
           # without demanding the backlog get fixed first. Lower it as
           # warnings get cleared; never raise it.
           - task: check-js
-            run: npm run lint -- --max-warnings 16
+            run: npm run lint -- --max-warnings 3
           - task: test-js
             run: npm test
           - task: build-web
