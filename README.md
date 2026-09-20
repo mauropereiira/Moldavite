@@ -24,7 +24,7 @@ Local-first for macOS, and for Windows and Linux in beta.
 
 ## Install
 
-**macOS** — Homebrew fetches the signed, notarized build for your architecture
+**macOS.** Homebrew fetches the signed, notarized build for your architecture
 and puts `moldavite` on your `PATH`:
 
 ```sh
@@ -33,12 +33,12 @@ brew install --cask mauropereiira/moldavite/moldavite
 
 Or take the DMG from [the latest release](https://github.com/mauropereiira/Moldavite/releases/latest).
 
-**Windows** — download `Moldavite_x.x.x_x64-setup.exe` from the same page. The
+**Windows.** Download `Moldavite_x.x.x_x64-setup.exe` from the same page. The
 installer is not Authenticode-signed yet, so SmartScreen will warn you once:
 choose **More info → Run anyway**. Updates delivered inside the app are
 cryptographically signed and verified before they install.
 
-**Linux (beta)** — download `Moldavite_x.x.x_amd64.AppImage` for any
+**Linux (beta).** Download `Moldavite_x.x.x_amd64.AppImage` for any
 distribution, `Moldavite_x.x.x_amd64.deb` for Debian and Ubuntu, or
 `Moldavite-x.x.x-1.x86_64.rpm` for Fedora. All need glibc 2.38 or newer, which
 means Ubuntu 24.04, Debian 13, Fedora 39 or later; the local semantic-search
@@ -57,7 +57,7 @@ claude mcp add moldavite -- moldavite --mcp
 ```
 
 Settings → AI & Agents generates the exact line for Claude Code, Claude Desktop,
-Cursor, or any stdio MCP client — use it on Windows and Linux, where the path differs. Add
+Cursor, or any stdio MCP client. Use it on Windows and Linux, where the path differs. Add
 `--forge "Work"` to pin a client to one local Forge rather than following the
 active local Forge. MCP currently supports local Forges; pin a local Forge when
 using the Mac app’s synced iCloud Forge.
@@ -66,16 +66,19 @@ using the Mac app’s synced iCloud Forge.
 | ---------------------- | ------------------------------------------------------------------ | ------- |
 | `list_notes`           | Enumerate notes and locked-note placeholders, optionally by folder | On      |
 | `read_note`            | Read one unlocked note by Forge-relative path                      | On      |
-| `search_notes`         | Ranked full-text search with snippets                              | On      |
+| `search_notes`         | Ranked search with snippets, semantic when that index is ready     | On      |
 | `get_backlinks`        | Every note linking to a given note                                 | On      |
 | `create_note`          | Create a note                                                      | **Off** |
 | `write_note`           | Replace a note's contents                                          | **Off** |
 | `append_to_daily_note` | Append to today's note                                             | **Off** |
 
-Write tools are off until you turn them on, and vanish from the tool list again
-the moment you turn them off. Locked notes are excluded from all seven. When an
-agent changes a note you have unsaved edits in, Moldavite names the agent and
-asks before replacing anything.
+Write tools are off until you turn them on. Turning them off blocks the next
+write call immediately; the tool list itself catches up when the client next
+asks for it, since the server sends no list-changed notification. No tool can
+read a locked note's contents; `list_notes` reports locked notes as placeholders
+so an agent knows they exist without seeing inside. When an agent changes a note
+you have unsaved edits in, Moldavite names the agent and asks before replacing
+anything.
 
 **[Moldavite Skills](https://github.com/mauropereiira/moldavite-skills)** teach
 an agent how to use all of this. They follow the Agent Skills spec, so they work
@@ -102,6 +105,7 @@ A Forge is a directory. Keep several and switch between them.
   images/
   .trash/       7-day retention
   .plugins/
+  .index/       semantic index, when you turn semantic search on
 ```
 
 Real Markdown with YAML frontmatter. Point Dropbox, iCloud, git or nothing at
@@ -122,23 +126,34 @@ and troubleshooting. iOS availability and its full guide will follow separately.
 
 Settings → Appearance offers S–XL text sizes for the editor and desktop Settings.
 
-Wiki-links with vault-wide rename, backlinks, a graph view, full-text and local
-semantic search, Apple and Google Calendar on a timeline, note locking with
-AES-256-GCM, encrypted export, a one-time Obsidian importer that copies rather
-than moves, and sandboxed plugins that run in a Worker with no network unless
-you grant it.
+Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
+daily and weekly notes, Apple and Google Calendar on a timeline (Apple on macOS
+only), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
+an encrypted archive, a one-time Obsidian importer that copies rather than
+moves, and sandboxed plugins that run in a Worker with no network unless you
+grant it.
+
+Keyword search answers from a local SQLite index kept outside the Forge, so it
+stays instant as a Forge grows. Local semantic search is opt-in, downloads its
+model once and then runs offline; it ships on Apple Silicon Macs, Windows and
+Linux, and Intel Macs keep the keyword search.
+
+Updates are checked quietly in the background, verified against a signing key
+before they install, and a "What's New" window shows that version's notes the
+first time you open it.
 
 Pin the notes you keep coming back to and they sit in a bar across the top,
 reorderable, with the rest a click away. Rename a note by editing its title.
-Order the sidebar A–Z, Z–A, or by hand — drag notes and folders where you want
+Order the sidebar A–Z, Z–A, or by hand: drag notes and folders where you want
 them and they stay there.
 
 **Clip any page to a note.** A browser extension turns the page you are reading
-into Markdown in the Forge you choose — links kept, images and styling dropped —
+into Markdown in the Forge you choose, links kept, images and styling dropped,
 and it works whether or not Moldavite is open. It is distributed from this
 repository rather than the browser stores, so Chrome needs Developer mode and the
-Firefox file is signed by Mozilla without being listed there. See
-[docs/CLIPPER.md](docs/CLIPPER.md).
+Firefox file is signed by Mozilla without being listed there. The Chrome archive
+is attached to every release; the Firefox `.xpi` is signed and uploaded by hand
+afterwards. See [docs/CLIPPER.md](docs/CLIPPER.md).
 
 **Publish to WordPress.com** without minting a credential: sign in once in your
 browser, pick a site, and the note becomes a draft. Publishing it again updates
@@ -157,11 +172,12 @@ locally.
 
 ## Contributing
 
-Issues and pull requests welcome. `docs/RELEASING.md` covers the release
-process, `CLAUDE.md` the architecture, and `docs/DESIGN_CREAM.md` the design
+Issues and pull requests welcome. `CONTRIBUTING.md` covers setup and the
+conventions, `docs/ARCHITECTURE.md` how the pieces fit together,
+`docs/RELEASING.md` the release process, and `docs/DESIGN_CREAM.md` the design
 system. Run `npm test`, `npm run lint`, and `cargo test` before opening a PR.
 
-Use the Node version in `.nvmrc` — `nvm use` picks it up. Node only builds and
+Use the Node version in `.nvmrc`; `nvm use` picks it up. Node only builds and
 tests the app (the shipped binary is Rust and contains no Node runtime), but on
 newer versions vitest fails to hand jsdom's globals to the test context, so
 `localStorage` is undefined and a couple of hundred tests fail for no real

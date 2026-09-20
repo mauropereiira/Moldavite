@@ -141,7 +141,6 @@
 
   var motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
   var coarsePointer = window.matchMedia('(pointer: coarse)');
-  var videoObserver = null;
   var animationCallbacks = [];
   var animationFrame = 0;
 
@@ -1298,71 +1297,6 @@
     });
   }
 
-  function pauseVideos() {
-    document.querySelectorAll('video[data-autoplay]').forEach(function (video) {
-      video.removeAttribute('autoplay');
-      video.pause();
-    });
-  }
-
-  function startVideoObserver() {
-    if (videoObserver) videoObserver.disconnect();
-    videoObserver = null;
-    pauseVideos();
-
-    var videos = document.querySelectorAll('video[data-autoplay]');
-    if (!videos.length || prefersReducedMotion() || !('IntersectionObserver' in window)) return;
-
-    videoObserver = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          var video = entry.target;
-          video.dataset.inView = entry.isIntersecting ? 'true' : 'false';
-          if (entry.isIntersecting && !document.hidden) {
-            var attempt = video.play();
-            if (attempt && attempt.catch) attempt.catch(function () {});
-          } else {
-            video.pause();
-          }
-        });
-      },
-      { rootMargin: '80px 0px', threshold: 0.22 }
-    );
-
-    videos.forEach(function (video) {
-      videoObserver.observe(video);
-    });
-  }
-
-  function setupVideos() {
-    startVideoObserver();
-
-    var handleMotionChange = function () {
-      startVideoObserver();
-      if (prefersReducedMotion()) pauseVideos();
-    };
-
-    if (motionPreference.addEventListener) {
-      motionPreference.addEventListener('change', handleMotionChange);
-    } else {
-      motionPreference.addListener(handleMotionChange);
-    }
-
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden || prefersReducedMotion()) {
-        pauseVideos();
-        return;
-      }
-
-      document
-        .querySelectorAll('video[data-autoplay][data-in-view="true"]')
-        .forEach(function (video) {
-          var attempt = video.play();
-          if (attempt && attempt.catch) attempt.catch(function () {});
-        });
-    });
-  }
-
   function setupCopyButtons() {
     document.querySelectorAll('[data-copy-target]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -1563,7 +1497,6 @@
   setupSafely(setupAsteroidCursor);
   setupNavigation();
   setupReveals();
-  setupVideos();
   setupCopyButtons();
   loadPluginDirectory();
 })();

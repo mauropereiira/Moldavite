@@ -19,7 +19,7 @@ history) is namespaced in `localStorage` so each Forge keeps its own.
 
 The previous single-folder layout (everything stored directly under
 `~/Documents/Moldavite/`) is migrated automatically on first launch into
-a `Default` Forge — no manual steps required.
+a `Default` Forge, with no manual steps required.
 
 Because it's plain `.md`, you can:
 
@@ -41,7 +41,7 @@ something seems out of sync, hit **Settings → General → Rescan Forge**.
 │   └── 2026-05-01.md
 ├── weekly/                 # Weekly notes, named YYYY-Www.md
 │   └── 2026-W18.md
-├── notes/                  # Standalone notes (recursive — folders are subdirs)
+├── notes/                  # Standalone notes (recursive; folders are subdirs)
 │   ├── meeting.md
 │   └── projects/
 │       └── apollo.md
@@ -64,6 +64,12 @@ index lives under `.index/`. Locked notes, trashed notes, hidden trees, and
 symlinks are excluded from indexing. The generated `.gitignore` includes
 `.trash/`, `.plugins/`, `.index/`, and `.DS_Store`.
 
+The keyword search index is *not* in the Forge either. It is a SQLite database
+at `<app data>/Moldavite/index/<sha256 of the Forge path>/search.sqlite`, next
+to the model cache, because SQLite's WAL sidecar is the documented way to
+corrupt a database inside Dropbox or iCloud. A Forge that moves hashes
+differently and simply rebuilds; deleting a Forge deletes its index.
+
 ## Frontmatter schema
 
 Notes can carry an optional YAML frontmatter block at the top, fenced by
@@ -71,7 +77,7 @@ Notes can carry an optional YAML frontmatter block at the top, fenced by
 
 ```markdown
 ---
-color: blue
+color: crystal
 ---
 
 # Apollo kick-off
@@ -93,7 +99,7 @@ your tooling cares about). Future Moldavite versions may grow the recognized
 set, but unknown keys won't be stripped.
 
 If you don't set any recognized fields, Moldavite won't write a frontmatter
-block at all — empty `.md` files stay empty.
+block at all: empty `.md` files stay empty.
 
 ## Wiki-link syntax
 
@@ -139,7 +145,7 @@ external edit:
 Conflict copies are ordinary Markdown notes. A simultaneous collision in the
 same minute receives a numeric suffix such as `(2)` so an earlier copy is never
 overwritten. When an external writer changes an open note, a clean Moldavite
-buffer reloads in place, keeping your scroll position and cursor — so a note an
+buffer reloads in place, keeping your scroll position and cursor, so a note an
 agent writes to repeatedly stays readable and never asks you anything. Only a
 buffer with your own unsaved edits shows a thin banner: **Keep my version**
 saves the buffer and preserves the disk version as a conflict copy; **Use disk
@@ -165,7 +171,7 @@ access already granted to another process.
   protocol. If you write a note that you also want to read in another tool,
   use a relative path like `![](images/foo.png)` so it resolves there too.
 - **Wiki-link slugs**: Moldavite converts `[[My Cool Note]]` to a target
-  filename `my-cool-note.md`. Other tools may use a different convention —
+  filename `my-cool-note.md`. Other tools may use a different convention, so
   consider sticking to lowercase-hyphenated filenames if you want maximum
   portability.
 - **Locked notes**: As noted above, `.md.locked` files are encrypted blobs.

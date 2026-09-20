@@ -1,10 +1,9 @@
 # Cream — the Moldavite design system
 
-**This file is the only design source of truth.** It replaces five documents
-(`DESIGN_SYSTEM.md`, `DESIGN_TOKENS.md`, `COMPONENT_PATTERNS.md`,
-`DESIGN_DOCUMENTATION_INDEX.md`, `COLOR_PALETTE_REFERENCE.txt`) that described a
-blue / Tailwind-grey system removed long ago. If you are reading a hex like
-`#2563eb` or `#f5f5f5` in a design doc, that doc is dead — this one wins.
+**This file is the only design source of truth.** The design docs it replaced
+described a blue / Tailwind-grey system that no longer exists anywhere in the
+code, and they are no longer in the repository. If you are reading a hex like
+`#2563eb` or `#f5f5f5` in a design doc, that doc is dead; this one wins.
 
 Tokens live in `src/index.css`. That file _is_ the implementation of this
 document. When the two disagree, fix the code.

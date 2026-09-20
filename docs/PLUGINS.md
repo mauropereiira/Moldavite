@@ -10,7 +10,7 @@ the OS credential store, and show notifications.
 > to an **allowlist** before your code is evaluated: the ECMAScript built-ins,
 > `console`, timers, `queueMicrotask`, `structuredClone`, `TextEncoder`/
 > `TextDecoder`, `atob`/`btoa`, `crypto`, `performance`, `URL`, `URLSearchParams`,
-> `Blob`, and the `postMessage` channel. Everything else is unavailable — that
+> `Blob`, and the `postMessage` channel. Everything else is unavailable, which
 > includes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts`,
 > nested `Worker`/`SharedWorker`, `caches`, `indexedDB`, `WebAssembly`,
 > `AbortController`, `Request`/`Response`/`Headers`, and `navigator` beyond a
@@ -330,8 +330,8 @@ if (!values) return;
 ```
 
 Moldavite permits one plugin prompt or runtime-host consent dialog at a time
-and always places **Request from plugin — Plugin Name** in trusted chrome above
-plugin-supplied content.
+and always labels it **Request from plugin**, above the plugin's name, in
+trusted chrome above any plugin-supplied content.
 
 Prompt validation:
 
@@ -410,8 +410,8 @@ if (response.status >= 400) throw new Error(response.bodyText);
 
 `requestHostAccess` uses the manifest validator: no schemes, ports, paths,
 wildcards, IP literals, single-label names, or labels named `localhost`.
-Approval is stored in Moldavite's app-side, per-Forge plugin grant record—not
-in plugin files—so it does not change the manifest/code consent hash.
+Approval is stored in Moldavite's app-side, per-Forge plugin grant record, not
+in plugin files, so it does not change the manifest/code consent hash.
 
 The effective fetch allowlist is the union of manifest `allowedHosts` and
 user-approved runtime hosts. Users can revoke one runtime host under
@@ -426,8 +426,8 @@ hop immediately use the reduced union.
   before the next request, with at most five redirects.
 - A redirect response with no `Location` header is rejected rather than
   followed without validation.
-- Cross-origin redirects keep only `Accept`, `Accept-Language`, and—when a
-  request body remains—`Content-Type`. Authorization and cookies are not
+- Cross-origin redirects keep only `Accept`, `Accept-Language`, and, when a
+  request body remains, `Content-Type`. Authorization and cookies are not
   forwarded.
 - The entire chain has a 30-second timeout. The streamed response is capped at
   10 MiB, including when no trustworthy `Content-Length` is present.
@@ -440,7 +440,7 @@ Response headers are restricted to `content-type`, `content-length`, `etag`,
 and form bodies are decoded into `bodyText`; non-text responses also include
 `bodyBase64`.
 
-### Keychain secrets
+### Credential-store secrets
 
 Requires the `secrets` permission.
 
@@ -465,7 +465,7 @@ if (saved) {
 }
 ```
 
-Moldavite uses Keychain service `Moldavite` and constructs the account as
+Moldavite uses the credential-store service name `Moldavite` and constructs the account as
 `plugin:<plugin-id>:<key>`. The host supplies and validates the plugin id, so a
 worker cannot choose or impersonate another plugin's namespace.
 
@@ -483,11 +483,11 @@ settings, plugin, ZIP, or encrypted-backup exports.
 | `commands`   | Register commands in the command palette and editor slash menu             |
 | `notes.read` | List note metadata and read unlocked Markdown bodies                       |
 | `net.fetch`  | Request runtime hosts and ask Moldavite to call exact approved HTTPS hosts |
-| `secrets`    | Read, write, and delete this plugin's namespaced Keychain entries          |
+| `secrets`    | Read, write, and delete this plugin's namespaced credential-store entries  |
 
 `ui` and `commands` used to be free. They are not, because both put something in
 front of the user under Moldavite's own chrome: `ui.prompt` renders a host-styled
-dialog — including password fields — and a registered command sits in the palette
+dialog, including password fields, and a registered command sits in the palette
 looking exactly as trustworthy as a built-in one. A plugin that declared nothing
 could therefore ask for a vault password in a window the user had no reason to
 doubt. A plugin that registers commands or opens prompts must now say so on the
@@ -526,7 +526,7 @@ Its flow demonstrates the whole v2 surface:
    `secrets.set`.
 3. **Publish note to WordPress…** calls `editor.getActiveNote` and sends the
    live editor HTML to `/wp-json/wp/v2/posts` as a draft.
-4. A Keychain-backed Forge-path-to-post-id map makes later publishes of the
+4. A credential-store-backed Forge-path-to-post-id map makes later publishes of the
    same path use `PUT` to update the existing post. The success notification
    includes the edit URL.
 
@@ -575,7 +575,7 @@ client ID, and the reference plugin intentionally does not embed or fake one.
 Existing manifests with `"apiVersion": 1` remain valid and receive the
 original `app`, `commands`, `editor`, and `ui.toast` surface, with
 `api.app.apiVersion === 1`. They do not need a manifest or source migration.
-Use API v2 for trusted prompts, Forge note reads, networking, or Keychain
+Use API v2 for trusted prompts, Forge note reads, networking, or credential-store
 secrets.
 
 ## iOS

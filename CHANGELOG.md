@@ -4,6 +4,12 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- The privacy policy now lists every network destination by host, both update connections, the browser clipper's local channel, and every place Moldavite keeps data outside your Forge.
+
+- The user guide has a keyboard shortcut reference, and its calendar section no longer claims Google Calendar is unavailable on Windows and Linux.
+
 ### Fixed
 
 - **Clipper: a page with nothing to convert, or a tab that could not be read, showed an internal error or saved a note containing the word "undefined".** Both now say what happened in plain language.
