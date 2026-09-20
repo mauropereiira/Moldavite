@@ -6,6 +6,14 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Nested task lists lost their nesting.** Sub-tasks were flattened into siblings every time a note was opened and saved.
+
+- An image whose alt text contained a quote turned into plain text on the next load, and text written between angle brackets, such as `<Name>`, was dropped entirely.
+
+- Closing a tab, pinning a tab and auto-lock now work when the browser refuses to write local storage. Auto-lock previously left a decrypted note open on screen.
+
+- The quick switcher no longer lists recent notes from the Forge you switched away from.
+
 - **Publishing to WordPress.com could hang forever.** A connection that opened and then stalled left the editor on "Publishing…" with no way out short of restarting. Every WordPress.com request now gives up after 30 seconds.
 
 - **A new note could take a locked note's name.** A locked note exists on disk only as an encrypted file, so its name looked free to every check. Creating, moving, renaming, duplicating or creating a note from a template could put a second note at the same address, after which the locked note could not be unlocked at all. A wiki link to a locked note also showed as broken, and following it wrote a blank note over the locked one.
@@ -19,6 +27,10 @@ All notable changes to Moldavite are documented here.
 - Search results no longer include hidden files that could not be opened.
 
 ### Security
+
+- Image sources are checked against the allowed URL schemes again. A `javascript:` source could previously survive sanitizing.
+
+- A plugin manifest can no longer use an oversized name or description to push its real capabilities out of view in the permission sheet, and the plugin host now ignores malformed messages from a plugin worker instead of acting on them.
 
 - The Google sign-in listener no longer lets another program on your machine make it buffer an endless request.
 

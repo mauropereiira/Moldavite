@@ -175,6 +175,23 @@ describe('validateManifest', () => {
       },
     });
   });
+  it('bounds the text fields the consent sheet renders above the capability list', () => {
+    const oversized: [string, number][] = [
+      ['name', 160],
+      ['version', 64],
+      ['author', 160],
+      ['description', 1_000],
+      ['minAppVersion', 64],
+    ];
+    for (const [field, max] of oversized) {
+      expect(validateManifest({ ...base, [field]: 'x'.repeat(max) }, 'demo').ok).toBe(true);
+      expect(validateManifest({ ...base, [field]: 'x'.repeat(max + 1) }, 'demo')).toEqual({
+        ok: false,
+        reason: expect.stringContaining(field),
+      });
+    }
+  });
+
   it('rejects non-object input', () => {
     expect(validateManifest(null, 'demo').ok).toBe(false);
     expect(validateManifest('x', 'demo').ok).toBe(false);

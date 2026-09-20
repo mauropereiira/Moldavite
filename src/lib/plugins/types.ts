@@ -116,8 +116,3 @@ export interface PluginFetchResponse {
   bodyText: string;
   bodyBase64?: string;
 }
-
-export interface LoadedPlugin {
-  id: string;
-  register: (api: PluginAPI) => void | Promise<void>;
-}

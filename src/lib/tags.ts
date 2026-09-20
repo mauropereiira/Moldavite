@@ -39,31 +39,6 @@ export function extractTags(content: string): string[] {
 }
 
 /**
- * Extracts tags from markdown content.
- * Ignores hashtags inside URLs (fragment identifiers).
- * @param markdown - The markdown content
- * @returns Array of unique tags (without the # prefix)
- */
-export function extractTagsFromMarkdown(markdown: string): string[] {
-  if (!markdown) return [];
-
-  // Remove URLs to avoid matching fragment identifiers as tags
-  let text = markdown.replace(/https?:\/\/[^\s<>"']+/gi, ' ');
-  text = text.replace(/www\.[^\s<>"']+/gi, ' ');
-
-  const tags = new Set<string>();
-  let match;
-
-  while ((match = TAG_REGEX.exec(text)) !== null) {
-    tags.add(match[1].toLowerCase());
-  }
-
-  TAG_REGEX.lastIndex = 0;
-
-  return Array.from(tags).sort();
-}
-
-/**
  * Checks if a string is a valid tag name.
  * @param tag - The tag name to validate (without #)
  * @returns True if valid
@@ -108,20 +83,6 @@ export function aggregateTags(noteContents: string[]): Map<string, number> {
   }
 
   return tagCounts;
-}
-
-/**
- * Sorts tags by count (descending) then alphabetically.
- * @param tagCounts - Map of tag -> count
- * @returns Sorted array of [tag, count] pairs
- */
-export function sortTagsByCount(tagCounts: Map<string, number>): [string, number][] {
-  return Array.from(tagCounts.entries()).sort((a, b) => {
-    // Sort by count descending
-    if (b[1] !== a[1]) return b[1] - a[1];
-    // Then alphabetically
-    return a[0].localeCompare(b[0]);
-  });
 }
 
 /**

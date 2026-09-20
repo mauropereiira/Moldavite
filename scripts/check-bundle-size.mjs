@@ -113,7 +113,11 @@ const BUDGETS = [
 // add ~2.2 KB raw / 0.7 KB gz. Measured 625.4 KB / 173.8 KB gz; no new dependencies.
 // Native appearance, keyboard field visibility and the adaptive iPad layout add
 // ~0.7 KB raw / 0.2 KB gz. Measured 626.2 KB / 174.0 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 627, gzipKb: 175 };
+// 630: correctness fixes that cost bytes. Converting task lists through the DOM
+// instead of three lazy regexes is what makes nested task items survive a
+// round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
+// and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
+const APP_JS_BUDGET = { rawKb: 630, gzipKb: 175 };
 
 async function main() {
   let entries;

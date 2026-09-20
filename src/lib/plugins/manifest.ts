@@ -30,6 +30,19 @@ export const MAX_MANIFEST_COMMANDS = 50;
 export const MAX_COMMAND_ID_LENGTH = 128;
 export const MAX_COMMAND_LABEL_LENGTH = 200;
 const MAX_MANIFEST_PERMISSIONS = 50;
+
+/**
+ * The consent sheet renders these verbatim above the capability list, so an
+ * unbounded value is attacker-controlled UI: a long enough description pushes
+ * the real capabilities out of view. Bounds match the community registry's.
+ */
+const MAX_TEXT_FIELD_LENGTH: Record<string, number> = {
+  name: 160,
+  version: 64,
+  author: 160,
+  description: 1_000,
+  minAppVersion: 64,
+};
 const MAX_INSTRUCTION_STEPS = 20;
 const MAX_INSTRUCTION_LENGTH = 500;
 
@@ -57,6 +70,11 @@ export function validateManifest(raw: unknown, folderId: string): Result {
   for (const field of ['author', 'description', 'minAppVersion']) {
     if (m[field] !== undefined && typeof m[field] !== 'string') {
       return { ok: false, reason: `${field} must be a string` };
+    }
+  }
+  for (const [field, max] of Object.entries(MAX_TEXT_FIELD_LENGTH)) {
+    if (typeof m[field] === 'string' && (m[field] as string).length > max) {
+      return { ok: false, reason: `${field} must be at most ${max} characters` };
     }
   }
   if (id.length > 64 || !ID_RE.test(id)) {

@@ -1,10 +1,12 @@
 import { isMobilePlatform } from '@/lib/platform';
 /** Worker-host lifecycle and untrusted-message routing regression coverage. */
 
+import process from 'node:process';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
@@ -146,6 +148,56 @@ describe('plugin worker invocation lifecycle', () => {
       })
     );
     await expect(second).resolves.toBeUndefined();
+  });
+});
+
+describe('untrusted message shapes', () => {
+  useGrantedPluginHarness();
+
+  it('answers a well-formed call and ignores one with no usable request id', async () => {
+    const worker = await loadWorker();
+    worker.postMessage.mockClear();
+
+    postFromWorker(worker, { kind: 'call', requestId: '1', method: 'ui.toast', args: ['hi'] });
+    postFromWorker(worker, { kind: 'call', requestId: 1, method: 7, args: [] });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(worker.postMessage).not.toHaveBeenCalled();
+
+    postFromWorker(worker, { kind: 'call', requestId: 2, method: 'ui.toast', args: ['hi'] });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(worker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'callResult', requestId: 2, ok: false })
+    );
+  });
+
+  it('rejects a call whose args are not an array instead of indexing into them', async () => {
+    mockInvoke.mockResolvedValue([
+      { ...plugin, manifestRaw: { ...plugin.manifestRaw, permissions: ['commands', 'ui'] } },
+    ]);
+    const worker = await loadWorker();
+    useToastStore.setState({ toasts: [] });
+    worker.postMessage.mockClear();
+
+    postFromWorker(worker, { kind: 'call', requestId: 3, method: 'ui.toast', args: 'boom' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(worker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'callResult', requestId: 3, ok: false })
+    );
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('drops a log message whose args are not an array', async () => {
+    const worker = await loadWorker();
+    const rejection = vi.fn();
+    process.on('unhandledRejection', rejection);
+    try {
+      postFromWorker(worker, { kind: 'log', level: 'log', args: 5 });
+      await vi.advanceTimersByTimeAsync(0);
+      await Promise.resolve();
+    } finally {
+      process.off('unhandledRejection', rejection);
+    }
+    expect(rejection).not.toHaveBeenCalled();
   });
 });
 
