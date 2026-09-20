@@ -7,13 +7,6 @@ export interface Template {
   content: string;
 }
 
-export interface TemplateFile {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-}
-
 export interface SaveTemplateInput {
   name: string;
   description: string;

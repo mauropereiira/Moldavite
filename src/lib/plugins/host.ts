@@ -177,12 +177,16 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     }
     case 'call': {
       const call = msg as CallMessage;
+      // The worker can post anything; without a numeric id there is nothing to
+      // reply to, and a non-array `args` would be index-read as one.
+      if (typeof call.requestId !== 'number' || typeof call.method !== 'string') return;
+      const args = Array.isArray(call.args) ? call.args : [];
       try {
         const value = await dispatchPluginCall(
           pluginId,
           rt.permissions,
           call.method,
-          call.args,
+          args,
           rt.manifestHosts,
           rt.apiVersion,
           rt.pluginName
@@ -218,6 +222,9 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
     }
     case 'log': {
       const log = msg as LogMessage;
+      // Spreading a non-array here would reject this handler's promise with
+      // nothing to catch it.
+      if (!Array.isArray(log.args)) return;
       // Plugin console forwarding intentionally preserves log severity.
       /* eslint-disable no-console */
       const fn =

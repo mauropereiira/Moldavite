@@ -10,7 +10,7 @@
 
 import { create } from 'zustand';
 import type { Note, NoteFile } from '@/types';
-import { namespacedKey } from '@/lib/forgeStorage';
+import { namespacedKey, onActiveForgeChange } from '@/lib/forgeStorage';
 import { useGraphStore } from './graphStore';
 import { useTimelineStore } from './timelineStore';
 
@@ -259,10 +259,16 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const newTabs = state.openTabs.filter((t) => t.id !== noteId);
       const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
-      localStorage.setItem(
-        namespacedKey('moldavite-pinned-tabs'),
-        JSON.stringify(newTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
-      );
+      try {
+        localStorage.setItem(
+          namespacedKey('moldavite-pinned-tabs'),
+          JSON.stringify(newTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
+        );
+      } catch (error) {
+        // Auto-lock closes tabs to drop decrypted content. Unavailable storage
+        // must not abort the update and leave that content in a tab.
+        console.error('[noteStore] Failed to persist pinned tabs:', error);
+      }
 
       let newActiveId: string | null = null;
       let newCurrentNote: Note | null = null;
@@ -525,7 +531,11 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       // note paths, so the slot has to be per Forge like recent notes — a
       // global key resurrects another Forge's pins on unrelated notes.
       const pinnedIds = sortedTabs.filter((t) => t.isPinned).map((t) => t.id);
-      localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
+      try {
+        localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
+      } catch (error) {
+        console.error('[noteStore] Failed to persist pinned tabs:', error);
+      }
 
       return {
         openTabs: sortedTabs,
@@ -668,3 +678,11 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       return { recentNoteIds: updated };
     }),
 }));
+
+// `loadRecentNotes` ran at import time, when the active-Forge cache could still
+// name the Forge we just switched away from. Re-read under the corrected key as
+// soon as the real active Forge is known, so the quick switcher never offers
+// another Forge's note paths.
+onActiveForgeChange(() => {
+  useNoteStore.setState({ recentNoteIds: loadRecentNotes() });
+});

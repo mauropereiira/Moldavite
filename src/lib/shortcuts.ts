@@ -228,23 +228,3 @@ export const CATEGORY_ORDER: ShortcutCategory[] = [
   'editing',
   'formatting',
 ];
-
-/**
- * Match a KeyboardEvent against a shortcut id. Uses `metaKey || ctrlKey` so
- * the same bindings work on macOS and other platforms.
- */
-export function matchesShortcut(event: KeyboardEvent, id: ShortcutId): boolean {
-  const isMod = event.metaKey || event.ctrlKey;
-  const shortcut = SHORTCUTS.find((s) => s.id === id);
-  if (!shortcut) return false;
-
-  const needsShift = shortcut.keys.includes('⇧');
-  if (needsShift !== event.shiftKey) return false;
-
-  // Terminal (non-modifier) key is always the last entry.
-  const terminal = shortcut.keys[shortcut.keys.length - 1].toLowerCase();
-
-  if (!isMod && terminal !== '?' && terminal !== '/') return false;
-
-  return event.key.toLowerCase() === terminal;
-}

@@ -8,12 +8,7 @@
  */
 
 import { safeInvoke as invoke } from './ipc';
-import type {
-  CalendarFetchResult,
-  CalendarInfo,
-  CalendarPermission,
-  CalendarSourceStatus,
-} from '@/types';
+import type { CalendarFetchResult, CalendarPermission, CalendarSourceStatus } from '@/types';
 
 /**
  * Gets the current macOS calendar access permission status.
@@ -61,14 +56,6 @@ export async function fetchCalendarEvents(
   calendarIds: string[] = []
 ): Promise<CalendarFetchResult> {
   return await invoke('fetch_calendar_events', { startDate, endDate, calendarIds });
-}
-
-/**
- * Lists calendars from every connected source.
- * @returns Calendar info objects with namespaced ids and their source
- */
-export async function listCalendars(): Promise<CalendarInfo[]> {
-  return await invoke('list_calendars');
 }
 
 /**

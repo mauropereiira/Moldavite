@@ -43,5 +43,3 @@ export interface TrashedNote {
   trashedAt: number;
   daysRemaining: number;
 }
-
-export type NoteType = 'daily' | 'weekly' | 'standalone';

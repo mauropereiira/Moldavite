@@ -12,15 +12,7 @@
 
 import { safeInvoke as invoke } from './ipc';
 import type { Note, NoteFile, FolderInfo, TrashedNote } from '@/types';
-import {
-  format,
-  parse,
-  isValid,
-  getISOWeek,
-  getISOWeekYear,
-  startOfISOWeek,
-  endOfISOWeek,
-} from 'date-fns';
+import { format, parse, getISOWeek, getISOWeekYear } from 'date-fns';
 import { hasTag, renameTagInContent } from './tags';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
@@ -148,7 +140,11 @@ turndownService.addRule('taskItem', {
       .replace(/^\s+/, '') // Strip ALL leading whitespace
       .replace(/\s+$/, '') // Strip ALL trailing whitespace
       .replace(/\\\[[\sx]?\\\]/g, '') // Remove any escaped checkbox remnants
-      .trim();
+      .trim()
+      // A blank line would close the list, so a nested task list has to stay
+      // attached to its parent item and indented under the `- [ ] ` marker.
+      .replace(/\n{2,}/g, '\n')
+      .replace(/\n/g, '\n  ');
     return `- ${checkbox} ${cleanContent}\n`;
   },
 });
@@ -166,6 +162,19 @@ turndownService.addRule('taskList', {
   },
 });
 
+/**
+ * Attribute values are written into a raw `<img>` tag, so an unescaped quote in
+ * an alt text closes the attribute early. markdown-it then fails to recognise
+ * the tag and escapes the whole thing, turning the image into literal text.
+ */
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // Add rule to preserve images as HTML with all attributes (width, alignment)
 turndownService.addRule('image', {
   filter: 'img',
@@ -177,13 +186,20 @@ turndownService.addRule('image', {
     const alignment = element.getAttribute('data-alignment');
 
     // Build attribute string
-    let attrs = `src="${src}" alt="${alt}"`;
-    if (width) attrs += ` width="${width}"`;
-    if (alignment) attrs += ` data-alignment="${alignment}"`;
+    let attrs = `src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}"`;
+    if (width) attrs += ` width="${escapeHtmlAttribute(width)}"`;
+    if (alignment) attrs += ` data-alignment="${escapeHtmlAttribute(alignment)}"`;
 
     return `<img ${attrs}>`;
   },
 });
+
+// markdown-it renders with `html: true`, so a literal `<` that opens a tag-like
+// token is re-parsed as HTML on the way back in and DOMPurify drops the unknown
+// element: text such as `<Name>` vanished from the note on its next load.
+// CommonMark's backslash escape keeps it as text for every Markdown reader.
+const escapeMarkdown = turndownService.escape.bind(turndownService);
+turndownService.escape = (text: string) => escapeMarkdown(text).replace(/<(?=[A-Za-z!/?])/g, '\\<');
 
 const md = new MarkdownIt({
   html: true, // Allow HTML tags for unsupported features
@@ -283,10 +299,10 @@ const DOMPURIFY_CONFIG = {
   ALLOW_DATA_ATTR: false,
   // Forbid potentially dangerous attributes
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
-  // Don't allow javascript: URLs
+  // Don't allow javascript: URLs. `src` is deliberately NOT marked URI-safe:
+  // that would skip the scheme check entirely and let `javascript:` through.
+  // Tauri's asset URLs are re-admitted by the hook below instead.
   ALLOW_UNKNOWN_PROTOCOLS: false,
-  // Allow asset.localhost URLs (Tauri's asset protocol)
-  ADD_URI_SAFE_ATTR: ['src'],
 };
 
 // Add DOMPurify hook to allow asset.localhost URLs
@@ -302,34 +318,6 @@ DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
     }
   }
 });
-
-/**
- * Checks if text contains wiki link syntax [[Note Name]].
- * @param text - The text to check
- * @returns True if wiki links are present
- */
-export function hasWikiLinks(text: string): boolean {
-  return /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/.test(text);
-}
-
-/**
- * Extracts all wiki links from Markdown text.
- * @param markdown - The Markdown content to parse
- * @returns Array of wiki links with text and target
- */
-export function parseWikiLinks(markdown: string): Array<{ text: string; target: string }> {
-  const regex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
-  const links: Array<{ text: string; target: string }> = [];
-  let match;
-
-  while ((match = regex.exec(markdown)) !== null) {
-    const text = match[1];
-    const target = match[2] || match[1];
-    links.push({ text, target });
-  }
-
-  return links;
-}
 
 /**
  * Slugifies a note name (or filename) for wiki-link resolution. Unicode-aware
@@ -377,16 +365,10 @@ export function htmlToMarkdown(html: string): string {
  * a single <ul class="contains-task-list">, but TipTap expects task lists to only contain
  * task items. Without this, regular bullets inside a task list container get treated as
  * broken/empty task items.
- * @param html - The HTML from markdown-it
- * @returns HTML with mixed lists split into separate task and regular lists
+ * @param root - The wrapper element holding the rendered Markdown
  */
-function splitMixedTaskLists(html: string): string {
-  // Parse HTML using DOMParser
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
-
-  // Find all contains-task-list ULs
-  const taskLists = doc.querySelectorAll('ul.contains-task-list');
+function splitMixedTaskLists(root: Element): void {
+  const taskLists = root.querySelectorAll('ul.contains-task-list');
 
   taskLists.forEach((ul) => {
     const items = Array.from(ul.children);
@@ -396,7 +378,7 @@ function splitMixedTaskLists(html: string): string {
 
     // Split into consecutive runs instead of grouping by kind. Grouping all task
     // items first changes the user's writing order on the next autosave.
-    const fragment = doc.createDocumentFragment();
+    const fragment = root.ownerDocument.createDocumentFragment();
     let currentList: Element | null = null;
     let currentRunIsTask: boolean | null = null;
     items.forEach((item) => {
@@ -411,10 +393,75 @@ function splitMixedTaskLists(html: string): string {
     });
     ul.replaceWith(fragment);
   });
+}
 
-  // Return the inner HTML of the wrapper div
-  const wrapper = doc.body.querySelector('div');
-  return wrapper?.innerHTML || html;
+/** Block tags that end the leading inline run inside a task item body. */
+const TASK_BODY_BLOCK = /^(?:P|DIV|UL|OL|BLOCKQUOTE|PRE|TABLE|HR|H[1-6])$/;
+
+/**
+ * Converts markdown-it's GFM task-list output into the shape TipTap parses:
+ * `<ul data-type="taskList">` of
+ * `<li data-type="taskItem" data-checked><label><input></label><div>…</div></li>`.
+ *
+ * The rewrite runs on a parsed document rather than on the HTML string: a regex
+ * that stops at the first `</li>` closes the wrong element as soon as a task
+ * item contains a nested list, which flattened the nesting and pushed every
+ * following item out of its `<ul>`.
+ */
+function taskListsToTipTapHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  const root = doc.body.querySelector('div');
+  if (!root) return html;
+
+  splitMixedTaskLists(root);
+  // Collected outer-to-inner in document order, so a nested item's own marker is
+  // still the first `task-list-item-checkbox` inside it when its turn comes.
+  const items = Array.from(root.querySelectorAll('li.task-list-item'));
+  for (const ul of Array.from(root.querySelectorAll('ul.contains-task-list'))) {
+    ul.removeAttribute('class');
+    ul.setAttribute('data-type', 'taskList');
+  }
+
+  for (const li of items) {
+    const marker = li.querySelector('input.task-list-item-checkbox');
+    const checked = marker?.hasAttribute('checked') ?? false;
+    marker?.remove();
+
+    const body = doc.createElement('div');
+    while (li.firstChild) body.appendChild(li.firstChild);
+
+    // TipTap's taskItem schema is `paragraph block*`, so the body must open
+    // with one; markdown-it emits the item text bare in a tight list.
+    if (!TASK_BODY_BLOCK.test(body.firstChild?.nodeName ?? '')) {
+      const paragraph = doc.createElement('p');
+      while (body.firstChild && !TASK_BODY_BLOCK.test(body.firstChild.nodeName)) {
+        paragraph.appendChild(body.firstChild);
+      }
+      body.insertBefore(paragraph, body.firstChild);
+    }
+    if (body.firstElementChild?.tagName !== 'P') {
+      body.insertBefore(doc.createElement('p'), body.firstChild);
+    }
+
+    // Drop the whitespace markdown-it left around the checkbox marker.
+    const lead = body.firstElementChild as Element;
+    const first = lead.firstChild;
+    if (first?.nodeValue) first.nodeValue = first.nodeValue.replace(/^\s+/, '');
+    const last = lead.lastChild;
+    if (last?.nodeValue) last.nodeValue = last.nodeValue.replace(/\s+$/, '');
+
+    const label = doc.createElement('label');
+    const input = doc.createElement('input');
+    input.setAttribute('type', 'checkbox');
+    if (checked) input.setAttribute('checked', 'checked');
+    label.appendChild(input);
+
+    li.removeAttribute('class');
+    li.setAttribute('data-type', 'taskItem');
+    li.setAttribute('data-checked', String(checked));
+    li.append(label, body);
+  }
+  return root.innerHTML;
 }
 
 /**
@@ -443,34 +490,10 @@ export function markdownToHtml(markdown: string): string {
   // Render markdown to HTML
   let html = md.render(processed);
 
-  // Split mixed task lists (task items + regular items) into separate lists
-  // This must happen BEFORE we convert task list containers to TipTap format
-  html = splitMixedTaskLists(html);
-
-  // Post-process: Convert markdown-it-task-lists output to TipTap format
-  // markdown-it generates: <ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" ...>text</li></ul>
-  // TipTap expects: <ul data-type="taskList"><li data-type="taskItem" data-checked="true/false"><label><input.../></label><div><p>text</p></div></li></ul>
-
-  // Replace task list containers
-  html = html.replace(/<ul class="contains-task-list">/g, '<ul data-type="taskList">');
-
-  // Replace task list items - handle both checked and unchecked
-  // markdown-it-task-lists produces: <li class="task-list-item enabled"><input class="task-list-item-checkbox" type="checkbox">text</li>
-  // Note: class may be "task-list-item" or "task-list-item enabled", and input attributes can be in any order
-
-  // Checked items - look for 'checked' attribute anywhere in the input tag
-  // markdown-it-task-lists wraps the input and text in a <p> tag: <li class="..."><p><input ...> text</p></li>
-  html = html.replace(
-    /<li class="task-list-item[^"]*">\s*(?:<p>\s*)?<input[^>]*checked[^>]*>\s*([\s\S]*?)(?:\s*<\/p>)?\s*<\/li>/gi,
-    '<li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked="checked"></label><div><p>$1</p></div></li>'
-  );
-
-  // Unchecked items - use negative lookahead to exclude items with 'checked' attribute
-  // markdown-it-task-lists wraps the input and text in a <p> tag: <li class="..."><p><input ...> text</p></li>
-  html = html.replace(
-    /<li class="task-list-item[^"]*">\s*(?:<p>\s*)?<input(?![^>]*checked)[^>]*>\s*([\s\S]*?)(?:\s*<\/p>)?\s*<\/li>/gi,
-    '<li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>$1</p></div></li>'
-  );
+  // markdown-it emits `<ul class="contains-task-list">` with a leading checkbox
+  // per item; TipTap parses `<ul data-type="taskList">` with the checkbox in a
+  // label and the item body in a div.
+  html = taskListsToTipTapHtml(html);
 
   // Sanitize HTML to prevent XSS attacks
   // This removes any potentially dangerous scripts, event handlers, and malicious content
@@ -937,19 +960,6 @@ export function getDailyNoteFilename(date: Date): string {
 }
 
 /**
- * Parses a daily note filename to extract the date.
- * @param filename - The filename to parse (e.g., "2025-01-01.md")
- * @returns The parsed date, or null if invalid format
- */
-export function parseDailyNoteFilename(filename: string): Date | null {
-  const match = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-  if (!match) return null;
-
-  const date = parse(match[1], 'yyyy-MM-dd', new Date());
-  return isValid(date) ? date : null;
-}
-
-/**
  * Generates a filename for a weekly note based on the date.
  * Uses ISO week numbering (Monday start, week 1 contains Jan 4).
  * @param date - Any date within the target week
@@ -959,34 +969,6 @@ export function getWeeklyNoteFilename(date: Date): string {
   const weekYear = getISOWeekYear(date);
   const weekNum = getISOWeek(date);
   return `${weekYear}-W${weekNum.toString().padStart(2, '0')}.md`;
-}
-
-/**
- * Parses a weekly note filename to extract the week info.
- * @param filename - The filename to parse (e.g., "2024-W52.md")
- * @returns Object with year, week number, and start/end dates, or null if invalid
- */
-export function parseWeeklyNoteFilename(
-  filename: string
-): { year: number; week: number; start: Date; end: Date } | null {
-  const match = filename.match(/^(\d{4})-W(\d{2})\.md$/);
-  if (!match) return null;
-
-  const year = parseInt(match[1], 10);
-  const week = parseInt(match[2], 10);
-
-  if (week < 1 || week > 53) return null;
-
-  // Create a date in the target week (use January 4 + weeks as it's always in week 1)
-  const jan4 = new Date(year, 0, 4);
-  const targetDate = new Date(jan4.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
-
-  return {
-    year,
-    week,
-    start: startOfISOWeek(targetDate),
-    end: endOfISOWeek(targetDate),
-  };
 }
 
 /**
@@ -1044,20 +1026,6 @@ export function filenameToNote(file: NoteFile, content: string): Note {
     date: file.date,
     week: file.week,
   };
-}
-
-/**
- * Checks if a note with the given name exists in the file system.
- * @param noteName - The note name to check
- * @returns True if the note exists
- */
-export async function checkNoteExists(noteName: string): Promise<boolean> {
-  try {
-    const result = await invoke<[boolean, string]>('note_exists', { noteName });
-    return result[0];
-  } catch {
-    return false;
-  }
 }
 
 // Note Locking Functions
@@ -1126,21 +1094,6 @@ export async function permanentlyUnlockNote(
   await invoke('permanently_unlock_note', { filename, password, isDaily, isWeekly });
   lockedNoteWrites.delete(noteHashKey(filename, isDaily, isWeekly));
   forgetNoteBaseHash(filename, isDaily, isWeekly);
-}
-
-/**
- * Checks if a note is currently locked.
- * @param filename - The note filename (e.g., "my-note.md")
- * @param isDaily - Whether this is a daily note
- * @param isWeekly - Whether this is a weekly note
- * @returns True if the note is locked
- */
-export async function isNoteLocked(
-  filename: string,
-  isDaily: boolean,
-  isWeekly: boolean = false
-): Promise<boolean> {
-  return await invoke('is_note_locked', { filename, isDaily, isWeekly });
 }
 
 // Directory Management Functions
@@ -1381,15 +1334,6 @@ export async function exportSingleNote(
 }
 
 // Note Color/Metadata Functions
-
-/**
- * Gets the color ID for a specific note.
- * @param notePath - The path identifier for the note (e.g., "daily/2024-12-11.md")
- * @returns The color ID or null if no color is set
- */
-export async function getNoteColor(notePath: string): Promise<string | null> {
-  return await invoke('get_note_color', { notePath });
-}
 
 /**
  * Sets the color ID for a specific note.

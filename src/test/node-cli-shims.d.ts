@@ -1,4 +1,4 @@
-/** Minimal Node declarations for CLI regression tests; the browser app ships no Node types. */
+/** Minimal Node declarations for tests that touch the host; the browser app ships no Node types. */
 declare module 'node:fs' {
   export function mkdtempSync(prefix: string): string;
   export function mkdirSync(path: string): void;
@@ -18,6 +18,8 @@ declare module 'node:process' {
   const process: {
     cwd(): string;
     execPath: string;
+    on(event: 'unhandledRejection', listener: () => void): void;
+    off(event: 'unhandledRejection', listener: () => void): void;
   };
   export default process;
 }
