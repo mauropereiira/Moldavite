@@ -44,10 +44,6 @@ use serde::{Deserialize, Serialize};
 use crate::frontmatter;
 use crate::persist::write_atomic;
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
 /// On-disk index format version. Bump on breaking changes to force rebuilds.
 pub(crate) const INDEX_VERSION: u32 = 1;
 /// Default embedding model for new and upgraded installations.
@@ -68,10 +64,6 @@ pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
 /// User-facing reason semantic search is unavailable on Intel macOS.
 #[cfg(not(semantic_runtime))]
 pub(crate) const UNSUPPORTED_MESSAGE: &str = "Semantic search requires Apple Silicon on macOS";
-
-// =============================================================================
-// EMBEDDER
-// =============================================================================
 
 /// User-facing metadata for one curated local embedding model.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -233,10 +225,6 @@ pub(crate) fn init_fastembed_embedder(model_id: &str) -> Result<FastEmbedder, St
     })
 }
 
-// =============================================================================
-// INDEX FILE
-// =============================================================================
-
 /// One indexed note.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct IndexEntry {
@@ -308,10 +296,6 @@ pub(crate) fn load_index(forge_root: &Path, model_id: &str) -> Option<Vec<IndexE
     }
     Some(file.entries)
 }
-
-// =============================================================================
-// TEXT → VECTOR
-// =============================================================================
 
 /// SHA-256 hex of a note body.
 pub(crate) fn content_hash(body: &str) -> String {
@@ -406,10 +390,6 @@ pub(crate) fn top_k_similar(
     hits.truncate(limit);
     hits
 }
-
-// =============================================================================
-// NOTE SCANNING + RECONCILE
-// =============================================================================
 
 /// A note eligible for indexing: forge-relative path, title, body.
 pub(crate) struct NoteSource {
@@ -618,10 +598,6 @@ pub(crate) fn refresh_entry(
     Ok(true)
 }
 
-// =============================================================================
-// PATH HELPERS
-// =============================================================================
-
 /// Forge-relative index path for a note addressed the way the note commands
 /// address it (bare filename for daily/weekly, `notes/`-relative otherwise).
 pub(crate) fn note_rel_path(filename: &str, is_daily: bool, is_weekly: bool) -> String {
@@ -647,10 +623,6 @@ pub(crate) fn is_valid_note_index_path(path: &str) -> bool {
     }
     crate::validation::is_safe_existing_note_path(rest)
 }
-
-// =============================================================================
-// SERVICE (global state + incremental hooks)
-// =============================================================================
 
 /// Lifecycle state of the semantic index.
 #[derive(Debug, Clone, PartialEq)]
@@ -859,10 +831,6 @@ impl SemanticService {
     }
 }
 
-// =============================================================================
-// INCREMENTAL HOOKS (called from note commands; no-ops when disabled)
-// =============================================================================
-
 /// A note's content changed (save, restore, unlock, …). Debounced so rapid
 /// auto-saves collapse into one re-embed; never blocks the caller.
 pub(crate) fn note_changed(rel_path: &str) {
@@ -1025,10 +993,6 @@ pub(crate) fn all_notes_removed() {
         svc.persist_entries(&forge_root);
     });
 }
-
-// =============================================================================
-// TESTS
-// =============================================================================
 
 #[cfg(test)]
 mod tests {

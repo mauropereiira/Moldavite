@@ -79,10 +79,8 @@ pub(crate) struct PluginFetchResponse {
     body_base64: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Pure validation (no network) — unit tested directly at the bottom of this
 // file.
-// ---------------------------------------------------------------------------
 
 /// `URL.host` in JS is hostname, plus `:port` only when the port is explicit
 /// and not the scheme's default (the WHATWG URL parser normalizes the default
@@ -222,10 +220,6 @@ fn check_declared_length(headers: &HeaderMap, cap: usize) -> Result<(), String> 
     }
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Network
-// ---------------------------------------------------------------------------
 
 /// One shared client so keep-alive and the TLS session cache carry across
 /// plugin requests instead of paying a fresh handshake every call.
@@ -367,10 +361,6 @@ async fn serialize_response(
         body_base64,
     })
 }
-
-// ---------------------------------------------------------------------------
-// Tests — pure validation only, no network.
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

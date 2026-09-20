@@ -137,10 +137,6 @@ pub(crate) struct SearchIndexStatus {
     pub(crate) index_path: String,
 }
 
-// =============================================================================
-// LOCATION
-// =============================================================================
-
 /// Where every Forge's index directory lives in a real installation: the app
 /// data dir, never a Forge.
 fn default_index_root() -> PathBuf {
@@ -194,10 +190,6 @@ fn now_ms() -> i64 {
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
 }
-
-// =============================================================================
-// PER-FORGE HANDLE
-// =============================================================================
 
 /// One lazily opened connection per Forge, behind a mutex. Both processes go
 /// through this; the mutex only serializes this process's own access.
@@ -344,10 +336,6 @@ fn meta_set(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
-// =============================================================================
-// ROWS
-// =============================================================================
-
 /// One note as the index stores it.
 struct NoteRow {
     path: String,
@@ -425,10 +413,6 @@ fn delete_row(conn: &Connection, path: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
-// =============================================================================
-// WORKER
-// =============================================================================
-
 enum Job {
     Changed(PathBuf, String),
     Removed(PathBuf, String),
@@ -491,10 +475,6 @@ fn indexable(rel: &str) -> bool {
     crate::semantic::is_valid_note_index_path(rel)
 }
 
-// =============================================================================
-// HOOKS
-// =============================================================================
-
 /// A note's content changed (save, restore, unlock, duplicate, …).
 pub(crate) fn note_changed(rel_path: &str) {
     if let Ok(root) = crate::paths::get_notes_dir() {
@@ -553,10 +533,6 @@ pub(crate) fn all_notes_removed_in(forge_root: PathBuf) {
         log::debug!("[search index] clear skipped: {error}");
     }
 }
-
-// =============================================================================
-// QUERY
-// =============================================================================
 
 /// Turn the user's words into quoted FTS5 prefix tokens joined by the implicit
 /// AND. Quoting is the whole point: it is what keeps `AND`, `OR`, `NOT`,
@@ -660,10 +636,6 @@ pub(crate) fn query(
     }
     Some(matches)
 }
-
-// =============================================================================
-// RECONCILE / REBUILD
-// =============================================================================
 
 /// Bring the index in line with disk. Only the app process calls this.
 ///

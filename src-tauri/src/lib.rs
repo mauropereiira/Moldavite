@@ -14,10 +14,6 @@
 //! - Unlock attempts are rate limited in-process; a copied `.locked` file is
 //!   protected only by Argon2id and the password itself
 
-// =============================================================================
-// MODULE DECLARATIONS
-// =============================================================================
-
 /// Calendar integration: Apple (EventKit, macOS) and Google (REST, all platforms)
 mod calendar;
 

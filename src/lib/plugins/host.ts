@@ -74,10 +74,6 @@ function classify(raw: RawPlugin): PluginInfo {
   return { manifest: v.manifest, status: 'ok', contentHash };
 }
 
-// -----------------------------------------------------------------------------
-// Per-plugin runtime state.
-// -----------------------------------------------------------------------------
-
 interface PluginRuntime {
   worker: Worker;
   permissions: readonly string[];

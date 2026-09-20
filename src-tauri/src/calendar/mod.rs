@@ -187,8 +187,6 @@ fn http_client() -> reqwest::Client {
         .clone()
 }
 
-// ---------------------------------------------------------------- Apple
-
 #[cfg(target_os = "macos")]
 fn apple_status() -> CalendarSourceStatus {
     let permission = apple::get_permission_status();
@@ -294,8 +292,6 @@ fn apple_events(
 ) -> Result<Vec<CalendarEvent>, String> {
     Ok(Vec::new())
 }
-
-// --------------------------------------------------------------- Google
 
 fn google_status() -> CalendarSourceStatus {
     if !oauth::is_configured() {
@@ -466,8 +462,6 @@ async fn google_events(
 
     Ok(SourceEventBatch { events, failures })
 }
-
-// ------------------------------------------------------------- Dispatch
 
 pub async fn list_sources() -> Vec<CalendarSourceStatus> {
     let mut apple = apple_status();
