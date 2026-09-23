@@ -102,7 +102,7 @@ A Forge is a directory. Keep several and switch between them.
   weekly/       YYYY-Www.md
   notes/        everything else, subfolders and all
   templates/
-  images/
+  images/       pasted images, linked from notes as images/<file>
   .trash/       7-day retention
   .plugins/
   .index/       semantic index, when you turn semantic search on
@@ -127,7 +127,7 @@ and troubleshooting. iOS availability and its full guide will follow separately.
 Settings → Appearance offers S–XL text sizes for the editor and desktop Settings.
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
-daily and weekly notes, Apple and Google Calendar on a timeline (Apple on macOS
+Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on macOS
 only), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
 an encrypted archive, a one-time Obsidian importer that copies rather than
 moves, and sandboxed plugins that run in a Worker with no network unless you

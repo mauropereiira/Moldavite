@@ -68,6 +68,12 @@ describe('stripMarkdown', () => {
     expect(stripMarkdown('![logo](/x.png) hi')).toContain('logo hi');
   });
 
+  it('turns a table into tab-separated rows', () => {
+    expect(stripMarkdown('| **a** | b \\| c |\n| :--- | ---: |\n| 1<br>2 |  |\n\nAfter')).toBe(
+      'a\tb | c\n1 2\t\n\nAfter\n'
+    );
+  });
+
   it('collapses 3+ blank lines into 2', () => {
     expect(stripMarkdown('a\n\n\n\nb')).toBe('a\n\nb\n');
   });

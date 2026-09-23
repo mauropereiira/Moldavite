@@ -124,7 +124,16 @@ const BUDGETS = [
 // saves with retry and the Retry / Save as a copy toast, the close and hidden
 // flushes) and tabs that follow folder renames add 8.7 KB raw / 2.8 KB gz.
 // Measured 637.1 KB / 177.4 KB gz.
-const APP_JS_BUDGET = { rawKb: 640, gzipKb: 179 };
+// 634 / 177: Markdown tables (the GFM Turndown rules, insert and edit entries
+// in the Format menu, slash menu and phone bar) and Forge-relative image paths
+// add 3.5 KB raw / 1.1 KB gz. The table extension itself lands in tiptap-vendor
+// (+33 KB raw / +10 KB gz, inside that budget). Measured 632.3 KB / 175.9 KB gz.
+// 638 / 178: the table data-loss fixes (merged cells written as a grid, ragged
+// rows padded, paragraph-only cells with paste flattening and the split guard,
+// escaped wiki-link aliases) add 3.8 KB raw / 1.7 KB gz. Measured 636.3 KB /
+// 177.7 KB gz.
+// 646 / 181: tables and save on leave together. Measured 644.8 KB / 180.3 KB gz.
+const APP_JS_BUDGET = { rawKb: 646, gzipKb: 181 };
 
 async function main() {
   let entries;

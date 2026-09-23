@@ -19,6 +19,8 @@ const STRIKETHROUGH = /~~(?=\S)(?:[^\n]*?\S)?~~/;
 const INLINE_CODE = /(^|[\s([{"'])`(?=\S)(?:[^`\n]*\S)?`(?=$|[\s)\]}.,!?:'"])/m;
 const MARKDOWN_LINK = /\[[^\]\n]+\]\((?![ \t]*\))[^\s)\n]+(?:[ \t]+["'][^"'\n]*["'])?[ \t]*\)/;
 const WIKI_LINK = /\[\[[^\]|\n]*\S[^\]|\n]*(?:\|[^\]\n]*\S[^\]\n]*)?\]\]/;
+const TABLE =
+  /^[^\n]*\|[^\n]*\n[ \t]{0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$/m;
 
 const MARKDOWN_PATTERNS = [
   SUPPORTED_ATX_HEADING,
@@ -34,6 +36,7 @@ const MARKDOWN_PATTERNS = [
   INLINE_CODE,
   MARKDOWN_LINK,
   WIKI_LINK,
+  TABLE,
 ];
 
 function hasYamlFrontmatter(text: string): boolean {

@@ -44,6 +44,10 @@ export const WikiLink = Node.create<WikiLinkOptions>({
         default: null,
         parseHTML: (element) => element.getAttribute('data-label') || element.textContent || '',
       },
+      'data-raw-target': {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-raw-target'),
+      },
       'data-exists': {
         default: 'unknown',
         parseHTML: (element) => element.getAttribute('data-exists') || 'unknown',
@@ -75,7 +79,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
   renderText({ node }) {
     const label = node.attrs['data-label'] || '';
-    return `[[${label}]]`;
+    const rawTarget = node.attrs['data-raw-target'];
+    return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
   },
 
   addCommands() {
