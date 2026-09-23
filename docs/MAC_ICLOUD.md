@@ -8,7 +8,7 @@ Moldavite on an iPhone or iPad. iOS availability will be announced separately.
 
 1. Update Moldavite from **Settings → About → Check for Updates**.
 2. Open **Settings → General** and turn on **Use synced Forge**.
-3. Wait for the switch to show **On**. Moldavite creates or opens the shared
+3. Wait for the switch to turn on. Moldavite creates or opens the shared
    iCloud Forge and makes it the active Forge.
 4. Write notes normally, or click **Open synced folder in Finder** to add files.
 
@@ -21,9 +21,9 @@ Turning it off does not delete the iCloud folder or its contents.
 
 Copy ordinary Markdown (`.md`) notes into `notes/` inside the synced folder.
 Subfolders belong under `notes/`; daily notes use `daily/YYYY-MM-DD.md`, and
-weekly notes use `weekly/YYYY-Www.md`. Preserve relative attachment paths when
-copying notes with images. Keep the original copies until you have checked the
-notes and attachments in Moldavite.
+weekly notes use `weekly/YYYY-Www.md`. Copy a note's images into the synced
+Forge's `images/` folder and link them as `images/<file>`. Keep the original
+copies until you have checked the notes and attachments in Moldavite.
 
 Unlock locked notes in Moldavite before moving them between Forges or paths.
 Encrypted notes depend on their paths. Back up important notes before a bulk

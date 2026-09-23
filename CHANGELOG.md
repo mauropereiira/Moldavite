@@ -74,7 +74,7 @@ All notable changes to Moldavite are documented here.
 
 - Switching to another app with ⌘Tab while renaming a note from its title renamed it to the half-typed name, and rewrote the links to it. Switching apps now leaves the name as you were typing it; the note is renamed when you press Enter or click elsewhere in Moldavite.
 
-- Delete and Empty Trash in the Trash, and Delete in a trashed note's preview, deleted for good at the first click. They now ask first, in the same words on the Mac and iPhone.
+- Delete and Empty trash in the Trash, and Delete in a trashed note's preview, deleted for good at the first click. They now ask first, in the same words on the Mac and iPhone.
 
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
 

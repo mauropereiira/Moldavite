@@ -122,11 +122,13 @@ Notes that are only in iCloud show a small cloud and download when you open
 them and tap **Download**.
 
 See [the Mac iCloud guide](docs/MAC_ICLOUD.md) for setup, adding existing notes,
-and troubleshooting. iOS availability and its full guide will follow separately.
+and troubleshooting. The full iOS guide will follow separately.
 
 ## What else it does
 
-Settings → Appearance offers S–XL text sizes for the editor and desktop Settings.
+Settings → Appearance offers six themes, Cream, Sage, Slate, Clay, Plum and
+Graphite, each in light and dark, and S–XL text sizes for the editor and
+desktop Settings. Settings → Layout puts the icon rail on the left or the right.
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
 Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on macOS
@@ -146,8 +148,8 @@ first time you open it.
 
 Pin the notes you keep coming back to and they sit in a bar across the top,
 reorderable, with the rest a click away. Rename a note by editing its title.
-Order the sidebar A–Z, Z–A, or by hand: drag notes and folders where you want
-them and they stay there.
+Order the sidebar A–Z, Z–A, by date modified or created, or by hand: drag
+notes and folders where you want them and they stay there.
 
 **Clip any page to a note.** A browser extension turns the page you are reading
 into Markdown in the Forge you choose, links kept, images and styling dropped,
@@ -190,4 +192,4 @@ MIT.
 
 ### iOS development
 
-The iOS app is in development, with a phone layout, touch formatting controls and local-device onboarding. It is not yet available on the App Store. See [the mobile status and build guide](docs/MOBILE.md) for implemented features and remaining release work, and [the App Store handoff](docs/IOS_APP_STORE.md) for account setup and upload instructions.
+The iOS app is on the App Store as Moldavite: Notes & Ideas (not yet in France) and is still in development, with a phone layout, touch formatting controls and local-device onboarding. See [the mobile status and build guide](docs/MOBILE.md) for implemented features and remaining release work, and [the App Store handoff](docs/IOS_APP_STORE.md) for account setup and upload instructions.

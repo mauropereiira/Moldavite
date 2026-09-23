@@ -33,7 +33,7 @@ flowchart TB
 
     MCP["Same binary + --mcp<br/>headless, no GUI"] --> VA
     CLIP["Same binary as the browser's<br/>native-messaging host"] --> PS
-    WORKER["Plugin Workers<br/>plugin:// scheme"] -. "host-enforced RPC" .-> CM
+    WORKER["Plugin Workers"] -. "host-enforced RPC" .-> CM
 ```
 
 The same binary serves four entrypoints. `src-tauri/src/main.rs` picks between
@@ -133,7 +133,7 @@ src/
 └── lib/          # fileSystem.ts (IPC + Markdown conversion), plugins/, validation
 
 src-tauri/
-├── src/lib.rs           # command registration, plugin:// scheme, app setup
+├── src/lib.rs           # command registration, app setup
 ├── src/main.rs          # entrypoint; picks MCP mode before Tauri starts
 ├── src/mcp/             # stdio JSON-RPC protocol, tool schemas, dispatch
 ├── src/commands/        # by domain: notes, search, forges, plugins, locking…

@@ -46,8 +46,8 @@ Its READ-ME records source provenance and the current submission status.
 
 ## Review and adding France later
 
-1. Watch App Review and the developer email for Apple's decision or requests.
-   The submission passed validation and is Waiting for Review.
+1. After each submission, watch App Review and the developer email for Apple's
+   decision or requests.
 2. **ANSSI acknowledged receipt of the declaration on 6 September 2026.** That
    acknowledgement is a receipt, not an attestation, and it sets the clock:
 
