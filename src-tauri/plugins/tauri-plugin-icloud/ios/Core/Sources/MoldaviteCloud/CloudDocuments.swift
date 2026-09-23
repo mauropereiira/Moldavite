@@ -6,7 +6,8 @@ public enum CloudError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .preparing: return "iCloud is still preparing this Forge. Try again shortly."
-        case .pendingDownload: return "This note is waiting for iCloud to download. Try again when it is available."
+        // The app recognises this exact text; keep it equal to `NOT_DOWNLOADED` in cloud_forge.rs.
+        case .pendingDownload: return "This note is in iCloud and hasn't downloaded to this device yet."
         case .unavailable: return "iCloud Drive is unavailable. Check your iCloud account and app access."
         case .accountChanged: return "The iCloud account changed. Reopen the synced Forge before continuing."
         case .invalidPath: return "The requested file is outside the synced Forge."
@@ -30,6 +31,21 @@ public enum DownloadState: String, Codable {
         default: return .unknown
         }
     }
+
+    /// An unknown status does not mean the bytes are missing: a file that is on
+    /// disk and not dataless can be read without a download.
+    static func resolvingUnknown(_ state: Self, at url: URL) -> Self {
+        guard state == .unknown, hasLocalBytes(url) else { return state }
+        return .downloaded
+    }
+}
+
+/// A dataless file (SF_DATALESS) is listed on disk but its contents are in iCloud;
+/// reading it would start a download.
+func hasLocalBytes(_ url: URL) -> Bool {
+    var info = stat()
+    guard lstat(url.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { return false }
+    return info.st_flags & 0x4000_0000 == 0
 }
 
 public struct CloudItem: Codable {
@@ -40,6 +56,8 @@ public struct CloudItem: Codable {
     public let isUploading: Bool
     public let hasConflicts: Bool
     public let error: String?
+    /// When the contents last changed; tells a remote edit from upload progress.
+    public var modified: Date? = nil
 }
 
 /// Only this app's Documents container, never an arbitrary caller-supplied root.
@@ -131,7 +149,8 @@ public final class CloudDocuments {
             .isDirectoryKey, .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey,
             .ubiquitousItemIsDownloadingKey, .ubiquitousItemIsUploadingKey,
             .ubiquitousItemHasUnresolvedConflictsKey,
-            .ubiquitousItemDownloadingErrorKey, .ubiquitousItemUploadingErrorKey
+            .ubiquitousItemDownloadingErrorKey, .ubiquitousItemUploadingErrorKey,
+            .contentModificationDateKey
         ]
         let values: URLResourceValues?
         do {
@@ -148,7 +167,8 @@ public final class CloudDocuments {
             // Destructive tree operations validate its metadata-listed children.
             state = .local
         } else if values?.isUbiquitousItem == true {
-            state = DownloadState.from(status: values?.ubiquitousItemDownloadingStatus, ubiquitous: true)
+            state = DownloadState.resolvingUnknown(
+                DownloadState.from(status: values?.ubiquitousItemDownloadingStatus, ubiquitous: true), at: url)
         } else if !manager.fileExists(atPath: url.path) {
             state = manager.fileExists(atPath: placeholder.path) ? .pending : .missing
         } else {
@@ -161,7 +181,8 @@ public final class CloudDocuments {
             isDownloading: values?.ubiquitousItemIsDownloading == true,
             isUploading: values?.ubiquitousItemIsUploading == true,
             hasConflicts: values?.ubiquitousItemHasUnresolvedConflicts == true,
-            error: (values?.ubiquitousItemDownloadingError ?? values?.ubiquitousItemUploadingError)?.localizedDescription
+            error: (values?.ubiquitousItemDownloadingError ?? values?.ubiquitousItemUploadingError)?.localizedDescription,
+            modified: values?.contentModificationDate
         )
     }
 

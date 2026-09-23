@@ -229,6 +229,27 @@ mod tests {
 
         let _ = fs::remove_dir_all(dir);
     }
+
+    #[test]
+    fn a_template_note_never_takes_the_name_of_a_note_still_in_icloud() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-template-remote-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let daily = root.join("daily");
+        fs::create_dir_all(&daily).unwrap();
+        let _snapshot = crate::cloud_forge::test_snapshot::install(&root, &["daily/2026-09-20.md"]);
+
+        let error = template_note_destination(&daily, "2026-09-20.md").unwrap_err();
+
+        assert_eq!(error, "A note with this name already exists");
+        assert!(template_note_destination(&daily, "2026-09-21.md").is_ok());
+        let _ = fs::remove_dir_all(root);
+    }
 }
 
 #[tauri::command]
@@ -248,11 +269,13 @@ fn template_note_destination(dir: &Path, filename: &str) -> Result<PathBuf, Stri
         return Err("Destination folder does not exist".to_string());
     }
     validate_path_within_base(&path, dir).map_err(|_| "Invalid note path".to_string())?;
-    // A locked note is absent under its plaintext name, so the `.locked` form
-    // has to be checked too or the new note shadows it on disk.
-    let mut locked = path.as_os_str().to_os_string();
-    locked.push(".locked");
-    if path.exists() || PathBuf::from(locked).exists() {
+    // A locked note is absent under its plaintext name, and a note still in
+    // iCloud is not on disk at all; either would be shadowed by the new note.
+    let leaf = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    if crate::persist::name_is_taken(parent, leaf) {
         return Err("A note with this name already exists".to_string());
     }
     Ok(path)

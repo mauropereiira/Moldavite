@@ -108,6 +108,7 @@ fn dispatch_note_io(
                     | "permanently_unlock_note"
                     | "is_note_locked"
                     | "rename_note"
+                    | "icloud_download_note"
                     | "move_note"
                     | "delete_note"
                     | "create_folder"
@@ -381,6 +382,8 @@ pub fn run() {
         .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
             commands::forges::set_synced_forge_enabled,
+            commands::forges::icloud_readiness,
+            commands::notes::icloud_download_note,
             #[cfg(mobile)]
             commands::misc::open_support_page,
             #[cfg(mobile)]

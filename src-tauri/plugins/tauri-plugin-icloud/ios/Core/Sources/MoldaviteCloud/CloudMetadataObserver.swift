@@ -64,7 +64,7 @@ public final class CloudMetadataObserver {
         case NSMetadataUbiquitousItemDownloadingStatusCurrent: downloadState = .current
         case NSMetadataUbiquitousItemDownloadingStatusDownloaded: downloadState = .downloaded
         case NSMetadataUbiquitousItemDownloadingStatusNotDownloaded: downloadState = .pending
-        default: downloadState = .unknown
+        default: downloadState = DownloadState.resolvingUnknown(.unknown, at: url)
         }
         let error = (metadata.value(forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey)
             ?? metadata.value(forAttribute: NSMetadataUbiquitousItemUploadingErrorKey)) as? Error
@@ -75,7 +75,8 @@ public final class CloudMetadataObserver {
             isDownloading: metadata.value(forAttribute: NSMetadataUbiquitousItemIsDownloadingKey) as? Bool == true,
             isUploading: metadata.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool == true,
             hasConflicts: metadata.value(forAttribute: NSMetadataUbiquitousItemHasUnresolvedConflictsKey) as? Bool == true,
-            error: error?.localizedDescription
+            error: error?.localizedDescription,
+            modified: metadata.value(forAttribute: NSMetadataItemFSContentChangeDateKey) as? Date
         )
     }
 

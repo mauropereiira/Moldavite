@@ -64,7 +64,9 @@ fn relative_id(root: &Path, path: &Path) -> Option<String> {
 }
 
 fn read_graph_file(root: &Path, path: &Path) -> Option<GraphFile> {
-    if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+    if path.extension().and_then(|ext| ext.to_str()) != Some("md")
+        || crate::cloud_forge::is_evicted(path)
+    {
         return None;
     }
     let id = relative_id(root, path)?;

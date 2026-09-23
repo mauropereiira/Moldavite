@@ -106,16 +106,22 @@ fn locked_sibling(path: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
+/// A name iCloud lists in the synced Forge is taken even before its contents
+/// reach this device.
 fn note_name_is_taken(path: &Path) -> bool {
-    path.exists() || locked_sibling(path).exists()
+    let locked = locked_sibling(path);
+    path.exists()
+        || locked.exists()
+        || crate::cloud_forge::is_remote_name(path)
+        || crate::cloud_forge::is_remote_name(&locked)
 }
 
 /// `generate_unique_filename` only sees plaintext names, so step past any
-/// candidate whose locked form is already on disk.
+/// candidate whose locked form is already taken.
 fn unique_unlocked_filename(dir: &Path, base_name: &str) -> String {
     let mut name = generate_unique_filename(dir, base_name, "md");
     let mut counter = 2u32;
-    while locked_sibling(&dir.join(&name)).exists() && counter <= 10_000 {
+    while note_name_is_taken(&dir.join(&name)) && counter <= 10_000 {
         name = generate_unique_filename(dir, &format!("{base_name} ({counter})"), "md");
         counter += 1;
     }
@@ -254,6 +260,33 @@ fn preserve_buffer_copy_unlocked(path: &Path, body: &str, stamp: &str) -> Result
     let serialized = frontmatter::serialize_note(None, &Default::default(), body);
     write_atomic(&conflict_path, serialized.as_bytes(), Some(0o600))?;
     Ok(conflict_name)
+}
+
+/// Keep each iCloud conflict version of `note` that differs from it as a
+/// `(conflict …)` copy beside it. Returns each copy's file name and body.
+#[cfg(any(target_os = "macos", target_os = "ios", test))]
+pub(crate) fn preserve_conflict_versions(
+    note: &Path,
+    versions: &[PathBuf],
+) -> Result<Vec<(String, String)>, String> {
+    let _guard = conflict_copy_lock()
+        .lock()
+        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+    let current = fs::read(note).map_err(|error| format!("Cannot read the note: {error}"))?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+    let mut copies = Vec::new();
+    for version in versions {
+        let bytes = fs::read(version)
+            .map_err(|error| format!("Cannot read a conflict version: {error}"))?;
+        if bytes == current {
+            continue;
+        }
+        let (path, name) = conflict_copy_destination(note, &stamp)?;
+        write_atomic(&path, &bytes, Some(0o600))?;
+        let body = frontmatter::parse_note(&String::from_utf8_lossy(&bytes)).body;
+        copies.push((name, body));
+    }
+    Ok(copies)
 }
 
 fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> {
@@ -503,6 +536,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                         is_locked,
                         folder_path,
                         modified_at,
+                        not_downloaded: false,
                     });
                 }
             }
@@ -537,6 +571,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        not_downloaded: false,
                     });
                 }
             }
@@ -566,6 +601,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        not_downloaded: false,
                     });
                 }
             }
@@ -604,12 +640,62 @@ pub(crate) fn read_note(
     } else {
         get_standalone_dir()?
     };
+    read_note_in(&dir, &filename, is_daily, is_weekly)
+}
 
-    let path = dir.join(&filename);
-    if !path.exists() && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly) {
+fn read_note_in(
+    dir: &Path,
+    filename: &str,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<NoteRead, String> {
+    let path = dir.join(filename);
+    // Its folder may not be on this device yet, which path validation rejects.
+    if crate::cloud_forge::is_remote_only(&path) {
+        return Err(crate::cloud_forge::NOT_DOWNLOADED.to_string());
+    }
+    if !path.exists() && !is_valid_new_note_ref(dir, filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
-    read_note_within_base(&dir, &path)
+    read_note_within_base(dir, &path)
+}
+
+/// The path a save of `filename` may replace. A note still in iCloud is refused:
+/// without its contents there is nothing to merge with or preserve.
+fn note_write_target(
+    dir: &Path,
+    filename: &str,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<PathBuf, String> {
+    let path = dir.join(filename);
+    if crate::cloud_forge::is_remote_only(&path) {
+        return Err(crate::cloud_forge::NOT_DOWNLOADED.to_string());
+    }
+    if !note_name_is_taken(&path) && !is_valid_new_note_ref(dir, filename, is_daily, is_weekly) {
+        return Err("Invalid filename".to_string());
+    }
+    Ok(path)
+}
+
+/// Ask iCloud to download a note listed in the synced Forge.
+#[tauri::command]
+pub(crate) fn icloud_download_note(
+    filename: String,
+    is_daily: bool,
+    is_weekly: bool,
+) -> Result<crate::cloud_forge::CloudDownload, String> {
+    if !is_valid_existing_note_ref(&filename, is_daily, is_weekly) {
+        return Err("Invalid filename".to_string());
+    }
+    let dir = if is_weekly {
+        get_weekly_dir()?
+    } else if is_daily {
+        get_daily_dir()?
+    } else {
+        get_standalone_dir()?
+    };
+    crate::cloud_forge::download(&dir.join(&filename))
 }
 
 // Tauri command parameters map 1:1 to the IPC payload; grouping them into a
@@ -644,10 +730,7 @@ pub(crate) fn write_note(
         get_standalone_dir()?
     };
 
-    let path = dir.join(&filename);
-    if !note_name_is_taken(&path) && !is_valid_new_note_ref(&dir, &filename, is_daily, is_weekly) {
-        return Err("Invalid filename".to_string());
-    }
+    let path = note_write_target(&dir, &filename, is_daily, is_weekly)?;
     // External-edit conflict safety: if the disk copy changed since the
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
@@ -1333,6 +1416,112 @@ mod tests {
     const STAMP: &str = "2026-07-12 1015";
 
     #[test]
+    fn a_note_still_in_icloud_is_reported_before_its_missing_folder_fails_validation() {
+        let tmp = TempDir::new("remote-folder");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        let filename = "Remote Folder/Plan.md";
+
+        let error = read_note_in(&notes, filename, false, false).unwrap_err();
+        assert_eq!(error, "Invalid note path");
+
+        let _snapshot = crate::cloud_forge::test_snapshot::install(
+            tmp.path(),
+            &["notes/Remote Folder/Plan.md"],
+        );
+        let error = read_note_in(&notes, filename, false, false).unwrap_err();
+        assert_eq!(error, crate::cloud_forge::NOT_DOWNLOADED);
+        // Unlisted names in missing folders stay invalid, and traversal is
+        // rejected before any lookup.
+        assert_eq!(
+            read_note_in(&notes, "Other Folder/Plan.md", false, false).unwrap_err(),
+            "Invalid note path"
+        );
+        assert!(!is_valid_existing_note_ref(
+            "../notes/Remote Folder/Plan.md",
+            false,
+            false
+        ));
+
+        // Once the contents arrive the note reads normally.
+        fs::create_dir_all(notes.join("Remote Folder")).unwrap();
+        fs::write(notes.join(filename), "downloaded body").unwrap();
+        assert_eq!(
+            read_note_in(&notes, filename, false, false)
+                .unwrap()
+                .content,
+            "downloaded body"
+        );
+    }
+
+    #[test]
+    fn a_save_never_replaces_a_note_still_in_icloud() {
+        let tmp = TempDir::new("remote-save");
+        let daily = tmp.path().join("daily");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&daily).unwrap();
+        fs::create_dir_all(&notes).unwrap();
+        let _snapshot = crate::cloud_forge::test_snapshot::install(
+            tmp.path(),
+            &["daily/2026-09-20.md", "notes/Remote Folder/Plan.md"],
+        );
+        for (dir, filename, is_daily) in [
+            (&daily, "2026-09-20.md", true),
+            (&notes, "Remote Folder/Plan.md", false),
+        ] {
+            assert_eq!(
+                note_write_target(dir, filename, is_daily, false).unwrap_err(),
+                crate::cloud_forge::NOT_DOWNLOADED
+            );
+            assert!(!dir.join(filename).exists());
+        }
+        assert!(note_write_target(&daily, "2026-09-21.md", true, false).is_ok());
+    }
+
+    #[test]
+    fn new_note_names_step_past_notes_still_in_icloud() {
+        let tmp = TempDir::new("remote-names");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        let _snapshot = crate::cloud_forge::test_snapshot::install(
+            tmp.path(),
+            &["notes/Meeting.md", "notes/Meeting (2).md.locked"],
+        );
+        assert!(crate::persist::name_is_taken(&notes, "Meeting.md"));
+        assert!(crate::persist::name_is_taken(&notes, "Meeting (2).md"));
+        assert!(note_name_is_taken(&notes.join("Meeting.md")));
+        let (filename, _) = create_note_in(&notes, "Meeting", None).unwrap();
+        assert_eq!(filename, "Meeting (3).md");
+        assert!(!notes.join("Meeting.md").exists());
+        let (copy, name) = conflict_copy_destination(&notes.join("Meeting.md"), STAMP).unwrap();
+        assert_eq!(name, format!("Meeting (conflict {STAMP}).md"));
+        assert!(!copy.exists());
+    }
+
+    #[test]
+    fn icloud_conflict_versions_become_conflict_copies() {
+        let tmp = TempDir::new("conflict-versions");
+        let note = tmp.path().join("note.md");
+        fs::write(&note, "mine").unwrap();
+        let same = tmp.path().join("version-same");
+        let theirs = tmp.path().join("version-theirs");
+        fs::write(&same, "mine").unwrap();
+        fs::write(&theirs, "---\ncolor: red\n---\ntheirs").unwrap();
+
+        let copies = preserve_conflict_versions(&note, &[same, theirs]).unwrap();
+
+        assert_eq!(copies.len(), 1);
+        let (name, body) = &copies[0];
+        assert!(name.starts_with("note (conflict "), "{name}");
+        assert_eq!(body, "theirs");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(name)).unwrap(),
+            "---\ncolor: red\n---\ntheirs"
+        );
+        assert_eq!(fs::read_to_string(&note).unwrap(), "mine");
+    }
+
+    #[test]
     fn failed_existing_note_read_never_becomes_an_empty_save_base() {
         let tmp = TempDir::new("unreadable-note");
         let path = tmp.path().join("note.md");
@@ -1355,11 +1544,11 @@ mod tests {
         let marker = base.join(".pending.md.icloud");
         fs::write(&marker, "remote placeholder metadata").unwrap();
         let error = read_note_within_base(&base, &path).unwrap_err();
-        assert!(error.contains("waiting for iCloud"), "{error}");
+        assert!(error.contains("hasn't downloaded"), "{error}");
         let error =
             save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "overwrite", None)
                 .unwrap_err();
-        assert!(error.contains("waiting for iCloud"), "{error}");
+        assert!(error.contains("hasn't downloaded"), "{error}");
         assert!(!path.exists());
         assert_eq!(
             fs::read_to_string(&marker).unwrap(),

@@ -92,6 +92,33 @@ public final class CloudSession {
     }
 }
 
+extension CloudSession {
+    /// Ask iCloud for a listed item's contents. Completion arrives as a metadata update.
+    public func startDownloading(_ path: String) throws -> CloudItem {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let documents = documents else { throw CloudError.unavailable }
+        guard !invalidated else { throw CloudError.accountChanged }
+        guard ready else { throw CloudError.preparing }
+        guard items[path] != nil else { throw CloudError.invalidPath }
+        return try documents.startDownloading(path)
+    }
+}
+
+/// `path` is relative to the Forge root. The accessor receives the item as JSON.
+@_cdecl("moldavite_cloud_download")
+public func downloadCloudItem(_ path: UnsafePointer<CChar>?, _ context: UnsafeMutableRawPointer?,
+                              _ accessor: FileAccessor) {
+    do {
+        guard let path = path, let value = String(validatingUTF8: path) else { throw CloudError.invalidPath }
+        let item = try CloudSession.shared.startDownloading(value)
+        let json = String(data: try JSONEncoder().encode(item), encoding: .utf8) ?? "{}"
+        json.withCString { accessor(context, $0, nil) }
+    } catch {
+        error.localizedDescription.withCString { accessor(context, nil, $0) }
+    }
+}
+
 @_cdecl("moldavite_cloud_root")
 public func activeCloudRoot(_ context: UnsafeMutableRawPointer?, _ accessor: FileAccessor) {
     do {

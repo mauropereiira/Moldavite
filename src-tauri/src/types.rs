@@ -20,6 +20,9 @@ pub(crate) struct NoteFile {
     pub(crate) folder_path: Option<String>,
     /// Unix timestamp (seconds) of last filesystem modification, if known.
     pub(crate) modified_at: Option<i64>,
+    /// Listed by iCloud in the synced Forge, but its contents are not on this device.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) not_downloaded: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -258,7 +258,9 @@ pub(crate) fn get_all_note_colors() -> Result<std::collections::HashMap<String, 
                 .map(|c| c.as_os_str().to_string_lossy().to_string())
                 .collect::<Vec<_>>()
                 .join("/");
-            if crate::validation::validate_path_within_base(p, &root).is_err() {
+            if crate::validation::validate_path_within_base(p, &root).is_err()
+                || crate::cloud_forge::is_evicted(p)
+            {
                 continue;
             }
             if let Ok(raw) = fs::read_to_string(p) {

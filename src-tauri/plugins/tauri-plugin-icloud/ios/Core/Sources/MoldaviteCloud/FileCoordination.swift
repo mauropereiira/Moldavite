@@ -73,7 +73,7 @@ public func accessFile(
         let item = try CloudDocuments.inspect(url: url, path: value)
         guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
             try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            fail(item.error ?? "This note is waiting for iCloud to download. Try again when it is available.")
+            fail(CloudError.pendingDownload.localizedDescription)
             return
         }
         // A new note inherits the enclosing cloud directory's coordination.
@@ -116,8 +116,7 @@ private func checkedFileAccessor(
         let item = try CloudDocuments.inspect(url: url, path: value)
         guard item.downloadState.hasLocalContents || item.downloadState == .missing else {
             try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            throw NSError(domain: "MoldaviteCloud", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "This note is waiting for iCloud to download. Try again when it is available."])
+            throw CloudError.pendingDownload
         }
         state.accessor(state.context, path, nil)
     } catch {

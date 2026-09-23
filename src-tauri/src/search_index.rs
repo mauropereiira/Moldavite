@@ -355,7 +355,10 @@ struct NoteRow {
 fn read_row(forge_root: &Path, rel: &str) -> Option<NoteRow> {
     let abs = forge_root.join(rel);
     let metadata = fs::symlink_metadata(&abs).ok()?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || crate::cloud_forge::is_evicted(&abs)
+    {
         return None;
     }
     let raw = fs::read_to_string(&abs).ok()?;

@@ -406,6 +406,9 @@ fn title_from_rel_path(rel_path: &str) -> String {
 }
 
 fn push_note_source(abs: &Path, rel_path: String, out: &mut Vec<NoteSource>) {
+    if crate::cloud_forge::is_evicted(abs) {
+        return;
+    }
     let Ok(raw) = fs::read_to_string(abs) else {
         return;
     };
