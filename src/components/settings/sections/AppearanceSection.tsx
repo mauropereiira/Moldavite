@@ -34,6 +34,9 @@ export function AppearanceSection({
   onPresetChange,
 }: AppearanceSectionProps) {
   const settings = useSettingsStore();
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   return (
     <div className="space-y-6">
       <section className="settings-section">
@@ -58,7 +61,7 @@ export function AppearanceSection({
         <div>
           <div className="flex items-center gap-1">
             <SectionHeading>Color preset</SectionHeading>
-            <InfoTooltip text="Curated palettes layered on top of your light/dark choice. Some presets are designed for one mode only and fall back to Moldavite otherwise." />
+            <InfoTooltip text="Each palette has a light and a dark version and follows your light/dark choice." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Pick a palette for the editor and chrome
@@ -72,8 +75,7 @@ export function AppearanceSection({
         >
           {PRESETS.map((p) => {
             const selected = preset === p.id;
-            const badge =
-              p.coverage === 'dark' ? 'Dark only' : p.coverage === 'light' ? 'Light only' : null;
+            const swatches = isDark ? p.darkSwatches : p.swatches;
             return (
               <button
                 key={p.id}
@@ -86,21 +88,9 @@ export function AppearanceSection({
                   borderLeft: `2px solid ${selected ? 'var(--text-primary)' : 'transparent'}`,
                 }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {p.label}
-                  </span>
-                  {badge && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5"
-                      style={{
-                        color: 'var(--text-tertiary)',
-                      }}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                </div>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {p.label}
+                </span>
                 <div className="flex gap-1">
                   {(['bg', 'surface', 'accent', 'text', 'border'] as const).map((k) => (
                     <span
@@ -110,7 +100,7 @@ export function AppearanceSection({
                       style={{
                         width: 18,
                         height: 18,
-                        backgroundColor: p.swatches[k],
+                        backgroundColor: swatches[k],
                         border: '1px solid var(--border-muted)',
                       }}
                     />

@@ -10,108 +10,136 @@ import { persist } from 'zustand/middleware';
  *
  * Persisted values are validated during hydration. Applied DOM classes and attributes
  * are a deterministic projection of the two axes, never a second theme state.
- * Each preset supplies tokens for one or both base modes. When a preset
- * doesn't fit a given base mode (e.g. Dracula in light), the CSS falls
- * back to the `default` palette. We don't try to invent palettes that
- * weren't designed for a given mode — designers chose them deliberately.
+ * Every preset supplies tokens for both base modes, so the two axes combine
+ * freely.
  */
 export type BaseMode = 'light' | 'dark' | 'system';
 
-export type ThemePreset = 'default' | 'solarized' | 'dracula' | 'nord' | 'sepia' | 'gruvbox';
+export type ThemePreset = 'default' | 'sage' | 'slate' | 'clay' | 'plum' | 'graphite';
 
-/**
- * Coverage descriptor for the picker UI.
- * - `both`  — the preset has both light and dark token blocks
- * - `dark`  — dark-only; the preset falls back to `default` in light mode
- * - `light` — light-only; the preset falls back to `default` in dark mode
- */
-export type PresetCoverage = 'both' | 'dark' | 'light';
+export interface PresetSwatches {
+  bg: string;
+  surface: string;
+  accent: string;
+  text: string;
+  border: string;
+}
 
 export interface PresetMeta {
   id: ThemePreset;
   label: string;
-  coverage: PresetCoverage;
-  /** 5 representative swatches: bg, surface, accent, text, border. */
-  swatches: {
-    bg: string;
-    surface: string;
-    accent: string;
-    text: string;
-    border: string;
-  };
+  /** 5 representative swatches per mode: paper, chrome, accent, text, border. */
+  swatches: PresetSwatches;
+  darkSwatches: PresetSwatches;
 }
 
 export const PRESETS: PresetMeta[] = [
   {
     id: 'default',
     label: 'Cream',
-    coverage: 'both',
     swatches: {
-      bg: '#F9F6ED',
-      surface: '#FFFDF6',
+      bg: '#FFFDF6',
+      surface: '#F2EEE1',
       accent: '#2E5B3C',
       text: '#0E0D0A',
       border: 'rgba(14, 13, 10, 0.13)',
     },
-  },
-  {
-    id: 'solarized',
-    label: 'Solarized',
-    coverage: 'both',
-    swatches: {
-      bg: '#fdf6e3',
-      surface: '#eee8d5',
-      accent: '#268bd2',
-      text: '#073642',
-      border: '#d8d2bd',
+    darkSwatches: {
+      bg: '#1A1811',
+      surface: '#0D0B07',
+      accent: '#7FB58C',
+      text: '#F9F6ED',
+      border: 'rgba(249, 246, 237, 0.14)',
     },
   },
   {
-    id: 'dracula',
-    label: 'Dracula',
-    coverage: 'dark',
+    id: 'sage',
+    label: 'Sage',
     swatches: {
-      bg: '#282a36',
-      surface: '#383a4a',
-      accent: '#bd93f9',
-      text: '#f8f8f2',
-      border: '#44475a',
+      bg: '#EDF7EA',
+      surface: '#D6E5D0',
+      accent: '#4E591B',
+      text: '#0E170B',
+      border: 'rgba(14, 23, 11, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#1B2817',
+      surface: '#0B1B06',
+      accent: '#ACB880',
+      text: '#E3EDE0',
+      border: 'rgba(227, 237, 224, 0.14)',
     },
   },
   {
-    id: 'nord',
-    label: 'Nord',
-    coverage: 'dark',
+    id: 'slate',
+    label: 'Slate',
     swatches: {
-      bg: '#2e3440',
-      surface: '#3b4252',
-      accent: '#88c0d0',
-      text: '#eceff4',
-      border: '#434c5e',
+      bg: '#EBF5FE',
+      surface: '#D2E2F0',
+      accent: '#235585',
+      text: '#0C151D',
+      border: 'rgba(12, 21, 29, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#182631',
+      surface: '#071725',
+      accent: '#87B6E6',
+      text: '#E0EBF5',
+      border: 'rgba(224, 235, 245, 0.14)',
     },
   },
   {
-    id: 'sepia',
-    label: 'Sepia',
-    coverage: 'light',
+    id: 'clay',
+    label: 'Clay',
     swatches: {
-      bg: '#f4ecd8',
-      surface: '#fbf4e0',
-      accent: '#8b5a2b',
-      text: '#3b2a1a',
-      border: '#d8c8a8',
+      bg: '#FFF0E8',
+      surface: '#F2DACD',
+      accent: '#86371D',
+      text: '#1D1009',
+      border: 'rgba(29, 16, 9, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#321F14',
+      surface: '#260F03',
+      accent: '#EA9A81',
+      text: '#F6E6DE',
+      border: 'rgba(246, 230, 222, 0.14)',
     },
   },
   {
-    id: 'gruvbox',
-    label: 'Gruvbox',
-    coverage: 'both',
+    id: 'plum',
+    label: 'Plum',
     swatches: {
-      bg: '#fbf1c7',
-      surface: '#f2e5bc',
-      accent: '#af3a03',
-      text: '#3c3836',
-      border: '#d5c4a1',
+      bg: '#FCF0F8',
+      surface: '#ECD9E7',
+      accent: '#753A66',
+      text: '#1A1018',
+      border: 'rgba(26, 16, 24, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#2D1F2A',
+      surface: '#200F1D',
+      accent: '#D79BC5',
+      text: '#F2E5EE',
+      border: 'rgba(242, 229, 238, 0.14)',
+    },
+  },
+  {
+    id: 'graphite',
+    label: 'Graphite',
+    swatches: {
+      bg: '#F1F4F7',
+      surface: '#DCE0E5',
+      accent: '#23272C',
+      text: '#111418',
+      border: 'rgba(17, 20, 24, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#212428',
+      surface: '#13161B',
+      accent: '#CCD1D8',
+      text: '#E5EAF0',
+      border: 'rgba(229, 234, 240, 0.14)',
     },
   },
 ];
@@ -120,6 +148,21 @@ const PRESET_IDS = PRESETS.map((p) => p.id) as ThemePreset[];
 
 export const isThemePreset = (v: unknown): v is ThemePreset =>
   typeof v === 'string' && (PRESET_IDS as string[]).includes(v);
+
+/** Presets retired in the 2026 revamp, mapped to the closest current palette. */
+const RETIRED_PRESETS: Record<string, ThemePreset> = {
+  solarized: 'slate',
+  nord: 'slate',
+  dracula: 'plum',
+  sepia: 'clay',
+  gruvbox: 'clay',
+};
+
+export const normalizePreset = (v: unknown): ThemePreset => {
+  if (isThemePreset(v)) return v;
+  if (typeof v === 'string' && v in RETIRED_PRESETS) return RETIRED_PRESETS[v];
+  return 'default';
+};
 
 interface ThemeState {
   /** Light/dark/system base mode (drives the `dark` class). */
@@ -167,7 +210,7 @@ export const useThemeStore = create<ThemeState>()(
           legacyTheme === 'light' || legacyTheme === 'dark' || legacyTheme === 'system'
             ? legacyTheme
             : ((state.baseMode as BaseMode) ?? 'system');
-        const preset: ThemePreset = isThemePreset(state.preset) ? state.preset : 'default';
+        const preset = normalizePreset(state.preset);
         return { baseMode, preset, theme: baseMode } as ThemeState;
       },
       merge: (persistedState, currentState) => {
@@ -181,42 +224,12 @@ export const useThemeStore = create<ThemeState>()(
             : legacyTheme === 'light' || legacyTheme === 'dark' || legacyTheme === 'system'
               ? legacyTheme
               : currentState.baseMode;
-        const preset: ThemePreset = isThemePreset(persisted.preset) ? persisted.preset : 'default';
+        const preset = normalizePreset(persisted.preset);
         return { ...currentState, baseMode, preset, theme: baseMode };
       },
     }
   )
 );
-
-/**
- * Resolve the preset that should actually be applied for the given base mode.
- *
- * If the user picked a preset that doesn't have a token block for the current
- * base mode (e.g. Sepia in dark, Dracula in light), fall back to `default`.
- * Without this, the `dark` class stays on `<html>` while the `data-theme`
- * attribute points at a preset that only defined light tokens — so half the
- * CSS variables come from the preset's light block and half from the default
- * dark block, producing unreadable mixed-mode chrome (most visibly: editor
- * stays dark while the rest of the UI uses Sepia's cream palette).
- *
- * The user's stored preference is preserved; only the *applied* attribute
- * changes for the duration of the mismatch.
- */
-export const resolveAppliedPreset = (mode: BaseMode, preset: ThemePreset): ThemePreset => {
-  const meta = PRESETS.find((p) => p.id === preset);
-  if (!meta || meta.coverage === 'both') return preset;
-
-  let effectiveDark: boolean;
-  if (mode === 'system') {
-    effectiveDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  } else {
-    effectiveDark = mode === 'dark';
-  }
-
-  if (meta.coverage === 'dark' && !effectiveDark) return 'default';
-  if (meta.coverage === 'light' && effectiveDark) return 'default';
-  return preset;
-};
 
 /** Apply the current theme (base mode + preset) to <html>. */
 export const applyTheme = (mode: BaseMode, preset: ThemePreset = 'default') => {
@@ -227,5 +240,5 @@ export const applyTheme = (mode: BaseMode, preset: ThemePreset = 'default') => {
   } else {
     root.classList.toggle('dark', mode === 'dark');
   }
-  root.setAttribute('data-theme', resolveAppliedPreset(mode, preset));
+  root.setAttribute('data-theme', preset);
 };

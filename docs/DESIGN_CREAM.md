@@ -282,11 +282,14 @@ class on `<html>`, mirroring how `.compact-mode` already works.
 3. **New surfaces use inline `style={{}}` reading `var()`**, matching the
    dominant existing pattern. Adding classes to `index.css` serialises work on
    a 3,700-line file everything else also needs.
-4. **Six theme presets ship as a feature.** `default` is Cream. Solarized,
-   Dracula, Nord, Gruvbox and Sepia have canonical hexes that **cannot** be
-   recoloured. Any new token added to `:root` must be considered across all
-   eight blocks, and `themeStore.ts`'s `PRESETS[]` swatch array needs
-   hand-syncing.
+4. **Six theme presets ship as a feature.** `default` is Cream, the identity.
+   Sage, Slate, Clay, Plum and Graphite are Moldavite's own palettes, each with
+   a light and a dark block: its own ground, chrome, ink, accent and syntax
+   colours, generated in OKLCH so every preset holds the same contrast
+   (`themePalettes.test.ts` enforces it). Within a preset the chrome stays
+   two-colour; presets differ by which two colours. Any new token added to
+   `:root` must be considered across all twelve blocks, and `themeStore.ts`'s
+   `PRESETS[]` light and dark swatches need hand-syncing.
 5. **New settings need three edits** — the `SettingsState` interface,
    `defaultSettings`, and the `partialize` allow-list — or they silently fail
    to persist. There is no migration needed for a new boolean.

@@ -25,7 +25,7 @@
 
 export { useNoteStore } from './noteStore';
 export { useThemeStore, applyTheme, PRESETS } from './themeStore';
-export type { BaseMode, ThemePreset, PresetCoverage, PresetMeta } from './themeStore';
+export type { BaseMode, ThemePreset, PresetMeta, PresetSwatches } from './themeStore';
 export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
