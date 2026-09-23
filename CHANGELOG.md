@@ -46,6 +46,8 @@ All notable changes to Moldavite are documented here.
 
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
 
+- **iPhone in landscape:** the rail's Trash button sat below the bottom of the screen and now fits, and the rail scrolls while the keyboard is up. With the keyboard up, a pinned bar steps aside, searching the Index shows results rather than only the Forge name and the search field, and dialogs get the room the home indicator took. More in the note's Actions scrolls instead of hiding Duplicate note above the screen, and a tall dialog opened from the Index, such as Lock note, stays clear of a pinned bar and the home indicator. The Index search's Clear is a full-size touch target.
+
 ### Fixed
 
 - The Timeline's previews showed Markdown as typed: backslashes before brackets, table pipes and `---` rules, list and task markers. They show the words only, a daily note is named by its date ("5 September") as its own header is, and the Timeline closes with × like the other pages.

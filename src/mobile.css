@@ -26,6 +26,13 @@ html[data-platform='mobile'] {
   --app-height: 100vh;
 }
 
+/* The shell ends at the keyboard while it is up, so nothing in it reaches the
+   home indicator. Above a landscape keyboard the inset was 21 of about 150pt
+   left to a dialog. */
+html[data-platform='mobile'][data-keyboard='open'] {
+  --safe-bottom: 0px;
+}
+
 /* 1. TOUCH BASICS */
 
 html[data-platform='mobile'] {
@@ -253,6 +260,25 @@ html[data-platform='mobile'].has-icon-rail.icon-rail-right:not(.focus-mode) {
     [data-tooltip].icon-rail-button[data-active='true'] {
     border-left-color: var(--text-primary);
   }
+
+  /* Nine 44pt buttons with the rail's padding, the divider's margins and the
+     bottom inset came to 414pt on a 402pt screen, before a pinned bar took
+     46pt more, so Trash sat under the bottom edge. The buttons keep their
+     height and the spacing goes. The bottom inset guards the home indicator
+     in the middle of that edge, not the rail at its end. With the keyboard
+     up the rail scrolls. */
+  html[data-platform='mobile'] .icon-rail {
+    padding-bottom: 0;
+    overflow-y: auto;
+  }
+
+  html[data-platform='mobile'] .icon-rail > div {
+    padding-block: 0;
+  }
+
+  html[data-platform='mobile'] .icon-rail-divider {
+    margin-block: 0;
+  }
 }
 
 /* The phone's rail is 44pt with an inset hairline, which consumes none of the
@@ -333,6 +359,23 @@ html[data-platform='mobile'][data-keyboard='open'] .index-overlay-content > .sid
   display: none;
 }
 
+/* Above a landscape keyboard the Forge name and the search field filled the
+   page and no result showed. The rail's Index button still closes it. The
+   close row's display is inline. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-platform='mobile'][data-keyboard='open']
+    :is(
+      .index-overlay-content > .forge-switcher:not(:focus-within),
+      .app-index-overlay:not(:has(.forge-switcher:focus-within)) > .app-overlay-controls
+    ) {
+    display: none !important;
+  }
+
+  html[data-platform='mobile'][data-keyboard='open'] .index-overlay-content > .sidebar-search {
+    padding-top: 0;
+  }
+}
+
 /* The footer's rule spans the page, so it reaches back over the inset. */
 html[data-platform='mobile'] .index-overlay-content > .sidebar-footer {
   margin-left: calc(-1 * var(--page-safe-left));
@@ -350,6 +393,16 @@ html[data-platform='mobile'] .forge-switcher > button {
 }
 
 html[data-platform='mobile'] .forge-switcher :is(button, input) {
+  min-height: var(--touch-target);
+}
+
+/* Clear is a 10px word; the field's right padding already has room for the
+   target. */
+html[data-platform='mobile'] .sidebar-search [aria-label='Clear search'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--touch-target);
   min-height: var(--touch-target);
 }
 
@@ -727,6 +780,17 @@ html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar
   padding: 10px 12px;
 }
 
+/* A submenu of Actions opens upwards from its row, about 107pt above the
+   shell's bottom, under a 46pt pinned bar. On a landscape phone More's six
+   rows ran past the top of the note column and Duplicate note could not be
+   reached. Only the inner menu scrolls: overflow on Actions would clip the
+   submenu it positions. */
+html[data-platform='mobile'] .editor-footer [role='menu'] [role='menu'] {
+  max-height: calc(var(--app-height) - 160px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Spans the rail as well, so it clears both insets. It is the app's first
    row, so it also clears the status bar, and the shell below it no longer
    has to. */
@@ -737,6 +801,14 @@ html[data-platform='mobile'] .pinned-bar {
 
 html[data-platform='mobile']:not(.focus-mode):has(.pinned-bar) {
   --shell-safe-top: 0px;
+}
+
+/* A landscape keyboard leaves the app about 190pt, and the bar took 46 of
+   them from the note, the Index results and any dialog. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-platform='mobile'][data-keyboard='open'] .pinned-bar {
+    display: none;
+  }
 }
 
 html[data-platform='mobile'] .pinned-bar-item {
@@ -833,6 +905,13 @@ html[data-platform='mobile'] .modal-elevated {
   max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
   overflow-y: auto;
   overflow-wrap: anywhere;
+}
+
+/* A page's scrim starts below a pinned bar, which the shell height above
+   leaves out: on a landscape phone Lock note ran under the bar and onto the
+   home indicator. The scrim's own box is the room there. */
+html[data-platform='mobile'] .app-overlay .modal-backdrop-dark > .modal-elevated {
+  max-height: calc(100% - 32px);
 }
 
 html[data-platform='mobile'] .modal-elevated .btn {

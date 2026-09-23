@@ -460,6 +460,12 @@ describe('IconRail', () => {
       }
     });
 
+    it('names the divider the landscape rule closes up', () => {
+      const { container } = render(<IconRail />);
+      const rail = container.querySelector('.icon-rail');
+      expect(rail?.querySelector(':scope > div > .icon-rail-divider')).not.toBeNull();
+    });
+
     it('moves the active marker to the hairline on a landscape phone, on either side', () => {
       const landscape = mobileCss.indexOf(
         '@media (orientation: landscape) and (max-height: 500px)'

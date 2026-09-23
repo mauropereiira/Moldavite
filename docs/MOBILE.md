@@ -176,7 +176,11 @@ get trapped underneath Index.
   bars and the note paper paint to the screen edge and pad only their contents,
   so hairlines and note colours still reach the edge. The rail's active marker
   moves from the outer edge to the hairline there, since the outer edge is
-  under the sensor band.
+  under the sensor band. At 402pt the rail drops its padding and bottom inset
+  to fit nine 44pt buttons under a pinned bar, and scrolls above the keyboard.
+  While the keyboard is up in landscape the pinned bar and the Index's Forge
+  row hide, and `--safe-bottom` is zero on any phone, since the shell ends at
+  the keyboard.
 - Segmented controls with four or more options become a one-per-row list.
 - `tauri-plugin-mobile-ui` follows the system's preferred body-text scale while
   retaining Cream's fonts. Large text stacks segmented controls and Index footer

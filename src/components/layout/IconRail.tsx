@@ -168,7 +168,7 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
 
         <div
           aria-hidden="true"
-          className="my-2"
+          className="icon-rail-divider my-2"
           style={{ width: '24px', borderTop: '1px solid var(--border-default)' }}
         />
 
