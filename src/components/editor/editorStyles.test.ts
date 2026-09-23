@@ -125,3 +125,10 @@ it('does not ship tippy’s dark box: the stock theme is not imported', () => {
   document.body.innerHTML = '<div class="tippy-box"><div class="tippy-content">x</div></div>';
   expect(computed('.tippy-box').backgroundColor).not.toBe('rgb(51, 51, 51)');
 });
+
+it('lifts the title above the empty-note template layer so a tap renames', () => {
+  document.body.innerHTML =
+    '<div class="editor-paper" data-template-prompt=""><header class="note-header"></header></div>';
+  expect(computed('.note-header').position).toBe('relative');
+  expect(Number(computed('.note-header').zIndex)).toBeGreaterThan(10);
+});

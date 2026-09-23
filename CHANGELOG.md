@@ -18,6 +18,10 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- **New on iPhone opens the note straight away, ready to be named.** The keyboard is up on its title: type a name and press return to start writing. Templates are one tap away under View templates in the empty note. Before, New asked for a title, then showed a page of templates, then left you on the Index with the note hidden behind it. The template page now fills the screen, and is called "Choose a template", since it fills the note you are in.
+
+- **Renaming a note from its title tells you what is wrong as you type.** A name that cannot be used is explained under the title, and Enter keeps you there to fix it; leaving the field puts the note's name back. Enter on a good name renames the note and moves you into its text.
+
 - On iPhone the editor footer no longer has a Menu of Index, Agenda and Settings, which are the rail's own buttons beside it. Its More menu drops Pin to the top bar (it is in the Index's Options), Copy URL to note and a second plain-text export, and "Export as plain text" is spelled the same in every menu.
 
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
@@ -27,6 +31,8 @@ All notable changes to Moldavite are documented here.
 - **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)
 
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
+
+- Clicking the title of an empty note put the cursor in the note's text instead of letting you rename it.
 
 - **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
 

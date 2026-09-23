@@ -143,7 +143,10 @@ const BUDGETS = [
 // formatting row, suggestion lists placed against the visible area, typed
 // wiki links and the Create row) adds 3.3 KB raw / 1.3 KB gz over 652.1 /
 // 182.7 at 3b7690a. Measured 655.4 KB / 184.0 KB gz.
-const APP_JS_BUDGET = { rawKb: 657, gzipKb: 185 };
+// 660 / 186: the note flow round (a new note opening on its title, inline
+// title errors, the share sheet, menus that close together, trash labels for
+// locked notes) adds 2.3 KB raw / 1.1 KB gz. Measured 657.7 KB / 185.1 KB gz.
+const APP_JS_BUDGET = { rawKb: 660, gzipKb: 186 };
 
 async function main() {
   let entries;

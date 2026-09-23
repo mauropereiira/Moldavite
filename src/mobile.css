@@ -705,9 +705,14 @@ html[data-platform='mobile'] :is(.modal-backdrop-dark, .wn-scrim) {
   padding: var(--safe-top) var(--page-safe-right) var(--safe-bottom) var(--page-safe-left);
 }
 
-/* A page's ground runs to the edge; its content takes the inset instead. */
+/* A page's ground runs to the edge; its content takes the inset instead. It
+   spans the rail's column as well (the rail paints above it), so a pinned bar
+   over the rail cannot show through there. */
 html[data-platform='mobile'] .modal-backdrop-dark:has(> .template-picker-modal) {
-  padding-inline: 0;
+  left: 0;
+  right: 0;
+  padding: 0 var(--rail-inset-right) 0 var(--rail-inset-left);
+  background: var(--bg-elevated);
 }
 
 /* The template picker is a page, like Settings: a grid of cards with a
@@ -729,6 +734,8 @@ html[data-platform='mobile'] .modal-elevated.template-picker-modal {
   max-width: none;
   max-height: none;
   margin: 0;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
   border: 0;
   border-radius: 0;
   box-shadow: none;

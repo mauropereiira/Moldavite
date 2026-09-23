@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FolderInfo, NoteFile } from '@/types';
@@ -12,6 +12,12 @@ import {
 import { ChromeShortcutHost } from '@/components/ChromeShortcutHost';
 import { EditorNavigation } from '@/components/layout/EditorNavigation';
 import { IndexOverlay } from './IndexOverlay';
+
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({
+  isMobilePlatform: () => platform.mobile,
+  isTabletPlatform: () => false,
+}));
 
 const ipc = vi.hoisted(() => ({
   notesAvailable: true,
@@ -41,6 +47,8 @@ vi.mock('@tauri-apps/api/core', () => ({
           contentHash: `hash-${filename}`,
         };
       }
+      case 'create_note':
+        return `${String(args?.title)}.md`;
       case 'write_note':
         return { contentHash: `hash-${String(args?.filename ?? '')}`, conflictCopy: null };
       default:
@@ -180,8 +188,42 @@ describe('IndexOverlay', () => {
   });
 
   beforeEach(() => {
+    platform.mobile = false;
     localStorage.clear();
     resetStores([], [], false);
+  });
+
+  // The phone used to ask for a title, then show a template page, then land
+  // back on the Index with the note hidden behind it.
+  it('opens a new note straight away on the phone and leaves the Index', async () => {
+    platform.mobile = true;
+    const onClose = vi.fn();
+    render(<IndexOverlay isOpen onClose={onClose} />);
+
+    fireEvent.click(
+      within(document.querySelector('.sidebar-footer') as HTMLElement).getByRole('button', {
+        name: 'New',
+      })
+    );
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog', { name: 'New Note' })).not.toBeInTheDocument();
+    await waitFor(() => expect(useNoteStore.getState().currentNote?.id).toBe('notes/Untitled.md'));
+    expect(screen.queryByText(/Choose a template/)).not.toBeInTheDocument();
+  });
+
+  it('still asks for the title first on the desktop', () => {
+    const onClose = vi.fn();
+    render(<IndexOverlay isOpen onClose={onClose} />);
+
+    fireEvent.click(
+      within(document.querySelector('.sidebar-footer') as HTMLElement).getByRole('button', {
+        name: 'New',
+      })
+    );
+
+    expect(screen.getByRole('dialog', { name: 'New Note' })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('renders a realistic vault without throwing', async () => {

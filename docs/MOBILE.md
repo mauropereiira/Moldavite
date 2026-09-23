@@ -126,8 +126,17 @@ get trapped underneath Index.
   the desktop's Index · Agenda · Settings links are not rendered, since the
   rail carries them. The note runs the full width of the paper with 16px
   gutters; the note header sits on the rail's rhythm. An empty note offers
-  one View templates button; the template picker opens as a page beside the
-  rail.
+  one View templates button; the template picker opens as a full-screen page
+  beside the rail.
+- New (Index, folder Options, the welcome screen, the quick switcher) creates
+  "Untitled" and opens it on its title with the name selected and the
+  keyboard up. iOS raises the keyboard only for a focus made inside the tap,
+  and the title exists only after the file does, so the tap focuses a hidden
+  stand-in field (`src/lib/noteTitleFocus.ts`) and the title takes the focus
+  from it. The editor must not clear the document selection while a field
+  outside the note has the focus: WebKit then keeps the field focused and the
+  keyboard up, but inserts nothing. Return in the title renames the note and
+  moves the caret into the body.
 - `useVisualViewportHeight` keeps `--app-height` equal to the visual
   viewport so the software keyboard never covers the editor, and scrolls
   the page back to the top when WKWebView drags it under the status bar to

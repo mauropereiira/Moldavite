@@ -1900,6 +1900,14 @@ html:not([data-platform='mobile'])
   padding-inline: clamp(20px, 4vw, 56px);
 }
 
+/* An empty note's template layer (z-10) covers the paper so a tap puts the
+   caret in the body; the title stays above it so a tap there renames. An
+   empty note cannot scroll, so the title never passes the sticky Close. */
+.editor-paper[data-template-prompt] .note-header {
+  position: relative;
+  z-index: 11;
+}
+
 /* CALENDAR & TIMELINE */
 
 .calendar-date {

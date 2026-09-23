@@ -57,6 +57,7 @@ import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
+import { isMobilePlatform } from '@/lib/platform';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 
@@ -388,6 +389,19 @@ export function Sidebar({
       e.preventDefault();
       searchStore.moveSelection(-1);
     }
+  };
+
+  // A phone opens a new note straight away, on its title, with the keyboard
+  // up; its templates are one tap away in the empty note. The desktop asks
+  // for the name and a template first.
+  const startNewNote = (folder: string | null = null) => {
+    if (isMobilePlatform()) {
+      void createNote('Untitled', folder);
+      onNavigate?.();
+      return;
+    }
+    setCreateNoteInFolder(folder);
+    setIsCreating(true);
   };
 
   const handleCreateNote = async () => {
@@ -828,8 +842,7 @@ export function Sidebar({
           folder={folderMenu.target}
           position={folderMenu.position}
           onNewNoteInFolder={(folder) => {
-            setCreateNoteInFolder(folder.path);
-            setIsCreating(true);
+            startNewNote(folder.path);
             closeFolderContextMenu();
           }}
           onRename={handleRenameFolder}
@@ -923,7 +936,7 @@ export function Sidebar({
                         : 'name-asc'
                   )
                 }
-                onNewNote={() => setIsCreating(true)}
+                onNewNote={() => startNewNote()}
                 onNoteClick={handleSidebarNoteClick}
                 onNoteSelectionClick={handleSelectionClick}
                 onNoteContextMenu={handleContextMenu}
@@ -1093,7 +1106,7 @@ export function Sidebar({
 
       <SidebarFooter
         onToday={handleTodayClick}
-        onNewNote={() => setIsCreating(true)}
+        onNewNote={() => startNewNote()}
         onSettings={() => {
           setIsSettingsOpen(true);
           onNavigate?.();

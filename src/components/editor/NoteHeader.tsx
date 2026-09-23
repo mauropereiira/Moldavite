@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import type { Note } from '@/types';
+import { getNoteTitleError } from '@/lib/validation';
+import { takeTitleFocus } from '@/lib/noteTitleFocus';
 
 /**
  * The note's masthead: title set large in the display face, with the date
@@ -23,14 +25,21 @@ import type { Note } from '@/types';
  *
  * Daily and weekly notes stay read-only: they are named by date, and the rename
  * command rejects them for that reason.
+ *
+ * Blur commits and Enter commits then hands the caret to the body. A name the
+ * rename would reject is reported under the field while it is typed; Enter
+ * keeps it there to fix, and blur puts the file's name back.
  */
 export function NoteHeader({
   note,
   onRename,
+  onSubmit,
 }: {
   note: Note | null;
   /** Resolves the on-disk file itself; the header only supplies the new name. */
   onRename?: (title: string) => Promise<void>;
+  /** Enter committed the name: move on to the body. */
+  onSubmit?: () => void;
 }) {
   const title = note ? note.title.replace(/\.md$/, '') : '';
 
@@ -44,12 +53,16 @@ export function NoteHeader({
   const heading = isDateNamed ? format(asDate, 'd MMMM') : title;
   const [draft, setDraft] = useState(heading);
   const [lastHeading, setLastHeading] = useState(heading);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Escape restores the name and then blurs, and blurring is what commits — so
   // without this the abandoned edit would be saved by the very act of leaving
   // the field. A ref rather than state because `commit` must see it in the same
   // tick the blur fires.
   const abandonedRef = useRef(false);
+  // Enter has already committed by the time its hand-off to the body blurs
+  // the field, possibly before the new name has rendered here.
+  const submittedRef = useRef(false);
 
   // Follow the note: without this the field keeps the previous note's title
   // when you switch, which reads as the wrong note being open. Adjusted during
@@ -59,7 +72,17 @@ export function NoteHeader({
   if (heading !== lastHeading) {
     setLastHeading(heading);
     setDraft(heading);
+    setRenameError(null);
   }
+
+  const noteId = note?.id;
+  const canRename = Boolean(onRename && note) && !isDateNamed && !note?.isWeekly;
+
+  useEffect(() => {
+    if (!noteId || !canRename || !takeTitleFocus(noteId)) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [noteId, canRename]);
 
   if (!note) return null;
 
@@ -68,8 +91,6 @@ export function NoteHeader({
     : note.updatedAt
       ? `Edited ${format(new Date(note.updatedAt), 'd MMM yyyy')}`
       : null;
-
-  const canRename = Boolean(onRename) && !isDateNamed && !note.isWeekly;
 
   const headingStyle = {
     fontFamily: 'var(--font-display)',
@@ -82,23 +103,38 @@ export function NoteHeader({
     overflowWrap: 'anywhere' as const,
   };
 
-  const commit = async () => {
+  const trimmed = draft.trim();
+  const draftError = trimmed && trimmed !== heading ? getNoteTitleError(trimmed) : null;
+  const error = draftError ?? renameError;
+
+  const commit = async (): Promise<boolean> => {
     if (abandonedRef.current) {
       abandonedRef.current = false;
-      return;
+      return false;
     }
-    const next = draft.trim();
-    if (!next || next === heading) {
+    if (!trimmed || trimmed === heading || draftError) {
       setDraft(heading);
-      return;
+      return !draftError;
     }
     try {
-      await onRename?.(next);
-    } catch {
-      // `renameNote` reports the reason itself; put the old name back so the
-      // page never shows a name the file does not have.
-      setDraft(heading);
+      await onRename?.(trimmed);
+      return true;
+    } catch (renameFailure) {
+      setRenameError(
+        renameFailure instanceof Error ? renameFailure.message : String(renameFailure)
+      );
+      // Left with Enter, the name stays to be fixed. Once the field is left,
+      // the page must not show a name the file does not have.
+      if (document.activeElement !== inputRef.current) setDraft(heading);
+      return false;
     }
+  };
+
+  const submit = async () => {
+    if (draftError) return;
+    if (!(await commit()) || !onSubmit) return;
+    submittedRef.current = true;
+    onSubmit();
   };
 
   return (
@@ -117,13 +153,26 @@ export function NoteHeader({
             ref={inputRef}
             value={draft}
             aria-label="Note title"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'note-title-error' : undefined}
+            enterKeyHint="next"
             spellCheck={false}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={() => void commit()}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setRenameError(null);
+              submittedRef.current = false;
+            }}
+            onBlur={() => {
+              if (submittedRef.current) {
+                submittedRef.current = false;
+                return;
+              }
+              void commit();
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
-                inputRef.current?.blur();
+                void submit();
               } else if (event.key === 'Escape') {
                 event.preventDefault();
                 abandonedRef.current = true;
@@ -143,6 +192,15 @@ export function NoteHeader({
         </h1>
       ) : (
         <h1 style={headingStyle}>{heading}</h1>
+      )}
+      {canRename && error && (
+        <p
+          id="note-title-error"
+          role="alert"
+          style={{ marginTop: '6px', fontSize: '12px', color: 'var(--error)' }}
+        >
+          {error}
+        </p>
       )}
       {label && (
         <p

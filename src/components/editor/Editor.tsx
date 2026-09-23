@@ -98,6 +98,20 @@ const MobileFormattingBar = React.lazy(() =>
   import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
 );
 
+/**
+ * A text field outside the note holds the focus: the title a new note opens
+ * on, or the stand-in holding the phone's keyboard for it. Clearing the
+ * document selection then (TipTap's blur does, a frame later) leaves that
+ * field focused with the keyboard up but unable to take a single character.
+ */
+function fieldOutsideNoteHasFocus(editor: TiptapEditor): boolean {
+  const active = document.activeElement;
+  return (
+    (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+    !editor.view.dom.contains(active)
+  );
+}
+
 function wikiTargetExists(notes: NoteFile[], target: string): boolean {
   const targetSlug = slugifyNoteName(target);
   return notes.some((n) => n.name === target || slugifyNoteName(n.name) === targetSlug);
@@ -953,7 +967,7 @@ export function Editor() {
                 // matters when the external edit shortened the note.
                 editor.commands.setTextSelection(selection);
               }
-              if (!keepFocus) {
+              if (!keepFocus && !fieldOutsideNoteHasFocus(editor)) {
                 const isNoteSwitch = previous.noteId !== null && previous.noteId !== currentNoteId;
                 if (isNoteSwitch) {
                   // The note-keyed animation wrapper remounts EditorContent.
@@ -962,9 +976,11 @@ export function Editor() {
                   // previous note's focused selection after blur has run.
                   requestAnimationFrame(() => {
                     if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                    if (fieldOutsideNoteHasFocus(editor)) return;
                     editor.commands.blur();
                     requestAnimationFrame(() => {
                       if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                      if (fieldOutsideNoteHasFocus(editor)) return;
                       // Moving a focused ProseMirror DOM node between keyed
                       // wrappers can detach it without a native blur event.
                       // Reconcile TipTap's focus state after its blur command.
@@ -1122,6 +1138,7 @@ export function Editor() {
   }
 
   const isCloudPlaceholder = !!currentNote.cloudPending;
+  const showTemplatePrompt = showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly;
   const deleteName = noteDiskFilename(currentNote).replace(/\.md$/, '').split('/').pop();
 
   return (
@@ -1162,6 +1179,7 @@ export function Editor() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto editor-paper relative transition-colors duration-200"
         style={{ backgroundColor: noteBackgroundColor || 'var(--bg-editor)' }}
+        data-template-prompt={showTemplatePrompt ? '' : undefined}
       >
         {/* Close the open note. A zero-height sticky row so it stays pinned
             while the note scrolls, costs no layout space, and sits naturally
@@ -1184,6 +1202,9 @@ export function Editor() {
           {showNoteHeader && (
             <NoteHeader
               note={currentNote}
+              // After a rename the body is remounted under the note's new id,
+              // so the caret moves once that has rendered.
+              onSubmit={() => requestAnimationFrame(() => editor?.commands.focus('start'))}
               // The rename command addresses the file on disk, so resolve the
               // note's own entry rather than handing it the open buffer — the
               // display title and the filename are allowed to diverge, and the
@@ -1232,7 +1253,7 @@ export function Editor() {
             z-10 keeps it above the editor content but below modals/popovers
             (which use z-[9999]). Previously z-50 caused it to paint over
             Settings / Trash / other floating UI. */}
-        {showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly && (
+        {showTemplatePrompt && (
           <div
             className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
@@ -1296,7 +1317,7 @@ export function Editor() {
         isOpen={showShortcutTemplatePicker}
         onClose={handleShortcutTemplatePickerClose}
         onSelect={handleShortcutTemplateSelect}
-        title="Create note from template"
+        title="Choose a template"
       />
 
       {/* Link and Image Modals */}

@@ -529,6 +529,34 @@ describe('Editor content synchronization', () => {
       expect(window.getSelection()?.rangeCount).toBe(0);
     });
   });
+
+  // A new note opens on its title. Clearing the document selection there left
+  // the title focused, keyboard up, taking no characters on iOS.
+  it('leaves a field outside the note alone when switching notes', async () => {
+    const firstNote = note('notes/first.md', '<p>first</p>');
+    const secondNote = note('notes/second.md', '');
+    const { editor } = await renderEditor(firstNote, [secondNote]);
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>first</p>'));
+    const title = document.createElement('input');
+    document.body.appendChild(title);
+    title.focus();
+    // Frames still queued by the previous test's note switch run first.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    const removeAllRanges = vi.spyOn(window.Selection.prototype, 'removeAllRanges');
+    tiptapHarness.blurCallCount = 0;
+
+    act(() => {
+      useNoteStore.getState().switchTab(secondNote.id);
+    });
+
+    await waitFor(() => expect(editor.getHTML()).toBe('<p></p>'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(tiptapHarness.blurCallCount).toBe(0);
+    expect(removeAllRanges).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(title);
+    removeAllRanges.mockRestore();
+    title.remove();
+  });
 });
 
 describe('Editor external change decisions', () => {
@@ -819,6 +847,20 @@ describe('Editor note content', () => {
       document.querySelector('.tiptap > p.is-editor-empty')?.getAttribute('data-placeholder')
     ).toBe('');
     expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
+  });
+
+  // The prompt's layer covers the paper, so a tap on the title of an empty
+  // note put the caret in the body instead of renaming it.
+  it('marks the paper while the empty-note prompt covers it', async () => {
+    const { editor } = await renderEditor(note('notes/Untitled (4).md', ''));
+    const paper = document.querySelector('.editor-paper');
+    expect(paper).toHaveAttribute('data-template-prompt');
+
+    act(() => {
+      editor.commands.insertContent('Words');
+    });
+
+    await waitFor(() => expect(paper).not.toHaveAttribute('data-template-prompt'));
   });
 
   it('does not offer templates on a saved note holding only an empty table', async () => {
