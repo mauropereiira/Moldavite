@@ -134,7 +134,9 @@ pub fn parse_note(raw: &str) -> ParsedNote {
 
 /// Serialize a note back to disk format. If `color` is `None` and `extra` is
 /// empty, the frontmatter block is omitted entirely so we don't pollute every
-/// file.
+/// file, unless the body itself opens with a `---` block: the editor writes a
+/// horizontal rule as `---`, and without an empty block in front that part of
+/// the body would be read back as frontmatter and vanish from the note.
 pub fn serialize_note(
     color: Option<&str>,
     extra: &BTreeMap<String, serde_yaml::Value>,
@@ -142,6 +144,9 @@ pub fn serialize_note(
 ) -> String {
     let has_color = color.is_some_and(|c| !c.is_empty());
     if !has_color && extra.is_empty() {
+        if parse_note(body).body != strip_bom(body) {
+            return format!("---\n---\n{}", body);
+        }
         return body.to_string();
     }
 
@@ -269,6 +274,29 @@ mod tests {
             let written = serialize_note(parsed.color.as_deref(), &parsed.extra, &parsed.body);
             assert_eq!(written, raw, "round trip must not drop anything: {raw:?}");
         }
+    }
+
+    #[test]
+    fn a_body_opening_with_a_rule_block_round_trips_as_body() {
+        let body = "---\n\nOwner: Mauro\n\n---\n\nThe rest of the note\n";
+        for (color, extra) in [
+            (None, BTreeMap::new()),
+            (Some("blue"), BTreeMap::new()),
+            (
+                None,
+                BTreeMap::from([("kind".to_string(), serde_yaml::Value::from("note"))]),
+            ),
+        ] {
+            let written = serialize_note(color, &extra, body);
+            let parsed = parse_note(&written);
+            assert_eq!(parsed.body, body, "{written:?}");
+            assert_eq!(parsed.color.as_deref(), color);
+            assert_eq!(parsed.extra, extra);
+        }
+        assert_eq!(
+            serialize_note(None, &BTreeMap::new(), "---\nno closing fence\n"),
+            "---\nno closing fence\n"
+        );
     }
 
     #[test]
