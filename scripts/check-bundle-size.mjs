@@ -120,7 +120,11 @@ const BUDGETS = [
 // instead of three lazy regexes is what makes nested task items survive a
 // round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
 // and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
-const APP_JS_BUDGET = { rawKb: 630, gzipKb: 175 };
+// 640 / 179: save on leave only when edited (per-tab saved baselines, held
+// saves with retry and the Retry / Save as a copy toast, the close and hidden
+// flushes) and tabs that follow folder renames add 8.7 KB raw / 2.8 KB gz.
+// Measured 637.1 KB / 177.4 KB gz.
+const APP_JS_BUDGET = { rawKb: 640, gzipKb: 179 };
 
 async function main() {
   let entries;
