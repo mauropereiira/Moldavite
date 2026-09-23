@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { isMobilePlatform } from '@/lib/platform';
 import { QuickSwitcher } from './QuickSwitcher';
 
@@ -172,6 +173,42 @@ describe('QuickSwitcher text search', () => {
 
     expect(screen.queryByText('In note text')).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Pin note' })).toHaveLength(1);
+  });
+
+  function selectedTitle() {
+    return document.querySelector('.quick-switcher-item-selected .quick-switcher-item-title')
+      ?.textContent;
+  }
+
+  it('keeps the highlighted action highlighted when text hits arrive above it', async () => {
+    useSettingsStore.setState({ isSettingsOpen: false });
+    render(<QuickSwitcher />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'settings' } });
+    expect(selectedTitle()).toBe('Open Settings');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(screen.getByText('In note text')).toBeInTheDocument();
+    expect(selectedTitle()).toBe('Open Settings');
+
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    expect(notesHarness.loadNote).not.toHaveBeenCalled();
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+  });
+
+  it('keeps an action the user arrowed onto when text hits arrive', async () => {
+    render(<QuickSwitcher />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'note' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' });
+    const arrowedTo = selectedTitle();
+    expect(arrowedTo).toBe('New Note');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(screen.getByText('In note text')).toBeInTheDocument();
+    expect(selectedTitle()).toBe(arrowedTo);
   });
 
   it('on a phone, offers only what works there, without shortcut glyphs', () => {

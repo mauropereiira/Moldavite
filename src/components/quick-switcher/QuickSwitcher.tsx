@@ -112,6 +112,12 @@ type Row =
   | { kind: 'command'; command: QuickSwitcherCommand; titleIndices: number[] }
   | { kind: 'recent-search'; query: string };
 
+function rowKey(row: Row): string {
+  if (row.kind === 'note') return `note:${row.note.path}`;
+  if (row.kind === 'command') return `cmd:${row.command.id}`;
+  return `recent:${row.query}`;
+}
+
 interface NoteRowProps {
   note: NoteFile;
   isSelected: boolean;
@@ -484,10 +490,21 @@ export function QuickSwitcher() {
     };
   }, [isOpen, query]);
 
-  // Reset selection when the visible result set changes, and clear the query
-  // when the switcher opens. Adjusted during render rather than in an effect,
-  // so no frame ever shows a highlight or a query belonging to the last pass.
+  // Reset selection when the query changes, and clear the query when the
+  // switcher opens. Adjusted during render rather than in an effect, so no
+  // frame ever shows a highlight or a query belonging to the last pass.
+  // Rows that arrive later for the same query (the text search answers after
+  // the title matches) keep the highlight on the same item, so Enter opens
+  // what was highlighted when it was pressed.
+  const keys = rows.map(rowKey);
+  const [renderedKeys, setRenderedKeys] = useState(keys);
   const [renderedQuery, setRenderedQuery] = useState(query);
+  if (renderedKeys.join('\n') !== keys.join('\n')) {
+    setRenderedKeys(keys);
+    const kept = keys.indexOf(renderedKeys[selectedIndex]);
+    if (kept >= 0) setSelectedIndex(kept);
+    else if (selectedIndex >= keys.length) setSelectedIndex(Math.max(keys.length - 1, 0));
+  }
   if (renderedQuery !== query) {
     setRenderedQuery(query);
     setSelectedIndex(0);
@@ -689,14 +706,8 @@ export function QuickSwitcher() {
           ) : (
             rows.map((row, index) => {
               const header = headers.get(index);
-              const key =
-                row.kind === 'note'
-                  ? `note:${row.note.path}`
-                  : row.kind === 'command'
-                    ? `cmd:${row.command.id}`
-                    : `recent:${row.query}`;
               return (
-                <div key={key}>
+                <div key={rowKey(row)}>
                   {header && <SectionHeader label={header.label} icon={header.icon} />}
                   {row.kind === 'note' && (
                     <NoteRow

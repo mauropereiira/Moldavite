@@ -30,7 +30,7 @@ All notable changes to Moldavite are documented here.
 
 - Menus in the Index use sentence case like the rest of the app ("Lock note", "Export as plain text", "Move to folder…", "Rename folder"), a locked note shows "Locked" after its name so its title lines up with the others, and Move note has one Cancel instead of Cancel and Close, with "No folder" for the top level.
 
-- **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
+- **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before, and the text matches arriving a moment later never move the highlight, so Enter opens what is highlighted. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
 
 - **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and Empty trash asks first.
 
