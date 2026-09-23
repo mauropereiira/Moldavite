@@ -81,13 +81,43 @@ export const TagMark = Mark.create<TagMarkOptions>({
 
   addProseMirrorPlugins() {
     const { onTagClick } = this.options;
+    // A finger's tap on a tag in text that is not being edited only places the
+    // caret on iOS; WebKit sends no click for it. The tap is read from the
+    // pointer events instead, and the click that may still follow is ignored.
+    let touchStart: { x: number; y: number; tag: Element } | null = null;
+    let tappedAt = 0;
 
     return [
       new Plugin({
         key: new PluginKey('tagMarkClickHandler'),
         props: {
           handleDOMEvents: {
+            pointerdown: (_view, event) => {
+              const tag = (event.target as HTMLElement).closest?.('.tag-mark');
+              touchStart =
+                event.pointerType === 'touch' && tag
+                  ? { x: event.clientX, y: event.clientY, tag }
+                  : null;
+              return false;
+            },
+            pointerup: (_view, event) => {
+              const start = touchStart;
+              touchStart = null;
+              if (!start || event.pointerType !== 'touch') return false;
+              if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) return false;
+              const tag = start.tag.getAttribute('data-tag');
+              if (!tag || !onTagClick) return false;
+              event.preventDefault();
+              tappedAt = event.timeStamp;
+              onTagClick(tag);
+              return true;
+            },
             click: (_view, event) => {
+              if (tappedAt && event.timeStamp - tappedAt < 800) {
+                tappedAt = 0;
+                event.preventDefault();
+                return true;
+              }
               const target = event.target as HTMLElement;
               const tagElement = target.closest('.tag-mark');
 

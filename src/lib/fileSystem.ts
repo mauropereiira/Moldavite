@@ -908,6 +908,15 @@ export function noteFileBackendPath(note: Pick<NoteFile, 'name' | 'folderPath'>)
   return note.folderPath ? `${note.folderPath}/${note.name}` : note.name;
 }
 
+/**
+ * List times for a note this window just created. The list gets them only from a
+ * scan, and a note without them sorts last under Modified and Created.
+ */
+export function justCreatedTimes(): Pick<NoteFile, 'createdAt' | 'modifiedAt'> {
+  const now = Math.floor(Date.now() / 1000);
+  return { createdAt: now, modifiedAt: now };
+}
+
 export async function readNote(
   filename: string,
   isDaily: boolean,
@@ -1060,7 +1069,8 @@ export async function deleteNote(
   filename: string,
   isDaily: boolean,
   isWeekly: boolean = false,
-  opts?: { guarded?: boolean }
+  /** `baseHash` replaces the recorded one: the delete is refused unless the body on disk has it. */
+  opts?: { guarded?: boolean; baseHash?: string }
 ): Promise<void> {
   const key = noteHashKey(filename, isDaily, isWeekly);
   if (opts?.guarded && isCloudPlaceholder(filename, isDaily, isWeekly)) {
@@ -1075,7 +1085,7 @@ export async function deleteNote(
       filename,
       isDaily,
       isWeekly,
-      baseHash: opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null,
+      baseHash: opts?.baseHash ?? (opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null),
     });
     forgetNoteBaseHash(filename, isDaily, isWeekly);
     deleted = true;

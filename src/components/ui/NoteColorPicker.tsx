@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
 import { applyImpactOrigin, captureImpactOrigin } from '@/lib/impactOrigin';
+import { useCloseMenus } from './Dropdown';
 
 // Moldavite-inspired color palette - crystal greens, cosmic golds, earth tones
 export const NOTE_COLORS = [
@@ -42,6 +43,7 @@ export function NoteColorPicker({
 }: NoteColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeMenus = useCloseMenus();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -57,8 +59,10 @@ export function NoteColorPicker({
   }, [isOpen]);
 
   useEffect(() => {
+    // Marked handled so the window's Esc handler leaves the open note alone.
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         setIsOpen(false);
       }
     };
@@ -79,8 +83,8 @@ export function NoteColorPicker({
           setIsOpen(!isOpen);
         }}
         className="toolbar-button"
-        title="Note background color"
-        aria-label="Change note background color"
+        title="Note background colour"
+        aria-label="Change note background colour"
         aria-expanded={isOpen}
       >
         <Palette className="w-4 h-4" />
@@ -110,6 +114,7 @@ export function NoteColorPicker({
                   onClick={() => {
                     onColorChange(color.id);
                     setIsOpen(false);
+                    closeMenus?.();
                   }}
                   className="relative w-9 h-9 transition-all"
                   style={{

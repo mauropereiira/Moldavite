@@ -61,7 +61,3 @@ export const useNoteColorsStore = create<NoteColorsState>((set, get) => ({
     set({ colors: { ...rest, [newPath]: color } });
   },
 }));
-
-export function buildNotePath(filename: string, isDaily: boolean): string {
-  return isDaily ? `daily/${filename}` : `notes/${filename}`;
-}

@@ -111,6 +111,17 @@ describe('AppOnboardingModal', () => {
     }
   });
 
+  it("draws the Agenda tile with the rail's calendar icon, not the graph's", () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<AppOnboardingModal />);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+
+    const agenda = screen.getByText('Agenda').closest('div')?.parentElement;
+    expect(agenda?.querySelector('svg.lucide-calendar')).not.toBeNull();
+    expect(document.querySelector('.app-onboarding-body svg.lucide-network')).toBeNull();
+  });
+
   it('does not advertise desktop AI features to an existing mobile user', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     useSettingsStore.setState({ hasSeenAppOnboarding: true, lastSeenOnboardingVersion: 0 });

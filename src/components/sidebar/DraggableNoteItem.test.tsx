@@ -54,6 +54,45 @@ describe('DraggableNoteItem', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('opens its menu on a finger held still, without also opening the note', () => {
+    vi.useFakeTimers();
+    try {
+      const onClick = vi.fn();
+      const onContextMenu = vi.fn();
+      render(
+        <DraggableNoteItem
+          note={baseNote}
+          isActive={false}
+          onClick={onClick}
+          onContextMenu={onContextMenu}
+        />
+      );
+      const row = screen.getByRole('button', { name: 'Hello' });
+
+      fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 40, clientY: 50 });
+      act(() => vi.advanceTimersByTime(450));
+      expect(onContextMenu).toHaveBeenCalledWith(
+        baseNote,
+        expect.objectContaining({ clientX: 40, clientY: 50 })
+      );
+      fireEvent.pointerUp(row, { pointerType: 'touch' });
+      fireEvent.click(row);
+      expect(onClick).not.toHaveBeenCalled();
+
+      // A finger that moves is scrolling, and a mouse has its right button.
+      onContextMenu.mockClear();
+      fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 40, clientY: 50 });
+      fireEvent.pointerMove(row, { pointerType: 'touch', clientX: 40, clientY: 80 });
+      fireEvent.pointerDown(row, { pointerType: 'mouse', clientX: 40, clientY: 50 });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(onContextMenu).not.toHaveBeenCalled();
+      fireEvent.click(row);
+      expect(onClick).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('marks a note that is still in iCloud', () => {
     const { rerender } = render(
       <DraggableNoteItem

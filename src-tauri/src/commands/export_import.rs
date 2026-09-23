@@ -213,6 +213,23 @@ pub(crate) async fn export_mobile_document(
     app.document_export().export(&prepared.file).await
 }
 
+/// Hand one note's Markdown file to the system share sheet. The staged copy
+/// lives until the sheet reports that its activity finished with the file.
+#[cfg(target_os = "ios")]
+#[tauri::command]
+pub(crate) async fn share_mobile_note(app: tauri::AppHandle, path: String) -> Result<bool, String> {
+    use tauri::Manager;
+    use tauri_plugin_document_export::DocumentExportExt;
+    let notes = get_notes_dir()?;
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        prepare_mobile_export(&notes, &cache, MobileExport::Note { path })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    app.document_export().share(&prepared.file).await
+}
+
 /// Basic structure validation for a single ZIP entry name — rejects empty
 /// names, absolute paths, drive letters, NUL bytes, and backslash separators
 /// (which some Windows-created ZIPs use and that our `parts.len() != 2` split

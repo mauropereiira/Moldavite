@@ -27,7 +27,7 @@ export function FeaturesSection() {
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Tags (#hashtags)
             </span>
-            <InfoTooltip text="Type #tagname to create tags. Tags are highlighted and can be filtered in the sidebar." />
+            <InfoTooltip text="Type #tagname to create tags. Tags are highlighted and can be filtered in the Index." />
           </div>
           <Toggle
             enabled={settings.tagsEnabled}

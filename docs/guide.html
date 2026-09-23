@@ -225,11 +225,12 @@
       <h2 id="editor">The editor, wiki-links, and graph</h2>
       <h3>Rename a note from its title</h3>
       <p>
-        Click the title at the top of a note and type. <strong>Enter</strong> saves,
-        <strong>Escape</strong> abandons the edit, and an empty name is refused. If the rename
-        fails, the previous name comes back, so the page never shows a name the file on disk does
-        not have. Inbound wiki-links are rewritten across the Forge either way. Daily and weekly
-        notes are named by date and stay read-only here.
+        Click the title at the top of a note and type. <strong>Enter</strong> saves and moves you
+        into the note's text, <strong>Escape</strong> abandons the edit, and an empty name is
+        refused. A name that cannot be used is explained under the title as you type, and so is a
+        rename that fails; once you leave the title the previous name comes back, so the page never
+        shows a name the file on disk does not have. Inbound wiki-links are rewritten across the
+        Forge either way. Daily and weekly notes are named by date and stay read-only here.
       </p>
 
       <p>
@@ -351,8 +352,8 @@
       <ul>
         <li>
           <strong>Quick switcher</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>P</kbd> to open a
-          note, run an app action, repeat a recent search, switch Forges, or invoke a plugin
-          command.
+          note by its title or by the words in it, run an app action, repeat a recent search, switch
+          Forges, or invoke a plugin command.
         </li>
         <li>
           <strong>Keyword search</strong>: full-text search with snippets across unlocked,
@@ -497,7 +498,7 @@
         </li>
         <li>
           <strong>Trash</strong>: deleted notes remain available with previews for seven days before
-          automatic cleanup.
+          automatic cleanup. A locked note stays encrypted in the Trash and is restored locked.
         </li>
         <li>
           <strong>Note locking</strong>: encrypted <code>.md.locked</code> files use AES-256-GCM

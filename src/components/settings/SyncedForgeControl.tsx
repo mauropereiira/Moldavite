@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForgeStore } from '@/stores';
 import { openForgeInFinder } from '@/lib/fileSystem';
 import { isMobilePlatform } from '@/lib/platform';
+import { Toggle } from './common';
 
 export default function SyncedForgeControl() {
   const { forges, loadForges, setSyncedForge } = useForgeStore();
@@ -29,17 +30,19 @@ export default function SyncedForgeControl() {
     <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-default)' }}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm">Synced Forge (iCloud Drive)</span>
-        <button
-          type="button"
-          role="switch"
-          aria-label="Use synced Forge"
-          aria-checked={synced.isActive}
-          disabled={busy}
-          onClick={() => void change()}
-          className="btn min-h-11 text-xs px-3 py-2 shrink-0"
-        >
-          {busy ? 'Connecting…' : synced.isActive ? 'On' : 'Off'}
-        </button>
+        <span className="flex shrink-0 items-center gap-2">
+          {busy && (
+            <span className="text-xs" role="status" style={{ color: 'var(--text-muted)' }}>
+              Connecting…
+            </span>
+          )}
+          <Toggle
+            enabled={synced.isActive}
+            onChange={() => void change()}
+            ariaLabel="Use synced Forge"
+            disabled={busy}
+          />
+        </span>
       </div>
       {error && (
         <p className="text-xs mt-2" role="alert" style={{ color: 'var(--text-primary)' }}>

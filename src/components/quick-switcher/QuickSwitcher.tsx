@@ -31,11 +31,17 @@ import {
   type QuickSwitcherCommand,
 } from './commands';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import type { ContentMatch } from '@/stores/searchStore';
 import type { NoteFile } from '@/types';
+import { safeInvoke as invoke } from '@/lib/ipc';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { isMobilePlatform } from '@/lib/platform';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { HighlightedText } from '@/components/ui/HighlightedText';
+
+const CONTENT_SEARCH_DEBOUNCE_MS = 150;
+const CONTENT_SEARCH_LIMIT = 30;
 
 /**
  * Fuzzy match: checks if query characters appear in order within the title.
@@ -102,14 +108,22 @@ function dispatchModKey(key: string) {
 
 /** Discriminated union for unified keyboard navigation across rows. */
 type Row =
-  | { kind: 'note'; note: NoteFile; indices: number[]; isPinned?: boolean }
+  | { kind: 'note'; note: NoteFile; indices: number[]; isPinned?: boolean; snippet?: string }
   | { kind: 'command'; command: QuickSwitcherCommand; titleIndices: number[] }
   | { kind: 'recent-search'; query: string };
+
+function rowKey(row: Row): string {
+  if (row.kind === 'note') return `note:${row.note.path}`;
+  if (row.kind === 'command') return `cmd:${row.command.id}`;
+  return `recent:${row.query}`;
+}
 
 interface NoteRowProps {
   note: NoteFile;
   isSelected: boolean;
   matchIndices: number[];
+  /** The matching line of a hit in the note's text, and the words to mark in it. */
+  snippet?: { text: string; term: string };
   isPinned: boolean;
   onClick: () => void;
   onMouseEnter: () => void;
@@ -120,6 +134,7 @@ function NoteRow({
   note,
   isSelected,
   matchIndices,
+  snippet,
   isPinned,
   onClick,
   onMouseEnter,
@@ -159,7 +174,9 @@ function NoteRow({
               </Cloud>
             )}
           </div>
-          <div className="quick-switcher-item-meta">{typeLabel}</div>
+          <div className={`quick-switcher-item-meta${snippet ? ' search-preview truncate' : ''}`}>
+            {snippet ? <HighlightedText text={snippet.text} term={snippet.term} /> : typeLabel}
+          </div>
         </div>
       </button>
       <button
@@ -272,7 +289,12 @@ export function QuickSwitcher() {
   const { open: openGraph } = useGraphStore();
 
   const [query, setQuery] = useState('');
+  const [contentHits, setContentHits] = useState<{ query: string; hits: ContentMatch[] }>({
+    query: '',
+    hits: [],
+  });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const isMobile = isMobilePlatform();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -293,7 +315,7 @@ export function QuickSwitcher() {
     const headers = new Map<number, { label: string; icon?: React.ReactNode }>();
 
     const commandCatalog: QuickSwitcherCommand[] = [
-      ...QUICK_SWITCHER_COMMANDS,
+      ...QUICK_SWITCHER_COMMANDS.filter((c) => !(isMobile && c.desktopOnly)),
       ...pluginCommands.map((c) => ({
         id: c.id,
         title: c.label,
@@ -361,7 +383,7 @@ export function QuickSwitcher() {
       if (allCommands.length > 0) {
         headers.set(rows.length, {
           label: 'Quick actions',
-          icon: <CommandIcon className="w-3 h-3" />,
+          icon: isMobile ? undefined : <CommandIcon className="w-3 h-3" />,
         });
         for (const c of allCommands) {
           rows.push({
@@ -396,11 +418,33 @@ export function QuickSwitcher() {
         });
       }
 
+      // The backend search answers after the title matches, so its hits go
+      // below them and never move the row a quick Enter would open.
+      const titleMatched = new Set(noteMatches.map((r) => r.note.path));
+      const textMatches = (contentHits.query === trimmed ? contentHits.hits : [])
+        .filter((hit) => !titleMatched.has(hit.path))
+        .flatMap((hit) => {
+          const note = noteByPath.get(hit.path);
+          return note ? [{ note, snippet: hit.snippet }] : [];
+        });
+      if (textMatches.length > 0) {
+        headers.set(rows.length, { label: 'In note text' });
+        for (const m of textMatches) {
+          rows.push({
+            kind: 'note',
+            note: m.note,
+            indices: [],
+            isPinned: pinnedSet.has(m.note.path),
+            snippet: m.snippet,
+          });
+        }
+      }
+
       const commandMatches = filterCommands(trimmed, commandCatalog);
       if (commandMatches.length > 0) {
         headers.set(rows.length, {
           label: 'Actions',
-          icon: <CommandIcon className="w-3 h-3" />,
+          icon: isMobile ? undefined : <CommandIcon className="w-3 h-3" />,
         });
         for (const c of commandMatches) {
           rows.push({
@@ -413,12 +457,54 @@ export function QuickSwitcher() {
     }
 
     return { rows, headers };
-  }, [query, notes, recentNoteIds, recentSearches, pinnedNoteIds, pluginCommands]);
+  }, [
+    query,
+    contentHits,
+    notes,
+    recentNoteIds,
+    recentSearches,
+    pinnedNoteIds,
+    pluginCommands,
+    isMobile,
+  ]);
 
-  // Reset selection when the visible result set changes, and clear the query
-  // when the switcher opens. Adjusted during render rather than in an effect,
-  // so no frame ever shows a highlight or a query belonging to the last pass.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!isOpen || !trimmed) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      invoke<ContentMatch[]>('search_notes_content', {
+        query: trimmed,
+        maxResults: CONTENT_SEARCH_LIMIT,
+      })
+        .then((hits) => {
+          if (!cancelled) setContentHits({ query: trimmed, hits });
+        })
+        .catch((error: unknown) => {
+          console.error('[QuickSwitcher] text search failed:', error);
+        });
+    }, CONTENT_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isOpen, query]);
+
+  // Reset selection when the query changes, and clear the query when the
+  // switcher opens. Adjusted during render rather than in an effect, so no
+  // frame ever shows a highlight or a query belonging to the last pass.
+  // Rows that arrive later for the same query (the text search answers after
+  // the title matches) keep the highlight on the same item, so Enter opens
+  // what was highlighted when it was pressed.
+  const keys = rows.map(rowKey);
+  const [renderedKeys, setRenderedKeys] = useState(keys);
   const [renderedQuery, setRenderedQuery] = useState(query);
+  if (renderedKeys.join('\n') !== keys.join('\n')) {
+    setRenderedKeys(keys);
+    const kept = keys.indexOf(renderedKeys[selectedIndex]);
+    if (kept >= 0) setSelectedIndex(kept);
+    else if (selectedIndex >= keys.length) setSelectedIndex(Math.max(keys.length - 1, 0));
+  }
   if (renderedQuery !== query) {
     setRenderedQuery(query);
     setSelectedIndex(0);
@@ -454,7 +540,7 @@ export function QuickSwitcher() {
           return;
         }
         case 'new-note':
-          createNote('Untitled').catch((e) =>
+          createNote('Untitled', null, { discardIfLeftEmpty: true }).catch((e) =>
             console.error('[QuickSwitcher] createNote failed', e)
           );
           return;
@@ -583,7 +669,10 @@ export function QuickSwitcher() {
             ref={inputRef}
             type="text"
             className="quick-switcher-input"
-            placeholder="Search notes or run a command…"
+            placeholder={isMobile ? 'Search notes' : 'Search notes or run a command…'}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -617,20 +706,15 @@ export function QuickSwitcher() {
           ) : (
             rows.map((row, index) => {
               const header = headers.get(index);
-              const key =
-                row.kind === 'note'
-                  ? `note:${row.note.path}`
-                  : row.kind === 'command'
-                    ? `cmd:${row.command.id}`
-                    : `recent:${row.query}`;
               return (
-                <div key={key}>
+                <div key={rowKey(row)}>
                   {header && <SectionHeader label={header.label} icon={header.icon} />}
                   {row.kind === 'note' && (
                     <NoteRow
                       note={row.note}
                       isSelected={index === selectedIndex}
                       matchIndices={row.indices}
+                      snippet={row.snippet ? { text: row.snippet, term: query.trim() } : undefined}
                       isPinned={!!row.isPinned}
                       onClick={() => activate(row)}
                       onMouseEnter={() => setSelectedIndex(index)}

@@ -6,6 +6,7 @@ import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
 import type { BaseMode, FontFamily, FontSize, ThemePreset } from '@/stores';
 import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: BaseMode; label: string }> = [
   { value: 'light', label: 'Light' },
@@ -34,6 +35,9 @@ export function AppearanceSection({
   onPresetChange,
 }: AppearanceSectionProps) {
   const settings = useSettingsStore();
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   return (
     <div className="space-y-6">
       <section className="settings-section">
@@ -43,7 +47,7 @@ export function AppearanceSection({
             <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your operating system's appearance setting." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Choose your preferred color scheme
+            Choose your preferred colour scheme
           </p>
         </div>
         <SegmentedControl
@@ -57,8 +61,8 @@ export function AppearanceSection({
       <section className="settings-section">
         <div>
           <div className="flex items-center gap-1">
-            <SectionHeading>Color preset</SectionHeading>
-            <InfoTooltip text="Curated palettes layered on top of your light/dark choice. Some presets are designed for one mode only and fall back to Moldavite otherwise." />
+            <SectionHeading>Colour preset</SectionHeading>
+            <InfoTooltip text="Each palette has a light and a dark version and follows your light/dark choice." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
             Pick a palette for the editor and chrome
@@ -66,14 +70,13 @@ export function AppearanceSection({
         </div>
         <div
           role="radiogroup"
-          aria-label="Color preset"
+          aria-label="Colour preset"
           className="grid gap-2"
           style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
         >
           {PRESETS.map((p) => {
             const selected = preset === p.id;
-            const badge =
-              p.coverage === 'dark' ? 'Dark only' : p.coverage === 'light' ? 'Light only' : null;
+            const swatches = isDark ? p.darkSwatches : p.swatches;
             return (
               <button
                 key={p.id}
@@ -86,21 +89,9 @@ export function AppearanceSection({
                   borderLeft: `2px solid ${selected ? 'var(--text-primary)' : 'transparent'}`,
                 }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {p.label}
-                  </span>
-                  {badge && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5"
-                      style={{
-                        color: 'var(--text-tertiary)',
-                      }}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                </div>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {p.label}
+                </span>
                 <div className="flex gap-1">
                   {(['bg', 'surface', 'accent', 'text', 'border'] as const).map((k) => (
                     <span
@@ -110,7 +101,7 @@ export function AppearanceSection({
                       style={{
                         width: 18,
                         height: 18,
-                        backgroundColor: p.swatches[k],
+                        backgroundColor: swatches[k],
                         border: '1px solid var(--border-muted)',
                       }}
                     />
@@ -197,7 +188,8 @@ export function AppearanceSection({
               Focus mode
             </span>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Hide every panel at once and leave just the note. {formatShortcut('⌘.')}
+              Hide every panel at once and leave just the note.
+              {!isMobilePlatform() && ` ${formatShortcut('⌘.')}`}
             </p>
           </div>
           <Toggle

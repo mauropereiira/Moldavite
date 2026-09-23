@@ -11,6 +11,9 @@ export interface SegmentedControlProps<T extends string | number> {
   label?: string;
 }
 
+/** More options than this in one row wrap each label onto three or four lines. */
+const MAX_COLUMNS = 4;
+
 export function SegmentedControl<T extends string | number>({
   ariaLabel,
   value,
@@ -18,6 +21,7 @@ export function SegmentedControl<T extends string | number>({
   options,
   label,
 }: SegmentedControlProps<T>) {
+  const columns = Math.min(options.length, MAX_COLUMNS);
   return (
     <div className="settings-segmented-row">
       {label && <p className="settings-control-label">{label}</p>}
@@ -25,7 +29,7 @@ export function SegmentedControl<T extends string | number>({
         role="radiogroup"
         aria-label={ariaLabel}
         className="settings-segmented-control"
-        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
         {options.map((option, index) => {
           const active = value === option.value;
@@ -38,7 +42,8 @@ export function SegmentedControl<T extends string | number>({
               onClick={() => onChange(option.value)}
               className="focus-ring settings-segmented-option"
               style={{
-                borderLeft: index === 0 ? undefined : '1px solid var(--border-default)',
+                borderLeft: index % columns === 0 ? undefined : '1px solid var(--border-default)',
+                borderTop: index < columns ? undefined : '1px solid var(--border-default)',
                 borderBottom: `2px solid ${active ? 'var(--text-primary)' : 'transparent'}`,
                 color: active ? 'var(--text-primary)' : 'var(--text-muted)',
               }}

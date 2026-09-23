@@ -391,6 +391,8 @@ pub fn run() {
             commands::misc::open_external_link,
             #[cfg(target_os = "ios")]
             commands::export_import::export_mobile_document,
+            #[cfg(target_os = "ios")]
+            commands::export_import::share_mobile_note,
             #[cfg(desktop)]
             commands::browser_bridge::browser_bridge_status,
             #[cfg(desktop)]

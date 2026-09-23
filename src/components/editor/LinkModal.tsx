@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -22,7 +23,6 @@ export function LinkModal({
   initialUrl = '',
   initialText = '',
 }: LinkModalProps) {
-  const urlInputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState(initialUrl);
   const [text, setText] = useState(initialText);
   const [error, setError] = useState('');
@@ -42,12 +42,6 @@ export function LinkModal({
       setError('');
     }
   }
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const timer = setTimeout(() => urlInputRef.current?.focus(), 100);
-    return () => clearTimeout(timer);
-  }, [isOpen, initialUrl, initialText]);
 
   const validateUrl = (urlString: string): boolean => {
     if (!urlString.trim()) {
@@ -101,6 +95,8 @@ export function LinkModal({
 
   if (!isOpen) return null;
 
+  const mobile = isMobilePlatform();
+
   return (
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
@@ -128,7 +124,7 @@ export function LinkModal({
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
+            className="dialog-close p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
             style={{ color: 'var(--text-muted)' }}
             aria-label="Close link modal"
           >
@@ -146,16 +142,26 @@ export function LinkModal({
               URL <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <div>
+              {/* Focused while the dialog mounts, inside the tap that opened it:
+                  iOS only raises the keyboard for a focus made during a user
+                  gesture, and a later timer painted a focus ring on a field
+                  that still needed a second tap. */}
               <input
-                ref={urlInputRef}
                 id="link-url"
                 type="text"
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                autoFocus
                 value={url}
                 onChange={(e) => {
                   setUrl(e.target.value);
                   setError('');
                 }}
-                placeholder="https://example.com or /page or #section"
+                placeholder={
+                  mobile ? 'https://example.com' : 'https://example.com or /page or #section'
+                }
                 className={`w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none border ${
                   error ? 'focus:ring-2' : 'search-input-polished'
                 }`}
@@ -214,38 +220,40 @@ export function LinkModal({
         >
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
+            className="dialog-action px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
             style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
           </button>
           <button
             onClick={handleInsert}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring"
+            className="dialog-action px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring"
           >
             {initialUrl ? 'Update Link' : 'Insert Link'}
           </button>
         </div>
 
-        <div className="px-6 pb-4">
-          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-            Press{' '}
-            <kbd
-              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-              style={keyboardHintStyle}
-            >
-              Enter
-            </kbd>{' '}
-            to insert or{' '}
-            <kbd
-              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-              style={keyboardHintStyle}
-            >
-              Esc
-            </kbd>{' '}
-            to cancel
-          </p>
-        </div>
+        {!mobile && (
+          <div className="px-6 pb-4">
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              Press{' '}
+              <kbd
+                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+                style={keyboardHintStyle}
+              >
+                Enter
+              </kbd>{' '}
+              to insert or{' '}
+              <kbd
+                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+                style={keyboardHintStyle}
+              >
+                Esc
+              </kbd>{' '}
+              to cancel
+            </p>
+          </div>
+        )}
       </DialogSurface>
     </div>
   );

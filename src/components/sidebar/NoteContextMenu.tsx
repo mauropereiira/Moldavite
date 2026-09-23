@@ -1,5 +1,5 @@
 import { save } from '@tauri-apps/plugin-dialog';
-import { isMobilePlatform } from '@/lib/platform';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import {
   exportSingleNote,
   exportNoteToPdf,
@@ -8,7 +8,12 @@ import {
   noteFileBackendPath,
 } from '@/lib';
 import { useToast } from '@/hooks/useToast';
-import { usePdfExportStore, useQuickSwitcherStore, useNoteSelectionStore } from '@/stores';
+import {
+  usePdfExportStore,
+  useQuickSwitcherStore,
+  useNoteSelectionStore,
+  useSettingsStore,
+} from '@/stores';
 import type { NoteFile } from '@/types';
 import { ContextMenuSurface } from './ContextMenuSurface';
 
@@ -44,6 +49,13 @@ export function NoteContextMenu({
   const toast = useToast();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const selected = useNoteSelectionStore((s) => s.selectedIds.has(note.path));
+  // A new tab opens out of sight unless the tab bar is beside the Index: on
+  // the desktop, and on an iPad wide enough that Layout pins the Index next to
+  // the note. On a phone, or an iPad in a narrow Split View, the Index covers
+  // the note and its tab bar.
+  const tabsBesideIndex = useSettingsStore(
+    (s) => !isMobilePlatform() || (isTabletPlatform() && s.indexMode === 'pinned')
+  );
 
   const handleExportMarkdown = async () => {
     try {
@@ -106,13 +118,13 @@ export function NoteContextMenu({
     try {
       if (isMobilePlatform()) {
         const { exportMobileNote } = await import('@/lib/mobileNoteExport');
-        if (await exportMobileNote(note.path, 'plaintext')) toast.success('Exported as plaintext');
+        if (await exportMobileNote(note.path, 'plaintext')) toast.success('Exported as plain text');
         onClose();
         return;
       }
       const defaultName = note.name.replace(/\.md$/, '');
       const destination = await save({
-        title: 'Export as Plaintext',
+        title: 'Export as plain text',
         defaultPath: `${defaultName}.txt`,
         filters: [{ name: 'Plain Text', extensions: ['txt'] }],
       });
@@ -123,7 +135,7 @@ export function NoteContextMenu({
           note.isDaily || false,
           note.isWeekly || false
         );
-        toast.success('Exported as plaintext');
+        toast.success('Exported as plain text');
       }
     } catch (error) {
       console.error('[Sidebar] Plaintext export failed:', error);
@@ -163,14 +175,14 @@ export function NoteContextMenu({
             className={itemClass}
             style={{ color: 'var(--text-primary)' }}
           >
-            View Note
+            View note
           </button>
           <button
             onClick={() => onPermanentUnlock(note)}
             className={itemClass}
             style={{ color: 'var(--text-primary)' }}
           >
-            Remove Lock
+            Remove lock
           </button>
         </>
       ) : (
@@ -179,7 +191,7 @@ export function NoteContextMenu({
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
         >
-          Lock Note
+          Lock note
         </button>
       )}
       {/* Pinning is the one action here that is equally sensible for a locked
@@ -194,7 +206,7 @@ export function NoteContextMenu({
       >
         {isPinned(note.path) ? 'Unpin from top bar' : 'Pin to top bar'}
       </button>
-      {!note.isLocked && (
+      {!note.isLocked && tabsBesideIndex && (
         <button
           onClick={() => {
             onOpenInNewTab(note);
@@ -203,7 +215,7 @@ export function NoteContextMenu({
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
         >
-          Open in New Tab
+          Open in new tab
         </button>
       )}
       {!note.isLocked && (
@@ -251,7 +263,7 @@ export function NoteContextMenu({
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
         >
-          Export as Plaintext
+          Export as plain text
         </button>
       )}
       {!note.isDaily && !note.isWeekly && !note.isLocked && (
@@ -260,7 +272,7 @@ export function NoteContextMenu({
           className={itemClass}
           style={{ color: 'var(--text-primary)' }}
         >
-          Move to Folder...
+          Move to folder…
         </button>
       )}
       <div className="my-1 shrink-0" style={{ borderTop: '1px solid var(--border-muted)' }} />
@@ -272,7 +284,7 @@ export function NoteContextMenu({
         className={itemClass}
         style={{ color: 'var(--error)' }}
       >
-        Delete Note
+        Delete note
       </button>
     </ContextMenuSurface>
   );

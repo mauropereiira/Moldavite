@@ -60,12 +60,41 @@ describe('themeStore persistence', () => {
   it('preserves a valid preset across reload', async () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ state: { baseMode: 'light', preset: 'dracula' }, version: 2 })
+      JSON.stringify({ state: { baseMode: 'light', preset: 'plum' }, version: 2 })
     );
 
     const { useThemeStore } = await loadStoreFresh();
     const state = useThemeStore.getState();
-    expect(state.preset).toBe('dracula');
+    expect(state.preset).toBe('plum');
     expect(state.baseMode).toBe('light');
+  });
+
+  it.each([
+    ['solarized', 'slate'],
+    ['nord', 'slate'],
+    ['dracula', 'plum'],
+    ['sepia', 'clay'],
+    ['gruvbox', 'clay'],
+  ])('moves the retired %s preset to %s', async (retired, replacement) => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ state: { baseMode: 'dark', preset: retired }, version: 2 })
+    );
+
+    const { useThemeStore } = await loadStoreFresh();
+    expect(useThemeStore.getState().preset).toBe(replacement);
+  });
+});
+
+describe('theme presets', () => {
+  it('apply the preset in both base modes', async () => {
+    const { applyTheme, PRESETS } = await loadStoreFresh();
+    for (const { id } of PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        applyTheme(mode, id);
+        expect(document.documentElement.getAttribute('data-theme')).toBe(id);
+        expect(document.documentElement.classList.contains('dark')).toBe(mode === 'dark');
+      }
+    }
   });
 });

@@ -6,11 +6,87 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- **Share a note from iPhone.** Share → Share note… opens the iPhone share sheet with the note as a Markdown file, so it can go by AirDrop, Messages or Mail, or be saved to Files. On iPad the sheet opens in the middle of the window.
+
+- **Five new themes that each look like their own theme: Sage, Slate, Clay, Plum and Graphite.** The old presets mostly changed the page background and one small accent, and in light mode four of them were shades of beige, while Dracula and Nord had no light version at all and quietly showed Cream. Each new theme has a light and a dark version and colours the page, sidebar, rail and panels in its own hue, with a stronger but still calm accent and its own heading and link colours in notes. Cream is unchanged. If you used Solarized or Nord you are moved to Slate, Dracula to Plum, and Sepia or Gruvbox to Clay.
+
+- **The icon rail can sit on the right.** Choose Left or Right under Settings → Layout → Rail side, on the desktop, iPhone and iPad. A pinned Index moves with the rail so the two stay together, and a pinned Agenda takes the other side. Tooltips and the Trash open towards the note. On iPhone in landscape, the rail's buttons now stay clear of the camera and the rounded corners on either side.
+
 - **Notes in the iCloud Forge that are not on this device yet open with a Download button.** The note list and the quick switcher mark them with a small cloud. Opening one shows "This note is in iCloud" instead of an error; Download fetches just that note, and it opens for editing as soon as it arrives. If the download fails or you are offline, the reason is shown with Try again. Nothing downloads a note until you ask, so notes stay on demand on iPhone and on a Mac with Optimize Mac Storage.
 
-- **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. (#146)
+- **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu, or on iPhone from the formatting row while the cursor is in a table. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. Tables are drawn as a hairline grid with a marked header row, Table is unavailable while the cursor is already in one, and a new table puts away the empty-note template prompt and is kept in a daily note even before you fill it in. (#146)
+
+### Changed
+
+- On iPhone, the onboarding tour shows the rail's calendar icon for Agenda (it showed the graph's), its Next is underlined in ink rather than a second green, and a few desktop words are gone from the phone: the locked-note message says to unlock from the Index, not the sidebar, and the graph's Fit view no longer mentions double-clicking. Delete dialogs are titled "Delete note".
+
+- **Settings says each thing once.** Backup & Restore and Encrypted Backup were in both General and Data; they are in Data, and General points there. The Tags switch was in both Editor and Features; it is in Features. The encrypted-backup card and Manage Forges' Done are no longer green, export and import buttons share one style, and "colour" is spelled one way.
+
+- **Settings on iPhone:** switches are iPhone-sized and show at a glance whether they are on, the save-delay slider is finger-sized and read out by VoiceOver, unselected options are readable on dark themes, colour presets are rows rather than boxes inside a box, and the Synced Forge control is a switch. Sidebar is called Index, as the page is, About no longer lists keyboard shortcuts, focus mode shows none, and Layout drops a line of desktop copy. Deleting a Forge asks in the app (the system confirmation never appeared, so nothing happened), and Delete on the active Forge says to switch first.
+
+- On iPhone the keyboard comes up with the password field when you lock, unlock or remove a lock, and a password dialog opened from the Index keeps its buttons above the keyboard; they were pushed below it and out of reach. A row you tapped in the Index no longer stays shaded afterwards.
+
+- **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone from iPhone, where the Index covers the note and its tabs (an iPad keeps it while the Index sits beside the note), and pages keep a 16pt margin beside the rail on the left as they do on the right.
+
+- Menus in the Index use sentence case like the rest of the app ("Lock note", "Export as plain text", "Move to folder…", "Rename folder"), a locked note shows "Locked" after its name so its title lines up with the others, and Move note has one Cancel instead of Cancel and Close, with "No folder" for the top level.
+
+- **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before, and the text matches arriving a moment later never move the highlight, so Enter opens what is highlighted. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
+
+- **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and both Delete and Empty trash ask first.
+
+- **In the graph on iPhone and iPad, a tap names a note before opening it.** The first tap on a star shows its name and its neighbours'; a second tap opens it. A mouse click still opens it straight away.
+
+- On iPhone, the Agenda's days and month arrows are full-size touch targets, the rail's buttons no longer announce desktop keyboard shortcuts to VoiceOver, the rail button last tapped no longer stays shaded as if its page were still open, only Settings is marked while Settings is open, and Search and the graph cover a pinned bar above the rail.
+
+- **New on iPhone opens the note straight away, ready to be named.** The keyboard is up on its title: type a name and press return to start writing. Templates are one tap away under View templates in the empty note. Leave it without writing anything or naming it and it is discarded, as in Notes, rather than kept as an empty "Untitled"; the same goes for New note from the keyboard or the quick switcher on the desktop. Before, New asked for a title, then showed a page of templates, then left you on the Index with the note hidden behind it. The template page now fills the screen, and is called "Choose a template", since it fills the note you are in.
+
+- **Renaming a note from its title tells you what is wrong as you type.** A name that cannot be used is explained under the title, and Enter keeps you there to fix it; leaving the field puts the note's name back. Enter on a good name renames the note and moves you into its text.
+
+- On iPhone the editor footer no longer has a Menu of Index, Agenda and Settings, which are the rail's own buttons beside it. Its More menu drops Pin to the top bar (it is in the Index's Options), Copy URL to note and a second plain-text export, and "Export as plain text" is spelled the same in every menu.
+
+- On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
+
+- **iPhone in landscape:** the rail's Trash button sat below the bottom of the screen and now fits, and the rail scrolls while the keyboard is up. With the keyboard up, a pinned bar steps aside, searching the Index shows results rather than only the Forge name and the search field, and dialogs get the room the home indicator took. More in the note's Actions scrolls instead of hiding Duplicate note above the screen, and a tall dialog opened from the Index, such as Lock note, stays clear of a pinned bar and the home indicator. The Index search's Clear is a full-size touch target.
 
 ### Fixed
+
+- The Timeline's previews showed Markdown as typed: backslashes before brackets, table pipes and `---` rules, list and task markers. They show the words only, a daily note is named by its date ("5 September") as its own header is, and the Timeline closes with × like the other pages.
+
+- Clicking a `#tag` in a note filtered the Index but left it closed, so nothing seemed to happen. The Index now opens showing the notes with that tag. On iPhone a tap on a tag only placed the cursor; it now does the same.
+
+- Following a link to a locked note opens the Index to ask for its password; Cancel left you on the Index. It now returns you to the note you were reading, and on iPhone the link no longer keeps an outline afterwards.
+
+- A wrong password said how many attempts were left twice, once as "4 attempts remaining." and again below it. It says it once.
+
+- **Sorting notes by Modified or Created did nothing**: the Index stayed in A–Z order. Both now sort as named, a note moves up under Modified (Newest) as soon as it saves, and a save keeps a note's creation time on the Mac, iPhone and Windows (on Linux, Created reads as the last save). With either one chosen, the sort control in the Notes header switches to Z–A, as its label says.
+
+- Sorting notes by name put "Untitled (2)" before "Untitled" and "Untitled (10)" before "Untitled (9)": names were compared with their `.md` extension, and numbers as text.
+
+- Restore and Delete in the preview of a note in the rail's Trash did nothing: the press closed the Trash, and the preview with it, before the button could act.
+
+- Search results in the Index marked the matching words in the browser's bright yellow, which glared on dark themes. They use the theme's highlight colour, as highlights in notes do.
+
+- **Notes Moldavite named itself could not be renamed.** A new note is called "Untitled (2)" when "Untitled" exists, and a copy "(copy)", but renaming accepted only letters, numbers, spaces and hyphens, so editing either name showed an error. A title can now hold anything a file name can on every system, apart from `[` and `]`, which would break a `[[link]]` to it: brackets, apostrophes, commas, accents and other scripts are all fine. Agents over MCP, templates, the web clipper and the Obsidian importer follow the same rule, so a clipped "[PDF] Report" is saved as "(PDF) Report", and a note that already has square brackets in its name still opens, saves, locks and goes to the Trash. Renaming one updates the links to it and leaves alone the links to a note whose name differs only in punctuation, such as "Plan copy" beside "Plan (copy)".
+
+- **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)
+
+- **A locked note inside a deleted folder could come back unable to unlock.** Its lock is tied to the folder it was locked in, but restoring the folder beside a newer folder of the same name renamed it, and restoring the note on its own put it at the top of Notes. A locked note now only ever comes back to the folder it was locked in: if that name is taken, by a folder or by a note with the same name locked or not, Moldavite says so and asks you to rename that one first.
+
+- Switching to another app with ⌘Tab while renaming a note from its title renamed it to the half-typed name, and rewrote the links to it. Switching apps now leaves the name as you were typing it; the note is renamed when you press Enter or click elsewhere in Moldavite.
+
+- Delete and Empty Trash in the Trash, and Delete in a trashed note's preview, deleted for good at the first click. They now ask first, in the same words on the Mac and iPhone.
+
+- In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
+
+- Clicking the title of an empty note put the cursor in the note's text instead of letting you rename it.
+
+- On the Mac, a note from ⌘N, the welcome screen's New note or the quick switcher opened with nothing focused, so typing went nowhere. It now opens on its title, name selected, as on iPhone. Close on an empty note also took two clicks: the first only put away the template prompt.
+
+- On the Mac, Esc in the Trash, the note colour picker or the Forge switcher also closed the open note. It now closes only the popup.
+
+- Tasks in a note sat further apart than the items of a bulleted list. They are spaced the same.
+
+- In Settings, the dialog changed height with each section, so the section list moved under the pointer between clicks, and Sort Notes By squeezed its seven choices into one row, breaking "Modified (Newest)" over four lines. The dialog keeps one height, and choices past four wrap onto a second row.
 
 - **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
 
@@ -59,6 +135,26 @@ All notable changes to Moldavite are documented here.
 - **Images broke on every device but the one that added them.** A note stored each image as a full path on that machine, so the same Forge synced to another Mac or an iPhone showed broken pictures. Images are now saved as `images/<file>`, relative to the Forge, and older notes are read correctly and switched to the new form the next time you edit them.
 
 - **An aliased wiki link, `[[Display|target]]`, lost its target the first time the note was edited.** It was saved as `[[Display]]`, which points at a different note. The target is now written back.
+
+- **Deleting a note from the editor's More menu deleted it for good.** The Index moved the same note to the Trash, where it can be restored for 7 days. Both now move it to the Trash, with the same confirmation.
+
+- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title, and its menus no longer offer to rename, duplicate, export or share it or save it as a template. ⌘T and ⌘K no longer put a template or a link into it, and a plugin cannot insert text into it.
+
+- Choosing a note colour from the editor footer did nothing. The colour was sent to a path that does not exist and quietly put back; it now applies and is saved with the note.
+
+- In a narrow window, where the footer folds its actions into one Actions menu, Rename, Note info, Save as template and the link and image dialogs opened inside that small menu and could not be used. They now open over the whole window, and the delete confirmation is no longer drawn beneath the menu.
+
+- **Links lost their colour in bold or italic, and wiki links never looked like links.** A bold or italic link was drawn in the text colour, every `[[wiki link]]` matched the text around it, and the faint underline a link should carry at rest only appeared on hover. Links and wiki links now share the link colour and underline, and a link to a note that does not exist yet has a dashed underline.
+
+- **Typing `[[Name]]` in full left it as plain text,** saved as `\[\[Name\]\]`, and the list of notes stayed open after the closing brackets. The link is made as you type the second `]`, and the list offers to create a note that does not exist yet.
+
+- The lists of notes, tags and commands that open while you type were drawn in a dark rounded box with an arrow. They now look like the rest of Moldavite, and open above the cursor when there is more room there instead of running under the footer.
+
+- The checkbox of a task that wraps onto a second line sat between the lines instead of beside the first.
+
+- The Share, Format and More menus in the editor footer were set in the footer's monospaced face; they now use the same face as every other menu.
+
+- The Insert Image dialog and a selected image used the green accent for the chosen tab, the picked file and the selection ring. They are drawn in ink, like the rest of the interface.
 
 ## [2.7.2] - 2026-09-20
 

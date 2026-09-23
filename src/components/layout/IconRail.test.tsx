@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -189,7 +192,7 @@ describe('IconRail', () => {
   it('walks Settings back on a phone: section to list, list to closed', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     render(<IconRail />);
-    const settings = screen.getByRole('button', { name: 'Settings (Command Comma)' });
+    const settings = screen.getByRole('button', { name: 'Settings' });
 
     fireEvent.click(settings);
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
@@ -334,6 +337,54 @@ describe('IconRail', () => {
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
   });
 
+  it('names its buttons without keyboard shortcuts on a phone', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    for (const name of ['Index', 'Search', 'Agenda', 'Graph', 'Timeline', 'Settings', 'Trash']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: /Command/ })).not.toBeInTheDocument();
+  });
+
+  it('raises the keyboard in the tap that opens Search on a phone', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(true);
+    // The stand-in field the switcher's input takes the focus from.
+    expect(document.activeElement).toBeInstanceOf(HTMLInputElement);
+    (document.activeElement as HTMLInputElement).blur();
+  });
+
+  it('opens the Trash as a page on a phone, one of the exclusive surfaces', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    const button = screen.getByRole('button', { name: 'Trash' });
+    fireEvent.click(button);
+    expect(useOverlayStore.getState().activeOverlay).toBe('trash');
+    expect(button).toHaveAttribute('data-active', 'true');
+    expect(screen.queryByTestId('trash-popover')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Index' }));
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    expect(button).not.toHaveAttribute('data-active');
+  });
+
+  it('lights only Settings while phone Settings covers an open page', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Index' }));
+    act(() => useSettingsStore.getState().setIsSettingsOpen(true));
+
+    expect(screen.getByRole('button', { name: 'Index' })).not.toHaveAttribute('data-active');
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('data-active', 'true');
+  });
+
   it('opens the existing trash surface from the bottom action', async () => {
     render(<IconRail />);
 
@@ -343,5 +394,95 @@ describe('IconRail', () => {
     expect(await screen.findByTestId('trash-popover')).toBeInTheDocument();
     expect(button).toHaveAttribute('data-active', 'true');
     expect(trash.loadTrash).toHaveBeenCalled();
+  });
+
+  it('keeps its hairline on the edge facing the note, on either side', () => {
+    const { rerender } = render(<IconRail />);
+    const rail = screen.getByRole('complementary', { name: 'App navigation' });
+    expect(rail).toHaveAttribute('data-side', 'left');
+    expect(rail.style.borderRight).toContain('var(--border-default)');
+    expect(rail.style.borderLeft).toBe('');
+
+    rerender(<IconRail side="right" />);
+    expect(rail).toHaveAttribute('data-side', 'right');
+    expect(rail.style.borderLeft).toContain('var(--border-default)');
+    expect(rail.style.borderRight).toBe('');
+  });
+
+  // jsdom does no layout and never computes a pseudo-element, so the flip is
+  // pinned by the stylesheet rules the `data-side` attribute selects.
+  it('opens its tooltips towards the note when the rail is on the right', () => {
+    // Vitest runs with `css: false`, which empties a `?raw` stylesheet import.
+    const stylesheet = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
+    const rule = (selector: string) => {
+      const start = stylesheet.indexOf(`${selector} {`);
+      expect(start).toBeGreaterThan(-1);
+      return stylesheet.slice(start, stylesheet.indexOf('}', start));
+    };
+
+    expect(rule('.icon-rail [data-tooltip]::after')).toContain('left: calc(100% + 8px)');
+    const right = rule(".icon-rail[data-side='right'] [data-tooltip]::after");
+    expect(right).toContain('right: calc(100% + 8px)');
+    expect(right).toContain('left: auto');
+  });
+
+  describe('in the phone stylesheet', () => {
+    const mobileCss = readFileSync(join(process.cwd(), 'src/mobile.css'), 'utf8');
+    const rule = (selector: string, from = 0) => {
+      const start = mobileCss.indexOf(`${selector} {`, from);
+      expect(start).toBeGreaterThan(-1);
+      return mobileCss.slice(start, mobileCss.indexOf('}', start));
+    };
+
+    it('leaves the safe-area inset to the rail on its own edge and to pages on the other', () => {
+      const root = rule(
+        "html[data-platform='mobile']",
+        mobileCss.indexOf('The edge without the rail')
+      );
+      expect(root).toContain('--page-safe-left: var(--safe-left)');
+      expect(root).toContain('--page-safe-right: var(--safe-right)');
+      expect(
+        rule("html[data-platform='mobile'].has-icon-rail:not(.focus-mode):not(.icon-rail-right)")
+      ).toContain('--page-safe-left: 0px');
+      expect(
+        rule("html[data-platform='mobile'].has-icon-rail.icon-rail-right:not(.focus-mode)")
+      ).toContain('--page-safe-right: 0px');
+
+      for (const bar of ['.mobile-formatting-bar', '.backlinks-panel']) {
+        const padded = rule(`html[data-platform='mobile'] ${bar}`);
+        expect(padded).toContain('padding-left: var(--page-safe-left)');
+        expect(padded).toContain('padding-right: var(--page-safe-right)');
+      }
+      for (const surface of ['.editor-paper', '.editor-footer', '.timeline-view-header']) {
+        expect(rule(`html[data-platform='mobile'] ${surface}`)).toMatch(
+          /var\(--page-safe-left\)[\s\S]*var\(--page-safe-right\)|var\(--page-safe-right\)[\s\S]*var\(--page-safe-left\)/
+        );
+      }
+    });
+
+    it('names the divider the landscape rule closes up', () => {
+      const { container } = render(<IconRail />);
+      const rail = container.querySelector('.icon-rail');
+      expect(rail?.querySelector(':scope > div > .icon-rail-divider')).not.toBeNull();
+    });
+
+    it('moves the active marker to the hairline on a landscape phone, on either side', () => {
+      const landscape = mobileCss.indexOf(
+        '@media (orientation: landscape) and (max-height: 500px)'
+      );
+      expect(landscape).toBeGreaterThan(-1);
+      expect(
+        rule(
+          "html[data-platform='mobile'] .icon-rail [data-tooltip].icon-rail-button[data-active='true']",
+          landscape
+        )
+      ).toContain('border-right-color: var(--text-primary)');
+      const right = mobileCss.slice(
+        landscape,
+        mobileCss.indexOf('border-left-color: var(--text-primary)', landscape)
+      );
+      expect(right).toContain(".icon-rail[data-side='right']");
+      expect(right).toContain('border-left: 2px solid transparent');
+    });
   });
 });

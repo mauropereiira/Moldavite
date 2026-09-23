@@ -1,7 +1,7 @@
 /**
  * The one active navigation surface, plus transient pinned-column state.
  *
- * At most one of Index / Agenda / Graph / Timeline / Search is visible at a
+ * At most one of Index / Agenda / Graph / Timeline / Search / Trash is visible at a
  * time, and every entry point — icon rail, keyboard shortcuts, quick-switcher
  * commands, deep links — routes through `activeOverlay` here. Surfaces used to
  * own a private `isOpen` each, which is how the graph could stay up while the
@@ -18,7 +18,8 @@
 
 import { create } from 'zustand';
 
-export type AppOverlay = 'index' | 'agenda' | 'graph' | 'timeline' | 'search';
+/** `trash` is the phone's Trash page; the desktop's Trash is a popover of its own. */
+export type AppOverlay = 'index' | 'agenda' | 'graph' | 'timeline' | 'search' | 'trash';
 
 interface OverlayState {
   activeOverlay: AppOverlay | null;

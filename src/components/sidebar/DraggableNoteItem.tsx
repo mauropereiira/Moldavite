@@ -6,6 +6,7 @@ import { isMobilePlatform } from '@/lib/platform';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { dropPlaceFromPointer, isSameFolder } from './dropPlacement';
 import { DropIndicator } from './DropIndicator';
+import { useLongPress } from '@/hooks/useLongPress';
 
 /** The folder a dragged note came from, read off its `notes/`-relative path. */
 function folderOfRelativePath(relative: string): string | null {
@@ -110,6 +111,7 @@ function DraggableNoteItemImpl({
     onClick(note, e);
   };
   const handleContextMenu = (e: React.MouseEvent) => onContextMenu(note, e);
+  const longPress = useLongPress(handleContextMenu);
   const handleDragStart = (e: React.DragEvent) => {
     if (!canMoveToFolder && !onReorder) return;
     // Strip "notes/" prefix for the relative path within notes folder
@@ -193,6 +195,7 @@ function DraggableNoteItemImpl({
         } as React.CSSProperties
       }
       onContextMenu={handleContextMenu}
+      {...longPress}
       draggable={canMoveToFolder || !!onReorder}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -218,6 +221,8 @@ function DraggableNoteItemImpl({
             size, so `truncate` never engages and a long note name runs under
             the Options button instead of ellipsing before it. */}
         <span className="flex min-w-0 items-baseline gap-2">
+          <span className="note-card-title min-w-0 truncate">{note.name.replace(/\.md$/, '')}</span>
+          {/* After the title, so a locked note's name lines up with the others. */}
           {note.isLocked && (
             <span
               className="flex-shrink-0 text-[10px] font-normal"
@@ -226,7 +231,6 @@ function DraggableNoteItemImpl({
               Locked
             </span>
           )}
-          <span className="note-card-title min-w-0 truncate">{note.name.replace(/\.md$/, '')}</span>
           {note.notDownloaded && (
             <Cloud
               size={12}

@@ -317,25 +317,27 @@ export function AboutSection() {
         </button>
       </div>
 
-      {/* Keyboard Shortcuts */}
-      <div
-        className="p-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
-          Keyboard Shortcuts
-        </h4>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          <ShortcutRow keys={[formatShortcut('⌘,')]} description="Settings" />
-          <ShortcutRow keys={[formatShortcut('⌘T')]} description="Template" />
-          <ShortcutRow keys={[formatShortcut('⌘B')]} description="Bold" />
-          <ShortcutRow keys={[formatShortcut('⌘I')]} description="Italic" />
-          <ShortcutRow keys={[formatShortcut('⌘U')]} description="Underline" />
-          <ShortcutRow keys={[formatShortcut('⌘K')]} description="Link" />
-          <ShortcutRow keys={[formatShortcut('⌘Z')]} description="Undo" />
-          <ShortcutRow keys={[formatShortcut('⌘⇧Z')]} description="Redo" />
+      {/* A phone has no keyboard shortcuts to list. */}
+      {!isMobilePlatform() && (
+        <div
+          className="p-4"
+          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
+        >
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+            Keyboard Shortcuts
+          </h4>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <ShortcutRow keys={[formatShortcut('⌘,')]} description="Settings" />
+            <ShortcutRow keys={[formatShortcut('⌘T')]} description="Template" />
+            <ShortcutRow keys={[formatShortcut('⌘B')]} description="Bold" />
+            <ShortcutRow keys={[formatShortcut('⌘I')]} description="Italic" />
+            <ShortcutRow keys={[formatShortcut('⌘U')]} description="Underline" />
+            <ShortcutRow keys={[formatShortcut('⌘K')]} description="Link" />
+            <ShortcutRow keys={[formatShortcut('⌘Z')]} description="Undo" />
+            <ShortcutRow keys={[formatShortcut('⌘⇧Z')]} description="Redo" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

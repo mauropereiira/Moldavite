@@ -75,7 +75,9 @@ Settings hides on the phone: the Forges folder picker and Open Forge in
 Finder (General), the icon rail toggle, Index and Agenda modes, writing
 column width and the asteroid cursor (Layout), and the AI & Agents and
 Import, Plugins and Calendar connection sections entirely. About omits the
-desktop updater, and the editor omits WordPress publishing and PDF export.
+desktop updater and the keyboard shortcuts, and the editor omits WordPress
+publishing and PDF export. The Sidebar section is called Index there.
+Switches are 51 by 31 with a 44pt hit area and an ink-filled knob when on.
 
 ## Plugins on iOS
 
@@ -112,9 +114,12 @@ get trapped underneath Index.
 - `src/mobile.css` holds every phone style, scoped to
   `html[data-platform='mobile']`, with `--safe-top`, `--safe-bottom` and
   `--touch-target` tokens. `index.html` sets `viewport-fit=cover`.
-- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline
-  and Settings are full-screen pages, closed with their × or by tapping
-  their rail button again. Home (the M) is the welcome screen.
+- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline,
+  Settings and Trash are full-screen pages, closed with their × or by tapping
+  their rail button again. Home (the M) is the welcome screen. Search matches
+  titles and note text and raises the keyboard as it opens (the tap focuses a
+  stand-in field, as New does). In the graph a tap names a star and a second
+  opens it.
   `Layout.tsx` keeps phone Index and Agenda in overlay
   mode. On iPad windows at least 700px wide, a 280px Index sits beside the editor;
   narrower windows return to page navigation without closing the current note.
@@ -122,16 +127,42 @@ get trapped underneath Index.
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
   back: a section returns to the list, the list closes Settings.
-- The editor footer has Menu on the left and Actions on the right. The note
-  runs the full width of the paper with 16px gutters; the note header sits
-  on the rail's rhythm. An empty note offers one View templates button; the
-  template picker opens as a page beside the rail.
+- The Index footer keeps Today and New; Timeline, Graph, Settings and Trash
+  are the rail's, and the version is in About. The footer hides while the
+  keyboard is up. Press and hold a note or folder for its Options menu
+  (`useLongPress`; WebKit fires no `contextmenu` for it). A tapped `#tag`
+  opens the Index filtered to it; iOS sends no click for a tap on editable
+  text, so `TagMark` reads the tap from pointer events.
+- The editor footer has the save status on the left and Actions on the right;
+  the desktop's Index · Agenda · Settings links are not rendered, since the
+  rail carries them. The note runs the full width of the paper with 16px
+  gutters; the note header sits on the rail's rhythm. An empty note offers
+  one View templates button; the template picker opens as a full-screen page
+  beside the rail.
+- New (Index, folder Options, the welcome screen, the quick switcher) creates
+  "Untitled" and opens it on its title with the name selected and the
+  keyboard up. iOS raises the keyboard only for a focus made inside the tap,
+  and the title exists only after the file does, so the tap focuses a hidden
+  stand-in field (`src/lib/noteTitleFocus.ts`) and the title takes the focus
+  from it. The editor must not clear the document selection while a field
+  outside the note has the focus: WebKit then keeps the field focused and the
+  keyboard up, but inserts nothing. Return in the title renames the note and
+  moves the caret into the body. A note New made and left with an empty body
+  and its generated name is deleted when its tab closes or is replaced, only
+  while its file is still empty (`discardNewNoteIfLeftEmpty` in
+  `src/lib/leaveSave.ts`).
 - `useVisualViewportHeight` keeps `--app-height` equal to the visual
   viewport so the software keyboard never covers the editor, and scrolls
   the page back to the top when WKWebView drags it under the status bar to
   make room for the caret. After the shell shrinks, it also reveals a focused
   dialog field inside its scroll container. Long dialog titles wrap, and their
-  actions remain reachable above the keyboard.
+  actions remain reachable above the keyboard. Focus changes resize the shell
+  only after the current tap: WebKit moves focus on mousedown and hit-tests the
+  click afterwards, so resizing there moved a dialog's button out from under
+  the finger and the first tap only dismissed the keyboard.
+- A pinned bar is the app's first row and clears the status bar itself; the
+  rail, the note and the pages beside it read `--shell-safe-top`, which is
+  zero below it.
 - Focus traps focus the page container on a phone rather than the first
   button, so no close control wears a focus ring after a tap. The global
   `!important` hover fill in `index.css` sticks after a tap on a touch
@@ -140,6 +171,16 @@ get trapped underneath Index.
 - Dialog scrims start at the rail's edge (the rail paints above them). A
   page keeps the transform from its entry animation, so a fixed scrim inside
   a page is positioned against the page and gets `left: 0` instead.
+- In landscape the rail widens by the safe-area inset on its own edge. The
+  edge without the rail uses `--page-safe-left` / `--page-safe-right`: pages,
+  bars and the note paper paint to the screen edge and pad only their contents,
+  so hairlines and note colours still reach the edge. The rail's active marker
+  moves from the outer edge to the hairline there, since the outer edge is
+  under the sensor band. At 402pt the rail drops its padding and bottom inset
+  to fit nine 44pt buttons under a pinned bar, and scrolls above the keyboard.
+  While the keyboard is up in landscape the pinned bar and the Index's Forge
+  row hide, and `--safe-bottom` is zero on any phone, since the shell ends at
+  the keyboard.
 - Segmented controls with four or more options become a one-per-row list.
 - `tauri-plugin-mobile-ui` follows the system's preferred body-text scale while
   retaining Cream's fonts. Large text stacks segmented controls and Index footer
@@ -154,9 +195,19 @@ get trapped underneath Index.
 The formatting row appears when editing a note and stays available until Done,
 including with a hardware or floating keyboard. It sits at the bottom of the
 visual-viewport shell above the software keyboard, with Bold, Italic, heading,
-lists, tasks, wiki links, tags, links, images, undo and redo. The controls scroll
-horizontally; Done remains visible. The desktop selection popup and footer stay
-out of the editing row. Keeping the row present across focus changes is
+lists, tasks, wiki links, tags, links, images, undo and redo. While the caret is
+in a table the row leads with add and delete row and column and Delete table;
+while an image is selected, with its alignment and Delete image. The controls
+scroll horizontally behind a fade on the side with more to find; Done remains
+visible. The desktop selection popup, image toolbar and footer stay out of the
+editing row.
+
+The caret, the selection wash and its handles are ink, not the iOS tint:
+`caret-color` in `mobile.css` sets all three, so no native tint is needed. The
+wiki-link, tag and slash lists open above the caret when the visible area has
+more room there (`suggestionPopup.ts`), since Popper measures the layout
+viewport, which the keyboard does not shrink. Editor dialogs and menus show no
+keyboard shortcuts on the phone. Keeping the row present across focus changes is
 necessary on WebKit: hiding it immediately on editor blur removes the tapped
 button before its click can run.
 
@@ -221,6 +272,14 @@ frontmatter, and selection ZIPs keep full relative paths so same-named notes in
 different folders stay distinct. The backend rejects locked or invalid sources.
 Use a note’s Options → Select note, then tap additional notes to select them;
 the selection bar opens the ZIP export dialog. Mobile PDF export is excluded.
+
+Share → Share note… (`share_mobile_note`) stages the note's Markdown file the
+same way and presents `UIActivityViewController` from the same plugin, so
+AirDrop, Messages, Mail and Save to Files receive a complete `.md` file. The
+staging copy lives until the sheet closes; cancelling an activity such as Mail
+returns to the sheet with the file still there. On iPad the sheet is a popover
+anchored to the middle of the window. Locked notes are refused, and the item is
+not offered on a view-only note.
 
 Do not use `dialog.save()` followed by a Rust write on iOS. With the currently
 locked dialog plugin, this exports an empty placeholder and returns a cache

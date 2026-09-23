@@ -1,6 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyGraphEmptyState } from '@/components/ui';
 import { safeInvoke } from '@/lib/ipc';
+import { isMobilePlatform } from '@/lib/platform';
 import { useGraphStore, useNoteStore, useThemeStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { noteForGraphNode } from './addressing';
@@ -192,6 +193,13 @@ const editorialLabel: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+/** How far from a star a fingertip still picks it; a pointer gets 12px. */
+const TOUCH_REACH_PX = 24;
+
+function isTouch(event: React.PointerEvent): boolean {
+  return event.pointerType === 'touch' || event.pointerType === 'pen';
+}
+
 /** Full-screen, path-addressed note graph rendered on a Canvas 2D surface. */
 export function GraphView() {
   const isOpen = useGraphStore((state) => state.isOpen);
@@ -219,6 +227,7 @@ export function GraphView() {
   const entranceRef = useRef<Entrance | null>(null);
   const initialFitRef = useRef(false);
   const interactionRef = useRef<PointerInteraction | null>(null);
+  const openOnClickRef = useRef<string | null>(null);
   const scheduleDrawRef = useRef<() => void>(() => undefined);
 
   const adjacency = useMemo(() => {
@@ -588,7 +597,7 @@ export function GraphView() {
     preset,
   ]);
 
-  const pickNode = useCallback((clientX: number, clientY: number): LayoutNode | null => {
+  const pickNode = useCallback((clientX: number, clientY: number, reach = 12) => {
     const container = containerRef.current;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
@@ -598,7 +607,7 @@ export function GraphView() {
     const centerY = rect.height / 2 + panRef.current.y;
     const entrance = entranceRef.current;
     let closest: LayoutNode | null = null;
-    let closestDistance = 12;
+    let closestDistance = reach;
     for (let index = 0; index < layoutRef.current.length; index++) {
       const node = layoutRef.current[index];
       const distance = Math.hypot(
@@ -630,7 +639,7 @@ export function GraphView() {
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) return;
-      const node = pickNode(event.clientX, event.clientY);
+      const node = pickNode(event.clientX, event.clientY, isTouch(event) ? TOUCH_REACH_PX : 12);
       interactionRef.current = {
         mode: node ? 'node' : 'pan',
         pointerId: event.pointerId,
@@ -704,6 +713,16 @@ export function GraphView() {
       if (interaction.mode === 'node' && interaction.moved) {
         temperatureRef.current = Math.max(temperatureRef.current, 9);
         scheduleDrawRef.current();
+      } else if (!cancelled && !interaction.moved && isTouch(event)) {
+        // A finger cannot hover to learn which note a star is before opening
+        // it: the first tap names the star and its neighbours, a second opens it.
+        if (interaction.nodeId && interaction.nodeId === hoveredId) {
+          // Opened by the click that follows the lift. Closing the graph now
+          // would hand that click to the note underneath, raising the keyboard.
+          openOnClickRef.current = interaction.nodeId;
+        } else {
+          setHoveredId(interaction.nodeId);
+        }
       } else if (!cancelled && !interaction.moved && interaction.nodeId) {
         void openGraphNode(interaction.nodeId);
       }
@@ -752,14 +771,15 @@ export function GraphView() {
     // No `app-overlay` entrance here: its scale transform would be baked into
     // the canvas' backing-store size. The galaxy entrance is this surface's.
     <div
-      className="graph-view fixed inset-y-0 right-0 z-[9998] flex flex-col"
+      className="graph-view fixed inset-y-0 z-[9998] flex flex-col"
       style={{
         backgroundColor: 'var(--bg-base)',
         // Start clear of the icon rail rather than under it: the rail sits in
         // normal flow at z-10000, so `inset-0` put this surface's first 48px
         // behind it and the "Graph" heading rendered as ".ph". Leaving the
         // rail exposed also keeps it usable, which is how you leave the graph.
-        left: 'var(--rail-width)',
+        left: 'var(--rail-inset-left)',
+        right: 'var(--rail-inset-right)',
       }}
       role="dialog"
       aria-modal="true"
@@ -810,7 +830,11 @@ export function GraphView() {
                 lineHeight: 1,
                 textTransform: 'uppercase',
               }}
-              title="Fit all notes in view (double-click the canvas)"
+              title={
+                isMobilePlatform()
+                  ? 'Fit all notes in view'
+                  : 'Fit all notes in view (double-click the canvas)'
+              }
             >
               Fit view
             </button>
@@ -841,8 +865,14 @@ export function GraphView() {
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => finishPointer(event)}
           onPointerCancel={(event) => finishPointer(event, true)}
-          onPointerLeave={() => {
-            if (!interactionRef.current) setHoveredId(null);
+          // A lifted finger also leaves, which would drop the star its tap just named.
+          onPointerLeave={(event) => {
+            if (!interactionRef.current && !isTouch(event)) setHoveredId(null);
+          }}
+          onClick={() => {
+            const nodeId = openOnClickRef.current;
+            openOnClickRef.current = null;
+            if (nodeId) void openGraphNode(nodeId);
           }}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}

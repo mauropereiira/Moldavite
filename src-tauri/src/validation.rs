@@ -128,6 +128,20 @@ pub(crate) fn is_safe_filename(filename: &str) -> bool {
         && !has_windows_reserved_stem(filename)
 }
 
+/// Whether a new note may take this name. A `[` or `]` would end the
+/// `[[link]]` naming it early, so no link could reach the note. Only names being
+/// created are held to this: a note already on disk with brackets keeps
+/// opening, saving, locking and moving through the existing-name checks.
+pub(crate) fn is_linkable_note_name(filename: &str) -> bool {
+    !filename.contains(['[', ']'])
+}
+
+/// [`sanitize_path_segment`] for a new note's name, turning brackets into
+/// parentheses so "[PDF] Report" becomes "(PDF) Report".
+pub(crate) fn sanitize_note_name(raw: &str, fallback: &str) -> String {
+    sanitize_path_segment(&raw.replace('[', "(").replace(']', ")"), fallback)
+}
+
 /// Accept an existing visible slash-separated path without applying newer
 /// portability rules to its components.
 ///
@@ -354,6 +368,19 @@ pub(crate) fn validate_user_export_path(path: &Path, required_ext: &str) -> Resu
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn new_note_names_refuse_brackets_and_sanitizing_turns_them_to_parentheses() {
+        assert!(is_linkable_note_name("Plan (copy).md"));
+        assert!(!is_linkable_note_name("Plan [copy].md"));
+        assert!(!is_linkable_note_name("Plan ]copy.md"));
+        assert!(is_safe_filename("Plan [copy].md"));
+        assert_eq!(
+            sanitize_note_name("[PDF] Report", "Untitled"),
+            "(PDF) Report"
+        );
+        assert_eq!(sanitize_note_name("[]", "Untitled"), "()");
+    }
 
     /// Build a throwaway directory under Cargo's writable target directory.
     /// `temp_dir()` is intentionally rejected by export validation on macOS,

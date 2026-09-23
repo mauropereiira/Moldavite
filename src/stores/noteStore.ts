@@ -40,6 +40,8 @@ interface NoteState {
   savedContent: Map<string, string>;
   /** A locked note someone tried to open; the sidebar answers it with the password prompt. */
   pendingUnlock: NoteFile | null;
+  /** The Index was opened only to ask for that password, so a cancel closes it again. */
+  pendingUnlockOpenedIndex: boolean;
 
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
@@ -56,6 +58,7 @@ interface NoteState {
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
+  /** Record a write of a note: its tab's saved body, and the list's time for the Modified sort. */
   markNoteSaved: (noteId: string, content: string) => void;
   /** Forget a tab's saved body, so its text counts as unsaved until it is written. */
   markNoteUnsaved: (noteId: string) => void;
@@ -74,7 +77,7 @@ interface NoteState {
   unlockNote: (noteId: string) => void;
   lockNote: (noteId: string) => void;
   lockAllNotes: () => void;
-  requestUnlock: (note: NoteFile) => void;
+  requestUnlock: (note: NoteFile, openedIndex?: boolean) => void;
   clearPendingUnlock: () => void;
 
   addRecentNote: (noteId: string) => void;
@@ -92,6 +95,16 @@ const loadRecentNotes = (): string[] => {
   return [];
 };
 
+/**
+ * A locked note opened with its password is decrypted in memory only; autosave
+ * skips it, so nothing may write into it. TipTap's content commands do not
+ * check the editor's editable flag, so every one reached from outside the
+ * editor's own input checks this.
+ */
+export function isCurrentNoteViewOnly(state: Pick<NoteState, 'currentNote' | 'unlockedNotes'>) {
+  return !!state.currentNote && state.unlockedNotes.has(state.currentNote.id);
+}
+
 export const useNoteStore = create<NoteState>((set, get) => ({
   notes: [],
   openTabs: [],
@@ -106,6 +119,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   externallyChanged: new Map<string, string | null>(),
   savedContent: new Map<string, string>(),
   pendingUnlock: null,
+  pendingUnlockOpenedIndex: false,
 
   setNotes: (notes) => {
     set({ notes });
@@ -354,11 +368,19 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   markNoteSaved: (noteId, content) =>
     set((state) => {
-      if (!state.openTabs.some((tab) => tab.id === noteId)) return state;
-      if (state.savedContent.get(noteId) === content) return state;
+      const modifiedAt = Math.floor(Date.now() / 1000);
+      const notes = state.notes.some((note) => note.path === noteId)
+        ? state.notes.map((note) => (note.path === noteId ? { ...note, modifiedAt } : note))
+        : state.notes;
+      if (
+        !state.openTabs.some((tab) => tab.id === noteId) ||
+        state.savedContent.get(noteId) === content
+      ) {
+        return notes === state.notes ? state : { notes };
+      }
       const savedContent = new Map(state.savedContent);
       savedContent.set(noteId, content);
-      return { savedContent };
+      return { notes, savedContent };
     }),
 
   markNoteUnsaved: (noteId) =>
@@ -676,7 +698,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     set({ unlockedNotes: new Set() });
   },
 
-  requestUnlock: (note) => set({ pendingUnlock: note }),
+  requestUnlock: (note, openedIndex = false) =>
+    set({ pendingUnlock: note, pendingUnlockOpenedIndex: openedIndex }),
 
   clearPendingUnlock: () => set({ pendingUnlock: null }),
 

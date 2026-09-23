@@ -18,13 +18,14 @@ use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
 use crate::note_file_access::{self, Access};
 use crate::paths::{
-    file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
+    file_created_unix, file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir,
+    get_weekly_dir,
 };
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
 use crate::validation::{
-    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename, sanitize_path_segment,
-    validate_path_within_base, MAX_PORTABLE_FILENAME_LENGTH,
+    is_linkable_note_name, is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    sanitize_note_name, validate_path_within_base, MAX_PORTABLE_FILENAME_LENGTH,
 };
 
 /// Standalone notes may live in folders and are addressed by a notes/-relative
@@ -81,7 +82,7 @@ fn is_valid_new_note_ref(dir: &Path, filename: &str, is_daily: bool, is_weekly: 
 }
 
 fn portable_derived_stem(stem: &str, suffix: &str) -> String {
-    let sanitized = sanitize_path_segment(stem, "Untitled");
+    let sanitized = sanitize_note_name(stem, "Untitled");
     let available = MAX_PORTABLE_FILENAME_LENGTH.saturating_sub(suffix.chars().count());
     let base: String = sanitized.chars().take(available).collect();
     format!("{base}{suffix}")
@@ -519,6 +520,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                 };
 
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let note_path = if relative_path.is_empty() {
@@ -536,6 +538,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                         is_locked,
                         folder_path,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -555,6 +558,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let date = base_name
@@ -571,6 +575,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -585,6 +590,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let week = base_name
@@ -601,6 +607,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -677,7 +684,10 @@ fn note_write_target(
         }
         return Err(crate::cloud_forge::NOT_DOWNLOADED.to_string());
     }
-    if !note_name_is_taken(&path) && !is_valid_new_note_ref(dir, filename, is_daily, is_weekly) {
+    if !note_name_is_taken(&path)
+        && (!is_valid_new_note_ref(dir, filename, is_daily, is_weekly)
+            || !is_linkable_note_name(note_ref_stem(filename)))
+    {
         return Err("Invalid filename".to_string());
     }
     Ok(path)
@@ -891,7 +901,7 @@ fn create_note_in(
     title: &str,
     folder_path: Option<&str>,
 ) -> Result<(String, String), String> {
-    if !is_safe_filename(title) {
+    if !is_safe_filename(title) || !is_linkable_note_name(title) {
         return Err("Invalid title".to_string());
     }
     if let Some(folder) = folder_path {
@@ -1041,6 +1051,7 @@ fn rename_note_in(
     // permissive rules; the new name is being created and must be portable.
     if !is_valid_existing_note_ref(old_filename, is_daily, is_weekly)
         || !is_valid_new_note_ref(dir, new_filename, is_daily, is_weekly)
+        || !is_linkable_note_name(note_ref_stem(new_filename))
     {
         return Err("Invalid filename".to_string());
     }
@@ -1151,6 +1162,7 @@ fn rewrite_inbound_links_in_roots(
     index: &Arc<BacklinksIndex>,
     resolver: Option<&crate::backlinks_index::Resolver>,
 ) {
+    let slug_shared = slug_is_owned_in_roots(roots, old_stem);
     for root in roots {
         if !root.exists() {
             continue;
@@ -1173,13 +1185,14 @@ fn rewrite_inbound_links_in_roots(
             // lock keeps a rename from taking file coordination and the save
             // lock once per note in the Forge; the rewrite re-checks under it.
             let links_to_old = fs::read_to_string(path).is_ok_and(|raw| {
-                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem).is_some()
+                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem, slug_shared)
+                    .is_some()
             });
             if !links_to_old {
                 continue;
             }
             let rewritten = match rewrite_note_in_place(path, |raw| {
-                crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem)
+                crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem, slug_shared)
             }) {
                 Ok(Some(rewritten)) => rewritten,
                 Ok(None) => continue,
@@ -1198,6 +1211,26 @@ fn rewrite_inbound_links_in_roots(
             }
         }
     }
+}
+
+/// Whether a note still on disk, locked or not, has a name that slugifies to
+/// `old_stem`'s. Runs after the rename, so the renamed note counts only when its
+/// new name keeps the slug, and then the slug-only links still reach it.
+fn slug_is_owned_in_roots(roots: &[PathBuf], old_stem: &str) -> bool {
+    let old_slug = crate::wiki::note_name_to_filename(old_stem);
+    roots.iter().filter(|root| root.exists()).any(|root| {
+        walkdir::WalkDir::new(root)
+            .into_iter()
+            .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+            .flatten()
+            .filter(|entry| entry.file_type().is_file())
+            .any(|entry| {
+                let name = entry.file_name().to_string_lossy();
+                name.strip_suffix(".md")
+                    .or_else(|| name.strip_suffix(".md.locked"))
+                    .is_some_and(|stem| crate::wiki::note_name_to_filename(stem) == old_slug)
+            })
+    })
 }
 
 #[tauri::command]
@@ -1430,6 +1463,29 @@ mod tests {
 
     const STAMP: &str = "2026-07-12 1015";
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_note_list_reports_when_a_note_was_created_and_a_save_keeps_it() {
+        use std::os::macos::fs::FileTimesExt;
+        let tmp = TempDir::new("created-at");
+        let note = tmp.path().join("Plan.md");
+        write_atomic(&note, b"", Some(0o600)).unwrap();
+        let created = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&note)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_created(created))
+            .unwrap();
+
+        save_note_with_conflict(&note, None, "Edited", None).unwrap();
+
+        let mut notes = Vec::new();
+        scan_notes_recursive(tmp.path(), "", &mut notes);
+        assert_eq!(notes[0].created_at, Some(1_600_000_000));
+        assert!(notes[0].modified_at.unwrap() > 1_600_000_000);
+    }
+
     #[test]
     fn a_note_still_in_icloud_is_reported_before_its_missing_folder_fails_validation() {
         let tmp = TempDir::new("remote-folder");
@@ -1491,6 +1547,72 @@ mod tests {
             assert!(!dir.join(filename).exists());
         }
         assert!(note_write_target(&daily, "2026-09-21.md", true, false).is_ok());
+    }
+
+    #[test]
+    fn a_new_note_takes_no_bracketed_name() {
+        let tmp = TempDir::new("bracket-new");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Drafts [old]")).unwrap();
+        fs::write(notes.join("Plan.md"), "body").unwrap();
+
+        assert_eq!(
+            create_note_in(&notes, "Plan [v2]", None).unwrap_err(),
+            "Invalid title"
+        );
+        assert!(note_write_target(&notes, "Plan [v2].md", false, false).is_err());
+        assert!(rename_note_in(&notes, "Plan.md", "Plan [v2].md", false, false).is_err());
+        assert!(notes.join("Plan.md").exists());
+        assert!(!notes.join("Plan [v2].md").exists());
+
+        assert!(note_write_target(&notes, "Drafts [old]/Plan.md", false, false).is_ok());
+        assert_eq!(
+            portable_derived_stem("[PDF] Report", " (copy)"),
+            "(PDF) Report (copy)"
+        );
+    }
+
+    #[test]
+    fn a_note_already_named_with_brackets_still_saves_renames_and_locks() {
+        let tmp = TempDir::new("bracket-existing");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("Plan [v1].md"), "body").unwrap();
+
+        assert!(read_note_in(&notes, "Plan [v1].md", false, false).is_ok());
+        assert_eq!(
+            note_write_target(&notes, "Plan [v1].md", false, false).unwrap(),
+            notes.join("Plan [v1].md")
+        );
+
+        crate::commands::locking::lock_note_in(
+            tmp.path(),
+            "Plan [v1].md".into(),
+            "correct horse".into(),
+            false,
+            false,
+            &BacklinksIndex::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            note_write_target(&notes, "Plan [v1].md", false, false).unwrap(),
+            notes.join("Plan [v1].md")
+        );
+        assert_eq!(
+            crate::commands::locking::unlock_note_in(
+                tmp.path(),
+                "Plan [v1].md".into(),
+                "correct horse".into(),
+                false,
+                false,
+            )
+            .unwrap(),
+            "body"
+        );
+
+        fs::write(notes.join("Other [x].md"), "other").unwrap();
+        rename_note_in(&notes, "Other [x].md", "Other.md", false, false).unwrap();
+        assert_eq!(fs::read_to_string(notes.join("Other.md")).unwrap(), "other");
     }
 
     #[test]
@@ -2092,6 +2214,34 @@ mod tests {
         assert_eq!(
             fs::read_to_string(notes.join("inbound.md")).unwrap(),
             "See [[q3-planning]] and [[agenda|q3-planning]]."
+        );
+    }
+
+    #[test]
+    fn rename_leaves_links_to_another_note_with_the_same_slug() {
+        let tmp = TempDir::new("rename-shared-slug");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("Plan (copy).md"), "the copy").unwrap();
+        fs::write(notes.join("Plan copy.md"), "a different note").unwrap();
+        fs::write(
+            notes.join("inbound.md"),
+            "See [[Plan copy]] and [[Plan (copy)]].",
+        )
+        .unwrap();
+
+        rename_note_in(&notes, "Plan (copy).md", "Roadmap.md", false, false).unwrap();
+        rewrite_inbound_links_in_roots(
+            std::slice::from_ref(&notes),
+            note_ref_stem("Plan (copy).md"),
+            note_ref_stem("Roadmap.md"),
+            &Arc::new(BacklinksIndex::new()),
+            Some(&crate::wiki::note_name_to_filename),
+        );
+
+        assert_eq!(
+            fs::read_to_string(notes.join("inbound.md")).unwrap(),
+            "See [[Plan copy]] and [[Roadmap]]."
         );
     }
 

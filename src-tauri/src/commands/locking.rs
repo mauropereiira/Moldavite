@@ -110,7 +110,7 @@ fn publish_unlocked_file(
     Ok(())
 }
 
-fn lock_note_in(
+pub(crate) fn lock_note_in(
     forge_root: &Path,
     filename: String,
     password: String,
@@ -197,7 +197,7 @@ pub(crate) fn lock_note(
     Ok(())
 }
 
-fn unlock_note_in(
+pub(crate) fn unlock_note_in(
     forge_root: &Path,
     filename: String,
     password: String,

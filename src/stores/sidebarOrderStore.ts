@@ -14,6 +14,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { forgeNamespacedStorage, onActiveForgeChange, readNamespaced } from '@/lib/forgeStorage';
+import type { SortOption } from './settingsStore';
 
 const SIDEBAR_ORDER_KEY = 'moldavite-sidebar-order';
 
@@ -62,6 +63,58 @@ export function reorderIds(
   const at = found === -1 ? next.length : found + (place === 'after' ? 1 : 0);
   next.splice(at, 0, dragged);
   return [...stored.filter((id) => !group.has(id)), ...next];
+}
+
+/**
+ * A–Z by the title the list shows. Comparing file names put "Untitled (2).md"
+ * before "Untitled.md", since a space sorts before the dot of the extension,
+ * and numbers compare by value, so "(10)" follows "(9)".
+ */
+export function compareNoteTitles(a: { name: string }, b: { name: string }): number {
+  return a.name
+    .replace(/\.md$/, '')
+    .localeCompare(b.name.replace(/\.md$/, ''), undefined, { numeric: true });
+}
+
+interface SortableNote {
+  name: string;
+  modifiedAt?: number;
+  createdAt?: number;
+}
+
+/**
+ * The Index's order for every sort but Manual. Time sorts break ties A–Z.
+ * Created falls back to Modified where the file system keeps no creation time,
+ * and a note with no time at all (one still in iCloud) goes last either way.
+ */
+export function compareNotesBy(option: SortOption): (a: SortableNote, b: SortableNote) => number {
+  const modified = (note: SortableNote) => note.modifiedAt ?? null;
+  const created = (note: SortableNote) => note.createdAt ?? modified(note);
+  const byTime =
+    (time: (note: SortableNote) => number | null, newestFirst: boolean) =>
+    (a: SortableNote, b: SortableNote) => {
+      const [ta, tb] = [time(a), time(b)];
+      if (ta !== tb) {
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return newestFirst ? tb - ta : ta - tb;
+      }
+      return compareNoteTitles(a, b);
+    };
+  switch (option) {
+    case 'name-desc':
+      return (a, b) => compareNoteTitles(b, a);
+    case 'modified-desc':
+      return byTime(modified, true);
+    case 'modified-asc':
+      return byTime(modified, false);
+    case 'created-desc':
+      return byTime(created, true);
+    case 'created-asc':
+      return byTime(created, false);
+    default:
+      return compareNoteTitles;
+  }
 }
 
 /**

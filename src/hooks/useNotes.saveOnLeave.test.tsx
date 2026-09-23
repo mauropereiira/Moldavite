@@ -144,6 +144,36 @@ describe('save on leave', () => {
     expect(writes()).toHaveLength(0);
   });
 
+  it('keeps a daily note holding only a table not yet filled in, and deletes one emptied', async () => {
+    const daily = (date: string): NoteFile => ({
+      name: `${date}.md`,
+      path: `daily/${date}.md`,
+      isDaily: true,
+      isWeekly: false,
+      isLocked: false,
+      date,
+    });
+    disk = { '2026-09-21.md': 'before', '2026-09-22.md': 'before' };
+    useNoteStore.setState({ notes: [daily('2026-09-21'), daily('2026-09-22')] });
+    const hook = renderNotes();
+    const emptyTable =
+      '<table><tbody><tr><th><p></p></th><th><p></p></th></tr>' +
+      '<tr><td><p></p></td><td><p></p></td></tr></tbody></table><p></p>';
+
+    await act(() => hook.result.current.loadNote(daily('2026-09-21')));
+    act(() => useNoteStore.getState().updateNoteContent(emptyTable, 'daily/2026-09-21.md'));
+    await act(() => hook.result.current.loadNote(daily('2026-09-22')));
+    act(() => useNoteStore.getState().updateNoteContent('<p></p>', 'daily/2026-09-22.md'));
+    await act(() => hook.result.current.loadNote(standalone('Away.md')));
+
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite()).toMatchObject({ filename: '2026-09-21.md' });
+    expect(lastWrite()?.content).toContain('|');
+    const deletes = invokeMock.mock.calls.filter(([command]) => command === 'delete_note');
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0][1]).toMatchObject({ filename: '2026-09-22.md' });
+  });
+
   it('opens the next note when saving the previous one fails, then retries and reports once', async () => {
     vi.useFakeTimers();
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -464,6 +494,20 @@ describe('navigation', () => {
     expect(useNoteStore.getState().currentNote).toBeNull();
     expect(useNoteStore.getState().pendingUnlock).toEqual(locked);
     expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    // Opened only to ask, so a cancel closes it again.
+    expect(useNoteStore.getState().pendingUnlockOpenedIndex).toBe(true);
+  });
+
+  it('leaves an Index that was already open when a locked note there is tapped', async () => {
+    const locked: NoteFile = { ...standalone('Secret.md'), isLocked: true };
+    useNoteStore.setState({ notes: [locked] });
+    useOverlayStore.setState({ activeOverlay: 'index' });
+    const hook = renderNotes();
+
+    await act(() => hook.result.current.loadNote(locked));
+
+    expect(useNoteStore.getState().pendingUnlock).toEqual(locked);
+    expect(useNoteStore.getState().pendingUnlockOpenedIndex).toBe(false);
   });
 });
 

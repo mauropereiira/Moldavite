@@ -144,13 +144,6 @@ export function MoveToFolderModal({
           >
             {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-xs transition-colors"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Close
-          </button>
         </div>
 
         <div className="p-4">
@@ -184,7 +177,7 @@ export function MoveToFolderModal({
                 }
               }}
             >
-              <span className="text-sm">Root (No folder)</span>
+              <span className="text-sm">No folder</span>
             </div>
 
             {/* Folder options */}
@@ -202,7 +195,7 @@ export function MoveToFolderModal({
 
             {folders.length === 0 && (
               <p className="px-3 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-                No folders yet. Create one in the sidebar first.
+                No folders yet. Create one in the Index first.
               </p>
             )}
           </div>

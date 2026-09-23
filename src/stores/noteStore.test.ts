@@ -207,3 +207,43 @@ describe('noteStore - pinned tabs are per Forge', () => {
     expect(useNoteStore.getState().openTabs.every((tab) => !tab.isPinned)).toBe(true);
   });
 });
+
+describe('noteStore - markNoteSaved', () => {
+  beforeEach(() => {
+    useNoteStore.setState({
+      notes: [
+        {
+          name: 'a.md',
+          path: 'a',
+          isDaily: false,
+          isWeekly: false,
+          isLocked: false,
+          modifiedAt: 1,
+        },
+        {
+          name: 'b.md',
+          path: 'b',
+          isDaily: false,
+          isWeekly: false,
+          isLocked: false,
+          modifiedAt: 1,
+        },
+      ],
+      openTabs: [],
+      activeTabId: null,
+      currentNote: null,
+      savedContent: new Map(),
+    });
+  });
+
+  it("moves the saved note's list time to now, for the Modified sort", () => {
+    const before = Math.floor(Date.now() / 1000);
+    useNoteStore.getState().openTab(makeNote('a'), false);
+    useNoteStore.getState().markNoteSaved('a', '<p>edited</p>');
+
+    const [a, b] = useNoteStore.getState().notes;
+    expect(a.modifiedAt).toBeGreaterThanOrEqual(before);
+    expect(b.modifiedAt).toBe(1);
+    expect(useNoteStore.getState().savedContent.get('a')).toBe('<p>edited</p>');
+  });
+});

@@ -57,4 +57,21 @@ describe('GeneralSection', () => {
 
     expect(screen.queryByText(FORGE)).not.toBeInTheDocument();
   });
+
+  // Data has the same actions; General repeated them.
+  it('points to Data for backups instead of repeating its controls', async () => {
+    await renderSection();
+
+    expect(screen.getByText('Backups, exports and restores are in Data.')).toBeInTheDocument();
+    expect(screen.queryByText('Encrypted Backup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Export|Import/ })).not.toBeInTheDocument();
+  });
+
+  it('names the save delay slider', async () => {
+    await renderSection();
+    expect(screen.getByRole('slider', { name: 'Save delay' })).toHaveAttribute(
+      'aria-valuetext',
+      '300 milliseconds'
+    );
+  });
 });

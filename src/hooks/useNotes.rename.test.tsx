@@ -117,7 +117,7 @@ describe('useNotes rename', () => {
     const hook = await renderInitializedHook();
 
     await expect(act(() => hook.result.current.renameNote(file, 'bad/title'))).rejects.toThrow(
-      'Title can only contain letters, numbers, spaces, and hyphens'
+      'Title cannot contain / \\ : * ? " < > | [ ]'
     );
 
     expect(invokeMock.mock.calls.some(([command]) => command === 'rename_note')).toBe(false);

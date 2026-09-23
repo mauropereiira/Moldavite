@@ -19,7 +19,7 @@ use crate::commands::notes::{save_markdown_with_conflict_using, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
 use crate::validation::{
-    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    is_linkable_note_name, is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
     validate_path_within_base,
 };
 
@@ -534,9 +534,13 @@ fn validated_existing_note_path(path: &str) -> Result<String, String> {
 fn validated_new_note_path(path: &str) -> Result<String, String> {
     let (top, rest) = note_path_parts(path)?;
     let valid = if top == "notes" {
-        is_safe_existing_note_path(rest) && rest.rsplit('/').next().is_some_and(is_safe_filename)
+        is_safe_existing_note_path(rest)
+            && rest
+                .rsplit('/')
+                .next()
+                .is_some_and(|leaf| is_safe_filename(leaf) && is_linkable_note_name(leaf))
     } else {
-        is_safe_filename(rest)
+        is_safe_filename(rest) && is_linkable_note_name(rest)
     };
     if !valid {
         return Err("Invalid note path".to_string());

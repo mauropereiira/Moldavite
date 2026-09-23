@@ -6,9 +6,15 @@ import { isMobilePlatform } from '@/lib/platform';
 interface ShareMenuProps {
   onShowToast?: (message: string) => void;
   openDirection?: 'up' | 'down';
+  /** A locked note open for viewing: its plaintext must not leave the app. */
+  readOnly?: boolean;
 }
 
-export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProps) {
+export function ShareMenu({
+  onShowToast,
+  openDirection = 'down',
+  readOnly = false,
+}: ShareMenuProps) {
   // Export needs the note body, so this genuinely reads `content` and
   // re-renders on every keystroke like the Editor itself — narrowed to just
   // `currentNote` (rather than the whole store) so unrelated state changes
@@ -28,6 +34,17 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
       onShowToast?.('Wiki link copied');
     } catch (error) {
       console.error('[ShareMenu] Failed to copy link:', error);
+    }
+  };
+
+  const handleShareNote = async () => {
+    if (!currentNote) return;
+    try {
+      const { shareMobileNote } = await import('@/lib/mobileNoteExport');
+      await shareMobileNote(currentNote.id);
+    } catch (error) {
+      console.error('[ShareMenu] Failed to share:', error);
+      onShowToast?.('Failed to share');
     }
   };
 
@@ -75,9 +92,16 @@ export function ShareMenu({ onShowToast, openDirection = 'down' }: ShareMenuProp
         </button>
       }
     >
+      {isMobilePlatform() && !readOnly && (
+        <DropdownItem onClick={handleShareNote}>Share note…</DropdownItem>
+      )}
       <DropdownItem onClick={handleCopyLink}>Copy wiki link</DropdownItem>
-      <DropdownDivider />
-      <DropdownItem onClick={handleExportText}>Export as plain text</DropdownItem>
+      {!readOnly && (
+        <>
+          <DropdownDivider />
+          <DropdownItem onClick={handleExportText}>Export as plain text</DropdownItem>
+        </>
+      )}
     </Dropdown>
   );
 }

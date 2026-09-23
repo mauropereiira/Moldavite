@@ -5,7 +5,7 @@ private struct ExportOptions: Decodable {
     let path: String
 }
 
-final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
+final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
     private var pending: Invoke?
 
     @objc func exportFile(_ invoke: Invoke) throws {
@@ -36,6 +36,48 @@ final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
         }
     }
 
+    @objc func shareFile(_ invoke: Invoke) throws {
+        let options = try invoke.parseArgs(ExportOptions.self)
+        let source = URL(fileURLWithPath: options.path)
+        DispatchQueue.main.async {
+            guard self.pending == nil,
+                  let presenter = self.manager.viewController,
+                  presenter.presentedViewController == nil else {
+                invoke.reject("Another dialog is already open.")
+                return
+            }
+            guard FileManager.default.fileExists(atPath: source.path) else {
+                invoke.reject("The shared file is no longer available.")
+                return
+            }
+            let sheet = UIActivityViewController(activityItems: [source], applicationActivities: nil)
+            // An iPad presents the sheet as a popover, which must have an anchor.
+            if let popover = sheet.popoverPresentationController {
+                let bounds = presenter.view.bounds
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(x: bounds.midX, y: bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            // Cancelling an activity such as Mail can return to the sheet, which
+            // still needs the file, or close the sheet along with it, and then
+            // nothing else reports. Once the sheet is gone the share is over.
+            sheet.completionWithItemsHandler = { [weak self, weak sheet] activity, completed, _, _ in
+                if completed || activity == nil {
+                    self?.finish(completed, invoke)
+                    return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if sheet?.presentingViewController == nil || sheet?.isBeingDismissed == true {
+                        self?.finish(false, invoke)
+                    }
+                }
+            }
+            sheet.presentationController?.delegate = self
+            self.pending = invoke
+            presenter.present(sheet, animated: true)
+        }
+    }
+
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         finish(!urls.isEmpty)
     }
@@ -44,7 +86,13 @@ final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
         finish(false)
     }
 
-    private func finish(_ exported: Bool) {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        finish(false)
+    }
+
+    /// `only` ties a late callback to the share that scheduled it.
+    private func finish(_ exported: Bool, _ only: Invoke? = nil) {
+        if let only = only, pending !== only { return }
         let invoke = pending
         pending = nil
         invoke?.resolve(["exported": exported])

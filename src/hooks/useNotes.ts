@@ -29,14 +29,13 @@ import {
   readNote,
   readNoteSnapshot,
   readNoteWithMeta,
-  deleteNote,
-  drainNoteWrites,
   createNote as createNoteFile,
   getDailyNoteFilename,
   getWeeklyNoteFilename,
   filenameToNote,
   markdownToHtml,
   isHtmlContent,
+  justCreatedTimes,
   parseTaskStatus,
   noteFileBackendPath,
   renameNote as renameNoteFile,
@@ -44,7 +43,6 @@ import {
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
-import { cancelPendingAutosaveDebounceForNote, discardPendingAutosaveForNote } from './useAutoSave';
 import {
   acquireAutosavePathChange,
   abortAutosavePathChange,
@@ -54,13 +52,15 @@ import {
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
 import {
-  discardLeaveSave,
+  discardNewNoteIfLeftEmpty,
   hasUnsavedEdits,
   heldLeaveSaveNote,
   readdressLeaveSave,
   saveNoteOnLeave,
 } from '@/lib/leaveSave';
 import { isNotDownloadedError, openCloudPlaceholder } from '@/lib/cloudNotes';
+import { isMobilePlatform } from '@/lib/platform';
+import { holdKeyboard, requestTitleFocus } from '@/lib/noteTitleFocus';
 
 /**
  * Loads the note list and scans daily notes for task status. The app calls this once
@@ -189,11 +189,17 @@ export function useNotes() {
         if (indexMode === 'off') {
           useToastStore
             .getState()
-            .addToast('error', 'This note is locked. Unlock it from the sidebar first.');
+            .addToast('error', 'This note is locked. Unlock it from the Index first.');
           return;
         }
-        state.requestUnlock(listed ?? noteFile);
-        useOverlayStore.getState().openIndex(indexMode === 'pinned');
+        const overlays = useOverlayStore.getState();
+        const indexShown =
+          overlays.activeOverlay === 'index' ||
+          (indexMode === 'pinned' && !overlays.isSidebarHidden);
+        // Raised in the tap that asked, for the password field about to mount.
+        if (isMobilePlatform()) holdKeyboard();
+        state.requestUnlock(listed ?? noteFile, !indexShown);
+        overlays.openIndex(indexMode === 'pinned');
         return;
       }
       if (openUnsavedText(noteFile.path, inNewTab)) return;
@@ -456,11 +462,21 @@ export function useNotes() {
   );
 
   /**
-   * Creates a new standalone note with the specified title.
+   * Creates a new standalone note with the specified title. `discardIfLeftEmpty`
+   * marks a generated name, from New: the note is deleted if it is left empty.
    */
   const createNote = useCallback(
-    async (title: string, folderPath?: string | null) => {
+    async (
+      title: string,
+      folderPath?: string | null,
+      { discardIfLeftEmpty = false }: { discardIfLeftEmpty?: boolean } = {}
+    ) => {
       latestNavigation += 1;
+      // A phone opens every new note on its title, ready to be named, and so
+      // does a generated name anywhere: nothing else has the focus after ⌘N.
+      const mobile = isMobilePlatform();
+      const focusTitle = mobile || discardIfLeftEmpty;
+      if (mobile) holdKeyboard();
       try {
         setIsLoading(true);
         const filename = await createNoteFile(title, folderPath || undefined);
@@ -472,6 +488,7 @@ export function useNotes() {
           isWeekly: false,
           isLocked: false,
           folderPath: folderPath || undefined,
+          ...justCreatedTimes(),
         };
         // Get fresh notes to avoid stale closure
         const freshNotes = getState().notes;
@@ -479,6 +496,8 @@ export function useNotes() {
           setNotes([...freshNotes, noteFile]);
         }
         const note = filenameToNote(noteFile, '');
+        if (discardIfLeftEmpty) discardNewNoteIfLeftEmpty(note.id);
+        if (focusTitle) requestTitleFocus(note.id);
         setCurrentNote(note);
       } catch (error) {
         console.error('[useNotes] Failed to create note:', error);
@@ -520,6 +539,7 @@ export function useNotes() {
           date: isDaily ? title : undefined,
           isLocked: false,
           folderPath: folderPath || undefined,
+          ...justCreatedTimes(),
         };
 
         // Get fresh notes to avoid stale closure
@@ -635,6 +655,7 @@ export function useNotes() {
           isWeekly: sourceNote.isWeekly || false,
           isLocked: false,
           folderPath: sourceNote.folderPath,
+          ...justCreatedTimes(),
         };
 
         // Get fresh notes to avoid stale closure
@@ -654,60 +675,6 @@ export function useNotes() {
     [flushCurrentNote, getState, setNotes, loadNote, setIsLoading]
   );
 
-  /**
-   * Deletes the currently loaded note from disk and removes it from the note list.
-   */
-  const deleteCurrentNote = useCallback(async () => {
-    const state = getState();
-    const note = state.currentNote;
-    if (!note) return;
-
-    let filename: string;
-    if (note.isDaily && note.date) {
-      filename = `${note.date}.md`;
-    } else if (note.isWeekly && note.week) {
-      filename = `${note.week}.md`;
-    } else {
-      // Delete by on-disk path, never by display title — a diverged title
-      // would delete the wrong file.
-      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
-    }
-
-    try {
-      setIsLoading(true);
-      // Cancel the queued debounce and drain anything already writing. deleteNote
-      // rechecks under a per-note write lock before removing the file.
-      cancelPendingAutosaveDebounceForNote(note.id);
-      await drainNoteWrites(filename, note.isDaily || false, note.isWeekly || false);
-      await deleteNote(filename, note.isDaily || false, note.isWeekly || false);
-      discardPendingAutosaveForNote(note.id, note.content);
-      discardLeaveSave(note.id);
-
-      const freshNotes = state.notes;
-      let updatedNotes: NoteFile[];
-      if (note.isDaily && note.date) {
-        updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === note.date));
-      } else if (note.isWeekly && note.week) {
-        updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === note.week));
-      } else {
-        updatedNotes = freshNotes.filter((n) => n.path !== note.id);
-      }
-      setNotes(updatedNotes);
-
-      // Remove the deleted tab atomically and select its surviving neighbour.
-      useNoteStore.getState().removeTabByPath(note.id);
-    } catch (error) {
-      // A cancelled debounce was only provisional. If deletion fails, replace
-      // the live tab object so autosave observes it again and retains the buffer.
-      const liveTab = getState().openTabs.find((tab) => tab.id === note.id);
-      if (liveTab) useNoteStore.getState().updateTabContent(note.id, liveTab.content);
-      console.error('[useNotes] Failed to delete note:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getState, setNotes, setIsLoading]);
-
   return {
     notes,
     currentNote,
@@ -718,7 +685,6 @@ export function useNotes() {
     createFromTemplate,
     duplicateNote,
     renameNote,
-    deleteCurrentNote,
     refresh: loadNoteList,
   };
 }

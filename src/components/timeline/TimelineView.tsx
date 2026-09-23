@@ -4,6 +4,7 @@ import { useNoteStore, useTimelineStore } from '@/stores';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useNotes } from '@/hooks';
 import { readNoteSnapshot, noteFileBackendPath } from '@/lib';
+import { markdownToPlainPreview } from '@/lib/plainPreview';
 import { fetchCalendarEvents, listCalendarSources } from '@/lib/calendar';
 import type { CalendarEvent, NoteFile } from '@/types';
 import { eventsOverlappingLocalDay } from '@/components/calendar/timeLayout';
@@ -157,7 +158,7 @@ export function TimelineView() {
             note.isDaily,
             note.isWeekly
           );
-          next.set(note.path, stripForPreview(content));
+          next.set(note.path, markdownToPlainPreview(content, MAX_PREVIEW_CHARS));
         } catch {
           // skip unreadable notes
         }
@@ -201,14 +202,19 @@ export function TimelineView() {
         <button
           type="button"
           onClick={close}
-          className="timeline-view-close focus-ring text-xs transition-colors"
-          style={{ color: 'var(--text-muted)', borderBottom: '1px solid currentColor' }}
+          className="timeline-view-close focus-ring transition-colors"
+          style={{
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '24px',
+            lineHeight: 1,
+          }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
           title="Close Timeline"
           aria-label="Close Timeline"
         >
-          Close
+          ×
         </button>
       </div>
 
@@ -280,8 +286,15 @@ interface NoteRowProps {
   onClick: () => void;
 }
 
+/** A daily note reads as its date, "5 September", as its own header shows it. */
+function noteRowTitle(note: NoteFile): string {
+  const name = note.name.replace(/\.md$/i, '');
+  const date = note.isDaily ? parseISO(note.date ?? name) : null;
+  return date && isValidDate(date) ? format(date, 'd MMMM') : name;
+}
+
 function NoteRow({ note, preview, onClick }: NoteRowProps) {
-  const title = note.name.replace(/\.md$/i, '');
+  const title = noteRowTitle(note);
   const folder = note.folderPath ?? '';
 
   return (
@@ -420,21 +433,6 @@ function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
  * Reduce a note's raw markdown to a short inline preview.
  * Strips common markdown punctuation and collapses whitespace.
  */
-function stripForPreview(raw: string): string {
-  if (!raw) return '';
-  const text = raw
-    // Drop ATX headings markers
-    .replace(/^#{1,6}\s+/gm, '')
-    // Drop simple inline markdown markers (bold/italic/code/links)
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1')
-    .replace(/[*_`~]+/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text.length > MAX_PREVIEW_CHARS ? `${text.slice(0, MAX_PREVIEW_CHARS).trimEnd()}…` : text;
-}
-
 function formatEventTime(event: CalendarEvent): string {
   if (event.isAllDay) return 'All day';
   try {

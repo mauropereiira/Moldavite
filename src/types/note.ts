@@ -29,6 +29,8 @@ export interface NoteFile {
   folderPath?: string;
   /** Unix timestamp (seconds) of last filesystem modification, if known. */
   modifiedAt?: number;
+  /** Unix timestamp (seconds) the file was created, where the file system keeps one. */
+  createdAt?: number;
   /** Listed by iCloud in the synced Forge, but its contents are not on this device. */
   notDownloaded?: boolean;
 }

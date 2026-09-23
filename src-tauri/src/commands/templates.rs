@@ -16,7 +16,7 @@ use crate::templates_data::{
 };
 use crate::types::{SaveTemplateInput, Template};
 use crate::validation::{
-    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    is_linkable_note_name, is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
     validate_path_within_base,
 };
 
@@ -171,6 +171,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_note_from_a_template_takes_no_bracketed_name() {
+        assert!(is_valid_template_note_name("Plan.md", false));
+        assert!(is_valid_template_note_name("Drafts [old]/Plan.md", false));
+        assert!(!is_valid_template_note_name("Plan [v2].md", false));
+        assert!(!is_valid_template_note_name("Drafts/Plan ]v2.md", false));
+        assert!(!is_valid_template_note_name("a/b.md", true));
+        assert!(is_valid_template_note_name("2026-09-23.md", true));
+    }
+
+    #[test]
     fn template_crud_path_validation_rejects_traversal_and_accepts_generated_ids() {
         let templates_dir = std::env::temp_dir().join(format!(
             "moldavite-templates-{}-{}",
@@ -281,6 +291,18 @@ fn template_note_destination(dir: &Path, filename: &str) -> Result<PathBuf, Stri
     Ok(path)
 }
 
+/// Daily/weekly notes are bare filenames; standalone notes may include a
+/// folder path. Both forms must be traversal-safe, and the note is new.
+fn is_valid_template_note_name(filename: &str, dated: bool) -> bool {
+    let (parent, leaf) = match filename.rsplit_once('/') {
+        Some((parent, leaf)) if !dated => (Some(parent), leaf),
+        _ => (None, filename),
+    };
+    parent.is_none_or(is_safe_existing_note_path)
+        && is_safe_filename(leaf)
+        && is_linkable_note_name(leaf)
+}
+
 #[tauri::command]
 pub(crate) fn create_note_from_template(
     filename: String,
@@ -289,19 +311,7 @@ pub(crate) fn create_note_from_template(
     is_weekly: Option<bool>,
 ) -> Result<(), String> {
     let is_weekly = is_weekly.unwrap_or(false);
-    // Daily/weekly notes are bare filenames; standalone notes may include a
-    // folder path. Both forms must be traversal-safe.
-    let valid = if is_daily || is_weekly {
-        is_safe_filename(&filename)
-    } else {
-        let (parent, leaf) = filename
-            .rsplit_once('/')
-            .map_or((None, filename.as_str()), |(parent, leaf)| {
-                (Some(parent), leaf)
-            });
-        parent.is_none_or(is_safe_existing_note_path) && is_safe_filename(leaf)
-    };
-    if !valid {
+    if !is_valid_template_note_name(&filename, is_daily || is_weekly) {
         return Err("Invalid filename".to_string());
     }
 

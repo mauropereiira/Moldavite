@@ -11,8 +11,11 @@ const calendarApi = vi.hoisted(() => ({
 
 vi.mock('@/lib/calendar', () => calendarApi);
 vi.mock('@/lib', () => ({
-  noteFileBackendPath: vi.fn(),
+  noteFileBackendPath: vi.fn((note: { name: string }) => note.name),
   readNote: vi.fn(),
+  readNoteSnapshot: vi.fn(async () => ({
+    content: 'Plan \\[\\[draft\\]\\]\n| A | B |\n| --- | --- |\n| 1 | 2 |',
+  })),
 }));
 vi.mock('@/hooks', () => ({
   useNotes: () => ({ loadNote: vi.fn() }),
@@ -91,5 +94,38 @@ describe('TimelineView calendar day buckets', () => {
     expect(within(today as HTMLElement).getByText('Three-day conference')).toBeInTheDocument();
     expect(within(yesterday as HTMLElement).getByText('Overnight deployment')).toBeInTheDocument();
     expect(within(yesterday as HTMLElement).getByText('Three-day conference')).toBeInTheDocument();
+  });
+});
+
+describe('TimelineView rows', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-15T12:00:00+01:00'));
+    calendarApi.listCalendarSources.mockResolvedValue([]);
+    calendarApi.fetchCalendarEvents.mockResolvedValue({ events: [], errors: [] });
+    useNoteStore.setState({
+      notes: [
+        {
+          name: '2026-08-15.md',
+          path: 'daily/2026-08-15.md',
+          isDaily: true,
+          isWeekly: false,
+          isLocked: false,
+          date: '2026-08-15',
+        },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('names a daily note by its date and previews plain text, not Markdown', async () => {
+    render(<TimelineView />);
+
+    expect(await screen.findByText('15 August')).toBeInTheDocument();
+    expect(await screen.findByText('Plan [[draft]] A B 1 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close Timeline' })).toHaveTextContent('×');
   });
 });

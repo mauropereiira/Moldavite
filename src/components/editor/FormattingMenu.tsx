@@ -1,10 +1,22 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Editor, useEditorState } from '@tiptap/react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
 import { insertBlock, insertNoteTable } from './extensions/NoteTables';
+
+/** A phone has no modifier keys to press, so it shows no shortcut. */
+function ShortcutHint({ keys }: { keys: string }) {
+  if (isMobilePlatform()) return null;
+  return (
+    <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
+      {formatShortcut(keys)}
+    </span>
+  );
+}
 
 interface FormattingMenuProps {
   editor: Editor | null;
@@ -78,21 +90,15 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
           <DropdownLabel>Text</DropdownLabel>
           <DropdownItem onClick={() => editor.chain().focus().toggleBold().run()}>
             Bold
-            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatShortcut('⌘B')}
-            </span>
+            <ShortcutHint keys="⌘B" />
           </DropdownItem>
           <DropdownItem onClick={() => editor.chain().focus().toggleItalic().run()}>
             Italic
-            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatShortcut('⌘I')}
-            </span>
+            <ShortcutHint keys="⌘I" />
           </DropdownItem>
           <DropdownItem onClick={() => editor.chain().focus().toggleUnderline().run()}>
             Underline
-            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatShortcut('⌘U')}
-            </span>
+            <ShortcutHint keys="⌘U" />
           </DropdownItem>
           <DropdownItem onClick={() => editor.chain().focus().toggleStrike().run()}>
             Strikethrough
@@ -147,12 +153,12 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
           <DropdownLabel>Insert</DropdownLabel>
           <DropdownItem onClick={handleLink}>
             Link
-            <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatShortcut('⌘K')}
-            </span>
+            <ShortcutHint keys="⌘K" />
           </DropdownItem>
           <DropdownItem onClick={handleImage}>Image</DropdownItem>
-          <DropdownItem onClick={() => insertNoteTable(editor)}>Table</DropdownItem>
+          <DropdownItem disabled={!!inTable} onClick={() => insertNoteTable(editor)}>
+            Table
+          </DropdownItem>
 
           {inTable && (
             <>
@@ -182,18 +188,25 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         </div>
       </Dropdown>
 
-      <LinkModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        onInsert={handleLinkInsert}
-        initialUrl={linkInitialValues.url}
-        initialText={linkInitialValues.text}
-      />
-      <ImageModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        onInsert={handleImageInsert}
-      />
+      {/* Portalled for the same reason as MoreOptionsMenu's dialogs: the
+          folded Actions menu would otherwise contain them. */}
+      {createPortal(
+        <>
+          <LinkModal
+            isOpen={isLinkModalOpen}
+            onClose={() => setIsLinkModalOpen(false)}
+            onInsert={handleLinkInsert}
+            initialUrl={linkInitialValues.url}
+            initialText={linkInitialValues.text}
+          />
+          <ImageModal
+            isOpen={isImageModalOpen}
+            onClose={() => setIsImageModalOpen(false)}
+            onInsert={handleImageInsert}
+          />
+        </>,
+        document.body
+      )}
     </>
   );
 }

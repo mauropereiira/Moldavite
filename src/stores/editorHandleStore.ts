@@ -22,7 +22,7 @@ export const editorHandle = {
   },
   insertTextAtCursor(text: string): boolean {
     const ed = current && !current.isDestroyed ? current : null;
-    if (!ed) return false;
+    if (!ed || !ed.isEditable) return false;
     ed.chain().focus().insertContent(text).run();
     return true;
   },

@@ -45,8 +45,9 @@ export function TrashPopover({
     [anchor]
   );
 
-  // First-open positioning: drop the popover to the right of the sidebar
-  // footer (using the anchor button as a reference), without covering it.
+  // First-open positioning: drop the popover beside the anchor button, on the
+  // side facing the note, without covering it. The rail and the Index can sit
+  // on either edge, so an anchor in the right half opens leftwards.
   // Subsequent opens during the same session reuse the dragged position.
   useEffect(() => {
     if (!isOpen || !anchor) return;
@@ -59,9 +60,10 @@ export function TrashPopover({
         };
       }
       const rect = anchor.getBoundingClientRect();
-      // Anchor sits at the bottom of the sidebar — place popover just to
-      // the right of the sidebar, with its bottom aligned to the button.
-      const left = Math.min(window.innerWidth - POPOVER_WIDTH - GAP, rect.right + GAP);
+      const opensLeft = rect.left + rect.width / 2 > window.innerWidth / 2;
+      const left = opensLeft
+        ? Math.max(GAP, rect.left - GAP - POPOVER_WIDTH)
+        : Math.min(window.innerWidth - POPOVER_WIDTH - GAP, rect.right + GAP);
       const top = Math.max(
         GAP,
         Math.min(window.innerHeight - POPOVER_MAX_HEIGHT - GAP, rect.bottom - POPOVER_MAX_HEIGHT)
@@ -119,8 +121,13 @@ export function TrashPopover({
       if (anchor?.contains(target)) return;
       onClose();
     };
+    // Marked handled, or the window's Esc handler would close the open note
+    // too: this listener closes the popover first, so no dialog is left to
+    // tell it otherwise.
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      onClose();
     };
 
     document.addEventListener('mousedown', handleClick);
@@ -209,10 +216,11 @@ export function TrashPopover({
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate font-medium">
-                      {note.filename.replace(/\.md$/, '')}
+                      {note.filename.replace(/\.md(\.locked)?$/, '')}
                     </p>
                     <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                       {note.isFolder ? 'Folder · ' : note.isDaily ? 'Daily · ' : ''}
+                      {note.filename.endsWith('.md.locked') ? 'Locked · ' : ''}
                       {daysAgo(note.daysRemaining)} · {note.daysRemaining}d left
                     </p>
                   </div>
@@ -267,7 +275,7 @@ export function TrashPopover({
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            Empty Trash
+            Empty trash
           </button>
         </div>
       )}

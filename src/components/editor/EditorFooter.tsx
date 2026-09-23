@@ -1,6 +1,5 @@
 import { isMobilePlatform } from '@/lib/platform';
 import { useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { Editor } from '@tiptap/react';
 import { ShareMenu } from './ShareMenu';
 import { WordPressMenu } from './WordPressMenu';
@@ -9,13 +8,7 @@ import { MoreOptionsMenu } from './MoreOptionsMenu';
 import { Dropdown, DropdownStatic } from '@/components/ui/Dropdown';
 import { NoteColorPicker } from '@/components/ui';
 import type { NoteColorId } from '@/components/ui/NoteColorPicker';
-import {
-  useNoteStore,
-  useThemeStore,
-  useNoteColorsStore,
-  useSettingsStore,
-  buildNotePath,
-} from '@/stores';
+import { useNoteStore, useThemeStore, useNoteColorsStore, useSettingsStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import type { NoteFile } from '@/types';
@@ -37,6 +30,8 @@ const ACTIONS_COLLAPSE_WIDTH = 900;
 interface EditorFooterProps {
   editor: Editor | null;
   onDelete: () => void;
+  /** A locked note opened for viewing: nothing that edits, copies or exports it is offered. */
+  readOnly?: boolean;
   isSaving: boolean;
   showSaveSuccess: boolean;
   onRenameNote: (note: NoteFile, title: string) => Promise<void>;
@@ -45,18 +40,14 @@ interface EditorFooterProps {
 export function EditorFooter({
   editor,
   onDelete,
+  readOnly = false,
   isSaving,
   showSaveSuccess,
   onRenameNote,
 }: EditorFooterProps) {
-  // Only id and isDaily are read (note-color path + the "no note" gate), so
-  // a content-only edit in the editor does not re-render the footer.
-  const { currentNoteId, currentNoteIsDaily } = useNoteStore(
-    useShallow((state) => ({
-      currentNoteId: state.currentNote?.id ?? null,
-      currentNoteIsDaily: state.currentNote?.isDaily ?? false,
-    }))
-  );
+  // Only the id is read (note-color key + the "no note" gate), so a
+  // content-only edit in the editor does not re-render the footer.
+  const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
   const { showWordCount, showAutoSaveStatus } = useSettingsStore();
@@ -69,9 +60,8 @@ export function EditorFooter({
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  const notePath = currentNoteId
-    ? buildNotePath(currentNoteId.replace('.md', '') + '.md', currentNoteIsDaily)
-    : '';
+  // Colours are keyed by the Forge-relative path, which is the note's id.
+  const notePath = currentNoteId ?? '';
   const currentColorId = getColor(notePath);
 
   const wordCount = editor
@@ -96,14 +86,16 @@ export function EditorFooter({
   const actions = (
     <>
       {/* Note Color Picker */}
-      <div className="editor-footer-color">
-        <NoteColorPicker
-          currentColorId={currentColorId}
-          onColorChange={(colorId: NoteColorId) => setColor(notePath, colorId)}
-          isDark={isDark}
-          openDirection="up"
-        />
-      </div>
+      {!readOnly && (
+        <div className="editor-footer-color">
+          <NoteColorPicker
+            currentColorId={currentColorId}
+            onColorChange={(colorId: NoteColorId) => setColor(notePath, colorId)}
+            isDark={isDark}
+            openDirection="up"
+          />
+        </div>
+      )}
 
       {/* Publish to WordPress — absent unless the build has credentials */}
       {!isMobilePlatform() && (
@@ -115,10 +107,10 @@ export function EditorFooter({
       )}
 
       {/* Share Menu */}
-      <ShareMenu onShowToast={showToast} openDirection="up" />
+      <ShareMenu onShowToast={showToast} openDirection="up" readOnly={readOnly} />
 
       {/* Formatting Menu */}
-      <FormattingMenu editor={editor} openDirection="up" />
+      {!readOnly && <FormattingMenu editor={editor} openDirection="up" />}
 
       {/* More Options Menu */}
       <MoreOptionsMenu
@@ -128,6 +120,7 @@ export function EditorFooter({
         characterCount={characterCount}
         onRenameNote={onRenameNote}
         openDirection="up"
+        readOnly={readOnly}
       />
     </>
   );
@@ -150,6 +143,7 @@ export function EditorFooter({
           <Dropdown
             openDirection="up"
             position="right"
+            keepMounted
             trigger={
               <button type="button" className="editor-footer-overflow-toggle">
                 Actions

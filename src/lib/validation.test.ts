@@ -4,10 +4,16 @@ import { describe, it, expect } from 'vitest';
 import {
   getFolderNameError,
   getNoteTitleError,
+  hasOnlyEmptyParagraphs,
   isContentEmpty,
   isValidDateString,
   isValidNoteName,
 } from './validation';
+
+const EMPTY_TABLE =
+  '<table style="min-width: 50px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup>' +
+  '<tbody><tr><th colspan="1" rowspan="1"><p></p></th><th colspan="1" rowspan="1"><p></p></th></tr>' +
+  '<tr><td colspan="1" rowspan="1"><p></p></td><td colspan="1" rowspan="1"><p></p></td></tr></tbody></table><p></p>';
 
 describe('note title Windows portability', () => {
   it('rejects every reserved device stem case-insensitively', () => {
@@ -25,12 +31,28 @@ describe('note title Windows portability', () => {
   });
 
   it('rejects Windows-illegal punctuation before a note write', () => {
-    expect(getNoteTitleError('Q3: Roadmap')).toBe(
-      'Title can only contain letters, numbers, spaces, and hyphens'
-    );
-    expect(getNoteTitleError('Reports.')).toBe(
-      'Title can only contain letters, numbers, spaces, and hyphens'
-    );
+    expect(getNoteTitleError('Q3: Roadmap')).toBe('Title cannot contain / \\ : * ? " < > | [ ]');
+    expect(getNoteTitleError('Reports.')).toBe('Title cannot start or end with a dot');
+    expect(getNoteTitleError('.hidden')).toBe('Title cannot start or end with a dot');
+  });
+
+  it('rejects square brackets, which would end a wiki link to the note', () => {
+    expect(getNoteTitleError('[draft] Plan')).toBe('Title cannot contain / \\ : * ? " < > | [ ]');
+  });
+
+  it('accepts the names the app generates and other names the backend accepts', () => {
+    for (const title of [
+      'Untitled',
+      'Untitled (2)',
+      'Untitled (3)',
+      'Plan (copy)',
+      'Plan (conflict 2026-09-23 1412)',
+      'Café & bar',
+      "Mauro's notes, v1.2",
+      '日本語ノート',
+    ]) {
+      expect(getNoteTitleError(title)).toBeNull();
+    }
   });
 });
 
@@ -60,6 +82,31 @@ describe('isContentEmpty', () => {
     expect(isContentEmpty('<p><img src="asset://localhost/img.png"></p>')).toBe(false);
     expect(isContentEmpty('<img src="x.png"/>')).toBe(false);
     expect(isContentEmpty('<video src="x.mp4"></video>')).toBe(false);
+  });
+
+  it('keeps a daily note holding only a table of empty cells', () => {
+    expect(isContentEmpty(EMPTY_TABLE)).toBe(false);
+  });
+});
+
+describe('hasOnlyEmptyParagraphs', () => {
+  it('is true for a new note', () => {
+    expect(hasOnlyEmptyParagraphs('')).toBe(true);
+    expect(hasOnlyEmptyParagraphs('<p></p>')).toBe(true);
+    expect(hasOnlyEmptyParagraphs('<p></p><p>&nbsp;</p>')).toBe(true);
+  });
+
+  it('is false once any block other than a paragraph exists, filled in or not', () => {
+    expect(hasOnlyEmptyParagraphs(EMPTY_TABLE)).toBe(false);
+    expect(hasOnlyEmptyParagraphs('<h2></h2>')).toBe(false);
+    expect(hasOnlyEmptyParagraphs('<ul><li><p></p></li></ul>')).toBe(false);
+    expect(hasOnlyEmptyParagraphs('<p></p><hr><p></p>')).toBe(false);
+    expect(hasOnlyEmptyParagraphs('<p>hello</p>')).toBe(false);
+  });
+
+  it('leaves autosave deleting a daily note left with only an empty heading or divider', () => {
+    expect(isContentEmpty('<h2></h2>')).toBe(true);
+    expect(isContentEmpty('<hr>')).toBe(true);
   });
 });
 

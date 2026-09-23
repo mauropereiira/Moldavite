@@ -193,11 +193,15 @@ pub(crate) fn ensure_templates_dir() -> Result<(), String> {
 }
 
 pub(crate) fn file_modified_unix(path: &Path) -> Option<i64> {
-    fs::metadata(path)
-        .ok()?
-        .modified()
-        .ok()?
-        .duration_since(std::time::UNIX_EPOCH)
+    unix_seconds(fs::metadata(path).ok()?.modified().ok()?)
+}
+
+pub(crate) fn file_created_unix(path: &Path) -> Option<i64> {
+    unix_seconds(fs::metadata(path).ok()?.created().ok()?)
+}
+
+fn unix_seconds(time: std::time::SystemTime) -> Option<i64> {
+    time.duration_since(std::time::UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
 }

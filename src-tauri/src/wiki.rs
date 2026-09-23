@@ -101,14 +101,25 @@ fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), S
     Ok((false, filename))
 }
 
+fn same_note_name(a: &str, b: &str) -> bool {
+    use unicode_normalization::UnicodeNormalization;
+    let fold = |name: &str| name.nfc().collect::<String>().to_lowercase();
+    fold(a) == fold(b)
+}
+
 /// Rewrite wiki-link targets that resolve to `old_stem` (a filename without
 /// the `.md` extension) so they point at `new_stem` instead. Display text in
 /// `[[Display|target]]` links is left untouched. Returns `Some(rewritten)`
 /// when at least one link changed, `None` when the content is untouched.
+///
+/// `slug_shared` says another note still owns the old name's slug, as "Plan
+/// copy" does beside "Plan (copy)". A link that only slugifies to it may mean
+/// that note, so then only a link naming the old note itself is rewritten.
 pub(crate) fn rewrite_links_for_rename(
     content: &str,
     old_stem: &str,
     new_stem: &str,
+    slug_shared: bool,
 ) -> Option<String> {
     let old_slug = note_name_to_filename(old_stem);
     let mut changed = false;
@@ -118,8 +129,10 @@ pub(crate) fn rewrite_links_for_rename(
         let effective = target.unwrap_or(display).trim();
         // A link matches if it names the old file directly or slugifies to it,
         // mirroring how links are resolved when clicked.
+        let names_old =
+            same_note_name(effective.strip_suffix(".md").unwrap_or(effective), old_stem);
         let matches = !effective.is_empty()
-            && (effective == old_stem || note_name_to_filename(effective) == old_slug);
+            && (names_old || (!slug_shared && note_name_to_filename(effective) == old_slug));
         if matches {
             changed = true;
             match target {
@@ -238,6 +251,7 @@ mod tests {
         assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
         // Special chars stripped; spaces become hyphens.
         assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+        assert_eq!(note_name_to_filename("Untitled (3)"), "untitled-3.md");
     }
 
     #[test]
@@ -258,34 +272,65 @@ mod tests {
     #[test]
     fn rewrite_links_updates_plain_links_matching_by_slug() {
         let content = "See [[Meeting Notes]] and [[Other]].";
-        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning", false).unwrap();
         assert_eq!(out, "See [[q3-planning]] and [[Other]].");
     }
 
     #[test]
     fn rewrite_links_updates_exact_stem_matches() {
         let content = "Daily ref [[2026-07-01]] here.";
-        let out = rewrite_links_for_rename(content, "2026-07-01", "2026-07-02").unwrap();
+        let out = rewrite_links_for_rename(content, "2026-07-01", "2026-07-02", false).unwrap();
         assert_eq!(out, "Daily ref [[2026-07-02]] here.");
     }
 
     #[test]
     fn rewrite_links_preserves_display_text_in_piped_links() {
         let content = "Check [[the plan|meeting-notes]] now.";
-        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning").unwrap();
+        let out = rewrite_links_for_rename(content, "meeting-notes", "q3-planning", false).unwrap();
         assert_eq!(out, "Check [[the plan|q3-planning]] now.");
     }
 
     #[test]
     fn rewrite_links_returns_none_when_nothing_matches() {
-        assert!(rewrite_links_for_rename("See [[Unrelated]].", "meeting-notes", "x").is_none());
-        assert!(rewrite_links_for_rename("no links", "meeting-notes", "x").is_none());
+        assert!(
+            rewrite_links_for_rename("See [[Unrelated]].", "meeting-notes", "x", false).is_none()
+        );
+        assert!(rewrite_links_for_rename("no links", "meeting-notes", "x", false).is_none());
     }
 
     #[test]
     fn rewrite_links_does_not_touch_other_slugs_sharing_a_prefix() {
         let content = "See [[meeting-notes-archive]].";
-        assert!(rewrite_links_for_rename(content, "meeting-notes", "x").is_none());
+        assert!(rewrite_links_for_rename(content, "meeting-notes", "x", false).is_none());
+    }
+
+    #[test]
+    fn rewrite_links_leaves_a_slug_another_note_owns() {
+        let content = "[[Plan copy]], [[plan (copy)]], [[a|Plan (copy)]] and [[QA]].";
+        assert_eq!(
+            rewrite_links_for_rename(content, "Plan (copy)", "Roadmap", true).unwrap(),
+            "[[Plan copy]], [[Roadmap]], [[a|Roadmap]] and [[QA]]."
+        );
+        assert!(rewrite_links_for_rename("See [[QA]].", "Q&A", "Answers", true).is_none());
+        assert_eq!(
+            rewrite_links_for_rename("See [[Q&A]].", "Q&A", "Answers", true).unwrap(),
+            "See [[Answers]]."
+        );
+    }
+
+    #[test]
+    fn rewrite_links_matches_the_old_name_across_case_and_normalisation() {
+        let decomposed = "Cafe\u{301}";
+        let content = format!("See [[{decomposed}]].");
+        assert_eq!(
+            rewrite_links_for_rename(&content, "café", "Bistro", true).unwrap(),
+            "See [[Bistro]]."
+        );
+        assert_eq!(
+            rewrite_links_for_rename("See [[PLAN (COPY)]].", "Plan (copy)", "Roadmap", true)
+                .unwrap(),
+            "See [[Roadmap]]."
+        );
     }
 
     #[test]

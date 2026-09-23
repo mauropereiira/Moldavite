@@ -175,14 +175,16 @@ describe('GraphView canvas', () => {
 
   // The icon rail sits in normal flow at z-10000, so a `fixed inset-0`
   // surface is painted underneath it and loses its first 48px — which is how
-  // the heading shipped reading ".ph" in 2.0.0. The offset has to come from
-  // --rail-width rather than a hardcoded 48, or the graph leaves a dead strip
-  // when the rail is switched off or hidden by focus mode.
+  // the heading shipped reading ".ph" in 2.0.0. The offsets have to come from
+  // the rail insets rather than a hardcoded 48, or the graph leaves a dead
+  // strip when the rail is switched off, hidden by focus mode, or on the
+  // other edge.
   it('starts clear of the icon rail, and reclaims the space when it is gone', async () => {
     const view = await openGraph();
     const surface = view.container.querySelector('[aria-labelledby="graph-view-title"]');
     expect(surface).not.toBeNull();
-    expect((surface as HTMLElement).style.left).toBe('var(--rail-width)');
+    expect((surface as HTMLElement).style.left).toBe('var(--rail-inset-left)');
+    expect((surface as HTMLElement).style.right).toBe('var(--rail-inset-right)');
   });
 
   it('pans freely past the old visible-margin clamp', async () => {
@@ -219,6 +221,56 @@ describe('GraphView canvas', () => {
     expect(positions(after.arcs)).toEqual(positions(before.arcs));
     // …and the hover really did land, so the assertion above is not vacuous.
     expect(after.arcs.some((star, index) => star.r !== before.arcs[index].r)).toBe(true);
+  });
+
+  it('names a star on the first tap of a finger and opens it on the second', async () => {
+    useNoteStore.setState({
+      notes: fixture.graph.nodes.map((node) => ({
+        name: `${node.name}.md`,
+        path: node.id,
+        isDaily: false,
+        isWeekly: false,
+        isLocked: false,
+      })),
+    });
+    const view = await openGraph();
+    settleAndFit(view);
+    const star = drawFrame().arcs[0];
+    const tap = (pointerType: string) => {
+      const at = { pointerId: 3, button: 0, clientX: star.x, clientY: star.y, pointerType };
+      fireEvent.pointerDown(view.canvas, at);
+      fireEvent.pointerUp(view.canvas, at);
+    };
+
+    tap('touch');
+    expect(useGraphStore.getState().isOpen).toBe(true);
+    const named = drawFrame();
+    expect(named.arcs.some((s, index) => s.r !== star.r && index === 0)).toBe(true);
+
+    tap('touch');
+    expect(useGraphStore.getState().isOpen).toBe(true);
+    fireEvent.click(view.canvas);
+    expect(useGraphStore.getState().isOpen).toBe(false);
+  });
+
+  it('opens a star on the first click of a mouse', async () => {
+    useNoteStore.setState({
+      notes: fixture.graph.nodes.map((node) => ({
+        name: `${node.name}.md`,
+        path: node.id,
+        isDaily: false,
+        isWeekly: false,
+        isLocked: false,
+      })),
+    });
+    const view = await openGraph();
+    settleAndFit(view);
+    const star = drawFrame().arcs[0];
+    const at = { pointerId: 4, button: 0, clientX: star.x, clientY: star.y, pointerType: 'mouse' };
+    fireEvent.pointerDown(view.canvas, at);
+    fireEvent.pointerUp(view.canvas, at);
+
+    expect(useGraphStore.getState().isOpen).toBe(false);
   });
 
   it('skips the galaxy entrance under prefers-reduced-motion', async () => {

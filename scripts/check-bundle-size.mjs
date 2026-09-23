@@ -40,7 +40,13 @@ const BUDGETS = [
   // 22: pinning the onboarding step indicator and footer needs a real flex
   // column rather than an auto-height centred sheet, which is ~0.4 KB raw.
   // Measured 20.3 KB raw / 3.7 KB gz; gzip stays inside its existing cap.
-  { pattern: /^mobile-.*\.css$/, rawKb: 22, gzipKb: 4 },
+  // 27 / 5: the phone fixes of 3b7690a left it at 24.3 KB raw / 4.1 KB gz,
+  // over both caps; the editor round (formatting-row states and fade, dialog
+  // touch targets, the ink caret) adds 1.7 KB raw. Measured 26.0 KB / 4.3 KB gz.
+  // 30 / 5: the rail, Index, Trash page and Settings round (touch switches and
+  // sliders, stuck-hover fixes, the page scrim above the keyboard, calendar
+  // targets) adds 2.3 KB raw. Measured 28.3 KB / 4.6 KB gz.
+  { pattern: /^mobile-.*\.css$/, rawKb: 30, gzipKb: 5 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
@@ -136,7 +142,18 @@ const BUDGETS = [
 // 653 / 183: on-demand iCloud notes (the placeholder tab and its Download
 // state, the launch wait for iCloud, the cloud marker in note lists) add 6.6 KB
 // raw / 2.0 KB gz. Measured 651.4 KB / 182.3 KB gz.
-const APP_JS_BUDGET = { rawKb: 653, gzipKb: 183 };
+// 657 / 185: the phone editor round (table and image actions in the
+// formatting row, suggestion lists placed against the visible area, typed
+// wiki links and the Create row) adds 3.3 KB raw / 1.3 KB gz over 652.1 /
+// 182.7 at 3b7690a. Measured 655.4 KB / 184.0 KB gz.
+// 660 / 186: the note flow round (a new note opening on its title, inline
+// title errors, the share sheet, menus that close together, trash labels for
+// locked notes) adds 2.3 KB raw / 1.1 KB gz. Measured 657.7 KB / 185.1 KB gz.
+// 660 / 188: the rail round (text hits in Search, the phone Trash page, touch
+// taps in the graph and on tags, long-press menus, plain-text previews) adds
+// 1.8 KB gz, while dropping General's duplicate backup UI takes 4.4 KB raw.
+// Measured 653.3 KB / 186.9 KB gz.
+const APP_JS_BUDGET = { rawKb: 660, gzipKb: 188 };
 
 async function main() {
   let entries;

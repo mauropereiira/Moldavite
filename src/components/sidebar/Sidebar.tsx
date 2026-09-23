@@ -18,6 +18,8 @@ import {
   useSidebarOrderStore,
   useFolderStore,
   applyManualOrder,
+  compareNoteTitles,
+  compareNotesBy,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
@@ -30,6 +32,7 @@ import { NoteContextMenu } from './NoteContextMenu';
 import { FolderContextMenu } from './FolderContextMenu';
 import { SidebarModals } from './SidebarModals';
 import { TrashPopover } from './TrashPopover';
+import { useTrashConfirmations } from './useTrashConfirmations';
 import { BulkActionBar } from './BulkActionBar';
 import { BulkExportModal } from './BulkExportModal';
 
@@ -57,6 +60,8 @@ import { SidebarNotesList } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
+import { isMobilePlatform } from '@/lib/platform';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 
@@ -164,6 +169,7 @@ export function Sidebar({
   const [folderToDelete, setFolderToDelete] = useState<FolderInfo | null>(null);
 
   const [trashPopoverAnchor, setTrashPopoverAnchor] = useState<HTMLElement | null>(null);
+  const trashConfirm = useTrashConfirmations({ trashedNotes, permanentlyDelete, emptyTrash });
   const [trashPreviewNote, setTrashPreviewNote] = useState<TrashedNote | null>(null);
 
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
@@ -214,15 +220,7 @@ export function Sidebar({
 
   const sortNotes = (notesToSort: NoteFile[]) => {
     if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
-    return [...notesToSort].sort((a, b) => {
-      switch (sortOption) {
-        case 'name-desc':
-          return b.name.localeCompare(a.name);
-        case 'name-asc':
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
+    return [...notesToSort].sort(compareNotesBy(sortOption));
   };
 
   const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
@@ -253,7 +251,7 @@ export function Sidebar({
       .getState()
       .seedNotes(
         [...notes.filter((n) => !n.isDaily && !n.isWeekly)]
-          .sort((a, b) => a.name.localeCompare(b.name))
+          .sort(compareNoteTitles)
           .map((n) => n.path)
       );
   }, [isManualSort, notes]);
@@ -390,6 +388,19 @@ export function Sidebar({
     }
   };
 
+  // A phone opens a new note straight away, on its title, with the keyboard
+  // up; its templates are one tap away in the empty note. The desktop asks
+  // for the name and a template first.
+  const startNewNote = (folder: string | null = null) => {
+    if (isMobilePlatform()) {
+      void createNote('Untitled', folder, { discardIfLeftEmpty: true });
+      onNavigate?.();
+      return;
+    }
+    setCreateNoteInFolder(folder);
+    setIsCreating(true);
+  };
+
   const handleCreateNote = async () => {
     const error = getNoteTitleError(newNoteTitle);
     if (!error) {
@@ -479,22 +490,30 @@ export function Sidebar({
   const closeContextMenu = noteMenu.close;
 
   // Lock/Unlock handlers — thin wrappers that close the context menu too.
+  // Each runs in the tap, so on a phone it holds the keyboard up for the
+  // password field that mounts after it.
   const handleLockNote = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openLock(note);
     closeContextMenu();
   };
   const handleUnlockNote = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openUnlock(note);
     closeContextMenu();
   };
   const pendingUnlock = useNoteStore((state) => state.pendingUnlock);
   const { openUnlock } = lock;
+  const [closeIndexOnCancel, setCloseIndexOnCancel] = useState(false);
   useEffect(() => {
     if (!pendingUnlock) return;
-    useNoteStore.getState().clearPendingUnlock();
+    const { pendingUnlockOpenedIndex, clearPendingUnlock } = useNoteStore.getState();
+    clearPendingUnlock();
+    setCloseIndexOnCancel(pendingUnlockOpenedIndex);
     openUnlock(pendingUnlock);
   }, [pendingUnlock, openUnlock]);
   const handlePermanentUnlock = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openPermanentUnlock(note);
     closeContextMenu();
   };
@@ -762,7 +781,15 @@ export function Sidebar({
       {lock.mode && lock.noteToLock && (
         <PasswordModal
           isOpen={true}
-          onClose={lock.close}
+          onClose={() => {
+            lock.close();
+            // Opened from a link, the graph or Search to ask for the password:
+            // cancelling goes back to where that was, not to the Index.
+            if (closeIndexOnCancel) {
+              setCloseIndexOnCancel(false);
+              onNavigate?.();
+            }
+          }}
           onSubmit={async (password) => {
             const opensNote = lock.mode === 'unlock';
             await lock.submit(password, notes);
@@ -828,8 +855,7 @@ export function Sidebar({
           folder={folderMenu.target}
           position={folderMenu.position}
           onNewNoteInFolder={(folder) => {
-            setCreateNoteInFolder(folder.path);
-            setIsCreating(true);
+            startNewNote(folder.path);
             closeFolderContextMenu();
           }}
           onRename={handleRenameFolder}
@@ -916,14 +942,14 @@ export function Sidebar({
                 }
                 onSortToggle={() =>
                   setSortOption(
-                    sortOption === 'name-asc'
-                      ? 'name-desc'
-                      : sortOption === 'name-desc'
-                        ? 'manual'
-                        : 'name-asc'
+                    sortOption === 'name-desc'
+                      ? 'manual'
+                      : sortOption === 'manual'
+                        ? 'name-asc'
+                        : 'name-desc'
                   )
                 }
-                onNewNote={() => setIsCreating(true)}
+                onNewNote={() => startNewNote()}
                 onNoteClick={handleSidebarNoteClick}
                 onNoteSelectionClick={handleSelectionClick}
                 onNoteContextMenu={handleContextMenu}
@@ -1093,7 +1119,7 @@ export function Sidebar({
 
       <SidebarFooter
         onToday={handleTodayClick}
-        onNewNote={() => setIsCreating(true)}
+        onNewNote={() => startNewNote()}
         onSettings={() => {
           setIsSettingsOpen(true);
           onNavigate?.();
@@ -1106,10 +1132,12 @@ export function Sidebar({
         isOpen={trashPopoverAnchor !== null}
         anchor={trashPopoverAnchor}
         trashedNotes={trashedNotes}
-        onClose={() => setTrashPopoverAnchor(null)}
+        onClose={() => {
+          if (!trashConfirm.isConfirming) setTrashPopoverAnchor(null);
+        }}
         onRestore={restoreNote}
-        onPermanentDelete={permanentlyDelete}
-        onEmptyTrash={emptyTrash}
+        onPermanentDelete={trashConfirm.confirmDelete}
+        onEmptyTrash={trashConfirm.confirmEmpty}
         onPreview={(note) => setTrashPreviewNote(note)}
       />
       {/* Trash preview pulls in Tiptap + markdown-it + DOMPurify — only
@@ -1120,10 +1148,11 @@ export function Sidebar({
             note={trashPreviewNote}
             onClose={() => setTrashPreviewNote(null)}
             onRestore={restoreNote}
-            onPermanentDelete={permanentlyDelete}
+            onPermanentDelete={trashConfirm.confirmDelete}
           />
         </Suspense>
       )}
+      {trashConfirm.dialog}
     </div>
   );
 }

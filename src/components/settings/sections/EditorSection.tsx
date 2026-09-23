@@ -103,25 +103,6 @@ export function EditorSection() {
             ariaLabel="Show word count"
           />
         </div>
-
-        <div
-          className="flex items-center justify-between py-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
-        >
-          <div>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Tags (#hashtags)
-            </span>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Highlight #tags and show in sidebar
-            </p>
-          </div>
-          <Toggle
-            enabled={settings.tagsEnabled}
-            onChange={settings.setTagsEnabled}
-            ariaLabel="Enable tags"
-          />
-        </div>
       </section>
     </div>
   );

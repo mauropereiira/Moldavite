@@ -168,7 +168,10 @@ export function SettingsModal() {
 
   // Nothing behind these works on a phone: no MCP or agent process, no
   // semantic-search runtime, no folder picker for an Obsidian vault.
-  const phoneTabs = tabs.filter((tab) => !PHONE_HIDDEN_TABS.includes(tab.id));
+  const phoneTabs = tabs
+    .filter((tab) => !PHONE_HIDDEN_TABS.includes(tab.id))
+    // The phone has no sidebar; the same list is its Index page.
+    .map((tab) => (tab.id === 'sidebar' ? { ...tab, label: 'Index' } : tab));
 
   if (!settingsStore.isSettingsOpen) return null;
 
@@ -266,7 +269,7 @@ export function SettingsModal() {
     >
       <DialogSurface
         onEscape={() => settingsStore.setIsSettingsOpen(false)}
-        className="settings-dialog w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-content-enter"
+        className="settings-dialog w-full max-w-3xl mx-4 h-[85vh] flex flex-col modal-content-enter"
         aria-labelledby="settings-modal-title"
       >
         <div
@@ -407,9 +410,11 @@ function MobileSettingsPage({
   };
 
   return (
+    // Spans the rail's column too: the rail paints above it, but a pinned bar
+    // above the rail does not, and it showed through there.
     <div
-      className="settings-scrim fixed z-[9999] modal-backdrop-enter"
-      style={{ top: 0, bottom: 0, left: 'var(--rail-width)', right: 0 }}
+      className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter"
+      style={{ background: 'var(--bg-base)' }}
     >
       {/* iOS zooms into any field under 16px on focus, and a phone needs a
           thumb-sized button; the sections are shared with desktop, so both
@@ -417,8 +422,10 @@ function MobileSettingsPage({
           their own 20px height. */}
       <DialogSurface
         onEscape={onClose}
-        className="settings-dialog flex h-full w-full flex-col [&_input]:text-[16px] [&_select]:text-[16px] [&_textarea]:text-[16px] [&_button:not([role=switch])]:min-h-10"
+        className="settings-dialog flex h-full flex-col [&_input]:text-[16px] [&_select]:text-[16px] [&_textarea]:text-[16px] [&_button:not([role=switch])]:min-h-10"
         style={{
+          marginLeft: 'var(--rail-inset-left)',
+          marginRight: 'var(--rail-inset-right)',
           paddingTop: 'var(--safe-top)',
           paddingBottom: 'var(--safe-bottom)',
           border: 0,
@@ -429,8 +436,8 @@ function MobileSettingsPage({
           className="flex items-center flex-shrink-0 gap-1"
           style={{
             minHeight: TOUCH_TARGET,
-            paddingLeft: section ? '4px' : 'var(--mobile-page-inset)',
-            paddingRight: '4px',
+            paddingLeft: `calc(${section ? '4px' : 'var(--mobile-page-inset)'} + var(--page-safe-left))`,
+            paddingRight: 'calc(4px + var(--page-safe-right))',
             borderBottom: '1px solid var(--border-default)',
           }}
         >
@@ -474,7 +481,10 @@ function MobileSettingsPage({
             role="tabpanel"
             aria-labelledby="settings-modal-title"
             className="flex-1 min-h-0 min-w-0 overflow-y-auto"
-            style={{ padding: '16px 16px 20px' }}
+            style={{
+              padding:
+                '16px calc(16px + var(--page-safe-right)) 20px calc(16px + var(--page-safe-left))',
+            }}
           >
             <div key={section.id} className="tab-content-enter">
               {renderSection(section.id)}
@@ -493,7 +503,8 @@ function MobileSettingsPage({
                 className="flex w-full items-center gap-3 text-left text-[15px] font-medium focus-ring"
                 style={{
                   minHeight: '48px',
-                  padding: '0 16px',
+                  padding:
+                    '0 calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left))',
                   borderBottom: '1px solid var(--border-muted)',
                   color: 'var(--text-primary)',
                 }}

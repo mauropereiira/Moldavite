@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
 import { LayoutSection } from './LayoutSection';
@@ -16,6 +16,7 @@ describe('LayoutSection', () => {
     render(<LayoutSection />);
 
     expect(screen.getByRole('switch', { name: 'Icon rail' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Rail side' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: /^Index/ })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: /^Agenda/ })).toBeInTheDocument();
     expect(
@@ -36,10 +37,24 @@ describe('LayoutSection', () => {
       screen.queryByRole('radiogroup', { name: 'Writing column width mode' })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'Asteroid cursor' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Desktop settings/)).toBeInTheDocument();
+    expect(screen.queryByText(/Desktop settings/)).not.toBeInTheDocument();
 
     // What still applies on a phone stays.
+    expect(screen.getByRole('radiogroup', { name: 'Rail side' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Tab bar' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Constellations' })).toBeInTheDocument();
+  });
+
+  it('moves the rail to the chosen side, and hides the choice while the rail is off', () => {
+    platform.mobile = false;
+    render(<LayoutSection />);
+
+    expect(screen.getByRole('radio', { name: 'Left' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: 'Right' }));
+    expect(useSettingsStore.getState().iconRailSide).toBe('right');
+    expect(screen.getByRole('radio', { name: 'Right' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Icon rail' }));
+    expect(screen.queryByRole('radiogroup', { name: 'Rail side' })).not.toBeInTheDocument();
   });
 });

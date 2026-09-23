@@ -7,9 +7,6 @@
 
 export const MAX_NOTE_TITLE_LENGTH = 100;
 
-/** Pattern for valid note titles: letters, numbers, spaces, hyphens only */
-const VALID_NOTE_TITLE_PATTERN = /^[a-zA-Z0-9 -]+$/;
-
 /** Maximum portable length for one folder path component */
 export const MAX_FOLDER_NAME_LENGTH = 180;
 
@@ -29,8 +26,9 @@ function isWindowsReservedName(name: string): boolean {
 }
 
 /**
- * Validates a note name (strict mode - matches backend filename generation)
- * Only allows letters, numbers, spaces, and hyphens.
+ * Validates a note name. The title is the file's name (`<title>.md`), so this
+ * follows `is_safe_filename` in `src-tauri/src/validation.rs`, and accepts the
+ * names the app generates ("Untitled (2)", "Plan (copy)").
  * @param name - The note name to validate
  * @returns True if the note name is valid
  */
@@ -63,8 +61,13 @@ export function getNoteTitleError(name: string): string | null {
     return 'Title cannot use a Windows reserved name';
   }
 
-  if (!VALID_NOTE_TITLE_PATTERN.test(trimmed)) {
-    return 'Title can only contain letters, numbers, spaces, and hyphens';
+  if (trimmed.startsWith('.') || trimmed.endsWith('.')) {
+    return 'Title cannot start or end with a dot';
+  }
+
+  // `[` and `]` are legal on disk but end a [[wiki link]], so no link could name the note.
+  if (hasWindowsIllegalFilenameCharacter(trimmed) || /[[\]]/.test(trimmed)) {
+    return 'Title cannot contain / \\ : * ? " < > | [ ]';
   }
 
   return null;
@@ -134,14 +137,15 @@ export function isValidDateString(dateString: string): boolean {
  * Checks if note content is effectively empty by stripping HTML tags.
  * This is used to determine whether to save or delete auto-created notes (daily/weekly).
  * @param content - The HTML content to check
- * @returns True if content contains no meaningful text
+ * @returns True if content contains no text, media or table
  */
 export function isContentEmpty(content: string): boolean {
   if (!content) return true;
 
-  // Embedded media counts as content even though it has no text — an
-  // image-only daily note must never be treated as empty (and deleted).
-  if (/<(img|video|audio|iframe)[\s/>]/i.test(content)) return false;
+  // Embedded media and tables count as content even though they have no text:
+  // a daily note holding only an image, or a table not yet filled in, must
+  // never be treated as empty and deleted.
+  if (/<(img|video|audio|iframe|table)[\s/>]/i.test(content)) return false;
 
   const textOnly = content
     .replace(/<[^>]*>/g, '')
@@ -149,6 +153,16 @@ export function isContentEmpty(content: string): boolean {
     .trim();
 
   return textOnly === '';
+}
+
+/**
+ * Stricter than `isContentEmpty`: true only while the note is nothing but
+ * empty paragraphs. The empty-note prompt uses it, so an empty heading, list
+ * or divider is enough to put it away, while autosave still deletes a daily
+ * note left holding one.
+ */
+export function hasOnlyEmptyParagraphs(content: string): boolean {
+  return isContentEmpty(content) && !/<(h[1-6]|ul|ol|blockquote|pre|hr)[\s/>]/i.test(content);
 }
 
 export type PasswordStrengthLevel = 'weak' | 'fair' | 'good' | 'strong';

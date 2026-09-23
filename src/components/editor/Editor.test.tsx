@@ -82,14 +82,14 @@ const shortcutSpies = vi.hoisted(() => ({
   options: { current: null as null | Record<string, unknown> },
 }));
 
-// Stable across renders so a test can control/assert `useNotes()` calls —
-// notably `deleteCurrentNote`, whose rejection path the delete-failure test
-// below exercises.
+// Stable across renders so a test can control/assert `useNotes()` and
+// `useTrash()` calls.
 const notesSpies = vi.hoisted(() => ({
-  deleteCurrentNote: vi.fn(),
+  trashNote: vi.fn(),
   loadDailyNote: vi.fn(),
   loadNote: vi.fn(),
   renameNote: vi.fn(),
+  refresh: vi.fn(),
 }));
 
 // Stable across renders so a test can assert the delete-failure toast.
@@ -110,13 +110,14 @@ vi.mock('@/hooks', () => ({
     };
   },
   useNotes: () => ({
-    deleteCurrentNote: notesSpies.deleteCurrentNote,
     loadDailyNote: notesSpies.loadDailyNote,
     createNote: shortcutSpies.createNote,
     loadNote: notesSpies.loadNote,
     renameNote: notesSpies.renameNote,
+    refresh: notesSpies.refresh,
   }),
   useTemplates: () => ({ getTemplateContent: vi.fn() }),
+  useTrash: () => ({ trashNote: notesSpies.trashNote }),
 }));
 
 vi.mock('@/hooks/useToast', () => ({
@@ -127,16 +128,20 @@ vi.mock('@/hooks/useToast', () => ({
 // tests can reach Editor's own `handleDeleteConfirm` without rendering the
 // full (unrelated) footer.
 vi.mock('./EditorFooter', () => ({
-  EditorFooter: (props: { onDelete: () => void }) => (
-    <footer data-testid="editor-footer">
+  EditorFooter: (props: { onDelete: () => void; readOnly?: boolean }) => (
+    <footer data-testid="editor-footer" data-read-only={String(!!props.readOnly)}>
       <button onClick={props.onDelete}>Delete note</button>
     </footer>
   ),
 }));
 vi.mock('./TabBar', () => ({ TabBar: () => <div data-testid="tab-bar" /> }));
-vi.mock('./NoteHeader', () => ({ NoteHeader: () => <header data-testid="note-header" /> }));
+vi.mock('./NoteHeader', () => ({
+  NoteHeader: (props: { onRename?: unknown }) => (
+    <header data-testid="note-header" data-renamable={String(!!props.onRename)} />
+  ),
+}));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
-vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => null }));
+vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => <div data-testid="image-toolbar" /> }));
 vi.mock('./LinkModal', () => ({ LinkModal: () => null }));
 vi.mock('./ImageModal', () => ({ ImageModal: () => null }));
 // ExternalChangeBanner is deliberately NOT mocked: it renders null unless the
@@ -146,7 +151,7 @@ vi.mock('@/components/backlinks', () => ({
   BacklinksPanel: () => <aside data-testid="backlinks-panel" />,
 }));
 vi.mock('@/components/templates/EmptyNoteTemplatePicker', () => ({
-  EmptyNoteTemplatePicker: () => null,
+  EmptyNoteTemplatePicker: () => <div data-testid="empty-note-prompt" />,
 }));
 vi.mock('@/components/templates/TemplatePickerModal', () => ({
   TemplatePickerModal: () => null,
@@ -156,6 +161,7 @@ import { Editor } from './Editor';
 import {
   useNoteColorsStore,
   useNoteStore,
+  useOverlayStore,
   useSettingsStore,
   useTagStore,
   useThemeStore,
@@ -163,6 +169,7 @@ import {
 } from '@/stores';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { registerAutosaveFlush } from '@/lib/autosaveFlush';
+import { insertNoteTable } from './extensions/NoteTables';
 import { refreshForgeRoot } from '@/lib/forgeImages';
 import {
   htmlToMarkdown,
@@ -271,10 +278,11 @@ beforeEach(() => {
   safeInvoke.mockReset();
   convertFileSrc.mockClear();
   shellOpen.mockReset().mockResolvedValue(undefined);
-  notesSpies.deleteCurrentNote.mockReset().mockResolvedValue(undefined);
+  notesSpies.trashNote.mockReset().mockResolvedValue(undefined);
   notesSpies.loadDailyNote.mockReset();
   notesSpies.loadNote.mockReset();
   notesSpies.renameNote.mockReset();
+  notesSpies.refresh.mockReset().mockResolvedValue(undefined);
   toastSpies.success.mockReset();
   toastSpies.error.mockReset();
   useNoteStore.setState({
@@ -522,6 +530,34 @@ describe('Editor content synchronization', () => {
       expect(window.getSelection()?.rangeCount).toBe(0);
     });
   });
+
+  // A new note opens on its title. Clearing the document selection there left
+  // the title focused, keyboard up, taking no characters on iOS.
+  it('leaves a field outside the note alone when switching notes', async () => {
+    const firstNote = note('notes/first.md', '<p>first</p>');
+    const secondNote = note('notes/second.md', '');
+    const { editor } = await renderEditor(firstNote, [secondNote]);
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>first</p>'));
+    const title = document.createElement('input');
+    document.body.appendChild(title);
+    title.focus();
+    // Frames still queued by the previous test's note switch run first.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    const removeAllRanges = vi.spyOn(window.Selection.prototype, 'removeAllRanges');
+    tiptapHarness.blurCallCount = 0;
+
+    act(() => {
+      useNoteStore.getState().switchTab(secondNote.id);
+    });
+
+    await waitFor(() => expect(editor.getHTML()).toBe('<p></p>'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(tiptapHarness.blurCallCount).toBe(0);
+    expect(removeAllRanges).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(title);
+    removeAllRanges.mockRestore();
+    title.remove();
+  });
 });
 
 describe('Editor external change decisions', () => {
@@ -626,6 +662,78 @@ describe('Editor wiki links', () => {
   });
 });
 
+describe('Editor tags', () => {
+  it('opens the Index filtered to a tapped tag', async () => {
+    await renderEditor(note('notes/tags.md', '<p>More #project here</p>'));
+
+    const tag = await waitFor(() => {
+      const element = document.querySelector('.tag-mark');
+      if (!(element instanceof HTMLElement)) throw new Error('Tag was not decorated');
+      return element;
+    });
+    fireEvent.click(tag);
+
+    expect(useTagStore.getState().selectedTag).toBe('project');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    act(() => useOverlayStore.setState({ activeOverlay: null }));
+  });
+
+  // WebKit on iOS sends no click for a tap on text in a note, only the pointer events.
+  it('opens the Index for a finger tap on a tag, which WebKit sends no click for', async () => {
+    platform.mobile = true;
+    await renderEditor(note('notes/tags.md', '<p>More #project here</p>'));
+
+    const tag = await waitFor(() => {
+      const element = document.querySelector('.tag-mark');
+      if (!(element instanceof HTMLElement)) throw new Error('Tag was not decorated');
+      return element;
+    });
+    fireEvent.pointerDown(tag, { pointerType: 'touch', clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(tag, { pointerType: 'touch', clientX: 12, clientY: 11 });
+
+    expect(useTagStore.getState().selectedTag).toBe('project');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    act(() => useOverlayStore.setState({ activeOverlay: null }));
+  });
+});
+
+describe('Editor wiki link suggestions', () => {
+  it('creates the note from the Create row and links to it without leaving the note', async () => {
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'create_note_from_link' ? 'fix-b.md' : undefined
+    );
+    const { editor } = await renderEditor(note('notes/links.md', '<p>See </p>'));
+    act(() => {
+      editor.commands.focus('end');
+      editor.commands.insertContent('[[Fix b');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /Create “Fix b”/ }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith('create_note_from_link', { noteName: 'Fix b' })
+    );
+    await waitFor(() => expect(notesSpies.refresh).toHaveBeenCalledOnce());
+    expect(toastSpies.success).toHaveBeenCalledWith('Created "Fix b"');
+    const link = document.querySelector('wiki-link');
+    expect(link?.getAttribute('data-target')).toBe('fix-b.md');
+    expect(link?.textContent).toBe('Fix b');
+    expect(notesSpies.loadNote).not.toHaveBeenCalled();
+    expect(useNoteStore.getState().currentNote?.id).toBe('notes/links.md');
+  });
+});
+
+describe('Editor image actions', () => {
+  it.each([
+    [false, true],
+    [true, false],
+  ])('with mobile=%s the floating image toolbar is shown: %s', async (mobile, shown) => {
+    platform.mobile = mobile;
+    await renderEditor(note('notes/image.md', '<p>Body</p>'));
+    expect(screen.queryByTestId('image-toolbar') !== null).toBe(shown);
+  });
+});
+
 describe('Editor wiki links to impossible dates', () => {
   it('creates an ordinary note for a date that does not exist', async () => {
     const user = userEvent.setup();
@@ -653,28 +761,91 @@ describe('Editor wiki links to impossible dates', () => {
   });
 });
 
-describe('Editor delete failures', () => {
-  // Previously the backend error was only console.error'd and the confirm
-  // dialog closed exactly as on success, so the user believed the note was
-  // gone. It must surface a toast, and the note must stay in the store.
-  it('shows an error toast and keeps the note when delete rejects', async () => {
+describe('Editor delete', () => {
+  // The footer's Delete note used to remove the file outright ("This cannot be
+  // undone") while the Index moved the same note to the Trash.
+  it('moves the note to the Trash with the same confirmation as the Index', async () => {
     const user = userEvent.setup();
+    const currentNote = note('notes/Projects/first.md', '<p>First note body</p>');
+    await renderEditor(currentNote);
+
+    await user.click(screen.getByRole('button', { name: 'Delete note' }));
+    expect(
+      screen.getByText('Delete "first"? It will be moved to trash for 7 days.')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() =>
+      expect(notesSpies.trashNote).toHaveBeenCalledWith('Projects/first.md', false, false)
+    );
+    expect(safeInvoke).not.toHaveBeenCalledWith('delete_note', expect.anything());
+  });
+
+  it('addresses a daily note by its date', async () => {
+    const user = userEvent.setup();
+    await renderEditor({
+      ...note('daily/2026-09-23.md', '<p>Today</p>'),
+      isDaily: true,
+      date: '2026-09-23',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Delete note' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() =>
+      expect(notesSpies.trashNote).toHaveBeenCalledWith('2026-09-23.md', true, false)
+    );
+  });
+
+  // trashNote reports its own failure and puts the tab back; the note stays.
+  it('keeps the note when moving it to the Trash fails', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const currentNote = note('notes/first.md', '<p>First note body</p>');
-    notesSpies.deleteCurrentNote.mockRejectedValueOnce(new Error('disk is full'));
+    notesSpies.trashNote.mockRejectedValueOnce(new Error('disk is full'));
     await renderEditor(currentNote);
 
     await user.click(screen.getByRole('button', { name: 'Delete note' }));
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    await waitFor(() => expect(notesSpies.deleteCurrentNote).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(toastSpies.error).toHaveBeenCalledWith(expect.stringContaining('disk is full'))
-    );
-    // The confirm dialog still closes (matching the success path)...
-    expect(screen.queryByText('Delete this note? This cannot be undone.')).not.toBeInTheDocument();
-    // ...but unlike a real deletion, nothing removed the note from the store.
+    await waitFor(() => expect(notesSpies.trashNote).toHaveBeenCalled());
+    consoleError.mockRestore();
+    expect(screen.queryByText(/moved to trash for 7 days/)).not.toBeInTheDocument();
     expect(useNoteStore.getState().currentNote?.id).toBe(currentNote.id);
-    expect(useNoteStore.getState().openTabs).toHaveLength(1);
+  });
+});
+
+describe('Editor view-only notes', () => {
+  // A locked note opened with its password is never saved. It used to offer
+  // "Start writing...", raise the keyboard and take typing that was lost.
+  it('opens an unlocked locked note read-only, with no writing affordances', async () => {
+    platform.mobile = true;
+    const locked = note('notes/Untitled.md', '');
+    setOpenNotes(locked);
+    useNoteStore.setState({ unlockedNotes: new Set([locked.id]) });
+    render(<Editor />);
+
+    await waitFor(() => expect(tiptapHarness.editor?.isEditable).toBe(false));
+    expect(document.querySelector('.tiptap')?.getAttribute('contenteditable')).toBe('false');
+    expect(document.querySelector('.tiptap [data-placeholder]')).toBeNull();
+    expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('View only · Remove the lock to edit');
+    expect(screen.getByTestId('editor-footer')).toHaveAttribute('data-read-only', 'true');
+    expect(screen.getByTestId('note-header')).toHaveAttribute('data-renamable', 'false');
+    // The formatting bar is lazy; give its import time to resolve.
+    await act(() => import('./MobileFormattingBar'));
+    expect(screen.queryByRole('toolbar', { name: 'Note formatting' })).toBeNull();
+    useNoteStore.setState({ unlockedNotes: new Set() });
+  });
+
+  it('keeps an ordinary note editable', async () => {
+    platform.mobile = true;
+    await renderEditor(note('notes/plain.md', '<p>Body</p>'));
+    expect(tiptapHarness.editor?.isEditable).toBe(true);
+    expect(await screen.findByRole('toolbar', { name: 'Note formatting' })).toBeInTheDocument();
+    expect(screen.queryByText(/View only/)).toBeNull();
+    expect(screen.getByTestId('editor-footer')).toHaveAttribute('data-read-only', 'false');
+    expect(screen.getByTestId('note-header')).toHaveAttribute('data-renamable', 'true');
   });
 });
 
@@ -686,6 +857,53 @@ describe('Editor note content', () => {
     expect(editor.state.doc.firstChild?.type.name).toBe('table');
     expect(document.querySelector('.tiptap table th')).not.toBeNull();
     expect(htmlToMarkdown(editor.getHTML())).toBe(markdown);
+  });
+
+  it('puts the empty-note prompt and placeholder away once the note holds a table', async () => {
+    const { editor } = await renderEditor(note('notes/Untitled (3).md', ''));
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+    expect(document.querySelector('.tiptap p')?.getAttribute('data-placeholder')).toBe(
+      'Start writing...'
+    );
+
+    act(() => {
+      editor.commands.focus('start');
+      insertNoteTable(editor);
+    });
+
+    await waitFor(() => expect(screen.queryByTestId('empty-note-prompt')).toBeNull());
+    expect(useNoteStore.getState().currentNote?.content).toContain('<table');
+
+    act(() => {
+      editor.commands.insertContentAt(0, '<p></p>');
+      editor.commands.setTextSelection(1);
+    });
+    expect(editor.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(
+      document.querySelector('.tiptap > p.is-editor-empty')?.getAttribute('data-placeholder')
+    ).toBe('');
+    expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
+  });
+
+  // The prompt's layer covers the paper, so a tap on the title of an empty
+  // note put the caret in the body instead of renaming it.
+  it('marks the paper while the empty-note prompt covers it', async () => {
+    const { editor } = await renderEditor(note('notes/Untitled (4).md', ''));
+    const paper = document.querySelector('.editor-paper');
+    expect(paper).toHaveAttribute('data-template-prompt');
+
+    act(() => {
+      editor.commands.insertContent('Words');
+    });
+
+    await waitFor(() => expect(paper).not.toHaveAttribute('data-template-prompt'));
+  });
+
+  it('does not offer templates on a saved note holding only an empty table', async () => {
+    await renderEditor(note('notes/grid.md', markdownToHtml('|  |  |\n| --- | --- |\n|  |  |')));
+
+    expect(document.querySelector('.tiptap table')).not.toBeNull();
+    expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
   });
 
   it('shows a Forge-relative image from this Forge and keeps it relative', async () => {

@@ -1,5 +1,6 @@
 import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -13,8 +14,8 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { NoteTables } from './extensions/NoteTables';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { slugifyNoteName } from '@/lib/fileSystem';
-import { isContentEmpty } from '@/lib/validation';
+import { noteNameToFilename, slugifyNoteName } from '@/lib/fileSystem';
+import { hasOnlyEmptyParagraphs } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
 import {
@@ -22,7 +23,7 @@ import {
   type SuggestionProps,
   type SuggestionKeyDownProps,
 } from '@tiptap/suggestion';
-import tippy, { Instance } from 'tippy.js';
+import type { Instance } from 'tippy.js';
 
 /**
  * Imperative handle every suggestion list (Tag, WikiLink, Slash) exposes
@@ -31,7 +32,6 @@ import tippy, { Instance } from 'tippy.js';
 interface SuggestionListHandle {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
-import 'tippy.js/dist/tippy.css';
 import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
@@ -52,8 +52,12 @@ import {
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
 import { tagSuggestionPluginKey } from './extensions/TagSuggestion';
-import { wikiLinkSuggestionPluginKey } from './extensions/WikiLinkSuggestion';
+import {
+  wikiLinkSuggestionAllowed,
+  wikiLinkSuggestionPluginKey,
+} from './extensions/WikiLinkSuggestion';
 import { slashCommandsPluginKey } from './extensions/SlashCommands';
+import { openSuggestionPopup, updateSuggestionPopup } from './extensions/suggestionPopup';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ConfirmDialog } from '@/components/ui';
@@ -62,19 +66,25 @@ import './extensions/wiki-links.css';
 import './extensions/tags.css';
 import type { NoteFile } from '@/types';
 import {
+  wikiLinkSuggestionItems,
+  type WikiLinkSuggestionItem,
+} from './extensions/WikiLinkSuggestionList';
+import {
   useNoteStore,
+  useOverlayStore,
   useSettingsStore,
   useThemeStore,
   useNoteColorsStore,
-  buildNotePath,
   useTagStore,
 } from '@/stores';
+import { isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { editorHandle } from '@/stores/editorHandleStore';
-import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
+import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates, useTrash } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml, processAndSaveImage } from '@/lib';
 import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
+import { noteDiskFilename } from '@/lib/leaveSave';
 import { looksLikeMarkdown } from '@/lib/markdownPaste';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
@@ -89,6 +99,25 @@ import { NoteCloseButton } from './NoteCloseButton';
 const MobileFormattingBar = React.lazy(() =>
   import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
 );
+
+/**
+ * A text field outside the note holds the focus: the title a new note opens
+ * on, or the stand-in holding the phone's keyboard for it. Clearing the
+ * document selection then (TipTap's blur does, a frame later) leaves that
+ * field focused with the keyboard up but unable to take a single character.
+ */
+function fieldOutsideNoteHasFocus(editor: TiptapEditor): boolean {
+  const active = document.activeElement;
+  return (
+    (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+    !editor.view.dom.contains(active)
+  );
+}
+
+function wikiTargetExists(notes: NoteFile[], target: string): boolean {
+  const targetSlug = slugifyNoteName(target);
+  return notes.some((n) => n.name === target || slugifyNoteName(n.name) === targetSlug);
+}
 
 export function Editor() {
   // The editor is the one surface that is *supposed* to re-render on every
@@ -118,16 +147,24 @@ export function Editor() {
     showEditorFooter,
     showBacklinksPanel,
   } = useSettingsStore();
+  const isViewOnly = useNoteStore(isCurrentNoteViewOnly);
   const { theme, setTheme } = useThemeStore();
-  const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
+  const { loadDailyNote, createNote, loadNote, renameNote, refresh: refreshNotes } = useNotes();
+  const { trashNote } = useTrash();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
   const { allTags, setSelectedTag } = useTagStore();
   const toast = useToast();
 
+  // The tag filters the Index, so the Index opens to show what it found; a
+  // closed Index filtered out of sight looked like the tap did nothing.
   const handleTagClick = useCallback(
     (tag: string) => {
       setSelectedTag(tag);
+      const { indexMode } = useSettingsStore.getState();
+      if (indexMode === 'off') return;
+      if (isMobilePlatform()) editorRef.current?.commands.blur();
+      useOverlayStore.getState().openIndex(indexMode === 'pinned');
     },
     [setSelectedTag]
   );
@@ -136,9 +173,7 @@ export function Editor() {
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  const notePath = currentNote
-    ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
-    : '';
+  const notePath = currentNote?.id ?? '';
   const noteColorId = getColor(notePath);
   const noteBackgroundColor = getNoteBackgroundColor(noteColorId, isDark);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -242,6 +277,22 @@ export function Editor() {
     }
   }, [pendingLinkCreate, loadDailyNote, loadNote, setSelectedDate, toast]);
 
+  // The suggestion list's Create row writes the note where following a missing
+  // link would, then stays in the note being written. The editor keeps the
+  // closure it was built with, so it reads this through a ref.
+  const createLinkedNote = async (noteName: string) => {
+    try {
+      await invoke<string>('create_note_from_link', { noteName });
+      await refreshNotes();
+      toast.success(`Created "${noteName}"`);
+    } catch (error) {
+      console.error('[Editor] Failed to create note from wiki link:', error);
+      toast.error('Failed to create note');
+    }
+  };
+  const createLinkedNoteRef = useRef(createLinkedNote);
+  createLinkedNoteRef.current = createLinkedNote;
+
   const handleCreateToday = () => {
     const today = new Date();
     setSelectedDate(today);
@@ -249,7 +300,7 @@ export function Editor() {
   };
 
   const handleCreateNote = async () => {
-    await createNote('Untitled');
+    await createNote('Untitled', null, { discardIfLeftEmpty: true });
   };
 
   useEffect(() => {
@@ -263,14 +314,14 @@ export function Editor() {
 
   useEffect(() => {
     if (currentNoteId) {
-      // Shared emptiness rule: media-only notes count as content.
-      setShowInlineTemplatePicker(isContentEmpty(currentNoteContent || ''));
+      setShowInlineTemplatePicker(hasOnlyEmptyParagraphs(currentNoteContent || ''));
     } else {
       setShowInlineTemplatePicker(false);
     }
   }, [currentNoteId, currentNoteContent]);
 
   const handleTemplateSelect = async (templateId: string) => {
+    if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
     try {
       const markdownContent = await getTemplateContent(templateId);
       if (editor) {
@@ -290,14 +341,16 @@ export function Editor() {
   };
 
   const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false);
+    if (!currentNote) return;
     try {
-      await deleteCurrentNote();
-      setShowDeleteConfirm(false);
+      await trashNote(
+        noteDiskFilename(currentNote),
+        currentNote.isDaily || false,
+        currentNote.isWeekly || false
+      );
     } catch (error) {
-      console.error('[Editor] Delete failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      toast.error(`Failed to delete note: ${message}`);
-      setShowDeleteConfirm(false);
+      console.error('[Editor] Trash failed:', error);
     }
   };
 
@@ -334,7 +387,12 @@ export function Editor() {
           underline: false, // Disable - we add Underline separately below
         }),
         Placeholder.configure({
-          placeholder: 'Start writing...',
+          // The placeholder's empty-editor class follows `editor.isEmpty`,
+          // which is still true beside a table of empty cells.
+          placeholder: ({ editor: current }) =>
+            current.state.doc.content.content.every((block) => block.type.name === 'paragraph')
+              ? 'Start writing...'
+              : '',
         }),
         ResizableImage.configure({
           inline: false,
@@ -372,6 +430,7 @@ export function Editor() {
         ...NoteTables,
         WikiLink.configure({
           onLinkClick: handleWikiLinkClick,
+          noteExists: (target) => wikiTargetExists(notesRef.current, target),
         }),
         ...(tagsEnabled
           ? [
@@ -410,7 +469,7 @@ export function Editor() {
                   },
                   render: () => {
                     let component: ReactRenderer | null = null;
-                    let popup: Instance[] | null = null;
+                    let popup: Instance | null = null;
 
                     return {
                       onStart: (props: SuggestionProps<TagItem>) => {
@@ -420,20 +479,7 @@ export function Editor() {
                             editor: props.editor,
                           });
 
-                          if (!props.clientRect) {
-                            return;
-                          }
-
-                          popup = tippy('body', {
-                            getReferenceClientRect: props.clientRect as () => DOMRect,
-                            appendTo: () => document.body,
-                            content: component.element,
-                            showOnCreate: true,
-                            interactive: true,
-                            trigger: 'manual',
-                            placement: 'bottom-start',
-                            maxWidth: 'none',
-                          });
+                          popup = openSuggestionPopup(component.element, props);
                         } catch (error) {
                           console.error('[TagSuggestion] onStart error:', error);
                         }
@@ -443,13 +489,7 @@ export function Editor() {
                         try {
                           component?.updateProps(props);
 
-                          if (!props.clientRect) {
-                            return;
-                          }
-
-                          popup?.[0]?.setProps({
-                            getReferenceClientRect: props.clientRect as () => DOMRect,
-                          });
+                          updateSuggestionPopup(popup, component?.element, props);
                         } catch (error) {
                           console.error('[TagSuggestion] onUpdate error:', error);
                         }
@@ -470,9 +510,7 @@ export function Editor() {
 
                       onExit() {
                         try {
-                          if (popup?.[0]) {
-                            popup[0].destroy();
-                          }
+                          popup?.destroy();
                           if (component) {
                             component.destroy();
                           }
@@ -506,62 +544,32 @@ export function Editor() {
             // on a single '[' makes the query keep the second bracket
             // ("[Menta"), which can never match a note name.
             allowSpaces: true,
-            // Only start while the editor has focus. Once open, keep the plugin
-            // active until Escape or onBlur explicitly exits it. The list buttons
-            // preserve focus until their clicks insert.
-            allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
-              isActive === true || editor.isFocused,
-            items: ({ query }: { query: string }) => {
-              const currentNotes = notesRef.current;
-              const filtered = currentNotes.filter((note) => {
-                const noteName = note.name.replace('.md', '');
-                return noteName.toLowerCase().includes(query.toLowerCase());
-              });
-
-              return filtered.slice(0, 10);
-            },
+            allow: wikiLinkSuggestionAllowed,
+            items: ({ query }: { query: string }) =>
+              wikiLinkSuggestionItems(notesRef.current, query),
             render: () => {
               let component: ReactRenderer | null = null;
-              let popup: Instance[] | null = null;
+              let popup: Instance | null = null;
 
               return {
-                onStart: (props: SuggestionProps<NoteFile>) => {
+                onStart: (props: SuggestionProps<WikiLinkSuggestionItem>) => {
                   try {
                     component = new ReactRenderer(WikiLinkSuggestionList, {
                       props,
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup = tippy('body', {
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                      appendTo: () => document.body,
-                      content: component.element,
-                      showOnCreate: true,
-                      interactive: true,
-                      trigger: 'manual',
-                      placement: 'bottom-start',
-                      maxWidth: 'none',
-                    });
+                    popup = openSuggestionPopup(component.element, props);
                   } catch (error) {
                     console.error('[WikiLinkSuggestion] onStart error:', error);
                   }
                 },
 
-                onUpdate(props: SuggestionProps<NoteFile>) {
+                onUpdate(props: SuggestionProps<WikiLinkSuggestionItem>) {
                   try {
                     component?.updateProps(props);
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup?.[0]?.setProps({
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                    });
+                    updateSuggestionPopup(popup, component?.element, props);
                   } catch (error) {
                     console.error('[WikiLinkSuggestion] onUpdate error:', error);
                   }
@@ -581,9 +589,7 @@ export function Editor() {
 
                 onExit() {
                   try {
-                    if (popup?.[0]) {
-                      popup[0].destroy();
-                    }
+                    popup?.destroy();
                     if (component) {
                       component.destroy();
                     }
@@ -603,9 +609,23 @@ export function Editor() {
             }: {
               editor: TiptapEditor;
               range: TiptapRange;
-              props: NoteFile;
+              props: WikiLinkSuggestionItem;
             }) => {
-              const note = props;
+              if ('create' in props) {
+                editor
+                  .chain()
+                  .focus()
+                  .deleteRange(range)
+                  .setWikiLink({
+                    target: noteNameToFilename(props.create),
+                    label: props.create,
+                    exists: false,
+                  })
+                  .run();
+                void createLinkedNoteRef.current(props.create);
+                return;
+              }
+              const note = props.note;
               const noteName = note.name.replace('.md', '');
 
               editor
@@ -628,17 +648,17 @@ export function Editor() {
             // Match the tag and wiki-link lifecycle above.
             allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
               isActive === true || editor.isFocused,
-            items: ({ query }: { query: string }) => {
+            items: ({ query, editor }: { query: string; editor: TiptapEditor }) => {
               const q = query.toLowerCase();
               const pluginItems = usePluginCommandStore
                 .getState()
                 .commands.map(pluginSlashItem)
                 .filter((i) => !q || i.title.toLowerCase().includes(q));
-              return [...filterCommands(query), ...pluginItems];
+              return [...filterCommands(query, editor.isActive('table')), ...pluginItems];
             },
             render: () => {
               let component: ReactRenderer | null = null;
-              let popup: Instance[] | null = null;
+              let popup: Instance | null = null;
 
               return {
                 onStart: (props: SuggestionProps<SlashCommandItem>) => {
@@ -651,20 +671,7 @@ export function Editor() {
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup = tippy('body', {
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                      appendTo: () => document.body,
-                      content: component.element,
-                      showOnCreate: true,
-                      interactive: true,
-                      trigger: 'manual',
-                      placement: 'bottom-start',
-                      maxWidth: 'none',
-                    });
+                    popup = openSuggestionPopup(component.element, props);
                   } catch (error) {
                     console.error('[SlashCommands] onStart error:', error);
                   }
@@ -677,13 +684,7 @@ export function Editor() {
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup?.[0]?.setProps({
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                    });
+                    updateSuggestionPopup(popup, component?.element, props);
                   } catch (error) {
                     console.error('[SlashCommands] onUpdate error:', error);
                   }
@@ -703,9 +704,7 @@ export function Editor() {
 
                 onExit() {
                   try {
-                    if (popup?.[0]) {
-                      popup[0].destroy();
-                    }
+                    popup?.destroy();
                     if (component) {
                       component.destroy();
                     }
@@ -740,7 +739,8 @@ export function Editor() {
           // Pass current note ID to prevent race conditions when switching notes
           const noteId = currentNoteRef.current?.id;
           updateNoteContent(html, noteId);
-          if (showInlineTemplatePicker && !editor.isEmpty) {
+          // Not `editor.isEmpty`: TipTap calls a table of empty cells empty.
+          if (showInlineTemplatePicker && !hasOnlyEmptyParagraphs(html)) {
             setShowInlineTemplatePicker(false);
           }
         } catch (error) {
@@ -850,6 +850,10 @@ export function Editor() {
     [tagsEnabled]
   );
   editorRef.current = editor;
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) editor.setEditable(!isViewOnly, false);
+  }, [editor, isViewOnly]);
 
   const handleImageFile = useCallback(
     async (file: File) => {
@@ -968,7 +972,7 @@ export function Editor() {
                 // matters when the external edit shortened the note.
                 editor.commands.setTextSelection(selection);
               }
-              if (!keepFocus) {
+              if (!keepFocus && !fieldOutsideNoteHasFocus(editor)) {
                 const isNoteSwitch = previous.noteId !== null && previous.noteId !== currentNoteId;
                 if (isNoteSwitch) {
                   // The note-keyed animation wrapper remounts EditorContent.
@@ -977,9 +981,11 @@ export function Editor() {
                   // previous note's focused selection after blur has run.
                   requestAnimationFrame(() => {
                     if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                    if (fieldOutsideNoteHasFocus(editor)) return;
                     editor.commands.blur();
                     requestAnimationFrame(() => {
                       if (!isMountedRef.current || !editor || editor.isDestroyed) return;
+                      if (fieldOutsideNoteHasFocus(editor)) return;
                       // Moving a focused ProseMirror DOM node between keyed
                       // wrappers can detach it without a native blur event.
                       // Reconcile TipTap's focus state after its blur command.
@@ -1036,11 +1042,7 @@ export function Editor() {
         if (node.type.name !== 'wikiLink') return;
         const target = (node.attrs['data-target'] || '') as string;
         if (!target) return;
-        const targetSlug = slugifyNoteName(target);
-        const found = currentNotes.some(
-          (n) => n.name === target || slugifyNoteName(n.name) === targetSlug
-        );
-        const nextExists = found ? 'true' : 'false';
+        const nextExists = wikiTargetExists(currentNotes, target) ? 'true' : 'false';
         if (node.attrs['data-exists'] !== nextExists) {
           updates.push({ pos, exists: nextExists });
         }
@@ -1141,20 +1143,25 @@ export function Editor() {
   }
 
   const isCloudPlaceholder = !!currentNote.cloudPending;
+  const showTemplatePrompt = showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly;
+  const deleteName = noteDiskFilename(currentNote).replace(/\.md$/, '').split('/').pop();
 
   return (
     <div className="editor-root flex flex-col h-full">
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Note"
-          message="Delete this note? This cannot be undone."
-          confirmLabel="Delete"
-          danger
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
-      )}
+      {/* Delete Confirmation Modal, opened from the footer's menus. Portalled
+          so it paints above them rather than beneath the menu it came from. */}
+      {showDeleteConfirm &&
+        createPortal(
+          <ConfirmDialog
+            title="Delete note"
+            message={`Delete "${deleteName}"? It will be moved to trash for 7 days.`}
+            confirmLabel="Delete"
+            danger
+            onConfirm={handleDeleteConfirm}
+            onCancel={handleDeleteCancel}
+          />,
+          document.body
+        )}
 
       {/* Wiki-link note creation */}
       {pendingLinkCreate && (
@@ -1177,6 +1184,7 @@ export function Editor() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto editor-paper relative transition-colors duration-200"
         style={{ backgroundColor: noteBackgroundColor || 'var(--bg-editor)' }}
+        data-template-prompt={showTemplatePrompt ? '' : undefined}
       >
         {/* Close the open note. A zero-height sticky row so it stays pinned
             while the note scrolls, costs no layout space, and sits naturally
@@ -1190,7 +1198,7 @@ export function Editor() {
             wash from the text. */}
         <div
           className="editor-paper-close-rail"
-          style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}
+          style={{ position: 'sticky', top: 0, height: 0, zIndex: 12, pointerEvents: 'none' }}
         >
           <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
         </div>
@@ -1199,15 +1207,29 @@ export function Editor() {
           {showNoteHeader && (
             <NoteHeader
               note={currentNote}
+              // After a rename the body is remounted under the note's new id,
+              // so the caret moves once that has rendered.
+              onSubmit={() => requestAnimationFrame(() => editor?.commands.focus('start'))}
               // The rename command addresses the file on disk, so resolve the
               // note's own entry rather than handing it the open buffer — the
               // display title and the filename are allowed to diverge, and the
               // filename is the one that decides where we write.
-              onRename={async (title) => {
-                const file = notes.find((n) => n.path === currentNote?.id);
-                if (file) await renameNote(file, title);
-              }}
+              // A locked note's ciphertext is bound to its path, so it cannot
+              // be renamed while it is only open for viewing.
+              onRename={
+                isViewOnly
+                  ? undefined
+                  : async (title) => {
+                      const file = notes.find((n) => n.path === currentNote?.id);
+                      if (file) await renameNote(file, title);
+                    }
+              }
             />
+          )}
+          {isViewOnly && (
+            <p className="note-view-only" role="status">
+              View only · Remove the lock to edit
+            </p>
           )}
           {isCloudPlaceholder ? (
             <CloudNotePlaceholder note={currentNote} />
@@ -1217,18 +1239,26 @@ export function Editor() {
             </div>
           )}
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {!isCloudPlaceholder && !isMobilePlatform() && editor && !editor.isDestroyed && (
-            <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
-          )}
-          {/* Image Toolbar - shows when image is selected */}
-          {!isCloudPlaceholder && editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
+          {!isCloudPlaceholder &&
+            !isViewOnly &&
+            !isMobilePlatform() &&
+            editor &&
+            !editor.isDestroyed && (
+              <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
+            )}
+          {/* On a phone the formatting row carries the image actions instead. */}
+          {!isCloudPlaceholder &&
+            !isViewOnly &&
+            !isMobilePlatform() &&
+            editor &&
+            !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes.
             z-10 keeps it above the editor content but below modals/popovers
             (which use z-[9999]). Previously z-50 caused it to paint over
             Settings / Trash / other floating UI. */}
-        {showInlineTemplatePicker && !isCloudPlaceholder && (
+        {showTemplatePrompt && (
           <div
             className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
@@ -1266,28 +1296,33 @@ export function Editor() {
         <EditorFooter
           editor={editor}
           onDelete={handleDeleteClick}
+          readOnly={isViewOnly}
           isSaving={isSaving}
           showSaveSuccess={showSaveSuccess}
           onRenameNote={renameNote}
         />
       )}
 
-      {!isCloudPlaceholder && isMobilePlatform() && editor && !editor.isDestroyed && (
-        <React.Suspense fallback={null}>
-          <MobileFormattingBar
-            editor={editor}
-            onInsertLink={handleInsertLink}
-            onInsertImage={() => setIsImageModalOpen(true)}
-          />
-        </React.Suspense>
-      )}
+      {!isCloudPlaceholder &&
+        !isViewOnly &&
+        isMobilePlatform() &&
+        editor &&
+        !editor.isDestroyed && (
+          <React.Suspense fallback={null}>
+            <MobileFormattingBar
+              editor={editor}
+              onInsertLink={handleInsertLink}
+              onInsertImage={() => setIsImageModalOpen(true)}
+            />
+          </React.Suspense>
+        )}
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}
       <TemplatePickerModal
         isOpen={showShortcutTemplatePicker}
         onClose={handleShortcutTemplatePickerClose}
         onSelect={handleShortcutTemplateSelect}
-        title="Create note from template"
+        title="Choose a template"
       />
 
       {/* Link and Image Modals */}

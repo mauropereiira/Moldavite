@@ -57,18 +57,43 @@ describe('SettingsModal on a phone', () => {
     expect(screen.getAllByRole('button', { name: /^(General|About)$/ })).toHaveLength(2);
   });
 
-  it('fills the content area beside the icon rail instead of centring a dialog', () => {
+  // The rail paints above the ground, but a pinned bar spanning the rail's
+  // column does not; it used to show through there above the rail.
+  it('covers the whole screen and sets its page beside the icon rail', () => {
     const { container } = render(<SettingsModal />);
 
     const page = container.firstElementChild as HTMLElement;
-    expect(page.style.left).toBe('var(--rail-width)');
-    expect(page.style.right).toBe('0px');
-    expect(page.className).not.toContain('inset-0');
+    expect(page.className).toContain('inset-0');
+    expect(page.style.background).toBe('var(--bg-base)');
     const dialog = screen.getByRole('dialog');
+    expect(dialog.style.marginLeft).toBe('var(--rail-inset-left)');
+    expect(dialog.style.marginRight).toBe('var(--rail-inset-right)');
     expect(dialog.className).not.toContain('max-w-3xl');
     expect(dialog.className).not.toContain('modal-content-enter');
     expect(dialog.style.paddingTop).toBe('var(--safe-top)');
     expect(dialog.style.paddingBottom).toBe('var(--safe-bottom)');
+  });
+
+  // The page's ground and hairlines run to the screen edge; only the text
+  // clears the landscape safe area on the edge the rail does not cover.
+  it('insets its contents, not its rules, by the safe area without the rail', () => {
+    render(<SettingsModal />);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.paddingLeft).toBe('');
+    expect(dialog.style.paddingRight).toBe('');
+    const header = dialog.querySelector('header') as HTMLElement;
+    expect(header.style.paddingLeft).toContain('var(--page-safe-left)');
+    expect(header.style.paddingRight).toContain('var(--page-safe-right)');
+    const row = screen.getByRole('button', { name: 'General' });
+    expect(row.style.padding).toContain('var(--page-safe-left)');
+    expect(row.style.padding).toContain('var(--page-safe-right)');
+
+    fireEvent.click(row);
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.style.padding).toContain('var(--page-safe-left)');
+    expect(panel.style.padding).toContain('var(--page-safe-right)');
+    fireEvent.click(backButton() as HTMLElement);
   });
 
   it('opens a section from its row and returns to the list from the back control', () => {
@@ -151,5 +176,15 @@ describe('SettingsModal on the desktop', () => {
     expect(list()).not.toBeInTheDocument();
     expect(backButton()).not.toBeInTheDocument();
     expect(screen.getByRole('dialog').className).toContain('max-w-3xl');
+  });
+
+  // Sized to its content, the centred dialog grew and shrank per tab, which
+  // moved the tab list out from under the pointer between two clicks.
+  it('keeps one height across tabs', () => {
+    render(<SettingsModal />);
+
+    const classes = screen.getByRole('dialog').className.split(/\s+/);
+    expect(classes).toContain('h-[85vh]');
+    expect(classes).not.toContain('max-h-[85vh]');
   });
 });

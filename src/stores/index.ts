@@ -25,7 +25,7 @@
 
 export { useNoteStore } from './noteStore';
 export { useThemeStore, applyTheme, PRESETS } from './themeStore';
-export type { BaseMode, ThemePreset, PresetCoverage, PresetMeta } from './themeStore';
+export type { BaseMode, ThemePreset, PresetMeta, PresetSwatches } from './themeStore';
 export { useToastStore } from './toastStore';
 export type { Toast, ToastType } from './toastStore';
 
@@ -45,13 +45,14 @@ export type {
   FontFamily,
   AutoLockTimeout,
   ChromeMode,
+  IconRailSide,
   SettingsState,
   SettingsTab,
 } from './settingsStore';
 
 export { useCalendarStore } from './calendarStore';
 export { useTemplateStore } from './templateStore';
-export { useNoteColorsStore, buildNotePath } from './noteColorsStore';
+export { useNoteColorsStore } from './noteColorsStore';
 export { useUpdateStore, selectHasPendingUpdate } from './updateStore';
 export { useWhatsNewStore } from './whatsNewStore';
 export { usePluginCommandStore } from './pluginCommandStore';
@@ -73,7 +74,13 @@ export type { AppOverlay } from './overlayStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
 export { useQuickSwitcherStore } from './quickSwitcherStore';
-export { useSidebarOrderStore, applyManualOrder, reorderIds } from './sidebarOrderStore';
+export {
+  useSidebarOrderStore,
+  applyManualOrder,
+  compareNoteTitles,
+  compareNotesBy,
+  reorderIds,
+} from './sidebarOrderStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
 export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
 export { useForgeStore } from './forgeStore';

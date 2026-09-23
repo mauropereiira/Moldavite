@@ -324,7 +324,8 @@ fn stress_rewrite_links_across_large_corpus() {
     let started = Instant::now();
     let mut touched = 0;
     for content in &corpus {
-        if let Some(rewritten) = rewrite_links_for_rename(content, "note-42", "renamed-note") {
+        if let Some(rewritten) = rewrite_links_for_rename(content, "note-42", "renamed-note", false)
+        {
             assert!(rewritten.contains("[[renamed-note]]"));
             assert!(!rewritten.contains("[[note-42]]"));
             touched += 1;

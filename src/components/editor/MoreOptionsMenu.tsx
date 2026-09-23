@@ -1,5 +1,6 @@
 import { isMobilePlatform } from '@/lib/platform';
 import { lazy, Suspense, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
@@ -29,6 +30,8 @@ interface MoreOptionsMenuProps {
   characterCount: number;
   openDirection?: 'up' | 'down';
   onRenameNote: (note: NoteFile, title: string) => Promise<void>;
+  /** A locked note open for viewing: its plaintext exists only in memory. */
+  readOnly?: boolean;
 }
 
 export function MoreOptionsMenu({
@@ -38,6 +41,7 @@ export function MoreOptionsMenu({
   characterCount,
   onRenameNote,
   openDirection = 'down',
+  readOnly = false,
 }: MoreOptionsMenuProps) {
   // Menu actions only need the current note at the moment they run, and the
   // note info / rename affordances only need a few primitive fields — none
@@ -59,6 +63,7 @@ export function MoreOptionsMenu({
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const mobile = isMobilePlatform();
   const currentNoteFile = currentNoteId
     ? notes.find((note) => note.path === currentNoteId)
     : undefined;
@@ -197,12 +202,6 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
-      if (isMobilePlatform()) {
-        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
-        if (await exportMobileNote(currentNote.id, 'plaintext'))
-          onShowToast?.('Exported as plaintext');
-        return;
-      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`
@@ -212,7 +211,7 @@ export function MoreOptionsMenu({
 
       const baseName = filename.replace(/\.md$/, '');
       const destination = await save({
-        title: 'Export as Plaintext',
+        title: 'Export as plain text',
         defaultPath: `${baseName}.txt`,
         filters: [{ name: 'Plain Text', extensions: ['txt'] }],
       });
@@ -224,11 +223,11 @@ export function MoreOptionsMenu({
           currentNote.isDaily || false,
           currentNote.isWeekly || false
         );
-        onShowToast?.('Exported as plaintext');
+        onShowToast?.('Exported as plain text');
       }
     } catch (error) {
       console.error('[MoreOptionsMenu] Plaintext export failed:', error);
-      onShowToast?.('Failed to export plaintext');
+      onShowToast?.('Failed to export plain text');
     }
   };
 
@@ -264,25 +263,33 @@ export function MoreOptionsMenu({
           </button>
         }
       >
-        {currentNoteId && (
+        {/* On the phone, pinning lives in the Index's note options and a note
+            leaves the app through Share's system sheet. */}
+        {!mobile && currentNoteId && (
           <DropdownItem onClick={() => togglePinned(currentNoteId)}>
             {isPinned(currentNoteId) ? 'Unpin from the top bar' : 'Pin to the top bar'}
           </DropdownItem>
         )}
-        <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
-        <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
-          Duplicate note
-        </DropdownItem>
-        {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
-          <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
+        {!mobile && <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>}
+        {!readOnly && (
+          <>
+            <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
+              Duplicate note
+            </DropdownItem>
+            {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
+              <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
+            )}
+            <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
+            {!mobile && <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>}
+            {!mobile && (
+              <DropdownItem onClick={handleExportPlaintext}>Export as plain text</DropdownItem>
+            )}
+            <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>
+              Save as template
+            </DropdownItem>
+          </>
         )}
-        <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
-        {!isMobilePlatform() && (
-          <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>
-        )}
-        <DropdownItem onClick={handleExportPlaintext}>Export as Plaintext</DropdownItem>
-        <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>Save as template</DropdownItem>
-        <DropdownDivider />
+        {(!mobile || !readOnly) && <DropdownDivider />}
         <DropdownItem onClick={handleShowInfo}>Note info</DropdownItem>
         <DropdownDivider />
         <DropdownItem onClick={onDelete} variant="danger">
@@ -290,101 +297,115 @@ export function MoreOptionsMenu({
         </DropdownItem>
       </Dropdown>
 
-      {/* Note Info Modal */}
-      {showNoteInfo && currentNoteId && (
-        <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowNoteInfo(false);
-          }}
-        >
-          <div
-            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
-            style={{ borderRadius: 'var(--radius-md)' }}
-          >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Note Info
-            </h3>
-            <div className="space-y-2 text-sm">
+      {/* The footer can fold this menu into the Actions menu, whose entry
+          transform would become the containing block of these fixed dialogs
+          and trap them inside it. */}
+      {createPortal(
+        <>
+          {/* Note Info Modal */}
+          {showNoteInfo && currentNoteId && (
+            <div
+              className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setShowNoteInfo(false);
+              }}
+            >
               <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
+                className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
+                style={{ borderRadius: 'var(--radius-md)' }}
               >
-                <span style={{ color: 'var(--text-muted)' }}>Title</span>
-                <span className="truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
-                  {currentNoteTitle}
-                </span>
-              </div>
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Type</span>
-                <span style={{ color: 'var(--text-primary)' }}>
-                  {currentNoteIsDaily ? 'Daily' : 'Standalone'}
-                </span>
-              </div>
-              {currentNoteIsDaily && currentNoteDate && (
-                <div
-                  className="flex justify-between py-1.5"
-                  style={{ borderBottom: '1px solid var(--border-muted)' }}
+                <h3
+                  className="text-base font-semibold mb-4"
+                  style={{ color: 'var(--text-primary)' }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>Date</span>
-                  <span style={{ color: 'var(--text-primary)' }}>{currentNoteDate}</span>
+                  Note Info
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Title</span>
+                    <span
+                      className="truncate max-w-[180px]"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {currentNoteTitle}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Type</span>
+                    <span style={{ color: 'var(--text-primary)' }}>
+                      {currentNoteIsDaily ? 'Daily' : 'Standalone'}
+                    </span>
+                  </div>
+                  {currentNoteIsDaily && currentNoteDate && (
+                    <div
+                      className="flex justify-between py-1.5"
+                      style={{ borderBottom: '1px solid var(--border-muted)' }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>Date</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{currentNoteDate}</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Words</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
+                  </div>
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Characters</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span style={{ color: 'var(--text-muted)' }}>File Size</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{getFileSizeEstimate()}</span>
+                  </div>
                 </div>
-              )}
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Words</span>
-                <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
-              </div>
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Characters</span>
-                <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span style={{ color: 'var(--text-muted)' }}>File Size</span>
-                <span style={{ color: 'var(--text-primary)' }}>{getFileSizeEstimate()}</span>
+                <div className="mt-6 flex justify-end">
+                  <button onClick={() => setShowNoteInfo(false)} className="btn focus-ring">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <button onClick={() => setShowNoteInfo(false)} className="btn focus-ring">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Save as Template Modal */}
-      {currentNoteId && (
-        <SaveTemplateModal
-          isOpen={showSaveTemplateModal}
-          onClose={() => setShowSaveTemplateModal(false)}
-          initialContent={templateInitialContent}
-        />
-      )}
+          {/* Save as Template Modal */}
+          {currentNoteId && (
+            <SaveTemplateModal
+              isOpen={showSaveTemplateModal}
+              onClose={() => setShowSaveTemplateModal(false)}
+              initialContent={templateInitialContent}
+            />
+          )}
 
-      {/* PDF export options modal */}
-      <PdfExportOptionsModal
-        isOpen={showPdfOptions}
-        onClose={() => setShowPdfOptions(false)}
-        onConfirm={handlePdfExportConfirm}
-      />
-
-      {showRenameModal && currentNoteFile && (
-        <Suspense fallback={null}>
-          <RenameNoteModal
-            note={currentNoteFile}
-            onRename={onRenameNote}
-            onClose={() => setShowRenameModal(false)}
+          {/* PDF export options modal */}
+          <PdfExportOptionsModal
+            isOpen={showPdfOptions}
+            onClose={() => setShowPdfOptions(false)}
+            onConfirm={handlePdfExportConfirm}
           />
-        </Suspense>
+
+          {showRenameModal && currentNoteFile && (
+            <Suspense fallback={null}>
+              <RenameNoteModal
+                note={currentNoteFile}
+                onRename={onRenameNote}
+                onClose={() => setShowRenameModal(false)}
+              />
+            </Suspense>
+          )}
+        </>,
+        document.body
       )}
     </>
   );

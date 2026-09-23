@@ -38,6 +38,11 @@ function setBooleanSetting(key: BooleanLayoutSetting, enabled: boolean) {
   useSettingsStore.setState({ [key]: enabled } as Pick<SettingsState, BooleanLayoutSetting>);
 }
 
+const RAIL_SIDES = [
+  { value: 'left', label: 'Left' },
+  { value: 'right', label: 'Right' },
+] as const;
+
 const EDITOR_WIDTHS = [
   { value: 'narrow', label: 'Narrow' },
   { value: 'medium', label: 'Medium' },
@@ -106,18 +111,26 @@ export function LayoutSection() {
   const welcomeControls = mobile
     ? WELCOME_CONTROLS.filter(([, setting]) => setting !== 'showAsteroidCursor')
     : WELCOME_CONTROLS;
+  const railSideRow = (
+    <SegmentedControl
+      label="Rail side"
+      ariaLabel="Rail side"
+      value={settings.iconRailSide}
+      onChange={settings.setIconRailSide}
+      options={RAIL_SIDES}
+    />
+  );
 
   return (
     <div className="space-y-7">
-      <section>
+      <section className="settings-section">
         <SectionHeading>Navigation</SectionHeading>
         {mobile ? (
-          <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
-            Desktop settings. On a phone the Index and Agenda open as overlays.
-          </p>
+          railSideRow
         ) : (
           <>
             <ToggleRow label="Icon rail" setting="showIconRail" enabled={settings.showIconRail} />
+            {settings.showIconRail && railSideRow}
             <ModeRow
               label={`Index · ${formatShortcut('⌘\\')}`}
               value={settings.indexMode}
@@ -132,7 +145,7 @@ export function LayoutSection() {
         )}
       </section>
 
-      <section>
+      <section className="settings-section">
         <SectionHeading>Editor</SectionHeading>
         {!mobile && (
           <ModeRow
@@ -147,7 +160,7 @@ export function LayoutSection() {
         ))}
       </section>
 
-      <section>
+      <section className="settings-section">
         <SectionHeading>Welcome</SectionHeading>
         {welcomeControls.map(([label, setting]) => (
           <ToggleRow key={setting} label={label} setting={setting} enabled={settings[setting]} />

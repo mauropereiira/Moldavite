@@ -1,19 +1,7 @@
-import React from 'react';
+import type React from 'react';
 import type { ContentMatch } from '@/stores';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function renderHighlighted(text: string, term: string): React.ReactNode {
-  if (!term) return text;
-  const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
-  const parts = text.split(regex);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>
-  );
-}
+import { HighlightedText } from '@/components/ui/HighlightedText';
 
 function folderDisplayName(folderPath: string | null): string | null {
   if (!folderPath) return null;
@@ -77,8 +65,11 @@ export function SidebarSearchResults({
                   </span>
                 )}
               </span>
-              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-                {renderHighlighted(match.snippet, query)}
+              <p
+                className="search-preview text-xs mt-0.5 truncate"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <HighlightedText text={match.snippet} term={query} />
               </p>
             </button>
           );

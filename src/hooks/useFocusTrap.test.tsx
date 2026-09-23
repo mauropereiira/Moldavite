@@ -23,6 +23,54 @@ describe('useFocusTrap', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByText('first')));
   });
 
+  it('leaves focus in a text field that took it as the dialog mounted', async () => {
+    function FieldHarness() {
+      const ref = useRef<HTMLDivElement | null>(null);
+      useFocusTrap(ref, true);
+      return (
+        <div ref={ref} tabIndex={-1}>
+          <button>close</button>
+          <input aria-label="field" autoFocus />
+        </div>
+      );
+    }
+    render(<FieldHarness />);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(document.activeElement).toBe(screen.getByLabelText('field'));
+  });
+
+  // The phone's Index closes as a new note hands its title the focus, which
+  // keeps the keyboard up; restoring the focus from before would drop it.
+  it('leaves focus that an action moved outside the trap where it went', async () => {
+    const outside = document.createElement('input');
+    document.body.appendChild(outside);
+    const before = document.createElement('button');
+    document.body.appendChild(before);
+    before.focus();
+    const { rerender } = render(<Harness active />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText('first')));
+
+    outside.focus();
+    rerender(<Harness active={false} />);
+
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+    before.remove();
+  });
+
+  it('restores the earlier focus when focus was still inside', async () => {
+    const before = document.createElement('button');
+    document.body.appendChild(before);
+    before.focus();
+    const { rerender } = render(<Harness active />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText('first')));
+
+    rerender(<Harness active={false} />);
+
+    expect(document.activeElement).toBe(before);
+    before.remove();
+  });
+
   it('does nothing when inactive', async () => {
     render(<Harness active={false} />);
     await new Promise((r) => setTimeout(r, 0));

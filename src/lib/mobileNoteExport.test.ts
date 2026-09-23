@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { exportMobileNote, exportMobileSelection } from './mobileNoteExport';
+import { exportMobileNote, exportMobileSelection, shareMobileNote } from './mobileNoteExport';
 
 const invoke = vi.hoisted(() => vi.fn());
 const readNote = vi.hoisted(() => vi.fn());
@@ -59,4 +59,10 @@ it('keeps selected paths and cancellation intact', async () => {
   expect(invoke).toHaveBeenCalledWith('export_mobile_document', {
     request: { kind: 'selection', paths },
   });
+});
+
+it('hands one note to the share sheet by its full path after flushing', async () => {
+  await expect(shareMobileNote('notes/Project/same.md')).resolves.toBe(true);
+  expect(flush.mock.invocationCallOrder[0]).toBeLessThan(invoke.mock.invocationCallOrder[0]);
+  expect(invoke).toHaveBeenCalledWith('share_mobile_note', { path: 'notes/Project/same.md' });
 });
