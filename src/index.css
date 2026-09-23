@@ -170,6 +170,8 @@
   --editor-measure: 68ch;
 
   /* SIZING */
+  /* Suggestion popups start here; suggestionPopup.ts narrows it to the room beside the caret. */
+  --suggestion-max-height: 360px;
   --radius-xs: 0;
   --radius-sm: 0;
   --radius-md: 0;
