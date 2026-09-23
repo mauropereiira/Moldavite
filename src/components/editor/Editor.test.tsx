@@ -619,6 +619,33 @@ describe('Editor wiki links', () => {
   });
 });
 
+describe('Editor wiki links to impossible dates', () => {
+  it('creates an ordinary note for a date that does not exist', async () => {
+    const user = userEvent.setup();
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'create_note_from_link' ? '2026-02-30.md' : undefined
+    );
+    await renderEditor(
+      note(
+        'notes/links.md',
+        '<p><wiki-link data-target="2026-02-30.md" data-label="2026-02-30">2026-02-30</wiki-link></p>'
+      )
+    );
+
+    const link = document.querySelector('wiki-link');
+    if (!(link instanceof HTMLElement)) throw new Error('Wiki link was not rendered');
+    fireEvent.click(link);
+    await user.click(await screen.findByRole('button', { name: 'Create' }));
+
+    await waitFor(() =>
+      expect(notesSpies.loadNote).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'notes/2026-02-30.md', isDaily: false })
+      )
+    );
+    expect(notesSpies.loadDailyNote).not.toHaveBeenCalled();
+  });
+});
+
 describe('Editor delete failures', () => {
   // Previously the backend error was only console.error'd and the confirm
   // dialog closed exactly as on success, so the user believed the note was
