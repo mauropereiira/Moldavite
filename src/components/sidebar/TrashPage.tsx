@@ -2,9 +2,9 @@ import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 
 import { useTrash } from '@/hooks/useTrash';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import type { TrashedNote } from '@/types';
+import { useTrashConfirmations } from './useTrashConfirmations';
 
 const TrashPreviewModal = lazy(() =>
   import('./TrashPreviewModal').then((module) => ({ default: module.TrashPreviewModal }))
@@ -34,11 +34,14 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   const { trashedNotes, loadTrash, restoreNote, permanentlyDelete, emptyTrash, cleanupOld } =
     useTrash();
   const [previewNote, setPreviewNote] = useState<TrashedNote | null>(null);
-  const [confirmingEmpty, setConfirmingEmpty] = useState(false);
   const { isRendered, isClosing } = useOverlayPresence(isOpen);
-  // Both report their own failure in a toast.
+  // Reports its own failure in a toast.
   const restore = (id: string) => restoreNote(id).catch(() => undefined);
-  const remove = (id: string) => permanentlyDelete(id).catch(() => undefined);
+  const { confirmDelete, confirmEmpty, isConfirming, dialog } = useTrashConfirmations({
+    trashedNotes,
+    permanentlyDelete,
+    emptyTrash,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,7 +49,7 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     void cleanupOld();
   }, [isOpen, cleanupOld, loadTrash]);
 
-  useFocusTrap(pageRef, isOpen && isRendered && !previewNote && !confirmingEmpty);
+  useFocusTrap(pageRef, isOpen && isRendered && !previewNote && !isConfirming);
 
   if (!isRendered) return null;
 
@@ -162,7 +165,7 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                       type="button"
                       style={{ ...rowAction, color: 'var(--error)' }}
                       aria-label={`Delete ${title} permanently`}
-                      onClick={() => void remove(note.id)}
+                      onClick={() => confirmDelete(note.id)}
                     >
                       Delete
                     </button>
@@ -183,7 +186,7 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             type="button"
             className="w-full text-sm"
             style={{ minHeight: 'var(--touch-target)', color: 'var(--error)' }}
-            onClick={() => setConfirmingEmpty(true)}
+            onClick={confirmEmpty}
           >
             Empty trash
           </button>
@@ -196,24 +199,12 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             note={previewNote}
             onClose={() => setPreviewNote(null)}
             onRestore={restore}
-            onPermanentDelete={remove}
+            onPermanentDelete={confirmDelete}
           />
         </Suspense>
       )}
 
-      {confirmingEmpty && (
-        <ConfirmDialog
-          title="Empty the Trash?"
-          message={`${trashedNotes.length === 1 ? 'The note' : `All ${trashedNotes.length} items`} in the Trash will be deleted permanently. This cannot be undone.`}
-          confirmLabel="Empty trash"
-          danger
-          onConfirm={() => {
-            setConfirmingEmpty(false);
-            void emptyTrash().catch(() => undefined);
-          }}
-          onCancel={() => setConfirmingEmpty(false)}
-        />
-      )}
+      {dialog}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { IconRailTrash } from './IconRailTrash';
 import type { TrashedNote } from '@/types';
@@ -16,14 +16,16 @@ const note: TrashedNote = {
 };
 
 const restoreNote = vi.fn(async () => undefined);
+const permanentlyDelete = vi.fn(async (_id: string) => undefined);
+const emptyTrash = vi.fn(async () => undefined);
 
 vi.mock('@/hooks/useTrash', () => ({
   useTrash: () => ({
     trashedNotes: [note],
     loadTrash: vi.fn(async () => undefined),
     restoreNote,
-    permanentlyDelete: vi.fn(async () => undefined),
-    emptyTrash: vi.fn(async () => undefined),
+    permanentlyDelete,
+    emptyTrash,
     cleanupOld: vi.fn(async () => undefined),
   }),
 }));
@@ -32,13 +34,19 @@ vi.mock('@/components/sidebar/TrashPopover', () => ({
   TrashPopover: ({
     onClose,
     onPreview,
+    onPermanentDelete,
+    onEmptyTrash,
   }: {
     onClose: () => void;
     onPreview: (note: TrashedNote) => void;
+    onPermanentDelete: (id: string) => void;
+    onEmptyTrash: () => void;
   }) => (
     <div>
       <button onClick={() => onPreview(note)}>Preview</button>
       <button onClick={onClose}>Outside press</button>
+      <button onClick={() => onPermanentDelete(note.id)}>Delete from popover</button>
+      <button onClick={onEmptyTrash}>Empty from popover</button>
     </div>
   ),
 }));
@@ -63,5 +71,31 @@ describe('IconRailTrash', () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(restore);
     expect(restoreNote).toHaveBeenCalledWith('1');
+  });
+
+  it('asks before deleting a note for good, and keeps the popover open meanwhile', async () => {
+    const onClose = vi.fn();
+    render(<IconRailTrash anchor={document.createElement('button')} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete from popover' }));
+    expect(permanentlyDelete).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Delete permanently?' });
+    expect(dialog).toHaveTextContent('"Plan" will be deleted permanently. This cannot be undone.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Outside press' }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(permanentlyDelete).toHaveBeenCalledWith('1'));
+  });
+
+  it('asks before emptying the Trash', async () => {
+    render(<IconRailTrash anchor={document.createElement('button')} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Empty from popover' }));
+    expect(emptyTrash).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Empty the Trash?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Empty trash' }));
+    await waitFor(() => expect(emptyTrash).toHaveBeenCalled());
   });
 });

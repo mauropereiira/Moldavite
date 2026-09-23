@@ -32,6 +32,7 @@ import { NoteContextMenu } from './NoteContextMenu';
 import { FolderContextMenu } from './FolderContextMenu';
 import { SidebarModals } from './SidebarModals';
 import { TrashPopover } from './TrashPopover';
+import { useTrashConfirmations } from './useTrashConfirmations';
 import { BulkActionBar } from './BulkActionBar';
 import { BulkExportModal } from './BulkExportModal';
 
@@ -168,6 +169,7 @@ export function Sidebar({
   const [folderToDelete, setFolderToDelete] = useState<FolderInfo | null>(null);
 
   const [trashPopoverAnchor, setTrashPopoverAnchor] = useState<HTMLElement | null>(null);
+  const trashConfirm = useTrashConfirmations({ trashedNotes, permanentlyDelete, emptyTrash });
   const [trashPreviewNote, setTrashPreviewNote] = useState<TrashedNote | null>(null);
 
   const [createNoteInFolder, setCreateNoteInFolder] = useState<string | null>(null);
@@ -1130,10 +1132,12 @@ export function Sidebar({
         isOpen={trashPopoverAnchor !== null}
         anchor={trashPopoverAnchor}
         trashedNotes={trashedNotes}
-        onClose={() => setTrashPopoverAnchor(null)}
+        onClose={() => {
+          if (!trashConfirm.isConfirming) setTrashPopoverAnchor(null);
+        }}
         onRestore={restoreNote}
-        onPermanentDelete={permanentlyDelete}
-        onEmptyTrash={emptyTrash}
+        onPermanentDelete={trashConfirm.confirmDelete}
+        onEmptyTrash={trashConfirm.confirmEmpty}
         onPreview={(note) => setTrashPreviewNote(note)}
       />
       {/* Trash preview pulls in Tiptap + markdown-it + DOMPurify — only
@@ -1144,10 +1148,11 @@ export function Sidebar({
             note={trashPreviewNote}
             onClose={() => setTrashPreviewNote(null)}
             onRestore={restoreNote}
-            onPermanentDelete={permanentlyDelete}
+            onPermanentDelete={trashConfirm.confirmDelete}
           />
         </Suspense>
       )}
+      {trashConfirm.dialog}
     </div>
   );
 }

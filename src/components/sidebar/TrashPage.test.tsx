@@ -64,8 +64,26 @@ describe('TrashPage', () => {
 
     fireEvent.click(restore);
     expect(trash.restoreNote).toHaveBeenCalledWith('1');
+  });
+
+  it('asks before deleting a note for good', async () => {
+    await renderPage();
+
     fireEvent.click(screen.getByRole('button', { name: 'Delete Diary permanently' }));
-    expect(trash.permanentlyDelete).toHaveBeenCalledWith('2');
+    expect(trash.permanentlyDelete).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('dialog', { name: 'Delete permanently?' });
+    expect(dialog).toHaveTextContent('"Diary" will be deleted permanently. This cannot be undone.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(trash.permanentlyDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Diary permanently' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Delete permanently?' })).getByRole('button', {
+        name: 'Delete',
+      })
+    );
+    await waitFor(() => expect(trash.permanentlyDelete).toHaveBeenCalledWith('2'));
   });
 
   it('restores from the preview with one tap', async () => {

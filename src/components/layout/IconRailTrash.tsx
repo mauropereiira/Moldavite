@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { TrashPopover } from '@/components/sidebar/TrashPopover';
 import { useTrash } from '@/hooks/useTrash';
 import type { TrashedNote } from '@/types';
+import { useTrashConfirmations } from '@/components/sidebar/useTrashConfirmations';
 
 const TrashPreviewModal = lazy(() =>
   import('@/components/sidebar/TrashPreviewModal').then((module) => ({
@@ -19,6 +20,11 @@ export function IconRailTrash({
   const { trashedNotes, loadTrash, restoreNote, permanentlyDelete, emptyTrash, cleanupOld } =
     useTrash();
   const [previewNote, setPreviewNote] = useState<TrashedNote | null>(null);
+  const { confirmDelete, confirmEmpty, isConfirming, dialog } = useTrashConfirmations({
+    trashedNotes,
+    permanentlyDelete,
+    emptyTrash,
+  });
 
   useEffect(() => {
     void loadTrash();
@@ -31,14 +37,14 @@ export function IconRailTrash({
         isOpen
         anchor={anchor}
         trashedNotes={trashedNotes}
-        // A press in the preview is outside the popover. Closing then would
-        // unmount the preview with it, before its Restore or Delete click lands.
+        // A press in the preview or a confirmation is outside the popover.
+        // Closing then would unmount it, before its click lands.
         onClose={() => {
-          if (!previewNote) onClose();
+          if (!previewNote && !isConfirming) onClose();
         }}
         onRestore={restoreNote}
-        onPermanentDelete={permanentlyDelete}
-        onEmptyTrash={emptyTrash}
+        onPermanentDelete={confirmDelete}
+        onEmptyTrash={confirmEmpty}
         onPreview={setPreviewNote}
       />
       {previewNote && (
@@ -47,10 +53,11 @@ export function IconRailTrash({
             note={previewNote}
             onClose={() => setPreviewNote(null)}
             onRestore={restoreNote}
-            onPermanentDelete={permanentlyDelete}
+            onPermanentDelete={confirmDelete}
           />
         </Suspense>
       )}
+      {dialog}
     </>
   );
 }

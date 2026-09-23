@@ -270,7 +270,7 @@ export function TrashPopover({
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            Empty Trash
+            Empty trash
           </button>
         </div>
       )}

@@ -32,7 +32,7 @@ All notable changes to Moldavite are documented here.
 
 - **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before, and the text matches arriving a moment later never move the highlight, so Enter opens what is highlighted. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
 
-- **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and Empty trash asks first.
+- **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and both Delete and Empty trash ask first.
 
 - **In the graph on iPhone and iPad, a tap names a note before opening it.** The first tap on a star shows its name and its neighbours'; a second tap opens it. A mouse click still opens it straight away.
 
@@ -71,6 +71,8 @@ All notable changes to Moldavite are documented here.
 - **A locked note inside a deleted folder could come back unable to unlock.** Its lock is tied to the folder it was locked in, but restoring the folder beside a newer folder of the same name renamed it, and restoring the note on its own put it at the top of Notes. A locked note now only ever comes back to the folder it was locked in: if that name is taken, by a folder or by a note with the same name locked or not, Moldavite says so and asks you to rename that one first.
 
 - Switching to another app with ⌘Tab while renaming a note from its title renamed it to the half-typed name, and rewrote the links to it. Switching apps now leaves the name as you were typing it; the note is renamed when you press Enter or click elsewhere in Moldavite.
+
+- Delete and Empty Trash in the Trash, and Delete in a trashed note's preview, deleted for good at the first click. They now ask first, in the same words on the Mac and iPhone.
 
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
 
