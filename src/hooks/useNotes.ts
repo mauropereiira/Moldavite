@@ -472,9 +472,11 @@ export function useNotes() {
       { discardIfLeftEmpty = false }: { discardIfLeftEmpty?: boolean } = {}
     ) => {
       latestNavigation += 1;
-      // A phone opens a new note on its title, ready to be named.
-      const focusTitle = isMobilePlatform();
-      if (focusTitle) holdKeyboard();
+      // A phone opens every new note on its title, ready to be named, and so
+      // does a generated name anywhere: nothing else has the focus after ⌘N.
+      const mobile = isMobilePlatform();
+      const focusTitle = mobile || discardIfLeftEmpty;
+      if (mobile) holdKeyboard();
       try {
         setIsLoading(true);
         const filename = await createNoteFile(title, folderPath || undefined);

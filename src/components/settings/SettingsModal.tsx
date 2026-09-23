@@ -269,7 +269,7 @@ export function SettingsModal() {
     >
       <DialogSurface
         onEscape={() => settingsStore.setIsSettingsOpen(false)}
-        className="settings-dialog w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col modal-content-enter"
+        className="settings-dialog w-full max-w-3xl mx-4 h-[85vh] flex flex-col modal-content-enter"
         aria-labelledby="settings-modal-title"
       >
         <div

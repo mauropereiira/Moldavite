@@ -1198,7 +1198,7 @@ export function Editor() {
             wash from the text. */}
         <div
           className="editor-paper-close-rail"
-          style={{ position: 'sticky', top: 0, height: 0, zIndex: 5, pointerEvents: 'none' }}
+          style={{ position: 'sticky', top: 0, height: 0, zIndex: 12, pointerEvents: 'none' }}
         >
           <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
         </div>

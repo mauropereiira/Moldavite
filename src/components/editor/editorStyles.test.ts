@@ -102,6 +102,10 @@ describe.each(['desktop', 'mobile'])('task items on %s', (platform) => {
       'calc(var(--editor-line-height) * 1em)'
     );
   });
+
+  it('spaces tasks like bullet items, without a paragraph gap under each', () => {
+    expect(computed('.tiptap ul[data-type="taskList"] > li > div > p').marginBottom).toBe('0px');
+  });
 });
 
 it('sets an ink caret on the phone, which also colours the native selection handles', () => {

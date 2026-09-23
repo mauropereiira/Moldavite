@@ -80,6 +80,14 @@ All notable changes to Moldavite are documented here.
 
 - Clicking the title of an empty note put the cursor in the note's text instead of letting you rename it.
 
+- On the Mac, a note from ⌘N, the welcome screen's New note or the quick switcher opened with nothing focused, so typing went nowhere. It now opens on its title, name selected, as on iPhone. Close on an empty note also took two clicks: the first only put away the template prompt.
+
+- On the Mac, Esc in the Trash, the note colour picker or the Forge switcher also closed the open note. It now closes only the popup.
+
+- Tasks in a note sat further apart than the items of a bulleted list. They are spaced the same.
+
+- In Settings, the dialog changed height with each section, so the section list moved under the pointer between clicks, and Sort Notes By squeezed its seven choices into one row, breaking "Modified (Newest)" over four lines. The dialog keeps one height, and choices past four wrap onto a second row.
+
 - **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
 
 - Opening a note and leaving it without editing no longer rewrites the file, so tables and other Markdown the editor cannot represent stay as you wrote them, and a sync tool no longer sees a change that ends in a conflict copy. An empty daily or weekly note is deleted only when you empty it yourself.

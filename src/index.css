@@ -1903,8 +1903,9 @@ html:not([data-platform='mobile'])
 }
 
 /* An empty note's template layer (z-10) covers the paper so a tap puts the
-   caret in the body; the title stays above it so a tap there renames. An
-   empty note cannot scroll, so the title never passes the sticky Close. */
+   caret in the body; the title stays above it so a tap there renames, and the
+   sticky Close (z 12, inline) above both so one click closes. An empty note
+   cannot scroll, so the title never passes the sticky Close. */
 .editor-paper[data-template-prompt] .note-header {
   position: relative;
   z-index: 11;
@@ -2559,6 +2560,13 @@ wiki-link {
 
 .tiptap ul[data-type='taskList'] li > div {
   flex: 1;
+}
+
+/* The `data-type='taskItem'` rule that zeroes this never matches (see above),
+   so each task kept a paragraph's 1em below it and a task list read looser
+   than a bullet list. */
+.tiptap ul[data-type='taskList'] li > div > p {
+  margin-bottom: 0;
 }
 
 .tiptap ::selection {

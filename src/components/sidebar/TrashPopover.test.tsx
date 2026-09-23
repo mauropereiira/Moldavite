@@ -69,3 +69,31 @@ describe('TrashPopover items', () => {
     expect(screen.getByText(/^Locked · /)).toBeInTheDocument();
   });
 });
+
+describe('TrashPopover Escape', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // The window's Esc handler closes the open note unless Escape was handled.
+  // The popover unmounts before that handler runs, so it cannot see the dialog.
+  it('closes itself and marks Escape handled', () => {
+    const onClose = vi.fn();
+    render(
+      <TrashPopover
+        isOpen
+        anchor={anchorAt(0)}
+        trashedNotes={[]}
+        onClose={onClose}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+        onEmptyTrash={vi.fn()}
+        onPreview={vi.fn()}
+      />
+    );
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    document.body.dispatchEvent(event);
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+  });
+});

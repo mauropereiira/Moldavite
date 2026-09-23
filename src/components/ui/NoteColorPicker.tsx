@@ -59,8 +59,10 @@ export function NoteColorPicker({
   }, [isOpen]);
 
   useEffect(() => {
+    // Marked handled so the window's Esc handler leaves the open note alone.
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         setIsOpen(false);
       }
     };

@@ -177,4 +177,14 @@ describe('SettingsModal on the desktop', () => {
     expect(backButton()).not.toBeInTheDocument();
     expect(screen.getByRole('dialog').className).toContain('max-w-3xl');
   });
+
+  // Sized to its content, the centred dialog grew and shrank per tab, which
+  // moved the tab list out from under the pointer between two clicks.
+  it('keeps one height across tabs', () => {
+    render(<SettingsModal />);
+
+    const classes = screen.getByRole('dialog').className.split(/\s+/);
+    expect(classes).toContain('h-[85vh]');
+    expect(classes).not.toContain('max-h-[85vh]');
+  });
 });

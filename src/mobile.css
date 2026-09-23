@@ -1227,6 +1227,7 @@ html[data-platform='mobile'][data-large-text='true'] .settings-segmented-option 
   justify-content: flex-start;
   padding: 12px 14px;
   border-left: 0 !important;
+  border-top: 0 !important;
   border-bottom: 1px solid var(--border-muted) !important;
   text-align: left;
 }

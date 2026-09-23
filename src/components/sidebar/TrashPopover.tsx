@@ -121,8 +121,13 @@ export function TrashPopover({
       if (anchor?.contains(target)) return;
       onClose();
     };
+    // Marked handled, or the window's Esc handler would close the open note
+    // too: this listener closes the popover first, so no dialog is left to
+    // tell it otherwise.
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      onClose();
     };
 
     document.addEventListener('mousedown', handleClick);

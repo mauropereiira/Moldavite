@@ -51,8 +51,10 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
         setNewName('');
       }
     };
+    // Marked handled so the window's Esc handler leaves the open note alone.
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         setOpen(false);
         setCreating(false);
         setNewName('');

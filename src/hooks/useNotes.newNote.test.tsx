@@ -58,7 +58,17 @@ describe('useNotes.createNote', () => {
     expect(listed?.modifiedAt).toBe(listed?.createdAt);
   });
 
-  it('leaves the desktop flow alone', async () => {
+  it('opens a generated name on its title on the desktop, without holding a keyboard', async () => {
+    platform.mobile = false;
+    const { result } = renderHook(() => useNotes());
+
+    await act(() => result.current.createNote('Untitled', null, { discardIfLeftEmpty: true }));
+
+    expect(focus.hold).not.toHaveBeenCalled();
+    expect(focus.request).toHaveBeenCalledWith('notes/Untitled.md');
+  });
+
+  it('leaves a named desktop note alone', async () => {
     platform.mobile = false;
     const { result } = renderHook(() => useNotes());
 
