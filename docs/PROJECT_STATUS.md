@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 20, 2026
+**Last Updated:** September 23, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -19,7 +19,8 @@
 - A note is renamed from its own title in the editor: Enter commits, Escape abandons, an empty name is refused, and a failed rename restores the previous name so the page never shows a name the file does not have. Daily and weekly notes stay read-only because they are named by date. The context-menu and more-options rename paths still work and now agree with this field rather than owning it.
 
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
-- TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
+- TipTap rich-text editor: headings, lists, task lists, images (resizable), GFM tables (insert, Tab between cells, add/delete rows and columns, column alignment kept; no merged cells, which GFM cannot express), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
+- Images are stored in notes as Forge-root-relative `images/<file>` and resolved against the open Forge only for display, so they survive syncing between machines and iOS container moves. Absolute asset URLs written by earlier builds are mapped by filename onto the current Forge's `images/` and rewritten relative on the next save
 - Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, and a deterministic force-directed graph whose linked components cluster while orphans stay peripheral
 - Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (v1.6). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
@@ -100,6 +101,7 @@
 - ESLint set-state-in-effect warnings in ImageToolbar, TrashPopover and ImageModal. Each measures the DOM after commit or clears state the instant a field empties, so deriving the value would change behaviour.
 - No automatic scheduled backups (manual + encrypted export exist).
 - No multi-window support.
+- **The Obsidian importer links images note-relatively** (`../images/x.png`). The editor resolves only Forge-root `images/<file>` references, so imported images do not display until the importer writes that form.
 - **`Editor.tsx`'s tests mock `useKeyboardShortcuts` wholesale** — which is how ⌘N stayed wired to an empty function unnoticed until a user reported it. The mock now records the options it is handed so the wiring itself can be asserted, but most of the component is still only reachable through mocks.
 - **Self-write suppression is a 500ms timing window** ([#39](https://github.com/mauropereiira/Moldavite/issues/39)) — a slow disk can make the app read its own save as an external change.
 - **Two stress tests assert a wall-clock budget** ([#44](https://github.com/mauropereiira/Moldavite/issues/44)) — they can flake under CI load.

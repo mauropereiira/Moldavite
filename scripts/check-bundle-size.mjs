@@ -120,7 +120,11 @@ const BUDGETS = [
 // instead of three lazy regexes is what makes nested task items survive a
 // round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
 // and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
-const APP_JS_BUDGET = { rawKb: 630, gzipKb: 175 };
+// 634 / 177: Markdown tables (the GFM Turndown rules, insert and edit entries
+// in the Format menu, slash menu and phone bar) and Forge-relative image paths
+// add 3.5 KB raw / 1.1 KB gz. The table extension itself lands in tiptap-vendor
+// (+33 KB raw / +10 KB gz, inside that budget). Measured 632.3 KB / 175.9 KB gz.
+const APP_JS_BUDGET = { rawKb: 634, gzipKb: 177 };
 
 async function main() {
   let entries;

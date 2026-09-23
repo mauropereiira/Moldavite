@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer, NodeViewProps } from '@tiptap/react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useForgeImageSrc } from '@/lib/forgeImages';
 
 export type ImageAlignment = 'left' | 'center' | 'right';
 
@@ -39,6 +40,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | null>(null);
 
   const { src, alt, width, alignment = 'center' } = node.attrs;
+  const displaySrc = useForgeImageSrc(src ?? '');
 
   const currentWidth = width
     ? typeof width === 'number'
@@ -104,7 +106,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
       >
         <img
           ref={imageRef}
-          src={src}
+          src={displaySrc || undefined}
           alt={alt || ''}
           style={{ width: `${currentWidth || DEFAULT_IMAGE_WIDTH}px`, maxWidth: '100%' }}
           className="resizable-image"

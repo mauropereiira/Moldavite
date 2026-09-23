@@ -84,6 +84,12 @@ html[data-platform='mobile'] .tiptap h3 {
   font-size: calc(17px * var(--mobile-text-scale));
 }
 
+/* A phone-width column squeezes every cell down to a word. Keep cells readable
+   and let the table's wrapper scroll sideways instead. */
+html[data-platform='mobile'] .tiptap :is(th, td) {
+  min-width: 7em;
+}
+
 /* Chrome is not text to select; the note and every field still are. */
 html[data-platform='mobile']
   :is(

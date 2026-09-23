@@ -167,9 +167,11 @@ access already granted to another process.
 
 ## Caveats
 
-- **Image references**: Moldavite renders images via Tauri's `asset://`
-  protocol. If you write a note that you also want to read in another tool,
-  use a relative path like `![](images/foo.png)` so it resolves there too.
+- **Image references**: Moldavite links an image as `images/<file>`, relative
+  to the Forge root whichever folder the note is in, and resolves it against
+  the Forge that is open. Write the same form (`![](images/foo.png)`) for an
+  image you add yourself. Other tools that resolve paths against the note's
+  own folder will not find it from a note inside `notes/` or `daily/`.
 - **Wiki-link slugs**: Moldavite converts `[[My Cool Note]]` to a target
   filename `my-cool-note.md`. Other tools may use a different convention, so
   consider sticking to lowercase-hyphenated filenames if you want maximum

@@ -3,6 +3,7 @@ import { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { TableKit } from '@tiptap/extension-table';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MobileFormattingBar } from './MobileFormattingBar';
 
@@ -11,7 +12,7 @@ afterEach(() => editor?.destroy());
 
 function setup() {
   editor = new Editor({
-    extensions: [StarterKit, TaskList, TaskItem],
+    extensions: [StarterKit, TaskList, TaskItem, TableKit],
     content: '<p>Selected words</p>',
   });
   const onInsertLink = vi.fn();
@@ -63,6 +64,13 @@ describe('mobile formatting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Task list' }));
     expect(editor.isActive('taskList')).toBe(true);
     expect(editor.getText().trim()).toBe('Selected words');
+  });
+
+  it('inserts a table with a header row', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+    expect(editor.isActive('table')).toBe(true);
+    expect(editor.getHTML()).toContain('<th');
   });
 
   it('opens the existing link and photo dialogs and dismisses editing', async () => {

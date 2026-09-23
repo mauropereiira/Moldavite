@@ -163,7 +163,14 @@ import {
 } from '@/stores';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { registerAutosaveFlush } from '@/lib/autosaveFlush';
-import { notifyConflictCopy, readNoteWithMeta, writeNote } from '@/lib';
+import { refreshForgeRoot } from '@/lib/forgeImages';
+import {
+  htmlToMarkdown,
+  markdownToHtml,
+  notifyConflictCopy,
+  readNoteWithMeta,
+  writeNote,
+} from '@/lib';
 
 const rangeGetClientRects = Object.getOwnPropertyDescriptor(
   window.Range.prototype,
@@ -618,5 +625,35 @@ describe('Editor delete failures', () => {
     // ...but unlike a real deletion, nothing removed the note from the store.
     expect(useNoteStore.getState().currentNote?.id).toBe(currentNote.id);
     expect(useNoteStore.getState().openTabs).toHaveLength(1);
+  });
+});
+
+describe('Editor note content', () => {
+  it('keeps a Markdown table as a table through the editor', async () => {
+    const markdown = '| a | b |\n| :--- | ---: |\n| **1** | 2 \\| 3 |';
+    const { editor } = await renderEditor(note('notes/table.md', markdownToHtml(markdown)));
+
+    expect(editor.state.doc.firstChild?.type.name).toBe('table');
+    expect(document.querySelector('.tiptap table th')).not.toBeNull();
+    expect(htmlToMarkdown(editor.getHTML())).toBe(markdown);
+  });
+
+  it('shows a Forge-relative image from this Forge and keeps it relative', async () => {
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'get_notes_directory' ? '/Users/me/Forge' : undefined
+    );
+    await refreshForgeRoot();
+    const { editor } = await renderEditor(
+      note('notes/image.md', markdownToHtml('<img src="images/a.png" alt="">'))
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector('.tiptap img')?.getAttribute('src')).toBe(
+        'asset:///Users/me/Forge/images/a.png'
+      )
+    );
+    expect(htmlToMarkdown(editor.getHTML())).toBe(
+      '<img src="images/a.png" alt="" data-alignment="center">'
+    );
   });
 });

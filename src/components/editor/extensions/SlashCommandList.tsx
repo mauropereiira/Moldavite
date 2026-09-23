@@ -102,6 +102,15 @@ export const slashCommands: SlashCommandItem[] = [
     },
   },
   {
+    title: 'Table',
+    description: 'Grid with a header row',
+    mark: 'Table',
+    keywords: ['grid', 'columns', 'rows'],
+    command: (editor) => {
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    },
+  },
+  {
     title: 'Image',
     description: 'Insert an image',
     mark: 'Image',

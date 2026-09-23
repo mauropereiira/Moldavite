@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { processAndSaveImage, fileToBase64 } from '@/lib';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 
 interface ImageModalProps {
@@ -157,8 +157,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
       setIsLoading(true);
       try {
         const savedPath = await processAndSaveImage(selectedFile);
-        const imageUrl = convertFileSrc(savedPath);
-        onInsert(imageUrl, alt.trim() || undefined);
+        onInsert(forgeImageSrcForSavedPath(savedPath), alt.trim() || undefined);
         handleClose();
       } catch (err) {
         setError(`Failed to save image: ${err}`);

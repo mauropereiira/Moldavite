@@ -18,6 +18,13 @@ import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import DOMPurify from 'dompurify';
+import {
+  getForgeRoot,
+  loadForgeRoot,
+  refreshForgeRoot,
+  resolveForgeImageSrc,
+  toForgeImageSrc,
+} from './forgeImages';
 
 const turndownService = new TurndownService({
   headingStyle: 'atx',
@@ -170,7 +177,8 @@ turndownService.addRule('image', {
   filter: 'img',
   replacement: function (_content, node) {
     const element = node as HTMLElement;
-    const src = element.getAttribute('src') || '';
+    const rawSrc = element.getAttribute('src') || '';
+    const src = toForgeImageSrc(rawSrc) ?? rawSrc;
     const alt = element.getAttribute('alt') || '';
     const width = element.getAttribute('width');
     const alignment = element.getAttribute('data-alignment');
@@ -182,6 +190,56 @@ turndownService.addRule('image', {
     return `<img ${attrs}>`;
   },
 });
+
+/**
+ * GFM has no syntax for a line break inside a cell, so paragraphs and hard
+ * breaks become `<br>`, which markdown-it passes through as inline HTML.
+ * Unescaped pipes would end the cell early.
+ */
+function tableCellMarkdown(content: string): string {
+  return content
+    .trim()
+    .replace(/\s*\n+\s*/g, '<br>')
+    .replace(/\|/g, '\\|');
+}
+
+function tableDelimiter(cell: Element): string {
+  const align = (cell as HTMLElement).style?.textAlign || cell.getAttribute('align');
+  if (align === 'center') return ':---:';
+  if (align === 'right') return '---:';
+  if (align === 'left') return ':---';
+  return '---';
+}
+
+turndownService.addRule('tableCell', {
+  filter: ['th', 'td'],
+  replacement: (content) => ` ${tableCellMarkdown(content)} |`,
+});
+
+// The first row is always written as the header: GFM requires one, and TipTap
+// keeps its header row inside `<tbody>` rather than a `<thead>`.
+turndownService.addRule('tableRow', {
+  filter: 'tr',
+  replacement: (content, node) => {
+    const row = node as HTMLElement;
+    const line = `|${content}\n`;
+    if (row.closest('table')?.querySelector('tr') !== row) return line;
+    const cells = Array.from(row.children).filter((cell) => /^T[HD]$/.test(cell.nodeName));
+    return `${line}| ${cells.map(tableDelimiter).join(' | ')} |\n`;
+  },
+});
+
+turndownService.addRule('tableSection', {
+  filter: ['thead', 'tbody', 'tfoot'],
+  replacement: (content) => content,
+});
+
+turndownService.addRule('table', {
+  filter: 'table',
+  replacement: (content) => `\n\n${content}\n\n`,
+});
+
+turndownService.remove('colgroup');
 
 // markdown-it renders with `html: true`, so a literal `<` that opens a tag-like
 // token is re-parsed as HTML on the way back in and DOMPurify drops the unknown
@@ -291,14 +349,18 @@ const DOMPURIFY_CONFIG = {
   ALLOW_UNKNOWN_PROTOCOLS: false,
 };
 
-DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
   if (data.attrName === 'src' && data.attrValue) {
-    // Allow asset.localhost URLs (Tauri's convertFileSrc output)
-    if (
+    const forgeImage = node.nodeName === 'IMG' ? toForgeImageSrc(data.attrValue) : null;
+    if (forgeImage) {
+      // Not force-kept: DOMPurify skips writing a rewritten value back when it is.
+      data.attrValue = forgeImage;
+    } else if (
       data.attrValue.startsWith('http://asset.localhost/') ||
       data.attrValue.startsWith('https://asset.localhost/') ||
       data.attrValue.startsWith('asset://')
     ) {
+      // Allow asset.localhost URLs (Tauri's convertFileSrc output)
       data.forceKeepAttr = true;
     }
   }
@@ -1071,11 +1133,15 @@ export async function getForgesRoot(): Promise<string> {
 }
 
 export async function setForgesRoot(path: string): Promise<string> {
-  return await invoke('set_forges_root', { path });
+  const root = await invoke<string>('set_forges_root', { path });
+  void refreshForgeRoot();
+  return root;
 }
 
 export async function setActiveForge(name: string): Promise<string> {
-  return await invoke('set_active_forge', { name });
+  const forge = await invoke<string>('set_active_forge', { name });
+  void refreshForgeRoot();
+  return forge;
 }
 
 /**
@@ -1183,6 +1249,21 @@ export function stripMarkdown(input: string): string {
 
   // 4. Standard links: [text](url) → text.
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+
+  // 4b. GFM tables: drop the delimiter row and separate cells with tabs.
+  out = out.replace(/^\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*\n/gm, '');
+  out = out.replace(/^\|(.*)\|[ \t]*$/gm, (_m, cells: string) =>
+    cells
+      .replace(/\\\|/g, '\0')
+      .split('|')
+      .map((cell) =>
+        cell
+          .replace(/<br\s*\/?>/gi, ' ')
+          .trim()
+          .replace(/\0/g, '|')
+      )
+      .join('\t')
+  );
 
   // 5. Strip inline HTML tags (we deliberately allow some, like <u>/<mark>,
   //    in our markdown — for plaintext we want them gone).
@@ -1556,11 +1637,14 @@ export async function exportNoteToPdf(
   const body = document.createElement('div');
   body.style.cssText = 'font-size: 14px; line-height: 1.6; color: #333;';
   body.innerHTML = DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
+  await loadForgeRoot();
   // Strip remote images from the export DOM to avoid leaking URLs to third parties.
   body.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src') ?? '';
-    if (!/^(data:|asset:|blob:|file:|https:\/\/asset\.localhost)/i.test(src)) {
+    const src = resolveForgeImageSrc(img.getAttribute('src') ?? '', getForgeRoot());
+    if (!/^(data:|asset:|blob:|file:|https?:\/\/asset\.localhost)/i.test(src)) {
       img.remove();
+    } else {
+      img.setAttribute('src', src);
     }
   });
   wrapper.appendChild(body);
@@ -1584,6 +1668,17 @@ export async function exportNoteToPdf(
     pre.style.padding = '12px';
     pre.style.borderRadius = '8px';
     pre.style.overflow = 'auto';
+  });
+
+  container.querySelectorAll('table').forEach((table) => {
+    table.style.borderCollapse = 'collapse';
+    table.style.margin = '12px 0';
+  });
+
+  container.querySelectorAll('th, td').forEach((cell) => {
+    (cell as HTMLElement).style.border = '1px solid #d1d5db';
+    (cell as HTMLElement).style.padding = '6px 10px';
+    (cell as HTMLElement).style.verticalAlign = 'top';
   });
 
   container.querySelectorAll('blockquote').forEach((bq) => {

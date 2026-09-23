@@ -2,6 +2,16 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu. They are saved as ordinary pipe tables, with column alignment, bold, links and code in cells kept, and pasting a Markdown table turns it into one. (#146)
+
+### Fixed
+
+- **Images broke on every device but the one that added them.** A note stored each image as a full path on that machine, so the same Forge synced to another Mac or an iPhone showed broken pictures. Images are now saved as `images/<file>`, relative to the Forge, and older notes are read correctly and switched to the new form the next time you edit them.
+
 ## [2.7.2] - 2026-09-20
 
 ### Changed

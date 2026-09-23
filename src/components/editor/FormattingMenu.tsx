@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Editor } from '@tiptap/react';
+import { Editor, useEditorState } from '@tiptap/react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
 import { formatShortcut } from '@/lib/shortcuts';
 import { LinkModal } from './LinkModal';
@@ -14,6 +14,10 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [linkInitialValues, setLinkInitialValues] = useState({ url: '', text: '' });
+  const inTable = useEditorState({
+    editor,
+    selector: ({ editor: current }) => current?.isActive('table') ?? false,
+  });
 
   if (!editor) return null;
 
@@ -147,6 +151,39 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             </span>
           </DropdownItem>
           <DropdownItem onClick={handleImage}>Image</DropdownItem>
+          <DropdownItem
+            onClick={() =>
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            }
+          >
+            Table
+          </DropdownItem>
+
+          {inTable && (
+            <>
+              <DropdownDivider />
+
+              <DropdownLabel>Table</DropdownLabel>
+              <DropdownItem onClick={() => editor.chain().focus().addRowAfter().run()}>
+                Add Row
+              </DropdownItem>
+              <DropdownItem onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                Add Column
+              </DropdownItem>
+              <DropdownItem onClick={() => editor.chain().focus().deleteRow().run()}>
+                Delete Row
+              </DropdownItem>
+              <DropdownItem onClick={() => editor.chain().focus().deleteColumn().run()}>
+                Delete Column
+              </DropdownItem>
+              <DropdownItem
+                variant="danger"
+                onClick={() => editor.chain().focus().deleteTable().run()}
+              >
+                Delete Table
+              </DropdownItem>
+            </>
+          )}
         </div>
       </Dropdown>
 
