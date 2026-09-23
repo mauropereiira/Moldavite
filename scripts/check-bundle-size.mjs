@@ -120,6 +120,10 @@ const BUDGETS = [
 // instead of three lazy regexes is what makes nested task items survive a
 // round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
 // and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
+// 640 / 179: save on leave only when edited (per-tab saved baselines, held
+// saves with retry and the Retry / Save as a copy toast, the close and hidden
+// flushes) and tabs that follow folder renames add 8.7 KB raw / 2.8 KB gz.
+// Measured 637.1 KB / 177.4 KB gz.
 // 634 / 177: Markdown tables (the GFM Turndown rules, insert and edit entries
 // in the Format menu, slash menu and phone bar) and Forge-relative image paths
 // add 3.5 KB raw / 1.1 KB gz. The table extension itself lands in tiptap-vendor
@@ -128,17 +132,10 @@ const BUDGETS = [
 // rows padded, paragraph-only cells with paste flattening and the split guard,
 // escaped wiki-link aliases) add 3.8 KB raw / 1.7 KB gz. Measured 636.3 KB /
 // 177.7 KB gz.
-// 640 / 179: save on leave only when edited (per-tab saved baselines, held
-// saves with retry and the Retry / Save as a copy toast, the close and hidden
-// flushes) and tabs that follow folder renames add 8.7 KB raw / 2.8 KB gz.
-// Measured 637.1 KB / 177.4 KB gz.
-// 645 / 180: with the later save-on-leave fixes the entry was 635.6 KB /
-// 176.9 KB gz. On-demand iCloud notes (the placeholder tab
-// and its Download state, the launch wait for iCloud, the cloud marker in note
-// lists) add 6.2 KB raw / 1.8 KB gz. Measured 643.6 KB / 179.3 KB gz with the
-// later save-on-leave fixes merged; no new dependencies.
-// 653 / 183: tables, save on leave and on-demand iCloud notes together.
-// Measured 651.4 KB / 182.3 KB gz with all three merged.
+// 646 / 181: tables and save on leave together. Measured 644.8 KB / 180.3 KB gz.
+// 653 / 183: on-demand iCloud notes (the placeholder tab and its Download
+// state, the launch wait for iCloud, the cloud marker in note lists) add 6.6 KB
+// raw / 2.0 KB gz. Measured 651.4 KB / 182.3 KB gz.
 const APP_JS_BUDGET = { rawKb: 653, gzipKb: 183 };
 
 async function main() {
