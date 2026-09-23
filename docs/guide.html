@@ -164,7 +164,8 @@
         </li>
         <li>
           <strong>Daily notes</strong>: <em>Today</em> opens the current date and creates its file
-          when needed. Empty daily notes are removed automatically; images count as content.
+          when needed. Empty daily notes are removed automatically; images and tables count as
+          content.
         </li>
         <li>
           <strong>Weekly notes</strong>: select a calendar week to open its ISO-week note. Empty
@@ -367,6 +368,12 @@
         </li>
         <li><strong>Colors</strong>: assign a sidebar color to individual notes.</li>
         <li>
+          <strong>Themes and layout</strong>: <strong>Settings → Appearance</strong> offers Cream,
+          Sage, Slate, Clay, Plum and Graphite, each in light and dark, and
+          <strong>Settings → Layout → Rail side</strong> puts the icon rail on the left or the right.
+          A pinned Index moves with the rail.
+        </li>
+        <li>
           <strong>Tabs</strong>: reorder open tabs, and pin up to five of them so they stay at the
           front of the tab strip.
         </li>
@@ -502,7 +509,8 @@
         </li>
         <li>
           <strong>Note locking</strong>: encrypted <code>.md.locked</code> files use AES-256-GCM
-          with Argon2 key derivation, rate-limited unlock, and optional auto-lock.
+          with Argon2 key derivation, rate-limited unlock, and optional auto-lock. A locked note
+          opened with its password is view only; remove the lock to edit it.
         </li>
         <li>
           <strong>Backups and export</strong>: export Markdown, plaintext, PDF, full ZIP archives,
@@ -516,16 +524,17 @@
 
       <h3 id="icloud">Start an iCloud Forge on Mac</h3>
       <p>
-        In Moldavite 2.7.0 or later, turn on <strong>Settings → General → Use synced Forge</strong>
-        to create or open your shared iCloud folder. You can start writing on Mac before installing
-        the iOS app. Your existing local Forges stay separate.
+        Turn on <strong>Settings → General → Use synced Forge</strong> to create or open your
+        shared iCloud folder. You can start writing on Mac before installing the iOS app. Your
+        existing local Forges stay separate.
       </p>
       <p>
         Use <strong>Open synced folder in Finder</strong> to add Markdown files to its
         <code>notes/</code> folder. Other Apple devices using the same Apple Account can open the
         same Forge when you enable it there. iCloud Drive must be enabled; allow time for uploads
-        and downloads. See the <a href="https://github.com/mauropereiira/Moldavite/blob/main/docs/MAC_ICLOUD.md">Mac iCloud guide</a>
-        for setup, copying existing notes, and connection help. iOS availability will be announced separately.
+        and downloads. A note that is only in iCloud shows a small cloud in the note list; open it
+        and choose <strong>Download</strong> to fetch it. See the <a href="https://github.com/mauropereiira/Moldavite/blob/main/docs/MAC_ICLOUD.md">Mac iCloud guide</a>
+        for setup, copying existing notes, and connection help. On iPhone and iPad, get Moldavite from the <a href="https://apps.apple.com/app/id6809157286">App Store</a> and turn on the synced Forge there.
       </p>
 
       <h3 id="conflicts">External-edit conflict copies</h3>

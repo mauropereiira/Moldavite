@@ -114,11 +114,13 @@ Inside any note body:
 ```
 
 Targets are slugified to lowercase + hyphens to match a filename in
-`notes/`. Clicking an unresolved link offers to create that note.
+`notes/`. Clicking an unresolved link offers to create that note. A new
+note's name cannot contain `[` or `]`, since either would break a
+`[[link]]` to it.
 
 ## Encrypted notes (`.md.locked`)
 
-A note locked with **Settings → Note → Lock** is rewritten as
+A note locked with **Lock note** from its menu in the Index is rewritten as
 `<name>.md.locked`. The file is opaque AES-256-GCM ciphertext + Argon2 KDF
 parameters; it is **not** plain Markdown and external tools cannot read or
 edit it. Unlock from inside Moldavite to round-trip.

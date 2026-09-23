@@ -1,12 +1,13 @@
 # Moldavite on iOS
 
-Status: in development, not shipped. The iOS project is tracked on `main`
+Status: on the App Store as Moldavite: Notes & Ideas (live version and
+submission state in [IOS_APP_STORE.md](IOS_APP_STORE.md)), and still in
+development. The iOS project is tracked on `main`
 (`src-tauri/gen/apple`, `src-tauri/ios/`, and the `cfg(desktop)` gates), so the
 app builds, installs and runs on the iPhone simulator straight from a `main`
 checkout through Tauri 2's iOS target. Ongoing iOS work continues on the
 `mobile/ios-spike` branch, which has diverged from `main`; check both before
-assuming a change is missing. TestFlight and the App Store come after the items
-under "Not done yet".
+assuming a change is missing.
 
 The React app and the Rust core are the same ones the desktop app uses.
 The phone gets its own layout on top of them, and the parts of the desktop

@@ -274,7 +274,8 @@ editor HTML in `content`, or `null` when no note is open.
 
 #### `editor.insertText(text: string): Promise<void>`
 
-Inserts text at the active editor cursor. If there is no active editor,
+Inserts text at the active editor cursor. If there is no active editor, or the
+open note is read only (a locked note opened to view), nothing is inserted and
 Moldavite displays an error notification.
 
 ```js

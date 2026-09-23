@@ -633,6 +633,12 @@ main:focus {
   border-block-start: 1px solid var(--rule);
 }
 
+/* A fifth card closes the grid across both columns. */
+.install-card-wide {
+  grid-column: 1 / -1;
+  padding-inline-end: 0;
+}
+
 .card-index {
   margin-block-end: clamp(2rem, 5vw, 5rem);
   color: var(--ink-faint);
