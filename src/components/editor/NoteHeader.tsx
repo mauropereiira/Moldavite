@@ -26,7 +26,8 @@ import { takeTitleFocus } from '@/lib/noteTitleFocus';
  * Daily and weekly notes stay read-only: they are named by date, and the rename
  * command rejects them for that reason.
  *
- * Blur commits and Enter commits then hands the caret to the body. A name the
+ * Blur to elsewhere in the app commits (switching apps does not), and Enter
+ * commits then hands the caret to the body. A name the
  * rename would reject is reported under the field while it is typed; Enter
  * keeps it there to fix, and blur puts the file's name back.
  */
@@ -167,6 +168,9 @@ export function NoteHeader({
                 submittedRef.current = false;
                 return;
               }
+              // Switching apps blurs the field too, mid-word. That is not
+              // leaving it: the window gives it the focus back on return.
+              if (!document.hasFocus() || document.visibilityState === 'hidden') return;
               void commit();
             }}
             onKeyDown={(event) => {

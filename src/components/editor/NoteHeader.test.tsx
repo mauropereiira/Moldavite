@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoteHeader } from './NoteHeader';
 import type { Note } from '@/types';
 import { requestTitleFocus } from '@/lib/noteTitleFocus';
@@ -16,6 +16,48 @@ const note = (over: Partial<Note> = {}) =>
   }) as Note;
 
 describe('NoteHeader', () => {
+  // jsdom reports the document unfocused as soon as an element blurs, which a
+  // browser does only when the whole window loses focus.
+  beforeEach(() => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not rename when switching apps blurs a half-typed title', async () => {
+    const onRename = vi.fn().mockResolvedValue(undefined);
+    render(<NoteHeader note={note()} onRename={onRename} />);
+
+    const field = screen.getByLabelText('Note title');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Road');
+    vi.mocked(document.hasFocus).mockReturnValue(false);
+    fireEvent.blur(field);
+
+    expect(onRename).not.toHaveBeenCalled();
+    expect(field).toHaveValue('Road');
+
+    vi.mocked(document.hasFocus).mockReturnValue(true);
+    field.focus();
+    await userEvent.type(field, 'map{Enter}');
+    expect(onRename).toHaveBeenCalledOnce();
+    expect(onRename).toHaveBeenCalledWith('Roadmap');
+  });
+
+  it('renames on leaving the title for elsewhere in the app', async () => {
+    const onRename = vi.fn().mockResolvedValue(undefined);
+    render(<NoteHeader note={note()} onRename={onRename} />);
+
+    const field = screen.getByLabelText('Note title');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Roadmap');
+    fireEvent.blur(field);
+
+    expect(onRename).toHaveBeenCalledWith('Roadmap');
+  });
+
   it('renames from the title itself, without going through a menu', async () => {
     const onRename = vi.fn().mockResolvedValue(undefined);
     render(<NoteHeader note={note()} onRename={onRename} />);

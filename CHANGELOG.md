@@ -70,6 +70,8 @@ All notable changes to Moldavite are documented here.
 
 - **A locked note inside a deleted folder could come back unable to unlock.** Its lock is tied to the folder it was locked in, but restoring the folder beside a newer folder of the same name renamed it, and restoring the note on its own put it at the top of Notes. A locked note now only ever comes back to the folder it was locked in: if that name is taken, by a folder or by a note with the same name locked or not, Moldavite says so and asks you to rename that one first.
 
+- Switching to another app with ⌘Tab while renaming a note from its title renamed it to the half-typed name, and rewrote the links to it. Switching apps now leaves the name as you were typing it; the note is renamed when you press Enter or click elsewhere in Moldavite.
+
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
 
 - Clicking the title of an empty note put the cursor in the note's text instead of letting you rename it.
