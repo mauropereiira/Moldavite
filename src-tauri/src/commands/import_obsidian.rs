@@ -18,7 +18,9 @@ use tauri::{AppHandle, Emitter};
 use crate::commands::forges::{create_forge, looks_like_forge, scaffold_forge};
 use crate::paths::get_forges_root;
 use crate::persist::write_atomic;
-use crate::validation::{is_safe_filename, sanitize_path_segment, validate_path_within_base};
+use crate::validation::{
+    is_safe_filename, sanitize_note_name, sanitize_path_segment, validate_path_within_base,
+};
 
 pub(crate) const OBSIDIAN_IMPORT_PROGRESS_EVENT: &str = "obsidian-import://progress";
 const PROGRESS_INTERVAL: usize = 10;
@@ -693,7 +695,7 @@ fn plan_notes(
                     .file_stem()
                     .and_then(|stem| stem.to_str())
                     .ok_or_else(|| "Source note has a non-Unicode filename".to_string())?;
-                let base = sanitize_path_segment(raw_stem, "Untitled");
+                let base = sanitize_note_name(raw_stem, "Untitled");
                 let destination_parent = PathBuf::from("notes").join(mapped_parent);
                 let (name, collided) =
                     dedupe_relative_file(&destination_parent, &base, "md", &mut used_note_paths);

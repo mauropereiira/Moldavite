@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 
 use crate::persist::write_atomic;
-use crate::validation::{sanitize_path_segment, validate_path_within_base};
+use crate::validation::{sanitize_note_name, validate_path_within_base};
 
 /// Chrome caps host → extension messages at 1 MB; inbound is our own bound.
 pub(crate) const MAX_INBOUND: usize = 8 * 1024 * 1024;
@@ -119,9 +119,9 @@ fn clip_stem(title: &str, url: &str) -> String {
     let fallback = http_host(url).unwrap_or("Clipped page");
     let title = title.trim();
     if title.is_empty() {
-        return sanitize_path_segment(fallback, "Clipped page");
+        return sanitize_note_name(fallback, "Clipped page");
     }
-    sanitize_path_segment(title, fallback)
+    sanitize_note_name(title, fallback)
 }
 
 /// Collapse every run of whitespace into one space. A page title is untrusted

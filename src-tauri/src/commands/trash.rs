@@ -1324,6 +1324,31 @@ mod tests {
     }
 
     #[test]
+    fn a_note_already_named_with_brackets_goes_to_the_trash_and_back() {
+        let tmp = TempDir::new("trash-brackets");
+        let trash = tmp.0.join("trash");
+        let notes = tmp.0.join("notes");
+        fs::write(notes.join("Plan [v1].md"), "body").unwrap();
+
+        let trashed =
+            trash_note_on_disk(&notes, &trash, "Plan [v1].md", false, false, false, "br", 0)
+                .unwrap();
+        assert!(!notes.join("Plan [v1].md").exists());
+        restore_item_on_disk(
+            &trash,
+            &tmp.0.join("daily"),
+            &tmp.0.join("weekly"),
+            &notes,
+            &trashed,
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(notes.join("Plan [v1].md")).unwrap(),
+            "body"
+        );
+    }
+
+    #[test]
     fn expired_locked_notes_are_purged_with_the_rest() {
         let tmp = TempDir::new("cleanup-locked");
         let trash = tmp.0.join("trash");

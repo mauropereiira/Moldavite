@@ -435,6 +435,42 @@ mod tests {
     }
 
     #[test]
+    fn bracketed_notes_can_be_written_but_not_created() {
+        let root = temp_forge("bracket-names");
+        let folder = root.join("notes/Drafts [old]");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("Plan [v1].md"), "old body").unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+
+        let write = context.call(
+            "write_note",
+            &json!({"path": "notes/Drafts [old]/Plan [v1].md", "content": "new body"}),
+        );
+        assert_eq!(write["isError"], false);
+        assert_eq!(
+            fs::read_to_string(folder.join("Plan [v1].md")).unwrap(),
+            "new body"
+        );
+
+        let in_bracketed_folder = context.call(
+            "create_note",
+            &json!({"path": "notes/Drafts [old]/Plan v2.md", "content": "x"}),
+        );
+        assert_eq!(in_bracketed_folder["isError"], false);
+
+        for invalid_path in ["notes/Plan [v2].md", "notes/Drafts [old]/Plan ]v2.md"] {
+            let rejected = context.call(
+                "create_note",
+                &json!({"path": invalid_path, "content": "must not exist"}),
+            );
+            assert_eq!(rejected["isError"], true);
+            assert!(!root.join(invalid_path).exists());
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn write_note_with_matching_base_hash_reports_no_conflict_copy() {
         let root = temp_forge("matching-base-hash");
         let note_path = root.join("notes/matching.md");

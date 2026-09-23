@@ -24,8 +24,8 @@ use crate::paths::{
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
 use crate::validation::{
-    is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename, sanitize_path_segment,
-    validate_path_within_base, MAX_PORTABLE_FILENAME_LENGTH,
+    is_linkable_note_name, is_safe_existing_filename, is_safe_existing_note_path, is_safe_filename,
+    sanitize_note_name, validate_path_within_base, MAX_PORTABLE_FILENAME_LENGTH,
 };
 
 /// Standalone notes may live in folders and are addressed by a notes/-relative
@@ -82,7 +82,7 @@ fn is_valid_new_note_ref(dir: &Path, filename: &str, is_daily: bool, is_weekly: 
 }
 
 fn portable_derived_stem(stem: &str, suffix: &str) -> String {
-    let sanitized = sanitize_path_segment(stem, "Untitled");
+    let sanitized = sanitize_note_name(stem, "Untitled");
     let available = MAX_PORTABLE_FILENAME_LENGTH.saturating_sub(suffix.chars().count());
     let base: String = sanitized.chars().take(available).collect();
     format!("{base}{suffix}")
@@ -684,7 +684,10 @@ fn note_write_target(
         }
         return Err(crate::cloud_forge::NOT_DOWNLOADED.to_string());
     }
-    if !note_name_is_taken(&path) && !is_valid_new_note_ref(dir, filename, is_daily, is_weekly) {
+    if !note_name_is_taken(&path)
+        && (!is_valid_new_note_ref(dir, filename, is_daily, is_weekly)
+            || !is_linkable_note_name(note_ref_stem(filename)))
+    {
         return Err("Invalid filename".to_string());
     }
     Ok(path)
@@ -898,7 +901,7 @@ fn create_note_in(
     title: &str,
     folder_path: Option<&str>,
 ) -> Result<(String, String), String> {
-    if !is_safe_filename(title) {
+    if !is_safe_filename(title) || !is_linkable_note_name(title) {
         return Err("Invalid title".to_string());
     }
     if let Some(folder) = folder_path {
@@ -1048,6 +1051,7 @@ fn rename_note_in(
     // permissive rules; the new name is being created and must be portable.
     if !is_valid_existing_note_ref(old_filename, is_daily, is_weekly)
         || !is_valid_new_note_ref(dir, new_filename, is_daily, is_weekly)
+        || !is_linkable_note_name(note_ref_stem(new_filename))
     {
         return Err("Invalid filename".to_string());
     }
@@ -1543,6 +1547,72 @@ mod tests {
             assert!(!dir.join(filename).exists());
         }
         assert!(note_write_target(&daily, "2026-09-21.md", true, false).is_ok());
+    }
+
+    #[test]
+    fn a_new_note_takes_no_bracketed_name() {
+        let tmp = TempDir::new("bracket-new");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(notes.join("Drafts [old]")).unwrap();
+        fs::write(notes.join("Plan.md"), "body").unwrap();
+
+        assert_eq!(
+            create_note_in(&notes, "Plan [v2]", None).unwrap_err(),
+            "Invalid title"
+        );
+        assert!(note_write_target(&notes, "Plan [v2].md", false, false).is_err());
+        assert!(rename_note_in(&notes, "Plan.md", "Plan [v2].md", false, false).is_err());
+        assert!(notes.join("Plan.md").exists());
+        assert!(!notes.join("Plan [v2].md").exists());
+
+        assert!(note_write_target(&notes, "Drafts [old]/Plan.md", false, false).is_ok());
+        assert_eq!(
+            portable_derived_stem("[PDF] Report", " (copy)"),
+            "(PDF) Report (copy)"
+        );
+    }
+
+    #[test]
+    fn a_note_already_named_with_brackets_still_saves_renames_and_locks() {
+        let tmp = TempDir::new("bracket-existing");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("Plan [v1].md"), "body").unwrap();
+
+        assert!(read_note_in(&notes, "Plan [v1].md", false, false).is_ok());
+        assert_eq!(
+            note_write_target(&notes, "Plan [v1].md", false, false).unwrap(),
+            notes.join("Plan [v1].md")
+        );
+
+        crate::commands::locking::lock_note_in(
+            tmp.path(),
+            "Plan [v1].md".into(),
+            "correct horse".into(),
+            false,
+            false,
+            &BacklinksIndex::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            note_write_target(&notes, "Plan [v1].md", false, false).unwrap(),
+            notes.join("Plan [v1].md")
+        );
+        assert_eq!(
+            crate::commands::locking::unlock_note_in(
+                tmp.path(),
+                "Plan [v1].md".into(),
+                "correct horse".into(),
+                false,
+                false,
+            )
+            .unwrap(),
+            "body"
+        );
+
+        fs::write(notes.join("Other [x].md"), "other").unwrap();
+        rename_note_in(&notes, "Other [x].md", "Other.md", false, false).unwrap();
+        assert_eq!(fs::read_to_string(notes.join("Other.md")).unwrap(), "other");
     }
 
     #[test]
