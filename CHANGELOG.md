@@ -10,7 +10,7 @@ All notable changes to Moldavite are documented here.
 
 - **A note that opened with a horizontal rule could lose text.** A rule, a line such as `Owner: Mauro` and another rule at the top of a note were read back as metadata and dropped from the note on the next save. Those notes also produced a conflict copy of themselves on the following save.
 
-- Renaming a note no longer makes every note that links to it look edited outside Moldavite, and updating those links waits for a save in progress on them instead of racing it.
+- Renaming a note updates the links in other notes without racing a save in progress on them.
 
 - Search, backlinks and a Forge rescan no longer freeze the window while the search index or the backlinks catch up with a large Forge. Backlinks also stop rescanning the whole Forge on every request after a scan fails.
 

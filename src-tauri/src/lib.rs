@@ -114,6 +114,7 @@ fn dispatch_note_io(
                     | "rename_folder"
                     | "move_folder"
                     | "delete_folder"
+                    | "set_note_color"
             );
         if waits_on_forge_scan || coordinates_note_files {
             tauri::async_runtime::spawn_blocking(move || handler(invoke));

@@ -991,7 +991,6 @@ pub(crate) fn rename_note(
     is_daily: bool,
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
-    recent: State<'_, Arc<RecentWrites>>,
 ) -> Result<(), String> {
     let dir = if is_weekly {
         get_weekly_dir()?
@@ -1014,7 +1013,7 @@ pub(crate) fn rename_note(
     // resolved to the old name in every other note.
     let old_stem = note_ref_stem(&old_filename);
     let new_stem = note_ref_stem(&new_filename);
-    rewrite_inbound_links(old_stem, new_stem, &index, &recent)?;
+    rewrite_inbound_links(old_stem, new_stem, &index)?;
 
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &old_filename,
@@ -1036,21 +1035,22 @@ pub(crate) fn rename_note(
 
 /// Rewrite `[[old]]` links across the whole vault after a note rename.
 /// Failures on individual files are logged and skipped so one unreadable
-/// note doesn't abort the rename that already happened. Each rewrite goes
-/// through the save lock and is recorded as the app's own write, so an open
-/// editor sees it as neither an external edit nor a race with its autosave.
+/// note doesn't abort the rename that already happened.
+///
+/// Rewrites are deliberately not recorded as the app's own writes: the
+/// watcher event is what reloads, or prompts about, a rewritten note that is
+/// open in the editor. Suppressing it leaves the editor on the old link and
+/// the old base hash, and its next autosave writes a conflict copy.
 fn rewrite_inbound_links(
     old_stem: &str,
     new_stem: &str,
     index: &Arc<BacklinksIndex>,
-    recent: &RecentWrites,
 ) -> Result<(), String> {
     rewrite_inbound_links_in_roots(
         &[get_daily_dir()?, get_weekly_dir()?, get_standalone_dir()?],
         old_stem,
         new_stem,
         index,
-        recent,
         None,
     );
     Ok(())
@@ -1061,7 +1061,6 @@ fn rewrite_inbound_links_in_roots(
     old_stem: &str,
     new_stem: &str,
     index: &Arc<BacklinksIndex>,
-    recent: &RecentWrites,
     resolver: Option<&crate::backlinks_index::Resolver>,
 ) {
     for root in roots {
@@ -1079,6 +1078,15 @@ fn rewrite_inbound_links_in_roots(
             {
                 continue;
             }
+            // Most notes do not link to the renamed one. Checking without the
+            // lock keeps a rename from taking file coordination and the save
+            // lock once per note in the Forge; the rewrite re-checks under it.
+            let links_to_old = fs::read_to_string(path).is_ok_and(|raw| {
+                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem).is_some()
+            });
+            if !links_to_old {
+                continue;
+            }
             let rewritten = match rewrite_note_in_place(path, |raw| {
                 crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem)
             }) {
@@ -1090,7 +1098,6 @@ fn rewrite_inbound_links_in_roots(
                 }
             };
             let body = crate::frontmatter::parse_note(&rewritten).body;
-            recent.record(path, &sha256_hex(&body));
             if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
                 if let Some(resolver) = resolver {
                     index.update_note_with(name, &body, resolver);
@@ -1882,7 +1889,6 @@ mod tests {
             note_ref_stem("Projects/meeting-notes.md"),
             note_ref_stem("Projects/q3-planning.md"),
             &index,
-            &RecentWrites::new(),
             Some(&crate::wiki::note_name_to_filename),
         );
 
@@ -1893,22 +1899,23 @@ mod tests {
     }
 
     #[test]
-    fn rename_link_rewrites_are_recorded_as_the_app_s_own_writes() {
-        let tmp = TempDir::new("rename-own-writes");
+    fn rename_rewrites_only_the_notes_that_link_to_the_old_name() {
+        let tmp = TempDir::new("rename-rewrite-scope");
         let notes = tmp.path().join("notes");
         fs::create_dir_all(&notes).unwrap();
         let inbound = notes.join("inbound.md");
         let untouched = notes.join("untouched.md");
+        let unreadable = notes.join("unreadable.md");
         fs::write(&inbound, "---\ncolor: blue\n---\nSee [[old-name]].").unwrap();
         fs::write(&untouched, "No links here.").unwrap();
-        let recent = RecentWrites::new();
+        fs::write(&unreadable, [0xff, 0xfe, b'x']).unwrap();
+        let untouched_modified = fs::metadata(&untouched).unwrap().modified().unwrap();
 
         rewrite_inbound_links_in_roots(
             std::slice::from_ref(&notes),
             "old-name",
             "new-name",
             &Arc::new(BacklinksIndex::new()),
-            &recent,
             Some(&crate::wiki::note_name_to_filename),
         );
 
@@ -1916,8 +1923,11 @@ mod tests {
             fs::read_to_string(&inbound).unwrap(),
             "---\ncolor: blue\n---\nSee [[new-name]]."
         );
-        assert!(recent.matches_current_content(&inbound));
-        assert!(!recent.matches_current_content(&untouched));
+        assert_eq!(
+            fs::metadata(&untouched).unwrap().modified().unwrap(),
+            untouched_modified
+        );
+        assert_eq!(fs::read(&unreadable).unwrap(), [0xff, 0xfe, b'x']);
     }
 
     #[test]
@@ -2342,7 +2352,6 @@ mod tests {
             "café",
             "日本語ノート",
             &index,
-            &RecentWrites::new(),
             Some(&crate::wiki::note_name_to_filename),
         );
         let elapsed = started.elapsed();
