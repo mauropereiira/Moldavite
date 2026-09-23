@@ -84,6 +84,22 @@ final class CloudDocumentsTests: XCTestCase {
         XCTAssertEqual(DownloadState.from(status: .current, ubiquitous: true), .current)
     }
 
+    func testUnknownStatusWithLocalBytesIsReadable() throws {
+        let note = root.appendingPathComponent("note.md")
+        try Data("downloaded body".utf8).write(to: note)
+        XCTAssertEqual(DownloadState.resolvingUnknown(.unknown, at: note), .downloaded)
+        XCTAssertEqual(DownloadState.resolvingUnknown(.pending, at: note), .pending)
+        try Data("placeholder metadata".utf8).write(to: root.appendingPathComponent(".remote.md.icloud"))
+        XCTAssertEqual(DownloadState.resolvingUnknown(.unknown, at: root.appendingPathComponent("remote.md")),
+                       .unknown)
+        XCTAssertEqual(DownloadState.resolvingUnknown(.unknown, at: root), .unknown)
+    }
+
+    func testPendingDownloadTextMatchesTheAppsMarker() {
+        XCTAssertEqual(CloudError.pendingDownload.localizedDescription,
+                       "This note is in iCloud and hasn't downloaded to this device yet.")
+    }
+
     func testAccountChangeRejectsOldContainerAccess() {
         let stale = CloudDocuments(root: root) { throw CloudError.accountChanged }
         XCTAssertThrowsError(try stale.item(at: "note.md"))

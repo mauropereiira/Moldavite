@@ -49,12 +49,12 @@ beforeEach(() => {
 
 describe('useNotes navigation', () => {
   it.each(['daily', 'weekly'] as const)(
-    'keeps the current note when a %s download is pending',
+    'keeps the current note when a %s note cannot be read',
     async (kind) => {
       const hook = renderHook(() => useNotes());
       await act(() => hook.result.current.loadNote(noteFile));
       const current = useNoteStore.getState().currentNote;
-      const message = 'This note is waiting for iCloud to download.';
+      const message = 'The file could not be read.';
       invokeMock.mockImplementation(async (command: string) => {
         if (command === 'read_note') throw new Error(message);
         if (command === 'write_note') return { contentHash: 'saved', conflictCopy: null };

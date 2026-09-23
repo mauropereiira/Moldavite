@@ -60,6 +60,7 @@ import {
   readdressLeaveSave,
   saveNoteOnLeave,
 } from '@/lib/leaveSave';
+import { isNotDownloadedError, openCloudPlaceholder } from '@/lib/cloudNotes';
 
 /**
  * Loads the note list and scans daily notes for task status. The app calls this once
@@ -76,7 +77,7 @@ async function loadNoteList(): Promise<void> {
     }
     setNotes(noteFiles);
 
-    const dailyNotes = noteFiles.filter((n) => n.isDaily && n.date);
+    const dailyNotes = noteFiles.filter((n) => n.isDaily && n.date && !n.notDownloaded);
     const { setTaskStatus } = useTaskStatusStore.getState();
 
     // Process daily notes in the background with capped concurrency —
@@ -196,6 +197,10 @@ export function useNotes() {
         return;
       }
       if (openUnsavedText(noteFile.path, inNewTab)) return;
+      if (noteFile.notDownloaded || listed?.notDownloaded) {
+        openCloudPlaceholder(listed ?? noteFile, inNewTab);
+        return;
+      }
 
       try {
         setIsLoading(true);
@@ -223,6 +228,10 @@ export function useNotes() {
         openTab(note, inNewTab);
       } catch (error) {
         if (navigation !== latestNavigation) return;
+        if (isNotDownloadedError(error)) {
+          openCloudPlaceholder(listed ?? noteFile, inNewTab);
+          return;
+        }
         console.error('[useNotes] Failed to load note:', error);
         const msg = error instanceof Error ? error.message : String(error);
         useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
@@ -269,15 +278,6 @@ export function useNotes() {
       const openVirtualOrRacedNote = async () => {
         if (openUnsavedText(`daily/${filename}`, keepCurrentTab)) return;
         let result;
-        try {
-          result = await readNoteWithMeta(filename, true, false);
-        } catch (error) {
-          if (navigation !== latestNavigation) return;
-          const message = error instanceof Error ? error.message : String(error);
-          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
-          return;
-        }
-        if (navigation !== latestNavigation) return;
         const virtualFile: NoteFile = {
           name: filename,
           path: `daily/${filename}`,
@@ -286,6 +286,19 @@ export function useNotes() {
           date: dateStr,
           isLocked: false,
         };
+        try {
+          result = await readNoteWithMeta(filename, true, false);
+        } catch (error) {
+          if (navigation !== latestNavigation) return;
+          if (isNotDownloadedError(error)) {
+            openCloudPlaceholder(virtualFile, keepCurrentTab);
+            return;
+          }
+          const message = error instanceof Error ? error.message : String(error);
+          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
+          return;
+        }
+        if (navigation !== latestNavigation) return;
         if (!result.content) {
           openTab(filenameToNote(virtualFile, ''), keepCurrentTab);
           return;
@@ -362,15 +375,6 @@ export function useNotes() {
       const openVirtualOrRacedNote = async () => {
         if (openUnsavedText(`weekly/${filename}`, keepCurrentTab)) return;
         let result;
-        try {
-          result = await readNoteWithMeta(filename, false, true);
-        } catch (error) {
-          if (navigation !== latestNavigation) return;
-          const message = error instanceof Error ? error.message : String(error);
-          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
-          return;
-        }
-        if (navigation !== latestNavigation) return;
         const virtualFile: NoteFile = {
           name: filename,
           path: `weekly/${filename}`,
@@ -379,6 +383,19 @@ export function useNotes() {
           week: weekStr,
           isLocked: false,
         };
+        try {
+          result = await readNoteWithMeta(filename, false, true);
+        } catch (error) {
+          if (navigation !== latestNavigation) return;
+          if (isNotDownloadedError(error)) {
+            openCloudPlaceholder(virtualFile, keepCurrentTab);
+            return;
+          }
+          const message = error instanceof Error ? error.message : String(error);
+          useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
+          return;
+        }
+        if (navigation !== latestNavigation) return;
         if (!result.content) {
           openTab(filenameToNote(virtualFile, ''), keepCurrentTab);
           return;

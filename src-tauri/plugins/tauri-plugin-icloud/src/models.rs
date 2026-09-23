@@ -27,9 +27,13 @@ pub struct CloudItem {
     pub is_uploading: bool,
     pub has_conflicts: bool,
     pub error: Option<String>,
+    /// When the contents last changed, as Foundation reports it. Tells a remote
+    /// edit apart from an upload-progress update of the same item.
+    #[serde(default)]
+    pub modified: Option<f64>,
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", test))]
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ChangeKind {
@@ -38,7 +42,7 @@ pub enum ChangeKind {
     AccountChanged,
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", test))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CloudChange {
     pub kind: ChangeKind,

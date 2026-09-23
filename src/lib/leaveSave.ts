@@ -9,10 +9,12 @@
  * held save, and every open tab with unsaved edits, at once (see `registerHeldSaves`).
  * A held note reopens from its held text, never from disk, and a retry is dropped only
  * once that text is what the tab holds as saved. Nothing here discards a buffer that
- * did not reach disk, except trashing or deleting the note.
+ * did not reach disk, except trashing or deleting the note. A tab still waiting for
+ * iCloud (`cloudPending`) has no text of its own and is never written, retried or copied.
  */
 
 import {
+  CloudPlaceholderWriteError,
   LockedNoteWriteError,
   createNote,
   deleteNote,
@@ -24,6 +26,7 @@ import {
   writeNote,
 } from './fileSystem';
 import { notifyConflictCopy } from './noteConflicts';
+import { isNotDownloadedError, isOpenCloudPlaceholder } from './cloudNotes';
 import { isContentEmpty } from './validation';
 import {
   getPendingAutosaveNoteId,
@@ -60,6 +63,7 @@ function errorMessage(error: unknown): string {
 
 /** Write one note, deleting a daily or weekly note whose body was emptied. */
 async function writeNoteToDisk(note: Note): Promise<void> {
+  if (note.cloudPending) throw new CloudPlaceholderWriteError();
   const filename = noteDiskFilename(note);
   const isEmpty = isContentEmpty(note.content);
   const { notes: freshNotes, setNotes } = useNoteStore.getState();
@@ -127,9 +131,10 @@ async function writeNoteToDisk(note: Note): Promise<void> {
 }
 
 function hasUnsavedEditsInTab(noteId: string): boolean {
-  if (getPendingAutosaveNoteId() === noteId) return true;
   const { openTabs, savedContent } = useNoteStore.getState();
   const tab = openTabs.find((candidate) => candidate.id === noteId);
+  if (tab?.cloudPending) return false;
+  if (getPendingAutosaveNoteId() === noteId) return true;
   return !!tab && tab.content !== savedContent.get(noteId);
 }
 
@@ -208,12 +213,25 @@ function showFailureToast(entry: PendingLeaveSave, error: unknown): void {
 
 function scheduleRetry(entry: PendingLeaveSave, error: unknown): void {
   if (entry.timer !== null) return;
+  const noteId = entry.note.id;
   if (entry.attempt < RETRY_DELAYS_MS.length) {
-    const noteId = entry.note.id;
     entry.timer = setTimeout(() => void retryLeaveSave(noteId), RETRY_DELAYS_MS[entry.attempt]);
     return;
   }
   showFailureToast(entry, error);
+  // iCloud evicted the note while it had edits; the failed save asked for it back,
+  // and a retry succeeds once it has downloaded.
+  if (isNotDownloadedError(error)) {
+    entry.timer = setTimeout(
+      () => void retryLeaveSave(noteId),
+      RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]
+    );
+  }
+}
+
+/** A refused write is only harmless when the tab really is an iCloud placeholder. */
+function isPlaceholderRefusal(error: unknown, noteId: string): boolean {
+  return error instanceof CloudPlaceholderWriteError && isOpenCloudPlaceholder(noteId);
 }
 
 async function retryLeaveSave(noteId: string): Promise<void> {
@@ -241,7 +259,7 @@ async function retryLeaveSave(noteId: string): Promise<void> {
     }
   } catch (error) {
     if (pendingLeaveSaves.get(noteId) !== entry) return;
-    if (error instanceof LockedNoteWriteError) {
+    if (error instanceof LockedNoteWriteError || isPlaceholderRefusal(error, noteId)) {
       discardLeaveSave(noteId);
       return;
     }
@@ -255,6 +273,10 @@ async function saveLeaveSaveAsCopy(noteId: string): Promise<void> {
   const entry = pendingLeaveSaves.get(noteId);
   if (!entry) return;
   const note = liveBuffer(entry);
+  if (note.cloudPending) {
+    discardLeaveSave(noteId);
+    return;
+  }
   const markdown = htmlToMarkdown(note.content);
   try {
     let copy: string;
@@ -310,6 +332,7 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
   // A temporary unlock exposes plaintext only in memory. Never recreate a
   // plaintext file beside its encrypted `.locked` file while navigating.
   if (useNoteStore.getState().unlockedNotes.has(note.id)) return true;
+  if (note.cloudPending) return true;
   if (!hasUnsavedEdits(note.id)) return true;
 
   try {
@@ -318,7 +341,9 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
     discardLeaveSave(note.id);
     return true;
   } catch (error) {
-    if (error instanceof LockedNoteWriteError) return true;
+    if (error instanceof LockedNoteWriteError || isPlaceholderRefusal(error, note.id)) {
+      return true;
+    }
     console.error('[leaveSave] Save on leave failed:', error);
     // Hold the newest text, including anything typed while the write was failing.
     // The retry owns it now; an autosave attempt would only add a second toast.

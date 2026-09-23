@@ -84,6 +84,49 @@ completed.
   The footer Actions button measured 60×44pt through accessibility inspection.
   These fixtures do not prove account-backed iCloud delivery.
 
+- On-demand iCloud notes are covered by Rust, Swift and frontend tests with local
+  fixtures: a listed note without local bytes (including one in a folder not on
+  the device) answers "not downloaded" before path validation, opens as a
+  placeholder tab with Download, loads when the metadata update reports it local,
+  and is never written by autosave, save on leave, retries, the close guard, the
+  hidden-page flush or the watcher. Metadata diffing, remote-name collisions,
+  conflict-version copies and the launch wait for iCloud have their own tests.
+  None of this has run against a signed-in iCloud account.
+
+## On-demand iCloud notes (to verify on a device)
+
+Needs two Apple devices on the same Apple Account with iCloud Drive, the synced
+Forge on both, and a physical iPhone (or a Mac with **Optimize Mac Storage**).
+
+1. On the Mac, create `notes/Remote Folder/Plan.md` and `notes/Ideas.md` with a
+   few lines of text, and a daily note for a past day. Wait for them to upload.
+2. On the iPhone, open Index. Both notes are listed with a small cloud; VoiceOver
+   reads "In iCloud, not downloaded". No error toast appears and the list does not
+   keep refreshing (watch the console for repeated `list_notes`).
+3. Tap `Plan`. The tab shows "This note is in iCloud" and **Download**, not
+   "Invalid note path" or "Failed to open note". Leave it, open another note and
+   come back: nothing is written (the Mac copy keeps its text and date).
+4. Tap **Download**. "Downloading…" appears, then the note's real text, and it is
+   editable. Type a word; it reaches the Mac.
+5. Turn on Airplane Mode and open the daily note placeholder. **Download** shows
+   the offline message with **Try again**; nothing is written. Turn Airplane Mode
+   off and tap **Try again**.
+6. With a placeholder open, background the app and lock the phone, then return.
+   The Mac file is unchanged.
+7. On the iPhone, while `Ideas` is still in iCloud, create a new note titled
+   `Ideas`, then one from a template with the same title. The first becomes
+   `Ideas (2)`, the template note is refused as a duplicate, and the Mac's
+   `Ideas.md` is unchanged.
+8. Edit the same downloaded note on both devices while one is offline, then
+   reconnect. A `(conflict …)` copy of the other version appears beside the note.
+9. Force-quit and relaunch with the synced Forge active and the network off. The
+   app shows a quiet loader, then one "iCloud isn't available right now" message
+   with **Try again**; no burst of toasts. Turn the network on: the Forge opens by
+   itself or after **Try again**, with today's note, tags and backlinks present.
+10. Mac with Optimize Mac Storage: evict a note (Finder → Remove Download), confirm
+    the cloud marker, then repeat steps 3–4. Search and backlinks must not download
+    evicted notes (Finder keeps the cloud badge on the others).
+
 ## Required before shipping
 
 | Area | Remaining proof |
@@ -93,7 +136,7 @@ completed.
 | Lifecycle | Autosave before background/suspension, relaunch, interrupted Forge switches, no loss of pending edits |
 | Data portability | Encrypted export/import, plain import, other Files providers and interruption tests remain. Settings ZIP/JSON, individual Markdown/plaintext and selected-note ZIP destinations are verified in On My iPhone |
 | iPad | Native narrow-window multitasking, floating keyboard and remaining hardware shortcuts; two-column layout, rotation and Command-N verified |
-| iCloud implementation | Native bridge, Apple Forge selection, metadata listings and Mac discovery are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
+| iCloud implementation | Native bridge, Apple Forge selection, metadata listings, Mac discovery, on-demand downloads and conflict-version copies are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
 | Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. Submitted for App Review on 6 September 2026; Waiting for Review. France is excluded pending its encryption documentation. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |

@@ -12,6 +12,7 @@
 
 - Mac can initialize the shared `iCloud.app.moldavite` container before iOS is installed. Settings → General → Use synced Forge connects a separate Forge; a Finder button opens it for adding Markdown notes. Existing local Forges are not moved.
 - Signed native first-use initialization and iCloud ownership were verified on macOS, along with the full app bundle's signature and provisioning. Cross-device delivery and offline concurrent editing remain unverified. Windows/Linux iCloud support is deferred.
+- Notes stay on demand: a note not on the device is marked with a cloud in the note list and opens as a placeholder with Download; it never gets saved, and whole-Forge scans skip it. Launch waits for iCloud and shows one message if it is unavailable. iCloud conflict versions of unlocked notes become `(conflict …)` copies. Tested with local fixtures only; the device checks are in docs/MOBILE_QA.md.
 - User setup: [MAC_ICLOUD.md](MAC_ICLOUD.md). Signing, embedded profile, and CI requirements: [RELEASING.md](RELEASING.md#mac-icloud-signing). Full iOS user documentation will follow separately.
 
 ### Notes & Editing

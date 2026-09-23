@@ -73,7 +73,7 @@ pub(crate) fn note_exists(note_name: &str) -> Result<(bool, String), String> {
 /// the name handed back does not. `filename` is already validated as a bare
 /// filename, and `.locked` adds no path separator, so this cannot leave `dir`.
 fn note_file_exists(dir: &Path, filename: &str) -> bool {
-    dir.join(filename).exists() || dir.join(format!("{filename}.locked")).exists()
+    crate::persist::name_is_taken(dir, filename)
 }
 
 fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {

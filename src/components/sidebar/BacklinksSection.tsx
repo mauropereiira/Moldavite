@@ -47,7 +47,7 @@ export function BacklinksSection({
       const contents = new Map<string, string>();
 
       for (const note of notes) {
-        if (note.isLocked) continue;
+        if (note.isLocked || note.notDownloaded) continue;
 
         try {
           // Snapshot read: scanning for backlinks must not adopt the note's

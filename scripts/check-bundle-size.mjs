@@ -133,7 +133,10 @@ const BUDGETS = [
 // escaped wiki-link aliases) add 3.8 KB raw / 1.7 KB gz. Measured 636.3 KB /
 // 177.7 KB gz.
 // 646 / 181: tables and save on leave together. Measured 644.8 KB / 180.3 KB gz.
-const APP_JS_BUDGET = { rawKb: 646, gzipKb: 181 };
+// 653 / 183: on-demand iCloud notes (the placeholder tab and its Download
+// state, the launch wait for iCloud, the cloud marker in note lists) add 6.6 KB
+// raw / 2.0 KB gz. Measured 651.4 KB / 182.3 KB gz.
+const APP_JS_BUDGET = { rawKb: 653, gzipKb: 183 };
 
 async function main() {
   let entries;

@@ -15,6 +15,7 @@ import {
   Pin,
   Command as CommandIcon,
   X,
+  Cloud,
 } from 'lucide-react';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -147,6 +148,16 @@ function NoteRow({
         <div className="quick-switcher-item-content">
           <div className="quick-switcher-item-title">
             <HighlightedTitle title={title} indices={matchIndices} />
+            {note.notDownloaded && (
+              <Cloud
+                className="ml-1.5 inline w-3 h-3 align-baseline"
+                role="img"
+                aria-label="In iCloud, not downloaded"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <title>In iCloud, not downloaded</title>
+              </Cloud>
+            )}
           </div>
           <div className="quick-switcher-item-meta">{typeLabel}</div>
         </div>

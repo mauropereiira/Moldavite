@@ -217,6 +217,7 @@ pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
     write_atomic(&config_path, json.as_bytes(), Some(0o600))
         .map_err(|e| format!("Failed to write config: {}", e))?;
+    crate::cloud_forge::remember_active(config.active_synced_forge);
 
     Ok(())
 }
@@ -276,10 +277,14 @@ fn paired_note_name(name: &str) -> Option<String> {
 /// Every note-name generator flows through here, so this is the one place that
 /// has to know about locked notes. Without it a new note takes a locked note's
 /// name, the two sit side by side under one address, the list shows the note
-/// twice, and neither copy can be locked or unlocked again.
+/// twice, and neither copy can be locked or unlocked again. In the synced Forge
+/// a name iCloud lists is taken even while its contents are still remote.
 pub(crate) fn name_is_taken(dir: &Path, name: &str) -> bool {
-    dir.join(name).exists()
-        || paired_note_name(name).is_some_and(|paired| dir.join(paired).exists())
+    let taken = |name: &str| {
+        let path = dir.join(name);
+        path.exists() || crate::cloud_forge::is_remote_name(&path)
+    };
+    taken(name) || paired_note_name(name).is_some_and(|paired| taken(&paired))
 }
 
 /// Core uniqueness search shared by file and folder name generation.

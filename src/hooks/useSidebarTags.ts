@@ -1,11 +1,13 @@
 /**
  * Sidebar tag aggregation and filtering over unlocked note content.
- * Content is cached by stable note path, locked notes are never read, and selected-tag
- * filtering uses AND semantics while the tag feature is enabled.
+ * Content is cached by stable note path, locked notes and notes still in iCloud are never
+ * read (a read must not start a download), and selected-tag filtering uses AND semantics
+ * while the tag feature is enabled.
  */
 
 import { useEffect, useRef } from 'react';
 import { aggregateTags, hasTag, extractTags, readNoteSnapshot, noteFileBackendPath } from '@/lib';
+import { isNotDownloadedError } from '@/lib/cloudNotes';
 import { useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
@@ -41,7 +43,7 @@ export function useSidebarTags(notes: NoteFile[]) {
       const contents: string[] = [];
       for (const note of notes) {
         if (cancelled) return;
-        if (note.isLocked) continue;
+        if (note.isLocked || note.notDownloaded) continue;
         let content = noteContentCacheRef.current.get(note.path);
         if (content === undefined) {
           try {
@@ -55,7 +57,8 @@ export function useSidebarTags(notes: NoteFile[]) {
             );
             content = snapshot.content;
             noteContentCacheRef.current.set(note.path, content);
-          } catch (_error) {
+          } catch (error) {
+            if (isNotDownloadedError(error)) continue;
             console.error('[Sidebar] Failed to read note for tags:', note.name);
             content = '';
           }

@@ -164,7 +164,7 @@ pub(crate) fn scan_notes_content_in(
         if filename.starts_with('.') || filename.ends_with(".md.locked") {
             continue;
         }
-        if !filename.ends_with(".md") {
+        if !filename.ends_with(".md") || crate::cloud_forge::is_evicted(path) {
             continue;
         }
 

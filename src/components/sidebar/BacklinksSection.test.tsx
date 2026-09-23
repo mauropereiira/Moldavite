@@ -84,4 +84,29 @@ describe('BacklinksSection note scanning', () => {
       )
     );
   });
+
+  it('never reads a note that is still in iCloud', async () => {
+    render(
+      <BacklinksSection
+        notes={[
+          ...notes,
+          { ...notes[0], name: 'remote.md', path: 'notes/remote.md', notDownloaded: true },
+        ]}
+        isCollapsed={false}
+        onToggle={() => {}}
+        onNoteClick={() => {}}
+      />
+    );
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        'read_note',
+        expect.objectContaining({ filename: '2026-W12.md' })
+      )
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      'read_note',
+      expect.objectContaining({ filename: 'remote.md' })
+    );
+  });
 });

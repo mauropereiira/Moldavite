@@ -991,6 +991,26 @@ mod tests {
     }
 }
 
+#[derive(serde::Serialize)]
+pub(crate) struct CloudReadiness {
+    state: &'static str,
+    message: Option<String>,
+}
+
+/// Whether the active Forge can be read: `local`, or the synced Forge's
+/// `ready`, `preparing` or `unavailable`. The frontend waits on this at launch.
+#[tauri::command]
+pub(crate) fn icloud_readiness() -> CloudReadiness {
+    if !read_config().active_synced_forge {
+        return CloudReadiness {
+            state: "local",
+            message: None,
+        };
+    }
+    let (state, message) = crate::cloud_forge::readiness();
+    CloudReadiness { state, message }
+}
+
 /// Settings switches between iCloud and the retained local selection.
 #[tauri::command]
 pub(crate) async fn set_synced_forge_enabled(

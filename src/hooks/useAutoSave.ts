@@ -5,7 +5,8 @@
  * replace one pending debounce; effect cleanup cancels stale callbacks. Navigation
  * performs its immediate flush in `lib/leaveSave.ts`, while lock transitions
  * reject new writes and drain in-flight writes in `lib/fileSystem.ts`. Temporarily
- * unlocked notes are view-only and must never be written back as plaintext.
+ * unlocked notes are view-only and must never be written back as plaintext, and a
+ * tab still waiting for iCloud (`cloudPending`) has no text of its own to write.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -73,6 +74,10 @@ export function useAutoSave() {
    */
   const persistNote = useCallback(
     async (note: Note) => {
+      if (note.cloudPending) {
+        if (pendingRef.current === note) pendingRef.current = null;
+        return;
+      }
       try {
         setIsSaving(true);
 
@@ -391,6 +396,11 @@ export function useAutoSave() {
       // baseline below meant switching back could not recover it either.
       void flushPending().catch(() => {});
       lastNoteIdRef.current = currentNote.id;
+      lastContentRef.current = currentNote.content;
+      return;
+    }
+
+    if (currentNote.cloudPending) {
       lastContentRef.current = currentNote.content;
       return;
     }

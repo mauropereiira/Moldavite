@@ -26,6 +26,16 @@ extern "C" {
         context: *mut c_void,
         accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char),
     );
+    fn moldavite_cloud_download(
+        path: *const c_char,
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char),
+    );
+    fn moldavite_resolve_conflicts(
+        path: *const c_char,
+        context: *mut c_void,
+        accessor: extern "C" fn(*mut c_void, *const c_char, *const c_char) -> bool,
+    );
     fn moldavite_access_file(
         path: *const c_char,
         writing: bool,
@@ -135,6 +145,7 @@ where
 type RootAccessor = Accessor<fn(&Path) -> Result<std::path::PathBuf, String>, std::path::PathBuf>;
 
 fn receive_root(
+    missing: &str,
     call: impl FnOnce(*mut c_void, extern "C" fn(*mut c_void, *const c_char, *const c_char)),
 ) -> Result<std::path::PathBuf, String> {
     let mut state = RootAccessor {
@@ -148,13 +159,59 @@ fn receive_root(
     match state.result {
         Some(Ok(result)) => result,
         Some(Err(panic)) => std::panic::resume_unwind(panic),
-        None => Err("iCloud did not return a Forge location".to_string()),
+        None => Err(missing.to_string()),
     }
 }
 
 pub fn cloud_root() -> Result<std::path::PathBuf, String> {
     // SAFETY: the getter borrows the live accessor for this synchronous call.
-    receive_root(|context, callback| unsafe { moldavite_cloud_root(context, callback) })
+    receive_root(
+        "iCloud did not return a Forge location",
+        |context, callback| unsafe { moldavite_cloud_root(context, callback) },
+    )
+}
+
+/// Request the contents of a listed item, addressed relative to the Forge root.
+/// Returns the item's state as JSON; the download itself finishes later.
+pub fn start_download(relative: &str) -> Result<String, String> {
+    let path = CString::new(relative).map_err(|_| "File path contains a NUL byte".to_string())?;
+    // SAFETY: path and the accessor state outlive this synchronous native call.
+    receive_root(
+        "iCloud did not answer the download request",
+        |context, callback| unsafe { moldavite_cloud_download(path.as_ptr(), context, callback) },
+    )?
+    .into_os_string()
+    .into_string()
+    .map_err(|_| "iCloud returned an unreadable item".to_string())
+}
+
+/// Run `operation` with the note's coordinated path followed by the paths of its
+/// unresolved conflict versions. The versions are resolved only if it succeeds.
+pub fn resolve_conflicts<T, F>(path: &Path, operation: F) -> Result<T, String>
+where
+    F: FnOnce(&[std::path::PathBuf]) -> Result<T, String> + Send,
+    T: Send,
+{
+    let path = CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| "File path contains a NUL byte".to_string())?;
+    let mut state = Accessor {
+        operation: Some(operation),
+        result: None,
+    };
+    // SAFETY: the native call finishes its accessor before returning and retains
+    // no pointers. A panic is captured until coordination is released.
+    unsafe {
+        moldavite_resolve_conflicts(
+            path.as_ptr(),
+            (&mut state as *mut Accessor<F, T>).cast(),
+            transaction_access::<F, T>,
+        );
+    }
+    match state.result {
+        Some(Ok(result)) => result,
+        Some(Err(panic)) => std::panic::resume_unwind(panic),
+        None => Err("The file coordinator did not run its accessor".into()),
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -163,9 +220,10 @@ pub fn connect_cloud(
 ) -> Result<std::path::PathBuf, String> {
     // SAFETY: only the static change function is retained; context and its
     // callback are used synchronously until the initial query has completed.
-    receive_root(|context, callback| unsafe {
-        moldavite_connect_cloud(context, callback, on_change)
-    })
+    receive_root(
+        "iCloud did not return a Forge location",
+        |context, callback| unsafe { moldavite_connect_cloud(context, callback, on_change) },
+    )
 }
 
 /// Direct for local files; coordinated and download-checked for iCloud files.
@@ -355,6 +413,25 @@ mod tests {
         assert_eq!(read(&path, |_| Ok(42)).unwrap(), 42);
         assert_eq!(fs::read_to_string(path).unwrap(), "keep");
     }
+    #[test]
+    fn conflict_resolution_hands_over_the_note_and_keeps_it_on_failure() {
+        let fixture = Fixture::new();
+        let path = fixture.0.join("note.md");
+        fs::write(&path, "body").unwrap();
+        let paths = resolve_conflicts(&path, |paths| Ok(paths.to_vec())).unwrap();
+        assert_eq!(paths, vec![path.clone()]);
+        assert_eq!(
+            resolve_conflicts::<(), _>(&path, |_| Err("kept".into())),
+            Err("kept".into())
+        );
+        assert_eq!(fs::read_to_string(path).unwrap(), "body");
+    }
+
+    #[test]
+    fn a_download_needs_a_connected_session() {
+        assert!(start_download("notes/remote.md").is_err());
+    }
+
     #[test]
     fn transaction_can_reserve_a_new_note_and_its_absent_locked_counterpart() {
         let fixture = Fixture::new();

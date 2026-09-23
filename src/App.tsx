@@ -38,6 +38,8 @@ import {
   usePluginHost,
 } from './hooks';
 import { flushAutosaveWhenHidden, registerAutosaveCloseGuard } from './lib/autosaveFlush';
+import { useForgeReadinessStore, watchForgeReadiness } from './lib/forgeReadiness';
+import { ForgeReadinessScreen } from './components/ui/ForgeReadinessScreen';
 
 const SettingsModal = lazy(() =>
   import('./components/settings').then((module) => ({ default: module.SettingsModal }))
@@ -48,6 +50,7 @@ function App() {
   const { fontSize, fontFamily, lineHeight, compactMode, focusModeEnabled, editorWidth } =
     useSettingsStore();
   const { loadColors } = useNoteColorsStore();
+  const forgeStatus = useForgeReadinessStore((state) => state.status);
 
   useAutoLock();
 
@@ -58,21 +61,19 @@ function App() {
   // Website install links: subscribe first, then drain cold-start requests.
   usePluginDeepLinks();
 
+  useEffect(() => watchForgeReadiness(), []);
+
   // The one note-list load for the window; components that use useNotes share it.
+  // The synced Forge cannot be read until iCloud is ready, so everything that
+  // reads it waits for that.
   useEffect(() => {
+    if (forgeStatus !== 'ready') return;
     void initializeNotes();
-  }, []);
+    fixNotePermissions().catch(console.error);
+    loadColors();
+  }, [forgeStatus, loadColors]);
 
   useEffect(() => flushAutosaveWhenHidden(), []);
-
-  // Fix note permissions on startup (privacy improvement)
-  useEffect(() => {
-    fixNotePermissions().catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    loadColors();
-  }, [loadColors]);
 
   // Semantic search: fetch status + subscribe to progress events (idempotent)
   const initializeSemantic = useSemanticStore((s) => s.initialize);
@@ -143,7 +144,7 @@ function App() {
 
   return (
     <>
-      <Layout />
+      {forgeStatus === 'ready' ? <Layout /> : <ForgeReadinessScreen />}
       <ToastContainer />
       {isMobilePlatform() && (
         <div className="mobile-field-keyboard-bar">

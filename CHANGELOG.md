@@ -6,6 +6,8 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- **Notes in the iCloud Forge that are not on this device yet open with a Download button.** The note list and the quick switcher mark them with a small cloud. Opening one shows "This note is in iCloud" instead of an error; Download fetches just that note, and it opens for editing as soon as it arrives. If the download fails or you are offline, the reason is shown with Try again. Nothing downloads a note until you ask, so notes stay on demand on iPhone and on a Mac with Optimize Mac Storage.
+
 - **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. (#146)
 
 ### Fixed
@@ -41,6 +43,18 @@ All notable changes to Moldavite are documented here.
 - Renaming a note updates the links in other notes without racing a save in progress on them.
 
 - Search, backlinks and a Forge rescan no longer freeze the window while the search index or the backlinks catch up with a large Forge. Backlinks also stop rescanning the whole Forge on every request after a scan fails.
+
+- A note in a folder that was not on this device yet failed to open with "Invalid note path". It now opens with Download like any other note still in iCloud.
+
+- **Opening the iCloud Forge at launch no longer fails in a burst of errors.** Moldavite waits for iCloud before loading the Forge. If iCloud is not available, one message says so with Try again, and if iCloud becomes ready later the Forge opens by itself; before, the note list, today's note and the indexes stayed empty until a restart.
+
+- The note list, tags and backlinks reloaded and re-read every note whenever iCloud reported anything, including upload progress, and each read of a note not on the device asked iCloud to download it, which could start a loop. They now update only when a note is added, removed, edited elsewhere or downloaded, and tags, backlinks, search and the graph skip notes that are still in iCloud.
+
+- A new note, a note from a template or a note created from a link could take the name of a note that was still in iCloud.
+
+- When iCloud keeps two versions of a note edited on two devices, the other version is now saved beside it as a `(conflict …)` copy, as Moldavite does for other edits made elsewhere. Locked notes are left for iCloud to resolve, since their encryption is tied to their name.
+
+- A note whose iCloud status was unknown could not be opened even though it was on the device.
 
 - **Images broke on every device but the one that added them.** A note stored each image as a full path on that machine, so the same Forge synced to another Mac or an iPhone showed broken pictures. Images are now saved as `images/<file>`, relative to the Forge, and older notes are read correctly and switched to the new form the next time you edit them.
 

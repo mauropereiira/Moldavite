@@ -343,7 +343,10 @@ fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
         {
             continue;
         }
-        if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("md") {
+        if !path.is_file()
+            || path.extension().and_then(|s| s.to_str()) != Some("md")
+            || crate::cloud_forge::is_evicted(&path)
+        {
             continue;
         }
         let Some(filename) = path
@@ -388,7 +391,10 @@ fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
                 continue;
             }
             collect_md_files_recursive(&path, out);
-        } else if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+        } else if path.is_file()
+            && path.extension().and_then(|s| s.to_str()) == Some("md")
+            && !crate::cloud_forge::is_evicted(&path)
+        {
             let Some(filename) = path
                 .file_name()
                 .and_then(|s| s.to_str())

@@ -7,6 +7,9 @@
  * `savedContent` holds, per open tab, the body as last loaded from or saved to disk;
  * a tab whose `content` differs has unsaved edits. It lives beside the tabs rather
  * than on them so recording a save never replaces a tab object.
+ * A `cloudPending` tab stands in for a note iCloud has not downloaded; its body is
+ * not the note's, so content updates ignore it until `applyExternalContent` loads
+ * the downloaded text into it.
  * Note ids are stable disk addresses, not display titles. Recent ids are persisted per
  * Forge; temporary unlock state and loaded tab bodies are process-only.
  */
@@ -151,6 +154,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (noteId && noteId !== state.activeTabId) {
         return state;
       }
+      if (state.currentNote?.cloudPending) return state;
 
       const updatedTabs = state.openTabs.map((tab) =>
         tab.id === state.activeTabId ? { ...tab, content, updatedAt: new Date() } : tab
@@ -304,6 +308,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   updateTabContent: (noteId, content) =>
     set((state) => {
+      if (state.openTabs.some((tab) => tab.id === noteId && tab.cloudPending)) return state;
       const updatedTabs = state.openTabs.map((tab) =>
         tab.id === noteId ? { ...tab, content, updatedAt: new Date() } : tab
       );
@@ -328,6 +333,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
               content,
               updatedAt: new Date(),
               externalRev: (tab.externalRev ?? 0) + 1,
+              cloudPending: undefined,
             }
           : tab
       );

@@ -73,8 +73,8 @@ fn create_note_from_link_at(notes_dir: &Path, note_name: &str) -> Result<(String
     let file_path = notes_path.join(&filename);
 
     // A locked note keeps its name as `<name>.md.locked`, so the plaintext name
-    // looks free while the note is locked.
-    if file_path.exists() || notes_path.join(format!("{filename}.locked")).exists() {
+    // looks free while the note is locked; a note still in iCloud is not on disk.
+    if crate::persist::name_is_taken(&notes_path, &filename) {
         return Err(format!("Note '{}' already exists", filename));
     }
 
@@ -135,6 +135,20 @@ mod tests {
             "ciphertext"
         );
 
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn create_note_from_link_never_shadows_a_note_still_in_icloud() {
+        let base = tmp_notes_dir("remote-target");
+        std::fs::create_dir_all(base.join("notes")).unwrap();
+        let _snapshot =
+            crate::cloud_forge::test_snapshot::install(&base, &["notes/meeting-notes.md"]);
+
+        let error = create_note_from_link_at(&base, "Meeting Notes").unwrap_err();
+
+        assert!(error.contains("already exists"), "{error}");
+        assert!(!base.join("notes/meeting-notes.md").exists());
         let _ = std::fs::remove_dir_all(&base);
     }
 

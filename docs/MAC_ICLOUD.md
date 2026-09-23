@@ -35,15 +35,22 @@ Use the same Apple Account with iCloud Drive enabled. When Moldavite is
 available on that device, turn on **Use synced Forge** there. It opens the same
 shared Forge; no folder export, pairing code, or cable is needed.
 
-Allow iCloud time to upload and download changes. A note waiting to download
-must become available before you can edit it. iCloud sync also propagates
-changes and deletions, so keep a separate backup of important notes.
+Allow iCloud time to upload and download changes. With Optimize Mac Storage
+on, macOS can keep a note only in iCloud; the note list marks it with a small
+cloud. Opening it shows **This note is in iCloud** with a **Download** button,
+and the note opens for editing as soon as it arrives. Moldavite downloads a
+note only when you ask. If the same note was changed on two devices before
+they synced, the other version is kept beside it as a `(conflict …)` copy.
+iCloud sync also propagates changes and deletions, so keep a separate backup of
+important notes.
 
 ## If the folder does not connect
 
 Check that iCloud Drive is enabled, that the Mac is signed into the intended
-Apple Account, and that iCloud has available storage. If Moldavite says iCloud
-is still preparing the Forge, try again shortly. If an active Forge becomes
+Apple Account, and that iCloud has available storage. At launch Moldavite waits
+for iCloud before opening the synced Forge. If iCloud does not become available,
+it says so once, with **Try again** and **Use local Forge**; if iCloud catches
+up later, the Forge opens by itself. If an active Forge becomes
 unavailable, use **Reconnect iCloud**, or switch to a local Forge while the
 account or download issue is resolved. A failed connection keeps the previous
 Forge selected; Moldavite does not substitute an unrelated local folder.
