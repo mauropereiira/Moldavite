@@ -38,6 +38,7 @@ export function Layout() {
     sidebarWidth,
     rightPanelWidth,
     showIconRail,
+    iconRailSide,
     indexMode,
     agendaMode,
     setSidebarWidth,
@@ -67,11 +68,15 @@ export function Layout() {
     [sidebarWidth, rightPanelWidth]
   );
 
+  const railOnRight = iconRailSide === 'right';
+
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isResizing) return;
 
-      const delta = e.clientX - startXRef.current;
+      // Both columns swap sides with the rail, and so does the drag direction
+      // that widens them.
+      const delta = (e.clientX - startXRef.current) * (railOnRight ? -1 : 1);
 
       if (isResizing === 'left') {
         const newWidth = Math.min(
@@ -80,7 +85,6 @@ export function Layout() {
         );
         setSidebarWidth(newWidth);
       } else if (isResizing === 'right') {
-        // For right panel, dragging left increases width
         const newWidth = Math.min(
           RIGHT_PANEL_MAX,
           Math.max(RIGHT_PANEL_MIN, startWidthRef.current - delta)
@@ -88,7 +92,7 @@ export function Layout() {
         setRightPanelWidth(newWidth);
       }
     },
-    [isResizing, setSidebarWidth, setRightPanelWidth]
+    [isResizing, railOnRight, setSidebarWidth, setRightPanelWidth]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -173,6 +177,74 @@ export function Layout() {
     return () => document.documentElement.classList.remove('has-icon-rail');
   }, [railVisible]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('icon-rail-right', railOnRight);
+    return () => document.documentElement.classList.remove('icon-rail-right');
+  }, [railOnRight]);
+
+  const resizeHandles = (target: Exclude<ResizeTarget, null>, edge: 'left' | 'right') => (
+    <>
+      <div
+        className={`absolute top-0 ${edge === 'left' ? 'left-0' : 'right-0'} w-1 h-full cursor-col-resize z-10 transition-colors`}
+        style={{
+          transitionDuration: 'var(--duration-fast)',
+          backgroundColor:
+            isResizing === target
+              ? 'var(--accent-primary)'
+              : isHovering === target
+                ? 'var(--border-strong)'
+                : 'transparent',
+        }}
+        onMouseDown={handleMouseDown(target)}
+        onMouseEnter={() => setIsHovering(target)}
+        onMouseLeave={() => setIsHovering(null)}
+      />
+
+      {/* Extended hit area for easier grabbing */}
+      <div
+        className={`absolute top-0 ${edge === 'left' ? 'left-0' : 'right-0'} w-2 h-full cursor-col-resize z-10`}
+        style={{ transform: `translateX(${edge === 'left' ? '-50%' : '50%'})` }}
+        onMouseDown={handleMouseDown(target)}
+        onMouseEnter={() => setIsHovering(target)}
+        onMouseLeave={() => setIsHovering(null)}
+      />
+    </>
+  );
+
+  const indexEdge = railOnRight ? 'left' : 'right';
+  const agendaEdge = railOnRight ? 'right' : 'left';
+  const sidebarColumn = sidebarVisible && (
+    <div
+      className="app-sidebar flex-shrink-0 relative"
+      style={{
+        width: `${leftWidth}px`,
+        backgroundColor: 'var(--bg-sidebar)',
+        borderLeft: railOnRight ? '1px solid var(--border-default)' : undefined,
+        borderRight: railOnRight ? undefined : '1px solid var(--border-default)',
+      }}
+    >
+      <Sidebar presentation={isMobile ? 'index' : 'panel'} autoFocusSearch={!isMobile} />
+
+      {!isMobile && resizeHandles('left', indexEdge)}
+    </div>
+  );
+  const rightPanelColumn = rightPanelVisible && (
+    <div
+      className="app-right-panel relative min-h-0 flex-shrink-0 overflow-hidden"
+      style={{
+        width: `${rightPanelWidth}px`,
+        backgroundColor: 'var(--bg-panel)',
+        borderLeft: railOnRight ? undefined : '1px solid var(--border-default)',
+        borderRight: railOnRight ? '1px solid var(--border-default)' : undefined,
+      }}
+    >
+      {!isMobile && resizeHandles('right', agendaEdge)}
+
+      <RightPanel />
+    </div>
+  );
+  const rail = railVisible && <IconRail side={iconRailSide} />;
+
   return (
     <div
       ref={setShell}
@@ -195,56 +267,16 @@ export function Layout() {
           it, which is what you want when one is open. */}
       <PinnedBar />
 
+      {/* Mirrored by DOM order rather than `row-reverse` so Tab still walks
+          the chrome in the order it appears on screen. */}
       <div className="flex min-h-0 w-full flex-1 overflow-hidden">
-        {railVisible && <IconRail />}
+        {!railOnRight && rail}
 
         <div
           data-testid="app-content-area"
           className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden"
         >
-          {/* Left Sidebar */}
-          {sidebarVisible && (
-            <div
-              className="app-sidebar flex-shrink-0 relative"
-              style={{
-                width: `${leftWidth}px`,
-                backgroundColor: 'var(--bg-sidebar)',
-                borderRight: '1px solid var(--border-default)',
-              }}
-            >
-              <Sidebar presentation={isMobile ? 'index' : 'panel'} autoFocusSearch={!isMobile} />
-
-              {!isMobile && (
-                <>
-                  {/* Left Resize Handle */}
-                  <div
-                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize z-10 transition-colors"
-                    style={{
-                      transitionDuration: 'var(--duration-fast)',
-                      backgroundColor:
-                        isResizing === 'left'
-                          ? 'var(--accent-primary)'
-                          : isHovering === 'left'
-                            ? 'var(--border-strong)'
-                            : 'transparent',
-                    }}
-                    onMouseDown={handleMouseDown('left')}
-                    onMouseEnter={() => setIsHovering('left')}
-                    onMouseLeave={() => setIsHovering(null)}
-                  />
-
-                  {/* Extended hit area for easier grabbing */}
-                  <div
-                    className="absolute top-0 right-0 w-2 h-full cursor-col-resize z-10"
-                    style={{ transform: 'translateX(50%)' }}
-                    onMouseDown={handleMouseDown('left')}
-                    onMouseEnter={() => setIsHovering('left')}
-                    onMouseLeave={() => setIsHovering(null)}
-                  />
-                </>
-              )}
-            </div>
-          )}
+          {railOnRight ? rightPanelColumn : sidebarColumn}
 
           {/* Center pane — Editor by default, Timeline when toggled on */}
           <div
@@ -263,49 +295,7 @@ export function Layout() {
             )}
           </div>
 
-          {/* Right Panel */}
-          {rightPanelVisible && (
-            <div
-              className="app-right-panel relative min-h-0 flex-shrink-0 overflow-hidden"
-              style={{
-                width: `${rightPanelWidth}px`,
-                backgroundColor: 'var(--bg-panel)',
-                borderLeft: '1px solid var(--border-default)',
-              }}
-            >
-              {!isMobile && (
-                <>
-                  {/* Right Resize Handle */}
-                  <div
-                    className="absolute top-0 left-0 w-1 h-full cursor-col-resize z-10 transition-colors"
-                    style={{
-                      transitionDuration: 'var(--duration-fast)',
-                      backgroundColor:
-                        isResizing === 'right'
-                          ? 'var(--accent-primary)'
-                          : isHovering === 'right'
-                            ? 'var(--border-strong)'
-                            : 'transparent',
-                    }}
-                    onMouseDown={handleMouseDown('right')}
-                    onMouseEnter={() => setIsHovering('right')}
-                    onMouseLeave={() => setIsHovering(null)}
-                  />
-
-                  {/* Extended hit area for easier grabbing */}
-                  <div
-                    className="absolute top-0 left-0 w-2 h-full cursor-col-resize z-10"
-                    style={{ transform: 'translateX(-50%)' }}
-                    onMouseDown={handleMouseDown('right')}
-                    onMouseEnter={() => setIsHovering('right')}
-                    onMouseLeave={() => setIsHovering(null)}
-                  />
-                </>
-              )}
-
-              <RightPanel />
-            </div>
-          )}
+          {railOnRight ? sidebarColumn : rightPanelColumn}
 
           <IndexOverlay
             isOpen={activeOverlay === 'index' && indexMode === 'overlay'}
@@ -316,6 +306,8 @@ export function Layout() {
             onClose={closeOverlay}
           />
         </div>
+
+        {railOnRight && rail}
       </div>
     </div>
   );

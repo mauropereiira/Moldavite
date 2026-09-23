@@ -409,7 +409,12 @@ function MobileSettingsPage({
   return (
     <div
       className="settings-scrim fixed z-[9999] modal-backdrop-enter"
-      style={{ top: 0, bottom: 0, left: 'var(--rail-width)', right: 0 }}
+      style={{
+        top: 0,
+        bottom: 0,
+        left: 'var(--rail-inset-left)',
+        right: 'var(--rail-inset-right)',
+      }}
     >
       {/* iOS zooms into any field under 16px on focus, and a phone needs a
           thumb-sized button; the sections are shared with desktop, so both

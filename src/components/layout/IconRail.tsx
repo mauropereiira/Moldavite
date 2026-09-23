@@ -1,6 +1,7 @@
 import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Calendar, Clock, Network, PanelLeft, Search, Settings, Trash2 } from 'lucide-react';
 import {
+  type IconRailSide,
   useGraphStore,
   useNoteStore,
   useOverlayStore,
@@ -60,7 +61,7 @@ function RailButton({
 
 const iconProps = { size: 18, strokeWidth: 1.25, 'aria-hidden': true } as const;
 
-export function IconRail() {
+export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
   const indexMode = useSettingsStore((state) => state.indexMode);
   const agendaMode = useSettingsStore((state) => state.agendaMode);
   const isSettingsOpen = useSettingsStore((state) => state.isSettingsOpen);
@@ -132,6 +133,7 @@ export function IconRail() {
     <aside
       className="icon-rail flex h-full flex-shrink-0 flex-col items-center"
       aria-label="App navigation"
+      data-side={side}
       style={{
         position: 'relative',
         zIndex: 10000,
@@ -139,7 +141,8 @@ export function IconRail() {
         userSelect: 'none',
         WebkitUserSelect: 'none',
         backgroundColor: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-default)',
+        borderLeft: side === 'right' ? '1px solid var(--border-default)' : undefined,
+        borderRight: side === 'right' ? undefined : '1px solid var(--border-default)',
       }}
     >
       <div className="flex w-full flex-col items-center pt-3">

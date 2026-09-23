@@ -86,4 +86,32 @@ describe('migrateSettingsState', () => {
     };
     expect(persisted.state).toHaveProperty('showAsteroidCursor', false);
   });
+
+  it('persists the rail side through the settings allow-list', () => {
+    expect(useSettingsStore.getState().iconRailSide).toBe('left');
+    useSettingsStore.getState().setIconRailSide('right');
+
+    const persisted = JSON.parse(localStorage.getItem('moldavite-settings') ?? '{}') as {
+      state?: Record<string, unknown>;
+    };
+    expect(persisted.state).toHaveProperty('iconRailSide', 'right');
+  });
+
+  it('keeps a valid rail side and puts an unknown one back on the left', () => {
+    expect(migrateSettingsState({ iconRailSide: 'right' }, 1)).toHaveProperty(
+      'iconRailSide',
+      'right'
+    );
+    expect(migrateSettingsState({ iconRailSide: 'top' }, 1)).toHaveProperty('iconRailSide', 'left');
+    expect(migrateSettingsState({ iconRailSide: null }, 1)).toHaveProperty('iconRailSide', 'left');
+  });
+
+  it('hydrates an unknown rail side as the left edge', async () => {
+    localStorage.setItem(
+      'moldavite-settings',
+      JSON.stringify({ state: { iconRailSide: 'upside-down' }, version: 1 })
+    );
+    await useSettingsStore.persist.rehydrate();
+    expect(useSettingsStore.getState().iconRailSide).toBe('left');
+  });
 });

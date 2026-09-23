@@ -166,11 +166,38 @@ html[data-platform='mobile'] .icon-rail {
   padding-bottom: var(--safe-bottom);
 }
 
+/* In landscape the rail's outer edge runs under the sensor housing and the
+   rounded corners. The rail's ground fills that band and its buttons stay
+   clear of it, so the rail grows by the inset on its own edge. The inline
+   48px width has to be beaten, hence !important. */
+html[data-platform='mobile'] {
+  --rail-edge-inset: var(--safe-left);
+}
+
+html[data-platform='mobile'].icon-rail-right {
+  --rail-edge-inset: var(--safe-right);
+}
+
+html[data-platform='mobile'].has-icon-rail:not(.focus-mode) {
+  --rail-width: calc(48px + var(--rail-edge-inset));
+}
+
+html[data-platform='mobile'] .icon-rail {
+  width: calc(48px + var(--rail-edge-inset)) !important;
+  padding-left: var(--rail-edge-inset);
+}
+
+html[data-platform='mobile'] .icon-rail[data-side='right'] {
+  padding-left: 0;
+  padding-right: var(--rail-edge-inset);
+}
+
 /* Keep the phone's main text edge close to the system clock's left edge.
    The rail still has a full 44pt hit area; an inset hairline consumes none of
-   it. iPad retains the roomier sidebar spacing. */
+   it. iPad retains the roomier sidebar spacing. A rail on the right leaves
+   the text edge on the bezel, which keeps the standard inset. */
 @media (max-width: 600px) {
-  html[data-platform='mobile'] {
+  html[data-platform='mobile']:not(.icon-rail-right) {
     --mobile-page-inset: 6px;
   }
 
@@ -183,13 +210,18 @@ html[data-platform='mobile'] .icon-rail {
     border-right: 0 !important;
     box-shadow: inset -1px 0 0 var(--border-default);
   }
+
+  html[data-platform='mobile'] .icon-rail[data-side='right'] {
+    border-left: 0 !important;
+    box-shadow: inset 1px 0 0 var(--border-default);
+  }
 }
 
 html[data-platform='mobile'] [data-tooltip].icon-rail-button {
   height: var(--touch-target);
 }
 
-/* Tooltips need a pointer that can hover. The active left border stays. */
+/* Tooltips need a pointer that can hover. The active edge marker stays. */
 html[data-platform='mobile'] [data-tooltip]::after {
   display: none;
 }
@@ -432,7 +464,8 @@ html[data-platform='mobile'] .graph-view-fit {
 /* 7. QUICK SWITCHER AS A PAGE */
 
 html[data-platform='mobile'] .quick-switcher-backdrop {
-  left: var(--rail-width);
+  left: var(--rail-inset-left);
+  right: var(--rail-inset-right);
   align-items: stretch;
   padding: 0;
   animation: none;
@@ -577,10 +610,11 @@ html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
 /* 9. FIXED SURFACES (dialogs, popovers, toasts) */
 
 /* Every centred dialog sits on one of these two scrims. The rail paints above
-   them, so a scrim that starts at the screen edge only hides a dialog's left
-   side under it. */
+   them, so a scrim that starts at the screen edge only hides one side of a
+   dialog under it. */
 html[data-platform='mobile'] :is(.modal-backdrop-dark, .wn-scrim) {
-  left: var(--rail-width);
+  left: var(--rail-inset-left);
+  right: var(--rail-inset-right);
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
 }
@@ -592,10 +626,11 @@ html[data-platform='mobile'] .modal-backdrop-dark {
 }
 
 /* A page keeps the transform from its entry animation, so a fixed scrim
-   inside it is laid out against the page, which already starts at the rail;
-   the offset above would push it a second rail-width to the right. */
+   inside it is laid out against the page, which already stops at the rail;
+   the offset above would push it a second rail-width inwards. */
 html[data-platform='mobile'] .app-overlay :is(.modal-backdrop-dark, .wn-scrim) {
   left: 0;
+  right: 0;
 }
 
 html[data-platform='mobile'] .modal-elevated.template-picker-modal {
@@ -1036,7 +1071,8 @@ html[data-platform='mobile'][data-keyboard='closed'] .mobile-formatting-bar {
 /* Forge management uses the device's own storage on iOS. */
 html[data-platform='mobile'] .forge-management-backdrop {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent) !important;
-  left: var(--rail-width);
+  left: var(--rail-inset-left);
+  right: var(--rail-inset-right);
   padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
 }
 
@@ -1053,6 +1089,7 @@ html[data-platform='mobile'] .forge-management-dialog :is(button, input) {
 
 html[data-platform='mobile'] .app-overlay .forge-management-backdrop {
   left: 0;
+  right: 0;
 }
 
 /* Larger Text puts navigation above the section title, leaving a full line for it. */

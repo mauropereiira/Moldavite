@@ -24,6 +24,7 @@ export type SortOption =
   | 'created-desc'
   | 'created-asc';
 export type ChromeMode = 'overlay' | 'pinned' | 'off';
+export type IconRailSide = 'left' | 'right';
 export type SettingsTab =
   | 'general'
   | 'appearance'
@@ -60,6 +61,12 @@ export interface SettingsState {
   focusModeEnabled: boolean;
 
   showIconRail: boolean;
+  /**
+   * Which window edge the rail sits on. The Index column travels with it, so
+   * the rail and the panel it opens stay together; the Agenda takes the far
+   * side.
+   */
+  iconRailSide: IconRailSide;
   indexMode: ChromeMode;
   agendaMode: ChromeMode;
   showNoteHeader: boolean;
@@ -110,6 +117,7 @@ export interface SettingsState {
   setEditorWidth: (width: EditorWidth) => void;
   setTagsEnabled: (enabled: boolean) => void;
   setFocusModeEnabled: (enabled: boolean) => void;
+  setIconRailSide: (side: IconRailSide) => void;
   setIndexMode: (mode: ChromeMode) => void;
   setAgendaMode: (mode: ChromeMode) => void;
   setSortOption: (option: SortOption) => void;
@@ -145,6 +153,7 @@ const defaultSettings = {
   tagsEnabled: true,
   focusModeEnabled: false,
   showIconRail: true,
+  iconRailSide: 'left' as IconRailSide,
   indexMode: 'overlay' as ChromeMode,
   agendaMode: 'overlay' as ChromeMode,
   showNoteHeader: true,
@@ -171,6 +180,9 @@ const defaultSettings = {
 
 const isChromeMode = (value: unknown): value is ChromeMode =>
   value === 'overlay' || value === 'pinned' || value === 'off';
+
+const isIconRailSide = (value: unknown): value is IconRailSide =>
+  value === 'left' || value === 'right';
 
 /**
  * Bring a pre-2.0 payload onto the chrome-mode frame.
@@ -205,6 +217,9 @@ export function migrateSettingsState(
 
   if (!isChromeMode(state.indexMode)) state.indexMode = defaultSettings.indexMode;
   if (!isChromeMode(state.agendaMode)) state.agendaMode = defaultSettings.agendaMode;
+  if ('iconRailSide' in state && !isIconRailSide(state.iconRailSide)) {
+    state.iconRailSide = defaultSettings.iconRailSide;
+  }
 
   delete state.showSidebar;
   delete state.showRightPanel;
@@ -233,6 +248,7 @@ export const useSettingsStore = create<SettingsState>()(
       setEditorWidth: (width) => set({ editorWidth: width }),
       setTagsEnabled: (enabled) => set({ tagsEnabled: enabled }),
       setFocusModeEnabled: (enabled) => set({ focusModeEnabled: enabled }),
+      setIconRailSide: (side) => set({ iconRailSide: side }),
       setIndexMode: (mode) => {
         set({ indexMode: mode });
         if (mode === 'pinned') {
@@ -294,6 +310,7 @@ export const useSettingsStore = create<SettingsState>()(
         tagsEnabled: state.tagsEnabled,
         focusModeEnabled: state.focusModeEnabled,
         showIconRail: state.showIconRail,
+        iconRailSide: state.iconRailSide,
         indexMode: state.indexMode,
         agendaMode: state.agendaMode,
         showNoteHeader: state.showNoteHeader,
