@@ -140,6 +140,12 @@ get trapped underneath Index.
 - Dialog scrims start at the rail's edge (the rail paints above them). A
   page keeps the transform from its entry animation, so a fixed scrim inside
   a page is positioned against the page and gets `left: 0` instead.
+- In landscape the rail widens by the safe-area inset on its own edge. The
+  edge without the rail uses `--page-safe-left` / `--page-safe-right`: pages,
+  bars and the note paper paint to the screen edge and pad only their contents,
+  so hairlines and note colours still reach the edge. The rail's active marker
+  moves from the outer edge to the hairline there, since the outer edge is
+  under the sensor band.
 - Segmented controls with four or more options become a one-per-row list.
 - `tauri-plugin-mobile-ui` follows the system's preferred body-text scale while
   retaining Cream's fonts. Large text stacks segmented controls and Index footer

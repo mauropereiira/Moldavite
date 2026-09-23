@@ -192,6 +192,47 @@ html[data-platform='mobile'] .icon-rail[data-side='right'] {
   padding-right: var(--rail-edge-inset);
 }
 
+/* The edge without the rail has the same inset in landscape, whichever side
+   the sensor housing is on. A surface whose ground runs to that edge pads its
+   content by it. Both edges need it while the rail is hidden. */
+html[data-platform='mobile'] {
+  --page-safe-left: var(--safe-left);
+  --page-safe-right: var(--safe-right);
+}
+
+html[data-platform='mobile'].has-icon-rail:not(.focus-mode):not(.icon-rail-right) {
+  --page-safe-left: 0px;
+}
+
+html[data-platform='mobile'].has-icon-rail.icon-rail-right:not(.focus-mode) {
+  --page-safe-right: 0px;
+}
+
+/* A phone in landscape puts the sensor band between the buttons and the
+   screen edge, so an outer-edge marker would float in the rail's ground. It
+   moves to the hairline instead, the rail's only edge the eye can see there. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-platform='mobile'] .icon-rail [data-tooltip].icon-rail-button {
+    border-left: 0;
+    border-right: 2px solid transparent;
+  }
+
+  html[data-platform='mobile'] .icon-rail [data-tooltip].icon-rail-button[data-active='true'] {
+    border-right-color: var(--text-primary);
+  }
+
+  html[data-platform='mobile'] .icon-rail[data-side='right'] [data-tooltip].icon-rail-button {
+    border-left: 2px solid transparent;
+    border-right: 0;
+  }
+
+  html[data-platform='mobile']
+    .icon-rail[data-side='right']
+    [data-tooltip].icon-rail-button[data-active='true'] {
+    border-left-color: var(--text-primary);
+  }
+}
+
 /* Keep the phone's main text edge close to the system clock's left edge.
    The rail still has a full 44pt hit area; an inset hairline consumes none of
    it. iPad retains the roomier sidebar spacing. A rail on the right leaves
@@ -247,7 +288,7 @@ html[data-platform='mobile'] .app-overlay-close {
    overridden here. Under the status bar, level with the Forge name. */
 html[data-platform='mobile'] .app-overlay-controls {
   top: calc(var(--safe-top) + 20px) !important;
-  right: 8px !important;
+  right: calc(8px + var(--page-safe-right)) !important;
   gap: 0 !important;
 }
 
@@ -255,7 +296,16 @@ html[data-platform='mobile'] .app-overlay-controls {
    their inset so their text and hairlines share one edge. */
 html[data-platform='mobile'] .app-index-overlay .index-overlay-content,
 html[data-platform='mobile'] .app-sidebar .index-overlay-content {
-  padding: calc(var(--safe-top) + 12px) 0 var(--safe-bottom) !important;
+  padding: calc(var(--safe-top) + 12px) var(--page-safe-right) var(--safe-bottom)
+    var(--page-safe-left) !important;
+}
+
+/* The footer's rule spans the page, so it reaches back over the inset. */
+html[data-platform='mobile'] .index-overlay-content > .sidebar-footer {
+  margin-left: calc(-1 * var(--page-safe-left));
+  margin-right: calc(-1 * var(--page-safe-right));
+  padding-left: var(--page-safe-left);
+  padding-right: var(--page-safe-right);
 }
 
 html[data-platform='mobile'] .index-overlay-content :is(.forge-switcher, .sidebar-search) {
@@ -278,7 +328,8 @@ html[data-platform='mobile'] .app-index-grid {
 
 /* Agenda: padding and the header are inline in the component. */
 html[data-platform='mobile'] .app-agenda-overlay {
-  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) var(--safe-bottom) !important;
+  padding: calc(var(--safe-top) + 12px) calc(var(--mobile-page-inset) + var(--page-safe-right))
+    var(--safe-bottom) calc(var(--mobile-page-inset) + var(--page-safe-left)) !important;
 }
 
 html[data-platform='mobile'] .app-overlay-header {
@@ -416,7 +467,8 @@ html[data-platform='mobile'][data-large-text='true'] .section-header > button {
 /* 5. TIMELINE PAGE */
 
 html[data-platform='mobile'] .timeline-view-header {
-  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 12px;
+  padding: calc(var(--safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right)) 12px
+    calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
 /* The inline hairline under "Close" would span a 44px box; underline the
@@ -436,7 +488,8 @@ html[data-platform='mobile'] .timeline-view-close {
 }
 
 html[data-platform='mobile'] .timeline-view-feed {
-  padding: 16px var(--mobile-page-inset) calc(var(--safe-bottom) + 24px);
+  padding: 16px calc(var(--mobile-page-inset) + var(--page-safe-right))
+    calc(var(--safe-bottom) + 24px) calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .timeline-view-feed li > button {
@@ -448,7 +501,8 @@ html[data-platform='mobile'] .timeline-view-feed li > button {
 html[data-platform='mobile'] .graph-view-header {
   align-items: center;
   gap: 12px;
-  padding: calc(var(--safe-top) + 8px) var(--mobile-page-inset) 8px;
+  padding: calc(var(--safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right)) 8px
+    calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .graph-view-header > div {
@@ -481,7 +535,8 @@ html[data-platform='mobile'] .quick-switcher-container {
 }
 
 html[data-platform='mobile'] .quick-switcher-input-wrapper {
-  padding: calc(var(--safe-top) + 12px) var(--mobile-page-inset) 12px;
+  padding: calc(var(--safe-top) + 12px) calc(var(--mobile-page-inset) + var(--page-safe-right)) 12px
+    calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .quick-switcher-input {
@@ -490,7 +545,8 @@ html[data-platform='mobile'] .quick-switcher-input {
 }
 
 html[data-platform='mobile'] .quick-switcher-results {
-  padding: 8px 8px calc(var(--safe-bottom) + 8px);
+  padding: 8px calc(8px + var(--page-safe-right)) calc(var(--safe-bottom) + 8px)
+    calc(8px + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .quick-switcher-item {
@@ -512,8 +568,17 @@ html[data-platform='mobile'] .quick-switcher-footer {
 
 /* 8. EDITOR */
 
+/* Bars and the paper paint to the screen edge; only their contents clear the
+   inset, so a note colour or a bar's ground never stops short of the edge. */
+
 html[data-platform='mobile'] .editor-paper {
-  padding-inline: var(--mobile-page-inset);
+  padding-left: calc(var(--mobile-page-inset) + var(--page-safe-left));
+  padding-right: calc(var(--mobile-page-inset) + var(--page-safe-right));
+}
+
+html[data-platform='mobile'] .backlinks-panel {
+  padding-left: var(--page-safe-left);
+  padding-right: var(--page-safe-right);
 }
 
 /* The note's Close control, out of flow at the top of the paper. */
@@ -526,7 +591,7 @@ html[data-platform='mobile'] .editor-paper-close-rail button {
 /* The 56px left gutter clears macOS window controls; a phone has none. */
 html[data-platform='mobile'] .tab-bar {
   min-height: var(--touch-target);
-  padding: 0 16px;
+  padding: 0 calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .tab {
@@ -549,7 +614,8 @@ html[data-platform='mobile'] .toolbar-button {
    safe-area band above it: the row read as a hole under the footer. */
 html[data-platform='mobile'] .editor-footer {
   min-height: var(--touch-target);
-  padding: 0 16px max(calc(var(--safe-bottom) - 14px), 0px);
+  padding: 0 calc(16px + var(--page-safe-right)) max(calc(var(--safe-bottom) - 14px), 0px)
+    calc(16px + var(--page-safe-left));
 }
 
 /* Footer controls keep a full touch target without a fixed label width. */
@@ -579,9 +645,10 @@ html[data-platform='mobile'] .editor-navigation-links button {
   padding-inline: 6px;
 }
 
+/* Spans the rail as well, so it clears both insets. */
 html[data-platform='mobile'] .pinned-bar {
   gap: 0;
-  padding: 0 16px;
+  padding: 0 calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
 }
 
 html[data-platform='mobile'] .pinned-bar-item {
@@ -615,8 +682,12 @@ html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
 html[data-platform='mobile'] :is(.modal-backdrop-dark, .wn-scrim) {
   left: var(--rail-inset-left);
   right: var(--rail-inset-right);
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
+  padding: var(--safe-top) var(--page-safe-right) var(--safe-bottom) var(--page-safe-left);
+}
+
+/* A page's ground runs to the edge; its content takes the inset instead. */
+html[data-platform='mobile'] .modal-backdrop-dark:has(> .template-picker-modal) {
+  padding-inline: 0;
 }
 
 /* The template picker is a page, like Settings: a grid of cards with a
@@ -641,6 +712,11 @@ html[data-platform='mobile'] .modal-elevated.template-picker-modal {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+html[data-platform='mobile'] .template-picker-modal > * {
+  padding-left: calc(24px + var(--page-safe-left));
+  padding-right: calc(24px + var(--page-safe-right));
 }
 
 html[data-platform='mobile'] .modal-elevated:not(.template-picker-modal) {
@@ -703,9 +779,9 @@ html[data-platform='mobile'] .wn-footer {
    its own, so it is found through the toast it holds. */
 html[data-platform='mobile'] div:has(> .toast-enter-new),
 html[data-platform='mobile'] div:has(> .toast-exit-new) {
-  right: 16px;
+  right: calc(16px + var(--safe-right));
   bottom: calc(var(--safe-bottom) + 16px);
-  left: 16px;
+  left: calc(16px + var(--safe-left));
 }
 
 html[data-platform='mobile'] :is(.toast-enter-new, .toast-exit-new) {
@@ -754,7 +830,7 @@ html[data-platform='mobile'] .empty-note-template-mobile {
    The nav is centred inline on desktop, so both need !important. The save
    status and word count start after the Menu label. */
 html[data-platform='mobile'] .editor-navigation-links {
-  left: 12px !important;
+  left: calc(12px + var(--page-safe-left)) !important;
   transform: none !important;
 }
 
@@ -906,7 +982,8 @@ html[data-platform='mobile'] .note-header {
 html[data-platform='mobile'] .app-onboarding-scrim {
   z-index: 11000;
   background: var(--bg-base);
-  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+  padding: calc(var(--safe-top) + 16px) calc(16px + var(--safe-right))
+    calc(var(--safe-bottom) + 16px) calc(16px + var(--safe-left));
   height: var(--app-height);
 }
 
@@ -979,6 +1056,8 @@ html[data-platform='mobile'] .onboarding-monogram {
 }
 
 html[data-platform='mobile'] .mobile-formatting-bar {
+  padding-left: var(--page-safe-left);
+  padding-right: var(--page-safe-right);
   display: none;
   flex: 0 0 auto;
   align-items: stretch;
@@ -1041,6 +1120,7 @@ html[data-platform='mobile'] .mobile-field-keyboard-bar {
   left: 0;
   right: 0;
   height: var(--touch-target);
+  padding-right: var(--safe-right);
   justify-content: flex-end;
   background: var(--bg-base);
   border-top: 1px solid var(--border-default);
@@ -1073,7 +1153,8 @@ html[data-platform='mobile'] .forge-management-backdrop {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent) !important;
   left: var(--rail-inset-left);
   right: var(--rail-inset-right);
-  padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
+  padding: calc(var(--safe-top) + 12px) calc(12px + var(--page-safe-right))
+    calc(var(--safe-bottom) + 12px) calc(12px + var(--page-safe-left));
 }
 
 html[data-platform='mobile'] .forge-management-dialog {

@@ -71,6 +71,28 @@ describe('SettingsModal on a phone', () => {
     expect(dialog.style.paddingBottom).toBe('var(--safe-bottom)');
   });
 
+  // The page's ground and hairlines run to the screen edge; only the text
+  // clears the landscape safe area on the edge the rail does not cover.
+  it('insets its contents, not its rules, by the safe area without the rail', () => {
+    render(<SettingsModal />);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.paddingLeft).toBe('');
+    expect(dialog.style.paddingRight).toBe('');
+    const header = dialog.querySelector('header') as HTMLElement;
+    expect(header.style.paddingLeft).toContain('var(--page-safe-left)');
+    expect(header.style.paddingRight).toContain('var(--page-safe-right)');
+    const row = screen.getByRole('button', { name: 'General' });
+    expect(row.style.padding).toContain('var(--page-safe-left)');
+    expect(row.style.padding).toContain('var(--page-safe-right)');
+
+    fireEvent.click(row);
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.style.padding).toContain('var(--page-safe-left)');
+    expect(panel.style.padding).toContain('var(--page-safe-right)');
+    fireEvent.click(backButton() as HTMLElement);
+  });
+
   it('opens a section from its row and returns to the list from the back control', () => {
     render(<SettingsModal />);
 

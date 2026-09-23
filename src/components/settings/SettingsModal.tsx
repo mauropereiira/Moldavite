@@ -434,8 +434,8 @@ function MobileSettingsPage({
           className="flex items-center flex-shrink-0 gap-1"
           style={{
             minHeight: TOUCH_TARGET,
-            paddingLeft: section ? '4px' : 'var(--mobile-page-inset)',
-            paddingRight: '4px',
+            paddingLeft: `calc(${section ? '4px' : 'var(--mobile-page-inset)'} + var(--page-safe-left))`,
+            paddingRight: 'calc(4px + var(--page-safe-right))',
             borderBottom: '1px solid var(--border-default)',
           }}
         >
@@ -479,7 +479,10 @@ function MobileSettingsPage({
             role="tabpanel"
             aria-labelledby="settings-modal-title"
             className="flex-1 min-h-0 min-w-0 overflow-y-auto"
-            style={{ padding: '16px 16px 20px' }}
+            style={{
+              padding:
+                '16px calc(16px + var(--page-safe-right)) 20px calc(16px + var(--page-safe-left))',
+            }}
           >
             <div key={section.id} className="tab-content-enter">
               {renderSection(section.id)}
@@ -498,7 +501,8 @@ function MobileSettingsPage({
                 className="flex w-full items-center gap-3 text-left text-[15px] font-medium focus-ring"
                 style={{
                   minHeight: '48px',
-                  padding: '0 16px',
+                  padding:
+                    '0 calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left))',
                   borderBottom: '1px solid var(--border-muted)',
                   color: 'var(--text-primary)',
                 }}

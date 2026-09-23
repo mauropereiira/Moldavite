@@ -377,4 +377,58 @@ describe('IconRail', () => {
     expect(right).toContain('right: calc(100% + 8px)');
     expect(right).toContain('left: auto');
   });
+
+  describe('in the phone stylesheet', () => {
+    const mobileCss = readFileSync(join(process.cwd(), 'src/mobile.css'), 'utf8');
+    const rule = (selector: string, from = 0) => {
+      const start = mobileCss.indexOf(`${selector} {`, from);
+      expect(start).toBeGreaterThan(-1);
+      return mobileCss.slice(start, mobileCss.indexOf('}', start));
+    };
+
+    it('leaves the safe-area inset to the rail on its own edge and to pages on the other', () => {
+      const root = rule(
+        "html[data-platform='mobile']",
+        mobileCss.indexOf('The edge without the rail')
+      );
+      expect(root).toContain('--page-safe-left: var(--safe-left)');
+      expect(root).toContain('--page-safe-right: var(--safe-right)');
+      expect(
+        rule("html[data-platform='mobile'].has-icon-rail:not(.focus-mode):not(.icon-rail-right)")
+      ).toContain('--page-safe-left: 0px');
+      expect(
+        rule("html[data-platform='mobile'].has-icon-rail.icon-rail-right:not(.focus-mode)")
+      ).toContain('--page-safe-right: 0px');
+
+      for (const bar of ['.mobile-formatting-bar', '.backlinks-panel']) {
+        const padded = rule(`html[data-platform='mobile'] ${bar}`);
+        expect(padded).toContain('padding-left: var(--page-safe-left)');
+        expect(padded).toContain('padding-right: var(--page-safe-right)');
+      }
+      for (const surface of ['.editor-paper', '.editor-footer', '.timeline-view-header']) {
+        expect(rule(`html[data-platform='mobile'] ${surface}`)).toMatch(
+          /var\(--page-safe-left\)[\s\S]*var\(--page-safe-right\)|var\(--page-safe-right\)[\s\S]*var\(--page-safe-left\)/
+        );
+      }
+    });
+
+    it('moves the active marker to the hairline on a landscape phone, on either side', () => {
+      const landscape = mobileCss.indexOf(
+        '@media (orientation: landscape) and (max-height: 500px)'
+      );
+      expect(landscape).toBeGreaterThan(-1);
+      expect(
+        rule(
+          "html[data-platform='mobile'] .icon-rail [data-tooltip].icon-rail-button[data-active='true']",
+          landscape
+        )
+      ).toContain('border-right-color: var(--text-primary)');
+      const right = mobileCss.slice(
+        landscape,
+        mobileCss.indexOf('border-left-color: var(--text-primary)', landscape)
+      );
+      expect(right).toContain(".icon-rail[data-side='right']");
+      expect(right).toContain('border-left: 2px solid transparent');
+    });
+  });
 });

@@ -41,7 +41,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
   };
 
   return (
-    <div style={{ borderTop: '1px solid var(--border-default)' }}>
+    <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border-default)' }}>
       <div
         className="mx-3 flex items-center"
         style={{ borderBottom: '1px solid var(--border-muted)' }}
