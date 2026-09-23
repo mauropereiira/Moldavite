@@ -1,4 +1,5 @@
-//! Export an already-complete file through the iOS document picker.
+//! Export or share an already-complete file through the iOS document picker
+//! or share sheet.
 #![cfg(target_os = "ios")]
 
 use serde::Deserialize;
@@ -22,6 +23,17 @@ impl<R: Runtime> DocumentExport<R> {
         let result: ExportResult = self
             .0
             .run_mobile_plugin_async("exportFile", serde_json::json!({ "path": path }))
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(result.exported)
+    }
+
+    /// Present the share sheet for a complete file. Keep the source alive
+    /// until this returns. False means the sheet was dismissed unused.
+    pub async fn share(&self, path: &std::path::Path) -> Result<bool, String> {
+        let result: ExportResult = self
+            .0
+            .run_mobile_plugin_async("shareFile", serde_json::json!({ "path": path }))
             .await
             .map_err(|e| e.to_string())?;
         Ok(result.exported)

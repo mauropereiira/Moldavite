@@ -6,6 +6,8 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- **Share a note from iPhone.** Share → Share note… opens the iPhone share sheet with the note as a Markdown file, so it can go by AirDrop, Messages or Mail, or be saved to Files. On iPad the sheet opens in the middle of the window.
+
 - **Five new themes that each look like their own theme: Sage, Slate, Clay, Plum and Graphite.** The old presets mostly changed the page background and one small accent, and in light mode four of them were shades of beige, while Dracula and Nord had no light version at all and quietly showed Cream. Each new theme has a light and a dark version and colours the page, sidebar, rail and panels in its own hue, with a stronger but still calm accent and its own heading and link colours in notes. Cream is unchanged. If you used Solarized or Nord you are moved to Slate, Dracula to Plum, and Sepia or Gruvbox to Clay.
 
 - **The icon rail can sit on the right.** Choose Left or Right under Settings → Layout → Rail side, on the desktop, iPhone and iPad. A pinned Index moves with the rail so the two stay together, and a pinned Agenda takes the other side. Tooltips and the Trash open towards the note. On iPhone in landscape, the rail's buttons now stay clear of the camera and the rounded corners on either side.

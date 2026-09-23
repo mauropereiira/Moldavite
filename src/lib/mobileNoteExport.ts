@@ -31,3 +31,9 @@ export async function exportMobileSelection(paths: string[]): Promise<boolean> {
   await flushBeforeExport();
   return safeInvoke('export_mobile_document', { request: { kind: 'selection', paths } });
 }
+
+/** Resolves false when the share sheet was dismissed without sending. */
+export async function shareMobileNote(path: string): Promise<boolean> {
+  await flushBeforeExport();
+  return safeInvoke('share_mobile_note', { path });
+}

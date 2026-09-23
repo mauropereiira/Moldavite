@@ -36,6 +36,40 @@ final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
         }
     }
 
+    @objc func shareFile(_ invoke: Invoke) throws {
+        let options = try invoke.parseArgs(ExportOptions.self)
+        let source = URL(fileURLWithPath: options.path)
+        DispatchQueue.main.async {
+            guard self.pending == nil,
+                  let presenter = self.manager.viewController,
+                  presenter.presentedViewController == nil else {
+                invoke.reject("Another dialog is already open.")
+                return
+            }
+            guard FileManager.default.fileExists(atPath: source.path) else {
+                invoke.reject("The shared file is no longer available.")
+                return
+            }
+            let sheet = UIActivityViewController(activityItems: [source], applicationActivities: nil)
+            // An iPad presents the sheet as a popover, which must have an anchor.
+            if let popover = sheet.popoverPresentationController {
+                let bounds = presenter.view.bounds
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(x: bounds.midX, y: bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            // Cancelling an activity such as Mail returns to the sheet, which
+            // still needs the file; only the sheet closing ends the share.
+            sheet.completionWithItemsHandler = { [weak self] activity, completed, _, _ in
+                if completed || activity == nil {
+                    self?.finish(completed)
+                }
+            }
+            self.pending = invoke
+            presenter.present(sheet, animated: true)
+        }
+    }
+
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         finish(!urls.isEmpty)
     }

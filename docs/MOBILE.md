@@ -244,6 +244,14 @@ different folders stay distinct. The backend rejects locked or invalid sources.
 Use a note’s Options → Select note, then tap additional notes to select them;
 the selection bar opens the ZIP export dialog. Mobile PDF export is excluded.
 
+Share → Share note… (`share_mobile_note`) stages the note's Markdown file the
+same way and presents `UIActivityViewController` from the same plugin, so
+AirDrop, Messages, Mail and Save to Files receive a complete `.md` file. The
+staging copy lives until the sheet closes; cancelling an activity such as Mail
+returns to the sheet with the file still there. On iPad the sheet is a popover
+anchored to the middle of the window. Locked notes are refused, and the item is
+not offered on a view-only note.
+
 Do not use `dialog.save()` followed by a Rust write on iOS. With the currently
 locked dialog plugin, this exports an empty placeholder and returns a cache
 copy, leaving the Files destination empty.
