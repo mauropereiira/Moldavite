@@ -118,6 +118,8 @@ In Moldavite 2.7.0 or later, open **Settings → General → Use synced Forge** 
 create a separate iCloud Forge on your Mac. Write notes there or use **Open
 synced folder in Finder** to copy Markdown files into `notes/`. Your local
 Forges stay separate. You can start on Mac before installing the iOS app.
+Notes that are only in iCloud show a small cloud and download when you open
+them and tap **Download**.
 
 See [the Mac iCloud guide](docs/MAC_ICLOUD.md) for setup, adding existing notes,
 and troubleshooting. iOS availability and its full guide will follow separately.

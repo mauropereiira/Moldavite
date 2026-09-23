@@ -255,11 +255,59 @@ existing open-buffer reconciliation; own writes are suppressed using the existin
 content fingerprint. Session checks reject stale-account callbacks and prevent
 metadata-only names from being overwritten as new files.
 
+### Notes stay on demand
+
+Notes are not forced onto the device. A note iCloud lists without local bytes
+(no file, a legacy `.name.icloud` placeholder, or a dataless file with
+`SF_DATALESS` set) is listed with `notDownloaded`, and the note list and quick
+switcher mark it with a cloud ("In iCloud, not downloaded"). `cloud_forge.rs`
+answers a read or save of such a note with `NOT_DOWNLOADED` before path
+validation, so a note in a folder not yet on the device gets the same answer
+instead of "Invalid note path"; path validation stays strict for everything
+else. Such a read never reaches the native reader, so it requests no download.
+
+Opening one opens a placeholder tab (`Note.cloudPending`, `src/lib/cloudNotes.ts`)
+with a Download button. `icloud_download_note` calls
+`startDownloadingUbiquitousItem` through `moldavite_cloud_download`; when the
+metadata observer reports the item local, the tab reads the note and becomes an
+ordinary editable note. Download errors from metadata, and being offline, are
+shown inline with Try again. A placeholder's empty body is not the note, so it is
+never written: the note store ignores edits to it, `writeNote` and guarded
+deletes refuse its address until a real read is adopted, autosave and
+save-on-leave (including retries, the close guard and the hidden-page flush)
+skip it, and the watcher never treats it as edited or missing. The backend
+refuses the save as well.
+
+Metadata updates are diffed against the snapshot before anything is emitted.
+The initial gather is one list refresh. After that, only a name added or removed,
+a change of local-ness (download finished or content evicted), a new content
+date on a local item, or a new download error reaches the frontend; upload
+progress does not. Tags, backlinks, search, the graph, colours and the index
+builders skip evicted files, so a whole-Forge scan never downloads every note.
+An `.unknown` download status counts as local when the file has non-dataless
+bytes. New-note, template and link-note names also avoid names iCloud lists but
+has not downloaded (`persist::name_is_taken`).
+
+When an item reports unresolved conflicts, each `NSFileVersion` conflict version
+that differs from the current file is saved beside it as the usual
+`(conflict YYYY-MM-DD HHMM)` copy inside a coordinated write
+(`moldavite_resolve_conflicts`), then the versions are removed and marked
+resolved. Locked notes are skipped because their ciphertext is bound to their
+path.
+
+At launch on the synced Forge the frontend waits for `icloud_readiness` or
+`icloud:ready` before its first loads, showing a quiet loading state. If the
+connection gives up, one screen says "iCloud isn't available right now" with Try
+again and Use local Forge. A first metadata pass that arrives after that
+timeout still marks the Forge ready, runs `refresh_active_forge` (index
+rebuilds included) and emits `icloud:ready`, and the app then loads.
+
 **Sync is still in development.** Coordinated access for remaining content
-operations, cross-Forge moves, OS-managed conflict versions and account-backed
-round-trip/offline verification remain. Existing downloaded contents are intended
-to remain usable offline with the normal conflict-copy policy on save; that
-account-backed behavior has not yet been proven.
+operations, cross-Forge moves and account-backed round-trip/offline verification
+remain. Existing downloaded contents are intended to remain usable offline with
+the normal conflict-copy policy on save; that account-backed behavior has not yet
+been proven. The on-demand flow and conflict-version handling above have only
+been exercised with local fixtures, not with a signed-in account.
 
 The Foundation-only core has filesystem regression tests runnable without an
 iCloud account:
@@ -268,18 +316,20 @@ iCloud account:
 swift test --package-path src-tauri/plugins/tauri-plugin-icloud/ios/Core
 ```
 
-They cover placeholder vs empty-file handling, unknown download state, account
-invalidation and path/symlink containment. They do not prove iCloud delivery.
+They cover placeholder vs empty-file handling, unknown download state (readable
+when the bytes are local), download requests only for listed items of a ready
+session, account invalidation and path/symlink containment. They do not prove
+iCloud delivery.
 The native `coordination::read/write` boundary holds [Apple file coordination](https://developer.apple.com/documentation/technologyoverviews/shared-data)
 while a synchronous Rust callback checks and changes a file. Callers must run on
 a worker thread, validate the returned path and download readiness inside the
 callback, and keep conflict detection, preservation and atomic replacement in
 one write accessor. The normal note reader and complete hash/conflict/save path
 use the cloud-aware accessors: local files stay direct, while ubiquitous files
-receive coordination and download checks. Pending or unknown contents return an
-error and request a download; failed existing-note reads cannot become an empty
-save base. The account-bound session also guards metadata-only remote names. Remaining
-mutations and OS-managed conflict versions still need integration.
+receive coordination and download checks. Pending contents return the
+not-downloaded error; failed existing-note reads cannot become an empty save
+base. The account-bound session also guards metadata-only remote names. Remaining
+mutations still need integration.
 
 Note lock/unlock, rename/move, direct deletion and folder creation/move/rename/
 deletion now use a single native transaction for all participating paths. This
@@ -309,5 +359,6 @@ container keys follow [Apple's Info.plist reference](https://developer.apple.com
   verification. Selection and metadata listing are connected; a local, unsynced
   Forge on the phone stays the default.
 - Note content in the widget (needs an App Group), a Lock Screen widget.
-- A run on a real iPhone: selection handles and autocorrect in the editor.
+- A run on a real iPhone: selection handles and autocorrect in the editor, and
+  the on-demand iCloud checks in [MOBILE_QA.md](MOBILE_QA.md#on-demand-icloud-notes-to-verify-on-a-device).
 - iPad layout, then Android through Tauri's Android target.
