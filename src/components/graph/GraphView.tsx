@@ -1,6 +1,7 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyGraphEmptyState } from '@/components/ui';
 import { safeInvoke } from '@/lib/ipc';
+import { isMobilePlatform } from '@/lib/platform';
 import { useGraphStore, useNoteStore, useThemeStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { noteForGraphNode } from './addressing';
@@ -829,7 +830,11 @@ export function GraphView() {
                 lineHeight: 1,
                 textTransform: 'uppercase',
               }}
-              title="Fit all notes in view (double-click the canvas)"
+              title={
+                isMobilePlatform()
+                  ? 'Fit all notes in view'
+                  : 'Fit all notes in view (double-click the canvas)'
+              }
             >
               Fit view
             </button>

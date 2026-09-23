@@ -529,8 +529,7 @@ html[data-platform='mobile'] .timeline-view-header {
     12px calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
-/* The inline hairline under "Close" would span a 44px box; underline the
-   word instead. */
+/* The × keeps its glyph inside a 44px hit box, like the other pages'. */
 html[data-platform='mobile'] .timeline-view-close {
   display: inline-flex;
   align-items: center;
@@ -538,11 +537,6 @@ html[data-platform='mobile'] .timeline-view-close {
   min-width: var(--touch-target);
   min-height: var(--touch-target);
   margin: -12px -12px -12px 0;
-  padding-inline: 8px;
-  border-bottom: 0 !important;
-  font-size: 13px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 html[data-platform='mobile'] .timeline-view-feed {
@@ -1240,9 +1234,10 @@ html[data-platform='mobile'] .app-onboarding-scrim button {
 }
 
 /* Only the step's own action is underlined. Underlining every button gave the
-   last step three different-looking rules at three different widths. */
+   last step three different-looking rules at three different widths. In ink:
+   the step indicator is this screen's one green mark. */
 html[data-platform='mobile'] .app-onboarding-footer > div:last-child button:last-child {
-  border-bottom: 1px solid var(--accent-primary);
+  border-bottom: 1px solid var(--text-primary);
 }
 
 html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],

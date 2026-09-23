@@ -122,7 +122,7 @@ export async function routeNoteRequest(
   if (note.isLocked) {
     useToastStore
       .getState()
-      .addToast('error', 'The linked note is locked. Unlock it from the sidebar first.');
+      .addToast('error', 'The linked note is locked. Unlock it from the Index first.');
     return false;
   }
 

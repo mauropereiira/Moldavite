@@ -23,7 +23,7 @@ import {
   ChevronLeft,
   PanelLeft,
   Edit3,
-  Network,
+  Calendar,
   Search,
   Bot,
   Brain,
@@ -239,7 +239,7 @@ export function AppOnboardingModal() {
           : `${formatShortcut('⌘\\')} summons notes, folders, and tags.`,
       },
       {
-        icon: <Network className="w-5 h-5" aria-hidden="true" />,
+        icon: <Calendar className="w-5 h-5" aria-hidden="true" />,
         title: 'Agenda',
         body: mobile
           ? 'Tap Agenda in the rail to browse your daily notes by date.'

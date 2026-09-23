@@ -18,6 +18,8 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- On iPhone, the onboarding tour shows the rail's calendar icon for Agenda (it showed the graph's), its Next is underlined in ink rather than a second green, and a few desktop words are gone from the phone: the locked-note message says to unlock from the Index, not the sidebar, and the graph's Fit view no longer mentions double-clicking. Delete dialogs are titled "Delete note".
+
 - **Settings says each thing once.** Backup & Restore and Encrypted Backup were in both General and Data; they are in Data, and General points there. The Tags switch was in both Editor and Features; it is in Features. The encrypted-backup card and Manage Forges' Done are no longer green, export and import buttons share one style, and "colour" is spelled one way.
 
 - **Settings on iPhone:** switches are iPhone-sized and show at a glance whether they are on, the save-delay slider is finger-sized and read out by VoiceOver, unselected options are readable on dark themes, colour presets are rows rather than boxes inside a box, and the Synced Forge control is a switch. Sidebar is called Index, as the page is, About no longer lists keyboard shortcuts, focus mode shows none, and Layout drops a line of desktop copy. Deleting a Forge asks in the app (the system confirmation never appeared, so nothing happened), and Delete on the active Forge says to switch first.
@@ -45,6 +47,8 @@ All notable changes to Moldavite are documented here.
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
 
 ### Fixed
+
+- The Timeline's previews showed Markdown as typed: backslashes before brackets, table pipes and `---` rules, list and task markers. They show the words only, a daily note is named by its date ("5 September") as its own header is, and the Timeline closes with × like the other pages.
 
 - Clicking a `#tag` in a note filtered the Index but left it closed, so nothing seemed to happen. The Index now opens showing the notes with that tag. On iPhone a tap on a tag only placed the cursor; it now does the same.
 

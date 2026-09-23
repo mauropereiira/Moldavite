@@ -91,7 +91,7 @@ export function SidebarModals(props: SidebarModalsProps) {
               className="text-base font-semibold mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
-              Delete Note
+              Delete note
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete &quot;{deleteNote.name.replace(/\.md$/, '')}&quot;? It will be moved to trash

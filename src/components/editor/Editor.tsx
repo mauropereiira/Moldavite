@@ -1155,7 +1155,7 @@ export function Editor() {
       {showDeleteConfirm &&
         createPortal(
           <ConfirmDialog
-            title="Delete Note"
+            title="Delete note"
             message={`Delete "${deleteName}"? It will be moved to trash for 7 days.`}
             confirmLabel="Delete"
             danger

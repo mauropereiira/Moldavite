@@ -187,7 +187,7 @@ export function useNotes() {
         if (indexMode === 'off') {
           useToastStore
             .getState()
-            .addToast('error', 'This note is locked. Unlock it from the sidebar first.');
+            .addToast('error', 'This note is locked. Unlock it from the Index first.');
           return;
         }
         const overlays = useOverlayStore.getState();
