@@ -14,9 +14,9 @@ use tauri::{Emitter, Manager};
 #[cfg(not(target_os = "ios"))]
 #[path = "../plugins/tauri-plugin-icloud/src/models.rs"]
 mod models;
-use models::CloudItem;
 #[cfg(any(target_os = "macos", target_os = "ios", test))]
-use models::{ChangeKind, CloudChange, DownloadState};
+use models::{ChangeKind, CloudChange};
+use models::{CloudItem, DownloadState};
 #[cfg(target_os = "ios")]
 use tauri_plugin_icloud::models;
 
@@ -56,8 +56,26 @@ pub(crate) fn root() -> Result<PathBuf, String> {
     Err("The iCloud Forge is available on Apple devices only".to_string())
 }
 
+/// The config's `active_synced_forge`, cached: name checks and scans ask on every
+/// file. 0 is unknown, then 1 (local Forge) or 2 (synced). `write_config` updates it.
+static ACTIVE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+pub(crate) fn remember_active(synced: bool) {
+    ACTIVE.store(
+        if synced { 2 } else { 1 },
+        std::sync::atomic::Ordering::Relaxed,
+    );
+}
+
 fn is_active() -> bool {
-    crate::persist::read_config().active_synced_forge
+    match ACTIVE.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => {
+            let synced = crate::persist::read_config().active_synced_forge;
+            remember_active(synced);
+            synced
+        }
+        state => state == 2,
+    }
 }
 
 /// `ready`, `preparing` or `unavailable` (with the reason) for the synced Forge.
@@ -130,7 +148,6 @@ struct ItemUpdate {
     error: Option<String>,
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios", test))]
 fn state_is_local(state: DownloadState) -> bool {
     matches!(
         state,
@@ -183,19 +200,27 @@ fn apply_change(items: &mut BTreeMap<String, CloudItem>, change: &CloudChange) -
                     downloaded: is_local,
                     error: item.error.clone(),
                 };
+                // The content date can move before the new bytes land, so the end
+                // of a download (a state change, or is_downloading clearing) also
+                // asks for a read. iOS has no file watcher to do it instead.
+                let contents_may_differ = (item.modified.is_some()
+                    && previous.modified != item.modified)
+                    || previous.download_state != item.download_state
+                    || (previous.is_downloading && !item.is_downloading);
                 if was_local != is_local {
                     effects.refresh_list = true;
                     if is_local {
                         effects.modified.push(item.path.clone());
                     }
                     effects.updates.push(update);
-                } else if is_local && item.modified.is_some() && previous.modified != item.modified
-                {
+                } else if is_local && contents_may_differ {
                     effects.modified.push(item.path.clone());
                 } else if !is_local && previous.error != item.error {
                     effects.updates.push(update);
                 }
-                if conflicted(item) && !previous.has_conflicts {
+                // A conflicted note that had no local bytes was skipped; resolve
+                // it once its contents arrive.
+                if conflicted(item) && (!previous.has_conflicts || (is_local && !was_local)) {
                     effects.conflicts.push(item.path.clone());
                 }
             }
@@ -461,8 +486,19 @@ fn relative_to(root: &Path, path: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
+/// Metadata trails the app's own deletes, renames, moves and locks. An entry
+/// iCloud last saw on this device whose file is gone was changed here, so it
+/// no longer holds a name. Only entries iCloud never had locally stay listed
+/// without a file.
+fn is_stale(root: &Path, item: &CloudItem) -> bool {
+    state_is_local(item.download_state) && std::fs::symlink_metadata(root.join(&item.path)).is_err()
+}
+
 fn lookup(items: &BTreeMap<String, CloudItem>, root: &Path, path: &Path) -> Option<CloudItem> {
-    items.get(&relative_to(root, path)?).cloned()
+    items
+        .get(&relative_to(root, path)?)
+        .filter(|item| !is_stale(root, item))
+        .cloned()
 }
 
 fn listed(path: &Path) -> Option<CloudItem> {
@@ -581,7 +617,11 @@ pub(crate) fn merge_notes(notes: &mut Vec<crate::types::NoteFile>) -> Result<(),
         return Ok(());
     }
     let root = root()?;
-    merge_note_items(notes, snapshot()?, |relative| {
+    let items = snapshot()?
+        .into_iter()
+        .filter(|item| !is_stale(&root, item))
+        .collect();
+    merge_note_items(notes, items, |relative| {
         has_local_bytes(&root.join(relative))
     });
     Ok(())
@@ -649,7 +689,12 @@ pub(crate) fn merge_folders(folders: &mut Vec<crate::types::FolderInfo>) -> Resu
     if !is_active() {
         return Ok(());
     }
-    merge_folder_items(folders, snapshot()?);
+    let root = root()?;
+    let items = snapshot()?
+        .into_iter()
+        .filter(|item| !is_stale(&root, item))
+        .collect();
+    merge_folder_items(folders, items);
     Ok(())
 }
 
@@ -974,6 +1019,91 @@ mod tests {
             ),
         );
         assert_eq!(effects.conflicts, vec!["daily/2026-09-20.md"]);
+    }
+
+    #[test]
+    fn the_end_of_a_download_asks_for_a_read_even_when_the_date_moved_first() {
+        let mut items = BTreeMap::new();
+        let downloading = CloudItem {
+            modified: Some(20.0),
+            is_downloading: true,
+            ..at("notes/a.md", DownloadState::Downloaded)
+        };
+        apply_change(
+            &mut items,
+            &change(ChangeKind::Initial, vec![downloading.clone()], vec![]),
+        );
+        let finished = CloudItem {
+            is_downloading: false,
+            ..downloading.clone()
+        };
+        let effects = apply_change(
+            &mut items,
+            &change(ChangeKind::Changed, vec![finished], vec![]),
+        );
+        assert_eq!(effects.modified, vec!["notes/a.md"]);
+        let current = CloudItem {
+            is_downloading: false,
+            ..at("notes/a.md", DownloadState::Current)
+        };
+        let current = CloudItem {
+            modified: Some(20.0),
+            ..current
+        };
+        let effects = apply_change(
+            &mut items,
+            &change(ChangeKind::Changed, vec![current], vec![]),
+        );
+        assert_eq!(effects.modified, vec!["notes/a.md"]);
+        assert!(!effects.refresh_list);
+    }
+
+    #[test]
+    fn a_conflict_found_before_the_download_is_resolved_when_it_arrives() {
+        let conflicted = |state| CloudItem {
+            has_conflicts: true,
+            ..at("notes/a.md", state)
+        };
+        let mut items = BTreeMap::new();
+        apply_change(
+            &mut items,
+            &change(
+                ChangeKind::Initial,
+                vec![conflicted(DownloadState::Pending)],
+                vec![],
+            ),
+        );
+        let effects = apply_change(
+            &mut items,
+            &change(
+                ChangeKind::Changed,
+                vec![conflicted(DownloadState::Current)],
+                vec![],
+            ),
+        );
+        assert_eq!(effects.conflicts, vec!["notes/a.md"]);
+    }
+
+    #[test]
+    fn a_name_the_app_removed_is_free_before_the_metadata_catches_up() {
+        let root = std::env::temp_dir().join(format!("moldavite-stale-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("daily")).unwrap();
+        std::fs::write(root.join("daily/2026-09-20.md"), "body").unwrap();
+        let items = BTreeMap::from([
+            (
+                "daily/2026-09-20.md".to_string(),
+                at("daily/2026-09-20.md", DownloadState::Current),
+            ),
+            (
+                "notes/Remote.md".to_string(),
+                at("notes/Remote.md", DownloadState::Pending),
+            ),
+        ]);
+        assert!(lookup(&items, &root, &root.join("daily/2026-09-20.md")).is_some());
+        std::fs::remove_file(root.join("daily/2026-09-20.md")).unwrap();
+        assert!(lookup(&items, &root, &root.join("daily/2026-09-20.md")).is_none());
+        assert!(lookup(&items, &root, &root.join("notes/Remote.md")).is_some());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

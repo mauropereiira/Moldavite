@@ -29,8 +29,15 @@ public func resolveConflicts(_ path: UnsafePointer<CChar>?, _ context: UnsafeMut
                 throw CloudError.invalidPath
             }
             guard json.withCString({ accessor(context, $0, nil) }), !versions.isEmpty else { return }
-            try NSFileVersion.removeOtherVersionsOfItem(at: url)
-            for version in versions { version.isResolved = true }
+            // Rust has kept the copies and recorded its result. Reporting a
+            // failure now would replace that result and duplicate the copies
+            // on the next attempt, so a failure here is only logged.
+            do {
+                try NSFileVersion.removeOtherVersionsOfItem(at: url)
+                for version in versions { version.isResolved = true }
+            } catch {
+                NSLog("[icloud] conflict versions kept after copying: %@", error.localizedDescription)
+            }
         } catch { fail(error) }
     }
     if !accessed { fail(coordinationError ?? CloudError.unavailable) }

@@ -123,8 +123,8 @@ const BUDGETS = [
 // 645 / 180: save-on-leave with held-save retries and toast actions left the
 // entry at 635.6 KB / 176.9 KB gz. On-demand iCloud notes (the placeholder tab
 // and its Download state, the launch wait for iCloud, the cloud marker in note
-// lists) add 6.2 KB raw / 1.8 KB gz. Measured 641.8 KB / 178.7 KB gz; no new
-// dependencies.
+// lists) add 6.2 KB raw / 1.8 KB gz. Measured 643.6 KB / 179.3 KB gz with the
+// later save-on-leave fixes merged; no new dependencies.
 const APP_JS_BUDGET = { rawKb: 645, gzipKb: 180 };
 
 async function main() {

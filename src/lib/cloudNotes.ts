@@ -15,10 +15,9 @@ import {
   adoptNoteSnapshot,
   filenameToNote,
   listNotes,
-  markCloudPlaceholder,
   noteContentToEditorHtml,
-  noteFileBackendPath,
   readNoteSnapshot,
+  registerCloudPlaceholderProbe,
 } from './fileSystem';
 import { resetAutosaveBaseline } from './autosaveFlush';
 // Concrete store module, not the '@/stores' index, to avoid a module cycle.
@@ -82,12 +81,30 @@ function placeholderTab(noteId: string): Note | undefined {
   return useNoteStore.getState().openTabs.find((tab) => tab.id === noteId && tab.cloudPending);
 }
 
-/** Open `noteFile` as a placeholder tab instead of reading it. */
+registerCloudPlaceholderProbe((filename, isDaily, isWeekly) =>
+  useNoteStore.getState().openTabs.some((tab) => {
+    if (!tab.cloudPending || tab.isDaily !== isDaily || tab.isWeekly !== isWeekly) return false;
+    return addressOf(tab).filename === filename;
+  })
+);
+
+/** Whether the open tab for `noteId` is an iCloud placeholder right now. */
+export function isOpenCloudPlaceholder(noteId: string): boolean {
+  return placeholderTab(noteId) !== undefined;
+}
+
+/**
+ * Open `noteFile` as a placeholder tab instead of reading it. The note list can
+ * trail a download that already finished, so it then loads straight away; a read
+ * of a note that is still remote asks iCloud for nothing.
+ */
 export function openCloudPlaceholder(noteFile: NoteFile, inNewTab: boolean): void {
-  markCloudPlaceholder(noteFileBackendPath(noteFile), noteFile.isDaily, noteFile.isWeekly || false);
   useNoteStore
     .getState()
     .openTab({ ...filenameToNote(noteFile, ''), cloudPending: true }, inNewTab);
+  void loadDownloadedNote(noteFile.path).catch((error) =>
+    console.error('[cloudNotes] Failed to load a downloaded note:', error)
+  );
 }
 
 /**
@@ -150,17 +167,23 @@ export async function downloadCloudNote(note: Note): Promise<void> {
   }
 }
 
-/** Apply an `icloud:changed` event to the open placeholder tabs. */
+/**
+ * Apply an `icloud:changed` event. Download status is kept for every note, open
+ * or not, so a note left while downloading does not come back still spinning.
+ */
 export async function applyCloudChange(change: CloudChangePayload): Promise<void> {
+  const downloads = useCloudDownloadStore.getState();
+  for (const update of change.items) {
+    if (update.downloaded) downloads.set(update.path, null);
+    else if (update.error) downloads.set(update.path, { state: 'error', message: update.error });
+  }
   const placeholders = useNoteStore
     .getState()
     .openTabs.filter((tab) => tab.cloudPending)
     .map((tab) => tab.id);
   for (const noteId of placeholders) {
     const update = change.items.find((item) => item.path === noteId);
-    if (update?.error && !update.downloaded) {
-      useCloudDownloadStore.getState().set(noteId, { state: 'error', message: update.error });
-    } else if (update?.downloaded || change.initial) {
+    if (update?.downloaded || change.initial) {
       await loadDownloadedNote(noteId).catch((error) =>
         console.error('[cloudNotes] Failed to load a downloaded note:', error)
       );

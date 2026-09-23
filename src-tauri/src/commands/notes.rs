@@ -661,7 +661,9 @@ fn read_note_in(
 }
 
 /// The path a save of `filename` may replace. A note still in iCloud is refused:
-/// without its contents there is nothing to merge with or preserve.
+/// without its contents there is nothing to merge with or preserve. Its
+/// download is requested, so a held save of a note evicted while it was open
+/// succeeds on a later retry.
 fn note_write_target(
     dir: &Path,
     filename: &str,
@@ -670,6 +672,9 @@ fn note_write_target(
 ) -> Result<PathBuf, String> {
     let path = dir.join(filename);
     if crate::cloud_forge::is_remote_only(&path) {
+        if let Err(error) = crate::cloud_forge::download(&path) {
+            log::warn!("[icloud] could not request {filename}: {error}");
+        }
         return Err(crate::cloud_forge::NOT_DOWNLOADED.to_string());
     }
     if !note_name_is_taken(&path) && !is_valid_new_note_ref(dir, filename, is_daily, is_weekly) {
@@ -1156,8 +1161,11 @@ fn rewrite_inbound_links_in_roots(
             .flatten()
         {
             let path = entry.path();
+            // An evicted note's links stay as they are: reading it would
+            // download it, and a rename must not download the whole Forge.
             if !entry.file_type().is_file()
                 || path.extension().and_then(|s| s.to_str()) != Some("md")
+                || crate::cloud_forge::is_evicted(path)
             {
                 continue;
             }

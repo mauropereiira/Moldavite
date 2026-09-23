@@ -133,13 +133,40 @@ afterEach(() => {
 });
 
 describe('opening a note that is still in iCloud', () => {
-  it('opens a placeholder tab without reading the note or showing an error', async () => {
+  it('opens a placeholder tab without downloading the note or showing an error', async () => {
     const hook = renderNotes();
     await act(() => hook.result.current.loadNote(remote));
 
     expect(currentTab()).toMatchObject({ id: remote.path, content: '', cloudPending: true });
-    expect(invokeMock.mock.calls.some(([command]) => command === 'read_note')).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalledWith('icloud_download_note', expect.anything());
     expect(useToastStore.getState().toasts).toEqual([]);
+  });
+
+  it('loads at once when the note list trails a download that already finished', async () => {
+    const hook = renderNotes();
+    download(remote.path, 'already here');
+    await act(() => hook.result.current.loadNote(remote));
+
+    expect(currentTab().cloudPending).toBeFalsy();
+    expect(currentTab().content).toContain('already here');
+  });
+
+  it('does not come back spinning after leaving a note while it downloaded', async () => {
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(remote));
+    await act(() => downloadCloudNote(currentTab()));
+    await act(() => hook.result.current.loadNote(localNote));
+    expect(useNoteStore.getState().openTabs.some((tab) => tab.cloudPending)).toBe(false);
+
+    await act(() =>
+      applyCloudChange({
+        refreshList: true,
+        initial: false,
+        items: [{ path: remote.path, downloaded: true, error: null }],
+      })
+    );
+
+    expect(useCloudDownloadStore.getState().downloads[remote.path]).toBeUndefined();
   });
 
   it('opens a placeholder when the read reports the note not downloaded', async () => {
@@ -223,6 +250,85 @@ describe('opening a note that is still in iCloud', () => {
 
     expect(useNoteStore.getState().openTabs).toEqual([]);
     expect(mutations()).toEqual([]);
+  });
+});
+
+describe('text typed after a placeholder is kept', () => {
+  it('saves a new note created where a deleted placeholder was', async () => {
+    const ideas: NoteFile = {
+      ...localNote,
+      name: 'Ideas.md',
+      path: 'notes/Ideas.md',
+      notDownloaded: true,
+    };
+    listed = [ideas, localNote];
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(ideas));
+    expect(currentTab().cloudPending).toBe(true);
+
+    // Deleted on another device: the placeholder closes.
+    listed = [localNote];
+    downloaded.add(ideas.path);
+    await act(() => reconcileExternalNoteChange(ideas.path));
+    expect(useNoteStore.getState().openTabs).toEqual([]);
+
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'create_note') return 'Ideas.md';
+      if (command === 'read_note') return { content: '', color: null, contentHash: 'empty' };
+      if (command === 'write_note') return { contentHash: 'written', conflictCopy: null };
+      if (command === 'list_notes') return [localNote];
+      return undefined;
+    });
+    await act(() => hook.result.current.createNote('Ideas'));
+    const created = currentTab();
+    expect(created.id).toBe('notes/Ideas.md');
+    act(() => useNoteStore.getState().updateNoteContent('<p>my idea</p>', created.id));
+
+    await act(async () => {
+      expect(await saveNoteOnLeave(currentTab())).toBe(true);
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      'write_note',
+      expect.objectContaining({ filename: 'Ideas.md', content: 'my idea' })
+    );
+  });
+
+  it('keeps retrying a note iCloud evicted while it had edits, until it is back', async () => {
+    vi.useFakeTimers();
+    try {
+      const hook = renderNotes();
+      await act(() => hook.result.current.loadNote(localNote));
+      act(() => useNoteStore.getState().updateNoteContent('<p>edited</p>', localNote.path));
+      let evicted = true;
+      invokeMock.mockImplementation(async (command: string) => {
+        if (command === 'write_note') {
+          if (evicted) throw new Error(NOT_DOWNLOADED_MESSAGE);
+          return { contentHash: 'written', conflictCopy: null };
+        }
+        if (command === 'read_note') throw new Error(NOT_DOWNLOADED_MESSAGE);
+        return [];
+      });
+
+      await act(async () => {
+        expect(await saveNoteOnLeave(currentTab())).toBe(false);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000 + 2000 + 4000 + 4000);
+      });
+      expect(hasUnsavedEdits(localNote.path)).toBe(true);
+
+      evicted = false;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+      expect(hasUnsavedEdits(localNote.path)).toBe(false);
+      expect(invokeMock).toHaveBeenLastCalledWith(
+        'write_note',
+        expect.objectContaining({ filename: 'Local.md', content: 'edited' })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

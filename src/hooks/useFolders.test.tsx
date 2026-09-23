@@ -18,6 +18,7 @@ const fileSystem = vi.hoisted(() => ({
   moveNote: vi.fn(),
   moveFolder: vi.fn(),
   listNotes: vi.fn(),
+  registerCloudPlaceholderProbe: vi.fn(),
 }));
 const autosave = vi.hoisted(() => ({
   acquireAutosavePathChange: vi.fn(),

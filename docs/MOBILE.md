@@ -273,17 +273,23 @@ metadata observer reports the item local, the tab reads the note and becomes an
 ordinary editable note. Download errors from metadata, and being offline, are
 shown inline with Try again. A placeholder's empty body is not the note, so it is
 never written: the note store ignores edits to it, `writeNote` and guarded
-deletes refuse its address until a real read is adopted, autosave and
+deletes refuse its address while a placeholder tab holds it (asked of the live
+tabs, so a closed placeholder never blocks a new note there), autosave and
 save-on-leave (including retries, the close guard and the hidden-page flush)
 skip it, and the watcher never treats it as edited or missing. The backend
-refuses the save as well.
+refuses the save as well. A save of a note evicted while its tab had edits asks
+iCloud for it back, and the held save keeps retrying until it lands.
 
 Metadata updates are diffed against the snapshot before anything is emitted.
 The initial gather is one list refresh. After that, only a name added or removed,
 a change of local-ness (download finished or content evicted), a new content
-date on a local item, or a new download error reaches the frontend; upload
-progress does not. Tags, backlinks, search, the graph, colours and the index
-builders skip evicted files, so a whole-Forge scan never downloads every note.
+date, download state or finished download on a local item, or a new download
+error reaches the frontend; upload progress does not. A rename reported as a
+changed item with a new path also reports the old path removed. Metadata trails
+the app's own deletes, renames and locks, so an entry iCloud last saw locally
+whose file is gone no longer holds its name. Tags, backlinks, search, the graph,
+colours, rename link rewrites and the index builders skip evicted files, so a
+whole-Forge scan never downloads every note.
 An `.unknown` download status counts as local when the file has non-dataless
 bytes. New-note, template and link-note names also avoid names iCloud lists but
 has not downloaded (`persist::name_is_taken`).
@@ -292,8 +298,9 @@ When an item reports unresolved conflicts, each `NSFileVersion` conflict version
 that differs from the current file is saved beside it as the usual
 `(conflict YYYY-MM-DD HHMM)` copy inside a coordinated write
 (`moldavite_resolve_conflicts`), then the versions are removed and marked
-resolved. Locked notes are skipped because their ciphertext is bound to their
-path.
+resolved; if removing them fails the copies stand and the failure is logged. A
+conflicted note without local bytes is resolved once it downloads. Locked notes
+are skipped because their ciphertext is bound to their path.
 
 At launch on the synced Forge the frontend waits for `icloud_readiness` or
 `icloud:ready` before its first loads, showing a quiet loading state. If the

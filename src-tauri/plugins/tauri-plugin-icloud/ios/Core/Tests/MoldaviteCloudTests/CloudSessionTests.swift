@@ -58,6 +58,22 @@ final class CloudSessionTests: XCTestCase {
         XCTAssertThrowsError(try session.startDownloading("../outside.md"))
     }
 
+    func testANameRemovedOnThisDeviceIsFreeBeforeMetadataCatchesUp() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let documents = CloudDocuments(root: root)
+        let session = CloudSession()
+        session.bind(documents)
+        let local = CloudItem(path: "deleted.md", isDirectory: false, downloadState: .current, isDownloading: false,
+                              isUploading: false, hasConflicts: false, error: nil)
+        let remote = CloudItem(path: "remote.md", isDirectory: false, downloadState: .pending, isDownloading: false,
+                               isUploading: false, hasConflicts: false, error: nil)
+        session.apply(CloudChange(kind: "initial", items: [local, remote], removed: []), from: documents)
+        XCTAssertNoThrow(try session.validateAccess(to: documents.url(for: "deleted.md")))
+        XCTAssertThrowsError(try session.validateAccess(to: documents.url(for: "remote.md")))
+    }
+
     func testDestructiveFolderAccessWaitsForMetadataOnlyChildren() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let folder = root.appendingPathComponent("Folder", isDirectory: true)

@@ -26,6 +26,7 @@ import {
   writeNote,
 } from './fileSystem';
 import { notifyConflictCopy } from './noteConflicts';
+import { isNotDownloadedError, isOpenCloudPlaceholder } from './cloudNotes';
 import { isContentEmpty } from './validation';
 import {
   getPendingAutosaveNoteId,
@@ -212,12 +213,25 @@ function showFailureToast(entry: PendingLeaveSave, error: unknown): void {
 
 function scheduleRetry(entry: PendingLeaveSave, error: unknown): void {
   if (entry.timer !== null) return;
+  const noteId = entry.note.id;
   if (entry.attempt < RETRY_DELAYS_MS.length) {
-    const noteId = entry.note.id;
     entry.timer = setTimeout(() => void retryLeaveSave(noteId), RETRY_DELAYS_MS[entry.attempt]);
     return;
   }
   showFailureToast(entry, error);
+  // iCloud evicted the note while it had edits; the failed save asked for it back,
+  // and a retry succeeds once it has downloaded.
+  if (isNotDownloadedError(error)) {
+    entry.timer = setTimeout(
+      () => void retryLeaveSave(noteId),
+      RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]
+    );
+  }
+}
+
+/** A refused write is only harmless when the tab really is an iCloud placeholder. */
+function isPlaceholderRefusal(error: unknown, noteId: string): boolean {
+  return error instanceof CloudPlaceholderWriteError && isOpenCloudPlaceholder(noteId);
 }
 
 async function retryLeaveSave(noteId: string): Promise<void> {
@@ -245,7 +259,7 @@ async function retryLeaveSave(noteId: string): Promise<void> {
     }
   } catch (error) {
     if (pendingLeaveSaves.get(noteId) !== entry) return;
-    if (error instanceof LockedNoteWriteError || error instanceof CloudPlaceholderWriteError) {
+    if (error instanceof LockedNoteWriteError || isPlaceholderRefusal(error, noteId)) {
       discardLeaveSave(noteId);
       return;
     }
@@ -327,7 +341,7 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
     discardLeaveSave(note.id);
     return true;
   } catch (error) {
-    if (error instanceof LockedNoteWriteError || error instanceof CloudPlaceholderWriteError) {
+    if (error instanceof LockedNoteWriteError || isPlaceholderRefusal(error, note.id)) {
       return true;
     }
     console.error('[leaveSave] Save on leave failed:', error);
