@@ -4,6 +4,7 @@ import { isMobilePlatform } from '@/lib/platform';
 import { useEffect } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { safeInvoke } from '@/lib/ipc';
+import { whenForgeReady } from '@/lib/forgeReadiness';
 import { useGraphStore } from '@/stores/graphStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -164,6 +165,7 @@ export function usePluginDeepLinks() {
 
     const drain = async () => {
       try {
+        await whenForgeReady();
         const pending = await safeInvoke<unknown>('take_pending_deep_links');
         if (!Array.isArray(pending)) return;
         for (const request of pending) {

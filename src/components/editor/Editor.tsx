@@ -81,6 +81,7 @@ import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplat
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { CloudNotePlaceholder } from './CloudNotePlaceholder';
 import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
 
@@ -1132,6 +1133,8 @@ export function Editor() {
     );
   }
 
+  const isCloudPlaceholder = !!currentNote.cloudPending;
+
   return (
     <div className="editor-root flex flex-col h-full">
       {/* Delete Confirmation Modal */}
@@ -1199,22 +1202,26 @@ export function Editor() {
               }}
             />
           )}
-          <div key={currentNote.id} className="h-full note-switch-enter">
-            <EditorContent editor={editor} className="h-full" />
-          </div>
+          {isCloudPlaceholder ? (
+            <CloudNotePlaceholder note={currentNote} />
+          ) : (
+            <div key={currentNote.id} className="h-full note-switch-enter">
+              <EditorContent editor={editor} className="h-full" />
+            </div>
+          )}
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {!isMobilePlatform() && editor && !editor.isDestroyed && (
+          {!isCloudPlaceholder && !isMobilePlatform() && editor && !editor.isDestroyed && (
             <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
           )}
           {/* Image Toolbar - shows when image is selected */}
-          {editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
+          {!isCloudPlaceholder && editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes.
             z-10 keeps it above the editor content but below modals/popovers
             (which use z-[9999]). Previously z-50 caused it to paint over
             Settings / Trash / other floating UI. */}
-        {showInlineTemplatePicker && (
+        {showInlineTemplatePicker && !isCloudPlaceholder && (
           <div
             className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
@@ -1248,7 +1255,7 @@ export function Editor() {
       {backlinksEnabled && showBacklinksPanel && <BacklinksPanel />}
 
       {/* Footer with save status, toolbar, and word count */}
-      {showEditorFooter && (
+      {showEditorFooter && !isCloudPlaceholder && (
         <EditorFooter
           editor={editor}
           onDelete={handleDeleteClick}
@@ -1258,7 +1265,7 @@ export function Editor() {
         />
       )}
 
-      {isMobilePlatform() && editor && !editor.isDestroyed && (
+      {!isCloudPlaceholder && isMobilePlatform() && editor && !editor.isDestroyed && (
         <React.Suspense fallback={null}>
           <MobileFormattingBar
             editor={editor}

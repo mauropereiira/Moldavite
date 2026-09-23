@@ -4,7 +4,9 @@
  * independently: clean buffers reload, while dirty buffers remain untouched
  * and surface an explicit external-change decision. A body identical to the one
  * last read or written is ignored. When the file is gone, a clean tab closes and a
- * dirty one keeps its text, so leaving it saves the note back.
+ * dirty one keeps its text, so leaving it saves the note back. A tab waiting for
+ * iCloud is never treated as edited or missing: a change to its file loads the
+ * downloaded body into it (see `lib/cloudNotes.ts`).
  */
 
 import { useEffect, useRef } from 'react';
@@ -24,6 +26,7 @@ import {
   takeAgentWrite,
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
+import { type CloudChangePayload, applyCloudChange, loadDownloadedNote } from '@/lib/cloudNotes';
 import { useFolderStore, useForgeStore, useNoteStore, useToastStore } from '@/stores';
 import type { Note } from '@/types';
 
@@ -101,6 +104,10 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
   const state = useNoteStore.getState();
   const tab = matchingOpenTab(relPath, address, state.openTabs);
   if (!tab) return;
+  if (tab.cloudPending) {
+    await loadDownloadedNote(tab.id);
+    return;
+  }
 
   const lastPersisted = getLastPersistedMarkdown(
     address.filename,
@@ -267,20 +274,24 @@ export function useForgeWatcher(): void {
         } else {
           unlistenForges = offForges;
         }
-        for (const eventName of ['icloud:ready', 'icloud:changed']) {
-          const offCloud = await listen(eventName, () => {
-            notesRefreshPending = true;
-            forgesRefreshPending = true;
-            scheduleRefresh();
-          });
-          if (cancelled) offCloud();
-          else cloudListeners.push(offCloud);
-        }
-        const offCloudError = await listen<string>('icloud:error', (event) => {
-          useToastStore.getState().addToast('error', event.payload);
+        const offReady = await listen('icloud:ready', () => {
+          notesRefreshPending = true;
+          forgesRefreshPending = true;
+          scheduleRefresh();
         });
-        if (cancelled) offCloudError();
-        else cloudListeners.push(offCloudError);
+        if (cancelled) offReady();
+        else cloudListeners.push(offReady);
+        // Emitted only for real changes: a name added or removed, a download
+        // finishing or failing. Upload progress never reaches here.
+        const offCloud = await listen<CloudChangePayload>('icloud:changed', (event) => {
+          if (event.payload.refreshList) {
+            notesRefreshPending = true;
+            scheduleRefresh();
+          }
+          void applyCloudChange(event.payload);
+        });
+        if (cancelled) offCloud();
+        else cloudListeners.push(offCloud);
       } catch (err) {
         console.error('[useForgeWatcher] subscribe failed:', err);
       }

@@ -620,10 +620,14 @@ export interface NoteWriteResult {
  * resets on window reload, which matches Forge switching (a full reload).
  * `lockedNoteWrites` prevents new saves during a lock transition, while
  * `noteWritesInFlight` lets that transition drain already-started writes.
+ * `cloudPlaceholders` holds notes opened before iCloud downloaded them: with no
+ * base hash, a write there would replace the real note, so writes and guarded
+ * deletes are refused until a read of the downloaded file is adopted.
  */
 const noteBaseHashes = new Map<string, string>();
 const lastPersistedMarkdown = new Map<string, string>();
 const lockedNoteWrites = new Set<string>();
+const cloudPlaceholders = new Set<string>();
 const noteWritesInFlight = new Map<string, Set<Promise<NoteWriteResult>>>();
 const noteWriteTails = new Map<string, Promise<void>>();
 const noteWriteGenerations = new Map<string, number>();
@@ -634,6 +638,18 @@ export class LockedNoteWriteError extends Error {
     super('Note is locked');
     this.name = 'LockedNoteWriteError';
   }
+}
+
+export class CloudPlaceholderWriteError extends Error {
+  constructor() {
+    super("This note hasn't downloaded from iCloud yet");
+    this.name = 'CloudPlaceholderWriteError';
+  }
+}
+
+/** Refuse writes to a note whose tab is showing the iCloud placeholder. */
+export function markCloudPlaceholder(filename: string, isDaily: boolean, isWeekly: boolean): void {
+  cloudPlaceholders.add(noteHashKey(filename, isDaily, isWeekly));
 }
 
 function noteHashKey(filename: string, isDaily: boolean, isWeekly: boolean): string {
@@ -751,6 +767,7 @@ export function adoptNoteSnapshot(
   noteBaseHashes.set(key, result.contentHash);
   lastPersistedMarkdown.set(key, result.content);
   noteWriteChainHashes.set(key, result.contentHash);
+  cloudPlaceholders.delete(key);
 }
 
 /**
@@ -809,6 +826,7 @@ export async function writeNote(
   if (lockedNoteWrites.has(key)) {
     throw new LockedNoteWriteError();
   }
+  if (cloudPlaceholders.has(key)) throw new CloudPlaceholderWriteError();
 
   const generation = (noteWriteGenerations.get(key) ?? 0) + 1;
   noteWriteGenerations.set(key, generation);
@@ -868,6 +886,7 @@ export async function deleteNote(
   opts?: { guarded?: boolean }
 ): Promise<void> {
   const key = noteHashKey(filename, isDaily, isWeekly);
+  if (opts?.guarded && cloudPlaceholders.has(key)) throw new CloudPlaceholderWriteError();
   const wasWriteLocked = lockedNoteWrites.has(key);
   let deleted = false;
   lockedNoteWrites.add(key);

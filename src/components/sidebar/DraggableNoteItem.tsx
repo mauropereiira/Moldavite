@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Cloud } from 'lucide-react';
 import type { NoteFile } from '@/types';
 import { useNoteSelectionStore } from '@/stores';
 import { isMobilePlatform } from '@/lib/platform';
@@ -226,6 +227,17 @@ function DraggableNoteItemImpl({
             </span>
           )}
           <span className="note-card-title min-w-0 truncate">{note.name.replace(/\.md$/, '')}</span>
+          {note.notDownloaded && (
+            <Cloud
+              size={12}
+              role="img"
+              aria-label="In iCloud, not downloaded"
+              className="flex-shrink-0 self-center"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <title>In iCloud, not downloaded</title>
+            </Cloud>
+          )}
         </span>
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">

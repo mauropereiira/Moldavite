@@ -120,7 +120,12 @@ const BUDGETS = [
 // instead of three lazy regexes is what makes nested task items survive a
 // round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
 // and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
-const APP_JS_BUDGET = { rawKb: 630, gzipKb: 175 };
+// 645 / 180: save-on-leave with held-save retries and toast actions left the
+// entry at 635.6 KB / 176.9 KB gz. On-demand iCloud notes (the placeholder tab
+// and its Download state, the launch wait for iCloud, the cloud marker in note
+// lists) add 6.2 KB raw / 1.8 KB gz. Measured 641.8 KB / 178.7 KB gz; no new
+// dependencies.
+const APP_JS_BUDGET = { rawKb: 645, gzipKb: 180 };
 
 async function main() {
   let entries;

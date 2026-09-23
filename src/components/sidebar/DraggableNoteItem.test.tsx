@@ -54,6 +54,27 @@ describe('DraggableNoteItem', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('marks a note that is still in iCloud', () => {
+    const { rerender } = render(
+      <DraggableNoteItem
+        note={{ ...baseNote, notDownloaded: true }}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('img', { name: 'In iCloud, not downloaded' })).toBeInTheDocument();
+    rerender(
+      <DraggableNoteItem
+        note={baseNote}
+        isActive={false}
+        onClick={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('img', { name: 'In iCloud, not downloaded' })).toBeNull();
+  });
+
   it('renders the note name without the .md suffix', () => {
     render(
       <DraggableNoteItem

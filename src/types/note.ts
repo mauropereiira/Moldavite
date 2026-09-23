@@ -11,6 +11,11 @@ export interface Note {
   isPinned?: boolean; // Whether the tab is pinned
   externalRev?: number; // Bumped when disk content replaces an open buffer
   readdressedFrom?: string; // Transient old path used to preserve editor state across a move/rename
+  /**
+   * The note's contents are still in iCloud. The tab's empty body is not the note's
+   * text, so the tab is never edited, saved or deleted (see `lib/cloudNotes.ts`).
+   */
+  cloudPending?: boolean;
 }
 
 export interface NoteFile {
@@ -24,6 +29,8 @@ export interface NoteFile {
   folderPath?: string;
   /** Unix timestamp (seconds) of last filesystem modification, if known. */
   modifiedAt?: number;
+  /** Listed by iCloud in the synced Forge, but its contents are not on this device. */
+  notDownloaded?: boolean;
 }
 
 export interface FolderInfo {

@@ -7,10 +7,12 @@
  * retried with backoff; when the retries run out, one sticky toast per note offers
  * Retry and Save as a copy. Closing the window or hiding the page attempts every
  * held save at once (see `registerHeldSaves`). Nothing here discards a buffer that
- * did not reach disk.
+ * did not reach disk. A tab still waiting for iCloud (`cloudPending`) has no text of
+ * its own and is never written, retried or copied.
  */
 
 import {
+  CloudPlaceholderWriteError,
   LockedNoteWriteError,
   createNote,
   deleteNote,
@@ -56,6 +58,7 @@ function errorMessage(error: unknown): string {
 
 /** Write one note, deleting a daily or weekly note whose body was emptied. */
 async function writeNoteToDisk(note: Note): Promise<void> {
+  if (note.cloudPending) throw new CloudPlaceholderWriteError();
   const filename = noteDiskFilename(note);
   const isEmpty = isContentEmpty(note.content);
   const { notes: freshNotes, setNotes } = useNoteStore.getState();
@@ -123,9 +126,10 @@ async function writeNoteToDisk(note: Note): Promise<void> {
 }
 
 function hasUnsavedEditsInTab(noteId: string): boolean {
-  if (getPendingAutosaveNoteId() === noteId) return true;
   const { openTabs, savedContent } = useNoteStore.getState();
   const tab = openTabs.find((candidate) => candidate.id === noteId);
+  if (tab?.cloudPending) return false;
+  if (getPendingAutosaveNoteId() === noteId) return true;
   return !!tab && tab.content !== savedContent.get(noteId);
 }
 
@@ -210,7 +214,7 @@ async function retryLeaveSave(noteId: string): Promise<void> {
     if (pendingLeaveSaves.get(noteId) === entry) discardLeaveSave(noteId);
   } catch (error) {
     if (pendingLeaveSaves.get(noteId) !== entry) return;
-    if (error instanceof LockedNoteWriteError) {
+    if (error instanceof LockedNoteWriteError || error instanceof CloudPlaceholderWriteError) {
       discardLeaveSave(noteId);
       return;
     }
@@ -224,6 +228,10 @@ async function saveLeaveSaveAsCopy(noteId: string): Promise<void> {
   const entry = pendingLeaveSaves.get(noteId);
   if (!entry) return;
   const note = liveBuffer(entry);
+  if (note.cloudPending) {
+    discardLeaveSave(noteId);
+    return;
+  }
   const markdown = htmlToMarkdown(note.content);
   try {
     let copy: string;
@@ -263,6 +271,7 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
   // A temporary unlock exposes plaintext only in memory. Never recreate a
   // plaintext file beside its encrypted `.locked` file while navigating.
   if (useNoteStore.getState().unlockedNotes.has(note.id)) return true;
+  if (note.cloudPending) return true;
   if (!hasUnsavedEdits(note.id)) return true;
 
   try {
@@ -271,7 +280,9 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
     discardLeaveSave(note.id);
     return true;
   } catch (error) {
-    if (error instanceof LockedNoteWriteError) return true;
+    if (error instanceof LockedNoteWriteError || error instanceof CloudPlaceholderWriteError) {
+      return true;
+    }
     console.error('[leaveSave] Save on leave failed:', error);
     // The retry owns this buffer now; an autosave attempt would only add a second toast.
     resetAutosaveBaseline(note.id, note.content);
