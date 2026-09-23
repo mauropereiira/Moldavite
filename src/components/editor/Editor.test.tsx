@@ -146,7 +146,7 @@ vi.mock('@/components/backlinks', () => ({
   BacklinksPanel: () => <aside data-testid="backlinks-panel" />,
 }));
 vi.mock('@/components/templates/EmptyNoteTemplatePicker', () => ({
-  EmptyNoteTemplatePicker: () => null,
+  EmptyNoteTemplatePicker: () => <div data-testid="empty-note-prompt" />,
 }));
 vi.mock('@/components/templates/TemplatePickerModal', () => ({
   TemplatePickerModal: () => null,
@@ -163,6 +163,7 @@ import {
 } from '@/stores';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { registerAutosaveFlush } from '@/lib/autosaveFlush';
+import { insertNoteTable } from './extensions/NoteTables';
 import { refreshForgeRoot } from '@/lib/forgeImages';
 import {
   htmlToMarkdown,
@@ -686,6 +687,39 @@ describe('Editor note content', () => {
     expect(editor.state.doc.firstChild?.type.name).toBe('table');
     expect(document.querySelector('.tiptap table th')).not.toBeNull();
     expect(htmlToMarkdown(editor.getHTML())).toBe(markdown);
+  });
+
+  it('puts the empty-note prompt and placeholder away once the note holds a table', async () => {
+    const { editor } = await renderEditor(note('notes/Untitled (3).md', ''));
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+    expect(document.querySelector('.tiptap p')?.getAttribute('data-placeholder')).toBe(
+      'Start writing...'
+    );
+
+    act(() => {
+      editor.commands.focus('start');
+      insertNoteTable(editor);
+    });
+
+    await waitFor(() => expect(screen.queryByTestId('empty-note-prompt')).toBeNull());
+    expect(useNoteStore.getState().currentNote?.content).toContain('<table');
+
+    act(() => {
+      editor.commands.insertContentAt(0, '<p></p>');
+      editor.commands.setTextSelection(1);
+    });
+    expect(editor.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(
+      document.querySelector('.tiptap > p.is-editor-empty')?.getAttribute('data-placeholder')
+    ).toBe('');
+    expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
+  });
+
+  it('does not offer templates on a saved note holding only an empty table', async () => {
+    await renderEditor(note('notes/grid.md', markdownToHtml('|  |  |\n| --- | --- |\n|  |  |')));
+
+    expect(document.querySelector('.tiptap table')).not.toBeNull();
+    expect(screen.queryByTestId('empty-note-prompt')).toBeNull();
   });
 
   it('shows a Forge-relative image from this Forge and keeps it relative', async () => {

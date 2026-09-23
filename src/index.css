@@ -2323,7 +2323,8 @@ wiki-link:focus-visible::after {
   color: var(--text-primary);
 }
 
-/* Tables use rules, never cells as boxes. */
+/* A hairline grid with no fills. Rules under rows alone read as ruled paper,
+   not a table, once the cells are empty. */
 .tiptap table {
   width: 100%;
   margin: 1.5em 0;
@@ -2333,9 +2334,11 @@ wiki-link:focus-visible::after {
 
 .tiptap th,
 .tiptap td {
-  padding: 0.55em 0.75em;
-  border: 0;
-  border-bottom: 1px solid var(--border-default);
+  padding: 0.4em 0.65em;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-default);
+  line-height: 1.5;
   text-align: left;
   vertical-align: top;
 }
@@ -2344,6 +2347,7 @@ wiki-link:focus-visible::after {
   font-weight: 600;
   color: var(--text-primary);
   background: transparent;
+  border-bottom-color: var(--border-strong);
 }
 
 .tiptap tr,
@@ -2363,6 +2367,7 @@ wiki-link:focus-visible::after {
 
 .tiptap :is(th, td) > p {
   margin: 0;
+  min-height: 1.5em;
 }
 
 .tiptap .selectedCell {

@@ -152,7 +152,9 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             </span>
           </DropdownItem>
           <DropdownItem onClick={handleImage}>Image</DropdownItem>
-          <DropdownItem onClick={() => insertNoteTable(editor)}>Table</DropdownItem>
+          <DropdownItem disabled={!!inTable} onClick={() => insertNoteTable(editor)}>
+            Table
+          </DropdownItem>
 
           {inTable && (
             <>

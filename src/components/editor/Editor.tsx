@@ -14,7 +14,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import { NoteTables } from './extensions/NoteTables';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { slugifyNoteName } from '@/lib/fileSystem';
-import { isContentEmpty } from '@/lib/validation';
+import { hasOnlyEmptyParagraphs } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
 import {
@@ -263,8 +263,7 @@ export function Editor() {
 
   useEffect(() => {
     if (currentNoteId) {
-      // Shared emptiness rule: media-only notes count as content.
-      setShowInlineTemplatePicker(isContentEmpty(currentNoteContent || ''));
+      setShowInlineTemplatePicker(hasOnlyEmptyParagraphs(currentNoteContent || ''));
     } else {
       setShowInlineTemplatePicker(false);
     }
@@ -334,7 +333,12 @@ export function Editor() {
           underline: false, // Disable - we add Underline separately below
         }),
         Placeholder.configure({
-          placeholder: 'Start writing...',
+          // The placeholder's empty-editor class follows `editor.isEmpty`,
+          // which is still true beside a table of empty cells.
+          placeholder: ({ editor: current }) =>
+            current.state.doc.content.content.every((block) => block.type.name === 'paragraph')
+              ? 'Start writing...'
+              : '',
         }),
         ResizableImage.configure({
           inline: false,
@@ -628,13 +632,13 @@ export function Editor() {
             // Match the tag and wiki-link lifecycle above.
             allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
               isActive === true || editor.isFocused,
-            items: ({ query }: { query: string }) => {
+            items: ({ query, editor }: { query: string; editor: TiptapEditor }) => {
               const q = query.toLowerCase();
               const pluginItems = usePluginCommandStore
                 .getState()
                 .commands.map(pluginSlashItem)
                 .filter((i) => !q || i.title.toLowerCase().includes(q));
-              return [...filterCommands(query), ...pluginItems];
+              return [...filterCommands(query, editor.isActive('table')), ...pluginItems];
             },
             render: () => {
               let component: ReactRenderer | null = null;
@@ -740,7 +744,8 @@ export function Editor() {
           // Pass current note ID to prevent race conditions when switching notes
           const noteId = currentNoteRef.current?.id;
           updateNoteContent(html, noteId);
-          if (showInlineTemplatePicker && !editor.isEmpty) {
+          // Not `editor.isEmpty`: TipTap calls a table of empty cells empty.
+          if (showInlineTemplatePicker && !hasOnlyEmptyParagraphs(html)) {
             setShowInlineTemplatePicker(false);
           }
         } catch (error) {

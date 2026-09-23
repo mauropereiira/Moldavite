@@ -20,6 +20,10 @@ export interface SlashCommandListRef {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
+function insertTableCommand(editor: Editor) {
+  insertNoteTable(editor);
+}
+
 export const slashCommands: SlashCommandItem[] = [
   {
     title: 'Heading 1',
@@ -107,9 +111,7 @@ export const slashCommands: SlashCommandItem[] = [
     description: 'Grid with a header row',
     mark: 'Table',
     keywords: ['grid', 'columns', 'rows'],
-    command: (editor) => {
-      insertNoteTable(editor);
-    },
+    command: insertTableCommand,
   },
   {
     title: 'Image',
@@ -130,11 +132,15 @@ export const slashCommands: SlashCommandItem[] = [
   },
 ];
 
-export function filterCommands(query: string): SlashCommandItem[] {
-  if (!query) return slashCommands;
+/** A table cannot hold another table, so the Table command is left out inside one. */
+export function filterCommands(query: string, inTable = false): SlashCommandItem[] {
+  const available = inTable
+    ? slashCommands.filter((item) => item.command !== insertTableCommand)
+    : slashCommands;
+  if (!query) return available;
 
   const lowerQuery = query.toLowerCase();
-  return slashCommands.filter((item) => {
+  return available.filter((item) => {
     const titleMatch = item.title.toLowerCase().includes(lowerQuery);
     const descMatch = item.description.toLowerCase().includes(lowerQuery);
     const keywordMatch = item.keywords?.some((k) => k.includes(lowerQuery));

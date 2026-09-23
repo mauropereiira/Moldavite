@@ -73,6 +73,18 @@ describe('mobile formatting', () => {
     expect(editor.getHTML()).toContain('<th');
   });
 
+  it('disables Table while the caret is in a table, so repeated taps add one table', () => {
+    setup();
+    const table = screen.getByRole('button', { name: 'Table' });
+    expect(table).not.toBeDisabled();
+
+    fireEvent.click(table);
+    fireEvent.click(table);
+
+    expect(table).toBeDisabled();
+    expect(editor.view.dom.querySelectorAll('table')).toHaveLength(1);
+  });
+
   it('opens the existing link and photo dialogs and dismisses editing', async () => {
     const callbacks = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Link' }));

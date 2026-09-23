@@ -85,9 +85,12 @@ html[data-platform='mobile'] .tiptap h3 {
 }
 
 /* A phone-width column squeezes every cell down to a word. Keep cells readable
-   and let the table's wrapper scroll sideways instead. */
-html[data-platform='mobile'] .tiptap :is(th, td) {
-  min-width: 7em;
+   and let the table's wrapper scroll sideways instead. The minimum sits on the
+   cell's paragraph because min-width on a table cell is undefined in CSS and
+   not honoured by every engine's table layout; a block inside the cell sets
+   the column's minimum in all of them. */
+html[data-platform='mobile'] .tiptap :is(th, td) > p {
+  min-width: 6em;
 }
 
 /* Chrome is not text to select; the note and every field still are. */

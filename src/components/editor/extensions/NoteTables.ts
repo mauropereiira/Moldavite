@@ -10,7 +10,7 @@
  * any other edit that would split a table from inside it is refused.
  */
 import { Extension, type Editor, type JSONContent } from '@tiptap/core';
-import { Table, TableCell, TableHeader, TableRow, createTable } from '@tiptap/extension-table';
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { DOMParser as ProseMirrorDOMParser, Fragment, Slice } from '@tiptap/pm/model';
 import type { Node as ProseMirrorNode, Schema } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
@@ -95,19 +95,14 @@ export function insertBlock(editor: Editor, content: JSONContent): boolean {
     .run();
 }
 
+/**
+ * Inserts a 3x3 table with a header row and puts the caret in its first cell.
+ * Refused from inside a table: repeated taps on the phone's Table button
+ * stacked one empty table under another.
+ */
 export function insertNoteTable(editor: Editor): boolean {
-  const after = afterEnclosingTable(editor.state);
-  if (after === null) {
-    return editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-  }
-  const table = createTable(editor.schema, 3, 3, true);
-  return editor
-    .chain()
-    .focus()
-    .insertContentAt(after, table.toJSON())
-    .setMeta(TABLE_BLOCK_INSERT, true)
-    .setTextSelection(after + 4)
-    .run();
+  if (enclosingTableDepth(editor.state) !== null) return false;
+  return editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
 }
 
 /**

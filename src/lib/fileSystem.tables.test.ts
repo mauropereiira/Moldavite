@@ -195,6 +195,37 @@ describe('GFM tables', () => {
   });
 });
 
+describe('inserting a table', () => {
+  function blocks(current: Editor): string[] {
+    const types: string[] = [];
+    current.state.doc.forEach((node) => types.push(node.type.name));
+    return types;
+  }
+
+  it('turns a new note into a table, a line to keep typing on, and the caret in the first header', () => {
+    for (const content of ['', '<p></p>']) {
+      const current = editorWith(content);
+      current.commands.focus('end');
+
+      expect(insertNoteTable(current)).toBe(true);
+      expect(blocks(current)).toEqual(['table', 'paragraph']);
+      const { $from } = current.state.selection;
+      expect($from.node($from.depth - 1).type.name).toBe('tableHeader');
+      expect($from.node($from.depth - 1)).toBe(current.state.doc.child(0).child(0).child(0));
+    }
+  });
+
+  it('leaves a paragraph after a table inserted at the end of a note', () => {
+    const current = editorWith('<p>Intro</p>');
+    current.commands.focus('end');
+
+    insertNoteTable(current);
+
+    expect(blocks(current)).toEqual(['paragraph', 'table', 'paragraph']);
+    expect(current.state.doc.lastChild?.content.size).toBe(0);
+  });
+});
+
 describe('blocks inside table cells', () => {
   it('flattens blocks from a note or paste into paragraphs without splitting the table', () => {
     const current = editorWith(
@@ -229,19 +260,27 @@ describe('blocks inside table cells', () => {
     expect(htmlToMarkdown(current.getHTML())).toBe(SIMPLE);
   });
 
-  it('puts a divider, table or image inserted from a cell after the table', () => {
+  it('puts a divider or image inserted from a cell after the table', () => {
     const current = editorWith(markdownToHtml(SIMPLE));
     current.commands.setTextSelection(3);
     insertBlock(current, { type: 'horizontalRule' });
     current.commands.setTextSelection(3);
     current.commands.setImage({ src: 'images/a.png' });
-    current.commands.setTextSelection(3);
-    insertNoteTable(current);
 
     const types: string[] = [];
     current.state.doc.forEach((node) => types.push(node.type.name));
-    expect(types.slice(0, 4)).toEqual(['table', 'table', 'image', 'horizontalRule']);
-    expect(current.state.selection.$from.node(1)).toBe(current.state.doc.child(1));
+    expect(types.slice(0, 3)).toEqual(['table', 'image', 'horizontalRule']);
+  });
+
+  it('refuses a table inserted from a cell rather than nesting or stacking one', () => {
+    const current = editorWith(markdownToHtml(SIMPLE));
+    current.commands.setTextSelection(3);
+    const before = current.getHTML();
+
+    expect(insertNoteTable(current)).toBe(false);
+    expect(insertNoteTable(current)).toBe(false);
+    expect(current.getHTML()).toBe(before);
+    expect(tableCount(current)).toBe(1);
   });
 
   it('still lets a reload or an undo add blocks while the cursor is in a table', () => {
