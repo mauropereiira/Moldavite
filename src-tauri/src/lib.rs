@@ -85,13 +85,22 @@ pub(crate) mod note_file_access;
 /// `command(async)` instead sends replies from Tokio's async workers: WebKit
 /// waits for main to accept each reply, while the iOS dev asset proxy on main
 /// waits for that same saturated runtime, deadlocking startup note reads.
+///
+/// Commands that can wait on a whole-Forge scan or index build take the same
+/// route on every platform: run synchronously they hold the main thread, and
+/// the window, for as long as they wait.
 fn dispatch_note_io(
     handler: fn(tauri::ipc::Invoke) -> bool,
 ) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     move |invoke| {
-        if cfg!(any(target_os = "macos", target_os = "ios"))
+        let command = invoke.message.command();
+        let waits_on_forge_scan = matches!(
+            command,
+            "get_backlinks" | "rescan_forge" | "search_notes_content" | "search_index_status"
+        );
+        let coordinates_note_files = cfg!(any(target_os = "macos", target_os = "ios"))
             && matches!(
-                invoke.message.command(),
+                command,
                 "read_note"
                     | "write_note"
                     | "lock_note"
@@ -105,8 +114,8 @@ fn dispatch_note_io(
                     | "rename_folder"
                     | "move_folder"
                     | "delete_folder"
-            )
-        {
+            );
+        if waits_on_forge_scan || coordinates_note_files {
             tauri::async_runtime::spawn_blocking(move || handler(invoke));
             true
         } else {

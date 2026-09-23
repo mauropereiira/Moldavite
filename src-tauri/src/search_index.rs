@@ -663,74 +663,133 @@ pub(crate) fn reconcile(forge_root: &Path) -> Result<u64, String> {
     result
 }
 
+/// Writes reconcile applies per lock acquisition, so a search or a save
+/// waiting on the connection never waits for more than one batch.
+const RECONCILE_BATCH: usize = 256;
+
+/// `(mtime_ms, size)` of a file, the pair reconcile compares against.
+fn file_stat(abs: &Path) -> Option<(i64, i64)> {
+    let metadata = fs::metadata(abs).ok()?;
+    let mtime_ms = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    Some((mtime_ms, metadata.len() as i64))
+}
+
+enum ReconcileWrite {
+    Upsert(NoteRow),
+    /// Same content behind a moved mtime — a sync client rewriting a file,
+    /// say. Refresh the stat so the next reconcile skips it, but leave the
+    /// FTS rows alone.
+    Touch(NoteRow),
+    Delete {
+        path: String,
+        seen: Option<(i64, i64)>,
+    },
+}
+
+impl ReconcileWrite {
+    /// The file state this write was computed from. A change hook may have
+    /// indexed a newer version since, and the write must not undo it.
+    fn is_current(&self, forge_root: &Path) -> bool {
+        match self {
+            Self::Upsert(row) | Self::Touch(row) => {
+                file_stat(&forge_root.join(&row.path)) == Some((row.mtime_ms, row.size))
+            }
+            Self::Delete { path, seen } => file_stat(&forge_root.join(path)) == *seen,
+        }
+    }
+
+    fn apply(&self, conn: &Connection) -> rusqlite::Result<()> {
+        match self {
+            Self::Upsert(row) => write_row(conn, row),
+            Self::Touch(row) => {
+                conn.execute(
+                    "UPDATE notes SET mtime_ms = ?1, size = ?2 WHERE path = ?3",
+                    params![row.mtime_ms, row.size, row.path],
+                )?;
+                Ok(())
+            }
+            Self::Delete { path, .. } => delete_row(conn, path),
+        }
+    }
+}
+
+/// Walking and reading the Forge happens without the connection lock, which
+/// is taken only to read the stored stats and then once per write batch, so a
+/// search during the reconcile of a large Forge is not stuck behind the walk.
 fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
-    let candidates = crate::semantic::scan_note_paths(forge_root);
-    index.with_conn(true, |conn| {
-        let tx = conn.unchecked_transaction()?;
-        let mut existing: HashMap<String, (i64, i64, String)> = HashMap::new();
-        {
-            let mut stmt = tx.prepare("SELECT path, mtime_ms, size, hash FROM notes")?;
-            let rows = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
+    let existing: HashMap<String, (i64, i64, String)> = index.with_conn(true, |conn| {
+        let mut stmt = conn.prepare("SELECT path, mtime_ms, size, hash FROM notes")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                (
                     row.get::<_, i64>(1)?,
                     row.get::<_, i64>(2)?,
                     row.get::<_, String>(3)?,
-                ))
-            })?;
-            for row in rows {
-                let (path, mtime_ms, size, hash) = row?;
-                existing.insert(path, (mtime_ms, size, hash));
-            }
-        }
+                ),
+            ))
+        })?;
+        rows.collect()
+    })?;
 
-        let mut kept: HashSet<String> = HashSet::with_capacity(candidates.len());
-        for (abs, rel) in &candidates {
-            let Ok(metadata) = fs::metadata(abs) else {
-                continue;
-            };
-            let mtime_ms = metadata
-                .modified()
-                .ok()
-                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                .map(|d| d.as_millis() as i64)
-                .unwrap_or(0);
-            let size = metadata.len() as i64;
-            if let Some((stored_mtime, stored_size, _)) = existing.get(rel) {
-                if *stored_mtime == mtime_ms && *stored_size == size {
-                    kept.insert(rel.clone());
-                    continue;
+    let candidates = crate::semantic::scan_note_paths(forge_root);
+    let mut kept: HashSet<String> = HashSet::with_capacity(candidates.len());
+    let mut writes = Vec::new();
+    for (abs, rel) in &candidates {
+        let Some(stat) = file_stat(abs) else {
+            continue;
+        };
+        let stored = existing.get(rel);
+        if stored.is_some_and(|(mtime_ms, size, _)| (*mtime_ms, *size) == stat) {
+            kept.insert(rel.clone());
+            continue;
+        }
+        match read_row(forge_root, rel) {
+            Some(row) => {
+                kept.insert(row.path.clone());
+                if stored.map(|(_, _, hash)| hash.as_str()) == Some(&row.hash) {
+                    writes.push(ReconcileWrite::Touch(row));
+                } else {
+                    writes.push(ReconcileWrite::Upsert(row));
                 }
             }
-            match read_row(forge_root, rel) {
-                Some(row) => {
-                    // Same content behind a moved mtime — a sync client
-                    // rewriting a file, say. Refresh the stat so the next
-                    // reconcile skips it, but leave the FTS rows alone.
-                    if existing.get(rel).map(|(_, _, hash)| hash.as_str()) == Some(&row.hash) {
-                        tx.execute(
-                            "UPDATE notes SET mtime_ms = ?1, size = ?2 WHERE path = ?3",
-                            params![row.mtime_ms, row.size, row.path],
-                        )?;
-                    } else {
-                        write_row(&tx, &row)?;
-                    }
-                    kept.insert(row.path);
+            // Emptied, locked between the walk and the read, or no longer
+            // a plain file: it is not a note any more.
+            None => writes.push(ReconcileWrite::Delete {
+                path: rel.clone(),
+                seen: file_stat(abs),
+            }),
+        }
+    }
+    for path in existing.keys() {
+        if !kept.contains(path) {
+            writes.push(ReconcileWrite::Delete {
+                path: path.clone(),
+                seen: file_stat(&forge_root.join(path)),
+            });
+        }
+    }
+
+    for batch in writes.chunks(RECONCILE_BATCH) {
+        index.with_conn(true, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            for write in batch {
+                if write.is_current(forge_root) {
+                    write.apply(&tx)?;
                 }
-                // Emptied, locked between the walk and the read, or no longer
-                // a plain file: it is not a note any more.
-                None => delete_row(&tx, rel)?,
             }
-        }
-        for path in existing.keys() {
-            if !kept.contains(path) {
-                delete_row(&tx, path)?;
-            }
-        }
-        meta_set(&tx, "last_reconcile_ms", &now_ms().to_string())?;
-        tx.commit()?;
-        Ok(kept.len() as u64)
-    })
+            tx.commit()
+        })?;
+    }
+    index.with_conn(true, |conn| {
+        meta_set(conn, "last_reconcile_ms", &now_ms().to_string())
+    })?;
+    Ok(kept.len() as u64)
 }
 
 /// Throw the index away and build it again from disk, reporting `building`
@@ -1179,6 +1238,37 @@ mod tests {
             .unwrap()
             .is_empty());
         assert_eq!(index_paths(&forge, "replacement"), vec!["notes/alpha.md"]);
+    }
+
+    #[test]
+    fn reconcile_writes_a_forge_larger_than_one_batch() {
+        let forge = TempForge::new("reconcile-batches");
+        let total = RECONCILE_BATCH * 2 + 3;
+        for i in 0..total {
+            forge.write(&format!("notes/note-{i}.md"), &format!("body {i}"));
+        }
+        assert_eq!(reconcile(forge.path()).unwrap(), total as u64);
+        let status = status(forge.path());
+        assert!(status.ready);
+        assert_eq!(status.note_count, total as u64);
+    }
+
+    #[test]
+    fn a_reconcile_write_computed_from_an_older_file_is_dropped() {
+        let forge = TempForge::new("reconcile-stale");
+        forge.write("notes/alpha.md", "first version");
+        let upsert = ReconcileWrite::Upsert(read_row(forge.path(), "notes/alpha.md").unwrap());
+        let delete = ReconcileWrite::Delete {
+            path: "notes/beta.md".to_string(),
+            seen: None,
+        };
+        assert!(upsert.is_current(forge.path()));
+        assert!(delete.is_current(forge.path()));
+
+        forge.write("notes/alpha.md", "a newer and longer version");
+        forge.write("notes/beta.md", "created after the scan");
+        assert!(!upsert.is_current(forge.path()));
+        assert!(!delete.is_current(forge.path()));
     }
 
     /// One column of the stored row for `notes/alpha.md`.
