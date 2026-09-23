@@ -2,7 +2,8 @@
 
 Requires Moldavite 2.7.0 or later and iCloud Drive enabled on your Mac.
 You can create and use the shared folder entirely on Mac, before installing
-Moldavite on an iPhone or iPad. iOS availability will be announced separately.
+Moldavite on an iPhone or iPad, available on the
+[App Store](https://apps.apple.com/app/id6809157286).
 
 ## Create or open the folder
 
