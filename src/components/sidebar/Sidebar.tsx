@@ -487,6 +487,13 @@ export function Sidebar({
     lock.openUnlock(note);
     closeContextMenu();
   };
+  const pendingUnlock = useNoteStore((state) => state.pendingUnlock);
+  const { openUnlock } = lock;
+  useEffect(() => {
+    if (!pendingUnlock) return;
+    useNoteStore.getState().clearPendingUnlock();
+    openUnlock(pendingUnlock);
+  }, [pendingUnlock, openUnlock]);
   const handlePermanentUnlock = (note: NoteFile) => {
     lock.openPermanentUnlock(note);
     closeContextMenu();

@@ -3,7 +3,7 @@
  *
  * A note switch seeds the baseline and cancels the prior timer; content changes
  * replace one pending debounce; effect cleanup cancels stale callbacks. Navigation
- * performs its immediate flush in `useNotes.flushCurrentNote`, while lock transitions
+ * performs its immediate flush in `lib/leaveSave.ts`, while lock transitions
  * reject new writes and drain in-flight writes in `lib/fileSystem.ts`. Temporarily
  * unlocked notes are view-only and must never be written back as plaintext.
  */
@@ -28,6 +28,7 @@ import {
   registerAutosavePathChange,
   registerAutosavePendingProbe,
 } from '@/lib/autosaveFlush';
+import { discardLeaveSave } from '@/lib/leaveSave';
 import type { Note, NoteFile } from '@/types';
 
 type PendingAutosaveDiscard = (noteId: string, content: string) => void;
@@ -120,7 +121,7 @@ export function useAutoSave() {
             if (!existsInList) {
               const noteFile: NoteFile = {
                 name: filename,
-                path: filename,
+                path: `daily/${filename}`,
                 isDaily: true,
                 isWeekly: false,
                 date: dateStr,
@@ -182,6 +183,8 @@ export function useAutoSave() {
         ) {
           lastContentRef.current = note.content;
         }
+        getState().markNoteSaved(note.id, note.content);
+        discardLeaveSave(note.id);
       } catch (error) {
         if (error instanceof LockedNoteWriteError) {
           if (pendingRef.current === note) pendingRef.current = null;
@@ -307,7 +310,11 @@ export function useAutoSave() {
     [abortPathChange, beginPathChange, commitPathChange]
   );
 
-  const resetBaseline = useCallback((noteId: string, content: string) => {
+  const resetBaseline = useCallback((noteId: string, content: string, keepNewerEdits = false) => {
+    if (keepNewerEdits) {
+      const owed = heldPathChangeNoteRef.current ?? pendingRef.current;
+      if (owed?.id === noteId && owed.content !== content) return;
+    }
     if (heldPathChangeNoteRef.current?.id === noteId) {
       heldPathChangeNoteRef.current = null;
     }

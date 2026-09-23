@@ -10,7 +10,7 @@
 export { useAutoSave } from './useAutoSave';
 export { useAutoLock } from './useAutoLock';
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
-export { useNotes } from './useNotes';
+export { initializeNotes, useNotes } from './useNotes';
 export { useToast } from './useToast';
 export { useSettings, useSettingsModal } from './useSettings';
 export { useTemplates } from './useTemplates';

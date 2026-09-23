@@ -1,6 +1,6 @@
 /** Regression coverage for note navigation yielding transient exploration views. */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -52,7 +52,6 @@ describe('useNotes navigation', () => {
     'keeps the current note when a %s download is pending',
     async (kind) => {
       const hook = renderHook(() => useNotes());
-      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
       await act(() => hook.result.current.loadNote(noteFile));
       const current = useNoteStore.getState().currentNote;
       const message = 'This note is waiting for iCloud to download.';
@@ -81,7 +80,6 @@ describe('useNotes navigation', () => {
 
   it('opens a sidebar note after the timeline and yields the editor pane', async () => {
     const hook = renderHook(() => useNotes());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     act(() => useTimelineStore.getState().open());
     expect(useTimelineStore.getState().isOpen).toBe(true);
@@ -94,7 +92,6 @@ describe('useNotes navigation', () => {
 
   it('also closes the graph overlay when navigation comes from outside the graph', async () => {
     const hook = renderHook(() => useNotes());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     act(() => useGraphStore.getState().open());
     await act(() => hook.result.current.loadNote(noteFile));

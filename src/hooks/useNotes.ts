@@ -2,18 +2,21 @@
  * Note-list initialization and component-facing note workflow orchestration.
  *
  * The hook coordinates IPC with tab, color, selection, recent-note, template, and
- * task state. Before navigation it flushes editable HTML as Markdown; temporarily
- * unlocked notes are excluded. Standalone paths come from note metadata and are
- * never reconstructed from display titles.
+ * task state. Before navigation it saves the note being left if it was edited (see
+ * `lib/leaveSave.ts`); temporarily unlocked notes are excluded. Only the latest
+ * navigation opens its note. Standalone paths come from note metadata and are never
+ * reconstructed from display titles.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import {
   useNoteColorsStore,
   useNoteSelectionStore,
   useNoteStore,
+  useOverlayStore,
   useQuickSwitcherStore,
+  useSettingsStore,
   useSidebarOrderStore,
   useTemplateStore,
   useTaskStatusStore,
@@ -26,7 +29,6 @@ import {
   readNote,
   readNoteSnapshot,
   readNoteWithMeta,
-  writeNote,
   deleteNote,
   drainNoteWrites,
   createNote as createNoteFile,
@@ -34,12 +36,9 @@ import {
   getWeeklyNoteFilename,
   filenameToNote,
   markdownToHtml,
-  htmlToMarkdown,
   isHtmlContent,
-  isContentEmpty,
   parseTaskStatus,
   noteFileBackendPath,
-  notifyConflictCopy,
   renameNote as renameNoteFile,
   getNoteTitleError,
 } from '@/lib';
@@ -54,6 +53,79 @@ import {
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
+import {
+  discardLeaveSave,
+  hasUnsavedEdits,
+  heldLeaveSaveNote,
+  readdressLeaveSave,
+  saveNoteOnLeave,
+} from '@/lib/leaveSave';
+
+/**
+ * Loads the note list and scans daily notes for task status. The app calls this once
+ * at startup through `initializeNotes`; `refresh` calls it again on demand.
+ */
+async function loadNoteList(): Promise<void> {
+  const { setNotes, setIsLoading } = useNoteStore.getState();
+  try {
+    setIsLoading(true);
+    await ensureDirectories();
+    const noteFiles = await listNotes();
+    if (!Array.isArray(noteFiles)) {
+      throw new Error('Invalid response from list_notes');
+    }
+    setNotes(noteFiles);
+
+    const dailyNotes = noteFiles.filter((n) => n.isDaily && n.date);
+    const { setTaskStatus } = useTaskStatusStore.getState();
+
+    // Process daily notes in the background with capped concurrency —
+    // an uncapped Promise.all fires one IPC read per daily note at once,
+    // which makes cold start degrade linearly with vault age.
+    const queue = [...dailyNotes];
+    const scanNext = async () => {
+      for (;;) {
+        const noteFile = queue.shift();
+        if (!noteFile) return;
+        try {
+          const { content: rawContent } = await readNoteSnapshot(noteFile.name, true, false);
+          const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
+          const status = parseTaskStatus(htmlContent);
+          if (status.totalTasks > 0 && noteFile.date) {
+            setTaskStatus(noteFile.date, status);
+          }
+        } catch {
+          // Silently skip notes that can't be parsed
+        }
+      }
+    };
+    Promise.all(Array.from({ length: Math.min(8, queue.length) }, scanNext));
+  } catch (error) {
+    console.error('[useNotes] Failed to initialize:', error);
+    useToastStore
+      .getState()
+      .addToast('error', 'Failed to load notes. Check the console for details.');
+  } finally {
+    setIsLoading(false);
+  }
+}
+
+let initialLoad: Promise<void> | null = null;
+
+/**
+ * Startup load of the note list. Concurrent calls share one request, so a double
+ * mount (React StrictMode) does not scan the Forge twice. A Forge switch reloads the
+ * window, which starts this over.
+ */
+export function initializeNotes(): Promise<void> {
+  initialLoad ??= loadNoteList().finally(() => {
+    initialLoad = null;
+  });
+  return initialLoad;
+}
+
+/** Bumped by every navigation; a load that is no longer the latest must not open its note. */
+let latestNavigation = 0;
 
 /**
  * Manages note operations including loading, creating, and deleting notes.
@@ -66,160 +138,73 @@ export function useNotes() {
   const getState = useNoteStore.getState;
 
   /**
-   * Saves the current note to disk immediately before switching to another note.
-   * Deletes daily/weekly notes if they're empty, converts HTML to Markdown before saving.
+   * Saves the current note before switching to another note, but only if it was edited.
+   * Resolves to false when that save failed and is being retried in the background.
    */
   const flushCurrentNote = useCallback(async () => {
-    const state = getState();
-    const note = state.currentNote;
-    if (!note) return;
-    // A temporary unlock exposes plaintext only in memory. Never recreate a
-    // plaintext file beside its encrypted `.locked` file while navigating.
-    if (state.unlockedNotes.has(note.id)) return;
-
-    let filename: string;
-    if (note.isDaily && note.date) {
-      filename = `${note.date}.md`;
-    } else if (note.isWeekly && note.week) {
-      filename = `${note.week}.md`;
-    } else {
-      // Address the note by its on-disk path (folder included); the display
-      // title can diverge from the filename and must never decide where we save.
-      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
-    }
-
-    const isEmpty = isContentEmpty(note.content);
-    const freshNotes = state.notes;
-
-    if (note.isDaily) {
-      const dateStr = note.date;
-      const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
-
-      if (isEmpty) {
-        if (existsInList) {
-          try {
-            await deleteNote(filename, true, false, { guarded: true });
-            const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
-            setNotes(updatedNotes);
-          } catch (error) {
-            console.error('[useNotes] Flush: Delete failed:', error);
-          }
-        }
-      } else {
-        const markdownContent = htmlToMarkdown(note.content);
-        notifyConflictCopy(await writeNote(filename, markdownContent, true, false));
-        if (!existsInList) {
-          const noteFile: NoteFile = {
-            name: filename,
-            path: filename,
-            isDaily: true,
-            isWeekly: false,
-            date: dateStr,
-            isLocked: false,
-          };
-          setNotes([...freshNotes, noteFile]);
-        }
-      }
-    } else if (note.isWeekly) {
-      const weekStr = note.week;
-      const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
-
-      if (isEmpty) {
-        if (existsInList) {
-          try {
-            await deleteNote(filename, false, true, { guarded: true });
-            const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
-            setNotes(updatedNotes);
-          } catch (error) {
-            console.error('[useNotes] Flush: Delete weekly note failed:', error);
-          }
-        }
-      } else {
-        const markdownContent = htmlToMarkdown(note.content);
-        notifyConflictCopy(await writeNote(filename, markdownContent, false, true));
-        if (!existsInList) {
-          const noteFile: NoteFile = {
-            name: filename,
-            path: `weekly/${filename}`,
-            isDaily: false,
-            isWeekly: true,
-            week: weekStr,
-            isLocked: false,
-          };
-          setNotes([...freshNotes, noteFile]);
-        }
-      }
-    } else {
-      const markdownContent = htmlToMarkdown(note.content);
-      notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
-    }
-  }, [getState, setNotes]);
+    const note = getState().currentNote;
+    if (!note) return true;
+    return saveNoteOnLeave(note);
+  }, [getState]);
 
   /**
-   * Initializes the note system by creating required directories and loading all notes.
-   * Called automatically on mount.
+   * Shows a note's unsaved text instead of reading its file: its open tab when that has
+   * edits, or its held text when an earlier save failed. Returns false when there is none.
    */
-  const initialize = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await ensureDirectories();
-      const noteFiles = await listNotes();
-      if (!Array.isArray(noteFiles)) {
-        throw new Error('Invalid response from list_notes');
+  const openUnsavedText = useCallback(
+    (noteId: string, inNewTab: boolean) => {
+      const state = getState();
+      if (state.openTabs.some((tab) => tab.id === noteId) && hasUnsavedEdits(noteId)) {
+        state.switchTab(noteId);
+        return true;
       }
-      setNotes(noteFiles);
-
-      const dailyNotes = noteFiles.filter((n) => n.isDaily && n.date);
-      const { setTaskStatus } = useTaskStatusStore.getState();
-
-      // Process daily notes in the background with capped concurrency —
-      // an uncapped Promise.all fires one IPC read per daily note at once,
-      // which makes cold start degrade linearly with vault age.
-      const queue = [...dailyNotes];
-      const scanNext = async () => {
-        for (;;) {
-          const noteFile = queue.shift();
-          if (!noteFile) return;
-          try {
-            const { content: rawContent } = await readNoteSnapshot(noteFile.name, true, false);
-            const htmlContent = isHtmlContent(rawContent) ? rawContent : markdownToHtml(rawContent);
-            const status = parseTaskStatus(htmlContent);
-            if (status.totalTasks > 0 && noteFile.date) {
-              setTaskStatus(noteFile.date, status);
-            }
-          } catch {
-            // Silently skip notes that can't be parsed
-          }
-        }
-      };
-      Promise.all(Array.from({ length: Math.min(8, queue.length) }, scanNext));
-    } catch (error) {
-      console.error('[useNotes] Failed to initialize:', error);
-      useToastStore
-        .getState()
-        .addToast('error', 'Failed to load notes. Check the console for details.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setNotes, setIsLoading]);
+      const held = heldLeaveSaveNote(noteId);
+      if (!held) return false;
+      state.openTab(held, inNewTab);
+      getState().markNoteUnsaved(noteId);
+      return true;
+    },
+    [getState]
+  );
 
   /**
-   * Loads a specific note from disk into the editor.
-   * Automatically flushes the current note before switching and converts Markdown to HTML.
-   * @param noteFile - The note file to load
-   * @param inNewTab - If true, opens in a new tab instead of replacing the current one
+   * Opens a note file in a tab unless a newer navigation has started since
+   * `navigation` was taken. A locked note goes to the unlock prompt instead, and an
+   * open tab with unsaved edits is switched to rather than re-read from disk.
    */
-  const loadNote = useCallback(
-    async (noteFile: NoteFile, inNewTab: boolean = false) => {
+  const openNoteFile = useCallback(
+    async (noteFile: NoteFile, inNewTab: boolean, navigation: number) => {
+      const state = getState();
+      const listed = state.notes.find((note) => note.path === noteFile.path);
+      if (noteFile.isLocked || listed?.isLocked) {
+        if (
+          state.unlockedNotes.has(noteFile.path) &&
+          state.openTabs.some((tab) => tab.id === noteFile.path)
+        ) {
+          state.switchTab(noteFile.path);
+          return;
+        }
+        const { indexMode } = useSettingsStore.getState();
+        if (indexMode === 'off') {
+          useToastStore
+            .getState()
+            .addToast('error', 'This note is locked. Unlock it from the sidebar first.');
+          return;
+        }
+        state.requestUnlock(listed ?? noteFile);
+        useOverlayStore.getState().openIndex(indexMode === 'pinned');
+        return;
+      }
+      if (openUnsavedText(noteFile.path, inNewTab)) return;
+
       try {
-        await flushCurrentNote();
-
         setIsLoading(true);
         const rawContent = await readNote(
           noteFileBackendPath(noteFile),
           noteFile.isDaily,
           noteFile.isWeekly || false
         );
+        if (navigation !== latestNavigation) return;
 
         // Check if content is already HTML (backwards compatibility with old format)
         let htmlContent: string;
@@ -237,6 +222,7 @@ export function useNotes() {
         const note = filenameToNote(noteFile, htmlContent);
         openTab(note, inNewTab);
       } catch (error) {
+        if (navigation !== latestNavigation) return;
         console.error('[useNotes] Failed to load note:', error);
         const msg = error instanceof Error ? error.message : String(error);
         useToastStore.getState().addToast('error', `Failed to open note: ${msg}`);
@@ -244,7 +230,24 @@ export function useNotes() {
         setIsLoading(false);
       }
     },
-    [flushCurrentNote, openTab, setIsLoading]
+    [getState, openTab, openUnsavedText, setIsLoading]
+  );
+
+  /**
+   * Loads a specific note from disk into the editor, saving the note being left first
+   * if it was edited. When that save fails the note opens in a new tab, so the
+   * unsaved one keeps its tab while the save is retried.
+   * @param noteFile - The note file to load
+   * @param inNewTab - If true, opens in a new tab instead of replacing the current one
+   */
+  const loadNote = useCallback(
+    async (noteFile: NoteFile, inNewTab: boolean = false) => {
+      const navigation = ++latestNavigation;
+      const saved = await flushCurrentNote();
+      if (navigation !== latestNavigation) return;
+      await openNoteFile(noteFile, inNewTab || !saved, navigation);
+    },
+    [flushCurrentNote, openNoteFile]
   );
 
   /**
@@ -256,48 +259,52 @@ export function useNotes() {
       const filename = getDailyNoteFilename(date);
       const dateStr = format(date, 'yyyy-MM-dd');
 
-      await flushCurrentNote();
+      const navigation = ++latestNavigation;
+      const keepCurrentTab = !(await flushCurrentNote());
+      if (navigation !== latestNavigation) return;
 
       // Get fresh notes from store to avoid stale closure
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
+        if (openUnsavedText(`daily/${filename}`, keepCurrentTab)) return;
         let result;
         try {
           result = await readNoteWithMeta(filename, true, false);
         } catch (error) {
+          if (navigation !== latestNavigation) return;
           const message = error instanceof Error ? error.message : String(error);
           useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
           return;
         }
+        if (navigation !== latestNavigation) return;
         const virtualFile: NoteFile = {
           name: filename,
-          path: filename,
+          path: `daily/${filename}`,
           isDaily: true,
           isWeekly: false,
           date: dateStr,
           isLocked: false,
         };
         if (!result.content) {
-          setCurrentNote(filenameToNote(virtualFile, ''));
+          openTab(filenameToNote(virtualFile, ''), keepCurrentTab);
           return;
         }
 
-        const realFile = { ...virtualFile, path: `daily/${filename}` };
         const latestNotes = getState().notes;
         if (!latestNotes.some((note) => note.isDaily && note.date === dateStr)) {
-          setNotes([...latestNotes, realFile]);
+          setNotes([...latestNotes, virtualFile]);
         }
         const htmlContent = isHtmlContent(result.content)
           ? result.content
           : markdownToHtml(result.content);
-        setCurrentNote(filenameToNote(realFile, htmlContent));
+        openTab(filenameToNote(virtualFile, htmlContent), keepCurrentTab);
       };
 
       const existingNote = currentNotes.find((n) => n.isDaily && n.date === dateStr);
 
       if (existingNote) {
-        await loadNote(existingNote);
+        await openNoteFile(existingNote, keepCurrentTab, navigation);
       } else {
         const { defaultDailyTemplate } = useTemplateStore.getState();
 
@@ -311,7 +318,7 @@ export function useNotes() {
 
             const noteFile: NoteFile = {
               name: filename,
-              path: filename,
+              path: `daily/${filename}`,
               isDaily: true,
               isWeekly: false,
               date: dateStr,
@@ -320,7 +327,7 @@ export function useNotes() {
 
             setNotes([...currentNotes, noteFile]);
 
-            await loadNote(noteFile);
+            await openNoteFile(noteFile, keepCurrentTab, navigation);
           } catch (error) {
             console.error('[useNotes] Failed to create daily note from template:', error);
             await openVirtualOrRacedNote();
@@ -330,7 +337,7 @@ export function useNotes() {
         }
       }
     },
-    [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]
+    [flushCurrentNote, getState, openNoteFile, openTab, openUnsavedText, setNotes]
   );
 
   /**
@@ -345,20 +352,25 @@ export function useNotes() {
       const weekNum = getISOWeek(date);
       const weekStr = `${weekYear}-W${weekNum.toString().padStart(2, '0')}`;
 
-      await flushCurrentNote();
+      const navigation = ++latestNavigation;
+      const keepCurrentTab = !(await flushCurrentNote());
+      if (navigation !== latestNavigation) return;
 
       // Get fresh notes from store to avoid stale closure
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
+        if (openUnsavedText(`weekly/${filename}`, keepCurrentTab)) return;
         let result;
         try {
           result = await readNoteWithMeta(filename, false, true);
         } catch (error) {
+          if (navigation !== latestNavigation) return;
           const message = error instanceof Error ? error.message : String(error);
           useToastStore.getState().addToast('error', `Failed to open note: ${message}`);
           return;
         }
+        if (navigation !== latestNavigation) return;
         const virtualFile: NoteFile = {
           name: filename,
           path: `weekly/${filename}`,
@@ -368,7 +380,7 @@ export function useNotes() {
           isLocked: false,
         };
         if (!result.content) {
-          setCurrentNote(filenameToNote(virtualFile, ''));
+          openTab(filenameToNote(virtualFile, ''), keepCurrentTab);
           return;
         }
 
@@ -380,13 +392,13 @@ export function useNotes() {
         const htmlContent = isHtmlContent(result.content)
           ? result.content
           : markdownToHtml(result.content);
-        setCurrentNote(filenameToNote(realFile, htmlContent));
+        openTab(filenameToNote(realFile, htmlContent), keepCurrentTab);
       };
 
       const existingNote = currentNotes.find((n) => n.isWeekly && n.week === weekStr);
 
       if (existingNote) {
-        await loadNote(existingNote);
+        await openNoteFile(existingNote, keepCurrentTab, navigation);
       } else {
         // Check for default weekly template (future feature)
         const { defaultWeeklyTemplate } = useTemplateStore.getState() as {
@@ -413,7 +425,7 @@ export function useNotes() {
 
             setNotes([...currentNotes, noteFile]);
 
-            await loadNote(noteFile);
+            await openNoteFile(noteFile, keepCurrentTab, navigation);
           } catch (error) {
             console.error('[useNotes] Failed to create weekly note from template:', error);
             await openVirtualOrRacedNote();
@@ -423,7 +435,7 @@ export function useNotes() {
         }
       }
     },
-    [flushCurrentNote, getState, loadNote, setCurrentNote, setNotes]
+    [flushCurrentNote, getState, openNoteFile, openTab, openUnsavedText, setNotes]
   );
 
   /**
@@ -431,6 +443,7 @@ export function useNotes() {
    */
   const createNote = useCallback(
     async (title: string, folderPath?: string | null) => {
+      latestNavigation += 1;
       try {
         setIsLoading(true);
         const filename = await createNoteFile(title, folderPath || undefined);
@@ -539,7 +552,7 @@ export function useNotes() {
       let heldAutosavePath: string | null = null;
       try {
         await flushPendingAutosave();
-        if (getPendingAutosaveNoteId() !== null) {
+        if (getPendingAutosaveNoteId() !== null || heldLeaveSaveNote(oldPath)) {
           throw new Error('Save pending changes before renaming a note');
         }
         if (getState().currentNote?.id === oldPath) {
@@ -549,6 +562,7 @@ export function useNotes() {
         await renameNoteFile(oldFilename, newFilename, false, false);
 
         useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+        readdressLeaveSave(oldPath, newPath, newTitle);
         if (heldAutosavePath) {
           const committingPath = heldAutosavePath;
           heldAutosavePath = null;
@@ -650,6 +664,7 @@ export function useNotes() {
       await drainNoteWrites(filename, note.isDaily || false, note.isWeekly || false);
       await deleteNote(filename, note.isDaily || false, note.isWeekly || false);
       discardPendingAutosaveForNote(note.id, note.content);
+      discardLeaveSave(note.id);
 
       const freshNotes = state.notes;
       let updatedNotes: NoteFile[];
@@ -676,10 +691,6 @@ export function useNotes() {
     }
   }, [getState, setNotes, setIsLoading]);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
   return {
     notes,
     currentNote,
@@ -691,6 +702,6 @@ export function useNotes() {
     duplicateNote,
     renameNote,
     deleteCurrentNote,
-    refresh: initialize,
+    refresh: loadNoteList,
   };
 }

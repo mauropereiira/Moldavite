@@ -25,7 +25,7 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { useNotes } from './useNotes';
+import { initializeNotes, useNotes } from './useNotes';
 import { discardPendingAutosaveForNote, useAutoSave } from './useAutoSave';
 import { useTrash } from './useTrash';
 
@@ -62,7 +62,6 @@ beforeEach(() => {
 describe('useNotes external-write bases', () => {
   it('reads a missing daily note before opening its virtual buffer', async () => {
     const hook = renderHook(() => useNotes());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     await act(() => hook.result.current.loadDailyNote(new Date(2026, 6, 31)));
 
@@ -72,7 +71,7 @@ describe('useNotes external-write bases', () => {
       isWeekly: false,
     });
     expect(getLastPersistedMarkdown('2026-07-31.md', true, false)).toBe('');
-    expect(useNoteStore.getState().currentNote?.id).toBe('2026-07-31.md');
+    expect(useNoteStore.getState().currentNote?.id).toBe('daily/2026-07-31.md');
   });
 
   it('opens a raced daily file as a real note when the list was stale', async () => {
@@ -84,7 +83,6 @@ describe('useNotes external-write bases', () => {
       return undefined;
     });
     const hook = renderHook(() => useNotes());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     await act(() => hook.result.current.loadDailyNote(new Date(2026, 6, 31)));
 
@@ -101,7 +99,6 @@ describe('useNotes external-write bases', () => {
 
   it('primes the empty base after creating a standalone note', async () => {
     const hook = renderHook(() => useNotes());
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     await act(() => hook.result.current.createNote('Created'));
 
@@ -135,7 +132,7 @@ describe('useNotes external-write bases', () => {
     });
     await readNoteWithMeta(daily.name, true, false);
 
-    renderHook(() => useNotes());
+    await initializeNotes();
     await waitFor(() => expect(readCount).toBe(2));
 
     expect(getLastPersistedMarkdown(daily.name, true, false)).toBe('editor base');
@@ -227,7 +224,6 @@ describe('useNotes external-write bases', () => {
       useAutoSave();
       return noteActions;
     });
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
 
     act(() => {
       useNoteStore.setState({

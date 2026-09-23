@@ -2,16 +2,20 @@
  * Frontend reconciliation for external Forge filesystem events.
  * Event bursts coalesce into a note-list refresh. Open note bodies reconcile
  * independently: clean buffers reload, while dirty buffers remain untouched
- * and surface an explicit external-change decision.
+ * and surface an explicit external-change decision. A body identical to the one
+ * last read or written is ignored. When the file is gone, a clean tab closes and a
+ * dirty one keeps its text, so leaving it saves the note back.
  */
 
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
   type AgentWriteInfo,
+  type NoteReadResult,
   adoptNoteSnapshot,
   getLastPersistedMarkdown,
   htmlToMarkdown,
+  isPersistedNoteHash,
   listNotes,
   listFolders,
   markdownToHtml,
@@ -71,6 +75,20 @@ function matchingOpenTab(relPath: string, address: NoteAddress, tabs: Note[]): N
   return tabs.find((tab) => !tab.isDaily && !tab.isWeekly && tab.id === relPath);
 }
 
+/** `read_note` answers a missing file with an empty body, so only the list can tell. */
+async function noteFileIsMissing(relPath: string, incoming: NoteReadResult): Promise<boolean> {
+  if (incoming.content !== '') return false;
+  const notes = await listNotes();
+  return !notes.some((note) => note.path === relPath);
+}
+
+function warnNoteMissing(tab: Note): void {
+  const message = `${tab.title} was deleted or moved outside Moldavite`;
+  const toasts = useToastStore.getState();
+  if (toasts.toasts.some((toast) => toast.message === message)) return;
+  toasts.addToast('warning', message);
+}
+
 function attributedClient(info: AgentWriteInfo | null): string | undefined {
   const client = info?.client?.trim();
   return client || undefined;
@@ -108,6 +126,20 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
       // This read must not advance the save baseline. Keep mine relies on the
       // older hash to preserve this incoming disk version as a conflict copy.
       const incoming = await readNoteSnapshot(address.filename, address.isDaily, address.isWeekly);
+      if (
+        isPersistedNoteHash(
+          address.filename,
+          address.isDaily,
+          address.isWeekly,
+          incoming.contentHash
+        )
+      ) {
+        return;
+      }
+      if (await noteFileIsMissing(relPath, incoming)) {
+        warnNoteMissing(tab);
+        return;
+      }
       client = attributedClient(await takeAgentWrite(relPath, incoming.contentHash));
     } catch {
       // A disk read or marker failure still presents the generic safe choice.
@@ -120,9 +152,23 @@ export async function reconcileExternalNoteChange(relPath: string): Promise<void
   // IPC is in flight, in which case Keep mine still needs the older hash to
   // preserve this incoming disk version as a conflict copy.
   const result = await readNoteSnapshot(address.filename, address.isDaily, address.isWeekly);
+  if (
+    isPersistedNoteHash(address.filename, address.isDaily, address.isWeekly, result.contentHash)
+  ) {
+    return;
+  }
+  const missing = await noteFileIsMissing(relPath, result);
   const liveState = useNoteStore.getState();
   const liveTab = matchingOpenTab(relPath, address, liveState.openTabs);
   if (!liveTab) return;
+  if (missing) {
+    if (liveTab === tab && getPendingAutosaveNoteId() !== tab.id) {
+      liveState.removeTabByPath(tab.id);
+    } else {
+      warnNoteMissing(liveTab);
+    }
+    return;
+  }
   if (liveTab !== tab || getPendingAutosaveNoteId() === tab.id) {
     const client = attributedClient(await takeAgentWrite(relPath, result.contentHash));
     liveState.markExternallyChanged(tab.id, client);

@@ -64,7 +64,7 @@ describe('external Forge watcher reconciliation', () => {
     expect(current?.externalRev).toBe(1);
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(false);
     expect(getLastPersistedMarkdown('2026-07-31.md', true, false)).toBe('agent body');
-    expect(reset).toHaveBeenCalledWith(tab.id, current?.content);
+    expect(reset).toHaveBeenCalledWith(tab.id, current?.content, false);
     expect(useToastStore.getState().toasts[0]).toMatchObject({
       type: 'success',
       message: 'Claude Code updated this note.',
@@ -255,6 +255,73 @@ describe('external Forge watcher reconciliation', () => {
     expect(state.externallyChanged.has(tab.id)).toBe(true);
     expect(persisted).toBe('old body');
     expect(reset).not.toHaveBeenCalled();
+  });
+});
+
+describe('external watcher: missing files and own writes', () => {
+  const goneTab = (content: string): Note => ({
+    id: 'notes/Gone.md',
+    title: 'Gone',
+    content,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    isDaily: false,
+    isWeekly: false,
+  });
+
+  async function openWithBaseline(content: string) {
+    invokeMock.mockResolvedValueOnce({ content: 'body', color: null, contentHash: 'gone-hash' });
+    await readNoteWithMeta('Gone.md', false, false);
+    const tab = goneTab(content);
+    useNoteStore.setState({ openTabs: [tab], activeTabId: tab.id, currentNote: tab });
+    return tab;
+  }
+
+  function diskIsGone() {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'read_note') return { content: '', color: null, contentHash: 'empty-hash' };
+      if (command === 'list_notes') return [];
+      return undefined;
+    });
+  }
+
+  it('closes an unedited tab whose file disappeared instead of blanking it', async () => {
+    await openWithBaseline(markdownToHtml('body'));
+    diskIsGone();
+
+    await reconcileExternalNoteChange('notes/Gone.md');
+
+    const state = useNoteStore.getState();
+    expect(state.openTabs).toHaveLength(0);
+    expect(state.currentNote).toBeNull();
+  });
+
+  it('keeps an edited tab whose file disappeared and warns once', async () => {
+    const tab = await openWithBaseline('<p>my edits</p>');
+    diskIsGone();
+
+    await reconcileExternalNoteChange('notes/Gone.md');
+    await reconcileExternalNoteChange('notes/Gone.md');
+
+    const state = useNoteStore.getState();
+    expect(state.currentNote?.content).toBe('<p>my edits</p>');
+    expect(state.externallyChanged.has(tab.id)).toBe(false);
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({
+        type: 'warning',
+        message: 'Gone was deleted or moved outside Moldavite',
+      }),
+    ]);
+  });
+
+  it('ignores a change whose body is the one it last read', async () => {
+    const tab = await openWithBaseline('<p>my edits</p>');
+    invokeMock.mockResolvedValueOnce({ content: 'body', color: null, contentHash: 'gone-hash' });
+
+    await reconcileExternalNoteChange('notes/Gone.md');
+
+    expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(false);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 });
 
