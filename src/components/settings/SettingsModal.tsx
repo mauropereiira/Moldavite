@@ -168,7 +168,10 @@ export function SettingsModal() {
 
   // Nothing behind these works on a phone: no MCP or agent process, no
   // semantic-search runtime, no folder picker for an Obsidian vault.
-  const phoneTabs = tabs.filter((tab) => !PHONE_HIDDEN_TABS.includes(tab.id));
+  const phoneTabs = tabs
+    .filter((tab) => !PHONE_HIDDEN_TABS.includes(tab.id))
+    // The phone has no sidebar; the same list is its Index page.
+    .map((tab) => (tab.id === 'sidebar' ? { ...tab, label: 'Index' } : tab));
 
   if (!settingsStore.isSettingsOpen) return null;
 

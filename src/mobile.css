@@ -1052,6 +1052,88 @@ html[data-platform='mobile'] .settings-dialog .settings-section .text-sm {
   font-size: 15px;
 }
 
+/* Switches at iOS size, 51 by 31, with the knob filled in ink when on: the
+   outlined knob read the same either way. The hit area reaches 44pt without
+   moving anything. */
+html[data-platform='mobile'] .settings-toggle {
+  width: 51px;
+  height: 31px;
+}
+
+html[data-platform='mobile'] .settings-toggle::before {
+  content: '';
+  position: absolute;
+  inset: -7px -4px;
+}
+
+html[data-platform='mobile'] .settings-toggle-marker {
+  width: 23px;
+  height: 23px;
+}
+
+html[data-platform='mobile'] .settings-toggle[aria-checked='true'] .settings-toggle-marker {
+  background: var(--text-primary) !important;
+  transform: translateX(23px) !important;
+}
+
+html[data-platform='mobile'] .settings-toggle:disabled {
+  opacity: 0.5;
+}
+
+/* Sliders: a finger-sized track and thumb. */
+html[data-platform='mobile'] .settings-dialog input[type='range'] {
+  height: var(--touch-target) !important;
+}
+
+html[data-platform='mobile'] .settings-dialog input[type='range']::-webkit-slider-thumb {
+  width: 28px;
+  height: 28px;
+}
+
+/* Unselected options were --text-muted, near-illegible on the dark grounds.
+   The colour is inline, hence !important. */
+html[data-platform='mobile'] .settings-segmented-option[aria-checked='false'] {
+  color: var(--text-secondary) !important;
+}
+
+/* A section's own hairline already closes its last control. */
+html[data-platform='mobile'] .settings-section .settings-segmented-row:last-child {
+  padding-bottom: 4px;
+  border-bottom: 0;
+}
+
+/* Presets are rows in the section, not boxes inside its box; the chosen one
+   keeps its ink bar. The borders are inline. */
+html[data-platform='mobile'] .settings-preset-option {
+  border: 0 !important;
+  border-bottom: 1px solid var(--border-muted) !important;
+  border-left: 2px solid transparent !important;
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .settings-preset-option[aria-checked='true'] {
+  border-left-color: var(--text-primary) !important;
+}
+
+html[data-platform='mobile'] [role='radiogroup']:has(> .settings-preset-option) {
+  gap: 0 !important;
+}
+
+@media (hover: none) {
+  html[data-platform='mobile']
+    .settings-dialog
+    :is(
+      .settings-segmented-option:not([aria-checked='true']),
+      .settings-preset-option:not([aria-checked='true']),
+      .settings-toggle,
+      [role='tabpanel'] button:not([aria-checked='true']),
+      nav button,
+      header button
+    ):not(:disabled):hover {
+    background-color: transparent !important;
+  }
+}
+
 /* Segmented controls: two or three options stay side by side at touch height;
    four or more become a list, one option per row, the chosen one marked by
    an ink bar on the left instead of the desktop's underline. */
@@ -1313,9 +1395,9 @@ html[data-platform='mobile'][data-keyboard='closed'] .mobile-formatting-bar {
   padding-bottom: var(--safe-bottom);
 }
 
-/* Forge management uses the device's own storage on iOS. */
+/* Forge management uses the device's own storage on iOS. It dims like the
+   other dialogs opened from the Index. */
 html[data-platform='mobile'] .forge-management-backdrop {
-  background: color-mix(in srgb, var(--bg-base) 94%, transparent) !important;
   left: var(--rail-inset-left);
   right: var(--rail-inset-right);
   padding: calc(var(--safe-top) + 12px) calc(12px + var(--page-safe-right))

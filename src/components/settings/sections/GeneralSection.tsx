@@ -1,24 +1,13 @@
 /**
- * GeneralSection — Notes directory, backup/restore, encrypted backups,
- * auto-lock, auto-save, and Clear-all-notes danger zone.
+ * GeneralSection — Notes directory, auto-lock, auto-save, and the
+ * Clear-all-notes danger zone. Backups live in SettingsData.
  *
  * All IPC calls go through the `@/lib` wrapper modules, which internally
  * use `safeInvoke` from `@/lib/ipc` (no direct Tauri `invoke` usage here).
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Lock,
-  FolderOpen,
-  Download,
-  Upload,
-  Shield,
-  Eye,
-  EyeOff,
-  Timer,
-  RefreshCw,
-  ExternalLink,
-} from 'lucide-react';
+import { FolderOpen, Timer, RefreshCw, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useSettingsStore, useNoteStore } from '@/stores';
@@ -28,16 +17,12 @@ import {
   getNotesDirectory,
   getForgesRoot,
   setForgesRoot,
-  importNotes,
-  importEncryptedBackup,
   rescanForge,
   openForgeInFinder,
   listNotes,
 } from '@/lib';
-import type { ImportResult } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
-import { exportDocument } from '@/lib/exportDocument';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import SyncedForgeControl from '../SyncedForgeControl';
@@ -49,11 +34,6 @@ const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }
   { value: 60, label: '1 hour' },
   { value: 0, label: 'Never' },
 ];
-
-const IMPORT_MODE_OPTIONS = [
-  { value: 'merge', label: 'Merge' },
-  { value: 'replace', label: 'Replace All' },
-] as const;
 
 export function GeneralSection() {
   const settings = useSettingsStore();
@@ -71,22 +51,10 @@ export function GeneralSection() {
   const [forgesRoot, setForgesRootState] = useState('');
   const [isChangingDir, setIsChangingDir] = useState(false);
   const [isRescanning, setIsRescanning] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [showImportOptions, setShowImportOptions] = useState(false);
-  const [pendingImportPath, setPendingImportPath] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
-
-  const [showEncryptedExportModal, setShowEncryptedExportModal] = useState(false);
-  const [showEncryptedImportModal, setShowEncryptedImportModal] = useState(false);
-  const [encryptedPassword, setEncryptedPassword] = useState('');
-  const [encryptedConfirmPassword, setEncryptedConfirmPassword] = useState('');
-  const [showEncryptedPassword, setShowEncryptedPassword] = useState(false);
-  const [pendingEncryptedImportPath, setPendingEncryptedImportPath] = useState<string | null>(null);
-  const [encryptedImportMerge, setEncryptedImportMerge] = useState(true);
 
   // Both paths on mount: the active Forge answers "where are my notes right
   // now", the root is what the Change button actually repoints.
@@ -157,143 +125,6 @@ export function GeneralSection() {
       setStatusMessage({ type: 'error', text: String(error) });
     } finally {
       setIsChangingDir(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      setIsExporting(true);
-      if (await exportDocument({ kind: 'notes' })) {
-        setStatusMessage({ type: 'success', text: 'Notes exported successfully!' });
-      }
-    } catch (error) {
-      console.error('[Settings] Failed to export notes:', error);
-      setStatusMessage({ type: 'error', text: String(error) });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleImportSelect = async () => {
-    try {
-      const selected = await open({
-        title: 'Import Notes',
-        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
-      });
-
-      if (selected && typeof selected === 'string') {
-        setPendingImportPath(selected);
-        setShowImportOptions(true);
-      }
-    } catch (error) {
-      console.error('[Settings] Failed to select import file:', error);
-      setStatusMessage({ type: 'error', text: String(error) });
-    }
-  };
-
-  const handleImport = async (merge: boolean) => {
-    if (!pendingImportPath) return;
-
-    try {
-      setIsImporting(true);
-      setShowImportOptions(false);
-      const result: ImportResult = await importNotes(pendingImportPath, merge);
-      const total = result.dailyNotes + result.standaloneNotes + result.templates;
-      setStatusMessage({
-        type: 'success',
-        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
-      });
-      setPendingImportPath(null);
-      window.location.reload();
-    } catch (error) {
-      console.error('[Settings] Failed to import notes:', error);
-      setStatusMessage({ type: 'error', text: String(error) });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleEncryptedExportStart = () => {
-    setEncryptedPassword('');
-    setEncryptedConfirmPassword('');
-    setShowEncryptedPassword(false);
-    setShowEncryptedExportModal(true);
-  };
-
-  const handleEncryptedExport = async () => {
-    if (encryptedPassword.length < 8) {
-      setStatusMessage({ type: 'error', text: 'Password must be at least 8 characters' });
-      return;
-    }
-    if (encryptedPassword !== encryptedConfirmPassword) {
-      setStatusMessage({ type: 'error', text: 'Passwords do not match' });
-      return;
-    }
-
-    try {
-      setIsExporting(true);
-      setShowEncryptedExportModal(false);
-      if (await exportDocument({ kind: 'backup', password: encryptedPassword })) {
-        setStatusMessage({ type: 'success', text: 'Encrypted backup created successfully!' });
-      }
-    } catch (error) {
-      console.error('[Settings] Failed to export encrypted backup:', error);
-      setStatusMessage({ type: 'error', text: String(error) });
-    } finally {
-      setIsExporting(false);
-      setEncryptedPassword('');
-      setEncryptedConfirmPassword('');
-    }
-  };
-
-  const handleEncryptedImportSelect = async () => {
-    try {
-      const selected = await open({
-        title: 'Import Encrypted Backup',
-        filters: [{ name: 'Moldavite Backup', extensions: ['moldavite-backup'] }],
-      });
-
-      if (selected && typeof selected === 'string') {
-        setPendingEncryptedImportPath(selected);
-        setEncryptedPassword('');
-        setShowEncryptedPassword(false);
-        setShowEncryptedImportModal(true);
-      }
-    } catch (error) {
-      console.error('[Settings] Failed to select encrypted backup:', error);
-      setStatusMessage({ type: 'error', text: String(error) });
-    }
-  };
-
-  const handleEncryptedImport = async () => {
-    if (!pendingEncryptedImportPath) return;
-
-    try {
-      setIsImporting(true);
-      setShowEncryptedImportModal(false);
-      const result: ImportResult = await importEncryptedBackup(
-        pendingEncryptedImportPath,
-        encryptedPassword,
-        encryptedImportMerge
-      );
-      const total = result.dailyNotes + result.standaloneNotes + result.templates;
-      setStatusMessage({
-        type: 'success',
-        text: `Imported ${total} items (${result.dailyNotes} daily, ${result.standaloneNotes} notes, ${result.templates} templates)`,
-      });
-      setPendingEncryptedImportPath(null);
-      window.location.reload();
-    } catch (error) {
-      console.error('[Settings] Failed to import encrypted backup:', error);
-      const errorMsg = String(error);
-      if (errorMsg.includes('Decryption failed')) {
-        setStatusMessage({ type: 'error', text: 'Incorrect password or corrupted backup file' });
-      } else {
-        setStatusMessage({ type: 'error', text: errorMsg });
-      }
-    } finally {
-      setIsImporting(false);
-      setEncryptedPassword('');
     }
   };
 
@@ -445,104 +276,9 @@ export function GeneralSection() {
         </div>
       </div>
 
-      {/* Backup & Restore Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div>
-          <div className="flex items-center gap-1">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Backup & Restore
-            </h3>
-            <InfoTooltip text="Create ZIP backups of all your notes and templates. Import to restore from backup." />
-          </div>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Export or import your notes and templates
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-          >
-            <Download aria-hidden="true" className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export'}
-          </button>
-          <button
-            onClick={handleImportSelect}
-            disabled={isImporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <Upload aria-hidden="true" className="w-4 h-4" />
-            {isImporting ? 'Importing...' : 'Import'}
-          </button>
-        </div>
-      </div>
-
-      {/* Encrypted Backup Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{
-          backgroundColor: 'transparent',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--accent-primary)',
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            aria-hidden="true"
-            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'transparent' }}
-          >
-            <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
-          </div>
-          <div>
-            <div className="flex items-center gap-1">
-              <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                Encrypted Backup
-              </h3>
-              <InfoTooltip text="Secure backups protected with military-grade AES-256 encryption. Requires a password to decrypt." />
-            </div>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Password-protected backup with AES-256 encryption
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleEncryptedExportStart}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-          >
-            <Lock aria-hidden="true" className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export Encrypted'}
-          </button>
-          <button
-            onClick={handleEncryptedImportSelect}
-            disabled={isImporting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <Upload aria-hidden="true" className="w-4 h-4" />
-            {isImporting ? 'Importing...' : 'Import Encrypted'}
-          </button>
-        </div>
-      </div>
+      <p className="px-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        Backups, exports and restores are in Data.
+      </p>
 
       {/* Security Section */}
       <div
@@ -555,7 +291,7 @@ export function GeneralSection() {
             className="w-8 h-8 flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: 'transparent' }}
           >
-            <Timer className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+            <Timer className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
           </div>
           <div>
             <div className="flex items-center gap-1">
@@ -597,7 +333,11 @@ export function GeneralSection() {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            <label
+              htmlFor="autosave-delay-range"
+              className="text-xs"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               Save delay
             </label>
             <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
@@ -605,14 +345,15 @@ export function GeneralSection() {
             </span>
           </div>
           <input
+            id="autosave-delay-range"
             type="range"
             min="100"
             max="2000"
             step="100"
             value={settings.autoSaveDelay}
+            aria-valuetext={`${settings.autoSaveDelay} milliseconds`}
             onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
-            className="w-full h-2 rounded appearance-none cursor-pointer"
-            style={{ backgroundColor: 'transparent', accentColor: 'var(--accent-primary)' }}
+            className="settings-range w-full appearance-none cursor-pointer"
           />
           <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             <span>Fast</span>
@@ -663,76 +404,6 @@ export function GeneralSection() {
           Clear All Notes
         </button>
       </div>
-
-      {/* Import Options Modal */}
-      {showImportOptions && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <DialogSurface
-            onEscape={() => {
-              setShowImportOptions(false);
-              setPendingImportPath(null);
-            }}
-            aria-labelledby="general-import-title"
-            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-          >
-            <h3
-              id="general-import-title"
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Import Notes
-            </h3>
-            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-              How would you like to import the notes?
-            </p>
-            <div className="space-y-2 mb-4">
-              <button
-                onClick={() => handleImport(true)}
-                className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <span className="font-semibold">Merge with existing</span>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  Add new notes without overwriting existing ones
-                </p>
-              </button>
-              <button
-                onClick={() => handleImport(false)}
-                className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <span className="font-semibold">Replace all</span>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  Clear existing notes and import from backup
-                </p>
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                setShowImportOptions(false);
-                setPendingImportPath(null);
-              }}
-              className="w-full px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Cancel
-            </button>
-          </DialogSurface>
-        </div>
-      )}
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
@@ -805,266 +476,6 @@ export function GeneralSection() {
                 style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
               >
                 {isClearing ? 'Deleting...' : 'Delete All'}
-              </button>
-            </div>
-          </DialogSurface>
-        </div>
-      )}
-
-      {/* Encrypted Export Modal */}
-      {showEncryptedExportModal && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <DialogSurface
-            onEscape={() => {
-              setShowEncryptedExportModal(false);
-              setEncryptedPassword('');
-              setEncryptedConfirmPassword('');
-            }}
-            aria-labelledby="general-encrypted-export-title"
-            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                aria-hidden="true"
-                className="w-10 h-10 flex items-center justify-center"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <Shield className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-              </div>
-              <div>
-                <h3
-                  id="general-encrypted-export-title"
-                  className="text-lg font-semibold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  Create Encrypted Backup
-                </h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Your backup will be protected with AES-256
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-4">
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-                  Password (minimum 8 characters)
-                </label>
-                <div className="relative">
-                  <input
-                    type={showEncryptedPassword ? 'text' : 'password'}
-                    value={encryptedPassword}
-                    onChange={(e) => setEncryptedPassword(e.target.value)}
-                    placeholder="Enter password"
-                    className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--text-primary)',
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                    style={{ color: 'var(--text-muted)' }}
-                    aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
-                    aria-pressed={showEncryptedPassword}
-                  >
-                    {showEncryptedPassword ? (
-                      <EyeOff aria-hidden="true" className="w-4 h-4" />
-                    ) : (
-                      <Eye aria-hidden="true" className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-                  Confirm Password
-                </label>
-                <input
-                  type={showEncryptedPassword ? 'text' : 'password'}
-                  value={encryptedConfirmPassword}
-                  onChange={(e) => setEncryptedConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div
-              className="p-3 mb-4"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--warning)',
-              }}
-            >
-              <p className="text-xs" style={{ color: 'var(--warning)' }}>
-                <strong>Warning:</strong> If you forget this password, your backup cannot be
-                recovered.
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowEncryptedExportModal(false);
-                  setEncryptedPassword('');
-                  setEncryptedConfirmPassword('');
-                }}
-                className="px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEncryptedExport}
-                disabled={
-                  encryptedPassword.length < 8 || encryptedPassword !== encryptedConfirmPassword
-                }
-                className="px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                Create Backup
-              </button>
-            </div>
-          </DialogSurface>
-        </div>
-      )}
-
-      {/* Encrypted Import Modal */}
-      {showEncryptedImportModal && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <DialogSurface
-            onEscape={() => {
-              setShowEncryptedImportModal(false);
-              setEncryptedPassword('');
-              setPendingEncryptedImportPath(null);
-            }}
-            aria-labelledby="general-encrypted-import-title"
-            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                aria-hidden="true"
-                className="w-10 h-10 flex items-center justify-center"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <Lock className="w-5 h-5" style={{ color: 'var(--accent-primary)' }} />
-              </div>
-              <div>
-                <h3
-                  id="general-encrypted-import-title"
-                  className="text-lg font-semibold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  Import Encrypted Backup
-                </h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Enter the password to decrypt your backup
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-4">
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showEncryptedPassword ? 'text' : 'password'}
-                    value={encryptedPassword}
-                    onChange={(e) => setEncryptedPassword(e.target.value)}
-                    placeholder="Enter backup password"
-                    className="w-full px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--text-primary)',
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowEncryptedPassword(!showEncryptedPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                    style={{ color: 'var(--text-muted)' }}
-                    aria-label={showEncryptedPassword ? 'Hide password' : 'Show password'}
-                    aria-pressed={showEncryptedPassword}
-                  >
-                    {showEncryptedPassword ? (
-                      <EyeOff aria-hidden="true" className="w-4 h-4" />
-                    ) : (
-                      <Eye aria-hidden="true" className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <SegmentedControl
-                  label="Import Mode"
-                  ariaLabel="Import Mode"
-                  value={encryptedImportMerge ? 'merge' : 'replace'}
-                  onChange={(mode) => setEncryptedImportMerge(mode === 'merge')}
-                  options={IMPORT_MODE_OPTIONS}
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  {encryptedImportMerge
-                    ? 'Add new notes without overwriting existing ones'
-                    : 'Clear existing notes and import from backup'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowEncryptedImportModal(false);
-                  setEncryptedPassword('');
-                  setPendingEncryptedImportPath(null);
-                }}
-                className="px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEncryptedImport}
-                disabled={!encryptedPassword}
-                className="px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                Import Backup
               </button>
             </div>
           </DialogSurface>

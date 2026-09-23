@@ -37,7 +37,7 @@ describe('LayoutSection', () => {
       screen.queryByRole('radiogroup', { name: 'Writing column width mode' })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'Asteroid cursor' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Desktop settings/)).toBeInTheDocument();
+    expect(screen.queryByText(/Desktop settings/)).not.toBeInTheDocument();
 
     // What still applies on a phone stays.
     expect(screen.getByRole('radiogroup', { name: 'Rail side' })).toBeInTheDocument();

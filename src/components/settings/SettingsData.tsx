@@ -291,6 +291,7 @@ export function SettingsData() {
             className={buttonPrimary}
             style={{
               backgroundColor: 'transparent',
+              border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
             }}
           >
@@ -328,7 +329,7 @@ export function SettingsData() {
         style={{
           backgroundColor: 'transparent',
           borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--accent-primary)',
+          border: '1px solid var(--border-default)',
         }}
       >
         <div className="flex items-start gap-3">
@@ -336,7 +337,7 @@ export function SettingsData() {
             className="w-8 h-8 flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: 'transparent' }}
           >
-            <Shield className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+            <Shield className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
           </div>
           <div>
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -359,6 +360,7 @@ export function SettingsData() {
             className={buttonPrimary}
             style={{
               backgroundColor: 'transparent',
+              border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
             }}
           >
@@ -400,7 +402,7 @@ export function SettingsData() {
             className="w-8 h-8 flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: 'transparent' }}
           >
-            <SettingsIcon className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
+            <SettingsIcon className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
           </div>
           <div>
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -419,6 +421,7 @@ export function SettingsData() {
             className={buttonPrimary}
             style={{
               backgroundColor: 'transparent',
+              border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-sm)',
             }}
           >

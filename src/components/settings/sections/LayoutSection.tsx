@@ -123,15 +123,10 @@ export function LayoutSection() {
 
   return (
     <div className="space-y-7">
-      <section>
+      <section className="settings-section">
         <SectionHeading>Navigation</SectionHeading>
         {mobile ? (
-          <>
-            {railSideRow}
-            <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
-              Desktop settings. On a phone the Index and Agenda open as overlays.
-            </p>
-          </>
+          railSideRow
         ) : (
           <>
             <ToggleRow label="Icon rail" setting="showIconRail" enabled={settings.showIconRail} />
@@ -150,7 +145,7 @@ export function LayoutSection() {
         )}
       </section>
 
-      <section>
+      <section className="settings-section">
         <SectionHeading>Editor</SectionHeading>
         {!mobile && (
           <ModeRow
@@ -165,7 +160,7 @@ export function LayoutSection() {
         ))}
       </section>
 
-      <section>
+      <section className="settings-section">
         <SectionHeading>Welcome</SectionHeading>
         {welcomeControls.map(([label, setting]) => (
           <ToggleRow key={setting} label={label} setting={setting} enabled={settings[setting]} />

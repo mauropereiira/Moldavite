@@ -23,7 +23,7 @@ export function SidebarSection() {
       <section className="settings-section space-y-1">
         <div className="flex items-center gap-1 mb-3">
           <SectionHeading>Visible Sections</SectionHeading>
-          <InfoTooltip text="Choose which sections appear in the left sidebar. Hide sections you don't use." />
+          <InfoTooltip text="Choose which sections appear in the Index. Hide sections you don't use." />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -48,7 +48,7 @@ export function SidebarSection() {
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Backlinks Section
             </span>
-            <InfoTooltip text="Show backlinks in the sidebar. Requires Backlinks to be enabled in Features." />
+            <InfoTooltip text="Show backlinks in the Index. Requires Backlinks to be enabled in Features." />
           </div>
           <Toggle
             enabled={settings.showBacklinksSection}
@@ -63,10 +63,10 @@ export function SidebarSection() {
         <div>
           <div className="flex items-center gap-1">
             <SectionHeading>Sort Notes By</SectionHeading>
-            <InfoTooltip text="Choose how notes are ordered in the sidebar list. Modified sorts by last edit time. Manual lets you drag notes and folders into your own order — daily notes always stay in date order." />
+            <InfoTooltip text="Choose how notes are ordered in the Index. Modified sorts by last edit time. Manual lets you drag notes and folders into your own order — daily notes always stay in date order." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            How notes and folders are ordered in the sidebar
+            How notes and folders are ordered in the Index
           </p>
         </div>
         <SegmentedControl

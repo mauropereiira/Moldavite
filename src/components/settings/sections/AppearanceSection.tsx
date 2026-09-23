@@ -6,6 +6,7 @@ import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
 import type { BaseMode, FontFamily, FontSize, ThemePreset } from '@/stores';
 import { InfoTooltip, SectionHeading, SegmentedControl, Toggle } from '../common';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: BaseMode; label: string }> = [
   { value: 'light', label: 'Light' },
@@ -46,7 +47,7 @@ export function AppearanceSection({
             <InfoTooltip text="Light for daytime, Dark for nighttime. System follows your operating system's appearance setting." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Choose your preferred color scheme
+            Choose your preferred colour scheme
           </p>
         </div>
         <SegmentedControl
@@ -60,7 +61,7 @@ export function AppearanceSection({
       <section className="settings-section">
         <div>
           <div className="flex items-center gap-1">
-            <SectionHeading>Color preset</SectionHeading>
+            <SectionHeading>Colour preset</SectionHeading>
             <InfoTooltip text="Each palette has a light and a dark version and follows your light/dark choice." />
           </div>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -69,7 +70,7 @@ export function AppearanceSection({
         </div>
         <div
           role="radiogroup"
-          aria-label="Color preset"
+          aria-label="Colour preset"
           className="grid gap-2"
           style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}
         >
@@ -187,7 +188,8 @@ export function AppearanceSection({
               Focus mode
             </span>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Hide every panel at once and leave just the note. {formatShortcut('⌘.')}
+              Hide every panel at once and leave just the note.
+              {!isMobilePlatform() && ` ${formatShortcut('⌘.')}`}
             </p>
           </div>
           <Toggle

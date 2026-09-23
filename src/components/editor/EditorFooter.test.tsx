@@ -72,7 +72,7 @@ describe('EditorFooter colour', () => {
     const user = userEvent.setup();
     renderFooter();
 
-    await user.click(screen.getByRole('button', { name: 'Change note background color' }));
+    await user.click(screen.getByRole('button', { name: 'Change note background colour' }));
     await user.click(screen.getByRole('button', { name: 'Honey' }));
 
     expect(safeInvoke).toHaveBeenCalledWith('set_note_color', {
@@ -143,7 +143,7 @@ describe('EditorFooter menus after an action', () => {
     renderFooter();
 
     await user.click(screen.getByRole('button', { name: 'Actions' }));
-    await user.click(screen.getByRole('button', { name: 'Change note background color' }));
+    await user.click(screen.getByRole('button', { name: 'Change note background colour' }));
     await user.click(screen.getByRole('button', { name: 'Honey' }));
 
     expect(screen.queryByRole('button', { name: 'More options' })).toBeNull();

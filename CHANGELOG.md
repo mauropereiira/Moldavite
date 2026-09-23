@@ -18,6 +18,10 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- **Settings says each thing once.** Backup & Restore and Encrypted Backup were in both General and Data; they are in Data, and General points there. The Tags switch was in both Editor and Features; it is in Features. The encrypted-backup card and Manage Forges' Done are no longer green, export and import buttons share one style, and "colour" is spelled one way.
+
+- **Settings on iPhone:** switches are iPhone-sized and show at a glance whether they are on, the save-delay slider is finger-sized and read out by VoiceOver, unselected options are readable on dark themes, colour presets are rows rather than boxes inside a box, and the Synced Forge control is a switch. Sidebar is called Index, as the page is, About no longer lists keyboard shortcuts, focus mode shows none, and Layout drops a line of desktop copy. Deleting a Forge asks in the app (the system confirmation never appeared, so nothing happened), and Delete on the active Forge says to switch first.
+
 - On iPhone the keyboard comes up with the password field when you lock, unlock or remove a lock, and a password dialog opened from the Index keeps its buttons above the keyboard; they were pushed below it and out of reach. A row you tapped in the Index no longer stays shaded afterwards.
 
 - **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone (there is no tab bar), and pages keep a 16pt margin beside the rail on the left as they do on the right.

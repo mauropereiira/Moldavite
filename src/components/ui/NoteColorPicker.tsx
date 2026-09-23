@@ -81,8 +81,8 @@ export function NoteColorPicker({
           setIsOpen(!isOpen);
         }}
         className="toolbar-button"
-        title="Note background color"
-        aria-label="Change note background color"
+        title="Note background colour"
+        aria-label="Change note background colour"
         aria-expanded={isOpen}
       >
         <Palette className="w-4 h-4" />
