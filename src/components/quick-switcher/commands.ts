@@ -22,6 +22,8 @@ export interface QuickSwitcherCommand {
   category: QuickSwitcherCommandCategory;
   /** Lower-cased haystack used by the fuzzy matcher. */
   keywords?: string[];
+  /** Hidden on a phone: a keyboard shortcut, a desktop panel, or a rail button already does it. */
+  desktopOnly?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     title: 'New Note from Template…',
     category: 'notes',
     keywords: ['template', 'new', 'create'],
+    desktopOnly: true,
   },
   {
     id: 'open-graph',
@@ -61,12 +64,14 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     title: 'Toggle Timeline',
     category: 'view',
     keywords: ['timeline', 'history', 'right panel'],
+    desktopOnly: true,
   },
   {
     id: 'toggle-theme',
     title: 'Toggle Theme',
     category: 'preferences',
     keywords: ['theme', 'light', 'dark', 'appearance'],
+    desktopOnly: true,
   },
   {
     id: 'open-settings',
@@ -79,12 +84,14 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     title: 'Switch Forge…',
     category: 'navigation',
     keywords: ['forge', 'switch', 'workspace', 'vault'],
+    desktopOnly: true,
   },
   {
     id: 'shortcut-help',
     title: 'Show Keyboard Shortcuts',
     category: 'help',
     keywords: ['shortcuts', 'help', 'keys'],
+    desktopOnly: true,
   },
 ];
 

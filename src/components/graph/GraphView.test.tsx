@@ -223,6 +223,56 @@ describe('GraphView canvas', () => {
     expect(after.arcs.some((star, index) => star.r !== before.arcs[index].r)).toBe(true);
   });
 
+  it('names a star on the first tap of a finger and opens it on the second', async () => {
+    useNoteStore.setState({
+      notes: fixture.graph.nodes.map((node) => ({
+        name: `${node.name}.md`,
+        path: node.id,
+        isDaily: false,
+        isWeekly: false,
+        isLocked: false,
+      })),
+    });
+    const view = await openGraph();
+    settleAndFit(view);
+    const star = drawFrame().arcs[0];
+    const tap = (pointerType: string) => {
+      const at = { pointerId: 3, button: 0, clientX: star.x, clientY: star.y, pointerType };
+      fireEvent.pointerDown(view.canvas, at);
+      fireEvent.pointerUp(view.canvas, at);
+    };
+
+    tap('touch');
+    expect(useGraphStore.getState().isOpen).toBe(true);
+    const named = drawFrame();
+    expect(named.arcs.some((s, index) => s.r !== star.r && index === 0)).toBe(true);
+
+    tap('touch');
+    expect(useGraphStore.getState().isOpen).toBe(true);
+    fireEvent.click(view.canvas);
+    expect(useGraphStore.getState().isOpen).toBe(false);
+  });
+
+  it('opens a star on the first click of a mouse', async () => {
+    useNoteStore.setState({
+      notes: fixture.graph.nodes.map((node) => ({
+        name: `${node.name}.md`,
+        path: node.id,
+        isDaily: false,
+        isWeekly: false,
+        isLocked: false,
+      })),
+    });
+    const view = await openGraph();
+    settleAndFit(view);
+    const star = drawFrame().arcs[0];
+    const at = { pointerId: 4, button: 0, clientX: star.x, clientY: star.y, pointerType: 'mouse' };
+    fireEvent.pointerDown(view.canvas, at);
+    fireEvent.pointerUp(view.canvas, at);
+
+    expect(useGraphStore.getState().isOpen).toBe(false);
+  });
+
   it('skips the galaxy entrance under prefers-reduced-motion', async () => {
     setReducedMotion(false);
     const animated = await openGraph();

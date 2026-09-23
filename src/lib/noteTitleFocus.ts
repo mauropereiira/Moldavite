@@ -1,10 +1,11 @@
 /**
- * Hands a new note's title the focus on a phone, with the keyboard up.
+ * Hands a field that does not exist yet the focus on a phone, with the
+ * keyboard up: a new note's title, or the search field of a page being opened.
  *
  * iOS raises the software keyboard only for a focus made inside a user
  * gesture, and a new note's title does not exist until its file has been
  * created, after the tap has ended. So the tap focuses a stand-in field, and
- * the title takes the focus from it once the note is open: moving focus from
+ * the real field takes the focus from it once it is mounted: moving focus from
  * one field to another keeps the keyboard up.
  */
 
@@ -16,8 +17,8 @@ function releaseKeyboard(): void {
   standIn = null;
 }
 
-/** Call synchronously in the tap that creates the note. */
-export function holdKeyboardForNewNote(): void {
+/** Call synchronously in the tap that opens the field. */
+export function holdKeyboard(): void {
   releaseKeyboard();
   const input = document.createElement('input');
   input.type = 'text';
@@ -30,7 +31,7 @@ export function holdKeyboardForNewNote(): void {
   input.addEventListener('blur', releaseKeyboard, { once: true });
   input.focus({ preventScroll: true });
   standIn = input;
-  // Creation failed or no title took the focus: let the keyboard go.
+  // Nothing took the focus (creation failed, say): let the keyboard go.
   window.setTimeout(() => {
     if (standIn === input) input.blur();
   }, 3000);

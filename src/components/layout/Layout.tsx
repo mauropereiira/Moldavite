@@ -15,6 +15,9 @@ import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 // TimelineView pulls in calendar/event aggregation + its own render
 // pipeline — only load it when the user actually toggles the timeline on.
 const TimelineView = lazy(() => import('../timeline').then((m) => ({ default: m.TimelineView })));
+const TrashPage = lazy(() =>
+  import('../sidebar/TrashPage').then((m) => ({ default: m.TrashPage }))
+);
 
 const LEFT_SIDEBAR_MIN = 200;
 const LEFT_SIDEBAR_MAX = 400;
@@ -306,6 +309,11 @@ export function Layout() {
             isOpen={activeOverlay === 'agenda' && agendaMode === 'overlay'}
             onClose={closeOverlay}
           />
+          {isMobile && (
+            <Suspense fallback={null}>
+              <TrashPage isOpen={activeOverlay === 'trash'} onClose={closeOverlay} />
+            </Suspense>
+          )}
         </div>
 
         {railOnRight && rail}

@@ -15,6 +15,7 @@ import { captureImpactOrigin } from '@/lib/impactOrigin';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { formatShortcut } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 
 interface RailButtonProps {
   label: string;
@@ -62,6 +63,9 @@ function RailButton({
 const iconProps = { size: 18, strokeWidth: 1.25, 'aria-hidden': true } as const;
 
 export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
+  const mobile = isMobilePlatform();
+  /** A phone has no keyboard shortcuts to announce. */
+  const spoken = (name: string, shortcut: string) => (mobile ? name : `${name} (${shortcut})`);
   const indexMode = useSettingsStore((state) => state.indexMode);
   const agendaMode = useSettingsStore((state) => state.agendaMode);
   const isSettingsOpen = useSettingsStore((state) => state.isSettingsOpen);
@@ -85,10 +89,13 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
   const activeTabId = useNoteStore((state) => state.activeTabId);
   const deactivateNote = useNoteStore((state) => state.deactivateNote);
   const [trashAnchor, setTrashAnchor] = useState<HTMLButtonElement | null>(null);
-  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashPopoverOpen, setTrashPopoverOpen] = useState(false);
+  const trashOpen = mobile ? activeOverlay === 'trash' : trashPopoverOpen;
 
   const indexOpen = activeOverlay === 'index' || (indexMode === 'pinned' && !isSidebarHidden);
   const agendaOpen = activeOverlay === 'agenda' || (agendaMode === 'pinned' && !isRightPanelHidden);
+  /** Phone Settings covers every page, so only its own button is lit. */
+  const covered = mobile && isSettingsOpen;
 
   const handleIndex = (event: MouseEvent<HTMLButtonElement>) => {
     if (indexMode === 'off') return;
@@ -119,14 +126,22 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
 
   const handleQuickSwitcher = (event: MouseEvent<HTMLButtonElement>) => {
     leaveSettings();
-    if (!quickSwitcherOpen) captureImpactOrigin(event.currentTarget);
+    if (!quickSwitcherOpen) {
+      captureImpactOrigin(event.currentTarget);
+      // The search field mounts after this tap, too late for iOS to raise the keyboard.
+      if (mobile) holdKeyboard();
+    }
     toggleQuickSwitcher();
   };
 
   const handleTrash = (event: MouseEvent<HTMLButtonElement>) => {
     leaveSettings();
+    if (mobile) {
+      useOverlayStore.getState().toggleSurface('trash');
+      return;
+    }
     setTrashAnchor(event.currentTarget);
-    setTrashOpen((open) => !open);
+    setTrashPopoverOpen((open) => !open);
   };
 
   return (
@@ -159,36 +174,36 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
 
         <nav className="flex w-full flex-col items-center" aria-label="Navigation surfaces">
           <RailButton
-            label="Index (Command Backslash)"
+            label={spoken('Index', 'Command Backslash')}
             tooltip={`Index · ${formatShortcut('⌘\\')}`}
-            active={indexOpen}
+            active={!covered && indexOpen}
             ariaDisabled={indexMode === 'off'}
             onClick={handleIndex}
           >
             <PanelLeft {...iconProps} />
           </RailButton>
           <RailButton
-            label="Search (Command P)"
+            label={spoken('Search', 'Command P')}
             tooltip={`Search · ${formatShortcut('⌘P')}`}
             surface="search"
-            active={quickSwitcherOpen}
+            active={!covered && quickSwitcherOpen}
             onClick={handleQuickSwitcher}
           >
             <Search {...iconProps} />
           </RailButton>
           <RailButton
-            label="Agenda (Command Option Backslash)"
+            label={spoken('Agenda', 'Command Option Backslash')}
             tooltip={`Agenda · ${formatShortcut('⌘⌥\\')}`}
-            active={agendaOpen}
+            active={!covered && agendaOpen}
             ariaDisabled={agendaMode === 'off'}
             onClick={handleAgenda}
           >
             <Calendar {...iconProps} />
           </RailButton>
           <RailButton
-            label="Graph (Command Shift G)"
+            label={spoken('Graph', 'Command Shift G')}
             tooltip={`Graph · ${formatShortcut('⌘⇧G')}`}
-            active={graphOpen}
+            active={!covered && graphOpen}
             onClick={() => {
               leaveSettings();
               toggleGraph();
@@ -199,7 +214,7 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
           <RailButton
             label="Timeline"
             tooltip="Timeline"
-            active={timelineOpen}
+            active={!covered && timelineOpen}
             onClick={() => {
               leaveSettings();
               toggleTimeline();
@@ -214,8 +229,8 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
         <RailButton
           label={
             availableVersion
-              ? 'Settings — update available (Command Comma)'
-              : 'Settings (Command Comma)'
+              ? spoken('Settings — update available', 'Command Comma')
+              : spoken('Settings', 'Command Comma')
           }
           tooltip={
             availableVersion
@@ -224,7 +239,7 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
           }
           active={isSettingsOpen}
           onClick={() => {
-            if (!isMobilePlatform()) {
+            if (!mobile) {
               setIsSettingsOpen(true);
               return;
             }
@@ -256,13 +271,18 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
             )}
           </span>
         </RailButton>
-        <RailButton label="Trash" tooltip="Trash" active={trashOpen} onClick={handleTrash}>
+        <RailButton
+          label="Trash"
+          tooltip="Trash"
+          active={!covered && trashOpen}
+          onClick={handleTrash}
+        >
           <Trash2 {...iconProps} />
         </RailButton>
       </div>
 
-      {trashOpen && trashAnchor && (
-        <IconRailTrash anchor={trashAnchor} onClose={() => setTrashOpen(false)} />
+      {!mobile && trashPopoverOpen && trashAnchor && (
+        <IconRailTrash anchor={trashAnchor} onClose={() => setTrashPopoverOpen(false)} />
       )}
     </aside>
   );

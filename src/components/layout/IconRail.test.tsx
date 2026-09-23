@@ -192,7 +192,7 @@ describe('IconRail', () => {
   it('walks Settings back on a phone: section to list, list to closed', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     render(<IconRail />);
-    const settings = screen.getByRole('button', { name: 'Settings (Command Comma)' });
+    const settings = screen.getByRole('button', { name: 'Settings' });
 
     fireEvent.click(settings);
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
@@ -335,6 +335,54 @@ describe('IconRail', () => {
     fireEvent.mouseDown(search);
     fireEvent.click(search);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+  });
+
+  it('names its buttons without keyboard shortcuts on a phone', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    for (const name of ['Index', 'Search', 'Agenda', 'Graph', 'Timeline', 'Settings', 'Trash']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: /Command/ })).not.toBeInTheDocument();
+  });
+
+  it('raises the keyboard in the tap that opens Search on a phone', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(true);
+    // The stand-in field the switcher's input takes the focus from.
+    expect(document.activeElement).toBeInstanceOf(HTMLInputElement);
+    (document.activeElement as HTMLInputElement).blur();
+  });
+
+  it('opens the Trash as a page on a phone, one of the exclusive surfaces', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    const button = screen.getByRole('button', { name: 'Trash' });
+    fireEvent.click(button);
+    expect(useOverlayStore.getState().activeOverlay).toBe('trash');
+    expect(button).toHaveAttribute('data-active', 'true');
+    expect(screen.queryByTestId('trash-popover')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Index' }));
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    expect(button).not.toHaveAttribute('data-active');
+  });
+
+  it('lights only Settings while phone Settings covers an open page', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<IconRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Index' }));
+    act(() => useSettingsStore.getState().setIsSettingsOpen(true));
+
+    expect(screen.getByRole('button', { name: 'Index' })).not.toHaveAttribute('data-active');
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('data-active', 'true');
   });
 
   it('opens the existing trash surface from the bottom action', async () => {

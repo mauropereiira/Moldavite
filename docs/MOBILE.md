@@ -112,9 +112,12 @@ get trapped underneath Index.
 - `src/mobile.css` holds every phone style, scoped to
   `html[data-platform='mobile']`, with `--safe-top`, `--safe-bottom` and
   `--touch-target` tokens. `index.html` sets `viewport-fit=cover`.
-- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline
-  and Settings are full-screen pages, closed with their × or by tapping
-  their rail button again. Home (the M) is the welcome screen.
+- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline,
+  Settings and Trash are full-screen pages, closed with their × or by tapping
+  their rail button again. Home (the M) is the welcome screen. Search matches
+  titles and note text and raises the keyboard as it opens (the tap focuses a
+  stand-in field, as New does). In the graph a tap names a star and a second
+  opens it.
   `Layout.tsx` keeps phone Index and Agenda in overlay
   mode. On iPad windows at least 700px wide, a 280px Index sits beside the editor;
   narrower windows return to page navigation without closing the current note.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { holdKeyboardForNewNote, requestTitleFocus, takeTitleFocus } from './noteTitleFocus';
+import { holdKeyboard, requestTitleFocus, takeTitleFocus } from './noteTitleFocus';
 
 describe('noteTitleFocus', () => {
   afterEach(() => {
@@ -9,7 +9,7 @@ describe('noteTitleFocus', () => {
 
   // iOS raises the keyboard only for a focus made during the tap itself.
   it('holds the focus in a stand-in field until the title takes it', () => {
-    holdKeyboardForNewNote();
+    holdKeyboard();
     const standIn = document.activeElement as HTMLInputElement;
     expect(standIn.tagName).toBe('INPUT');
     expect(standIn.getAttribute('aria-hidden')).toBe('true');
@@ -23,7 +23,7 @@ describe('noteTitleFocus', () => {
 
   it('lets the keyboard go when no title takes the focus', () => {
     vi.useFakeTimers();
-    holdKeyboardForNewNote();
+    holdKeyboard();
     const standIn = document.activeElement as HTMLInputElement;
 
     vi.advanceTimersByTime(3000);

@@ -58,7 +58,7 @@ import {
 } from '@/lib/leaveSave';
 import { isNotDownloadedError, openCloudPlaceholder } from '@/lib/cloudNotes';
 import { isMobilePlatform } from '@/lib/platform';
-import { holdKeyboardForNewNote, requestTitleFocus } from '@/lib/noteTitleFocus';
+import { holdKeyboard, requestTitleFocus } from '@/lib/noteTitleFocus';
 
 /**
  * Loads the note list and scans daily notes for task status. The app calls this once
@@ -461,7 +461,7 @@ export function useNotes() {
       latestNavigation += 1;
       // A phone opens a new note on its title, ready to be named.
       const focusTitle = isMobilePlatform();
-      if (focusTitle) holdKeyboardForNewNote();
+      if (focusTitle) holdKeyboard();
       try {
         setIsLoading(true);
         const filename = await createNoteFile(title, folderPath || undefined);

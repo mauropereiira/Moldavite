@@ -191,7 +191,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
         <button
           onClick={handlePrevMonth}
           aria-label="Previous month"
-          className="focus-ring flex-shrink-0 px-1 text-base leading-none transition-colors"
+          className="calendar-nav-button focus-ring flex-shrink-0 px-1 text-base leading-none transition-colors"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -213,7 +213,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
         <button
           onClick={handleNextMonth}
           aria-label="Next month"
-          className="focus-ring flex-shrink-0 px-1 text-base leading-none transition-colors"
+          className="calendar-nav-button focus-ring flex-shrink-0 px-1 text-base leading-none transition-colors"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -275,7 +275,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
                     '--index': Math.min(weekIndex * 8, 10),
                   } as React.CSSProperties
                 }
-                title={`Week ${weekNum} - Click to open weekly note`}
+                title={`Week ${weekNum}: open the weekly note`}
               >
                 <span style={{ borderBottom: weekSelected ? '2px solid currentColor' : 'none' }}>
                   {weekNum}

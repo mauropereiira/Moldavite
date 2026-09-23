@@ -192,6 +192,13 @@ const editorialLabel: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+/** How far from a star a fingertip still picks it; a pointer gets 12px. */
+const TOUCH_REACH_PX = 24;
+
+function isTouch(event: React.PointerEvent): boolean {
+  return event.pointerType === 'touch' || event.pointerType === 'pen';
+}
+
 /** Full-screen, path-addressed note graph rendered on a Canvas 2D surface. */
 export function GraphView() {
   const isOpen = useGraphStore((state) => state.isOpen);
@@ -219,6 +226,7 @@ export function GraphView() {
   const entranceRef = useRef<Entrance | null>(null);
   const initialFitRef = useRef(false);
   const interactionRef = useRef<PointerInteraction | null>(null);
+  const openOnClickRef = useRef<string | null>(null);
   const scheduleDrawRef = useRef<() => void>(() => undefined);
 
   const adjacency = useMemo(() => {
@@ -588,7 +596,7 @@ export function GraphView() {
     preset,
   ]);
 
-  const pickNode = useCallback((clientX: number, clientY: number): LayoutNode | null => {
+  const pickNode = useCallback((clientX: number, clientY: number, reach = 12) => {
     const container = containerRef.current;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
@@ -598,7 +606,7 @@ export function GraphView() {
     const centerY = rect.height / 2 + panRef.current.y;
     const entrance = entranceRef.current;
     let closest: LayoutNode | null = null;
-    let closestDistance = 12;
+    let closestDistance = reach;
     for (let index = 0; index < layoutRef.current.length; index++) {
       const node = layoutRef.current[index];
       const distance = Math.hypot(
@@ -630,7 +638,7 @@ export function GraphView() {
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) return;
-      const node = pickNode(event.clientX, event.clientY);
+      const node = pickNode(event.clientX, event.clientY, isTouch(event) ? TOUCH_REACH_PX : 12);
       interactionRef.current = {
         mode: node ? 'node' : 'pan',
         pointerId: event.pointerId,
@@ -704,6 +712,16 @@ export function GraphView() {
       if (interaction.mode === 'node' && interaction.moved) {
         temperatureRef.current = Math.max(temperatureRef.current, 9);
         scheduleDrawRef.current();
+      } else if (!cancelled && !interaction.moved && isTouch(event)) {
+        // A finger cannot hover to learn which note a star is before opening
+        // it: the first tap names the star and its neighbours, a second opens it.
+        if (interaction.nodeId && interaction.nodeId === hoveredId) {
+          // Opened by the click that follows the lift. Closing the graph now
+          // would hand that click to the note underneath, raising the keyboard.
+          openOnClickRef.current = interaction.nodeId;
+        } else {
+          setHoveredId(interaction.nodeId);
+        }
       } else if (!cancelled && !interaction.moved && interaction.nodeId) {
         void openGraphNode(interaction.nodeId);
       }
@@ -842,8 +860,14 @@ export function GraphView() {
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => finishPointer(event)}
           onPointerCancel={(event) => finishPointer(event, true)}
-          onPointerLeave={() => {
-            if (!interactionRef.current) setHoveredId(null);
+          // A lifted finger also leaves, which would drop the star its tap just named.
+          onPointerLeave={(event) => {
+            if (!interactionRef.current && !isTouch(event)) setHoveredId(null);
+          }}
+          onClick={() => {
+            const nodeId = openOnClickRef.current;
+            openOnClickRef.current = null;
+            if (nodeId) void openGraphNode(nodeId);
           }}
           onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}

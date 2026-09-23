@@ -119,7 +119,7 @@ export function TrashPreviewModal({
             </button>
             <button
               onClick={onClose}
-              className="px-1.5 text-xs transition-colors"
+              className="dialog-close px-1.5 text-xs transition-colors"
               style={{ color: 'var(--text-muted)' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}

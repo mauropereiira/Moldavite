@@ -12,7 +12,7 @@ vi.mock('@/lib/platform', () => ({
   isTabletPlatform: () => false,
 }));
 vi.mock('@/lib/noteTitleFocus', () => ({
-  holdKeyboardForNewNote: focus.hold,
+  holdKeyboard: focus.hold,
   requestTitleFocus: focus.request,
 }));
 vi.mock('@/lib', async (importOriginal) => ({

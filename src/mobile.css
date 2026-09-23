@@ -136,13 +136,29 @@ html[data-platform='mobile']
    touch pointers only: an iPad with a trackpad keeps its hovers. Active and
    selected states keep their wash. */
 @media (hover: none) {
-  html[data-platform='mobile'] [data-tooltip].icon-rail-button:hover {
-    background: transparent;
-    color: var(--text-muted);
+  /* The global hover fill in index.css is !important, so these are too, and
+     out-rank it on specificity: without them the rail button last tapped
+     kept a fill that read as the page still being open. */
+  html[data-platform='mobile'] [data-tooltip].icon-rail-button:not(:disabled):hover {
+    background: transparent !important;
+    color: var(--text-muted) !important;
   }
 
-  html[data-platform='mobile'] [data-tooltip].icon-rail-button[data-active='true']:hover {
-    color: var(--text-primary);
+  html[data-platform='mobile']
+    [data-tooltip].icon-rail-button[data-active='true']:not(:disabled):hover {
+    color: var(--text-primary) !important;
+  }
+
+  html[data-platform='mobile']
+    :is(
+      .app-overlay-close,
+      .quick-switcher-close,
+      .timeline-view-close,
+      .app-onboarding-scrim button,
+      .app-trash-overlay button,
+      .calendar-nav-button
+    ):not(:disabled):hover {
+    background-color: transparent !important;
   }
 
   html[data-platform='mobile']
@@ -331,8 +347,8 @@ html[data-platform='mobile'] .app-index-grid {
   padding: 12px 0 24px !important;
 }
 
-/* Agenda: padding and the header are inline in the component. */
-html[data-platform='mobile'] .app-agenda-overlay {
+/* Agenda and Trash: padding and the header are inline in the component. */
+html[data-platform='mobile'] :is(.app-agenda-overlay, .app-trash-overlay) {
   padding: calc(var(--shell-safe-top) + 12px)
     calc(var(--mobile-page-inset) + var(--page-safe-right)) var(--safe-bottom)
     calc(var(--mobile-page-inset) + var(--page-safe-left)) !important;
@@ -366,6 +382,20 @@ html[data-platform='mobile'] .app-agenda-timeline {
   border-left: 0 !important;
   padding-left: 0 !important;
   overflow: visible !important;
+}
+
+/* Month arrows and day cells are fingertip targets. */
+html[data-platform='mobile'] .calendar-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .calendar-date {
+  height: var(--touch-target);
+  font-size: 14px;
 }
 
 html[data-platform='mobile'] .app-agenda-calendar + .app-agenda-timeline {
@@ -504,6 +534,15 @@ html[data-platform='mobile'] .timeline-view-feed li > button {
 
 /* 6. GRAPH PAGE */
 
+/* Spans the rail's column, like Search and Settings, so a pinned bar above
+   the rail does not show through; the rail paints above it. The offsets are
+   inline in the component. */
+html[data-platform='mobile'] .graph-view {
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 var(--rail-inset-right) 0 var(--rail-inset-left);
+}
+
 html[data-platform='mobile'] .graph-view-header {
   align-items: center;
   gap: 12px;
@@ -523,11 +562,12 @@ html[data-platform='mobile'] .graph-view-fit {
 
 /* 7. QUICK SWITCHER AS A PAGE */
 
+/* Spans the rail's column too, like Settings: the rail paints above it, and a
+   pinned bar above the rail no longer shows through. */
 html[data-platform='mobile'] .quick-switcher-backdrop {
-  left: var(--rail-inset-left);
-  right: var(--rail-inset-right);
   align-items: stretch;
-  padding: 0;
+  padding: 0 var(--rail-inset-right) 0 var(--rail-inset-left);
+  background: var(--bg-surface);
   animation: none;
 }
 

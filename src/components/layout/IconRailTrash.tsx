@@ -31,7 +31,11 @@ export function IconRailTrash({
         isOpen
         anchor={anchor}
         trashedNotes={trashedNotes}
-        onClose={onClose}
+        // A press in the preview is outside the popover. Closing then would
+        // unmount the preview with it, before its Restore or Delete click lands.
+        onClose={() => {
+          if (!previewNote) onClose();
+        }}
         onRestore={restoreNote}
         onPermanentDelete={permanentlyDelete}
         onEmptyTrash={emptyTrash}

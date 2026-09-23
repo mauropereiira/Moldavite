@@ -18,6 +18,14 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
+
+- **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and Empty trash asks first.
+
+- **In the graph on iPhone and iPad, a tap names a note before opening it.** The first tap on a star shows its name and its neighbours'; a second tap opens it. A mouse click still opens it straight away.
+
+- On iPhone, the Agenda's days and month arrows are full-size touch targets, the rail's buttons no longer announce desktop keyboard shortcuts to VoiceOver, the rail button last tapped no longer stays shaded as if its page were still open, only Settings is marked while Settings is open, and Search and the graph cover a pinned bar above the rail.
+
 - **New on iPhone opens the note straight away, ready to be named.** The keyboard is up on its title: type a name and press return to start writing. Templates are one tap away under View templates in the empty note. Before, New asked for a title, then showed a page of templates, then left you on the Index with the note hidden behind it. The template page now fills the screen, and is called "Choose a template", since it fills the note you are in.
 
 - **Renaming a note from its title tells you what is wrong as you type.** A name that cannot be used is explained under the title, and Enter keeps you there to fix it; leaving the field puts the note's name back. Enter on a good name renames the note and moves you into its text.
@@ -27,6 +35,10 @@ All notable changes to Moldavite are documented here.
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
 
 ### Fixed
+
+- Restore and Delete in the preview of a note in the rail's Trash did nothing: the press closed the Trash, and the preview with it, before the button could act.
+
+- Search results in the Index marked the matching words in the browser's bright yellow, which glared on dark themes. They use the theme's highlight colour, as highlights in notes do.
 
 - **Notes Moldavite named itself could not be renamed.** A new note is called "Untitled (2)" when "Untitled" exists, and a copy "(copy)", but renaming accepted only letters, numbers, spaces and hyphens, so editing either name showed an error. A title can now hold anything a file name can on every system, apart from `[` and `]`, which would break a `[[link]]` to it: brackets, apostrophes, commas, accents and other scripts are all fine.
 
