@@ -75,14 +75,9 @@ turndownService.addRule('wikiLink', {
   replacement: (content, node) => {
     const element = node as HTMLElement;
     const label = element.getAttribute('data-label') || content || '';
-    const target = element.getAttribute('data-target') ?? '';
+    const rawTarget = element.getAttribute('data-raw-target');
 
-    // `[[Display|target]]` arrives with only the resolved filename, so the
-    // alias has to be written back from it or the link retargets to the label.
-    if (target && !target.includes('/') && target !== noteNameToFilename(label)) {
-      return `[[${label}|${target.replace(/\.md$/, '')}]]`;
-    }
-    return `[[${label}]]`;
+    return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
   },
 });
 
@@ -362,6 +357,7 @@ const DOMPURIFY_CONFIG = {
     'data-checked',
     'data-target',
     'data-label',
+    'data-raw-target',
     'data-wiki-link',
     'data-text-align',
     'data-indent',
@@ -640,12 +636,17 @@ export function markdownToHtml(markdown: string): string {
 
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
   // Inside a table the separator is written `\|`, or it would end the cell.
+  // Both halves are kept exactly as written so the link saves back unchanged;
+  // `data-target` is only the resolved filename. A pipe is written as an
+  // entity so it cannot end a table cell before markdown-it sees the row.
   processed = processed.replace(/\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]/g, (_match, text, target) => {
     const displayText = text.trim();
     const targetNote = (target || text).trim();
     const filename = noteNameToFilename(targetNote);
+    const attribute = (value: string) => escapeHtmlAttribute(value).replace(/\|/g, '&#124;');
+    const rawTarget = target === undefined ? '' : ` data-raw-target="${attribute(target)}"`;
 
-    return `<wiki-link data-target="${filename}">${displayText}</wiki-link>`;
+    return `<wiki-link data-target="${filename}" data-label="${attribute(text)}"${rawTarget}>${displayText}</wiki-link>`;
   });
 
   let html = md.render(padRaggedTables(processed));

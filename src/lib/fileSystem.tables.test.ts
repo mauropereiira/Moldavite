@@ -13,6 +13,7 @@ import {
   insertNoteTable,
 } from '@/components/editor/extensions/NoteTables';
 import { ResizableImage } from '@/components/editor/extensions/ResizableImage';
+import { WikiLink } from '@/components/editor/extensions/WikiLink';
 import {
   htmlToMarkdown,
   isHtmlContent,
@@ -25,6 +26,7 @@ const EXTENSIONS = [
   StarterKit,
   TextAlign.configure({ types: ['heading', 'paragraph'] }),
   ResizableImage,
+  WikiLink,
   ...NoteTables,
 ];
 
@@ -168,14 +170,27 @@ describe('GFM tables', () => {
     );
   });
 
-  it('keeps an aliased wiki link in a cell', () => {
-    const markdown = '| [[Note\\|alias]] | b |\n| --- | --- |\n| 1 | 2 |';
-    expect(markdownToHtml(markdown)).toContain(
-      '<wiki-link data-target="alias.md">Note</wiki-link>'
-    );
-    expect(htmlToMarkdown(markdownToHtml(markdown))).toBe(markdown);
-    expect(htmlToMarkdown(markdownToHtml('See [[Display|Target Note]].'))).toBe(
-      'See [[Display|target-note]].'
+  it.each([
+    ['[[Target|Alias text]]'],
+    ['[[Folder/Deep Note|x]]'],
+    ['[[My Note]]'],
+    ['[[My Note|the alias]]'],
+    ['[[Café Ünïcode|Ålias ÉÈ]]'],
+    ['[[MiXeD CaSe|mIxEd AlIaS]]'],
+  ])('keeps the wiki link %s byte for byte, in prose and in a cell', (link) => {
+    expect(htmlToMarkdown(markdownToHtml(`See ${link} here.`))).toBe(`See ${link} here.`);
+    expect(throughEditor(`See ${link} here.`)).toBe(`See ${link} here.`);
+
+    const cell = link.replace('|', '\\|');
+    const table = `| ${cell} | b |\n| --- | --- |\n| 1 | 2 |`;
+    expect(htmlToMarkdown(markdownToHtml(table))).toBe(table);
+    expect(throughEditor(table)).toBe(table);
+  });
+
+  it('resolves an aliased link to the text after the pipe, as the backlinks index does', () => {
+    expect(markdownToHtml('[[Shown|Target Note]]')).toContain('data-target="target-note.md"');
+    expect(markdownToHtml('| [[Shown\\|Target Note]] |\n| --- |')).toContain(
+      'data-target="target-note.md"'
     );
   });
 });
