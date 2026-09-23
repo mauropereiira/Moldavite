@@ -75,7 +75,9 @@ Settings hides on the phone: the Forges folder picker and Open Forge in
 Finder (General), the icon rail toggle, Index and Agenda modes, writing
 column width and the asteroid cursor (Layout), and the AI & Agents and
 Import, Plugins and Calendar connection sections entirely. About omits the
-desktop updater, and the editor omits WordPress publishing and PDF export.
+desktop updater and the keyboard shortcuts, and the editor omits WordPress
+publishing and PDF export. The Sidebar section is called Index there.
+Switches are 51 by 31 with a 44pt hit area and an ink-filled knob when on.
 
 ## Plugins on iOS
 
@@ -125,6 +127,12 @@ get trapped underneath Index.
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
   back: a section returns to the list, the list closes Settings.
+- The Index footer keeps Today and New; Timeline, Graph, Settings and Trash
+  are the rail's, and the version is in About. The footer hides while the
+  keyboard is up. Press and hold a note or folder for its Options menu
+  (`useLongPress`; WebKit fires no `contextmenu` for it). A tapped `#tag`
+  opens the Index filtered to it; iOS sends no click for a tap on editable
+  text, so `TagMark` reads the tap from pointer events.
 - The editor footer has the save status on the left and Actions on the right;
   the desktop's Index · Agenda · Settings links are not rendered, since the
   rail carries them. The note runs the full width of the paper with 16px
