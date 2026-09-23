@@ -58,6 +58,7 @@ interface NoteState {
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
+  /** Record a write of a note: its tab's saved body, and the list's time for the Modified sort. */
   markNoteSaved: (noteId: string, content: string) => void;
   /** Forget a tab's saved body, so its text counts as unsaved until it is written. */
   markNoteUnsaved: (noteId: string) => void;
@@ -357,11 +358,19 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   markNoteSaved: (noteId, content) =>
     set((state) => {
-      if (!state.openTabs.some((tab) => tab.id === noteId)) return state;
-      if (state.savedContent.get(noteId) === content) return state;
+      const modifiedAt = Math.floor(Date.now() / 1000);
+      const notes = state.notes.some((note) => note.path === noteId)
+        ? state.notes.map((note) => (note.path === noteId ? { ...note, modifiedAt } : note))
+        : state.notes;
+      if (
+        !state.openTabs.some((tab) => tab.id === noteId) ||
+        state.savedContent.get(noteId) === content
+      ) {
+        return notes === state.notes ? state : { notes };
+      }
       const savedContent = new Map(state.savedContent);
       savedContent.set(noteId, content);
-      return { savedContent };
+      return { notes, savedContent };
     }),
 
   markNoteUnsaved: (noteId) =>

@@ -19,6 +19,7 @@ import {
   useFolderStore,
   applyManualOrder,
   compareNoteTitles,
+  compareNotesBy,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
@@ -217,15 +218,7 @@ export function Sidebar({
 
   const sortNotes = (notesToSort: NoteFile[]) => {
     if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
-    return [...notesToSort].sort((a, b) => {
-      switch (sortOption) {
-        case 'name-desc':
-          return compareNoteTitles(b, a);
-        case 'name-asc':
-        default:
-          return compareNoteTitles(a, b);
-      }
-    });
+    return [...notesToSort].sort(compareNotesBy(sortOption));
   };
 
   const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
@@ -947,11 +940,11 @@ export function Sidebar({
                 }
                 onSortToggle={() =>
                   setSortOption(
-                    sortOption === 'name-asc'
-                      ? 'name-desc'
-                      : sortOption === 'name-desc'
-                        ? 'manual'
-                        : 'name-asc'
+                    sortOption === 'name-desc'
+                      ? 'manual'
+                      : sortOption === 'manual'
+                        ? 'name-asc'
+                        : 'name-desc'
                   )
                 }
                 onNewNote={() => startNewNote()}

@@ -680,6 +680,7 @@ fn merge_note_items(
                 None
             },
             modified_at: None,
+            created_at: None,
             not_downloaded,
         });
     }
@@ -801,6 +802,7 @@ mod tests {
             is_locked: false,
             folder_path: None,
             modified_at: None,
+            created_at: None,
             not_downloaded: false,
         };
         let mut notes = vec![

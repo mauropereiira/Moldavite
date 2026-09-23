@@ -908,6 +908,15 @@ export function noteFileBackendPath(note: Pick<NoteFile, 'name' | 'folderPath'>)
   return note.folderPath ? `${note.folderPath}/${note.name}` : note.name;
 }
 
+/**
+ * List times for a note this window just created. The list gets them only from a
+ * scan, and a note without them sorts last under Modified and Created.
+ */
+export function justCreatedTimes(): Pick<NoteFile, 'createdAt' | 'modifiedAt'> {
+  const now = Math.floor(Date.now() / 1000);
+  return { createdAt: now, modifiedAt: now };
+}
+
 export async function readNote(
   filename: string,
   isDaily: boolean,

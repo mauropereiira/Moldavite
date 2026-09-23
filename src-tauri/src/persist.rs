@@ -137,6 +137,26 @@ fn open_atomic_temp(
     ))
 }
 
+/// The rename puts a new file in place, so without this every note's creation
+/// time would be its last save and the Index's Created sort would mean Modified.
+/// Best effort: a save never fails over a timestamp. Linux has no call that sets
+/// a birth time, so there it stays the time of the last save.
+#[cfg(any(target_os = "macos", target_os = "ios", windows))]
+fn keep_created(file: &fs::File, created: Option<std::time::SystemTime>) {
+    #[cfg(target_os = "ios")]
+    use std::os::ios::fs::FileTimesExt;
+    #[cfg(target_os = "macos")]
+    use std::os::macos::fs::FileTimesExt;
+    #[cfg(windows)]
+    use std::os::windows::fs::FileTimesExt;
+    if let Some(created) = created {
+        let _ = file.set_times(fs::FileTimes::new().set_created(created));
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+fn keep_created(_file: &fs::File, _created: Option<std::time::SystemTime>) {}
+
 /// Atomically replace `path` after writing a securely created same-directory temp file.
 pub(crate) fn write_atomic_with<F>(path: &Path, mode: Option<u32>, write: F) -> Result<(), String>
 where
@@ -157,10 +177,14 @@ where
         return Err(format!("Refusing to replace symlink {}", path.display()));
     }
 
+    let created = fs::metadata(path)
+        .and_then(|metadata| metadata.created())
+        .ok();
     let (tmp_path, mut file) = open_atomic_temp(parent, &file_name, mode)
         .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
     let result = (|| -> Result<(), String> {
         write(&mut file)?;
+        keep_created(&file, created);
         file.sync_all().map_err(|e| e.to_string())?;
         drop(file);
         #[cfg(windows)]
@@ -410,6 +434,25 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
         assert!(leftovers.is_empty());
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
+    #[test]
+    fn write_atomic_keeps_the_creation_time() {
+        let tmp = TempDir::new("atomic-created");
+        let path = tmp.path().join("note.md");
+        write_atomic(&path, b"first", None).unwrap();
+        let created = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+        keep_created(
+            &fs::OpenOptions::new().write(true).open(&path).unwrap(),
+            Some(created),
+        );
+        assert_eq!(fs::metadata(&path).unwrap().created().unwrap(), created);
+
+        write_atomic(&path, b"second", None).unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "second");
+        assert_eq!(fs::metadata(&path).unwrap().created().unwrap(), created);
     }
 
     #[test]

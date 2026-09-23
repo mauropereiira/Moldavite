@@ -56,6 +56,8 @@ All notable changes to Moldavite are documented here.
 
 - A wrong password said how many attempts were left twice, once as "4 attempts remaining." and again below it. It says it once.
 
+- **Sorting notes by Modified or Created did nothing**: the Index stayed in A–Z order. Both now sort as named, a note moves up under Modified (Newest) as soon as it saves, and a save keeps a note's creation time on the Mac, iPhone and Windows (on Linux, Created reads as the last save). With either one chosen, the sort control in the Notes header switches to Z–A, as its label says.
+
 - Sorting notes by name put "Untitled (2)" before "Untitled" and "Untitled (10)" before "Untitled (9)": names were compared with their `.md` extension, and numbers as text.
 
 - Restore and Delete in the preview of a note in the rail's Trash did nothing: the press closed the Trash, and the preview with it, before the button could act.

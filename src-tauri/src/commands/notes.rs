@@ -18,7 +18,8 @@ use crate::forge_watcher::RecentWrites;
 use crate::frontmatter;
 use crate::note_file_access::{self, Access};
 use crate::paths::{
-    file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir, get_weekly_dir,
+    file_created_unix, file_modified_unix, get_daily_dir, get_notes_dir, get_standalone_dir,
+    get_weekly_dir,
 };
 use crate::persist::{generate_unique_filename, write_atomic};
 use crate::types::{NoteFile, NoteRead, NoteWriteResult};
@@ -519,6 +520,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                 };
 
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let note_path = if relative_path.is_empty() {
@@ -536,6 +538,7 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
                         is_locked,
                         folder_path,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -555,6 +558,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let date = base_name
@@ -571,6 +575,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -585,6 +590,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let modified_at = file_modified_unix(&path);
+                let created_at = file_created_unix(&path);
 
                 if let Some((base_name, is_locked)) = classify_note_entry(&path) {
                     let week = base_name
@@ -601,6 +607,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
                         is_locked,
                         folder_path: None,
                         modified_at,
+                        created_at,
                         not_downloaded: false,
                     });
                 }
@@ -1429,6 +1436,29 @@ mod tests {
     }
 
     const STAMP: &str = "2026-07-12 1015";
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_note_list_reports_when_a_note_was_created_and_a_save_keeps_it() {
+        use std::os::macos::fs::FileTimesExt;
+        let tmp = TempDir::new("created-at");
+        let note = tmp.path().join("Plan.md");
+        write_atomic(&note, b"", Some(0o600)).unwrap();
+        let created = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&note)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_created(created))
+            .unwrap();
+
+        save_note_with_conflict(&note, None, "Edited", None).unwrap();
+
+        let mut notes = Vec::new();
+        scan_notes_recursive(tmp.path(), "", &mut notes);
+        assert_eq!(notes[0].created_at, Some(1_600_000_000));
+        assert!(notes[0].modified_at.unwrap() > 1_600_000_000);
+    }
 
     #[test]
     fn a_note_still_in_icloud_is_reported_before_its_missing_folder_fails_validation() {

@@ -78,6 +78,7 @@ export {
   useSidebarOrderStore,
   applyManualOrder,
   compareNoteTitles,
+  compareNotesBy,
   reorderIds,
 } from './sidebarOrderStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';

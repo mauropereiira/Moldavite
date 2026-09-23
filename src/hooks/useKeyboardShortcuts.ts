@@ -8,7 +8,13 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
-import { filenameToNote, markdownToHtml, applyTemplate, readNoteWithMeta } from '@/lib';
+import {
+  filenameToNote,
+  markdownToHtml,
+  applyTemplate,
+  justCreatedTimes,
+  readNoteWithMeta,
+} from '@/lib';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
@@ -79,6 +85,7 @@ export function useKeyboardShortcuts({
             isDaily: false,
             isWeekly: false,
             isLocked: false,
+            ...justCreatedTimes(),
           };
 
           setNotes([...notes, noteFile]);

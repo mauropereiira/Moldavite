@@ -47,6 +47,17 @@ describe('useNotes.createNote', () => {
     expect(useNoteStore.getState().currentNote?.id).toBe('notes/Projects/Untitled.md');
   });
 
+  it('lists the new note as created and modified now, for the time sorts', async () => {
+    const before = Math.floor(Date.now() / 1000);
+    const { result } = renderHook(() => useNotes());
+
+    await act(() => result.current.createNote('Untitled'));
+
+    const listed = useNoteStore.getState().notes.find((n) => n.path === 'notes/Untitled.md');
+    expect(listed?.createdAt).toBeGreaterThanOrEqual(before);
+    expect(listed?.modifiedAt).toBe(listed?.createdAt);
+  });
+
   it('leaves the desktop flow alone', async () => {
     platform.mobile = false;
     const { result } = renderHook(() => useNotes());

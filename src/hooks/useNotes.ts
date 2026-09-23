@@ -35,6 +35,7 @@ import {
   filenameToNote,
   markdownToHtml,
   isHtmlContent,
+  justCreatedTimes,
   parseTaskStatus,
   noteFileBackendPath,
   renameNote as renameNoteFile,
@@ -479,6 +480,7 @@ export function useNotes() {
           isWeekly: false,
           isLocked: false,
           folderPath: folderPath || undefined,
+          ...justCreatedTimes(),
         };
         // Get fresh notes to avoid stale closure
         const freshNotes = getState().notes;
@@ -528,6 +530,7 @@ export function useNotes() {
           date: isDaily ? title : undefined,
           isLocked: false,
           folderPath: folderPath || undefined,
+          ...justCreatedTimes(),
         };
 
         // Get fresh notes to avoid stale closure
@@ -643,6 +646,7 @@ export function useNotes() {
           isWeekly: sourceNote.isWeekly || false,
           isLocked: false,
           folderPath: sourceNote.folderPath,
+          ...justCreatedTimes(),
         };
 
         // Get fresh notes to avoid stale closure

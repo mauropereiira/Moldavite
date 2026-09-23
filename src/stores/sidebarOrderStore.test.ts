@@ -3,6 +3,7 @@ import {
   reorderIds,
   applyManualOrder,
   compareNoteTitles,
+  compareNotesBy,
   useSidebarOrderStore,
 } from './sidebarOrderStore';
 
@@ -130,5 +131,59 @@ describe('compareNoteTitles', () => {
         .sort(compareNoteTitles)
         .map((n) => n.name)
     ).toEqual(['b.md', 'Untitled.md', 'Untitled (2).md', 'Untitled (3).md', 'Untitled (10).md']);
+  });
+});
+
+describe('compareNotesBy', () => {
+  const notes = [
+    { name: 'Old.md', createdAt: 100, modifiedAt: 900 },
+    { name: 'New.md', createdAt: 700, modifiedAt: 800 },
+    { name: 'Middle.md', createdAt: 400, modifiedAt: 400 },
+  ];
+  type Sortable = Parameters<ReturnType<typeof compareNotesBy>>[0];
+  const order = (option: Parameters<typeof compareNotesBy>[0], list: Sortable[] = notes) =>
+    [...list].sort(compareNotesBy(option)).map((n) => n.name);
+
+  it('sorts by the time the option names, not by name', () => {
+    expect(order('modified-desc')).toEqual(['Old.md', 'New.md', 'Middle.md']);
+    expect(order('modified-asc')).toEqual(['Middle.md', 'New.md', 'Old.md']);
+    expect(order('created-desc')).toEqual(['New.md', 'Middle.md', 'Old.md']);
+    expect(order('created-asc')).toEqual(['Old.md', 'Middle.md', 'New.md']);
+  });
+
+  it('keeps the name sorts, numbers by value', () => {
+    const untitled = ['Untitled (10).md', 'Untitled.md', 'Untitled (2).md'].map((name) => ({
+      name,
+    }));
+    expect(order('name-asc', untitled)).toEqual([
+      'Untitled.md',
+      'Untitled (2).md',
+      'Untitled (10).md',
+    ]);
+    expect(order('name-desc', untitled)).toEqual([
+      'Untitled (10).md',
+      'Untitled (2).md',
+      'Untitled.md',
+    ]);
+  });
+
+  it('breaks ties by name and reads Created as Modified where there is no creation time', () => {
+    const list = [
+      { name: 'b.md', modifiedAt: 500 },
+      { name: 'a.md', modifiedAt: 500 },
+      { name: 'c.md', createdAt: 600, modifiedAt: 600 },
+    ];
+    expect(order('created-desc', list)).toEqual(['c.md', 'a.md', 'b.md']);
+    expect(order('modified-asc', list)).toEqual(['a.md', 'b.md', 'c.md']);
+  });
+
+  it('puts a note with no time, one still in iCloud, last either way', () => {
+    const list = [
+      { name: 'Cloud.md' },
+      { name: 'Listed.md', createdAt: 100, modifiedAt: 200 },
+      { name: 'Newer.md', createdAt: 300, modifiedAt: 300 },
+    ];
+    expect(order('modified-desc', list)).toEqual(['Newer.md', 'Listed.md', 'Cloud.md']);
+    expect(order('created-asc', list)).toEqual(['Listed.md', 'Newer.md', 'Cloud.md']);
   });
 });
