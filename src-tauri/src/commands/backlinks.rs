@@ -34,18 +34,14 @@ pub(crate) fn scan_note_links(content: String) -> Result<Vec<WikiLink>, String> 
     Ok(wiki_links)
 }
 
+/// Before the startup build finishes, a call waits for it; `lib.rs` runs this
+/// command on the blocking pool so that wait never holds the main thread.
 #[tauri::command]
 pub(crate) fn get_backlinks(
     filename: String,
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<Vec<BacklinkInfo>, String> {
-    if !index.is_ready() {
-        // Fallback: if startup rebuild hasn't finished yet (or never ran
-        // because tests/CLI bypass the Tauri setup hook), rebuild now so
-        // the first call still returns correct data.
-        index.rebuild_from_disk();
-    }
-
+    index.ensure_built();
     let note_stem = filename.trim_end_matches(".md");
     Ok(index.get(&filename, note_stem))
 }

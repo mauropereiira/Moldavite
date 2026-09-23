@@ -30,6 +30,14 @@ All notable changes to Moldavite are documented here.
 
 - The note list was loaded once for every panel that shows notes, and a failure showed "Failed to load notes" once for each. It now loads once.
 
+- **Changing a note's color could erase the note.** If the note could not be read at that moment, for example an iCloud file not yet downloaded or a file that is not valid UTF-8, the color was written over an empty note. The color change now reports the problem and leaves the note untouched, and it can no longer land in the middle of an autosave.
+
+- **A note that opened with a horizontal rule could lose text.** A rule, a line such as `Owner: Mauro` and another rule at the top of a note were read back as metadata and dropped from the note on the next save. Those notes also produced a conflict copy of themselves on the following save.
+
+- Renaming a note updates the links in other notes without racing a save in progress on them.
+
+- Search, backlinks and a Forge rescan no longer freeze the window while the search index or the backlinks catch up with a large Forge. Backlinks also stop rescanning the whole Forge on every request after a scan fails.
+
 ## [2.7.2] - 2026-09-20
 
 ### Changed

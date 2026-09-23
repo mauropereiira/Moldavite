@@ -15,7 +15,7 @@ use chrono::{Local, NaiveDate};
 use serde_json::{json, Value};
 use walkdir::WalkDir;
 
-use crate::commands::notes::{save_note_with_conflict_using, sha256_hex};
+use crate::commands::notes::{save_markdown_with_conflict_using, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
 use crate::validation::{
@@ -378,11 +378,12 @@ impl ToolContext {
         // disk may carry a name we would refuse to create today.
         let path = self.checked_existing_note(forge_root, &rel)?;
         let conflict_copy =
-            save_note_with_conflict_using(&path, base_hash, content, None, |path, serialized| {
+            save_markdown_with_conflict_using(&path, base_hash, content, |path, serialized| {
                 self.write_agent_note(forge_root, &rel, serialized, || {
                     write_atomic(path, serialized.as_bytes(), Some(0o600))
                 })
             })?
+            .conflict
             .map(|(conflict_name, _)| conflict_name);
         self.note_changed(forge_root, &rel);
         Ok(json!({ "path": rel, "written": true, "conflictCopy": conflict_copy }))

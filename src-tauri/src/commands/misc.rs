@@ -196,18 +196,24 @@ pub(crate) fn set_note_color(
 
     crate::validation::validate_path_within_base(&abs, &notes_dir)
         .map_err(|_| "Invalid note path".to_string())?;
-    let existing = fs::read_to_string(&abs).unwrap_or_default();
-    let parsed = frontmatter::parse_note(&existing);
-    let new_color = color_id.filter(|c| !c.is_empty() && c != "default");
-    let new_content =
-        frontmatter::serialize_note(new_color.as_deref(), &parsed.extra, &parsed.body);
-
-    crate::validation::validate_path_within_base(&abs, &notes_dir)
-        .map_err(|_| "Invalid note path".to_string())?;
-    crate::persist::write_atomic(&abs, new_content.as_bytes(), Some(0o600))?;
-    recent.record(&abs, &crate::commands::notes::sha256_hex(&parsed.body));
-
+    if let Some(written) = set_note_color_at(&abs, color_id.as_deref())? {
+        let body = frontmatter::parse_note(&written).body;
+        recent.record(&abs, &crate::commands::notes::sha256_hex(&body));
+    }
     Ok(())
+}
+
+/// Returns the rewritten file, or `None` when the color was already set.
+fn set_note_color_at(path: &Path, color_id: Option<&str>) -> Result<Option<String>, String> {
+    let new_color = color_id.filter(|c| !c.is_empty() && *c != "default");
+    crate::commands::notes::rewrite_note_in_place(path, |existing| {
+        let parsed = frontmatter::parse_note(existing);
+        Some(frontmatter::serialize_note(
+            new_color,
+            &parsed.extra,
+            &parsed.body,
+        ))
+    })
 }
 
 /// Walk the Forge tree and harvest every note color. Used for the initial
@@ -354,6 +360,53 @@ pub(crate) fn save_image(data: String, filename: String) -> Result<String, Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "moldavite-misc-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn regression_a_color_change_never_wipes_a_note_it_cannot_read() {
+        let dir = temp_dir("color-unreadable");
+        let path = dir.join("note.md");
+        let not_utf8 = [0xff, 0xfe, b'b', b'o', b'd', b'y'];
+        fs::write(&path, not_utf8).unwrap();
+
+        let error = set_note_color_at(&path, Some("blue")).unwrap_err();
+
+        assert!(error.contains("Cannot read the existing note"), "{error}");
+        assert_eq!(fs::read(&path).unwrap(), not_utf8);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_color_change_keeps_the_body_and_unknown_frontmatter() {
+        let dir = temp_dir("color-keeps");
+        let path = dir.join("note.md");
+        fs::write(&path, "---\ncustom: kept\n---\nthe body\n").unwrap();
+
+        set_note_color_at(&path, Some("blue")).unwrap();
+        let parsed = frontmatter::parse_note(&fs::read_to_string(&path).unwrap());
+        assert_eq!(parsed.color.as_deref(), Some("blue"));
+        assert!(parsed.extra.contains_key("custom"));
+        assert_eq!(parsed.body, "the body\n");
+
+        set_note_color_at(&path, Some("default")).unwrap();
+        let parsed = frontmatter::parse_note(&fs::read_to_string(&path).unwrap());
+        assert_eq!(parsed.color, None);
+        assert_eq!(parsed.body, "the body\n");
+        assert_eq!(set_note_color_at(&path, None).unwrap(), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn external_links_only_allow_web_and_mail_handlers() {
