@@ -5,7 +5,9 @@
  * store's `savedContent` for it, autosave still owes it a write, or an earlier
  * leave-save for it failed. A failed save never blocks navigation. The buffer is held here and
  * retried with backoff; when the retries run out, one sticky toast per note offers
- * Retry and Save as a copy. Nothing here discards a buffer that did not reach disk.
+ * Retry and Save as a copy. Closing the window or hiding the page attempts every
+ * held save at once (see `registerHeldSaves`). Nothing here discards a buffer that
+ * did not reach disk.
  */
 
 import {
@@ -19,7 +21,11 @@ import {
 } from './fileSystem';
 import { notifyConflictCopy } from './noteConflicts';
 import { isContentEmpty } from './validation';
-import { getPendingAutosaveNoteId, resetAutosaveBaseline } from './autosaveFlush';
+import {
+  getPendingAutosaveNoteId,
+  registerHeldSaves,
+  resetAutosaveBaseline,
+} from './autosaveFlush';
 // Concrete store modules, not the '@/stores' index, to avoid a module cycle.
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -32,6 +38,7 @@ interface PendingLeaveSave {
   attempt: number;
   timer: ReturnType<typeof setTimeout> | null;
   toastId: string | null;
+  lastError: unknown;
 }
 
 const pendingLeaveSaves = new Map<string, PendingLeaveSave>();
@@ -208,6 +215,7 @@ async function retryLeaveSave(noteId: string): Promise<void> {
       return;
     }
     console.error('[leaveSave] Retry failed:', error);
+    entry.lastError = error;
     scheduleRetry(entry, error);
   }
 }
@@ -272,10 +280,29 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
       attempt: 0,
       timer: null,
       toastId: null,
+      lastError: error,
     };
     entry.note = note;
+    entry.lastError = error;
     pendingLeaveSaves.set(note.id, entry);
     scheduleRetry(entry, error);
     return false;
   }
 }
+
+/**
+ * Attempt every held save once, without waiting for its backoff. A note that still
+ * fails gets its Retry / Save as a copy toast straight away.
+ */
+export async function saveHeldNotesNow(): Promise<void> {
+  for (const noteId of [...pendingLeaveSaves.keys()]) {
+    await retryLeaveSave(noteId);
+    const entry = pendingLeaveSaves.get(noteId);
+    if (entry) showFailureToast(entry, entry.lastError);
+  }
+}
+
+registerHeldSaves({
+  saveNow: saveHeldNotesNow,
+  isPending: () => pendingLeaveSaves.size > 0,
+});

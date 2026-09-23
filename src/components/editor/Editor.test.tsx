@@ -596,6 +596,29 @@ describe('Editor external change decisions', () => {
   });
 });
 
+describe('Editor wiki links', () => {
+  it('opens a missing daily-note link as the daily note, not a standalone one', async () => {
+    const user = userEvent.setup();
+    await renderEditor(
+      note(
+        'notes/links.md',
+        '<p><wiki-link data-target="2026-09-22.md" data-label="2026-09-22">2026-09-22</wiki-link></p>'
+      )
+    );
+
+    const link = document.querySelector('wiki-link');
+    if (!(link instanceof HTMLElement)) throw new Error('Wiki link was not rendered');
+    fireEvent.click(link);
+    await user.click(await screen.findByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(notesSpies.loadDailyNote).toHaveBeenCalledOnce());
+    const [date] = notesSpies.loadDailyNote.mock.calls[0] as [Date];
+    expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 8, 22]);
+    expect(safeInvoke).not.toHaveBeenCalledWith('create_note_from_link', expect.anything());
+    expect(notesSpies.loadNote).not.toHaveBeenCalled();
+  });
+});
+
 describe('Editor delete failures', () => {
   // Previously the backend error was only console.error'd and the confirm
   // dialog closed exactly as on success, so the user believed the note was

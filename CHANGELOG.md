@@ -6,7 +6,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
-- **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved.
+- **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
 
 - Opening a note and leaving it without editing no longer rewrites the file, so tables and other Markdown the editor cannot represent stay as you wrote them, and a sync tool no longer sees a change that ends in a conflict copy. An empty daily or weekly note is deleted only when you empty it yourself.
 
@@ -17,6 +17,8 @@ All notable changes to Moldavite are documented here.
 - Clicking a day in the calendar could silently do nothing when the note you were leaving could not be saved.
 
 - A new daily note could open in two tabs at once, because its tab and the note list addressed it differently.
+
+- Following a link to a daily note that did not exist yet, such as `[[2026-09-22]]`, created an ordinary note with that name instead of opening the daily note.
 
 - Renaming or moving a folder left its open notes pointing at the old location, and moving a folder to the Trash left its notes open. Open notes now follow the folder, and the notes of a trashed folder close.
 

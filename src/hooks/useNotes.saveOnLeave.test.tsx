@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
+import { registerAutosaveCloseGuard } from '@/lib/autosaveFlush';
 
 const invokeMock = vi.fn();
 
@@ -178,6 +179,44 @@ describe('save on leave', () => {
     const toasts = useToastStore.getState().toasts;
     expect(toasts.some((toast) => toast.actions)).toBe(false);
     expect(toasts[0]).toMatchObject({ type: 'success' });
+    consoleError.mockRestore();
+  });
+});
+
+describe('closing with a held save', () => {
+  it('retries at once, blocks the close while it fails, and closes after it saves', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Held.md': 'before', 'Else.md': 'else' };
+    writeError = new Error('disk full');
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Held.md')));
+    act(() => useNoteStore.getState().updateNoteContent('<p>held text</p>', 'notes/Held.md'));
+    await act(() => hook.result.current.loadNote(standalone('Else.md')));
+    expect(writes()).toHaveLength(1);
+
+    let onClose!: (event: { preventDefault: () => void }) => Promise<void>;
+    const destroy = vi.fn(async () => {});
+    const stopGuard = await registerAutosaveCloseGuard({
+      onCloseRequested: async (handler) => {
+        onClose = handler as typeof onClose;
+        return () => {};
+      },
+      destroy,
+    });
+
+    await act(() => onClose({ preventDefault: vi.fn() }));
+    expect(writes()).toHaveLength(2);
+    expect(destroy).not.toHaveBeenCalled();
+    const [failure] = useToastStore.getState().toasts;
+    expect(failure.message).toContain('Held');
+    expect(failure.actions?.map((action) => action.label)).toEqual(['Retry', 'Save as a copy']);
+
+    writeError = null;
+    await act(() => onClose({ preventDefault: vi.fn() }));
+    expect(writes()[2][1]).toMatchObject({ filename: 'Held.md', content: 'held text' });
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(useToastStore.getState().toasts.some((toast) => toast.actions)).toBe(false);
+    stopGuard();
     consoleError.mockRestore();
   });
 });

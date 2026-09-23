@@ -5,6 +5,8 @@
  * down with `window.location.reload()`, which never runs React cleanup — so the
  * hook's own unmount flush cannot save us there. Registering the flush here
  * lets non-React code (stores, shutdown paths) await it before the page goes.
+ * Saves held for retry after a failed leave (`lib/leaveSave.ts`) register here
+ * too, so closing the window retries them and stays open while any still fails.
  */
 
 type Flush = () => Promise<void>;
@@ -14,6 +16,11 @@ interface PathChangeController {
   begin: (noteId: string) => void;
   commit: (oldId: string, newId: string) => Promise<void>;
   abort: (noteId: string) => Promise<void>;
+}
+interface HeldSaves {
+  /** Attempt every held save once, now. */
+  saveNow: () => Promise<void>;
+  isPending: () => boolean;
 }
 interface AutosaveCloseWindow {
   onCloseRequested: (
@@ -26,6 +33,7 @@ let flush: Flush | null = null;
 let pendingProbe: PendingProbe | null = null;
 let resetBaseline: ResetBaseline | null = null;
 let pathChangeController: PathChangeController | null = null;
+let heldSaves: HeldSaves | null = null;
 let structuralChangeTail = Promise.resolve();
 
 /** Serialize operations that temporarily change or remove a note's disk address. */
@@ -51,8 +59,9 @@ export function registerAutosaveCloseGuard(appWindow: AutosaveCloseWindow): Prom
         const observedTail = structuralChangeTail;
         await observedTail;
         await flushPendingAutosave();
+        await saveHeldNow();
         if (observedTail !== structuralChangeTail) continue;
-        if (getPendingAutosaveNoteId() === null) {
+        if (getPendingAutosaveNoteId() === null && !heldSaves?.isPending()) {
           await appWindow.destroy();
         }
         break;
@@ -86,16 +95,35 @@ export async function flushPendingAutosave(): Promise<void> {
  * webview and may kill it without any further event, so the debounce may never fire.
  */
 export function flushAutosaveWhenHidden(): () => void {
-  const onVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') void flushPendingAutosave();
+  const flushAll = () => {
+    void flushPendingAutosave();
+    void saveHeldNow();
   };
-  const onPageHide = () => void flushPendingAutosave();
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') flushAll();
+  };
+  const onPageHide = flushAll;
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', onPageHide);
   return () => {
     document.removeEventListener('visibilitychange', onVisibilityChange);
     window.removeEventListener('pagehide', onPageHide);
   };
+}
+
+export function registerHeldSaves(saves: HeldSaves): () => void {
+  heldSaves = saves;
+  return () => {
+    if (heldSaves === saves) heldSaves = null;
+  };
+}
+
+async function saveHeldNow(): Promise<void> {
+  try {
+    await heldSaves?.saveNow();
+  } catch (error) {
+    console.error('[autosaveFlush] held save failed:', error);
+  }
 }
 
 export function registerAutosavePendingProbe(fn: PendingProbe): () => void {

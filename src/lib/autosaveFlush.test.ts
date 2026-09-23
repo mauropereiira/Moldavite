@@ -5,6 +5,7 @@ import {
   registerAutosaveCloseGuard,
   registerAutosaveFlush,
   registerAutosavePendingProbe,
+  registerHeldSaves,
 } from './autosaveFlush';
 
 function closeWindow() {
@@ -114,5 +115,41 @@ describe('autosave flush when the page is hidden', () => {
     expect(flush).toHaveBeenCalledTimes(2);
     visibility.mockRestore();
     unregisterFlush();
+  });
+});
+
+describe('held saves on close and hide', () => {
+  it('retries held saves before closing and stays open while one still fails', async () => {
+    let failing = true;
+    const saveNow = vi.fn(async () => {});
+    const unregisterFlush = registerAutosaveFlush(async () => {});
+    const unregisterProbe = registerAutosavePendingProbe(() => null);
+    const unregisterHeld = registerHeldSaves({ saveNow, isPending: () => failing });
+    const native = closeWindow();
+    await registerAutosaveCloseGuard(native.window);
+
+    await native.requestClose();
+    expect(saveNow).toHaveBeenCalledOnce();
+    expect(native.destroy).not.toHaveBeenCalled();
+
+    failing = false;
+    await native.requestClose();
+    expect(saveNow).toHaveBeenCalledTimes(2);
+    expect(native.destroy).toHaveBeenCalledOnce();
+    unregisterHeld();
+    unregisterProbe();
+    unregisterFlush();
+  });
+
+  it('attempts held saves immediately when the page is hidden', () => {
+    const saveNow = vi.fn(async () => {});
+    const unregisterHeld = registerHeldSaves({ saveNow, isPending: () => true });
+    const stop = flushAutosaveWhenHidden();
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(saveNow).toHaveBeenCalledOnce();
+    stop();
+    unregisterHeld();
   });
 });

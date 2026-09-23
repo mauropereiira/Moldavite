@@ -26,6 +26,7 @@ const autosave = vi.hoisted(() => ({
   commitAutosavePathChange: vi.fn(),
   flushPendingAutosave: vi.fn(),
   getPendingAutosaveNoteId: vi.fn(),
+  registerHeldSaves: vi.fn(),
 }));
 
 vi.mock('@/lib/fileSystem', () => fileSystem);
