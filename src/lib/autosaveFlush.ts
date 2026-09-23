@@ -11,7 +11,7 @@
 
 type Flush = () => Promise<void>;
 type PendingProbe = () => string | null;
-type ResetBaseline = (noteId: string, content: string) => void;
+type ResetBaseline = (noteId: string, content: string, keepNewerEdits?: boolean) => void;
 interface PathChangeController {
   begin: (noteId: string) => void;
   commit: (oldId: string, newId: string) => Promise<void>;
@@ -144,8 +144,16 @@ export function registerAutosaveBaselineReset(fn: ResetBaseline): () => void {
   };
 }
 
-export function resetAutosaveBaseline(noteId: string, content: string): void {
-  resetBaseline?.(noteId, content);
+/**
+ * Treat `content` as the note's saved body. With `keepNewerEdits`, a write owed for
+ * different text (typed while `content` was being written) is kept rather than dropped.
+ */
+export function resetAutosaveBaseline(
+  noteId: string,
+  content: string,
+  keepNewerEdits = false
+): void {
+  resetBaseline?.(noteId, content, keepNewerEdits);
 }
 
 export function registerAutosavePathChange(controller: PathChangeController): () => void {

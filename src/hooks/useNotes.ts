@@ -53,7 +53,13 @@ import {
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
-import { discardLeaveSave, hasUnsavedEdits, saveNoteOnLeave } from '@/lib/leaveSave';
+import {
+  discardLeaveSave,
+  hasUnsavedEdits,
+  heldLeaveSaveNote,
+  readdressLeaveSave,
+  saveNoteOnLeave,
+} from '@/lib/leaveSave';
 
 /**
  * Loads the note list and scans daily notes for task status. The app calls this once
@@ -142,6 +148,26 @@ export function useNotes() {
   }, [getState]);
 
   /**
+   * Shows a note's unsaved text instead of reading its file: its open tab when that has
+   * edits, or its held text when an earlier save failed. Returns false when there is none.
+   */
+  const openUnsavedText = useCallback(
+    (noteId: string, inNewTab: boolean) => {
+      const state = getState();
+      if (state.openTabs.some((tab) => tab.id === noteId) && hasUnsavedEdits(noteId)) {
+        state.switchTab(noteId);
+        return true;
+      }
+      const held = heldLeaveSaveNote(noteId);
+      if (!held) return false;
+      state.openTab(held, inNewTab);
+      getState().markNoteUnsaved(noteId);
+      return true;
+    },
+    [getState]
+  );
+
+  /**
    * Opens a note file in a tab unless a newer navigation has started since
    * `navigation` was taken. A locked note goes to the unlock prompt instead, and an
    * open tab with unsaved edits is switched to rather than re-read from disk.
@@ -169,13 +195,7 @@ export function useNotes() {
         useOverlayStore.getState().openIndex(indexMode === 'pinned');
         return;
       }
-      if (
-        state.openTabs.some((tab) => tab.id === noteFile.path) &&
-        hasUnsavedEdits(noteFile.path)
-      ) {
-        state.switchTab(noteFile.path);
-        return;
-      }
+      if (openUnsavedText(noteFile.path, inNewTab)) return;
 
       try {
         setIsLoading(true);
@@ -210,7 +230,7 @@ export function useNotes() {
         setIsLoading(false);
       }
     },
-    [getState, openTab, setIsLoading]
+    [getState, openTab, openUnsavedText, setIsLoading]
   );
 
   /**
@@ -247,6 +267,7 @@ export function useNotes() {
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
+        if (openUnsavedText(`daily/${filename}`, keepCurrentTab)) return;
         let result;
         try {
           result = await readNoteWithMeta(filename, true, false);
@@ -316,7 +337,7 @@ export function useNotes() {
         }
       }
     },
-    [flushCurrentNote, getState, openNoteFile, openTab, setNotes]
+    [flushCurrentNote, getState, openNoteFile, openTab, openUnsavedText, setNotes]
   );
 
   /**
@@ -339,6 +360,7 @@ export function useNotes() {
       const currentNotes = getState().notes;
 
       const openVirtualOrRacedNote = async () => {
+        if (openUnsavedText(`weekly/${filename}`, keepCurrentTab)) return;
         let result;
         try {
           result = await readNoteWithMeta(filename, false, true);
@@ -413,7 +435,7 @@ export function useNotes() {
         }
       }
     },
-    [flushCurrentNote, getState, openNoteFile, openTab, setNotes]
+    [flushCurrentNote, getState, openNoteFile, openTab, openUnsavedText, setNotes]
   );
 
   /**
@@ -530,7 +552,7 @@ export function useNotes() {
       let heldAutosavePath: string | null = null;
       try {
         await flushPendingAutosave();
-        if (getPendingAutosaveNoteId() !== null) {
+        if (getPendingAutosaveNoteId() !== null || heldLeaveSaveNote(oldPath)) {
           throw new Error('Save pending changes before renaming a note');
         }
         if (getState().currentNote?.id === oldPath) {
@@ -540,6 +562,7 @@ export function useNotes() {
         await renameNoteFile(oldFilename, newFilename, false, false);
 
         useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+        readdressLeaveSave(oldPath, newPath, newTitle);
         if (heldAutosavePath) {
           const committingPath = heldAutosavePath;
           heldAutosavePath = null;

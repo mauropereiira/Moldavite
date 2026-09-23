@@ -64,7 +64,7 @@ describe('external Forge watcher reconciliation', () => {
     expect(current?.externalRev).toBe(1);
     expect(useNoteStore.getState().externallyChanged.has(tab.id)).toBe(false);
     expect(getLastPersistedMarkdown('2026-07-31.md', true, false)).toBe('agent body');
-    expect(reset).toHaveBeenCalledWith(tab.id, current?.content);
+    expect(reset).toHaveBeenCalledWith(tab.id, current?.content, false);
     expect(useToastStore.getState().toasts[0]).toMatchObject({
       type: 'success',
       message: 'Claude Code updated this note.',

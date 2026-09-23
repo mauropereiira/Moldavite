@@ -1,7 +1,7 @@
 import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -211,8 +211,9 @@ export function Editor() {
     setPendingLinkCreate(null);
     if (!pending) return;
     const { target, noteName, isDailyNote } = pending;
-    if (isDailyNote) {
-      const date = parse(target.replace(/\.md$/, ''), 'yyyy-MM-dd', new Date());
+    const stem = target.replace(/\.md$/, '');
+    const date = parse(stem, 'yyyy-MM-dd', new Date());
+    if (isDailyNote && isValid(date) && format(date, 'yyyy-MM-dd') === stem) {
       setSelectedDate(date);
       await loadDailyNote(date);
       return;

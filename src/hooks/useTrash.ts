@@ -35,7 +35,7 @@ import {
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
-import { discardLeaveSave, hasUnsavedEdits } from '@/lib/leaveSave';
+import { discardLeaveSave, hasUnsavedEdits, heldLeaveSaveIds } from '@/lib/leaveSave';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import type { Note, NoteFile } from '@/types';
 
@@ -273,6 +273,9 @@ export function useTrash() {
           discardPendingAutosaveForNote(tab.id, tab.content);
           discardLeaveSave(tab.id);
           forgetTrashedNoteReferences(tab.id);
+        }
+        for (const id of heldLeaveSaveIds()) {
+          if (id.startsWith(prefix)) discardLeaveSave(id);
         }
         const notes = await listNotes();
         setNotes(notes);

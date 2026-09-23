@@ -54,6 +54,8 @@ interface NoteState {
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
   markNoteSaved: (noteId: string, content: string) => void;
+  /** Forget a tab's saved body, so its text counts as unsaved until it is written. */
+  markNoteUnsaved: (noteId: string) => void;
   markExternallyChanged: (noteId: string, client?: string) => void;
   clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
@@ -350,6 +352,14 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (state.savedContent.get(noteId) === content) return state;
       const savedContent = new Map(state.savedContent);
       savedContent.set(noteId, content);
+      return { savedContent };
+    }),
+
+  markNoteUnsaved: (noteId) =>
+    set((state) => {
+      if (!state.savedContent.has(noteId)) return state;
+      const savedContent = new Map(state.savedContent);
+      savedContent.delete(noteId);
       return { savedContent };
     }),
 

@@ -310,7 +310,11 @@ export function useAutoSave() {
     [abortPathChange, beginPathChange, commitPathChange]
   );
 
-  const resetBaseline = useCallback((noteId: string, content: string) => {
+  const resetBaseline = useCallback((noteId: string, content: string, keepNewerEdits = false) => {
+    if (keepNewerEdits) {
+      const owed = heldPathChangeNoteRef.current ?? pendingRef.current;
+      if (owed?.id === noteId && owed.content !== content) return;
+    }
     if (heldPathChangeNoteRef.current?.id === noteId) {
       heldPathChangeNoteRef.current = null;
     }

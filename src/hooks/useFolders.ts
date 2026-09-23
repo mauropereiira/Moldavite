@@ -30,7 +30,12 @@ import {
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
-import { hasUnsavedEdits } from '@/lib/leaveSave';
+import {
+  hasUnsavedEdits,
+  heldLeaveSaveIds,
+  heldLeaveSaveNote,
+  readdressLeaveSave,
+} from '@/lib/leaveSave';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { useToast } from './useToast';
 
@@ -48,9 +53,11 @@ async function changeFolderPath(
   let heldAutosavePath: string | null = null;
   try {
     await flushPendingAutosave();
-    const hasEditsInside = useNoteStore
-      .getState()
-      .openTabs.some((tab) => tab.id.startsWith(prefix) && hasUnsavedEdits(tab.id));
+    const hasEditsInside =
+      useNoteStore
+        .getState()
+        .openTabs.some((tab) => tab.id.startsWith(prefix) && hasUnsavedEdits(tab.id)) ||
+      heldLeaveSaveIds().some((id) => id.startsWith(prefix));
     if (getPendingAutosaveNoteId() !== null || hasEditsInside) {
       throw new Error('Save pending changes before renaming or moving a folder');
     }
@@ -67,6 +74,10 @@ async function changeFolderPath(
         if (!tab.id.startsWith(prefix)) continue;
         const newId = newPrefix + tab.id.slice(prefix.length);
         useNoteStore.getState().renameNoteReferences(tab.id, newId, tab.title);
+      }
+      for (const id of heldLeaveSaveIds()) {
+        if (!id.startsWith(prefix)) continue;
+        readdressLeaveSave(id, newPrefix + id.slice(prefix.length));
       }
     }
     if (heldAutosavePath) {
@@ -200,7 +211,7 @@ export function useFolders() {
         const backendPath = oldPath.slice('notes/'.length);
 
         await flushPendingAutosave();
-        if (getPendingAutosaveNoteId() !== null) {
+        if (getPendingAutosaveNoteId() !== null || heldLeaveSaveNote(oldPath)) {
           throw new Error('Save pending changes before moving a note');
         }
         if (useNoteStore.getState().currentNote?.id === oldPath) {
@@ -213,6 +224,7 @@ export function useFolders() {
           const newName = newPath.split('/').pop() || newPath;
           const newTitle = newName.replace(/\.md$/, '');
           useNoteStore.getState().renameNoteReferences(oldPath, newPath, newTitle);
+          readdressLeaveSave(oldPath, newPath, newTitle);
         }
         if (heldAutosavePath) {
           const committingPath = heldAutosavePath;

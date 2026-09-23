@@ -6,8 +6,10 @@
  * leave-save for it failed. A failed save never blocks navigation. The buffer is held here and
  * retried with backoff; when the retries run out, one sticky toast per note offers
  * Retry and Save as a copy. Closing the window or hiding the page attempts every
- * held save at once (see `registerHeldSaves`). Nothing here discards a buffer that
- * did not reach disk.
+ * held save, and every open tab with unsaved edits, at once (see `registerHeldSaves`).
+ * A held note reopens from its held text, never from disk, and a retry is dropped only
+ * once that text is what the tab holds as saved. Nothing here discards a buffer that
+ * did not reach disk, except trashing or deleting the note.
  */
 
 import {
@@ -16,7 +18,9 @@ import {
   deleteNote,
   htmlToMarkdown,
   listNotes,
+  noteContentToEditorHtml,
   preserveBufferCopy,
+  readNoteWithMeta,
   writeNote,
 } from './fileSystem';
 import { notifyConflictCopy } from './noteConflicts';
@@ -139,6 +143,24 @@ function dismissFailureToast(entry: PendingLeaveSave): void {
   entry.toastId = null;
 }
 
+/** The held text of a note whose save failed, to reopen its tab from. */
+export function heldLeaveSaveNote(noteId: string): Note | undefined {
+  return pendingLeaveSaves.get(noteId)?.note;
+}
+
+export function heldLeaveSaveIds(): string[] {
+  return [...pendingLeaveSaves.keys()];
+}
+
+/** Follow a rename or move, so the retry writes to the note's new address. */
+export function readdressLeaveSave(oldId: string, newId: string, newTitle?: string): void {
+  const entry = pendingLeaveSaves.get(oldId);
+  if (!entry || oldId === newId) return;
+  pendingLeaveSaves.delete(oldId);
+  entry.note = { ...entry.note, id: newId, title: newTitle ?? entry.note.title };
+  pendingLeaveSaves.set(newId, entry);
+}
+
 /** Stop retrying a note, for example because it was deleted or trashed on purpose. */
 export function discardLeaveSave(noteId: string): void {
   const entry = pendingLeaveSaves.get(noteId);
@@ -148,10 +170,13 @@ export function discardLeaveSave(noteId: string): void {
   pendingLeaveSaves.delete(noteId);
 }
 
-/** The newest text for a held note: its open tab when there is one. */
+/**
+ * The newest text for a held note: its open tab when that holds unsaved edits. A clean
+ * tab shows what is on disk, which is not the text this save is holding.
+ */
 function liveBuffer(entry: PendingLeaveSave): Note {
   const tab = useNoteStore.getState().openTabs.find((candidate) => candidate.id === entry.note.id);
-  return tab ?? entry.note;
+  return tab && hasUnsavedEditsInTab(tab.id) ? tab : entry.note;
 }
 
 function showFailureToast(entry: PendingLeaveSave, error: unknown): void {
@@ -199,15 +224,21 @@ async function retryLeaveSave(noteId: string): Promise<void> {
     entry.timer = null;
   }
   const tab = useNoteStore.getState().openTabs.find((candidate) => candidate.id === noteId);
-  if (tab && !hasUnsavedEditsInTab(noteId)) {
+  if (tab && !hasUnsavedEditsInTab(noteId) && tab.content === entry.note.content) {
     discardLeaveSave(noteId);
     return;
   }
   entry.note = liveBuffer(entry);
   entry.attempt += 1;
   try {
-    await writeNoteToDisk(entry.note);
+    const written = entry.note;
+    await writeNoteToDisk(written);
     if (pendingLeaveSaves.get(noteId) === entry) discardLeaveSave(noteId);
+    const liveTab = useNoteStore.getState().openTabs.find((candidate) => candidate.id === noteId);
+    if (liveTab && liveTab !== written && !hasUnsavedEditsInTab(noteId)) {
+      useNoteStore.getState().applyExternalContent(noteId, written.content);
+      resetAutosaveBaseline(noteId, written.content);
+    }
   } catch (error) {
     if (pendingLeaveSaves.get(noteId) !== entry) return;
     if (error instanceof LockedNoteWriteError) {
@@ -241,7 +272,7 @@ async function saveLeaveSaveAsCopy(noteId: string): Promise<void> {
       notifyConflictCopy(await writeNote(copy, markdown, false, false));
     }
     discardLeaveSave(noteId);
-    useNoteStore.getState().markNoteSaved(noteId, note.content);
+    await reloadFromDisk(note);
     listNotes()
       .then((notes) => useNoteStore.getState().setNotes(notes))
       .catch((error) => console.error('[leaveSave] Failed to refresh notes:', error));
@@ -251,6 +282,22 @@ async function saveLeaveSaveAsCopy(noteId: string): Promise<void> {
   } catch (error) {
     console.error('[leaveSave] Save as a copy failed:', error);
     showFailureToast(entry, error);
+  }
+}
+
+/** Show the file's own text in an open tab whose edits went to a copy instead. */
+async function reloadFromDisk(note: Note): Promise<void> {
+  const store = useNoteStore.getState();
+  if (!store.openTabs.some((tab) => tab.id === note.id)) return;
+  try {
+    const disk = await readNoteWithMeta(noteDiskFilename(note), note.isDaily, note.isWeekly);
+    const html = noteContentToEditorHtml(disk.content);
+    useNoteStore.getState().applyExternalContent(note.id, html);
+    resetAutosaveBaseline(note.id, html);
+  } catch (error) {
+    console.error('[leaveSave] Could not reload the original after saving a copy:', error);
+    resetAutosaveBaseline(note.id, note.content);
+    useNoteStore.getState().removeTabByPath(note.id);
   }
 }
 
@@ -267,22 +314,25 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
 
   try {
     await writeNoteToDisk(note);
-    resetAutosaveBaseline(note.id, note.content);
+    resetAutosaveBaseline(note.id, note.content, true);
     discardLeaveSave(note.id);
     return true;
   } catch (error) {
     if (error instanceof LockedNoteWriteError) return true;
     console.error('[leaveSave] Save on leave failed:', error);
-    // The retry owns this buffer now; an autosave attempt would only add a second toast.
-    resetAutosaveBaseline(note.id, note.content);
+    // Hold the newest text, including anything typed while the write was failing.
+    // The retry owns it now; an autosave attempt would only add a second toast.
+    const latest =
+      useNoteStore.getState().openTabs.find((candidate) => candidate.id === note.id) ?? note;
+    resetAutosaveBaseline(note.id, latest.content);
     const entry = pendingLeaveSaves.get(note.id) ?? {
-      note,
+      note: latest,
       attempt: 0,
       timer: null,
       toastId: null,
       lastError: error,
     };
-    entry.note = note;
+    entry.note = latest;
     entry.lastError = error;
     pendingLeaveSaves.set(note.id, entry);
     scheduleRetry(entry, error);
@@ -290,11 +340,23 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
   }
 }
 
+function unsavedOpenTabs(): Note[] {
+  const { openTabs, unlockedNotes } = useNoteStore.getState();
+  return openTabs.filter(
+    (tab) =>
+      !unlockedNotes.has(tab.id) && !pendingLeaveSaves.has(tab.id) && hasUnsavedEditsInTab(tab.id)
+  );
+}
+
 /**
- * Attempt every held save once, without waiting for its backoff. A note that still
- * fails gets its Retry / Save as a copy toast straight away.
+ * Attempt every held save, and save every open tab with unsaved edits, once and
+ * without waiting for a backoff. A note that still fails gets its Retry / Save as a
+ * copy toast straight away.
  */
 export async function saveHeldNotesNow(): Promise<void> {
+  for (const tab of unsavedOpenTabs()) {
+    await saveNoteOnLeave(tab);
+  }
   for (const noteId of [...pendingLeaveSaves.keys()]) {
     await retryLeaveSave(noteId);
     const entry = pendingLeaveSaves.get(noteId);
@@ -304,5 +366,5 @@ export async function saveHeldNotesNow(): Promise<void> {
 
 registerHeldSaves({
   saveNow: saveHeldNotesNow,
-  isPending: () => pendingLeaveSaves.size > 0,
+  isPending: () => pendingLeaveSaves.size > 0 || unsavedOpenTabs().length > 0,
 });
