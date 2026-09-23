@@ -65,6 +65,17 @@ export function reorderIds(
 }
 
 /**
+ * A–Z by the title the list shows. Comparing file names put "Untitled (2).md"
+ * before "Untitled.md", since a space sorts before the dot of the extension,
+ * and numbers compare by value, so "(10)" follows "(9)".
+ */
+export function compareNoteTitles(a: { name: string }, b: { name: string }): number {
+  return a.name
+    .replace(/\.md$/, '')
+    .localeCompare(b.name.replace(/\.md$/, ''), undefined, { numeric: true });
+}
+
+/**
  * Sort `items` into the user's arrangement. Anything they never placed — a note
  * created since, or one that has never been dragged — keeps its incoming order
  * and lands after everything they did place.

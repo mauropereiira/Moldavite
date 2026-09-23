@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NoteFile } from '@/types';
+import { isMobilePlatform } from '@/lib/platform';
 import { NoteContextMenu } from './NoteContextMenu';
+
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
 const note: NoteFile = {
   name: 'Example.md',
@@ -38,13 +41,40 @@ describe('moving notes from the context menu', () => {
     'does not offer an unsupported move for %j',
     (flags) => {
       menu(flags);
-      expect(screen.queryByRole('button', { name: /Move to Folder/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Move to folder/ })).not.toBeInTheDocument();
     }
   );
 
   it('offers a move for an unlocked standalone note', () => {
     const { current, onMoveToFolder } = menu();
-    fireEvent.click(screen.getByRole('button', { name: /Move to Folder/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move to folder/ }));
     expect(onMoveToFolder).toHaveBeenCalledWith(current);
+  });
+});
+
+describe('menu wording', () => {
+  afterEach(() => {
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+  });
+
+  it('labels its actions in sentence case, like the other menus', () => {
+    menu();
+    const labels = screen.getAllByRole('button').map((button) => button.textContent);
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        'Lock note',
+        'Open in new tab',
+        'Rename…',
+        'Export as plain text',
+        'Move to folder…',
+        'Delete note',
+      ])
+    );
+  });
+
+  it('offers no new tab on a phone, which has no tab bar', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    menu();
+    expect(screen.queryByRole('button', { name: 'Open in new tab' })).not.toBeInTheDocument();
   });
 });

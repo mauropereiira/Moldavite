@@ -254,15 +254,11 @@ html[data-platform='mobile'].has-icon-rail.icon-rail-right:not(.focus-mode) {
   }
 }
 
-/* Keep the phone's main text edge close to the system clock's left edge.
-   The rail still has a full 44pt hit area; an inset hairline consumes none of
-   it. iPad retains the roomier sidebar spacing. A rail on the right leaves
-   the text edge on the bezel, which keeps the standard inset. */
+/* The phone's rail is 44pt with an inset hairline, which consumes none of the
+   hit area. Pages keep the full 16px inset on both sides whichever edge the
+   rail is on: pulling the text to 6px of a left rail, level with the clock,
+   read as cramped and lopsided. */
 @media (max-width: 600px) {
-  html[data-platform='mobile']:not(.icon-rail-right) {
-    --mobile-page-inset: 6px;
-  }
-
   html[data-platform='mobile'].has-icon-rail:not(.focus-mode) {
     --rail-width: 44px;
   }
@@ -319,6 +315,21 @@ html[data-platform='mobile'] .app-index-overlay .index-overlay-content,
 html[data-platform='mobile'] .app-sidebar .index-overlay-content {
   padding: calc(var(--shell-safe-top) + 12px) var(--page-safe-right) var(--safe-bottom)
     var(--page-safe-left) !important;
+}
+
+/* The rail beside the Index has Timeline, Graph, Settings and Trash, and
+   About has the version: the footer keeps Today and New. It took half of a
+   landscape screen with them. */
+html[data-platform='mobile']
+  .index-overlay-content
+  > .sidebar-footer
+  :is(.sidebar-footer-links, .sidebar-footer-version) {
+  display: none;
+}
+
+/* While the keyboard is up (searching the Index) the results need the room. */
+html[data-platform='mobile'][data-keyboard='open'] .index-overlay-content > .sidebar-footer {
+  display: none;
 }
 
 /* The footer's rule spans the page, so it reaches back over the inset. */
@@ -414,6 +425,14 @@ html[data-platform='mobile']
   min-height: var(--touch-target);
 }
 
+/* Press-and-hold opens a row's menu (useLongPress), so it must not also
+   select the title's text or raise the system callout. */
+html[data-platform='mobile'] .index-overlay-content :is(.draggable-note-item, .folder-row) {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* Leave room for the always-visible Options control below. */
 html[data-platform='mobile'] .index-overlay-content .draggable-note-item .note-card {
   padding-right: 56px;
@@ -457,7 +476,9 @@ html[data-platform='mobile']
   right: 0;
   min-width: var(--touch-target);
   min-height: var(--touch-target);
-  opacity: 0.6;
+  opacity: 1;
+  /* Muted at 0.6 was near-illegible on the tinted themes. Inline colour. */
+  color: var(--text-secondary) !important;
 }
 
 html[data-platform='mobile'] .index-overlay-content .text-link {
@@ -821,6 +842,10 @@ html[data-platform='mobile'] .modal-elevated .dialog-close {
 html[data-platform='mobile'] .impact-surface.fixed {
   max-width: calc(100vw - 32px) !important;
   max-height: calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px) !important;
+}
+
+html[data-platform='mobile'] [aria-labelledby='move-to-folder-title'] :is(button, .folder-row) {
+  min-height: var(--touch-target);
 }
 
 html[data-platform='mobile'] .sidebar-context-menu button {

@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { reorderIds, applyManualOrder, useSidebarOrderStore } from './sidebarOrderStore';
+import {
+  reorderIds,
+  applyManualOrder,
+  compareNoteTitles,
+  useSidebarOrderStore,
+} from './sidebarOrderStore';
 
 describe('reorderIds', () => {
   it('seeds the order from the current display order on the first drag', () => {
@@ -113,5 +118,17 @@ describe('useSidebarOrderStore', () => {
       'notes/Projects/a.md',
       'notes/b.md',
     ]);
+  });
+});
+
+describe('compareNoteTitles', () => {
+  it('sorts by the title shown, numbers by value', () => {
+    const names = ['Untitled (10).md', 'Untitled (2).md', 'Untitled.md', 'Untitled (3).md', 'b.md'];
+    expect(
+      names
+        .map((name) => ({ name }))
+        .sort(compareNoteTitles)
+        .map((n) => n.name)
+    ).toEqual(['b.md', 'Untitled.md', 'Untitled (2).md', 'Untitled (3).md', 'Untitled (10).md']);
   });
 });

@@ -27,14 +27,14 @@ export function FolderContextMenu({
         className={itemClass}
         style={{ color: 'var(--text-primary)' }}
       >
-        New Note in Folder
+        New note in folder
       </button>
       <button
         onClick={() => onRename(folder)}
         className={itemClass}
         style={{ color: 'var(--text-primary)' }}
       >
-        Rename Folder
+        Rename folder
       </button>
       <div className="my-1 shrink-0" style={{ borderTop: '1px solid var(--border-muted)' }} />
       <button
@@ -42,7 +42,7 @@ export function FolderContextMenu({
         className={itemClass}
         style={{ color: 'var(--error)' }}
       >
-        Delete Folder
+        Delete folder
       </button>
     </ContextMenuSurface>
   );

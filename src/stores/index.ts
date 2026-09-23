@@ -74,7 +74,12 @@ export type { AppOverlay } from './overlayStore';
 export { useNoteSelectionStore } from './noteSelectionStore';
 export type { NoteSelectionState } from './noteSelectionStore';
 export { useQuickSwitcherStore } from './quickSwitcherStore';
-export { useSidebarOrderStore, applyManualOrder, reorderIds } from './sidebarOrderStore';
+export {
+  useSidebarOrderStore,
+  applyManualOrder,
+  compareNoteTitles,
+  reorderIds,
+} from './sidebarOrderStore';
 export { usePdfExportStore, PDF_MARGIN_MM } from './pdfExportStore';
 export type { PdfPageSize, PdfMarginPreset } from './pdfExportStore';
 export { useForgeStore } from './forgeStore';

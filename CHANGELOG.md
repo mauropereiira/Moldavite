@@ -18,6 +18,10 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone (there is no tab bar), and pages keep a 16pt margin beside the rail on the left as they do on the right.
+
+- Menus in the Index use sentence case like the rest of the app ("Lock note", "Export as plain text", "Move to folder…", "Rename folder"), a locked note shows "Locked" after its name so its title lines up with the others, and Move note has one Cancel instead of Cancel and Close, with "No folder" for the top level.
+
 - **Search finds notes by the words in them.** The rail's Search (⌘P on the desktop) matched note titles and commands only; it now also lists notes whose text contains what you typed, under "In note text", with the matching line. Title matches still come first, so ⌘P and Enter open the same note as before. On iPhone the keyboard comes up as Search opens, and commands that need a keyboard or a desktop panel are not offered.
 
 - **The Trash on iPhone is a page**, like Index and Agenda, instead of a small floating box. Each note has its own Restore and Delete, and Empty trash asks first.
@@ -35,6 +39,8 @@ All notable changes to Moldavite are documented here.
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
 
 ### Fixed
+
+- Sorting notes by name put "Untitled (2)" before "Untitled" and "Untitled (10)" before "Untitled (9)": names were compared with their `.md` extension, and numbers as text.
 
 - Restore and Delete in the preview of a note in the rail's Trash did nothing: the press closed the Trash, and the preview with it, before the button could act.
 

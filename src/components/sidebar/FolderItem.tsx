@@ -6,6 +6,7 @@ import { Folder, FolderOpen } from 'lucide-react';
 import { folderDropIntent } from './dropPlacement';
 import { DropIndicator } from './DropIndicator';
 import { SignatureMark } from '@/components/ui/SignatureMark';
+import { useLongPress } from '@/hooks/useLongPress';
 
 interface FolderItemProps {
   folder: FolderInfo;
@@ -79,6 +80,7 @@ export function FolderItem({
   const impactTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const [dropPlace, setDropPlace] = useState<DropPlace | null>(null);
+  const longPress = useLongPress(onContextMenu);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -290,6 +292,7 @@ export function FolderItem({
           }
         }}
         onContextMenu={onContextMenu}
+        {...longPress}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

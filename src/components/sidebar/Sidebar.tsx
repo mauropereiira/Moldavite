@@ -18,6 +18,7 @@ import {
   useSidebarOrderStore,
   useFolderStore,
   applyManualOrder,
+  compareNoteTitles,
 } from '@/stores';
 import type { ContentMatch } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
@@ -218,10 +219,10 @@ export function Sidebar({
     return [...notesToSort].sort((a, b) => {
       switch (sortOption) {
         case 'name-desc':
-          return b.name.localeCompare(a.name);
+          return compareNoteTitles(b, a);
         case 'name-asc':
         default:
-          return a.name.localeCompare(b.name);
+          return compareNoteTitles(a, b);
       }
     });
   };
@@ -254,7 +255,7 @@ export function Sidebar({
       .getState()
       .seedNotes(
         [...notes.filter((n) => !n.isDaily && !n.isWeekly)]
-          .sort((a, b) => a.name.localeCompare(b.name))
+          .sort(compareNoteTitles)
           .map((n) => n.path)
       );
   }, [isManualSort, notes]);
