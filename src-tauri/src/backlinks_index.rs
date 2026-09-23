@@ -12,9 +12,10 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::RwLock;
+use std::sync::{Mutex, PoisonError, RwLock};
+use std::time::{Duration, Instant};
 
 use crate::types::BacklinkInfo;
 use crate::wiki::{get_link_context, note_exists, note_name_to_filename, parse_wiki_links};
@@ -34,9 +35,17 @@ struct State {
     outbound: HashMap<String, HashSet<String>>,
 }
 
+/// How long a query waits before trying again to build an index whose last
+/// build failed, instead of rescanning the whole Forge on every call.
+const FAILED_BUILD_RETRY_AFTER: Duration = Duration::from_secs(30);
+
 pub(crate) struct BacklinksIndex {
     inner: RwLock<State>,
     ready: AtomicBool,
+    /// Held for the whole of a rebuild, so builds never overlap and a query
+    /// that needs the index waits for the one already running. Holds the time
+    /// the last build failed, if it did.
+    build: Mutex<Option<Instant>>,
 }
 
 /// Resolver converts a raw link name (e.g. "Meeting Notes" or "2026-01-02")
@@ -71,6 +80,7 @@ impl BacklinksIndex {
         Self {
             inner: RwLock::new(State::default()),
             ready: AtomicBool::new(false),
+            build: Mutex::new(None),
         }
     }
 
@@ -85,10 +95,49 @@ impl BacklinksIndex {
     /// Walk daily + weekly + standalone trees and populate the index.
     /// Errors are logged, not panicked.
     pub(crate) fn rebuild_from_disk(&self) {
+        self.rebuild_from(crate::paths::get_notes_dir);
+    }
+
+    /// Make sure the index has been built before a query reads it. A build
+    /// already in progress is waited for rather than repeated, and a build
+    /// that failed is not retried until [`FAILED_BUILD_RETRY_AFTER`] passes,
+    /// so the query answers from whatever the index holds.
+    pub(crate) fn ensure_built(&self) {
+        self.ensure_built_from(crate::paths::get_notes_dir);
+    }
+
+    fn rebuild_from(&self, notes_dir: impl FnOnce() -> Result<PathBuf, String>) {
+        let mut last_failure = self.build.lock().unwrap_or_else(PoisonError::into_inner);
+        self.rebuild_locked(&mut last_failure, notes_dir);
+    }
+
+    fn ensure_built_from(&self, notes_dir: impl FnOnce() -> Result<PathBuf, String>) {
+        if self.is_ready() {
+            return;
+        }
+        let mut last_failure = self.build.lock().unwrap_or_else(PoisonError::into_inner);
+        let failed_recently =
+            last_failure.is_some_and(|at| at.elapsed() < FAILED_BUILD_RETRY_AFTER);
+        if self.is_ready() || failed_recently {
+            return;
+        }
+        self.rebuild_locked(&mut last_failure, notes_dir);
+    }
+
+    fn rebuild_locked(
+        &self,
+        last_failure: &mut Option<Instant>,
+        notes_dir: impl FnOnce() -> Result<PathBuf, String>,
+    ) {
         let mut files: Vec<(String, String)> = Vec::new();
 
-        let Ok(root) = crate::paths::get_notes_dir() else {
-            return;
+        let root = match notes_dir() {
+            Ok(root) => root,
+            Err(error) => {
+                log::warn!("backlinks index rebuild skipped: {error}");
+                *last_failure = Some(Instant::now());
+                return;
+            }
         };
         let daily = root.join("daily");
         collect_md_files_flat(&daily, &mut files);
@@ -113,6 +162,7 @@ impl BacklinksIndex {
             self.update_note_with(&filename, &content, &default_resolver);
         }
 
+        *last_failure = None;
         self.mark_ready();
     }
 
@@ -369,6 +419,51 @@ mod tests {
             .replace(' ', "-")
             .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
         format!("{}.md", slug)
+    }
+
+    #[test]
+    fn a_failed_build_is_not_repeated_by_every_query() {
+        let idx = BacklinksIndex::new();
+        let attempts = std::cell::Cell::new(0);
+        for _ in 0..3 {
+            idx.ensure_built_from(|| {
+                attempts.set(attempts.get() + 1);
+                Err("no Forge".to_string())
+            });
+        }
+        assert_eq!(attempts.get(), 1);
+        assert!(!idx.is_ready());
+        assert!(idx.get("target.md", "Target").is_empty());
+    }
+
+    #[test]
+    fn a_query_waits_for_the_running_build_instead_of_starting_another() {
+        let idx = std::sync::Arc::new(BacklinksIndex::new());
+        let empty_forge = std::env::temp_dir().join(format!(
+            "moldavite-backlinks-wait-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let builder = {
+            let idx = idx.clone();
+            std::thread::spawn(move || {
+                idx.rebuild_from(|| {
+                    started_tx.send(()).unwrap();
+                    std::thread::sleep(Duration::from_millis(100));
+                    Ok(empty_forge)
+                })
+            })
+        };
+        started_rx.recv().unwrap();
+
+        idx.ensure_built_from(|| panic!("a second build started while one was running"));
+
+        assert!(idx.is_ready());
+        builder.join().unwrap();
     }
 
     #[test]
