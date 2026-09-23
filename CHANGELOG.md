@@ -10,6 +10,38 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
+
+- Opening a note and leaving it without editing no longer rewrites the file, so tables and other Markdown the editor cannot represent stay as you wrote them, and a sync tool no longer sees a change that ends in a conflict copy. An empty daily or weekly note is deleted only when you empty it yourself.
+
+- On iPhone and iPad, edits are saved as soon as Moldavite goes to the background, so switching apps or locking the screen straight after typing no longer risks the last few words.
+
+- Clicking several notes in quick succession opens the last one you clicked, not whichever finished loading last.
+
+- Clicking a day in the calendar could silently do nothing when the note you were leaving could not be saved.
+
+- A new daily note could open in two tabs at once, because its tab and the note list addressed it differently.
+
+- Following a link to a daily note that did not exist yet, such as `[[2026-09-22]]`, created an ordinary note with that name instead of opening the daily note.
+
+- Renaming or moving a folder left its open notes pointing at the old location, and moving a folder to the Trash left its notes open. Open notes now follow the folder, and the notes of a trashed folder close.
+
+- **A note deleted or moved outside Moldavite could come back empty.** Its open tab was blanked and could later be saved as an empty file. A tab you had not edited now closes. One with edits keeps them and tells you the file is gone; leaving it saves your text back.
+
+- A note that changed on disk to exactly what Moldavite last saved no longer shows "This note was updated on disk".
+
+- Wiki links, the quick switcher, the graph, pinned notes, backlinks and the calendar could open a locked note as an empty page. They now ask for its password, as the sidebar does.
+
+- The note list was loaded once for every panel that shows notes, and a failure showed "Failed to load notes" once for each. It now loads once.
+
+- **Changing a note's color could erase the note.** If the note could not be read at that moment, for example an iCloud file not yet downloaded or a file that is not valid UTF-8, the color was written over an empty note. The color change now reports the problem and leaves the note untouched, and it can no longer land in the middle of an autosave.
+
+- **A note that opened with a horizontal rule could lose text.** A rule, a line such as `Owner: Mauro` and another rule at the top of a note were read back as metadata and dropped from the note on the next save. Those notes also produced a conflict copy of themselves on the following save.
+
+- Renaming a note updates the links in other notes without racing a save in progress on them.
+
+- Search, backlinks and a Forge rescan no longer freeze the window while the search index or the backlinks catch up with a large Forge. Backlinks also stop rescanning the whole Forge on every request after a scan fails.
+
 - **Images broke on every device but the one that added them.** A note stored each image as a full path on that machine, so the same Forge synced to another Mac or an iPhone showed broken pictures. Images are now saved as `images/<file>`, relative to the Forge, and older notes are read correctly and switched to the new form the next time you edit them.
 
 - **An aliased wiki link, `[[Display|target]]`, lost its target the first time the note was edited.** It was saved as `[[Display]]`, which points at a different note. The target is now written back.

@@ -249,13 +249,10 @@ fn preserve_buffer_copy_at(path: &Path, content: &str, stamp: &str) -> Result<St
     preserve_buffer_copy_unlocked(path, content, stamp)
 }
 
-fn preserve_buffer_copy_unlocked(
-    path: &Path,
-    content: &str,
-    stamp: &str,
-) -> Result<String, String> {
+fn preserve_buffer_copy_unlocked(path: &Path, body: &str, stamp: &str) -> Result<String, String> {
     let (conflict_path, conflict_name) = conflict_copy_destination(path, stamp)?;
-    write_atomic(&conflict_path, content.as_bytes(), Some(0o600))?;
+    let serialized = frontmatter::serialize_note(None, &Default::default(), body);
+    write_atomic(&conflict_path, serialized.as_bytes(), Some(0o600))?;
     Ok(conflict_name)
 }
 
@@ -313,16 +310,33 @@ fn read_note_within_base(base: &Path, path: &Path) -> Result<NoteRead, String> {
     })
 }
 
+/// Outcome of a conflict-safe save.
+#[derive(Debug)]
+pub(crate) struct SavedNote {
+    /// `(conflict filename, disk body)` when an external edit was preserved.
+    pub(crate) conflict: Option<(String, String)>,
+    /// Hash of the body a read of the saved file returns, which is the base
+    /// hash the next save must send.
+    pub(crate) content_hash: String,
+}
+
 /// Serialize conflict detection, frontmatter preservation, and the replacing
 /// write as one operation. This prevents concurrent saves from both observing
 /// the same old disk version and then silently overwriting one another.
+///
+/// `body` is the note body only, as the editor holds it: a leading `---` block
+/// in it is a horizontal rule and text, never frontmatter.
 pub(crate) fn save_note_with_conflict(
     path: &Path,
     base_hash: Option<&str>,
-    content: &str,
+    body: &str,
     color: Option<&str>,
-) -> Result<Option<(String, String)>, String> {
-    save_note_with_conflict_using(path, base_hash, content, color, |path, serialized| {
+) -> Result<SavedNote, String> {
+    let incoming = frontmatter::ParsedNote {
+        body: body.to_string(),
+        ..Default::default()
+    };
+    save_parsed_with_conflict(path, base_hash, incoming, color, |path, serialized| {
         write_atomic(path, serialized.as_bytes(), Some(0o600))
     })
 }
@@ -331,81 +345,104 @@ fn save_note_with_conflict_in(
     base: &Path,
     path: &Path,
     base_hash: Option<&str>,
-    content: &str,
+    body: &str,
     color: Option<&str>,
-) -> Result<Option<(String, String)>, String> {
+) -> Result<SavedNote, String> {
     validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
-    save_note_with_conflict(path, base_hash, content, color)
+    save_note_with_conflict(path, base_hash, body, color)
 }
 
-/// Variant used by MCP attribution. The callback runs exactly once with the
-/// final serialized note while the conflict lock is still held, immediately
-/// before the replacing write that it owns.
-pub(crate) fn save_note_with_conflict_using<F>(
+/// Save complete Markdown, as MCP clients send it: a leading frontmatter
+/// block is split off and merged with the keys already on disk. The callback
+/// runs exactly once with the final serialized note while the conflict lock is
+/// still held, immediately before the replacing write that it owns.
+pub(crate) fn save_markdown_with_conflict_using<F>(
     path: &Path,
     base_hash: Option<&str>,
-    content: &str,
-    color: Option<&str>,
+    markdown: &str,
     write: F,
-) -> Result<Option<(String, String)>, String>
+) -> Result<SavedNote, String>
 where
     F: FnOnce(&Path, &str) -> Result<(), String> + Send,
+{
+    let incoming = frontmatter::parse_note(markdown);
+    save_parsed_with_conflict(path, base_hash, incoming, None, write)
+}
+
+fn save_parsed_with_conflict<F>(
+    path: &Path,
+    base_hash: Option<&str>,
+    incoming: frontmatter::ParsedNote,
+    color: Option<&str>,
+    write: F,
+) -> Result<SavedNote, String>
+where
+    F: FnOnce(&Path, &str) -> Result<(), String> + Send,
+{
+    with_note_write_lock(path, || {
+        let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+        let conflict = preserve_conflict_copy_unlocked(path, base_hash, &incoming.body, &stamp)?;
+        let existing = match fs::read_to_string(path) {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(error) => return Err(format!("Cannot read the existing note: {error}")),
+        };
+        let parsed_existing = frontmatter::parse_note(&existing);
+        // Keys the caller sent win; disk keys it did not mention are
+        // preserved, so external metadata still survives a round trip.
+        let mut merged_extra = parsed_existing.extra;
+        merged_extra.extend(incoming.extra);
+        let resolved_color = match color {
+            Some("") | Some("default") => None,
+            Some(value) => Some(value.to_string()),
+            None => incoming.color.or(parsed_existing.color),
+        };
+        let serialized =
+            frontmatter::serialize_note(resolved_color.as_deref(), &merged_extra, &incoming.body);
+        write(path, &serialized)?;
+        Ok(SavedNote {
+            conflict,
+            content_hash: sha256_hex(&frontmatter::parse_note(&serialized).body),
+        })
+    })
+}
+
+/// Read, transform and replace a note inside the same file coordination and
+/// conflict lock every save takes, so the transform always sees the current
+/// disk version and no editor save can land between the read and the write.
+/// A read failure is returned rather than treated as an empty note. Returns
+/// the new raw file, or `None` when `rewrite` left it unchanged.
+pub(crate) fn rewrite_note_in_place<F>(path: &Path, rewrite: F) -> Result<Option<String>, String>
+where
+    F: FnOnce(&str) -> Option<String> + Send,
+{
+    with_note_write_lock(path, || {
+        let raw = fs::read_to_string(path)
+            .map_err(|error| format!("Cannot read the existing note: {error}"))?;
+        let Some(updated) = rewrite(&raw).filter(|updated| *updated != raw) else {
+            return Ok(None);
+        };
+        write_atomic(path, updated.as_bytes(), Some(0o600))?;
+        Ok(Some(updated))
+    })
+}
+
+fn with_note_write_lock<T, F>(path: &Path, operation: F) -> Result<T, String>
+where
+    T: Send,
+    F: FnOnce() -> Result<T, String> + Send,
 {
     let locked = locked_sibling(path);
     note_file_access::transaction(&[Access::write(path), Access::write(&locked)], || {
         let base = path.parent().ok_or("Invalid note path")?;
         validate_path_within_base(path, base).map_err(|_| "Invalid note path".to_string())?;
         validate_path_within_base(&locked, base).map_err(|_| "Invalid note path".to_string())?;
-        save_note_with_conflict_uncoordinated(path, base_hash, content, color, write)
+        let _guard = conflict_copy_lock()
+            .lock()
+            .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+        ensure_note_is_writable(path)?;
+        operation()
     })
-}
-
-fn save_note_with_conflict_uncoordinated<F>(
-    path: &Path,
-    base_hash: Option<&str>,
-    content: &str,
-    color: Option<&str>,
-    write: F,
-) -> Result<Option<(String, String)>, String>
-where
-    F: FnOnce(&Path, &str) -> Result<(), String>,
-{
-    let _guard = conflict_copy_lock()
-        .lock()
-        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
-    ensure_note_is_writable(path)?;
-    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
-    let conflict = preserve_conflict_copy_unlocked(path, base_hash, content, &stamp)?;
-    let existing = match fs::read_to_string(path) {
-        Ok(raw) => raw,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(format!("Cannot read the existing note: {error}")),
-    };
-    let parsed_existing = frontmatter::parse_note(&existing);
-    // `content` may itself begin with a frontmatter block: the MCP write path
-    // and the editor's "Use disk version" both hand over complete Markdown, not
-    // a bare body. Parse it out rather than treating the whole string as body,
-    // otherwise `serialize_note` stamps a second block on top of the one the
-    // caller already wrote and the file grows a frontmatter block per save.
-    let parsed_incoming = frontmatter::parse_note(content);
-    // Keys the caller put in `content` win; disk keys it did not mention are
-    // preserved, so external metadata still survives a round trip.
-    let mut merged_extra = parsed_existing.extra.clone();
-    for (key, value) in parsed_incoming.extra {
-        merged_extra.insert(key, value);
-    }
-    let resolved_color = match color {
-        Some("") | Some("default") => None,
-        Some(value) => Some(value.to_string()),
-        None => parsed_incoming.color.or(parsed_existing.color),
-    };
-    let serialized = frontmatter::serialize_note(
-        resolved_color.as_deref(),
-        &merged_extra,
-        &parsed_incoming.body,
-    );
-    write(path, &serialized)?;
-    Ok(conflict)
 }
 
 fn ensure_note_is_writable(path: &Path) -> Result<(), String> {
@@ -579,6 +616,7 @@ pub(crate) fn read_note(
 // struct would change the wire shape for every existing caller.
 /// Atomically save a note, preserving an externally changed disk copy on hash mismatch.
 ///
+/// `content` is the note body; frontmatter is never parsed out of it.
 /// `base_hash` must be the hash returned by the caller's latest read or save.
 /// Successful writes return the new base hash and any conflict-copy address.
 #[allow(clippy::too_many_arguments)]
@@ -614,13 +652,14 @@ pub(crate) fn write_note(
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
     // save below can never silently destroy it.
-    let conflict_copy = match save_note_with_conflict_in(
+    let saved = save_note_with_conflict_in(
         &dir,
         &path,
         base_hash.as_deref(),
         &content,
         color.as_deref(),
-    )? {
+    )?;
+    let conflict_copy = match saved.conflict {
         Some((conflict_name, disk_body)) => {
             if let Some(parent) = path.parent() {
                 // The copy is our own write — suppress the watcher echo.
@@ -637,7 +676,7 @@ pub(crate) fn write_note(
         None => None,
     };
 
-    let content_hash = sha256_hex(&content);
+    let content_hash = saved.content_hash;
     recent.record(&path, &content_hash);
 
     // The backlinks index only cares about the body, not frontmatter.
@@ -731,8 +770,7 @@ pub(crate) fn preserve_buffer_copy(
         .parent()
         .ok_or_else(|| "Invalid note path".to_string())?
         .join(&conflict_name);
-    let conflict_body = frontmatter::parse_note(&content).body;
-    recent.record(&conflict_path, &sha256_hex(&conflict_body));
+    recent.record(&conflict_path, &sha256_hex(&content));
     index.update_note(&conflict_name, &content);
 
     let relative = match filename.rsplit_once('/') {
@@ -998,6 +1036,11 @@ pub(crate) fn rename_note(
 /// Rewrite `[[old]]` links across the whole vault after a note rename.
 /// Failures on individual files are logged and skipped so one unreadable
 /// note doesn't abort the rename that already happened.
+///
+/// Rewrites are deliberately not recorded as the app's own writes: the
+/// watcher event is what reloads, or prompts about, a rewritten note that is
+/// open in the editor. Suppressing it leaves the editor on the old link and
+/// the old base hash, and its next autosave writes a conflict copy.
 fn rewrite_inbound_links(
     old_stem: &str,
     new_stem: &str,
@@ -1035,19 +1078,27 @@ fn rewrite_inbound_links_in_roots(
             {
                 continue;
             }
-            let Ok(raw) = fs::read_to_string(path) else {
-                continue;
-            };
-            let Some(rewritten) = crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem)
-            else {
-                continue;
-            };
-            if let Err(e) = write_atomic(path, rewritten.as_bytes(), Some(0o600)) {
-                log::warn!("rename: failed to rewrite links in {:?}: {}", path, e);
+            // Most notes do not link to the renamed one. Checking without the
+            // lock keeps a rename from taking file coordination and the save
+            // lock once per note in the Forge; the rewrite re-checks under it.
+            let links_to_old = fs::read_to_string(path).is_ok_and(|raw| {
+                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem).is_some()
+            });
+            if !links_to_old {
                 continue;
             }
+            let rewritten = match rewrite_note_in_place(path, |raw| {
+                crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem)
+            }) {
+                Ok(Some(rewritten)) => rewritten,
+                Ok(None) => continue,
+                Err(e) => {
+                    log::warn!("rename: failed to rewrite links in {:?}: {}", path, e);
+                    continue;
+                }
+            };
+            let body = crate::frontmatter::parse_note(&rewritten).body;
             if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                let body = crate::frontmatter::parse_note(&rewritten).body;
                 if let Some(resolver) = resolver {
                     index.update_note_with(name, &body, resolver);
                 } else {
@@ -1331,6 +1382,7 @@ mod tests {
         let (copy, _) =
             save_note_with_conflict_in(&base, &path, Some(&sha256_hex("")), "my text", None)
                 .unwrap()
+                .conflict
                 .unwrap();
         assert_eq!(
             fs::read_to_string(base.join(copy)).unwrap(),
@@ -1429,16 +1481,18 @@ mod tests {
 
     #[test]
     fn write_does_not_stack_frontmatter_when_content_carries_its_own() {
-        // A caller (an MCP agent, or the Use-disk-version path) may pass
-        // complete Markdown whose body already begins with a frontmatter
-        // block. The save must not prepend a second block built from the
-        // existing file's keys.
+        // An MCP agent passes complete Markdown whose body already begins
+        // with a frontmatter block. The save must not prepend a second block
+        // built from the existing file's keys.
         let tmp = TempDir::new("stack");
         let path = tmp.path().join("note.md");
         fs::write(&path, "---\nkind: note\n---\nold body").unwrap();
 
         let content = "---\nkind: note\naliases:\n- x\n---\nnew body";
-        save_note_with_conflict(&path, None, content, None).unwrap();
+        save_markdown_with_conflict_using(&path, None, content, |path, serialized| {
+            write_atomic(path, serialized.as_bytes(), Some(0o600))
+        })
+        .unwrap();
 
         let written = fs::read_to_string(&path).unwrap();
         assert_eq!(
@@ -1456,6 +1510,45 @@ mod tests {
             parsed.extra.contains_key("aliases"),
             "caller frontmatter kept"
         );
+    }
+
+    #[test]
+    fn regression_a_body_opening_with_a_rule_block_is_saved_as_body() {
+        let tmp = TempDir::new("rule-block");
+        let path = tmp.path().join("note.md");
+        let body = "---\n\nOwner: Mauro\n\n---\n\nThe rest\n";
+
+        let saved = save_note_with_conflict(&path, Some(&sha256_hex("")), body, None).unwrap();
+
+        let read = read_note_at(&path).unwrap();
+        assert_eq!(read.content, body);
+        assert_eq!(saved.content_hash, read.content_hash);
+
+        fs::write(&path, "---\ncolor: blue\ncustom: kept\n---\nold").unwrap();
+        let saved = save_note_with_conflict(&path, None, body, None).unwrap();
+        let read = read_note_at(&path).unwrap();
+        assert_eq!(read.content, body);
+        assert_eq!(read.color.as_deref(), Some("blue"));
+        assert_eq!(saved.content_hash, read.content_hash);
+        assert!(fs::read_to_string(&path).unwrap().contains("custom: kept"));
+    }
+
+    #[test]
+    fn regression_consecutive_saves_never_conflict_with_themselves() {
+        let tmp = TempDir::new("consecutive");
+        let path = tmp.path().join("note.md");
+        let mut base = sha256_hex("");
+        for body in [
+            "---\nOwner: Mauro\n---\nfirst",
+            "---\nOwner: Mauro\n---\nsecond",
+            "\u{FEFF}third",
+            "fourth",
+        ] {
+            let saved = save_note_with_conflict(&path, Some(&base), body, None).unwrap();
+            assert!(saved.conflict.is_none(), "{body:?} conflicted with itself");
+            base = saved.content_hash;
+        }
+        assert_eq!(fs::read_dir(tmp.path()).unwrap().count(), 1);
     }
 
     #[test]
@@ -1664,6 +1757,7 @@ mod tests {
                     barrier.wait();
                     save_note_with_conflict(&path, Some(&base), content, None)
                         .unwrap()
+                        .conflict
                         .unwrap()
                         .0
                 }));
@@ -1802,6 +1896,38 @@ mod tests {
             fs::read_to_string(notes.join("inbound.md")).unwrap(),
             "See [[q3-planning]] and [[agenda|q3-planning]]."
         );
+    }
+
+    #[test]
+    fn rename_rewrites_only_the_notes_that_link_to_the_old_name() {
+        let tmp = TempDir::new("rename-rewrite-scope");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        let inbound = notes.join("inbound.md");
+        let untouched = notes.join("untouched.md");
+        let unreadable = notes.join("unreadable.md");
+        fs::write(&inbound, "---\ncolor: blue\n---\nSee [[old-name]].").unwrap();
+        fs::write(&untouched, "No links here.").unwrap();
+        fs::write(&unreadable, [0xff, 0xfe, b'x']).unwrap();
+        let untouched_modified = fs::metadata(&untouched).unwrap().modified().unwrap();
+
+        rewrite_inbound_links_in_roots(
+            std::slice::from_ref(&notes),
+            "old-name",
+            "new-name",
+            &Arc::new(BacklinksIndex::new()),
+            Some(&crate::wiki::note_name_to_filename),
+        );
+
+        assert_eq!(
+            fs::read_to_string(&inbound).unwrap(),
+            "---\ncolor: blue\n---\nSee [[new-name]]."
+        );
+        assert_eq!(
+            fs::metadata(&untouched).unwrap().modified().unwrap(),
+            untouched_modified
+        );
+        assert_eq!(fs::read(&unreadable).unwrap(), [0xff, 0xfe, b'x']);
     }
 
     #[test]
@@ -2147,6 +2273,7 @@ mod tests {
         let (conflict_name, disk_body) =
             save_note_with_conflict(&path, Some(&sha256_hex("saved")), "mine", None)
                 .unwrap()
+                .conflict
                 .expect("external edit must create a conflict copy");
         assert_eq!(disk_body, "external");
         assert!(is_safe_filename(&conflict_name));

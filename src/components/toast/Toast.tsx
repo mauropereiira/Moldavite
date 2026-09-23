@@ -10,14 +10,16 @@ interface ToastProps {
 
 export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const isSticky = !!toast.actions;
 
   useEffect(() => {
+    if (isSticky) return;
     const timer = setTimeout(() => {
       setIsExiting(true);
     }, toast.duration);
 
     return () => clearTimeout(timer);
-  }, [toast.duration]);
+  }, [isSticky, toast.duration]);
 
   useEffect(() => {
     if (isExiting) {
@@ -97,7 +99,27 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
           )}
         </span>
 
-        <span className="text-sm font-medium flex-1">{toast.message}</span>
+        <span className="text-sm font-medium flex-1">
+          {toast.message}
+          {toast.actions && (
+            <span className="flex gap-3 mt-2">
+              {toast.actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => {
+                    setIsExiting(true);
+                    action.onClick();
+                  }}
+                  className="text-sm font-semibold underline rounded focus-ring"
+                  style={{ color: accent }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </span>
+          )}
+        </span>
 
         <button
           onClick={handleDismiss}
@@ -122,17 +144,19 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
         </button>
       </div>
 
-      <div className="h-1 w-full" style={{ backgroundColor: 'var(--border-muted)' }}>
-        <div
-          className="h-full toast-progress-bar"
-          style={
-            {
-              backgroundColor: accent,
-              '--duration': `${toast.duration}ms`,
-            } as React.CSSProperties
-          }
-        />
-      </div>
+      {!isSticky && (
+        <div className="h-1 w-full" style={{ backgroundColor: 'var(--border-muted)' }}>
+          <div
+            className="h-full toast-progress-bar"
+            style={
+              {
+                backgroundColor: accent,
+                '--duration': `${toast.duration}ms`,
+              } as React.CSSProperties
+            }
+          />
+        </div>
+      )}
     </div>
   );
 };

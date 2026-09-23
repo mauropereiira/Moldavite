@@ -88,7 +88,7 @@
 
 ## Test & Quality Status
 
-- Frontend: vitest covers stores, libraries, hooks, update scheduling/error modes, graph layout, transient-view navigation, Obsidian import, deep-link routing, external-write reconciliation, calendar store migration, and plugin RPC/manifest/registry/UI
+- Frontend: vitest covers stores, libraries, hooks, update scheduling/error modes, graph layout, transient-view navigation, save-on-leave and stale-navigation handling, Obsidian import, deep-link routing, external-write reconciliation, calendar store migration, and plugin RPC/manifest/registry/UI
 - Backend: cargo tests cover the stress suite, Obsidian conversion/path safety, conflict copies, semantic indexing, MCP, plugin install/hash/secret validation, strict deep-link routing, Windows path and persistence behavior, and calendar source dispatch / PKCE / Google response mapping
 - Linux, Windows and macOS CI run clippy with warnings denied and the Rust library test suite on every PR, and Windows and Linux also run a full installer build; `npm audit` (production dependencies) and `cargo audit` run on every PR too
 - Bundle budget enforced via `npm run check:size`

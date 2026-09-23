@@ -30,8 +30,14 @@ import {
 import { fixNotePermissions } from './lib/fileSystem';
 import { isMobilePlatform } from './lib/platform';
 import { syncMobileAppearance } from './lib/mobileAppearance';
-import { useAutoLock, useForgeWatcher, usePluginDeepLinks, usePluginHost } from './hooks';
-import { registerAutosaveCloseGuard } from './lib/autosaveFlush';
+import {
+  initializeNotes,
+  useAutoLock,
+  useForgeWatcher,
+  usePluginDeepLinks,
+  usePluginHost,
+} from './hooks';
+import { flushAutosaveWhenHidden, registerAutosaveCloseGuard } from './lib/autosaveFlush';
 
 const SettingsModal = lazy(() =>
   import('./components/settings').then((module) => ({ default: module.SettingsModal }))
@@ -51,6 +57,13 @@ function App() {
 
   // Website install links: subscribe first, then drain cold-start requests.
   usePluginDeepLinks();
+
+  // The one note-list load for the window; components that use useNotes share it.
+  useEffect(() => {
+    void initializeNotes();
+  }, []);
+
+  useEffect(() => flushAutosaveWhenHidden(), []);
 
   // Fix note permissions on startup (privacy improvement)
   useEffect(() => {

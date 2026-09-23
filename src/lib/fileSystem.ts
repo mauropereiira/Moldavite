@@ -841,6 +841,31 @@ function readdressNote(
   transfer(noteWriteGenerations);
 }
 
+/** Carry every note's conflict and write-chain state across a folder rename or move. */
+function readdressFolderNotes(oldFolder: string, newFolder: string): void {
+  const prefix = noteHashKey(`${oldFolder}/`, false, false);
+  const filenames = new Set<string>();
+  for (const registry of [noteBaseHashes, lastPersistedMarkdown, noteWriteChainHashes]) {
+    for (const key of registry.keys()) {
+      if (key.startsWith(prefix)) filenames.add(key.slice(prefix.length));
+    }
+  }
+  for (const rest of filenames) {
+    readdressNote(`${oldFolder}/${rest}`, `${newFolder}/${rest}`, false, false);
+  }
+}
+
+/** Whether a disk hash is the body this editor last read or wrote for the note. */
+export function isPersistedNoteHash(
+  filename: string,
+  isDaily: boolean,
+  isWeekly: boolean,
+  contentHash: string
+): boolean {
+  const key = noteHashKey(filename, isDaily, isWeekly);
+  return noteBaseHashes.get(key) === contentHash || noteWriteChainHashes.get(key) === contentHash;
+}
+
 export function getLastPersistedMarkdown(
   filename: string,
   isDaily: boolean,
@@ -1519,7 +1544,9 @@ export async function createFolder(path: string): Promise<void> {
  * @returns The new folder path
  */
 export async function renameFolder(oldPath: string, newName: string): Promise<string> {
-  return await invoke('rename_folder', { oldPath, newName });
+  const newPath = await invoke<string>('rename_folder', { oldPath, newName });
+  readdressFolderNotes(oldPath, newPath);
+  return newPath;
 }
 
 /**
@@ -1560,7 +1587,9 @@ export async function moveNote(notePath: string, toFolder?: string): Promise<str
  * @returns The new folder path
  */
 export async function moveFolder(folderPath: string, toFolder?: string): Promise<string> {
-  return await invoke('move_folder', { folderPath, toFolder });
+  const newPath = await invoke<string>('move_folder', { folderPath, toFolder });
+  readdressFolderNotes(folderPath, newPath);
+  return newPath;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -211,6 +212,13 @@ export function Editor() {
     setPendingLinkCreate(null);
     if (!pending) return;
     const { target, noteName, isDailyNote } = pending;
+    const stem = target.replace(/\.md$/, '');
+    const date = parse(stem, 'yyyy-MM-dd', new Date());
+    if (isDailyNote && isValid(date) && format(date, 'yyyy-MM-dd') === stem) {
+      setSelectedDate(date);
+      await loadDailyNote(date);
+      return;
+    }
     try {
       // Create the note; the backend returns the actual slugged filename.
       const createdFilename = await invoke<string>('create_note_from_link', {
@@ -221,9 +229,8 @@ export function Editor() {
       await loadNote({
         name: filename,
         path: `notes/${filename}`,
-        isDaily: isDailyNote,
+        isDaily: false,
         isWeekly: false,
-        date: isDailyNote ? filename.replace('.md', '') : undefined,
         isLocked: false,
       });
 
@@ -232,7 +239,7 @@ export function Editor() {
       console.error('[Editor] Failed to create note from wiki link:', error);
       toast.error('Failed to create note');
     }
-  }, [pendingLinkCreate, loadNote, toast]);
+  }, [pendingLinkCreate, loadDailyNote, loadNote, setSelectedDate, toast]);
 
   const handleCreateToday = () => {
     const today = new Date();

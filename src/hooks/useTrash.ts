@@ -29,10 +29,13 @@ import { useFolderStore } from '@/stores/folderStore';
 import { useToast } from './useToast';
 import { discardPendingAutosaveForNote } from './useAutoSave';
 import {
+  abortAutosavePathChange,
   acquireAutosavePathChange,
+  beginAutosavePathChange,
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
+import { discardLeaveSave, hasUnsavedEdits, heldLeaveSaveIds } from '@/lib/leaveSave';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import type { Note, NoteFile } from '@/types';
 
@@ -132,6 +135,7 @@ export function useTrash() {
         const trashId = await trashNoteApi(filename, isDaily, isWeekly);
         trashed = true;
         discardPendingAutosaveForNote(noteId, closedTab?.note.content ?? '');
+        discardLeaveSave(noteId);
         useWordPressStore.getState().noteTrashed(noteId, trashId);
         forgetTrashedNoteReferences(noteId);
         const notes = await listNotes();
@@ -246,8 +250,33 @@ export function useTrash() {
    */
   const trashFolder = useCallback(
     async (path: string) => {
+      const releasePathChange = await acquireAutosavePathChange();
+      const prefix = `notes/${path}/`;
+      let heldAutosavePath: string | null = null;
       try {
+        await flushPendingAutosave();
+        const hasEditsInside = useNoteStore
+          .getState()
+          .openTabs.some((tab) => tab.id.startsWith(prefix) && hasUnsavedEdits(tab.id));
+        if (getPendingAutosaveNoteId() !== null || hasEditsInside) {
+          throw new Error('Save pending changes before moving a folder to trash');
+        }
+        const currentId = useNoteStore.getState().currentNote?.id;
+        if (currentId?.startsWith(prefix)) {
+          beginAutosavePathChange(currentId);
+          heldAutosavePath = currentId;
+        }
         await trashFolderApi(path);
+        heldAutosavePath = null;
+        for (const tab of useNoteStore.getState().openTabs) {
+          if (!tab.id.startsWith(prefix)) continue;
+          discardPendingAutosaveForNote(tab.id, tab.content);
+          discardLeaveSave(tab.id);
+          forgetTrashedNoteReferences(tab.id);
+        }
+        for (const id of heldLeaveSaveIds()) {
+          if (id.startsWith(prefix)) discardLeaveSave(id);
+        }
         const notes = await listNotes();
         setNotes(notes);
         const folders = await listFolders();
@@ -255,8 +284,13 @@ export function useTrash() {
         await loadTrash();
         toast.success('Folder moved to trash');
       } catch (error) {
+        if (heldAutosavePath) {
+          await abortAutosavePathChange(heldAutosavePath).catch(() => {});
+        }
         toast.error(String(error));
         throw error;
+      } finally {
+        releasePathChange();
       }
     },
     [setNotes, setFolders, loadTrash, toast]

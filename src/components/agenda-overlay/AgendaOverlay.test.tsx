@@ -195,11 +195,7 @@ describe('AgendaOverlay', () => {
   });
 
   it('renders with empty stores when Tauri IPC is unavailable', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation((message) => {
-      if (message !== '[useNotes] Failed to initialize:') {
-        throw new Error(`Unexpected console.error: ${String(message)}`);
-      }
-    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<AgendaOverlay isOpen onClose={vi.fn()} />);
 
     await act(async () => {});
@@ -207,10 +203,7 @@ describe('AgendaOverlay', () => {
     expect(screen.getByRole('heading', { name: 'Agenda' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Event timeline' })).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalledWith(
-      '[useNotes] Failed to initialize:',
-      expect.objectContaining({ message: 'Invalid response from list_notes' })
-    );
+    expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 

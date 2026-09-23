@@ -207,11 +207,7 @@ describe('IndexOverlay', () => {
   });
 
   it('renders with empty stores when Tauri IPC is unavailable', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation((message) => {
-      if (message !== '[useNotes] Failed to initialize:') {
-        throw new Error(`Unexpected console.error: ${String(message)}`);
-      }
-    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<IndexOverlay isOpen onClose={vi.fn()} />);
 
     await act(async () => {});
@@ -220,10 +216,7 @@ describe('IndexOverlay', () => {
     expect(screen.getByText('No notes yet.')).toBeInTheDocument();
     expect(screen.getByText('No folders yet.')).toBeInTheDocument();
     expect(screen.getByText('No daily notes yet. Today starts one.')).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalledWith(
-      '[useNotes] Failed to initialize:',
-      expect.objectContaining({ message: 'Invalid response from list_notes' })
-    );
+    expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 

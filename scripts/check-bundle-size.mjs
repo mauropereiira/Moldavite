@@ -120,6 +120,10 @@ const BUDGETS = [
 // instead of three lazy regexes is what makes nested task items survive a
 // round-trip; the rest is HTML-attribute escaping, plugin manifest field bounds
 // and worker message shape checks. Measured 628.4 KB / 174.6 KB gz.
+// 640 / 179: save on leave only when edited (per-tab saved baselines, held
+// saves with retry and the Retry / Save as a copy toast, the close and hidden
+// flushes) and tabs that follow folder renames add 8.7 KB raw / 2.8 KB gz.
+// Measured 637.1 KB / 177.4 KB gz.
 // 634 / 177: Markdown tables (the GFM Turndown rules, insert and edit entries
 // in the Format menu, slash menu and phone bar) and Forge-relative image paths
 // add 3.5 KB raw / 1.1 KB gz. The table extension itself lands in tiptap-vendor
@@ -128,7 +132,8 @@ const BUDGETS = [
 // rows padded, paragraph-only cells with paste flattening and the split guard,
 // escaped wiki-link aliases) add 3.8 KB raw / 1.7 KB gz. Measured 636.3 KB /
 // 177.7 KB gz.
-const APP_JS_BUDGET = { rawKb: 638, gzipKb: 178 };
+// 646 / 181: tables and save on leave together. Measured 644.8 KB / 180.3 KB gz.
+const APP_JS_BUDGET = { rawKb: 646, gzipKb: 181 };
 
 async function main() {
   let entries;
