@@ -77,6 +77,7 @@ import {
   useNoteColorsStore,
   useTagStore,
 } from '@/stores';
+import { isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { editorHandle } from '@/stores/editorHandleStore';
 import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates, useTrash } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
@@ -146,11 +147,7 @@ export function Editor() {
     showEditorFooter,
     showBacklinksPanel,
   } = useSettingsStore();
-  // A locked note opened with its password is decrypted in memory only;
-  // autosave skips it, so anything typed into it would be lost.
-  const isViewOnly = useNoteStore(
-    (state) => !!state.currentNote && state.unlockedNotes.has(state.currentNote.id)
-  );
+  const isViewOnly = useNoteStore(isCurrentNoteViewOnly);
   const { theme, setTheme } = useThemeStore();
   const { loadDailyNote, createNote, loadNote, renameNote, refresh: refreshNotes } = useNotes();
   const { trashNote } = useTrash();
@@ -324,6 +321,7 @@ export function Editor() {
   }, [currentNoteId, currentNoteContent]);
 
   const handleTemplateSelect = async (templateId: string) => {
+    if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
     try {
       const markdownContent = await getTemplateContent(templateId);
       if (editor) {

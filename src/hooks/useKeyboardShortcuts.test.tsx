@@ -37,3 +37,53 @@ describe('useKeyboardShortcuts template creation', () => {
     expect(useNoteStore.getState().currentNote?.id).toBe(`notes/${created?.name}`);
   });
 });
+
+describe('useKeyboardShortcuts on a view-only note', () => {
+  const lockedNote = {
+    id: 'notes/Diary.md',
+    title: 'Diary',
+    content: '<p>secret</p>',
+    isDaily: false,
+    isWeekly: false,
+  };
+
+  function viewOnlyEditor() {
+    return {
+      isEditable: false,
+      commands: { setContent: vi.fn() },
+    } as unknown as Parameters<typeof useKeyboardShortcuts>[0]['editor'];
+  }
+
+  function press(key: string) {
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, metaKey: true, bubbles: true }));
+    });
+  }
+
+  beforeEach(() => {
+    useNoteStore.setState({
+      currentNote: lockedNote as never,
+      unlockedNotes: new Set([lockedNote.id]),
+    });
+  });
+
+  it('opens no template picker and applies no template', async () => {
+    const editor = viewOnlyEditor();
+    const hook = renderHook(() => useKeyboardShortcuts({ editor }));
+
+    press('t');
+    expect(hook.result.current.showTemplatePicker).toBe(false);
+
+    await act(() => hook.result.current.handleTemplateSelect('template-1'));
+    expect(editor?.commands.setContent).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('does not open the link dialog', () => {
+    const onInsertLink = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ editor: viewOnlyEditor(), onInsertLink }));
+
+    press('k');
+    expect(onInsertLink).not.toHaveBeenCalled();
+  });
+});

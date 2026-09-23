@@ -126,7 +126,7 @@ All notable changes to Moldavite are documented here.
 
 - **Deleting a note from the editor's More menu deleted it for good.** The Index moved the same note to the Trash, where it can be restored for 7 days. Both now move it to the Trash, with the same confirmation.
 
-- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title, and its menus no longer offer to rename, duplicate, export or share it or save it as a template.
+- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title, and its menus no longer offer to rename, duplicate, export or share it or save it as a template. ⌘T and ⌘K no longer put a template or a link into it, and a plugin cannot insert text into it.
 
 - Choosing a note colour from the editor footer did nothing. The colour was sent to a path that does not exist and quietly put back; it now applies and is saved with the note.
 

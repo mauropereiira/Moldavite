@@ -95,6 +95,16 @@ const loadRecentNotes = (): string[] => {
   return [];
 };
 
+/**
+ * A locked note opened with its password is decrypted in memory only; autosave
+ * skips it, so nothing may write into it. TipTap's content commands do not
+ * check the editor's editable flag, so every one reached from outside the
+ * editor's own input checks this.
+ */
+export function isCurrentNoteViewOnly(state: Pick<NoteState, 'currentNote' | 'unlockedNotes'>) {
+  return !!state.currentNote && state.unlockedNotes.has(state.currentNote.id);
+}
+
 export const useNoteStore = create<NoteState>((set, get) => ({
   notes: [],
   openTabs: [],

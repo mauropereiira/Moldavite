@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
+import { isCurrentNoteViewOnly } from '@/stores/noteStore';
 import {
   filenameToNote,
   markdownToHtml,
@@ -59,6 +60,7 @@ export function useKeyboardShortcuts({
       if (!templateId) return;
 
       const { currentNote } = useNoteStore.getState();
+      if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
 
       try {
         if (currentNote && editor) {
@@ -175,10 +177,11 @@ export function useKeyboardShortcuts({
           return;
         case 'templatePicker':
           e.preventDefault();
+          if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
           setShowTemplatePicker(true);
           return;
         case 'insertLink':
-          if (!editor) return;
+          if (!editor || isCurrentNoteViewOnly(useNoteStore.getState())) return;
           e.preventDefault();
           onInsertLink?.();
           return;
