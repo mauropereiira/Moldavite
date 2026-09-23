@@ -190,8 +190,14 @@ export function useNotes() {
             .addToast('error', 'This note is locked. Unlock it from the sidebar first.');
           return;
         }
-        state.requestUnlock(listed ?? noteFile);
-        useOverlayStore.getState().openIndex(indexMode === 'pinned');
+        const overlays = useOverlayStore.getState();
+        const indexShown =
+          overlays.activeOverlay === 'index' ||
+          (indexMode === 'pinned' && !overlays.isSidebarHidden);
+        // Raised in the tap that asked, for the password field about to mount.
+        if (isMobilePlatform()) holdKeyboard();
+        state.requestUnlock(listed ?? noteFile, !indexShown);
+        overlays.openIndex(indexMode === 'pinned');
         return;
       }
       if (openUnsavedText(noteFile.path, inNewTab)) return;

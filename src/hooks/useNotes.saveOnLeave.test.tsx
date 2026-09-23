@@ -494,6 +494,20 @@ describe('navigation', () => {
     expect(useNoteStore.getState().currentNote).toBeNull();
     expect(useNoteStore.getState().pendingUnlock).toEqual(locked);
     expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    // Opened only to ask, so a cancel closes it again.
+    expect(useNoteStore.getState().pendingUnlockOpenedIndex).toBe(true);
+  });
+
+  it('leaves an Index that was already open when a locked note there is tapped', async () => {
+    const locked: NoteFile = { ...standalone('Secret.md'), isLocked: true };
+    useNoteStore.setState({ notes: [locked] });
+    useOverlayStore.setState({ activeOverlay: 'index' });
+    const hook = renderNotes();
+
+    await act(() => hook.result.current.loadNote(locked));
+
+    expect(useNoteStore.getState().pendingUnlock).toEqual(locked);
+    expect(useNoteStore.getState().pendingUnlockOpenedIndex).toBe(false);
   });
 });
 

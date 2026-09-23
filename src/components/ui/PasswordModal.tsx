@@ -142,9 +142,9 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
   if (!isOpen) return null;
 
   const titles = {
-    lock: 'Lock Note',
-    unlock: 'Unlock Note',
-    'permanent-unlock': 'Remove Lock',
+    lock: 'Lock note',
+    unlock: 'Unlock note',
+    'permanent-unlock': 'Remove lock',
   };
 
   const descriptions = {
@@ -154,9 +154,9 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
   };
 
   const submitLabels = {
-    lock: 'Lock Note',
+    lock: 'Lock note',
     unlock: 'Unlock',
-    'permanent-unlock': 'Remove Lock',
+    'permanent-unlock': 'Remove lock',
   };
 
   const strengthColor = passwordStrength
@@ -252,14 +252,12 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
                   >
                     {errorInfo.type === 'rate_limited' && lockoutSeconds !== null
                       ? `Too many failed attempts. Please wait ${lockoutSeconds} seconds.`
-                      : errorInfo.message}
+                      : errorInfo.type === 'wrong_password' && errorInfo.value !== undefined
+                        ? `Incorrect password. ${errorInfo.value} ${
+                            errorInfo.value === 1 ? 'attempt' : 'attempts'
+                          } left before a short lockout.`
+                        : errorInfo.message}
                   </p>
-                  {errorInfo.type === 'wrong_password' && errorInfo.value !== undefined && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      {errorInfo.value} {errorInfo.value === 1 ? 'attempt' : 'attempts'} remaining
-                      before lockout
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -339,7 +337,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
                   className="block text-sm font-medium"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  Confirm Password
+                  Confirm password
                 </label>
                 <input
                   type={showPassword ? 'text' : 'password'}

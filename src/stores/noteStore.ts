@@ -40,6 +40,8 @@ interface NoteState {
   savedContent: Map<string, string>;
   /** A locked note someone tried to open; the sidebar answers it with the password prompt. */
   pendingUnlock: NoteFile | null;
+  /** The Index was opened only to ask for that password, so a cancel closes it again. */
+  pendingUnlockOpenedIndex: boolean;
 
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
@@ -74,7 +76,7 @@ interface NoteState {
   unlockNote: (noteId: string) => void;
   lockNote: (noteId: string) => void;
   lockAllNotes: () => void;
-  requestUnlock: (note: NoteFile) => void;
+  requestUnlock: (note: NoteFile, openedIndex?: boolean) => void;
   clearPendingUnlock: () => void;
 
   addRecentNote: (noteId: string) => void;
@@ -106,6 +108,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   externallyChanged: new Map<string, string | null>(),
   savedContent: new Map<string, string>(),
   pendingUnlock: null,
+  pendingUnlockOpenedIndex: false,
 
   setNotes: (notes) => {
     set({ notes });
@@ -676,7 +679,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     set({ unlockedNotes: new Set() });
   },
 
-  requestUnlock: (note) => set({ pendingUnlock: note }),
+  requestUnlock: (note, openedIndex = false) =>
+    set({ pendingUnlock: note, pendingUnlockOpenedIndex: openedIndex }),
 
   clearPendingUnlock: () => set({ pendingUnlock: null }),
 

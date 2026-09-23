@@ -212,6 +212,44 @@ describe('IndexOverlay', () => {
     expect(screen.queryByText(/Choose a template/)).not.toBeInTheDocument();
   });
 
+  // A link, the graph or Search opens the Index only to host the password
+  // prompt. Cancelling it used to leave you on the Index instead of the note.
+  it('closes again when an unlock it was opened for is cancelled', async () => {
+    const locked: NoteFile = {
+      name: 'Secret.md',
+      path: 'notes/Secret.md',
+      isDaily: false,
+      isWeekly: false,
+      isLocked: true,
+    };
+    useNoteStore.getState().requestUnlock(locked, true);
+    const onClose = vi.fn();
+    render(<IndexOverlay isOpen onClose={onClose} />);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Unlock note' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('stays open when an unlock asked from the Index itself is cancelled', async () => {
+    const locked: NoteFile = {
+      name: 'Secret.md',
+      path: 'notes/Secret.md',
+      isDaily: false,
+      isWeekly: false,
+      isLocked: true,
+    };
+    useNoteStore.getState().requestUnlock(locked, false);
+    const onClose = vi.fn();
+    render(<IndexOverlay isOpen onClose={onClose} />);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Unlock note' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('still asks for the title first on the desktop', () => {
     const onClose = vi.fn();
     render(<IndexOverlay isOpen onClose={onClose} />);

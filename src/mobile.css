@@ -172,7 +172,8 @@ html[data-platform='mobile']
       .calendar-date,
       .btn
     ):hover {
-    background: transparent;
+    /* index.css paints hover with !important; these selectors out-rank it. */
+    background: transparent !important;
   }
 
   html[data-platform='mobile'] :is(.text-link, .welcome-note-action):hover::after {
@@ -677,6 +678,18 @@ html[data-platform='mobile'] .toolbar-button {
   height: var(--touch-target);
 }
 
+/* A tapped wiki link is a selected node, and it navigates: the node outline
+   that stayed round it on return read as a focus box. */
+html[data-platform='mobile'] .tiptap wiki-link.ProseMirror-selectednode {
+  outline: none !important;
+}
+
+@media (hover: none) {
+  html[data-platform='mobile'] .tiptap :is(wiki-link, .tag-mark):hover {
+    background-color: transparent;
+  }
+}
+
 /* Suggestion rows (wiki links, tags, slash commands) are tapped, not pointed at. */
 html[data-platform='mobile'] :is(.wiki-link-suggestion-item, .slash-command-item) {
   min-height: var(--touch-target);
@@ -788,6 +801,15 @@ html[data-platform='mobile'] .modal-backdrop-dark {
 html[data-platform='mobile'] .app-overlay :is(.modal-backdrop-dark, .wn-scrim) {
   left: 0;
   right: 0;
+  padding-top: var(--shell-safe-top);
+}
+
+/* The page already ends at the keyboard. Sized to the visual viewport from the
+   page's top, below a pinned bar, a scrim ran past the keyboard and centred
+   its dialog there, with the dialog's buttons out of reach. */
+html[data-platform='mobile'][data-keyboard='open'] .app-overlay .modal-backdrop-dark {
+  bottom: 0;
+  height: auto;
 }
 
 html[data-platform='mobile'] .modal-elevated.template-picker-modal {

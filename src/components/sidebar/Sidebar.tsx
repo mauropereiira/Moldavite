@@ -59,6 +59,7 @@ import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import { isMobilePlatform } from '@/lib/platform';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 
@@ -494,22 +495,30 @@ export function Sidebar({
   const closeContextMenu = noteMenu.close;
 
   // Lock/Unlock handlers — thin wrappers that close the context menu too.
+  // Each runs in the tap, so on a phone it holds the keyboard up for the
+  // password field that mounts after it.
   const handleLockNote = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openLock(note);
     closeContextMenu();
   };
   const handleUnlockNote = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openUnlock(note);
     closeContextMenu();
   };
   const pendingUnlock = useNoteStore((state) => state.pendingUnlock);
   const { openUnlock } = lock;
+  const [closeIndexOnCancel, setCloseIndexOnCancel] = useState(false);
   useEffect(() => {
     if (!pendingUnlock) return;
-    useNoteStore.getState().clearPendingUnlock();
+    const { pendingUnlockOpenedIndex, clearPendingUnlock } = useNoteStore.getState();
+    clearPendingUnlock();
+    setCloseIndexOnCancel(pendingUnlockOpenedIndex);
     openUnlock(pendingUnlock);
   }, [pendingUnlock, openUnlock]);
   const handlePermanentUnlock = (note: NoteFile) => {
+    if (isMobilePlatform()) holdKeyboard();
     lock.openPermanentUnlock(note);
     closeContextMenu();
   };
@@ -777,7 +786,15 @@ export function Sidebar({
       {lock.mode && lock.noteToLock && (
         <PasswordModal
           isOpen={true}
-          onClose={lock.close}
+          onClose={() => {
+            lock.close();
+            // Opened from a link, the graph or Search to ask for the password:
+            // cancelling goes back to where that was, not to the Index.
+            if (closeIndexOnCancel) {
+              setCloseIndexOnCancel(false);
+              onNavigate?.();
+            }
+          }}
           onSubmit={async (password) => {
             const opensNote = lock.mode === 'unlock';
             await lock.submit(password, notes);

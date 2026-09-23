@@ -18,6 +18,8 @@ All notable changes to Moldavite are documented here.
 
 ### Changed
 
+- On iPhone the keyboard comes up with the password field when you lock, unlock or remove a lock, and a password dialog opened from the Index keeps its buttons above the keyboard; they were pushed below it and out of reach. A row you tapped in the Index no longer stays shaded afterwards.
+
 - **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone (there is no tab bar), and pages keep a 16pt margin beside the rail on the left as they do on the right.
 
 - Menus in the Index use sentence case like the rest of the app ("Lock note", "Export as plain text", "Move to folder…", "Rename folder"), a locked note shows "Locked" after its name so its title lines up with the others, and Move note has one Cancel instead of Cancel and Close, with "No folder" for the top level.
@@ -39,6 +41,12 @@ All notable changes to Moldavite are documented here.
 - On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
 
 ### Fixed
+
+- Clicking a `#tag` in a note filtered the Index but left it closed, so nothing seemed to happen. The Index now opens showing the notes with that tag. On iPhone a tap on a tag only placed the cursor; it now does the same.
+
+- Following a link to a locked note opens the Index to ask for its password; Cancel left you on the Index. It now returns you to the note you were reading, and on iPhone the link no longer keeps an outline afterwards.
+
+- A wrong password said how many attempts were left twice, once as "4 attempts remaining." and again below it. It says it once.
 
 - Sorting notes by name put "Untitled (2)" before "Untitled" and "Untitled (10)" before "Untitled (9)": names were compared with their `.md` extension, and numbers as text.
 

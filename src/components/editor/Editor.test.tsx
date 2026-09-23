@@ -161,6 +161,7 @@ import { Editor } from './Editor';
 import {
   useNoteColorsStore,
   useNoteStore,
+  useOverlayStore,
   useSettingsStore,
   useTagStore,
   useThemeStore,
@@ -658,6 +659,41 @@ describe('Editor wiki links', () => {
     expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 8, 22]);
     expect(safeInvoke).not.toHaveBeenCalledWith('create_note_from_link', expect.anything());
     expect(notesSpies.loadNote).not.toHaveBeenCalled();
+  });
+});
+
+describe('Editor tags', () => {
+  it('opens the Index filtered to a tapped tag', async () => {
+    await renderEditor(note('notes/tags.md', '<p>More #project here</p>'));
+
+    const tag = await waitFor(() => {
+      const element = document.querySelector('.tag-mark');
+      if (!(element instanceof HTMLElement)) throw new Error('Tag was not decorated');
+      return element;
+    });
+    fireEvent.click(tag);
+
+    expect(useTagStore.getState().selectedTag).toBe('project');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    act(() => useOverlayStore.setState({ activeOverlay: null }));
+  });
+
+  // WebKit on iOS sends no click for a tap on text in a note, only the pointer events.
+  it('opens the Index for a finger tap on a tag, which WebKit sends no click for', async () => {
+    platform.mobile = true;
+    await renderEditor(note('notes/tags.md', '<p>More #project here</p>'));
+
+    const tag = await waitFor(() => {
+      const element = document.querySelector('.tag-mark');
+      if (!(element instanceof HTMLElement)) throw new Error('Tag was not decorated');
+      return element;
+    });
+    fireEvent.pointerDown(tag, { pointerType: 'touch', clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(tag, { pointerType: 'touch', clientX: 12, clientY: 11 });
+
+    expect(useTagStore.getState().selectedTag).toBe('project');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    act(() => useOverlayStore.setState({ activeOverlay: null }));
   });
 });
 

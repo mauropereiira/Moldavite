@@ -71,6 +71,7 @@ import {
 } from './extensions/WikiLinkSuggestionList';
 import {
   useNoteStore,
+  useOverlayStore,
   useSettingsStore,
   useThemeStore,
   useNoteColorsStore,
@@ -158,9 +159,15 @@ export function Editor() {
   const { allTags, setSelectedTag } = useTagStore();
   const toast = useToast();
 
+  // The tag filters the Index, so the Index opens to show what it found; a
+  // closed Index filtered out of sight looked like the tap did nothing.
   const handleTagClick = useCallback(
     (tag: string) => {
       setSelectedTag(tag);
+      const { indexMode } = useSettingsStore.getState();
+      if (indexMode === 'off') return;
+      if (isMobilePlatform()) editorRef.current?.commands.blur();
+      useOverlayStore.getState().openIndex(indexMode === 'pinned');
     },
     [setSelectedTag]
   );
