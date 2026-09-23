@@ -104,7 +104,6 @@ html[data-platform='mobile']
     .tab-bar,
     .pinned-bar,
     .editor-footer,
-    .editor-navigation-links,
     .app-overlay-controls,
     .app-overlay-header,
     .timeline-view-header,
@@ -160,8 +159,7 @@ html[data-platform='mobile']
     background: transparent;
   }
 
-  html[data-platform='mobile']
-    :is(.text-link, .editor-navigation-links button, .welcome-note-action):hover::after {
+  html[data-platform='mobile'] :is(.text-link, .welcome-note-action):hover::after {
     transform: scaleX(0);
   }
 }
@@ -661,18 +659,6 @@ html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar
   padding: 10px 12px;
 }
 
-/* Shares the footer row's box, so it moves up with the footer's safe-area
-   padding. Both are inline in the component. */
-html[data-platform='mobile'] .editor-navigation-links {
-  bottom: max(calc(var(--safe-bottom) - 14px), 0px) !important;
-  height: var(--touch-target) !important;
-}
-
-html[data-platform='mobile'] .editor-navigation-links button {
-  min-height: var(--touch-target);
-  padding-inline: 6px;
-}
-
 /* Spans the rail as well, so it clears both insets. It is the app's first
    row, so it also clears the status bar, and the shell below it no longer
    has to. */
@@ -886,23 +872,6 @@ html[data-platform='mobile'] .empty-note-template-mobile {
   padding-bottom: 24px;
 }
 
-/* Footer: Menu on the left, Actions on the right, like two ends of a toolbar.
-   The nav is centred inline on desktop, so both need !important. The save
-   status and word count start after the Menu label. */
-html[data-platform='mobile'] .editor-navigation-links {
-  left: calc(12px + var(--page-safe-left)) !important;
-  transform: none !important;
-}
-
-html[data-platform='mobile'] .editor-footer-left {
-  margin-left: 60px;
-}
-
-html[data-platform='mobile'] .editor-navigation-links .impact-surface button {
-  min-height: var(--touch-target);
-  font-size: 15px;
-}
-
 /* Welcome screen (Home) on a phone: a wider wordmark, no keyboard hint, and
    the two actions as touch targets. */
 html[data-platform='mobile'] .welcome-wordmark {
@@ -930,13 +899,12 @@ html[data-platform='mobile'] .editor-root {
 }
 
 /* index.css paints every button's hover with an !important overlay. A touch
-   screen keeps :hover on whatever was last tapped, so the footer's Menu and
+   screen keeps :hover on whatever was last tapped, so the footer's Actions and
    the welcome actions kept a square wash after opening. These are text-only
    controls; the fill means nothing to a finger. */
 @media (hover: none) {
   html[data-platform='mobile']
     :is(
-      .editor-navigation-links button,
       .text-link,
       .welcome-note-action,
       .editor-footer-overflow-toggle,
@@ -1131,13 +1099,10 @@ html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
   display: flex;
 }
 
-html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
-  .editor-navigation-links,
 html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true']) .editor-footer,
 html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
   .editor-root
   > .backlinks-panel {
-  /* EditorNavigation sets display inline; it must leave the keyboard row. */
   display: none !important;
 }
 

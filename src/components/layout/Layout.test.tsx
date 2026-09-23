@@ -78,6 +78,7 @@ describe('Layout navigation surfaces', () => {
     expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('index-overlay')).not.toBeInTheDocument();
     expect(screen.queryByTestId('agenda-overlay')).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'App navigation' })).toBeInTheDocument();
   });
 
   it('uses the same transient toggle to hide a pinned sidebar', () => {
@@ -387,6 +388,14 @@ describe('Layout on a phone', () => {
     expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
     expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.cursor-col-resize')).toHaveLength(0);
+  });
+
+  // The footer's Index · Agenda · Settings menu repeated the rail beside it.
+  it('leaves Index, Agenda and Settings to the rail', () => {
+    render(<Layout />);
+
+    expect(screen.getByTestId('icon-rail')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'App navigation' })).not.toBeInTheDocument();
   });
 
   it('keeps an iPhone in page navigation when rotated', () => {

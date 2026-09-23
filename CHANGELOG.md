@@ -16,6 +16,12 @@ All notable changes to Moldavite are documented here.
 
 - **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu, or on iPhone from the formatting row while the cursor is in a table. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. Tables are drawn as a hairline grid with a marked header row, Table is unavailable while the cursor is already in one, and a new table puts away the empty-note template prompt and is kept in a daily note even before you fill it in. (#146)
 
+### Changed
+
+- On iPhone the editor footer no longer has a Menu of Index, Agenda and Settings, which are the rail's own buttons beside it. Its More menu drops Pin to the top bar (it is in the Index's Options), Copy URL to note and a second plain-text export, and "Export as plain text" is spelled the same in every menu.
+
+- On iPhone, Settings and the template page cover a pinned bar completely; it used to show through above the rail.
+
 ### Fixed
 
 - **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)

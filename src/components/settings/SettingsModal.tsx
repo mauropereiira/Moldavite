@@ -407,14 +407,11 @@ function MobileSettingsPage({
   };
 
   return (
+    // Spans the rail's column too: the rail paints above it, but a pinned bar
+    // above the rail does not, and it showed through there.
     <div
-      className="settings-scrim fixed z-[9999] modal-backdrop-enter"
-      style={{
-        top: 0,
-        bottom: 0,
-        left: 'var(--rail-inset-left)',
-        right: 'var(--rail-inset-right)',
-      }}
+      className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter"
+      style={{ background: 'var(--bg-base)' }}
     >
       {/* iOS zooms into any field under 16px on focus, and a phone needs a
           thumb-sized button; the sections are shared with desktop, so both
@@ -422,8 +419,10 @@ function MobileSettingsPage({
           their own 20px height. */}
       <DialogSurface
         onEscape={onClose}
-        className="settings-dialog flex h-full w-full flex-col [&_input]:text-[16px] [&_select]:text-[16px] [&_textarea]:text-[16px] [&_button:not([role=switch])]:min-h-10"
+        className="settings-dialog flex h-full flex-col [&_input]:text-[16px] [&_select]:text-[16px] [&_textarea]:text-[16px] [&_button:not([role=switch])]:min-h-10"
         style={{
+          marginLeft: 'var(--rail-inset-left)',
+          marginRight: 'var(--rail-inset-right)',
           paddingTop: 'var(--safe-top)',
           paddingBottom: 'var(--safe-bottom)',
           border: 0,

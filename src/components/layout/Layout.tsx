@@ -290,7 +290,8 @@ export function Layout() {
             ) : (
               <>
                 <Editor />
-                <EditorNavigation />
+                {/* The phone always shows the rail, whose buttons are these. */}
+                {!isMobile && <EditorNavigation />}
               </>
             )}
           </div>

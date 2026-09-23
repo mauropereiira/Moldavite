@@ -122,10 +122,12 @@ get trapped underneath Index.
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
   back: a section returns to the list, the list closes Settings.
-- The editor footer has Menu on the left and Actions on the right. The note
-  runs the full width of the paper with 16px gutters; the note header sits
-  on the rail's rhythm. An empty note offers one View templates button; the
-  template picker opens as a page beside the rail.
+- The editor footer has the save status on the left and Actions on the right;
+  the desktop's Index · Agenda · Settings links are not rendered, since the
+  rail carries them. The note runs the full width of the paper with 16px
+  gutters; the note header sits on the rail's rhythm. An empty note offers
+  one View templates button; the template picker opens as a page beside the
+  rail.
 - `useVisualViewportHeight` keeps `--app-height` equal to the visual
   viewport so the software keyboard never covers the editor, and scrolls
   the page back to the top when WKWebView drags it under the status bar to

@@ -57,14 +57,17 @@ describe('SettingsModal on a phone', () => {
     expect(screen.getAllByRole('button', { name: /^(General|About)$/ })).toHaveLength(2);
   });
 
-  it('fills the content area beside the icon rail instead of centring a dialog', () => {
+  // The rail paints above the ground, but a pinned bar spanning the rail's
+  // column does not; it used to show through there above the rail.
+  it('covers the whole screen and sets its page beside the icon rail', () => {
     const { container } = render(<SettingsModal />);
 
     const page = container.firstElementChild as HTMLElement;
-    expect(page.style.left).toBe('var(--rail-inset-left)');
-    expect(page.style.right).toBe('var(--rail-inset-right)');
-    expect(page.className).not.toContain('inset-0');
+    expect(page.className).toContain('inset-0');
+    expect(page.style.background).toBe('var(--bg-base)');
     const dialog = screen.getByRole('dialog');
+    expect(dialog.style.marginLeft).toBe('var(--rail-inset-left)');
+    expect(dialog.style.marginRight).toBe('var(--rail-inset-right)');
     expect(dialog.className).not.toContain('max-w-3xl');
     expect(dialog.className).not.toContain('modal-content-enter');
     expect(dialog.style.paddingTop).toBe('var(--safe-top)');
