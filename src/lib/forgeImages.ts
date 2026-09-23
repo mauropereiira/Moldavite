@@ -33,6 +33,20 @@ function isImageFileName(name: string | null): name is string {
 }
 
 /**
+ * The Obsidian importer links images relative to the note, as `../images/x`
+ * from `daily/` or `../../images/x` from `notes/sub/`. The leading `../` run
+ * is dropped rather than followed: whatever it climbs to, only a bare file
+ * name inside the open Forge's `images/` is ever resolved.
+ */
+const RELATIVE_IMAGE = /^(?:\.\.\/)*images\/(.*)$/;
+
+function relativeImageName(src: string): string | null {
+  const match = RELATIVE_IMAGE.exec(src);
+  const name = match ? decode(match[1]) : null;
+  return isImageFileName(name) ? name : null;
+}
+
+/**
  * The Forge-relative form of an image reference, or null when `src` is not an
  * image in a Forge's `images/` folder (remote URLs, data URLs, anything else).
  *
@@ -42,8 +56,10 @@ function isImageFileName(name: string | null): name is string {
  */
 export function toForgeImageSrc(src: string): string | null {
   if (src.startsWith(FORGE_IMAGE_PREFIX)) {
-    return isImageFileName(decode(src.slice(FORGE_IMAGE_PREFIX.length))) ? src : null;
+    return relativeImageName(src) ? src : null;
   }
+  const relative = relativeImageName(src);
+  if (relative) return FORGE_IMAGE_PREFIX + encodeURIComponent(relative);
   const asset = ASSET_URL.exec(src);
   const path = asset ? decode(asset[1]) : null;
   if (!path) return null;
@@ -60,9 +76,8 @@ export function forgeImageSrcForSavedPath(savedPath: string): string {
 
 /** The URL the webview can load for `src`; anything that is not a Forge image passes through. */
 export function resolveForgeImageSrc(src: string, forgeRoot: string | null): string {
-  if (!forgeRoot || !src.startsWith(FORGE_IMAGE_PREFIX)) return src;
-  const name = decode(src.slice(FORGE_IMAGE_PREFIX.length));
-  if (!isImageFileName(name)) return src;
+  const name = forgeRoot ? relativeImageName(src) : null;
+  if (!forgeRoot || !name) return src;
   const separator = forgeRoot.includes('\\') && !forgeRoot.includes('/') ? '\\' : '/';
   const root = forgeRoot.replace(/[\\/]+$/, '');
   return convertFileSrc(`${root}${separator}images${separator}${name}`);

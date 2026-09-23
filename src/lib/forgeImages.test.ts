@@ -82,6 +82,28 @@ describe('loading images', () => {
   });
 });
 
+describe('note-relative links from the Obsidian importer', () => {
+  it.each([
+    ['../images/x.png', 'images/x.png'],
+    ['../../images/x.png', 'images/x.png'],
+    ['../../../images/photo%202.png', 'images/photo%202.png'],
+  ])('accepts %s as %s', (src, relative) => {
+    expect(toForgeImageSrc(src)).toBe(relative);
+    expect(resolveForgeImageSrc(src, '/Users/me/Forge')).toBe(
+      resolveForgeImageSrc(relative, '/Users/me/Forge')
+    );
+  });
+
+  it('displays the imported Markdown image and saves it Forge-relative', () => {
+    const html = markdownToHtml('![second](<../../images/photo 2.png>)');
+    expect(imageSrc(html)).toBe('images/photo%202.png');
+    expect(htmlToMarkdown(html)).toBe('<img src="images/photo%202.png" alt="second">');
+    expect(resolveForgeImageSrc(imageSrc(html) ?? '', '/Users/me/Forge')).toBe(
+      `asset://localhost/${encodeURIComponent('/Users/me/Forge/images/photo 2.png')}`
+    );
+  });
+});
+
 describe('path traversal', () => {
   it.each([
     'images/../notes/secret.md',
@@ -90,7 +112,14 @@ describe('path traversal', () => {
     'images/sub/a.png',
     'images/a%5C..%5Cb.png',
     'images/',
-    '../images/a.png',
+    '../../etc/passwd',
+    'images/../x.png',
+    'images/sub/x.png',
+    '../images/../x.png',
+    '../images/sub/x.png',
+    './images/x.png',
+    '..images/x.png',
+    'notes/../images/x.png',
   ])('does not treat %s as a Forge image', (src) => {
     expect(toForgeImageSrc(src)).toBeNull();
     expect(resolveForgeImageSrc(src, '/Users/me/Forge')).toBe(src);
