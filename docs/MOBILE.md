@@ -166,9 +166,19 @@ get trapped underneath Index.
 The formatting row appears when editing a note and stays available until Done,
 including with a hardware or floating keyboard. It sits at the bottom of the
 visual-viewport shell above the software keyboard, with Bold, Italic, heading,
-lists, tasks, wiki links, tags, links, images, undo and redo. The controls scroll
-horizontally; Done remains visible. The desktop selection popup and footer stay
-out of the editing row. Keeping the row present across focus changes is
+lists, tasks, wiki links, tags, links, images, undo and redo. While the caret is
+in a table the row leads with add and delete row and column and Delete table;
+while an image is selected, with its alignment and Delete image. The controls
+scroll horizontally behind a fade on the side with more to find; Done remains
+visible. The desktop selection popup, image toolbar and footer stay out of the
+editing row.
+
+The caret, the selection wash and its handles are ink, not the iOS tint:
+`caret-color` in `mobile.css` sets all three, so no native tint is needed. The
+wiki-link, tag and slash lists open above the caret when the visible area has
+more room there (`suggestionPopup.ts`), since Popper measures the layout
+viewport, which the keyboard does not shrink. Editor dialogs and menus show no
+keyboard shortcuts on the phone. Keeping the row present across focus changes is
 necessary on WebKit: hiding it immediately on editor blur removes the tapped
 button before its click can run.
 

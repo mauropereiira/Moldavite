@@ -12,7 +12,7 @@ All notable changes to Moldavite are documented here.
 
 - **Notes in the iCloud Forge that are not on this device yet open with a Download button.** The note list and the quick switcher mark them with a small cloud. Opening one shows "This note is in iCloud" instead of an error; Download fetches just that note, and it opens for editing as soon as it arrives. If the download fails or you are offline, the reason is shown with Try again. Nothing downloads a note until you ask, so notes stay on demand on iPhone and on a Mac with Optimize Mac Storage.
 
-- **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. Tables are drawn as a hairline grid with a marked header row, Table is unavailable while the cursor is already in one, and a new table puts away the empty-note template prompt and is kept in a daily note even before you fill it in. (#146)
+- **Tables you can edit, which no longer fall apart when a note is saved.** Every cell of a Markdown table used to be flattened into its own paragraph. Insert a table from `/` or the Format menu, press Tab to move between cells, and add or remove rows and columns from the Format menu, or on iPhone from the formatting row while the cursor is in a table. They are saved as ordinary pipe tables, with column alignment, bold, links, code and aliased wiki links in cells kept, and pasting a Markdown table turns it into one. A cell holds text: a list or heading pasted into one becomes plain lines, and merged cells from a spreadsheet or web page are saved as the full grid. Tables are drawn as a hairline grid with a marked header row, Table is unavailable while the cursor is already in one, and a new table puts away the empty-note template prompt and is kept in a daily note even before you fill it in. (#146)
 
 ### Fixed
 
@@ -71,6 +71,18 @@ All notable changes to Moldavite are documented here.
 - Choosing a note colour from the editor footer did nothing. The colour was sent to a path that does not exist and quietly put back; it now applies and is saved with the note.
 
 - In a narrow window, where the footer folds its actions into one Actions menu, Rename, Note info, Save as template and the link and image dialogs opened inside that small menu and could not be used. They now open over the whole window, and the delete confirmation is no longer drawn beneath the menu.
+
+- **Links lost their colour in bold or italic, and wiki links never looked like links.** A bold or italic link was drawn in the text colour, every `[[wiki link]]` matched the text around it, and the faint underline a link should carry at rest only appeared on hover. Links and wiki links now share the link colour and underline, and a link to a note that does not exist yet has a dashed underline.
+
+- **Typing `[[Name]]` in full left it as plain text,** saved as `\[\[Name\]\]`, and the list of notes stayed open after the closing brackets. The link is made as you type the second `]`, and the list offers to create a note that does not exist yet.
+
+- The lists of notes, tags and commands that open while you type were drawn in a dark rounded box with an arrow. They now look like the rest of Moldavite, and open above the cursor when there is more room there instead of running under the footer.
+
+- The checkbox of a task that wraps onto a second line sat between the lines instead of beside the first.
+
+- The Share, Format and More menus in the editor footer were set in the footer's monospaced face; they now use the same face as every other menu.
+
+- The Insert Image dialog and a selected image used the green accent for the chosen tab, the picked file and the selection ring. They are drawn in ink, like the rest of the interface.
 
 ## [2.7.2] - 2026-09-20
 

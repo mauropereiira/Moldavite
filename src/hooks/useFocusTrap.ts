@@ -25,6 +25,16 @@ export function useFocusTrap(ref: React.RefObject<HTMLElement | null>, active: b
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const focusFirst = () => {
+      // A text field that took focus as the dialog mounted keeps it. On a
+      // phone that focus, made inside the opening tap, is what raised the
+      // keyboard; moving it would drop the keyboard again.
+      const current = document.activeElement;
+      if (
+        (current instanceof HTMLInputElement || current instanceof HTMLTextAreaElement) &&
+        container.contains(current)
+      ) {
+        return;
+      }
       // On a phone there is no Tab key to serve; landing focus on the first
       // button only paints a focus ring on the close control of every page.
       if (isMobilePlatform()) {

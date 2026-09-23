@@ -618,6 +618,26 @@ html[data-platform='mobile'] .toolbar-button {
   height: var(--touch-target);
 }
 
+/* Suggestion rows (wiki links, tags, slash commands) are tapped, not pointed at. */
+html[data-platform='mobile'] :is(.wiki-link-suggestion-item, .slash-command-item) {
+  min-height: var(--touch-target);
+}
+
+/* WebKit on iOS draws the caret, the selection wash and its handles in the
+   view's tint, system blue, and ignores ::selection for them. A named caret
+   colour replaces the tint for all three, so they are ink like the rest of
+   the chrome (checked on the iOS 26 simulator in light and dark themes). */
+html[data-platform='mobile'] {
+  caret-color: var(--text-primary);
+}
+
+/* The resize handles follow a mouse drag, which a finger never makes, and at
+   full width they hang past the paper's edge. Alignment and delete live in
+   the formatting row. */
+html[data-platform='mobile'] .resize-handle {
+  display: none;
+}
+
 /* The labels sit low, just above the home indicator, rather than a full
    safe-area band above it: the row read as a hole under the footer. */
 html[data-platform='mobile'] .editor-footer {
@@ -748,6 +768,19 @@ html[data-platform='mobile'] .modal-elevated {
 html[data-platform='mobile'] .modal-elevated .btn {
   min-height: var(--touch-target);
   white-space: normal;
+}
+
+html[data-platform='mobile'] .modal-elevated .dialog-action {
+  min-height: var(--touch-target);
+}
+
+html[data-platform='mobile'] .modal-elevated .dialog-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: -10px -12px -10px 0;
 }
 
 /* Context menus and the trash popover: fixed at the pointer, so they can
@@ -1134,6 +1167,51 @@ html[data-platform='mobile'] .mobile-formatting-bar button[aria-pressed='true'] 
 
 html[data-platform='mobile'] .mobile-formatting-bar button:disabled {
   color: var(--text-muted);
+}
+
+/* The global hover fill stays on the last button tapped, so a pressed control
+   and a merely touched one looked like two different states. The press itself
+   still gets the global :active wash. Written one :not() deeper than the
+   global rule so these win on specificity, not on source order. */
+@media (hover: none) {
+  html[data-platform='mobile'] .mobile-formatting-bar button:not(:disabled):hover {
+    background-color: transparent !important;
+    color: var(--text-secondary) !important;
+  }
+
+  html[data-platform='mobile']
+    .mobile-formatting-bar
+    button[aria-pressed='true']:not(:disabled):hover {
+    color: var(--text-primary) !important;
+  }
+}
+
+html[data-platform='mobile'] .mobile-formatting-scroll[data-more-after='true'] {
+  -webkit-mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 32px), transparent);
+}
+
+html[data-platform='mobile'] .mobile-formatting-scroll[data-more-before='true'] {
+  -webkit-mask-image: linear-gradient(to left, var(--text-primary) calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to left, var(--text-primary) calc(100% - 32px), transparent);
+}
+
+html[data-platform='mobile']
+  .mobile-formatting-scroll[data-more-before='true'][data-more-after='true'] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--text-primary) 32px,
+    var(--text-primary) calc(100% - 32px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--text-primary) 32px,
+    var(--text-primary) calc(100% - 32px),
+    transparent
+  );
 }
 
 html[data-platform='mobile'] .mobile-keyboard-done {

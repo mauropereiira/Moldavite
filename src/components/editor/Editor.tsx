@@ -14,7 +14,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { NoteTables } from './extensions/NoteTables';
 import { safeInvoke as invoke } from '@/lib/ipc';
-import { slugifyNoteName } from '@/lib/fileSystem';
+import { noteNameToFilename, slugifyNoteName } from '@/lib/fileSystem';
 import { hasOnlyEmptyParagraphs } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
@@ -23,7 +23,7 @@ import {
   type SuggestionProps,
   type SuggestionKeyDownProps,
 } from '@tiptap/suggestion';
-import tippy, { Instance } from 'tippy.js';
+import type { Instance } from 'tippy.js';
 
 /**
  * Imperative handle every suggestion list (Tag, WikiLink, Slash) exposes
@@ -32,7 +32,6 @@ import tippy, { Instance } from 'tippy.js';
 interface SuggestionListHandle {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
-import 'tippy.js/dist/tippy.css';
 import { EditorFooter } from './EditorFooter';
 import { TabBar } from './TabBar';
 import { SelectionToolbar } from './SelectionToolbar';
@@ -53,8 +52,12 @@ import {
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { ResizableImage } from './extensions/ResizableImage';
 import { tagSuggestionPluginKey } from './extensions/TagSuggestion';
-import { wikiLinkSuggestionPluginKey } from './extensions/WikiLinkSuggestion';
+import {
+  wikiLinkSuggestionAllowed,
+  wikiLinkSuggestionPluginKey,
+} from './extensions/WikiLinkSuggestion';
 import { slashCommandsPluginKey } from './extensions/SlashCommands';
+import { openSuggestionPopup, updateSuggestionPopup } from './extensions/suggestionPopup';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
 import { ConfirmDialog } from '@/components/ui';
@@ -62,6 +65,10 @@ import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
 import './extensions/tags.css';
 import type { NoteFile } from '@/types';
+import {
+  wikiLinkSuggestionItems,
+  type WikiLinkSuggestionItem,
+} from './extensions/WikiLinkSuggestionList';
 import {
   useNoteStore,
   useSettingsStore,
@@ -90,6 +97,11 @@ import { NoteCloseButton } from './NoteCloseButton';
 const MobileFormattingBar = React.lazy(() =>
   import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
 );
+
+function wikiTargetExists(notes: NoteFile[], target: string): boolean {
+  const targetSlug = slugifyNoteName(target);
+  return notes.some((n) => n.name === target || slugifyNoteName(n.name) === targetSlug);
+}
 
 export function Editor() {
   // The editor is the one surface that is *supposed* to re-render on every
@@ -125,7 +137,7 @@ export function Editor() {
     (state) => !!state.currentNote && state.unlockedNotes.has(state.currentNote.id)
   );
   const { theme, setTheme } = useThemeStore();
-  const { loadDailyNote, createNote, loadNote, renameNote } = useNotes();
+  const { loadDailyNote, createNote, loadNote, renameNote, refresh: refreshNotes } = useNotes();
   const { trashNote } = useTrash();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
@@ -246,6 +258,22 @@ export function Editor() {
       toast.error('Failed to create note');
     }
   }, [pendingLinkCreate, loadDailyNote, loadNote, setSelectedDate, toast]);
+
+  // The suggestion list's Create row writes the note where following a missing
+  // link would, then stays in the note being written. The editor keeps the
+  // closure it was built with, so it reads this through a ref.
+  const createLinkedNote = async (noteName: string) => {
+    try {
+      await invoke<string>('create_note_from_link', { noteName });
+      await refreshNotes();
+      toast.success(`Created "${noteName}"`);
+    } catch (error) {
+      console.error('[Editor] Failed to create note from wiki link:', error);
+      toast.error('Failed to create note');
+    }
+  };
+  const createLinkedNoteRef = useRef(createLinkedNote);
+  createLinkedNoteRef.current = createLinkedNote;
 
   const handleCreateToday = () => {
     const today = new Date();
@@ -383,6 +411,7 @@ export function Editor() {
         ...NoteTables,
         WikiLink.configure({
           onLinkClick: handleWikiLinkClick,
+          noteExists: (target) => wikiTargetExists(notesRef.current, target),
         }),
         ...(tagsEnabled
           ? [
@@ -421,7 +450,7 @@ export function Editor() {
                   },
                   render: () => {
                     let component: ReactRenderer | null = null;
-                    let popup: Instance[] | null = null;
+                    let popup: Instance | null = null;
 
                     return {
                       onStart: (props: SuggestionProps<TagItem>) => {
@@ -431,20 +460,7 @@ export function Editor() {
                             editor: props.editor,
                           });
 
-                          if (!props.clientRect) {
-                            return;
-                          }
-
-                          popup = tippy('body', {
-                            getReferenceClientRect: props.clientRect as () => DOMRect,
-                            appendTo: () => document.body,
-                            content: component.element,
-                            showOnCreate: true,
-                            interactive: true,
-                            trigger: 'manual',
-                            placement: 'bottom-start',
-                            maxWidth: 'none',
-                          });
+                          popup = openSuggestionPopup(component.element, props);
                         } catch (error) {
                           console.error('[TagSuggestion] onStart error:', error);
                         }
@@ -454,13 +470,7 @@ export function Editor() {
                         try {
                           component?.updateProps(props);
 
-                          if (!props.clientRect) {
-                            return;
-                          }
-
-                          popup?.[0]?.setProps({
-                            getReferenceClientRect: props.clientRect as () => DOMRect,
-                          });
+                          updateSuggestionPopup(popup, component?.element, props);
                         } catch (error) {
                           console.error('[TagSuggestion] onUpdate error:', error);
                         }
@@ -481,9 +491,7 @@ export function Editor() {
 
                       onExit() {
                         try {
-                          if (popup?.[0]) {
-                            popup[0].destroy();
-                          }
+                          popup?.destroy();
                           if (component) {
                             component.destroy();
                           }
@@ -517,62 +525,32 @@ export function Editor() {
             // on a single '[' makes the query keep the second bracket
             // ("[Menta"), which can never match a note name.
             allowSpaces: true,
-            // Only start while the editor has focus. Once open, keep the plugin
-            // active until Escape or onBlur explicitly exits it. The list buttons
-            // preserve focus until their clicks insert.
-            allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
-              isActive === true || editor.isFocused,
-            items: ({ query }: { query: string }) => {
-              const currentNotes = notesRef.current;
-              const filtered = currentNotes.filter((note) => {
-                const noteName = note.name.replace('.md', '');
-                return noteName.toLowerCase().includes(query.toLowerCase());
-              });
-
-              return filtered.slice(0, 10);
-            },
+            allow: wikiLinkSuggestionAllowed,
+            items: ({ query }: { query: string }) =>
+              wikiLinkSuggestionItems(notesRef.current, query),
             render: () => {
               let component: ReactRenderer | null = null;
-              let popup: Instance[] | null = null;
+              let popup: Instance | null = null;
 
               return {
-                onStart: (props: SuggestionProps<NoteFile>) => {
+                onStart: (props: SuggestionProps<WikiLinkSuggestionItem>) => {
                   try {
                     component = new ReactRenderer(WikiLinkSuggestionList, {
                       props,
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup = tippy('body', {
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                      appendTo: () => document.body,
-                      content: component.element,
-                      showOnCreate: true,
-                      interactive: true,
-                      trigger: 'manual',
-                      placement: 'bottom-start',
-                      maxWidth: 'none',
-                    });
+                    popup = openSuggestionPopup(component.element, props);
                   } catch (error) {
                     console.error('[WikiLinkSuggestion] onStart error:', error);
                   }
                 },
 
-                onUpdate(props: SuggestionProps<NoteFile>) {
+                onUpdate(props: SuggestionProps<WikiLinkSuggestionItem>) {
                   try {
                     component?.updateProps(props);
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup?.[0]?.setProps({
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                    });
+                    updateSuggestionPopup(popup, component?.element, props);
                   } catch (error) {
                     console.error('[WikiLinkSuggestion] onUpdate error:', error);
                   }
@@ -592,9 +570,7 @@ export function Editor() {
 
                 onExit() {
                   try {
-                    if (popup?.[0]) {
-                      popup[0].destroy();
-                    }
+                    popup?.destroy();
                     if (component) {
                       component.destroy();
                     }
@@ -614,9 +590,23 @@ export function Editor() {
             }: {
               editor: TiptapEditor;
               range: TiptapRange;
-              props: NoteFile;
+              props: WikiLinkSuggestionItem;
             }) => {
-              const note = props;
+              if ('create' in props) {
+                editor
+                  .chain()
+                  .focus()
+                  .deleteRange(range)
+                  .setWikiLink({
+                    target: noteNameToFilename(props.create),
+                    label: props.create,
+                    exists: false,
+                  })
+                  .run();
+                void createLinkedNoteRef.current(props.create);
+                return;
+              }
+              const note = props.note;
               const noteName = note.name.replace('.md', '');
 
               editor
@@ -649,7 +639,7 @@ export function Editor() {
             },
             render: () => {
               let component: ReactRenderer | null = null;
-              let popup: Instance[] | null = null;
+              let popup: Instance | null = null;
 
               return {
                 onStart: (props: SuggestionProps<SlashCommandItem>) => {
@@ -662,20 +652,7 @@ export function Editor() {
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup = tippy('body', {
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                      appendTo: () => document.body,
-                      content: component.element,
-                      showOnCreate: true,
-                      interactive: true,
-                      trigger: 'manual',
-                      placement: 'bottom-start',
-                      maxWidth: 'none',
-                    });
+                    popup = openSuggestionPopup(component.element, props);
                   } catch (error) {
                     console.error('[SlashCommands] onStart error:', error);
                   }
@@ -688,13 +665,7 @@ export function Editor() {
                       editor: props.editor,
                     });
 
-                    if (!props.clientRect) {
-                      return;
-                    }
-
-                    popup?.[0]?.setProps({
-                      getReferenceClientRect: props.clientRect as () => DOMRect,
-                    });
+                    updateSuggestionPopup(popup, component?.element, props);
                   } catch (error) {
                     console.error('[SlashCommands] onUpdate error:', error);
                   }
@@ -714,9 +685,7 @@ export function Editor() {
 
                 onExit() {
                   try {
-                    if (popup?.[0]) {
-                      popup[0].destroy();
-                    }
+                    popup?.destroy();
                     if (component) {
                       component.destroy();
                     }
@@ -1052,11 +1021,7 @@ export function Editor() {
         if (node.type.name !== 'wikiLink') return;
         const target = (node.attrs['data-target'] || '') as string;
         if (!target) return;
-        const targetSlug = slugifyNoteName(target);
-        const found = currentNotes.some(
-          (n) => n.name === target || slugifyNoteName(n.name) === targetSlug
-        );
-        const nextExists = found ? 'true' : 'false';
+        const nextExists = wikiTargetExists(currentNotes, target) ? 'true' : 'false';
         if (node.attrs['data-exists'] !== nextExists) {
           updates.push({ pos, exists: nextExists });
         }
@@ -1255,10 +1220,12 @@ export function Editor() {
             !editor.isDestroyed && (
               <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
             )}
-          {/* Image Toolbar - shows when image is selected */}
-          {!isCloudPlaceholder && !isViewOnly && editor && !editor.isDestroyed && (
-            <ImageToolbar editor={editor} />
-          )}
+          {/* On a phone the formatting row carries the image actions instead. */}
+          {!isCloudPlaceholder &&
+            !isViewOnly &&
+            !isMobilePlatform() &&
+            editor &&
+            !editor.isDestroyed && <ImageToolbar editor={editor} />}
         </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes.

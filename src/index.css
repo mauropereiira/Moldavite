@@ -2430,25 +2430,11 @@ wiki-link {
   color: var(--syntax-link);
 }
 
-/* Colour alone is not enough to mark a link — someone who cannot separate that
-   hue from the body ink gets nothing. The hairline is therefore present at
-   rest, just quiet, and comes up to full on hover rather than being drawn from
-   nothing. Scoped to note content: the navigation controls that share the rule
-   below are standalone and already read as controls. */
-.tiptap a::after,
-wiki-link::after {
-  transform: scaleX(1);
-  opacity: 0.4;
-  transition:
-    opacity var(--dur-base) var(--ease-standard),
-    transform var(--dur-base) var(--ease-standard);
-}
-
-.tiptap a:hover::after,
-.tiptap a:focus-visible::after,
-wiki-link:hover::after,
-wiki-link:focus-visible::after {
-  opacity: 1;
+/* Bold and italic set their own syntax colours, which would paint a formatted
+   link's words as plain text. Inside a link they take the link's hue. */
+.tiptap a :is(strong, em),
+.dark .tiptap a :is(strong, em) {
+  color: inherit;
 }
 
 .tiptap img {
@@ -2542,9 +2528,14 @@ wiki-link:focus-visible::after {
   padding-left: 0;
 }
 
+/* These are the rules a task item actually gets. TipTap's task item node view
+   does not put `data-type='taskItem'` on the <li> it draws, so the rules above
+   keyed on it never match in the editor. The item anchors to its top and the
+   label is one line box tall, so the box sits on the first line of a wrapped
+   task instead of halfway down it. */
 .tiptap ul[data-type='taskList'] li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
@@ -2553,6 +2544,7 @@ wiki-link:focus-visible::after {
   margin: 0;
   display: flex;
   align-items: center;
+  height: calc(var(--editor-line-height) * 1em);
 }
 
 .tiptap ul[data-type='taskList'] li > div {
@@ -3509,6 +3501,19 @@ button[aria-expanded='true'] .wn-caret {
   margin: 0 4px;
 }
 
+/* Tippy hosts the wiki-link, tag and slash suggestion lists. Its stock theme,
+   a dark rounded box with an arrow, is not imported: the lists draw their own
+   ground and hairlines, and the box around them adds nothing. */
+[data-tippy-root] {
+  max-width: calc(100vw - 10px);
+}
+
+.tippy-box {
+  position: relative;
+  outline: 0;
+  transition-property: transform, visibility, opacity;
+}
+
 /* Tippy.js animation override for bubble menu */
 .tippy-box[data-animation='fade'][data-state='hidden'] {
   opacity: 0;
@@ -3778,6 +3783,28 @@ button[aria-expanded='true'] .wn-caret {
     wiki-link
   ):focus-visible::after {
   transform: scaleX(1);
+}
+
+/* Colour alone is not enough to mark a link — someone who cannot separate that
+   hue from the body ink gets nothing. The hairline is therefore present at
+   rest, just quiet, and comes up to full on hover rather than being drawn from
+   nothing. Scoped to note content: the navigation controls that share the rule
+   above are standalone and already read as controls. These rules tie with that
+   one on specificity and must stay after it, or it hides the hairline at rest. */
+.tiptap a::after,
+.tiptap wiki-link::after {
+  transform: scaleX(1);
+  opacity: 0.4;
+  transition:
+    opacity var(--dur-base) var(--ease-standard),
+    transform var(--dur-base) var(--ease-standard);
+}
+
+.tiptap a:hover::after,
+.tiptap a:focus-visible::after,
+.tiptap wiki-link:hover::after,
+.tiptap wiki-link:focus-visible::after {
+  opacity: 1;
 }
 
 /* The welcome composition tells the brand story in three beats: the letters
@@ -4101,7 +4128,11 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   content: 'Colour';
 }
 
+/* A menu opened from the footer is a menu, not footer chrome: it drops the
+   footer's mono small caps for the UI face every other menu uses. */
 .editor-footer [role='menu'] {
+  font-family: var(--font-sans);
+  font-weight: 400;
   letter-spacing: normal;
   line-height: var(--text-sm--line-height);
   text-transform: none;
@@ -4261,10 +4292,10 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 /* Selecting an image used to paint the browser's own selection wash across it
    — a solid blue rectangle over the picture, which reads as "something broke"
    rather than "this is selected", and hides the thing you are looking at. A
-   ring around it says the same thing and leaves the image visible. The
-   alignment controls appear above it at the same moment. */
+   ring around it says the same thing and leaves the image visible. On the
+   desktop the alignment controls appear above it at the same moment. */
 .resizable-image-container.selected {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--text-primary);
   outline-offset: 3px;
 }
 
@@ -5118,7 +5149,8 @@ button.editor-index-trigger:not(:disabled):hover {
   overflow: hidden;
   min-width: 280px;
   max-width: 320px;
-  max-height: 360px;
+  /* suggestionPopup.ts sets the variable to the room left beside the caret. */
+  max-height: min(360px, var(--suggestion-max-height));
   overflow-y: auto;
   animation: slash-menu-in 150ms var(--ease-out-expo);
 }

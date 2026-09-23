@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { processAndSaveImage, fileToBase64 } from '@/lib';
 import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { isMobilePlatform } from '@/lib/platform';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -199,6 +200,8 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
 
   if (!isOpen) return null;
 
+  const mobile = isMobilePlatform();
+
   return (
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
@@ -212,7 +215,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         onKeyDown={handleKeyDown}
       >
         <div
-          className="flex items-center justify-between px-6 py-4 border-b"
+          className="flex-none flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border-default)' }}
         >
           <div>
@@ -226,7 +229,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
+            className="dialog-close p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
             style={{ color: 'var(--text-muted)' }}
             aria-label="Close image modal"
           >
@@ -234,7 +237,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
           </button>
         </div>
 
-        <div className="flex border-b" style={{ borderColor: 'var(--border-default)' }}>
+        <div className="flex-none flex border-b" style={{ borderColor: 'var(--border-default)' }}>
           <button
             onClick={() => {
               setActiveTab('file');
@@ -245,11 +248,11 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               activeTab === 'file' ? 'border-b-2' : 'hover:text-[var(--text-secondary)]'
             }`}
             style={{
-              color: activeTab === 'file' ? 'var(--accent-primary)' : 'var(--text-muted)',
-              borderColor: activeTab === 'file' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'file' ? 'var(--text-primary)' : 'var(--text-muted)',
+              borderColor: activeTab === 'file' ? 'var(--text-primary)' : 'transparent',
             }}
           >
-            Upload File
+            {mobile ? 'Photo' : 'Upload File'}
           </button>
           <button
             onClick={() => {
@@ -262,15 +265,15 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               activeTab === 'url' ? 'border-b-2' : 'hover:text-[var(--text-secondary)]'
             }`}
             style={{
-              color: activeTab === 'url' ? 'var(--accent-primary)' : 'var(--text-muted)',
-              borderColor: activeTab === 'url' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'url' ? 'var(--text-primary)' : 'var(--text-muted)',
+              borderColor: activeTab === 'url' ? 'var(--text-primary)' : 'transparent',
             }}
           >
             From URL
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
           {activeTab === 'file' ? (
             /* File Upload */
             <div>
@@ -286,9 +289,8 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                 }`}
                 style={{
                   borderColor:
-                    isDragging || selectedFile ? 'var(--accent-primary)' : 'var(--border-default)',
-                  backgroundColor:
-                    isDragging || selectedFile ? 'var(--accent-subtle)' : 'transparent',
+                    isDragging || selectedFile ? 'var(--text-primary)' : 'var(--border-default)',
+                  backgroundColor: 'transparent',
                 }}
               >
                 <input
@@ -309,12 +311,18 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
                   </>
                 ) : (
                   <>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      <span className="font-medium" style={{ color: 'var(--accent-primary)' }}>
-                        Click to upload
-                      </span>{' '}
-                      or drag and drop
-                    </p>
+                    {mobile ? (
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        Choose a photo
+                      </p>
+                    ) : (
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          Click to upload
+                        </span>{' '}
+                        or drag and drop
+                      </p>
+                    )}
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       PNG, JPG, GIF, WebP, or SVG (max 10MB)
                     </p>
@@ -386,7 +394,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               type="text"
               value={alt}
               onChange={(e) => setAlt(e.target.value)}
-              placeholder="Describe the image for accessibility"
+              placeholder={mobile ? 'Describe the image' : 'Describe the image for accessibility'}
               className="w-full px-4 py-2 rounded-lg placeholder:text-[var(--text-muted)] border search-input-polished focus:outline-none"
               style={{
                 color: 'var(--text-primary)',
@@ -431,12 +439,12 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
         </div>
 
         <div
-          className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+          className="flex-none flex items-center justify-end gap-3 px-6 py-4 border-t"
           style={{ borderColor: 'var(--border-default)' }}
         >
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
+            className="dialog-action px-4 py-2 text-sm font-medium rounded-lg transition-colors focus-ring hover:bg-[var(--bg-inset)]"
             style={{ color: 'var(--text-secondary)' }}
           >
             Cancel
@@ -448,31 +456,33 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               (activeTab === 'file' && !selectedFile) ||
               isLoading
             }
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring disabled:opacity-50 disabled:cursor-not-allowed"
+            className="dialog-action px-4 py-2 text-sm font-medium text-white rounded-lg btn-primary-gradient btn-elevated focus-ring disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Saving...' : 'Insert Image'}
           </button>
         </div>
 
-        <div className="px-6 pb-4">
-          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-            Press{' '}
-            <kbd
-              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-              style={keyboardHintStyle}
-            >
-              Enter
-            </kbd>{' '}
-            to insert or{' '}
-            <kbd
-              className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-              style={keyboardHintStyle}
-            >
-              Esc
-            </kbd>{' '}
-            to cancel
-          </p>
-        </div>
+        {!mobile && (
+          <div className="flex-none px-6 pb-4">
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              Press{' '}
+              <kbd
+                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+                style={keyboardHintStyle}
+              >
+                Enter
+              </kbd>{' '}
+              to insert or{' '}
+              <kbd
+                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
+                style={keyboardHintStyle}
+              >
+                Esc
+              </kbd>{' '}
+              to cancel
+            </p>
+          </div>
+        )}
       </DialogSurface>
     </div>
   );

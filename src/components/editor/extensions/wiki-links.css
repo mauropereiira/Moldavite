@@ -1,7 +1,9 @@
+/* Colour comes from the shared `.tiptap a, wiki-link` rule in index.css, so a
+   wiki link carries the same link hue as a URL. A `color` set here would
+   out-rank that bare element selector and paint every wiki link plain ink. */
 wiki-link {
   cursor: pointer;
   padding: 0;
-  color: inherit;
   position: relative;
   text-decoration: none;
   transition:
@@ -10,25 +12,17 @@ wiki-link {
     transform var(--dur-press) var(--ease-standard);
 }
 
-wiki-link.wiki-link-exists {
-  color: inherit;
-  background-color: transparent;
-}
-
-wiki-link.wiki-link-exists:hover {
+wiki-link:hover {
   background-color: var(--hover-overlay);
-  color: var(--text-primary);
 }
 
-wiki-link.wiki-link-missing {
-  color: inherit;
-  background-color: transparent;
-  text-decoration-style: dashed;
-}
-
-wiki-link.wiki-link-missing:hover {
-  background-color: var(--hover-overlay);
-  color: var(--text-primary);
+/* A link to a note that does not exist yet keeps the hue but draws its
+   hairline dashed, so it reads as a link still waiting for its note. */
+.tiptap wiki-link.wiki-link-missing::after {
+  height: 0;
+  background: none;
+  border-bottom: 1px dashed currentColor;
+  opacity: 0.8;
 }
 
 wiki-link:active {
@@ -45,7 +39,8 @@ wiki-link:focus-visible {
   background: var(--bg-elevated);
   border-top: 1px solid var(--border-default);
   border-bottom: 1px solid var(--border-default);
-  max-height: 300px;
+  /* suggestionPopup.ts sets the variable to the room left beside the caret. */
+  max-height: min(300px, var(--suggestion-max-height));
   overflow-y: auto;
   padding: 4px;
   min-width: 200px;

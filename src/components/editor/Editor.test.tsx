@@ -89,6 +89,7 @@ const notesSpies = vi.hoisted(() => ({
   loadDailyNote: vi.fn(),
   loadNote: vi.fn(),
   renameNote: vi.fn(),
+  refresh: vi.fn(),
 }));
 
 // Stable across renders so a test can assert the delete-failure toast.
@@ -113,6 +114,7 @@ vi.mock('@/hooks', () => ({
     createNote: shortcutSpies.createNote,
     loadNote: notesSpies.loadNote,
     renameNote: notesSpies.renameNote,
+    refresh: notesSpies.refresh,
   }),
   useTemplates: () => ({ getTemplateContent: vi.fn() }),
   useTrash: () => ({ trashNote: notesSpies.trashNote }),
@@ -139,7 +141,7 @@ vi.mock('./NoteHeader', () => ({
   ),
 }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
-vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => null }));
+vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => <div data-testid="image-toolbar" /> }));
 vi.mock('./LinkModal', () => ({ LinkModal: () => null }));
 vi.mock('./ImageModal', () => ({ ImageModal: () => null }));
 // ExternalChangeBanner is deliberately NOT mocked: it renders null unless the
@@ -279,6 +281,7 @@ beforeEach(() => {
   notesSpies.loadDailyNote.mockReset();
   notesSpies.loadNote.mockReset();
   notesSpies.renameNote.mockReset();
+  notesSpies.refresh.mockReset().mockResolvedValue(undefined);
   toastSpies.success.mockReset();
   toastSpies.error.mockReset();
   useNoteStore.setState({
@@ -627,6 +630,43 @@ describe('Editor wiki links', () => {
     expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 8, 22]);
     expect(safeInvoke).not.toHaveBeenCalledWith('create_note_from_link', expect.anything());
     expect(notesSpies.loadNote).not.toHaveBeenCalled();
+  });
+});
+
+describe('Editor wiki link suggestions', () => {
+  it('creates the note from the Create row and links to it without leaving the note', async () => {
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'create_note_from_link' ? 'fix-b.md' : undefined
+    );
+    const { editor } = await renderEditor(note('notes/links.md', '<p>See </p>'));
+    act(() => {
+      editor.commands.focus('end');
+      editor.commands.insertContent('[[Fix b');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /Create “Fix b”/ }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith('create_note_from_link', { noteName: 'Fix b' })
+    );
+    await waitFor(() => expect(notesSpies.refresh).toHaveBeenCalledOnce());
+    expect(toastSpies.success).toHaveBeenCalledWith('Created "Fix b"');
+    const link = document.querySelector('wiki-link');
+    expect(link?.getAttribute('data-target')).toBe('fix-b.md');
+    expect(link?.textContent).toBe('Fix b');
+    expect(notesSpies.loadNote).not.toHaveBeenCalled();
+    expect(useNoteStore.getState().currentNote?.id).toBe('notes/links.md');
+  });
+});
+
+describe('Editor image actions', () => {
+  it.each([
+    [false, true],
+    [true, false],
+  ])('with mobile=%s the floating image toolbar is shown: %s', async (mobile, shown) => {
+    platform.mobile = mobile;
+    await renderEditor(note('notes/image.md', '<p>Body</p>'));
+    expect(screen.queryByTestId('image-toolbar') !== null).toBe(shown);
   });
 });
 

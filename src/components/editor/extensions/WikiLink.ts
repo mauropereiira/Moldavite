@@ -1,15 +1,18 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { InputRule, Node, mergeAttributes } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { noteNameToFilename } from '@/lib/fileSystem';
 
 export interface WikiLinkOptions {
   HTMLAttributes: Record<string, unknown>;
   onLinkClick: (target: string) => void;
+  /** Whether a `data-target` names a note in the Forge, for links typed in full. */
+  noteExists: (target: string) => boolean;
 }
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     wikiLink: {
-      setWikiLink: (attrs: { target: string; label: string }) => ReturnType;
+      setWikiLink: (attrs: { target: string; label: string; exists?: boolean }) => ReturnType;
     };
   }
 }
@@ -31,6 +34,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     return {
       HTMLAttributes: {},
       onLinkClick: () => {},
+      noteExists: () => false,
     };
   },
 
@@ -94,13 +98,38 @@ export const WikiLink = Node.create<WikiLinkOptions>({
               attrs: {
                 'data-target': attrs.target,
                 'data-label': attrs.label,
-                'data-exists': 'true',
+                'data-exists': attrs.exists === false ? 'false' : 'true',
               },
             },
             { type: 'text', text: ' ' },
           ]);
         },
     };
+  },
+
+  /** `[[Name]]` or `[[Label|Name]]` typed out in full becomes a link, as it does when read from disk. */
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]$/,
+        handler: ({ state, range, match }) => {
+          const label = match[1].trim();
+          if (!label) return null;
+          const rawTarget = match[2]?.trim() || null;
+          const target = noteNameToFilename(rawTarget ?? label);
+          state.tr.replaceWith(
+            range.from,
+            range.to,
+            this.type.create({
+              'data-target': target,
+              'data-label': label,
+              'data-raw-target': rawTarget,
+              'data-exists': this.options.noteExists(target) ? 'true' : 'false',
+            })
+          );
+        },
+      }),
+    ];
   },
 
   addProseMirrorPlugins() {
