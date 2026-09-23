@@ -1,10 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NoteFile } from '@/types';
-import { isMobilePlatform } from '@/lib/platform';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
+import { useSettingsStore } from '@/stores';
 import { NoteContextMenu } from './NoteContextMenu';
 
-vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
+vi.mock('@/lib/platform', () => ({
+  isMobilePlatform: vi.fn(() => false),
+  isTabletPlatform: vi.fn(() => false),
+}));
 
 const note: NoteFile = {
   name: 'Example.md',
@@ -55,6 +59,8 @@ describe('moving notes from the context menu', () => {
 describe('menu wording', () => {
   afterEach(() => {
     vi.mocked(isMobilePlatform).mockReturnValue(false);
+    vi.mocked(isTabletPlatform).mockReturnValue(false);
+    useSettingsStore.setState({ indexMode: 'pinned' });
   });
 
   it('labels its actions in sentence case, like the other menus', () => {
@@ -72,8 +78,25 @@ describe('menu wording', () => {
     );
   });
 
-  it('offers no new tab on a phone, which has no tab bar', () => {
+  it('offers no new tab on a phone, where the Index covers the tab bar', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
+    useSettingsStore.setState({ indexMode: 'overlay' });
+    menu();
+    expect(screen.queryByRole('button', { name: 'Open in new tab' })).not.toBeInTheDocument();
+  });
+
+  it('offers a new tab on an iPad whose Index sits beside the note and its tab bar', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    vi.mocked(isTabletPlatform).mockReturnValue(true);
+    useSettingsStore.setState({ indexMode: 'pinned' });
+    menu();
+    expect(screen.getByRole('button', { name: 'Open in new tab' })).toBeInTheDocument();
+  });
+
+  it('offers no new tab on an iPad in a narrow Split View, where the Index is an overlay', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    vi.mocked(isTabletPlatform).mockReturnValue(true);
+    useSettingsStore.setState({ indexMode: 'overlay' });
     menu();
     expect(screen.queryByRole('button', { name: 'Open in new tab' })).not.toBeInTheDocument();
   });

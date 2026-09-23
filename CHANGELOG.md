@@ -26,7 +26,7 @@ All notable changes to Moldavite are documented here.
 
 - On iPhone the keyboard comes up with the password field when you lock, unlock or remove a lock, and a password dialog opened from the Index keeps its buttons above the keyboard; they were pushed below it and out of reach. A row you tapped in the Index no longer stays shaded afterwards.
 
-- **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone (there is no tab bar), and pages keep a 16pt margin beside the rail on the left as they do on the right.
+- **The Index on iPhone: press and hold a note or folder for its menu**, as well as Options. Its footer keeps Today and New, since the rail beside it has Timeline, Graph, Settings and Trash and About has the version; it took half the screen in landscape, and it now steps aside while the keyboard is up so search results have the room. Options is easier to read, Open in new tab is gone from iPhone, where the Index covers the note and its tabs (an iPad keeps it while the Index sits beside the note), and pages keep a 16pt margin beside the rail on the left as they do on the right.
 
 - Menus in the Index use sentence case like the rest of the app ("Lock note", "Export as plain text", "Move to folder…", "Rename folder"), a locked note shows "Locked" after its name so its title lines up with the others, and Move note has one Cancel instead of Cancel and Close, with "No folder" for the top level.
 

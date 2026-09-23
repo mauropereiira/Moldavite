@@ -1,5 +1,5 @@
 import { save } from '@tauri-apps/plugin-dialog';
-import { isMobilePlatform } from '@/lib/platform';
+import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import {
   exportSingleNote,
   exportNoteToPdf,
@@ -8,7 +8,12 @@ import {
   noteFileBackendPath,
 } from '@/lib';
 import { useToast } from '@/hooks/useToast';
-import { usePdfExportStore, useQuickSwitcherStore, useNoteSelectionStore } from '@/stores';
+import {
+  usePdfExportStore,
+  useQuickSwitcherStore,
+  useNoteSelectionStore,
+  useSettingsStore,
+} from '@/stores';
 import type { NoteFile } from '@/types';
 import { ContextMenuSurface } from './ContextMenuSurface';
 
@@ -44,6 +49,13 @@ export function NoteContextMenu({
   const toast = useToast();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const selected = useNoteSelectionStore((s) => s.selectedIds.has(note.path));
+  // A new tab opens out of sight unless the tab bar is beside the Index: on
+  // the desktop, and on an iPad wide enough that Layout pins the Index next to
+  // the note. On a phone, or an iPad in a narrow Split View, the Index covers
+  // the note and its tab bar.
+  const tabsBesideIndex = useSettingsStore(
+    (s) => !isMobilePlatform() || (isTabletPlatform() && s.indexMode === 'pinned')
+  );
 
   const handleExportMarkdown = async () => {
     try {
@@ -194,8 +206,7 @@ export function NoteContextMenu({
       >
         {isPinned(note.path) ? 'Unpin from top bar' : 'Pin to top bar'}
       </button>
-      {/* The phone has no tab bar, so a new tab would open out of sight. */}
-      {!note.isLocked && !isMobilePlatform() && (
+      {!note.isLocked && tabsBesideIndex && (
         <button
           onClick={() => {
             onOpenInNewTab(note);
