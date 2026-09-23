@@ -391,7 +391,7 @@ export function Sidebar({
   // for the name and a template first.
   const startNewNote = (folder: string | null = null) => {
     if (isMobilePlatform()) {
-      void createNote('Untitled', folder);
+      void createNote('Untitled', folder, { discardIfLeftEmpty: true });
       onNavigate?.();
       return;
     }

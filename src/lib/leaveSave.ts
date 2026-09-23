@@ -11,6 +11,8 @@
  * once that text is what the tab holds as saved. Nothing here discards a buffer that
  * did not reach disk, except trashing or deleting the note. A tab still waiting for
  * iCloud (`cloudPending`) has no text of its own and is never written, retried or copied.
+ * A note New made under a generated name and left with nothing in it is deleted, as
+ * iOS Notes does (see `discardNewNoteIfLeftEmpty`).
  */
 
 import {
@@ -22,6 +24,7 @@ import {
   listNotes,
   noteContentToEditorHtml,
   preserveBufferCopy,
+  readNoteSnapshot,
   readNoteWithMeta,
   writeNote,
 } from './fileSystem';
@@ -388,6 +391,59 @@ export async function saveHeldNotesNow(): Promise<void> {
     if (entry) showFailureToast(entry, entry.lastError);
   }
 }
+
+/** Notes New made this session under a generated name, until their tab closes or is replaced. */
+const newNotesToDiscard = new Set<string>();
+
+/**
+ * Delete the note New just made if its tab closes or is replaced while the note is
+ * still empty, rather than leave an empty "Untitled" behind. A rename or move
+ * readdresses the tab, which ends this without a delete: the list no longer has the
+ * old path.
+ */
+export function discardNewNoteIfLeftEmpty(noteId: string): void {
+  newNotesToDiscard.add(noteId);
+}
+
+function mayDiscard(noteId: string): boolean {
+  const { notes, openTabs, unlockedNotes } = useNoteStore.getState();
+  const listed = notes.find((note) => note.path === noteId);
+  return (
+    !!listed &&
+    !listed.isLocked &&
+    !listed.notDownloaded &&
+    !openTabs.some((tab) => tab.id === noteId) &&
+    !unlockedNotes.has(noteId) &&
+    !pendingLeaveSaves.has(noteId) &&
+    getPendingAutosaveNoteId() !== noteId
+  );
+}
+
+async function discardIfEmpty(note: Note): Promise<void> {
+  if (note.cloudPending || !isContentEmpty(note.content) || !mayDiscard(note.id)) return;
+  const filename = noteDiskFilename(note);
+  try {
+    const disk = await readNoteSnapshot(filename, false, false);
+    if (disk.content !== '' || disk.color || !mayDiscard(note.id)) return;
+    // Refused unless the body on disk is still the empty one just read. It never
+    // had anything in it, so there is nothing to keep in the Trash.
+    await deleteNote(filename, false, false, { guarded: true, baseHash: disk.contentHash });
+  } catch (error) {
+    console.error('[leaveSave] Could not discard an empty new note:', error);
+    return;
+  }
+  useNoteStore.getState().forgetNoteReferences(note.id);
+}
+
+useNoteStore.subscribe((state, previous) => {
+  if (newNotesToDiscard.size === 0 || state.openTabs === previous.openTabs) return;
+  for (const noteId of newNotesToDiscard) {
+    const left = previous.openTabs.find((tab) => tab.id === noteId);
+    if (!left || state.openTabs.some((tab) => tab.id === noteId)) continue;
+    newNotesToDiscard.delete(noteId);
+    void discardIfEmpty(left);
+  }
+});
 
 registerHeldSaves({
   saveNow: saveHeldNotesNow,

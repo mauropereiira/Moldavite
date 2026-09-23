@@ -303,7 +303,7 @@ export function Editor() {
   };
 
   const handleCreateNote = async () => {
-    await createNote('Untitled');
+    await createNote('Untitled', null, { discardIfLeftEmpty: true });
   };
 
   useEffect(() => {

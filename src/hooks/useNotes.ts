@@ -52,6 +52,7 @@ import {
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
 import {
+  discardNewNoteIfLeftEmpty,
   hasUnsavedEdits,
   heldLeaveSaveNote,
   readdressLeaveSave,
@@ -461,10 +462,15 @@ export function useNotes() {
   );
 
   /**
-   * Creates a new standalone note with the specified title.
+   * Creates a new standalone note with the specified title. `discardIfLeftEmpty`
+   * marks a generated name, from New: the note is deleted if it is left empty.
    */
   const createNote = useCallback(
-    async (title: string, folderPath?: string | null) => {
+    async (
+      title: string,
+      folderPath?: string | null,
+      { discardIfLeftEmpty = false }: { discardIfLeftEmpty?: boolean } = {}
+    ) => {
       latestNavigation += 1;
       // A phone opens a new note on its title, ready to be named.
       const focusTitle = isMobilePlatform();
@@ -488,6 +494,7 @@ export function useNotes() {
           setNotes([...freshNotes, noteFile]);
         }
         const note = filenameToNote(noteFile, '');
+        if (discardIfLeftEmpty) discardNewNoteIfLeftEmpty(note.id);
         if (focusTitle) requestTitleFocus(note.id);
         setCurrentNote(note);
       } catch (error) {

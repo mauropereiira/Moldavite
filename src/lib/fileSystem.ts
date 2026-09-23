@@ -1069,7 +1069,8 @@ export async function deleteNote(
   filename: string,
   isDaily: boolean,
   isWeekly: boolean = false,
-  opts?: { guarded?: boolean }
+  /** `baseHash` replaces the recorded one: the delete is refused unless the body on disk has it. */
+  opts?: { guarded?: boolean; baseHash?: string }
 ): Promise<void> {
   const key = noteHashKey(filename, isDaily, isWeekly);
   if (opts?.guarded && isCloudPlaceholder(filename, isDaily, isWeekly)) {
@@ -1084,7 +1085,7 @@ export async function deleteNote(
       filename,
       isDaily,
       isWeekly,
-      baseHash: opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null,
+      baseHash: opts?.baseHash ?? (opts?.guarded ? (noteBaseHashes.get(key) ?? null) : null),
     });
     forgetNoteBaseHash(filename, isDaily, isWeekly);
     deleted = true;

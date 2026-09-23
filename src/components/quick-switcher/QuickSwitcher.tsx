@@ -523,7 +523,7 @@ export function QuickSwitcher() {
           return;
         }
         case 'new-note':
-          createNote('Untitled').catch((e) =>
+          createNote('Untitled', null, { discardIfLeftEmpty: true }).catch((e) =>
             console.error('[QuickSwitcher] createNote failed', e)
           );
           return;

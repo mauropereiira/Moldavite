@@ -147,7 +147,10 @@ get trapped underneath Index.
   from it. The editor must not clear the document selection while a field
   outside the note has the focus: WebKit then keeps the field focused and the
   keyboard up, but inserts nothing. Return in the title renames the note and
-  moves the caret into the body.
+  moves the caret into the body. A note New made and left with an empty body
+  and its generated name is deleted when its tab closes or is replaced, only
+  while its file is still empty (`discardNewNoteIfLeftEmpty` in
+  `src/lib/leaveSave.ts`).
 - `useVisualViewportHeight` keeps `--app-height` equal to the visual
   viewport so the software keyboard never covers the editor, and scrolls
   the page back to the top when WKWebView drags it under the status bar to
