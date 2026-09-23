@@ -45,6 +45,7 @@ export type {
   FontFamily,
   AutoLockTimeout,
   ChromeMode,
+  IconRailSide,
   SettingsState,
   SettingsTab,
 } from './settingsStore';

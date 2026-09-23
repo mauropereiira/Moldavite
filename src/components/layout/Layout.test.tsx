@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
 import {
@@ -40,7 +40,11 @@ vi.mock('./RightPanel', () => ({
 }));
 
 vi.mock('./IconRail', () => ({
-  IconRail: () => <aside data-testid="icon-rail">Rail</aside>,
+  IconRail: ({ side }: { side?: string }) => (
+    <aside data-testid="icon-rail" data-side={side}>
+      Rail
+    </aside>
+  ),
 }));
 
 vi.mock('@/components/index-overlay/IndexOverlay', () => ({
@@ -250,6 +254,72 @@ describe('Layout navigation surfaces', () => {
       render(<Layout />);
 
       expect(screen.queryByRole('navigation', { name: 'Pinned notes' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('with the rail on the right', () => {
+    beforeEach(() => {
+      useSettingsStore.setState({
+        iconRailSide: 'right',
+        indexMode: 'pinned',
+        agendaMode: 'pinned',
+      });
+    });
+
+    it('puts the rail on the right edge with the Index beside it and the Agenda opposite', () => {
+      render(<Layout />);
+
+      const rail = screen.getByTestId('icon-rail');
+      const content = screen.getByTestId('app-content-area');
+      expect(rail).toHaveAttribute('data-side', 'right');
+      expect(content.parentElement?.firstElementChild).toBe(content);
+      expect(content.parentElement?.lastElementChild).toBe(rail);
+      expect(document.documentElement).toHaveClass('icon-rail-right');
+
+      const columns = Array.from(content.children);
+      const indexColumn = screen.getByTestId('sidebar').parentElement as HTMLElement;
+      const agendaColumn = screen.getByTestId('right-panel').parentElement as HTMLElement;
+      const editorColumn = screen.getByTestId('editor').parentElement as HTMLElement;
+      expect(columns.indexOf(agendaColumn)).toBeLessThan(columns.indexOf(editorColumn));
+      expect(columns.indexOf(editorColumn)).toBeLessThan(columns.indexOf(indexColumn));
+
+      // Hairlines stay on each column's edge facing the note.
+      expect(indexColumn.style.borderLeft).toContain('var(--border-default)');
+      expect(indexColumn.style.borderRight).toBe('');
+      expect(agendaColumn.style.borderRight).toContain('var(--border-default)');
+      expect(agendaColumn.style.borderLeft).toBe('');
+      expect(indexColumn.querySelector('.cursor-col-resize')).toHaveClass('left-0');
+      expect(agendaColumn.querySelector('.cursor-col-resize')).toHaveClass('right-0');
+    });
+
+    it('widens each column when its handle is dragged towards the note', () => {
+      useSettingsStore.setState({ sidebarWidth: 280, rightPanelWidth: 288 });
+      render(<Layout />);
+
+      const indexHandle = screen
+        .getByTestId('sidebar')
+        .parentElement?.querySelector('.cursor-col-resize') as HTMLElement;
+      fireEvent.mouseDown(indexHandle, { clientX: 900 });
+      fireEvent.mouseMove(document, { clientX: 860 });
+      fireEvent.mouseUp(document);
+      expect(useSettingsStore.getState().sidebarWidth).toBe(320);
+
+      const agendaHandle = screen
+        .getByTestId('right-panel')
+        .parentElement?.querySelector('.cursor-col-resize') as HTMLElement;
+      fireEvent.mouseDown(agendaHandle, { clientX: 300 });
+      fireEvent.mouseMove(document, { clientX: 340 });
+      fireEvent.mouseUp(document);
+      expect(useSettingsStore.getState().rightPanelWidth).toBe(328);
+    });
+
+    it('drops the right-edge class when the rail goes back to the left', () => {
+      render(<Layout />);
+      act(() => useSettingsStore.getState().setIconRailSide('left'));
+
+      const content = screen.getByTestId('app-content-area');
+      expect(content.parentElement?.firstElementChild).toBe(screen.getByTestId('icon-rail'));
+      expect(document.documentElement).not.toHaveClass('icon-rail-right');
     });
   });
 

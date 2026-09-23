@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -343,5 +346,35 @@ describe('IconRail', () => {
     expect(await screen.findByTestId('trash-popover')).toBeInTheDocument();
     expect(button).toHaveAttribute('data-active', 'true');
     expect(trash.loadTrash).toHaveBeenCalled();
+  });
+
+  it('keeps its hairline on the edge facing the note, on either side', () => {
+    const { rerender } = render(<IconRail />);
+    const rail = screen.getByRole('complementary', { name: 'App navigation' });
+    expect(rail).toHaveAttribute('data-side', 'left');
+    expect(rail.style.borderRight).toContain('var(--border-default)');
+    expect(rail.style.borderLeft).toBe('');
+
+    rerender(<IconRail side="right" />);
+    expect(rail).toHaveAttribute('data-side', 'right');
+    expect(rail.style.borderLeft).toContain('var(--border-default)');
+    expect(rail.style.borderRight).toBe('');
+  });
+
+  // jsdom does no layout and never computes a pseudo-element, so the flip is
+  // pinned by the stylesheet rules the `data-side` attribute selects.
+  it('opens its tooltips towards the note when the rail is on the right', () => {
+    // Vitest runs with `css: false`, which empties a `?raw` stylesheet import.
+    const stylesheet = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
+    const rule = (selector: string) => {
+      const start = stylesheet.indexOf(`${selector} {`);
+      expect(start).toBeGreaterThan(-1);
+      return stylesheet.slice(start, stylesheet.indexOf('}', start));
+    };
+
+    expect(rule('.icon-rail [data-tooltip]::after')).toContain('left: calc(100% + 8px)');
+    const right = rule(".icon-rail[data-side='right'] [data-tooltip]::after");
+    expect(right).toContain('right: calc(100% + 8px)');
+    expect(right).toContain('left: auto');
   });
 });

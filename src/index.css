@@ -2005,9 +2005,13 @@ html:not([data-platform='mobile'])
    `position: fixed; inset: 0` is painted underneath it and loses its first
    48px — which is how the graph's title arrived reading ".ph".
    Zero by default, so a surface that reads this is correct even when the
-   rail is switched off or hidden by focus mode. */
+   rail is switched off or hidden by focus mode. A surface offsets by the
+   inset for the edge it is clearing, never by --rail-width directly: the
+   rail can sit on either edge. */
 :root {
   --rail-width: 0px;
+  --rail-inset-left: var(--rail-width);
+  --rail-inset-right: 0px;
 }
 
 html.has-icon-rail {
@@ -2016,6 +2020,11 @@ html.has-icon-rail {
 
 html.has-icon-rail.focus-mode {
   --rail-width: 0px;
+}
+
+html.icon-rail-right {
+  --rail-inset-left: 0px;
+  --rail-inset-right: var(--rail-width);
 }
 
 /* COMPACT MODE */
@@ -4947,6 +4956,16 @@ button.editor-index-trigger:not(:disabled):hover {
   color: var(--text-primary);
 }
 
+/* The active marker sits on the window edge, whichever edge that is. */
+.icon-rail[data-side='right'] [data-tooltip].icon-rail-button {
+  border-left: 0;
+  border-right: 2px solid transparent;
+}
+
+.icon-rail[data-side='right'] [data-tooltip].icon-rail-button[data-active='true'] {
+  border-right-color: var(--text-primary);
+}
+
 [data-tooltip].icon-rail-button:active {
   background: var(--active-overlay);
   transform: scale(0.96);
@@ -5017,6 +5036,19 @@ button.editor-index-trigger:not(:disabled):hover {
 .icon-rail [data-tooltip]:focus-visible::after {
   opacity: 1;
   visibility: visible;
+  transform: translateX(0) translateY(-50%);
+}
+
+/* A rail on the right edge opens its tooltips leftwards, over the note;
+   opening rightwards would start them past the window edge. */
+.icon-rail[data-side='right'] [data-tooltip]::after {
+  right: calc(100% + 8px);
+  left: auto;
+  transform: translateX(4px) translateY(-50%);
+}
+
+.icon-rail[data-side='right'] [data-tooltip]:hover::after,
+.icon-rail[data-side='right'] [data-tooltip]:focus-visible::after {
   transform: translateX(0) translateY(-50%);
 }
 

@@ -61,8 +61,8 @@ describe('SettingsModal on a phone', () => {
     const { container } = render(<SettingsModal />);
 
     const page = container.firstElementChild as HTMLElement;
-    expect(page.style.left).toBe('var(--rail-width)');
-    expect(page.style.right).toBe('0px');
+    expect(page.style.left).toBe('var(--rail-inset-left)');
+    expect(page.style.right).toBe('var(--rail-inset-right)');
     expect(page.className).not.toContain('inset-0');
     const dialog = screen.getByRole('dialog');
     expect(dialog.className).not.toContain('max-w-3xl');
