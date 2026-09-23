@@ -68,6 +68,8 @@ All notable changes to Moldavite are documented here.
 
 - **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)
 
+- **A locked note inside a deleted folder could come back unable to unlock.** Its lock is tied to the folder it was locked in, but restoring the folder beside a newer folder of the same name renamed it, and restoring the note on its own put it at the top of Notes. A locked note now only ever comes back to the folder it was locked in: if that name is taken, by a folder or by a note with the same name locked or not, Moldavite says so and asks you to rename that one first.
+
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
 
 - Clicking the title of an empty note put the cursor in the note's text instead of letting you rename it.

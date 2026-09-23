@@ -136,23 +136,7 @@ fn restore_item_on_disk(
     let parent = destination
         .parent()
         .ok_or_else(|| "Invalid restore destination".to_string())?;
-    let relative_parent = parent
-        .strip_prefix(root)
-        .map_err(|_| "Invalid restore destination".to_string())?;
-    let mut current = root.to_path_buf();
-    for component in relative_parent.components() {
-        current.push(component);
-        match fs::symlink_metadata(&current) {
-            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
-                return Err("Invalid restore destination".to_string())
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                fs::create_dir(&current).map_err(|e| format!("Failed to create directory: {e}"))?;
-            }
-            Err(error) => return Err(format!("Failed to inspect restore directory: {error}")),
-        }
-    }
+    create_restore_parents(root, parent)?;
     validate_path_within_base(&destination, root)
         .map_err(|_| "Invalid restore destination".to_string())?;
     // The name may have been reused since the delete. Renaming onto it would
@@ -175,6 +159,17 @@ fn restore_item_on_disk(
             "A note named \"{name}\" already exists. Rename it, then restore this locked note."
         ));
     }
+    // Renaming the folder would move every locked note inside it off the path
+    // its ciphertext authenticates.
+    if taken && item.is_folder && holds_locked_note(&source) {
+        let name = std::path::Path::new(&item.original_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(&item.original_path);
+        return Err(format!(
+            "A folder named \"{name}\" already exists. Rename it, then restore this folder: the locked notes in it only unlock under its name."
+        ));
+    }
     let destination = if taken {
         let free = collision_free_restore_name(parent, &destination, item.is_folder)?;
         let destination = parent.join(free);
@@ -190,6 +185,46 @@ fn restore_item_on_disk(
 
 fn is_locked_item(item: &TrashedNoteMetadata) -> bool {
     !item.is_folder && item.original_path.ends_with(".md.locked")
+}
+
+/// Create the missing directories between `root` and `parent`, refusing to
+/// pass through a symlink or a file.
+fn create_restore_parents(root: &std::path::Path, parent: &std::path::Path) -> Result<(), String> {
+    let relative_parent = parent
+        .strip_prefix(root)
+        .map_err(|_| "Invalid restore destination".to_string())?;
+    let mut current = root.to_path_buf();
+    for component in relative_parent.components() {
+        current.push(component);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                return Err("Invalid restore destination".to_string())
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::create_dir(&current).map_err(|e| format!("Failed to create directory: {e}"))?;
+            }
+            Err(error) => return Err(format!("Failed to inspect restore directory: {error}")),
+        }
+    }
+    Ok(())
+}
+
+fn holds_locked_note(dir: &std::path::Path) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let path = entry.path();
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.is_dir() => holds_locked_note(&path),
+            Ok(metadata) if metadata.is_file() => path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".md.locked")),
+            _ => false,
+        }
+    })
 }
 
 /// Pick a free sibling name for a restore whose recorded name is taken.
@@ -789,15 +824,22 @@ pub(crate) fn restore_note_from_folder(
     }
 
     let standalone_dir = get_standalone_dir()?;
-    let dest_path =
-        restore_note_from_folder_on_disk(&trash_folder_path, &standalone_dir, &note_filename)?;
+    let dest_path = restore_note_from_folder_on_disk(
+        &trash_folder_path,
+        &standalone_dir,
+        &item.original_path,
+        &note_filename,
+    )?;
 
-    if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
-        let content = fs::read_to_string(&dest_path).unwrap_or_default();
-        index.update_note(name, &content);
+    // Ciphertext is never indexed.
+    if !note_filename.ends_with(".md.locked") {
+        if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+            let content = fs::read_to_string(&dest_path).unwrap_or_default();
+            index.update_note(name, &content);
+        }
+        crate::semantic::note_changed(&format!("notes/{}", note_filename));
+        crate::search_index::note_changed(&format!("notes/{}", note_filename));
     }
-    crate::semantic::note_changed(&format!("notes/{}", note_filename));
-    crate::search_index::note_changed(&format!("notes/{}", note_filename));
 
     let item = &mut metadata.items[item_index];
     item.contained_files.retain(|f| f != &note_filename);
@@ -816,9 +858,13 @@ pub(crate) fn restore_note_from_folder(
     Ok(())
 }
 
+/// A plain note comes back to the top of `notes/`. A locked note comes back to
+/// the exact path it was locked at, `<folder>/<note>`, because its ciphertext
+/// authenticates that path and could not be unlocked anywhere else.
 fn restore_note_from_folder_on_disk(
     trash_folder_path: &std::path::Path,
     standalone_dir: &std::path::Path,
+    folder_original_path: &str,
     note_filename: &str,
 ) -> Result<std::path::PathBuf, String> {
     let note_path_in_trash = trash_folder_path.join(note_filename);
@@ -830,13 +876,31 @@ fn restore_note_from_folder_on_disk(
 
     let leaf = note_path_in_trash
         .file_name()
+        .and_then(|name| name.to_str())
         .ok_or_else(|| "Invalid note filename".to_string())?;
-    let dest_path = standalone_dir.join(leaf);
-    validate_path_within_base(&dest_path, standalone_dir)
-        .map_err(|_| "Invalid restore destination".to_string())?;
-    if dest_path.exists() {
-        return Err("A note with this name already exists in the notes folder".to_string());
+    let locked_name = leaf.strip_suffix(".md.locked");
+    let dest_path = if locked_name.is_some() {
+        if !is_safe_existing_note_path(folder_original_path) {
+            return Err("Invalid original path in trash metadata".to_string());
+        }
+        standalone_dir
+            .join(folder_original_path)
+            .join(note_filename)
+    } else {
+        standalone_dir.join(leaf)
+    };
+    let parent = dest_path
+        .parent()
+        .ok_or_else(|| "Invalid restore destination".to_string())?;
+    if crate::persist::name_is_taken(parent, leaf) {
+        return Err(match locked_name {
+            Some(name) => format!(
+                "A note named \"{name}\" already exists. Rename it, then restore this locked note."
+            ),
+            None => "A note with this name already exists in the notes folder".to_string(),
+        });
     }
+    create_restore_parents(standalone_dir, parent)?;
 
     validate_path_within_base(&note_path_in_trash, trash_folder_path)
         .map_err(|_| "Invalid note filename".to_string())?;
@@ -1343,6 +1407,175 @@ mod tests {
         );
     }
 
+    fn lock(forge: &std::path::Path, note: &str, body: &str) {
+        let notes = forge.join("notes");
+        let path = notes.join(note);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, body).unwrap();
+        crate::commands::locking::lock_note_in(
+            forge,
+            note.into(),
+            "correct horse".into(),
+            false,
+            false,
+            &BacklinksIndex::new(),
+        )
+        .unwrap();
+    }
+
+    fn unlock(forge: &std::path::Path, note: &str) -> Result<String, String> {
+        crate::commands::locking::unlock_note_in(
+            forge,
+            note.into(),
+            "correct horse".into(),
+            false,
+            false,
+        )
+    }
+
+    fn trash_projects(forge: &std::path::Path, id: &str) -> TrashedNoteMetadata {
+        let trash = forge.join("trash");
+        fs::create_dir_all(&trash).unwrap();
+        trash_folder_on_disk(&forge.join("notes"), &trash, "Projects", id, 0).unwrap()
+    }
+
+    #[test]
+    fn a_locked_note_restored_from_a_trashed_folder_returns_to_its_path_and_unlocks() {
+        let tmp = TempDir::new("folder-locked-note");
+        lock(&tmp.0, "Projects/Secret.md", "the plan");
+        let folder = trash_projects(&tmp.0, "folder-locked");
+
+        let restored = restore_note_from_folder_on_disk(
+            &trash_item_path(&tmp.0.join("trash"), &folder),
+            &tmp.0.join("notes"),
+            &folder.original_path,
+            "Secret.md.locked",
+        )
+        .unwrap();
+
+        assert_eq!(restored, tmp.0.join("notes/Projects/Secret.md.locked"));
+        assert!(!tmp.0.join("notes/Secret.md.locked").exists());
+        assert_eq!(unlock(&tmp.0, "Projects/Secret.md").unwrap(), "the plan");
+    }
+
+    #[test]
+    fn a_locked_note_from_a_trashed_folder_is_not_restored_onto_either_spelling() {
+        let tmp = TempDir::new("folder-locked-taken");
+        lock(&tmp.0, "Projects/Secret.md", "the plan");
+        let folder = trash_projects(&tmp.0, "folder-taken");
+        let trashed = trash_item_path(&tmp.0.join("trash"), &folder);
+        let notes = tmp.0.join("notes");
+
+        for taken in ["Secret.md", "Secret.md.locked"] {
+            fs::create_dir_all(notes.join("Projects")).unwrap();
+            fs::write(notes.join("Projects").join(taken), "newer").unwrap();
+            let error =
+                restore_note_from_folder_on_disk(&trashed, &notes, "Projects", "Secret.md.locked")
+                    .unwrap_err();
+            assert_eq!(
+                error,
+                "A note named \"Secret\" already exists. Rename it, then restore this locked note."
+            );
+            assert_eq!(
+                fs::read_to_string(notes.join("Projects").join(taken)).unwrap(),
+                "newer"
+            );
+            assert!(trashed.join("Secret.md.locked").exists());
+            fs::remove_file(notes.join("Projects").join(taken)).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_plain_note_from_a_trashed_folder_is_not_restored_beside_a_locked_twin() {
+        let tmp = TempDir::new("folder-plain-locked-twin");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+        fs::write(notes.join("Projects/Plan.md"), "old plan").unwrap();
+        let folder = trash_projects(&tmp.0, "folder-twin");
+        lock(&tmp.0, "Plan.md", "locked plan");
+
+        let error = restore_note_from_folder_on_disk(
+            &trash_item_path(&tmp.0.join("trash"), &folder),
+            &notes,
+            "Projects",
+            "Plan.md",
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            "A note with this name already exists in the notes folder"
+        );
+        assert!(!notes.join("Plan.md").exists());
+        assert_eq!(unlock(&tmp.0, "Plan.md").unwrap(), "locked plan");
+    }
+
+    #[test]
+    fn a_trashed_folder_holding_a_locked_note_is_never_restored_under_another_name() {
+        let tmp = TempDir::new("folder-locked-rename");
+        let notes = tmp.0.join("notes");
+        lock(&tmp.0, "Projects/Deep/Secret.md", "the plan");
+        let folder = trash_projects(&tmp.0, "folder-rename");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+
+        let error = restore_item_on_disk(
+            &tmp.0.join("trash"),
+            &tmp.0.join("daily"),
+            &tmp.0.join("weekly"),
+            &notes,
+            &folder,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            "A folder named \"Projects\" already exists. Rename it, then restore this folder: the locked notes in it only unlock under its name."
+        );
+        assert!(!notes.join("Projects (2)").exists());
+        assert!(trash_item_path(&tmp.0.join("trash"), &folder)
+            .join("Deep/Secret.md.locked")
+            .exists());
+
+        fs::remove_dir(notes.join("Projects")).unwrap();
+        restore_item_on_disk(
+            &tmp.0.join("trash"),
+            &tmp.0.join("daily"),
+            &tmp.0.join("weekly"),
+            &notes,
+            &folder,
+        )
+        .unwrap();
+        assert_eq!(
+            unlock(&tmp.0, "Projects/Deep/Secret.md").unwrap(),
+            "the plan"
+        );
+    }
+
+    #[test]
+    fn a_trashed_folder_of_plain_notes_still_restores_beside_a_taken_name() {
+        let tmp = TempDir::new("folder-plain-rename");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+        fs::write(notes.join("Projects/Plan.md"), "plan").unwrap();
+        let folder = trash_projects(&tmp.0, "folder-plain");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+
+        let restored = restore_item_on_disk(
+            &tmp.0.join("trash"),
+            &tmp.0.join("daily"),
+            &tmp.0.join("weekly"),
+            &notes,
+            &folder,
+        )
+        .unwrap();
+
+        assert_eq!(restored, notes.join("Projects (2)"));
+        assert_eq!(
+            fs::read_to_string(restored.join("Plan.md")).unwrap(),
+            "plan"
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn security_regression_folder_restore_rejects_symlinked_note_path() {
@@ -1357,7 +1590,12 @@ mod tests {
         fs::write(outside.join("secret.md"), "outside secret").unwrap();
         symlink(&outside, trash_folder.join("link")).unwrap();
 
-        let result = restore_note_from_folder_on_disk(&trash_folder, &standalone, "link/secret.md");
+        let result = restore_note_from_folder_on_disk(
+            &trash_folder,
+            &standalone,
+            "Projects",
+            "link/secret.md",
+        );
 
         assert!(result.is_err());
         assert_eq!(
