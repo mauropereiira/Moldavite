@@ -5,7 +5,7 @@ private struct ExportOptions: Decodable {
     let path: String
 }
 
-final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
+final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
     private var pending: Invoke?
 
     @objc func exportFile(_ invoke: Invoke) throws {
@@ -58,13 +58,21 @@ final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
                 popover.sourceRect = CGRect(x: bounds.midX, y: bounds.midY, width: 0, height: 0)
                 popover.permittedArrowDirections = []
             }
-            // Cancelling an activity such as Mail returns to the sheet, which
-            // still needs the file; only the sheet closing ends the share.
-            sheet.completionWithItemsHandler = { [weak self] activity, completed, _, _ in
+            // Cancelling an activity such as Mail can return to the sheet, which
+            // still needs the file, or close the sheet along with it, and then
+            // nothing else reports. Once the sheet is gone the share is over.
+            sheet.completionWithItemsHandler = { [weak self, weak sheet] activity, completed, _, _ in
                 if completed || activity == nil {
-                    self?.finish(completed)
+                    self?.finish(completed, invoke)
+                    return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if sheet?.presentingViewController == nil || sheet?.isBeingDismissed == true {
+                        self?.finish(false, invoke)
+                    }
                 }
             }
+            sheet.presentationController?.delegate = self
             self.pending = invoke
             presenter.present(sheet, animated: true)
         }
@@ -78,7 +86,13 @@ final class DocumentExportPlugin: Plugin, UIDocumentPickerDelegate {
         finish(false)
     }
 
-    private func finish(_ exported: Bool) {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        finish(false)
+    }
+
+    /// `only` ties a late callback to the share that scheduled it.
+    private func finish(_ exported: Bool, _ only: Invoke? = nil) {
+        if let only = only, pending !== only { return }
         let invoke = pending
         pending = nil
         invoke?.resolve(["exported": exported])
