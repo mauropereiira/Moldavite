@@ -4,6 +4,9 @@
  * `openTabs` owns loaded note objects. `activeTabId` selects at most one tab, and
  * `currentNote` must be that exact active tab object (or `null` when no tab is active);
  * tab open, close, switch, content, and rename actions update the three together.
+ * `savedContent` holds, per open tab, the body as last loaded from or saved to disk;
+ * a tab whose `content` differs has unsaved edits. It lives beside the tabs rather
+ * than on them so recording a save never replaces a tab object.
  * Note ids are stable disk addresses, not display titles. Recent ids are persisted per
  * Forge; temporary unlock state and loaded tab bodies are process-only.
  */
@@ -31,6 +34,9 @@ interface NoteState {
   // Security - tracks temporarily unlocked notes for auto-lock feature
   unlockedNotes: Set<string>;
   externallyChanged: Map<string, string | null>;
+  savedContent: Map<string, string>;
+  /** A locked note someone tried to open; the sidebar answers it with the password prompt. */
+  pendingUnlock: NoteFile | null;
 
   setNotes: (notes: NoteFile[]) => void;
   setCurrentNote: (note: Note | null) => void;
@@ -47,6 +53,7 @@ interface NoteState {
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
+  markNoteSaved: (noteId: string, content: string) => void;
   markExternallyChanged: (noteId: string, client?: string) => void;
   clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
@@ -62,6 +69,8 @@ interface NoteState {
   unlockNote: (noteId: string) => void;
   lockNote: (noteId: string) => void;
   lockAllNotes: () => void;
+  requestUnlock: (note: NoteFile) => void;
+  clearPendingUnlock: () => void;
 
   addRecentNote: (noteId: string) => void;
 }
@@ -90,6 +99,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   recentNoteIds: loadRecentNotes(),
   unlockedNotes: new Set<string>(),
   externallyChanged: new Map<string, string | null>(),
+  savedContent: new Map<string, string>(),
+  pendingUnlock: null,
 
   setNotes: (notes) => {
     set({ notes });
@@ -166,6 +177,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
     return set((state) => {
       const existingTabIndex = state.openTabs.findIndex((t) => t.id === note.id);
+      const savedContent = new Map(state.savedContent);
+      savedContent.set(note.id, note.content);
 
       if (existingTabIndex >= 0) {
         const updatedTabs = state.openTabs.map((t, i) =>
@@ -175,6 +188,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           openTabs: updatedTabs,
           activeTabId: note.id,
           currentNote: updatedTabs[existingTabIndex],
+          savedContent,
         };
       }
 
@@ -186,6 +200,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           openTabs: newTabs,
           activeTabId: note.id,
           currentNote: note,
+          savedContent,
         };
       }
 
@@ -193,10 +208,12 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (activeIndex >= 0 && !state.openTabs[activeIndex].isPinned) {
         // The active unpinned tab is the current preview slot.
         const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
+        savedContent.delete(state.openTabs[activeIndex].id);
         return {
           openTabs: newTabs,
           activeTabId: note.id,
           currentNote: note,
+          savedContent,
         };
       }
 
@@ -207,10 +224,12 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const previewIndex = state.openTabs.findIndex((tab) => !tab.isPinned);
       if (previewIndex >= 0) {
         const newTabs = state.openTabs.map((tab, index) => (index === previewIndex ? note : tab));
+        savedContent.delete(state.openTabs[previewIndex].id);
         return {
           openTabs: newTabs,
           activeTabId: note.id,
           currentNote: note,
+          savedContent,
         };
       }
 
@@ -220,6 +239,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         openTabs: newTabs,
         activeTabId: note.id,
         currentNote: note,
+        savedContent,
       };
     });
   },
@@ -235,6 +255,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const newTabs = state.openTabs.filter((t) => t.id !== noteId);
       const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
+      const savedContent = new Map(state.savedContent);
+      savedContent.delete(noteId);
       try {
         localStorage.setItem(
           namespacedKey('moldavite-pinned-tabs'),
@@ -263,6 +285,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         activeTabId: newActiveId,
         currentNote: newCurrentNote,
         externallyChanged,
+        savedContent,
       };
     }),
 
@@ -308,6 +331,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       );
       const externallyChanged = new Map(state.externallyChanged);
       externallyChanged.delete(noteId);
+      const savedContent = new Map(state.savedContent);
+      savedContent.set(noteId, content);
       return {
         openTabs,
         currentNote:
@@ -315,7 +340,17 @@ export const useNoteStore = create<NoteState>((set, get) => ({
             ? openTabs.find((tab) => tab.id === noteId) || null
             : state.currentNote,
         externallyChanged,
+        savedContent,
       };
+    }),
+
+  markNoteSaved: (noteId, content) =>
+    set((state) => {
+      if (!state.openTabs.some((tab) => tab.id === noteId)) return state;
+      if (state.savedContent.get(noteId) === content) return state;
+      const savedContent = new Map(state.savedContent);
+      savedContent.set(noteId, content);
+      return { savedContent };
     }),
 
   markExternallyChanged: (noteId, client) =>
@@ -356,6 +391,9 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           ([id, client]) => [id === oldPath ? newPath : id, client] as const
         )
       );
+      const savedContent = new Map(
+        [...state.savedContent].map(([id, body]) => [id === oldPath ? newPath : id, body] as const)
+      );
       const activeTabId = state.activeTabId === oldPath ? newPath : state.activeTabId;
       const currentNote = activeTabId
         ? openTabs.find((tab) => tab.id === activeTabId) || null
@@ -389,6 +427,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         recentNoteIds,
         unlockedNotes,
         externallyChanged,
+        savedContent,
       };
     }),
 
@@ -620,6 +659,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
     set({ unlockedNotes: new Set() });
   },
+
+  requestUnlock: (note) => set({ pendingUnlock: note }),
+
+  clearPendingUnlock: () => set({ pendingUnlock: null }),
 
   /**
    * Adds a note to the recent notes list.

@@ -159,3 +159,54 @@ describe('useFolders note moves', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('useFolders folder renames', () => {
+  const inside: Note = {
+    ...openNote,
+    id: 'notes/Projects/Plan.md',
+    title: 'Plan',
+    isPinned: false,
+  };
+
+  beforeEach(() => {
+    fileSystem.renameFolder.mockResolvedValue('Archive');
+    fileSystem.listNotes.mockResolvedValue([]);
+    useNoteStore.setState({
+      openTabs: [openNote, inside],
+      activeTabId: inside.id,
+      currentNote: inside,
+      savedContent: new Map([
+        [openNote.id, openNote.content],
+        [inside.id, inside.content],
+      ]),
+    });
+  });
+
+  it('points open tabs inside a renamed folder at their new path', async () => {
+    const { result } = renderHook(() => useFolders());
+
+    await act(() => result.current.renameExistingFolder('Projects', 'Archive'));
+
+    const state = useNoteStore.getState();
+    expect(state.openTabs.map((tab) => tab.id)).toEqual([openNote.id, 'notes/Archive/Plan.md']);
+    expect(state.currentNote?.id).toBe('notes/Archive/Plan.md');
+    expect(state.savedContent.get('notes/Archive/Plan.md')).toBe(inside.content);
+    expect(autosave.beginAutosavePathChange).toHaveBeenCalledWith(inside.id);
+    expect(autosave.commitAutosavePathChange).toHaveBeenCalledWith(
+      inside.id,
+      'notes/Archive/Plan.md'
+    );
+  });
+
+  it('refuses to rename a folder holding a note with unsaved edits', async () => {
+    useNoteStore.setState({ savedContent: new Map([[openNote.id, openNote.content]]) });
+    const { result } = renderHook(() => useFolders());
+
+    await expect(
+      act(() => result.current.renameExistingFolder('Projects', 'Archive'))
+    ).rejects.toThrow('Save pending changes');
+
+    expect(fileSystem.renameFolder).not.toHaveBeenCalled();
+    expect(useNoteStore.getState().currentNote?.id).toBe(inside.id);
+  });
+});

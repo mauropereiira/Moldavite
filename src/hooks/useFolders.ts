@@ -30,8 +30,65 @@ import {
   flushPendingAutosave,
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
+import { hasUnsavedEdits } from '@/lib/leaveSave';
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { useToast } from './useToast';
+
+/**
+ * Renames or moves a folder while the open tabs inside it keep pointing at their
+ * files. Owed edits are saved first; one typed during the move is held and written
+ * to the new address.
+ */
+async function changeFolderPath(
+  folderPath: string,
+  change: () => Promise<string>
+): Promise<string> {
+  const releasePathChange = await acquireAutosavePathChange();
+  const prefix = `notes/${folderPath}/`;
+  let heldAutosavePath: string | null = null;
+  try {
+    await flushPendingAutosave();
+    const hasEditsInside = useNoteStore
+      .getState()
+      .openTabs.some((tab) => tab.id.startsWith(prefix) && hasUnsavedEdits(tab.id));
+    if (getPendingAutosaveNoteId() !== null || hasEditsInside) {
+      throw new Error('Save pending changes before renaming or moving a folder');
+    }
+    const currentId = useNoteStore.getState().currentNote?.id;
+    if (currentId?.startsWith(prefix)) {
+      beginAutosavePathChange(currentId);
+      heldAutosavePath = currentId;
+    }
+
+    const newFolderPath = await change();
+    const newPrefix = `notes/${newFolderPath}/`;
+    if (newPrefix !== prefix) {
+      for (const tab of useNoteStore.getState().openTabs) {
+        if (!tab.id.startsWith(prefix)) continue;
+        const newId = newPrefix + tab.id.slice(prefix.length);
+        useNoteStore.getState().renameNoteReferences(tab.id, newId, tab.title);
+      }
+    }
+    if (heldAutosavePath) {
+      const committingPath = heldAutosavePath;
+      heldAutosavePath = null;
+      await commitAutosavePathChange(
+        committingPath,
+        newPrefix + committingPath.slice(prefix.length)
+      ).catch((error) => {
+        console.error('[useFolders] Failed to save an edit made during a folder move:', error);
+      });
+    }
+    return newFolderPath;
+  } catch (error) {
+    if (heldAutosavePath) {
+      await abortAutosavePathChange(heldAutosavePath).catch(() => {});
+    }
+    throw error;
+  } finally {
+    releasePathChange();
+  }
+}
 
 export function useFolders() {
   const {
@@ -89,7 +146,7 @@ export function useFolders() {
   const renameExistingFolder = useCallback(
     async (path: string, newName: string) => {
       try {
-        const newPath = await renameFolderApi(path, newName);
+        const newPath = await changeFolderPath(path, () => renameFolderApi(path, newName));
         await initialize();
         // Also refresh notes to update their folder paths
         const notes = await listNotes();
@@ -215,7 +272,9 @@ export function useFolders() {
             throw new Error('self-descendant move rejected');
           }
         }
-        const newPath = await moveFolderApi(folderPath, toFolder);
+        const newPath = await changeFolderPath(folderPath, () =>
+          moveFolderApi(folderPath, toFolder)
+        );
         // Refresh both folders and notes to reflect new paths
         await initialize();
         const notes = await listNotes();

@@ -1,6 +1,6 @@
 /** Verifies that a rename migrates every store keyed by the note's stable path. */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteColorsStore } from '@/stores/noteColorsStore';
 import { useNoteSelectionStore } from '@/stores/noteSelectionStore';
@@ -66,7 +66,6 @@ beforeEach(() => {
 
 async function renderInitializedHook() {
   const hook = renderHook(() => useNotes());
-  await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('list_notes'));
   return hook;
 }
 

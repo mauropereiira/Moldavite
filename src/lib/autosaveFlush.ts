@@ -81,6 +81,23 @@ export async function flushPendingAutosave(): Promise<void> {
   }
 }
 
+/**
+ * Settle owed writes as soon as the page is hidden. iOS suspends a backgrounded
+ * webview and may kill it without any further event, so the debounce may never fire.
+ */
+export function flushAutosaveWhenHidden(): () => void {
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') void flushPendingAutosave();
+  };
+  const onPageHide = () => void flushPendingAutosave();
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', onPageHide);
+  return () => {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pagehide', onPageHide);
+  };
+}
+
 export function registerAutosavePendingProbe(fn: PendingProbe): () => void {
   pendingProbe = fn;
   return () => {

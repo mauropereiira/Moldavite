@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   acquireAutosavePathChange,
+  flushAutosaveWhenHidden,
   registerAutosaveCloseGuard,
   registerAutosaveFlush,
   registerAutosavePendingProbe,
@@ -87,5 +88,31 @@ describe('autosave close guard', () => {
     expect(native.destroy).not.toHaveBeenCalled();
     unregisterFlush();
     unregisterProbe();
+  });
+});
+
+describe('autosave flush when the page is hidden', () => {
+  it('settles owed writes on visibilitychange to hidden and on pagehide', async () => {
+    const flush = vi.fn(async () => {});
+    const unregisterFlush = registerAutosaveFlush(flush);
+    const stop = flushAutosaveWhenHidden();
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(flush).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(flush).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new Event('pagehide'));
+    expect(flush).toHaveBeenCalledTimes(2);
+
+    stop();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(flush).toHaveBeenCalledTimes(2);
+    visibility.mockRestore();
+    unregisterFlush();
   });
 });
