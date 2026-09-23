@@ -188,68 +188,6 @@ describe('useNotes external-write bases', () => {
     expect(useNoteStore.getState().currentNote?.content).toContain('writing that must survive');
   });
 
-  it('cancels a deleted note debounce and closes its tab without recreating the file', async () => {
-    const doomedFile: NoteFile = {
-      name: 'doomed.md',
-      path: 'notes/doomed.md',
-      isDaily: false,
-      isWeekly: false,
-      isLocked: false,
-    };
-    const doomed: Note = {
-      id: doomedFile.path,
-      title: 'doomed',
-      content: '<p>saved body</p>',
-      createdAt: new Date(0),
-      updatedAt: new Date(0),
-      isDaily: false,
-      isWeekly: false,
-    };
-    const survivor: Note = {
-      ...doomed,
-      id: 'notes/survivor.md',
-      title: 'survivor',
-      content: '<p>survivor</p>',
-    };
-    invokeMock.mockImplementation(async (command: string) => {
-      if (command === 'list_notes') return [];
-      if (command === 'delete_note') return undefined;
-      if (command === 'write_note') {
-        return { contentHash: 'recreated-hash', conflictCopy: null };
-      }
-      return undefined;
-    });
-    const hook = renderHook(() => {
-      const noteActions = useNotes();
-      useAutoSave();
-      return noteActions;
-    });
-
-    act(() => {
-      useNoteStore.setState({
-        notes: [doomedFile],
-        openTabs: [doomed, survivor],
-        activeTabId: doomed.id,
-        currentNote: doomed,
-      });
-    });
-    act(() => {
-      useNoteStore.getState().updateNoteContent('<p>unsaved doomed edit</p>', doomed.id);
-    });
-    await waitFor(() => expect(getPendingAutosaveNoteId()).toBe(doomed.id));
-
-    await act(() => hook.result.current.deleteCurrentNote());
-    hook.unmount();
-
-    const commands = invokeMock.mock.calls.map(([command]) => command);
-    const state = useNoteStore.getState();
-    expect(commands.filter((command) => command === 'delete_note')).toHaveLength(1);
-    expect(commands.filter((command) => command === 'write_note')).toHaveLength(0);
-    expect(state.openTabs.map((tab) => tab.id)).toEqual([survivor.id]);
-    expect(state.activeTabId).toBe(survivor.id);
-    expect(state.currentNote?.id).toBe(survivor.id);
-  });
-
   it('readdresses edits made while an active note is moving', async () => {
     const note: Note = {
       id: 'notes/moving.md',

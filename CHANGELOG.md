@@ -64,6 +64,14 @@ All notable changes to Moldavite are documented here.
 
 - **An aliased wiki link, `[[Display|target]]`, lost its target the first time the note was edited.** It was saved as `[[Display]]`, which points at a different note. The target is now written back.
 
+- **Deleting a note from the editor's More menu deleted it for good.** The Index moved the same note to the Trash, where it can be restored for 7 days. Both now move it to the Trash, with the same confirmation.
+
+- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title.
+
+- Choosing a note colour from the editor footer did nothing. The colour was sent to a path that does not exist and quietly put back; it now applies and is saved with the note.
+
+- In a narrow window, where the footer folds its actions into one Actions menu, Rename, Note info, Save as template and the link and image dialogs opened inside that small menu and could not be used. They now open over the whole window, and the delete confirmation is no longer drawn beneath the menu.
+
 ## [2.7.2] - 2026-09-20
 
 ### Changed

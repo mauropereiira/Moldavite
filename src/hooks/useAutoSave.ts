@@ -34,12 +34,6 @@ import type { Note, NoteFile } from '@/types';
 
 type PendingAutosaveDiscard = (noteId: string, content: string) => void;
 let pendingAutosaveDiscard: PendingAutosaveDiscard | null = null;
-let pendingAutosaveDebounceCancel: ((noteId: string) => void) | null = null;
-
-/** Stop a queued debounce without discarding a write that has already started. */
-export function cancelPendingAutosaveDebounceForNote(noteId: string): void {
-  pendingAutosaveDebounceCancel?.(noteId);
-}
 
 /** Explicit note deletion may discard an owed save only after disk writes have drained. */
 export function discardPendingAutosaveForNote(noteId: string, content: string): void {
@@ -333,22 +327,6 @@ export function useAutoSave() {
     }
   }, []);
   useEffect(() => registerAutosaveBaselineReset(resetBaseline), [resetBaseline]);
-
-  const cancelPendingDebounce = useCallback((noteId: string) => {
-    if (pendingRef.current?.id === noteId && timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      pendingRef.current = null;
-    }
-  }, []);
-  useEffect(() => {
-    pendingAutosaveDebounceCancel = cancelPendingDebounce;
-    return () => {
-      if (pendingAutosaveDebounceCancel === cancelPendingDebounce) {
-        pendingAutosaveDebounceCancel = null;
-      }
-    };
-  }, [cancelPendingDebounce]);
 
   const discardPending = useCallback((noteId: string, content: string) => {
     const transition = pathChangeRef.current;

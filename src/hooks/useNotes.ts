@@ -29,8 +29,6 @@ import {
   readNote,
   readNoteSnapshot,
   readNoteWithMeta,
-  deleteNote,
-  drainNoteWrites,
   createNote as createNoteFile,
   getDailyNoteFilename,
   getWeeklyNoteFilename,
@@ -44,7 +42,6 @@ import {
 } from '@/lib';
 import type { NoteFile } from '@/types';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
-import { cancelPendingAutosaveDebounceForNote, discardPendingAutosaveForNote } from './useAutoSave';
 import {
   acquireAutosavePathChange,
   abortAutosavePathChange,
@@ -54,7 +51,6 @@ import {
   getPendingAutosaveNoteId,
 } from '@/lib/autosaveFlush';
 import {
-  discardLeaveSave,
   hasUnsavedEdits,
   heldLeaveSaveNote,
   readdressLeaveSave,
@@ -654,60 +650,6 @@ export function useNotes() {
     [flushCurrentNote, getState, setNotes, loadNote, setIsLoading]
   );
 
-  /**
-   * Deletes the currently loaded note from disk and removes it from the note list.
-   */
-  const deleteCurrentNote = useCallback(async () => {
-    const state = getState();
-    const note = state.currentNote;
-    if (!note) return;
-
-    let filename: string;
-    if (note.isDaily && note.date) {
-      filename = `${note.date}.md`;
-    } else if (note.isWeekly && note.week) {
-      filename = `${note.week}.md`;
-    } else {
-      // Delete by on-disk path, never by display title — a diverged title
-      // would delete the wrong file.
-      filename = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
-    }
-
-    try {
-      setIsLoading(true);
-      // Cancel the queued debounce and drain anything already writing. deleteNote
-      // rechecks under a per-note write lock before removing the file.
-      cancelPendingAutosaveDebounceForNote(note.id);
-      await drainNoteWrites(filename, note.isDaily || false, note.isWeekly || false);
-      await deleteNote(filename, note.isDaily || false, note.isWeekly || false);
-      discardPendingAutosaveForNote(note.id, note.content);
-      discardLeaveSave(note.id);
-
-      const freshNotes = state.notes;
-      let updatedNotes: NoteFile[];
-      if (note.isDaily && note.date) {
-        updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === note.date));
-      } else if (note.isWeekly && note.week) {
-        updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === note.week));
-      } else {
-        updatedNotes = freshNotes.filter((n) => n.path !== note.id);
-      }
-      setNotes(updatedNotes);
-
-      // Remove the deleted tab atomically and select its surviving neighbour.
-      useNoteStore.getState().removeTabByPath(note.id);
-    } catch (error) {
-      // A cancelled debounce was only provisional. If deletion fails, replace
-      // the live tab object so autosave observes it again and retains the buffer.
-      const liveTab = getState().openTabs.find((tab) => tab.id === note.id);
-      if (liveTab) useNoteStore.getState().updateTabContent(note.id, liveTab.content);
-      console.error('[useNotes] Failed to delete note:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getState, setNotes, setIsLoading]);
-
   return {
     notes,
     currentNote,
@@ -718,7 +660,6 @@ export function useNotes() {
     createFromTemplate,
     duplicateNote,
     renameNote,
-    deleteCurrentNote,
     refresh: loadNoteList,
   };
 }

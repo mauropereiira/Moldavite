@@ -131,7 +131,13 @@ get trapped underneath Index.
   the page back to the top when WKWebView drags it under the status bar to
   make room for the caret. After the shell shrinks, it also reveals a focused
   dialog field inside its scroll container. Long dialog titles wrap, and their
-  actions remain reachable above the keyboard.
+  actions remain reachable above the keyboard. Focus changes resize the shell
+  only after the current tap: WebKit moves focus on mousedown and hit-tests the
+  click afterwards, so resizing there moved a dialog's button out from under
+  the finger and the first tap only dismissed the keyboard.
+- A pinned bar is the app's first row and clears the status bar itself; the
+  rail, the note and the pages beside it read `--shell-safe-top`, which is
+  zero below it.
 - Focus traps focus the page container on a phone rather than the first
   button, so no close control wears a focus ring after a tap. The global
   `!important` hover fill in `index.css` sticks after a tap on a touch

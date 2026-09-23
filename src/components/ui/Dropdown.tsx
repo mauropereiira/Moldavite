@@ -18,9 +18,14 @@ export function Dropdown({
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // A dialog opened from a menu item is portalled to <body>, outside this
+  // menu's DOM but inside its React tree. A press in that dialog must not
+  // close the menu, because closing it unmounts the dialog as well.
+  const pressInTreeRef = useRef<Event | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (pressInTreeRef.current === event) return;
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
@@ -94,7 +99,13 @@ export function Dropdown({
     });
 
   return (
-    <div ref={dropdownRef} className={`relative ${className}`}>
+    <div
+      ref={dropdownRef}
+      className={`relative ${className}`}
+      onMouseDownCapture={(event) => {
+        pressInTreeRef.current = event.nativeEvent;
+      }}
+    >
       <div
         onClick={(event) => {
           if (!isOpen) captureImpactOrigin(event.currentTarget);

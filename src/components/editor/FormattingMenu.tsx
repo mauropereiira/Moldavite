@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Editor, useEditorState } from '@tiptap/react';
 import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/components/ui/Dropdown';
 import { formatShortcut } from '@/lib/shortcuts';
@@ -184,18 +185,25 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
         </div>
       </Dropdown>
 
-      <LinkModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        onInsert={handleLinkInsert}
-        initialUrl={linkInitialValues.url}
-        initialText={linkInitialValues.text}
-      />
-      <ImageModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        onInsert={handleImageInsert}
-      />
+      {/* Portalled for the same reason as MoreOptionsMenu's dialogs: the
+          folded Actions menu would otherwise contain them. */}
+      {createPortal(
+        <>
+          <LinkModal
+            isOpen={isLinkModalOpen}
+            onClose={() => setIsLinkModalOpen(false)}
+            onInsert={handleLinkInsert}
+            initialUrl={linkInitialValues.url}
+            initialText={linkInitialValues.text}
+          />
+          <ImageModal
+            isOpen={isImageModalOpen}
+            onClose={() => setIsImageModalOpen(false)}
+            onInsert={handleImageInsert}
+          />
+        </>,
+        document.body
+      )}
     </>
   );
 }

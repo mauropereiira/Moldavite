@@ -1,5 +1,6 @@
 import { isMobilePlatform } from '@/lib/platform';
 import { lazy, Suspense, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
@@ -290,101 +291,115 @@ export function MoreOptionsMenu({
         </DropdownItem>
       </Dropdown>
 
-      {/* Note Info Modal */}
-      {showNoteInfo && currentNoteId && (
-        <div
-          className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowNoteInfo(false);
-          }}
-        >
-          <div
-            className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
-            style={{ borderRadius: 'var(--radius-md)' }}
-          >
-            <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Note Info
-            </h3>
-            <div className="space-y-2 text-sm">
+      {/* The footer can fold this menu into the Actions menu, whose entry
+          transform would become the containing block of these fixed dialogs
+          and trap them inside it. */}
+      {createPortal(
+        <>
+          {/* Note Info Modal */}
+          {showNoteInfo && currentNoteId && (
+            <div
+              className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setShowNoteInfo(false);
+              }}
+            >
               <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
+                className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
+                style={{ borderRadius: 'var(--radius-md)' }}
               >
-                <span style={{ color: 'var(--text-muted)' }}>Title</span>
-                <span className="truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
-                  {currentNoteTitle}
-                </span>
-              </div>
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Type</span>
-                <span style={{ color: 'var(--text-primary)' }}>
-                  {currentNoteIsDaily ? 'Daily' : 'Standalone'}
-                </span>
-              </div>
-              {currentNoteIsDaily && currentNoteDate && (
-                <div
-                  className="flex justify-between py-1.5"
-                  style={{ borderBottom: '1px solid var(--border-muted)' }}
+                <h3
+                  className="text-base font-semibold mb-4"
+                  style={{ color: 'var(--text-primary)' }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>Date</span>
-                  <span style={{ color: 'var(--text-primary)' }}>{currentNoteDate}</span>
+                  Note Info
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Title</span>
+                    <span
+                      className="truncate max-w-[180px]"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {currentNoteTitle}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Type</span>
+                    <span style={{ color: 'var(--text-primary)' }}>
+                      {currentNoteIsDaily ? 'Daily' : 'Standalone'}
+                    </span>
+                  </div>
+                  {currentNoteIsDaily && currentNoteDate && (
+                    <div
+                      className="flex justify-between py-1.5"
+                      style={{ borderBottom: '1px solid var(--border-muted)' }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>Date</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{currentNoteDate}</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Words</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
+                  </div>
+                  <div
+                    className="flex justify-between py-1.5"
+                    style={{ borderBottom: '1px solid var(--border-muted)' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Characters</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span style={{ color: 'var(--text-muted)' }}>File Size</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{getFileSizeEstimate()}</span>
+                  </div>
                 </div>
-              )}
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Words</span>
-                <span style={{ color: 'var(--text-primary)' }}>{wordCount}</span>
-              </div>
-              <div
-                className="flex justify-between py-1.5"
-                style={{ borderBottom: '1px solid var(--border-muted)' }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Characters</span>
-                <span style={{ color: 'var(--text-primary)' }}>{characterCount}</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span style={{ color: 'var(--text-muted)' }}>File Size</span>
-                <span style={{ color: 'var(--text-primary)' }}>{getFileSizeEstimate()}</span>
+                <div className="mt-6 flex justify-end">
+                  <button onClick={() => setShowNoteInfo(false)} className="btn focus-ring">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <button onClick={() => setShowNoteInfo(false)} className="btn focus-ring">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Save as Template Modal */}
-      {currentNoteId && (
-        <SaveTemplateModal
-          isOpen={showSaveTemplateModal}
-          onClose={() => setShowSaveTemplateModal(false)}
-          initialContent={templateInitialContent}
-        />
-      )}
+          {/* Save as Template Modal */}
+          {currentNoteId && (
+            <SaveTemplateModal
+              isOpen={showSaveTemplateModal}
+              onClose={() => setShowSaveTemplateModal(false)}
+              initialContent={templateInitialContent}
+            />
+          )}
 
-      {/* PDF export options modal */}
-      <PdfExportOptionsModal
-        isOpen={showPdfOptions}
-        onClose={() => setShowPdfOptions(false)}
-        onConfirm={handlePdfExportConfirm}
-      />
-
-      {showRenameModal && currentNoteFile && (
-        <Suspense fallback={null}>
-          <RenameNoteModal
-            note={currentNoteFile}
-            onRename={onRenameNote}
-            onClose={() => setShowRenameModal(false)}
+          {/* PDF export options modal */}
+          <PdfExportOptionsModal
+            isOpen={showPdfOptions}
+            onClose={() => setShowPdfOptions(false)}
+            onConfirm={handlePdfExportConfirm}
           />
-        </Suspense>
+
+          {showRenameModal && currentNoteFile && (
+            <Suspense fallback={null}>
+              <RenameNoteModal
+                note={currentNoteFile}
+                onRename={onRenameNote}
+                onClose={() => setShowRenameModal(false)}
+              />
+            </Suspense>
+          )}
+        </>,
+        document.body
       )}
     </>
   );

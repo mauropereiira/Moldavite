@@ -2078,6 +2078,16 @@ html.icon-rail-right {
   box-shadow: var(--shadow-lg);
 }
 
+.note-view-only {
+  max-width: var(--editor-measure);
+  margin: 16px auto 0;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* TIPTAP EDITOR STYLES */
 
 .tiptap {
@@ -3043,6 +3053,13 @@ button[aria-expanded='true'] .wn-caret {
 
 .update-notification-enter {
   animation: update-slide-in var(--dur-slow) var(--ease-standard) forwards;
+}
+
+/* Inside the content area: a rail on the right would otherwise sit on top of
+   the toast's dismiss control. */
+.toast-container {
+  right: calc(16px + var(--rail-inset-right));
+  bottom: 16px;
 }
 
 .toast-enter,

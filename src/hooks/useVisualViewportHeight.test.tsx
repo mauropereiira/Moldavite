@@ -51,3 +51,32 @@ it('does not mistake pinch zoom for the keyboard or change desktop geometry', ()
   renderHook(useVisualViewportHeight);
   expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('');
 });
+
+// Tapping a dialog button while a field has the keyboard moves focus on
+// mousedown; resizing the shell there moved the button before the click.
+it('keeps the shell still until the tap that moved focus has finished', () => {
+  vi.useFakeTimers();
+  const dialog = document.createElement('div');
+  dialog.tabIndex = -1;
+  const input = document.createElement('input');
+  dialog.append(input);
+  document.body.append(dialog);
+  const { unmount } = renderHook(useVisualViewportHeight);
+  act(() => {
+    input.focus();
+    vi.runAllTimers();
+    viewport.height = 520;
+    viewport.dispatchEvent(new Event('resize'));
+  });
+  const appHeight = () => document.documentElement.style.getPropertyValue('--app-height');
+  expect(appHeight()).toBe('476px');
+
+  act(() => dialog.focus());
+  expect(appHeight()).toBe('476px');
+
+  act(() => vi.runAllTimers());
+  expect(appHeight()).toBe('520px');
+  unmount();
+  dialog.remove();
+  vi.useRealTimers();
+});

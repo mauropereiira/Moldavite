@@ -43,9 +43,20 @@ export function useVisualViewportHeight(): void {
       // container is what should move; put the page back.
       if (window.scrollY > 0 || (viewport?.offsetTop ?? 0) > 0) window.scrollTo(0, 0);
     };
+    // Tapping a dialog button while a field has the keyboard moves focus on
+    // mousedown (to the dialog, which is focusable, or to nothing), and WebKit
+    // hit-tests mouseup and click afterwards. Giving back the Done row there
+    // moves the dialog under the finger, so the click lands beside the button
+    // and the tap only dismisses the keyboard. Focus changes therefore settle
+    // after the tap; the keyboard's own resize follows them anyway.
+    let focusTimer = 0;
+    const updateAfterFocusChange = () => {
+      clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(update, 0);
+    };
     update();
-    document.addEventListener('focusin', update);
-    document.addEventListener('focusout', update);
+    document.addEventListener('focusin', updateAfterFocusChange);
+    document.addEventListener('focusout', updateAfterFocusChange);
 
     if (viewport) {
       viewport.addEventListener('resize', update);
@@ -55,14 +66,15 @@ export function useVisualViewportHeight(): void {
     }
     return () => {
       cancelAnimationFrame(revealFrame);
+      clearTimeout(focusTimer);
       if (viewport) {
         viewport.removeEventListener('resize', update);
         viewport.removeEventListener('scroll', update);
       } else {
         window.removeEventListener('resize', update);
       }
-      document.removeEventListener('focusin', update);
-      document.removeEventListener('focusout', update);
+      document.removeEventListener('focusin', updateAfterFocusChange);
+      document.removeEventListener('focusout', updateAfterFocusChange);
       root.style.removeProperty('--app-height');
       delete root.dataset.keyboardField;
       delete root.dataset.keyboard;

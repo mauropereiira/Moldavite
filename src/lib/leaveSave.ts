@@ -50,7 +50,7 @@ interface PendingLeaveSave {
 
 const pendingLeaveSaves = new Map<string, PendingLeaveSave>();
 
-function noteDiskFilename(note: Note): string {
+export function noteDiskFilename(note: Note): string {
   if (note.isDaily && note.date) return `${note.date}.md`;
   if (note.isWeekly && note.week) return `${note.week}.md`;
   // The display title can diverge from the filename and must never decide where we save.

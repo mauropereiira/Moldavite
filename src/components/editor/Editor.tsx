@@ -1,5 +1,6 @@
 import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -66,15 +67,15 @@ import {
   useSettingsStore,
   useThemeStore,
   useNoteColorsStore,
-  buildNotePath,
   useTagStore,
 } from '@/stores';
 import { editorHandle } from '@/stores/editorHandleStore';
-import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hooks';
+import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates, useTrash } from '@/hooks';
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml, processAndSaveImage } from '@/lib';
 import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
+import { noteDiskFilename } from '@/lib/leaveSave';
 import { looksLikeMarkdown } from '@/lib/markdownPaste';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
@@ -118,8 +119,14 @@ export function Editor() {
     showEditorFooter,
     showBacklinksPanel,
   } = useSettingsStore();
+  // A locked note opened with its password is decrypted in memory only;
+  // autosave skips it, so anything typed into it would be lost.
+  const isViewOnly = useNoteStore(
+    (state) => !!state.currentNote && state.unlockedNotes.has(state.currentNote.id)
+  );
   const { theme, setTheme } = useThemeStore();
-  const { deleteCurrentNote, loadDailyNote, createNote, loadNote, renameNote } = useNotes();
+  const { loadDailyNote, createNote, loadNote, renameNote } = useNotes();
+  const { trashNote } = useTrash();
   const { getTemplateContent } = useTemplates();
   const { getColor } = useNoteColorsStore();
   const { allTags, setSelectedTag } = useTagStore();
@@ -136,9 +143,7 @@ export function Editor() {
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  const notePath = currentNote
-    ? buildNotePath(currentNote.id.replace('.md', '') + '.md', currentNote.isDaily)
-    : '';
+  const notePath = currentNote?.id ?? '';
   const noteColorId = getColor(notePath);
   const noteBackgroundColor = getNoteBackgroundColor(noteColorId, isDark);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -289,14 +294,16 @@ export function Editor() {
   };
 
   const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false);
+    if (!currentNote) return;
     try {
-      await deleteCurrentNote();
-      setShowDeleteConfirm(false);
+      await trashNote(
+        noteDiskFilename(currentNote),
+        currentNote.isDaily || false,
+        currentNote.isWeekly || false
+      );
     } catch (error) {
-      console.error('[Editor] Delete failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      toast.error(`Failed to delete note: ${message}`);
-      setShowDeleteConfirm(false);
+      console.error('[Editor] Trash failed:', error);
     }
   };
 
@@ -856,6 +863,10 @@ export function Editor() {
   );
   editorRef.current = editor;
 
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) editor.setEditable(!isViewOnly, false);
+  }, [editor, isViewOnly]);
+
   const handleImageFile = useCallback(
     async (file: File) => {
       const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -1146,20 +1157,24 @@ export function Editor() {
   }
 
   const isCloudPlaceholder = !!currentNote.cloudPending;
+  const deleteName = noteDiskFilename(currentNote).replace(/\.md$/, '').split('/').pop();
 
   return (
     <div className="editor-root flex flex-col h-full">
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Note"
-          message="Delete this note? This cannot be undone."
-          confirmLabel="Delete"
-          danger
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
-      )}
+      {/* Delete Confirmation Modal, opened from the footer's menus. Portalled
+          so it paints above them rather than beneath the menu it came from. */}
+      {showDeleteConfirm &&
+        createPortal(
+          <ConfirmDialog
+            title="Delete Note"
+            message={`Delete "${deleteName}"? It will be moved to trash for 7 days.`}
+            confirmLabel="Delete"
+            danger
+            onConfirm={handleDeleteConfirm}
+            onCancel={handleDeleteCancel}
+          />,
+          document.body
+        )}
 
       {/* Wiki-link note creation */}
       {pendingLinkCreate && (
@@ -1208,11 +1223,22 @@ export function Editor() {
               // note's own entry rather than handing it the open buffer — the
               // display title and the filename are allowed to diverge, and the
               // filename is the one that decides where we write.
-              onRename={async (title) => {
-                const file = notes.find((n) => n.path === currentNote?.id);
-                if (file) await renameNote(file, title);
-              }}
+              // A locked note's ciphertext is bound to its path, so it cannot
+              // be renamed while it is only open for viewing.
+              onRename={
+                isViewOnly
+                  ? undefined
+                  : async (title) => {
+                      const file = notes.find((n) => n.path === currentNote?.id);
+                      if (file) await renameNote(file, title);
+                    }
+              }
             />
+          )}
+          {isViewOnly && (
+            <p className="note-view-only" role="status">
+              View only · Remove the lock to edit
+            </p>
           )}
           {isCloudPlaceholder ? (
             <CloudNotePlaceholder note={currentNote} />
@@ -1222,18 +1248,24 @@ export function Editor() {
             </div>
           )}
           {/* Selection Toolbar (Bubble Menu) - inside error boundary */}
-          {!isCloudPlaceholder && !isMobilePlatform() && editor && !editor.isDestroyed && (
-            <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
-          )}
+          {!isCloudPlaceholder &&
+            !isViewOnly &&
+            !isMobilePlatform() &&
+            editor &&
+            !editor.isDestroyed && (
+              <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
+            )}
           {/* Image Toolbar - shows when image is selected */}
-          {!isCloudPlaceholder && editor && !editor.isDestroyed && <ImageToolbar editor={editor} />}
+          {!isCloudPlaceholder && !isViewOnly && editor && !editor.isDestroyed && (
+            <ImageToolbar editor={editor} />
+          )}
         </EditorErrorBoundary>
 
         {/* Inline template picker for empty notes.
             z-10 keeps it above the editor content but below modals/popovers
             (which use z-[9999]). Previously z-50 caused it to paint over
             Settings / Trash / other floating UI. */}
-        {showInlineTemplatePicker && !isCloudPlaceholder && (
+        {showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly && (
           <div
             className="absolute inset-0 flex items-center justify-center z-10"
             onDragOver={(e) => e.preventDefault()}
@@ -1271,21 +1303,26 @@ export function Editor() {
         <EditorFooter
           editor={editor}
           onDelete={handleDeleteClick}
+          readOnly={isViewOnly}
           isSaving={isSaving}
           showSaveSuccess={showSaveSuccess}
           onRenameNote={renameNote}
         />
       )}
 
-      {!isCloudPlaceholder && isMobilePlatform() && editor && !editor.isDestroyed && (
-        <React.Suspense fallback={null}>
-          <MobileFormattingBar
-            editor={editor}
-            onInsertLink={handleInsertLink}
-            onInsertImage={() => setIsImageModalOpen(true)}
-          />
-        </React.Suspense>
-      )}
+      {!isCloudPlaceholder &&
+        !isViewOnly &&
+        isMobilePlatform() &&
+        editor &&
+        !editor.isDestroyed && (
+          <React.Suspense fallback={null}>
+            <MobileFormattingBar
+              editor={editor}
+              onInsertLink={handleInsertLink}
+              onInsertImage={() => setIsImageModalOpen(true)}
+            />
+          </React.Suspense>
+        )}
 
       {/* Template Picker Modal (Cmd+Shift+T shortcut) */}
       <TemplatePickerModal

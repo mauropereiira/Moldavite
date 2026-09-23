@@ -12,6 +12,10 @@ html[data-platform='mobile'] {
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  /* The top inset for the surfaces in the app's own column: the rail, the
+     note and the pages beside it. A pinned bar clears the status bar for
+     them, so it is zero below one. */
+  --shell-safe-top: var(--safe-top);
   /* Apple's minimum comfortable touch target. */
   --touch-target: 44px;
   --mobile-text-scale: 1;
@@ -165,7 +169,7 @@ html[data-platform='mobile']
 /* 2. ICON RAIL */
 
 html[data-platform='mobile'] .icon-rail {
-  padding-top: var(--safe-top);
+  padding-top: var(--shell-safe-top);
   padding-bottom: var(--safe-bottom);
 }
 
@@ -290,7 +294,7 @@ html[data-platform='mobile'] .app-overlay-close {
 /* Index: the row is absolutely positioned inline, so its offsets are
    overridden here. Under the status bar, level with the Forge name. */
 html[data-platform='mobile'] .app-overlay-controls {
-  top: calc(var(--safe-top) + 20px) !important;
+  top: calc(var(--shell-safe-top) + 20px) !important;
   right: calc(8px + var(--page-safe-right)) !important;
   gap: 0 !important;
 }
@@ -299,7 +303,7 @@ html[data-platform='mobile'] .app-overlay-controls {
    their inset so their text and hairlines share one edge. */
 html[data-platform='mobile'] .app-index-overlay .index-overlay-content,
 html[data-platform='mobile'] .app-sidebar .index-overlay-content {
-  padding: calc(var(--safe-top) + 12px) var(--page-safe-right) var(--safe-bottom)
+  padding: calc(var(--shell-safe-top) + 12px) var(--page-safe-right) var(--safe-bottom)
     var(--page-safe-left) !important;
 }
 
@@ -331,8 +335,9 @@ html[data-platform='mobile'] .app-index-grid {
 
 /* Agenda: padding and the header are inline in the component. */
 html[data-platform='mobile'] .app-agenda-overlay {
-  padding: calc(var(--safe-top) + 12px) calc(var(--mobile-page-inset) + var(--page-safe-right))
-    var(--safe-bottom) calc(var(--mobile-page-inset) + var(--page-safe-left)) !important;
+  padding: calc(var(--shell-safe-top) + 12px)
+    calc(var(--mobile-page-inset) + var(--page-safe-right)) var(--safe-bottom)
+    calc(var(--mobile-page-inset) + var(--page-safe-left)) !important;
 }
 
 html[data-platform='mobile'] .app-overlay-header {
@@ -470,8 +475,8 @@ html[data-platform='mobile'][data-large-text='true'] .section-header > button {
 /* 5. TIMELINE PAGE */
 
 html[data-platform='mobile'] .timeline-view-header {
-  padding: calc(var(--safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right)) 12px
-    calc(var(--mobile-page-inset) + var(--page-safe-left));
+  padding: calc(var(--shell-safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right))
+    12px calc(var(--mobile-page-inset) + var(--page-safe-left));
 }
 
 /* The inline hairline under "Close" would span a 44px box; underline the
@@ -648,10 +653,16 @@ html[data-platform='mobile'] .editor-navigation-links button {
   padding-inline: 6px;
 }
 
-/* Spans the rail as well, so it clears both insets. */
+/* Spans the rail as well, so it clears both insets. It is the app's first
+   row, so it also clears the status bar, and the shell below it no longer
+   has to. */
 html[data-platform='mobile'] .pinned-bar {
   gap: 0;
-  padding: 0 calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
+  padding: var(--safe-top) calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
+}
+
+html[data-platform='mobile']:not(.focus-mode):has(.pinned-bar) {
+  --shell-safe-top: 0px;
 }
 
 html[data-platform='mobile'] .pinned-bar-item {
@@ -778,13 +789,26 @@ html[data-platform='mobile'] .wn-footer {
   padding: 16px;
 }
 
-/* Toasts: full width above the home indicator. The container has no class of
-   its own, so it is found through the toast it holds. */
-html[data-platform='mobile'] div:has(> .toast-enter-new),
-html[data-platform='mobile'] div:has(> .toast-exit-new) {
-  right: calc(16px + var(--safe-right));
-  bottom: calc(var(--safe-bottom) + 16px);
-  left: calc(16px + var(--safe-left));
+/* Toasts: across the note column, clear of the rail on either side, and
+   above the footer or, while editing, the formatting row. The shell is
+   --app-height tall and the keyboard sits below it, so the offset is taken
+   from the shell's bottom rather than the screen's. */
+html[data-platform='mobile'] .toast-container {
+  --toast-clearance: calc(var(--touch-target) + max(calc(var(--safe-bottom) - 14px), 0px));
+  right: calc(16px + var(--rail-inset-right) + var(--page-safe-right));
+  bottom: calc(100vh - var(--app-height) + var(--toast-clearance) + 8px);
+  left: calc(16px + var(--rail-inset-left) + var(--page-safe-left));
+}
+
+html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true']) .toast-container {
+  --toast-clearance: var(--touch-target);
+}
+
+html[data-platform='mobile'][data-keyboard='closed']:has(
+    .mobile-formatting-bar[data-editing='true']
+  )
+  .toast-container {
+  --toast-clearance: calc(var(--touch-target) + var(--safe-bottom));
 }
 
 html[data-platform='mobile'] :is(.toast-enter-new, .toast-exit-new) {
@@ -869,7 +893,7 @@ html[data-platform='mobile'][data-large-text='true'] .welcome-reveal-actions {
 /* The editor column starts at the top of the screen: keep the note clear of
    the status bar. Timeline and the welcome screen handle their own top. */
 html[data-platform='mobile'] .editor-root {
-  padding-top: var(--safe-top);
+  padding-top: var(--shell-safe-top);
 }
 
 /* index.css paints every button's hover with an !important overlay. A touch
@@ -977,7 +1001,8 @@ html[data-platform='mobile'][data-large-text='true']
    desktop idea; here the paper's page inset is the whole margin. The
    header sets its measure inline, hence !important. */
 html[data-platform='mobile'] .tiptap,
-html[data-platform='mobile'] .note-header {
+html[data-platform='mobile'] .note-header,
+html[data-platform='mobile'] .note-view-only {
   max-width: none !important;
 }
 
