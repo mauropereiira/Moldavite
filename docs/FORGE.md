@@ -99,7 +99,10 @@ your tooling cares about). Future Moldavite versions may grow the recognized
 set, but unknown keys won't be stripped.
 
 If you don't set any recognized fields, Moldavite won't write a frontmatter
-block at all: empty `.md` files stay empty.
+block at all: empty `.md` files stay empty. The one exception is a body that
+itself opens with a `---` block, such as a horizontal rule followed later by
+another: Moldavite writes an empty `---` / `---` pair above it so the block
+stays part of the note instead of being read as frontmatter.
 
 ## Wiki-link syntax
 
