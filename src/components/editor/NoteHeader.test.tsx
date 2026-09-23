@@ -27,6 +27,23 @@ describe('NoteHeader', () => {
     expect(onRename).toHaveBeenCalledWith('Roadmap');
   });
 
+  it('renames a generated "Untitled (3)" without a validation error', async () => {
+    const onRename = vi.fn().mockResolvedValue(undefined);
+    render(
+      <NoteHeader
+        note={note({ id: 'notes/Untitled (3).md', title: 'Untitled (3)' })}
+        onRename={onRename}
+      />
+    );
+
+    const field = screen.getByLabelText('Note title');
+    await userEvent.type(field, ' draft');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await userEvent.type(field, '{Enter}');
+    expect(onRename).toHaveBeenCalledWith('Untitled (3) draft');
+  });
+
   it('abandons the edit on Escape and shows the real name again', async () => {
     const onRename = vi.fn();
     render(<NoteHeader note={note()} onRename={onRename} />);
@@ -61,7 +78,7 @@ describe('NoteHeader', () => {
     await userEvent.type(field, 'bad/name{Enter}');
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Title can only contain letters, numbers, spaces, and hyphens'
+      'Title cannot contain / \\ : * ? " < > | [ ]'
     );
     expect(field).toHaveAttribute('aria-invalid', 'true');
     expect(field).toHaveValue('bad/name');

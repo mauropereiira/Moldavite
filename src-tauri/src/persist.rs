@@ -562,6 +562,16 @@ mod tests {
     }
 
     #[test]
+    fn generated_names_are_valid_rename_targets() {
+        let tmp = TempDir::new("unique-renamable");
+        fs::write(tmp.path().join("Untitled.md"), "").unwrap();
+        let name = generate_unique_filename(tmp.path(), "Untitled", "md");
+        assert_eq!(name, "Untitled (2).md");
+        assert!(crate::validation::is_safe_filename(&name));
+        assert!(crate::validation::is_safe_filename("Untitled (3).md"));
+    }
+
+    #[test]
     fn unique_filename_does_not_double_counter_suffix() {
         let tmp = TempDir::new("unique-nodouble");
         fs::write(tmp.path().join("hello (2).md"), "").unwrap();

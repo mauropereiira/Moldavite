@@ -28,6 +28,8 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- **Notes Moldavite named itself could not be renamed.** A new note is called "Untitled (2)" when "Untitled" exists, and a copy "(copy)", but renaming accepted only letters, numbers, spaces and hyphens, so editing either name showed an error. A title can now hold anything a file name can on every system, apart from `[` and `]`, which would break a `[[link]]` to it: brackets, apostrophes, commas, accents and other scripts are all fine.
+
 - **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)
 
 - In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.

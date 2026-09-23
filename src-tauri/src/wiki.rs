@@ -238,6 +238,7 @@ mod tests {
         assert_eq!(note_name_to_filename("  Padded  "), "padded.md");
         // Special chars stripped; spaces become hyphens.
         assert_eq!(note_name_to_filename("Q1 / Q2 plan!"), "q1--q2-plan.md");
+        assert_eq!(note_name_to_filename("Untitled (3)"), "untitled-3.md");
     }
 
     #[test]

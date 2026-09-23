@@ -12,6 +12,7 @@ describe('slugifyNoteName', () => {
     expect(slugifyNoteName('Meeting Notes')).toBe('meeting-notes');
     expect(slugifyNoteName('  Padded  ')).toBe('padded');
     expect(slugifyNoteName('Q1 / Q2 plan!')).toBe('q1--q2-plan');
+    expect(slugifyNoteName('Untitled (3)')).toBe('untitled-3');
   });
 
   it('strips a trailing .md extension', () => {

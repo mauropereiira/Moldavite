@@ -31,12 +31,28 @@ describe('note title Windows portability', () => {
   });
 
   it('rejects Windows-illegal punctuation before a note write', () => {
-    expect(getNoteTitleError('Q3: Roadmap')).toBe(
-      'Title can only contain letters, numbers, spaces, and hyphens'
-    );
-    expect(getNoteTitleError('Reports.')).toBe(
-      'Title can only contain letters, numbers, spaces, and hyphens'
-    );
+    expect(getNoteTitleError('Q3: Roadmap')).toBe('Title cannot contain / \\ : * ? " < > | [ ]');
+    expect(getNoteTitleError('Reports.')).toBe('Title cannot start or end with a dot');
+    expect(getNoteTitleError('.hidden')).toBe('Title cannot start or end with a dot');
+  });
+
+  it('rejects square brackets, which would end a wiki link to the note', () => {
+    expect(getNoteTitleError('[draft] Plan')).toBe('Title cannot contain / \\ : * ? " < > | [ ]');
+  });
+
+  it('accepts the names the app generates and other names the backend accepts', () => {
+    for (const title of [
+      'Untitled',
+      'Untitled (2)',
+      'Untitled (3)',
+      'Plan (copy)',
+      'Plan (conflict 2026-09-23 1412)',
+      'Café & bar',
+      "Mauro's notes, v1.2",
+      '日本語ノート',
+    ]) {
+      expect(getNoteTitleError(title)).toBeNull();
+    }
   });
 });
 
