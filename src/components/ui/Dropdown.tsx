@@ -1,5 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useContext, createContext } from 'react';
 import { applyImpactOrigin, captureImpactOrigin } from '@/lib/impactOrigin';
+
+/**
+ * Closes the innermost open menu and every menu it was opened from. A choice
+ * made in a menu nested inside another ends the whole interaction; leaving the
+ * outer menu open kept it on screen under the toast the action raised.
+ */
+const DropdownCloseContext = createContext<(() => void) | null>(null);
+
+export function useCloseMenus(): (() => void) | null {
+  return useContext(DropdownCloseContext);
+}
 
 interface DropdownProps {
   trigger: React.ReactNode;
@@ -7,6 +18,13 @@ interface DropdownProps {
   position?: 'left' | 'right' | 'center';
   openDirection?: 'up' | 'down';
   className?: string;
+  /**
+   * Keep the menu's contents mounted, hidden, while it is closed. A menu
+   * holding other menus needs this: their dialogs are portalled out but still
+   * owned by them, and unmounting them on close would close the dialog a
+   * choice had just opened.
+   */
+  keepMounted?: boolean;
 }
 
 export function Dropdown({
@@ -15,8 +33,14 @@ export function Dropdown({
   position = 'left',
   openDirection = 'down',
   className = '',
+  keepMounted = false,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const closeParent = useContext(DropdownCloseContext);
+  const closeMenus = useCallback(() => {
+    setIsOpen(false);
+    closeParent?.();
+  }, [closeParent]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // A dialog opened from a menu item is portalled to <body>, outside this
   // menu's DOM but inside its React tree. A press in that dialog must not
@@ -93,7 +117,7 @@ export function Dropdown({
       return React.cloneElement(clickable, {
         onClick: (event) => {
           clickable.props.onClick?.(event);
-          setIsOpen(false);
+          closeMenus();
         },
       });
     });
@@ -117,9 +141,9 @@ export function Dropdown({
         {trigger}
       </div>
 
-      {isOpen && (
+      {(isOpen || keepMounted) && (
         <div
-          ref={applyImpactOrigin}
+          ref={isOpen ? applyImpactOrigin : undefined}
           role="menu"
           // `flex flex-col` is load-bearing, not styling. A shrink-to-fit popup
           // (fixed/absolute, no width) that holds BOTH percentage-width children
@@ -133,9 +157,12 @@ export function Dropdown({
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-muted)',
             borderRadius: 'var(--radius-md)',
+            display: isOpen ? undefined : 'none',
           }}
         >
-          {withCloseHandler(children)}
+          <DropdownCloseContext.Provider value={closeMenus}>
+            {withCloseHandler(children)}
+          </DropdownCloseContext.Provider>
         </div>
       )}
     </div>

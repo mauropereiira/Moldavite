@@ -30,7 +30,7 @@ const ACTIONS_COLLAPSE_WIDTH = 900;
 interface EditorFooterProps {
   editor: Editor | null;
   onDelete: () => void;
-  /** A locked note opened for viewing: its colour and formatting cannot change. */
+  /** A locked note opened for viewing: nothing that edits, copies or exports it is offered. */
   readOnly?: boolean;
   isSaving: boolean;
   showSaveSuccess: boolean;
@@ -107,7 +107,7 @@ export function EditorFooter({
       )}
 
       {/* Share Menu */}
-      <ShareMenu onShowToast={showToast} openDirection="up" />
+      <ShareMenu onShowToast={showToast} openDirection="up" readOnly={readOnly} />
 
       {/* Formatting Menu */}
       {!readOnly && <FormattingMenu editor={editor} openDirection="up" />}
@@ -120,6 +120,7 @@ export function EditorFooter({
         characterCount={characterCount}
         onRenameNote={onRenameNote}
         openDirection="up"
+        readOnly={readOnly}
       />
     </>
   );
@@ -142,6 +143,7 @@ export function EditorFooter({
           <Dropdown
             openDirection="up"
             position="right"
+            keepMounted
             trigger={
               <button type="button" className="editor-footer-overflow-toggle">
                 Actions

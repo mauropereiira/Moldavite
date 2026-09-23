@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
 import { applyImpactOrigin, captureImpactOrigin } from '@/lib/impactOrigin';
+import { useCloseMenus } from './Dropdown';
 
 // Moldavite-inspired color palette - crystal greens, cosmic golds, earth tones
 export const NOTE_COLORS = [
@@ -42,6 +43,7 @@ export function NoteColorPicker({
 }: NoteColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeMenus = useCloseMenus();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -110,6 +112,7 @@ export function NoteColorPicker({
                   onClick={() => {
                     onColorChange(color.id);
                     setIsOpen(false);
+                    closeMenus?.();
                   }}
                   className="relative w-9 h-9 transition-all"
                   style={{

@@ -30,6 +30,8 @@ interface MoreOptionsMenuProps {
   characterCount: number;
   openDirection?: 'up' | 'down';
   onRenameNote: (note: NoteFile, title: string) => Promise<void>;
+  /** A locked note open for viewing: its plaintext exists only in memory. */
+  readOnly?: boolean;
 }
 
 export function MoreOptionsMenu({
@@ -39,6 +41,7 @@ export function MoreOptionsMenu({
   characterCount,
   onRenameNote,
   openDirection = 'down',
+  readOnly = false,
 }: MoreOptionsMenuProps) {
   // Menu actions only need the current note at the moment they run, and the
   // note info / rename affordances only need a few primitive fields — none
@@ -60,6 +63,7 @@ export function MoreOptionsMenu({
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const mobile = isMobilePlatform();
   const currentNoteFile = currentNoteId
     ? notes.find((note) => note.path === currentNoteId)
     : undefined;
@@ -198,12 +202,6 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
-      if (isMobilePlatform()) {
-        const { exportMobileNote } = await import('@/lib/mobileNoteExport');
-        if (await exportMobileNote(currentNote.id, 'plaintext'))
-          onShowToast?.('Exported as plaintext');
-        return;
-      }
       const filename =
         currentNote.isDaily && currentNote.date
           ? `${currentNote.date}.md`
@@ -213,7 +211,7 @@ export function MoreOptionsMenu({
 
       const baseName = filename.replace(/\.md$/, '');
       const destination = await save({
-        title: 'Export as Plaintext',
+        title: 'Export as plain text',
         defaultPath: `${baseName}.txt`,
         filters: [{ name: 'Plain Text', extensions: ['txt'] }],
       });
@@ -225,11 +223,11 @@ export function MoreOptionsMenu({
           currentNote.isDaily || false,
           currentNote.isWeekly || false
         );
-        onShowToast?.('Exported as plaintext');
+        onShowToast?.('Exported as plain text');
       }
     } catch (error) {
       console.error('[MoreOptionsMenu] Plaintext export failed:', error);
-      onShowToast?.('Failed to export plaintext');
+      onShowToast?.('Failed to export plain text');
     }
   };
 
@@ -265,25 +263,33 @@ export function MoreOptionsMenu({
           </button>
         }
       >
-        {currentNoteId && (
+        {/* On the phone, pinning lives in the Index's note options and a note
+            leaves the app through Share's system sheet. */}
+        {!mobile && currentNoteId && (
           <DropdownItem onClick={() => togglePinned(currentNoteId)}>
             {isPinned(currentNoteId) ? 'Unpin from the top bar' : 'Pin to the top bar'}
           </DropdownItem>
         )}
-        <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
-        <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
-          Duplicate note
-        </DropdownItem>
-        {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
-          <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
+        {!mobile && <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>}
+        {!readOnly && (
+          <>
+            <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
+              Duplicate note
+            </DropdownItem>
+            {currentNoteFile && !currentNoteFile.isDaily && !currentNoteFile.isWeekly && (
+              <DropdownItem onClick={() => setShowRenameModal(true)}>Rename note…</DropdownItem>
+            )}
+            <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
+            {!mobile && <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>}
+            {!mobile && (
+              <DropdownItem onClick={handleExportPlaintext}>Export as plain text</DropdownItem>
+            )}
+            <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>
+              Save as template
+            </DropdownItem>
+          </>
         )}
-        <DropdownItem onClick={handleExport}>Export as Markdown</DropdownItem>
-        {!isMobilePlatform() && (
-          <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>
-        )}
-        <DropdownItem onClick={handleExportPlaintext}>Export as Plaintext</DropdownItem>
-        <DropdownItem onClick={() => setShowSaveTemplateModal(true)}>Save as template</DropdownItem>
-        <DropdownDivider />
+        {(!mobile || !readOnly) && <DropdownDivider />}
         <DropdownItem onClick={handleShowInfo}>Note info</DropdownItem>
         <DropdownDivider />
         <DropdownItem onClick={onDelete} variant="danger">

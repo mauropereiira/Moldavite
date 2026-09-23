@@ -20,6 +20,8 @@ All notable changes to Moldavite are documented here.
 
 - **A locked note could not be moved to the Trash.** Deleting one from the Index or the editor failed with "Note does not exist". It now goes to the Trash still encrypted, shows there as locked, and comes back locked with the same password. Its lock is tied to its name, so it is not restored beside a note that has taken that name meanwhile; rename that note first. (#146)
 
+- In a narrow window, choosing an action from the footer's folded Actions menu left the menu open, under the message the action showed. Choosing anything in it now closes it.
+
 - **Opening a note could fail with an error about the note you were leaving, and keep failing on every click.** Moldavite rewrote the note you left every time, even when you had not touched it, and a failed save stopped the next note from opening. Now a note is saved on the way out only if you edited it, the next note always opens, and a save that fails is retried in the background. If it still fails, one message names the note and offers Retry or Save as a copy. Your text is kept until it is saved, and closing the window tries once more and stays open while it still cannot be saved.
 
 - Opening a note and leaving it without editing no longer rewrites the file, so tables and other Markdown the editor cannot represent stay as you wrote them, and a sync tool no longer sees a change that ends in a conflict copy. An empty daily or weekly note is deleted only when you empty it yourself.
@@ -70,7 +72,7 @@ All notable changes to Moldavite are documented here.
 
 - **Deleting a note from the editor's More menu deleted it for good.** The Index moved the same note to the Trash, where it can be restored for 7 days. Both now move it to the Trash, with the same confirmation.
 
-- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title.
+- **A locked note opened with its password could be typed into, and what you typed was never saved.** It now opens read only and says so: "View only · Remove the lock to edit". It no longer offers "Start writing…", templates, formatting, a colour or a new title, and its menus no longer offer to rename, duplicate, export or share it or save it as a template.
 
 - Choosing a note colour from the editor footer did nothing. The colour was sent to a path that does not exist and quietly put back; it now applies and is saved with the note.
 
