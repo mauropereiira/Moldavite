@@ -10,7 +10,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { TableKit } from '@tiptap/extension-table';
+import { NoteTables } from './extensions/NoteTables';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { slugifyNoteName } from '@/lib/fileSystem';
 import { isContentEmpty } from '@/lib/validation';
@@ -361,7 +361,7 @@ export function Editor() {
         TaskItem.configure({
           nested: true,
         }),
-        TableKit,
+        ...NoteTables,
         WikiLink.configure({
           onLinkClick: handleWikiLinkClick,
         }),
@@ -802,7 +802,8 @@ export function Editor() {
             !pasteEditor ||
             pasteEditor.isDestroyed ||
             pasteEditor.isActive('codeBlock') ||
-            pasteEditor.isActive('code')
+            pasteEditor.isActive('code') ||
+            pasteEditor.isActive('table')
           ) {
             return false;
           }

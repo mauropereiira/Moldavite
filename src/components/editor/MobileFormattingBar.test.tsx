@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { TableKit } from '@tiptap/extension-table';
+import { NoteTables } from './extensions/NoteTables';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MobileFormattingBar } from './MobileFormattingBar';
 
@@ -12,7 +12,7 @@ afterEach(() => editor?.destroy());
 
 function setup() {
   editor = new Editor({
-    extensions: [StarterKit, TaskList, TaskItem, TableKit],
+    extensions: [StarterKit, TaskList, TaskItem, ...NoteTables],
     content: '<p>Selected words</p>',
   });
   const onInsertLink = vi.fn();

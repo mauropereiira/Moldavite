@@ -6,7 +6,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { htmlToMarkdown, markdownToHtml } from './fileSystem';
-import { forgeImageSrcForSavedPath, resolveForgeImageSrc, toForgeImageSrc } from './forgeImages';
+import { renderHook } from '@testing-library/react';
+import {
+  forgeImageSrcForSavedPath,
+  resolveForgeImageSrc,
+  toForgeImageSrc,
+  useForgeImageSrc,
+} from './forgeImages';
 
 const OTHER_MACHINE =
   'asset://localhost/%2FUsers%2Fsomeone-else%2FDocuments%2FMoldavite%2FDefault%2Fimages%2Fshot_20260101.png';
@@ -80,10 +86,18 @@ describe('loading images', () => {
   it('leaves the reference alone until the Forge path is known', () => {
     expect(resolveForgeImageSrc('images/a.png', null)).toBe('images/a.png');
   });
+
+  it('does not request a Forge image from the app origin before the Forge path is known', () => {
+    expect(renderHook(() => useForgeImageSrc('images/a.png')).result.current).toBe('');
+    expect(renderHook(() => useForgeImageSrc('data:image/png;base64,AAA')).result.current).toBe(
+      'data:image/png;base64,AAA'
+    );
+  });
 });
 
 describe('note-relative links from the Obsidian importer', () => {
   it.each([
+    ['./images/x.png', 'images/x.png'],
     ['../images/x.png', 'images/x.png'],
     ['../../images/x.png', 'images/x.png'],
     ['../../../images/photo%202.png', 'images/photo%202.png'],
@@ -117,7 +131,6 @@ describe('path traversal', () => {
     'images/sub/x.png',
     '../images/../x.png',
     '../images/sub/x.png',
-    './images/x.png',
     '..images/x.png',
     'notes/../images/x.png',
   ])('does not treat %s as a Forge image', (src) => {

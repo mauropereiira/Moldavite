@@ -124,7 +124,11 @@ const BUDGETS = [
 // in the Format menu, slash menu and phone bar) and Forge-relative image paths
 // add 3.5 KB raw / 1.1 KB gz. The table extension itself lands in tiptap-vendor
 // (+33 KB raw / +10 KB gz, inside that budget). Measured 632.3 KB / 175.9 KB gz.
-const APP_JS_BUDGET = { rawKb: 634, gzipKb: 177 };
+// 638 / 178: the table data-loss fixes (merged cells written as a grid, ragged
+// rows padded, paragraph-only cells with paste flattening and the split guard,
+// escaped wiki-link aliases) add 3.8 KB raw / 1.7 KB gz. Measured 636.3 KB /
+// 177.7 KB gz.
+const APP_JS_BUDGET = { rawKb: 638, gzipKb: 178 };
 
 async function main() {
   let entries;

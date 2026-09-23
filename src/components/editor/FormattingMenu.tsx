@@ -4,6 +4,7 @@ import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/compon
 import { formatShortcut } from '@/lib/shortcuts';
 import { LinkModal } from './LinkModal';
 import { ImageModal } from './ImageModal';
+import { insertBlock, insertNoteTable } from './extensions/NoteTables';
 
 interface FormattingMenuProps {
   editor: Editor | null;
@@ -137,7 +138,7 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
           <DropdownItem onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
             Code Block
           </DropdownItem>
-          <DropdownItem onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+          <DropdownItem onClick={() => insertBlock(editor, { type: 'horizontalRule' })}>
             Divider
           </DropdownItem>
 
@@ -151,13 +152,7 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             </span>
           </DropdownItem>
           <DropdownItem onClick={handleImage}>Image</DropdownItem>
-          <DropdownItem
-            onClick={() =>
-              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-            }
-          >
-            Table
-          </DropdownItem>
+          <DropdownItem onClick={() => insertNoteTable(editor)}>Table</DropdownItem>
 
           {inTable && (
             <>

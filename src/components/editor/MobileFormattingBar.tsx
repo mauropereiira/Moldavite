@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useEditorState, type Editor } from '@tiptap/react';
+import { insertNoteTable } from './extensions/NoteTables';
 
 interface MobileFormattingBarProps {
   editor: Editor;
@@ -65,11 +66,7 @@ export function MobileFormattingBar({
     { label: '#', name: 'Tag', run: () => editor.chain().focus().insertContent('#').run() },
     { label: 'Link', run: onInsertLink },
     { label: 'Image', run: onInsertImage },
-    {
-      label: 'Table',
-      run: () =>
-        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-    },
+    { label: 'Table', run: () => insertNoteTable(editor) },
     { label: 'Undo', disabled: !active.undo, run: () => editor.chain().focus().undo().run() },
     { label: 'Redo', disabled: !active.redo, run: () => editor.chain().focus().redo().run() },
   ];

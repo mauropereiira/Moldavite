@@ -75,7 +75,13 @@ turndownService.addRule('wikiLink', {
   replacement: (content, node) => {
     const element = node as HTMLElement;
     const label = element.getAttribute('data-label') || content || '';
+    const target = element.getAttribute('data-target') ?? '';
 
+    // `[[Display|target]]` arrives with only the resolved filename, so the
+    // alias has to be written back from it or the link retargets to the label.
+    if (target && !target.includes('/') && target !== noteNameToFilename(label)) {
+      return `[[${label}|${target.replace(/\.md$/, '')}]]`;
+    }
     return `[[${label}]]`;
   },
 });
@@ -194,52 +200,75 @@ turndownService.addRule('image', {
 /**
  * GFM has no syntax for a line break inside a cell, so paragraphs and hard
  * breaks become `<br>`, which markdown-it passes through as inline HTML.
- * Unescaped pipes would end the cell early.
+ * Unescaped pipes would end the cell early, including the one in an aliased
+ * wiki link, which markdownToHtml accepts escaped.
  */
-function tableCellMarkdown(content: string): string {
-  return content
+function tableCellMarkdown(cell: Element): string {
+  return turndownService
+    .turndown(cell as HTMLElement)
     .trim()
     .replace(/\s*\n+\s*/g, '<br>')
     .replace(/\|/g, '\\|');
 }
 
-function tableDelimiter(cell: Element): string {
-  const align = (cell as HTMLElement).style?.textAlign || cell.getAttribute('align');
+function tableDelimiter(cell: Element | undefined): string {
+  const align = (cell as HTMLElement | undefined)?.style?.textAlign || cell?.getAttribute('align');
   if (align === 'center') return ':---:';
   if (align === 'right') return '---:';
   if (align === 'left') return ':---';
   return '---';
 }
 
-turndownService.addRule('tableCell', {
-  filter: ['th', 'td'],
-  replacement: (content) => ` ${tableCellMarkdown(content)} |`,
-});
+/** A hostile colspan of a billion would otherwise allocate a billion cells. */
+const MAX_TABLE_SPAN = 1000;
 
-// The first row is always written as the header: GFM requires one, and TipTap
-// keeps its header row inside `<tbody>` rather than a `<thead>`.
-turndownService.addRule('tableRow', {
-  filter: 'tr',
-  replacement: (content, node) => {
-    const row = node as HTMLElement;
-    const line = `|${content}\n`;
-    if (row.closest('table')?.querySelector('tr') !== row) return line;
-    const cells = Array.from(row.children).filter((cell) => /^T[HD]$/.test(cell.nodeName));
-    return `${line}| ${cells.map(tableDelimiter).join(' | ')} |\n`;
-  },
-});
+function tableSpan(cell: Element, attribute: string): number {
+  const span = parseInt(cell.getAttribute(attribute) ?? '', 10);
+  return Number.isFinite(span) && span > 0 ? Math.min(span, MAX_TABLE_SPAN) : 1;
+}
 
-turndownService.addRule('tableSection', {
-  filter: ['thead', 'tbody', 'tfoot'],
-  replacement: (content) => content,
-});
+/**
+ * GFM has no merged cells, so a colspan or rowspan is written out as the
+ * grid it covers: the content in its first cell and empty cells for the rest.
+ * Writing one Markdown cell per HTML cell shifted every column after a span.
+ * The first row is always the header, because GFM requires one and TipTap
+ * keeps its header row inside `<tbody>`.
+ */
+function tableMarkdown(table: HTMLElement): string {
+  const rows = Array.from(table.querySelectorAll('tr')).filter(
+    (row) => row.closest('table') === table
+  );
+  const grid: string[][] = rows.map(() => []);
+  const firstRowCells: Element[] = [];
+  rows.forEach((row, r) => {
+    let column = 0;
+    for (const cell of Array.from(row.children)) {
+      if (!/^T[HD]$/.test(cell.nodeName)) continue;
+      while (grid[r][column] !== undefined) column++;
+      const colspan = tableSpan(cell, 'colspan');
+      const rowspan = Math.min(tableSpan(cell, 'rowspan'), rows.length - r);
+      const text = tableCellMarkdown(cell);
+      for (let dr = 0; dr < rowspan; dr++) {
+        for (let dc = 0; dc < colspan; dc++) {
+          grid[r + dr][column + dc] = dr === 0 && dc === 0 ? text : '';
+        }
+      }
+      if (r === 0) for (let dc = 0; dc < colspan; dc++) firstRowCells[column + dc] = cell;
+      column += colspan;
+    }
+  });
+  const width = Math.max(1, ...grid.map((row) => row.length));
+  const line = (cells: string[]) => `| ${cells.join(' | ')} |`;
+  const lines = grid.map((row) => line(Array.from({ length: width }, (_, c) => row[c] ?? '')));
+  const delimiter = line(Array.from({ length: width }, (_, c) => tableDelimiter(firstRowCells[c])));
+  if (lines.length === 0) return '';
+  return [lines[0], delimiter, ...lines.slice(1)].join('\n');
+}
 
 turndownService.addRule('table', {
   filter: 'table',
-  replacement: (content) => `\n\n${content}\n\n`,
+  replacement: (_content, node) => `\n\n${tableMarkdown(node as HTMLElement)}\n\n`,
 });
-
-turndownService.remove('colgroup');
 
 // markdown-it renders with `html: true`, so a literal `<` that opens a tag-like
 // token is re-parsed as HTML on the way back in and DOMPurify drops the unknown
@@ -325,6 +354,9 @@ const DOMPURIFY_CONFIG = {
     'title',
     'width',
     'height',
+    // Tables
+    'colspan',
+    'rowspan',
     // Data attributes (only specific ones needed for TipTap - no wildcards)
     'data-type',
     'data-checked',
@@ -525,6 +557,75 @@ function taskListsToTipTapHtml(html: string): string {
   return root.innerHTML;
 }
 
+const TABLE_DELIMITER_SOURCE = String.raw`[ \t]{0,3}(?:\|[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?|:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?)[ \t]*`;
+const TABLE_DELIMITER_ROW = new RegExp(`^${TABLE_DELIMITER_SOURCE}$`);
+const CODE_FENCE = /^[ \t]{0,3}(`{3,}|~{3,})/;
+
+/** The cells of a GFM row, split on unescaped pipes as markdown-it splits them. */
+function tableRowCells(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (/(^|[^\\])\|$/.test(row)) row = row.slice(0, -1);
+  return row
+    .replace(/\\\|/g, '\0')
+    .split('|')
+    .map((cell) => cell.replace(/\0/g, '\\|'));
+}
+
+/**
+ * Each GFM table in `lines` as `[header line, line after its last row]`: a row
+ * of pipes followed by a delimiter row with as many cells. Fenced code is
+ * skipped, since a table-shaped line inside it is code.
+ */
+function gfmTables(lines: string[]): Array<[number, number]> {
+  const tables: Array<[number, number]> = [];
+  let fence: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const opener = CODE_FENCE.exec(lines[i])?.[1];
+    if (fence) {
+      if (opener && opener[0] === fence[0] && opener.length >= fence.length) fence = null;
+      continue;
+    }
+    if (opener) {
+      fence = opener;
+      continue;
+    }
+    const delimiter = lines[i + 1];
+    if (
+      delimiter === undefined ||
+      !lines[i].includes('|') ||
+      !TABLE_DELIMITER_ROW.test(delimiter) ||
+      tableRowCells(lines[i]).length !== tableRowCells(delimiter).length
+    ) {
+      continue;
+    }
+    let end = i + 2;
+    while (end < lines.length && lines[end].trim() !== '' && lines[end].includes('|')) end++;
+    tables.push([i, end]);
+    i = end - 1;
+  }
+  return tables;
+}
+
+/**
+ * markdown-it sizes a table by its header and silently drops any cell beyond
+ * it, so a row longer than the header lost its tail on the next save. The
+ * header and delimiter rows are widened to the longest row first.
+ */
+function padRaggedTables(markdown: string): string {
+  const lines = markdown.split('\n');
+  for (const [header, end] of gfmTables(lines)) {
+    const width = Math.max(...lines.slice(header + 2, end).map((row) => tableRowCells(row).length));
+    const missing = width - tableRowCells(lines[header]).length;
+    if (missing <= 0) continue;
+    const pad = (row: string, fill: string) =>
+      `|${[...tableRowCells(row), ...Array<string>(missing).fill(` ${fill} `)].join('|')}|`;
+    lines[header] = pad(lines[header], '');
+    lines[header + 1] = pad(lines[header + 1], '---');
+  }
+  return lines.join('\n');
+}
+
 /**
  * Converts Markdown content to HTML for display in the editor.
  * Processes wiki links and task lists, converting them to TipTap-compatible HTML.
@@ -538,7 +639,8 @@ export function markdownToHtml(markdown: string): string {
   let processed = markdown;
 
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
-  processed = processed.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, text, target) => {
+  // Inside a table the separator is written `\|`, or it would end the cell.
+  processed = processed.replace(/\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]/g, (_match, text, target) => {
     const displayText = text.trim();
     const targetNote = (target || text).trim();
     const filename = noteNameToFilename(targetNote);
@@ -546,7 +648,7 @@ export function markdownToHtml(markdown: string): string {
     return `<wiki-link data-target="${filename}">${displayText}</wiki-link>`;
   });
 
-  let html = md.render(processed);
+  let html = md.render(padRaggedTables(processed));
 
   // markdown-it emits `<ul class="contains-task-list">` with a leading checkbox
   // per item; TipTap parses `<ul data-type="taskList">` with the checkbox in a
@@ -589,6 +691,9 @@ const LEGACY_HTML_CLOSER = /<\/(p|h[1-6]|ul|ol|li|blockquote|pre|div|table)>/i;
 /** Markdown structure that a legacy HTML body would have expressed as tags. */
 const MARKDOWN_BLOCK_MARKER = /^(?:#{1,6} |[-*+] |\d+\. |> |```|~~~|---\s*$)/m;
 
+/** A GFM delimiter row: a note whose table follows an aligned paragraph is still Markdown. */
+const TABLE_DELIMITER_LINE = new RegExp(`^${TABLE_DELIMITER_SOURCE}$`, 'm');
+
 /**
  * Detects if content is a legacy HTML-bodied note (pre-Markdown storage).
  *
@@ -612,7 +717,8 @@ export function isHtmlContent(content: string): boolean {
   return (
     LEGACY_HTML_OPENER.test(trimmed) &&
     LEGACY_HTML_CLOSER.test(trimmed) &&
-    !MARKDOWN_BLOCK_MARKER.test(trimmed)
+    !MARKDOWN_BLOCK_MARKER.test(trimmed) &&
+    !TABLE_DELIMITER_LINE.test(trimmed)
   );
 }
 
@@ -1233,7 +1339,23 @@ export async function importEncryptedBackup(
 export function stripMarkdown(input: string): string {
   if (!input) return '';
 
-  let out = input;
+  const lines = input.split('\n');
+  // 0. GFM tables: drop the delimiter row and separate cells with tabs.
+  for (const [header, end] of gfmTables(lines).reverse()) {
+    const rows = [lines[header], ...lines.slice(header + 2, end)].map((row) =>
+      tableRowCells(row)
+        .map((cell) =>
+          cell
+            .replace(/<br\s*\/?>/gi, ' ')
+            .replace(/\\\|/g, '|')
+            .trim()
+        )
+        .join('\t')
+    );
+    lines.splice(header, end - header, ...rows);
+  }
+
+  let out = lines.join('\n');
 
   // 1. Remove fenced code blocks but keep the inner code, dropping the fences.
   //    We do this first because subsequent passes would otherwise mangle the
@@ -1249,21 +1371,6 @@ export function stripMarkdown(input: string): string {
 
   // 4. Standard links: [text](url) → text.
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
-
-  // 4b. GFM tables: drop the delimiter row and separate cells with tabs.
-  out = out.replace(/^\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*\n/gm, '');
-  out = out.replace(/^\|(.*)\|[ \t]*$/gm, (_m, cells: string) =>
-    cells
-      .replace(/\\\|/g, '\0')
-      .split('|')
-      .map((cell) =>
-        cell
-          .replace(/<br\s*\/?>/gi, ' ')
-          .trim()
-          .replace(/\0/g, '|')
-      )
-      .join('\t')
-  );
 
   // 5. Strip inline HTML tags (we deliberately allow some, like <u>/<mark>,
   //    in our markdown — for plaintext we want them gone).

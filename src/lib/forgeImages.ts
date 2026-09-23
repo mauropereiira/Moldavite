@@ -34,11 +34,11 @@ function isImageFileName(name: string | null): name is string {
 
 /**
  * The Obsidian importer links images relative to the note, as `../images/x`
- * from `daily/` or `../../images/x` from `notes/sub/`. The leading `../` run
- * is dropped rather than followed: whatever it climbs to, only a bare file
- * name inside the open Forge's `images/` is ever resolved.
+ * from `daily/` or `../../images/x` from `notes/sub/`. The leading `./` and
+ * `../` run is dropped rather than followed: whatever it climbs to, only a
+ * bare file name inside the open Forge's `images/` is ever resolved.
  */
-const RELATIVE_IMAGE = /^(?:\.\.\/)*images\/(.*)$/;
+const RELATIVE_IMAGE = /^(?:\.{1,2}\/)*images\/(.*)$/;
 
 function relativeImageName(src: string): string | null {
   const match = RELATIVE_IMAGE.exec(src);
@@ -116,10 +116,15 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * Empty until the Forge path is known: a bare `images/x` would otherwise be
+ * requested from the app's own origin first.
+ */
 export function useForgeImageSrc(src: string): string {
   const root = useSyncExternalStore(subscribe, getForgeRoot);
   useEffect(() => {
     void loadForgeRoot();
   }, []);
+  if (!root && relativeImageName(src)) return '';
   return resolveForgeImageSrc(src, root);
 }

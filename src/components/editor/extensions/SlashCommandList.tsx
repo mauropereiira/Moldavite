@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useState, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
+import { insertBlock, insertNoteTable } from './NoteTables';
 
 export interface SlashCommandItem {
   title: string;
@@ -98,7 +99,7 @@ export const slashCommands: SlashCommandItem[] = [
     mark: 'Rule',
     keywords: ['hr', 'horizontal', 'rule', 'line', 'separator'],
     command: (editor) => {
-      editor.chain().focus().setHorizontalRule().run();
+      insertBlock(editor, { type: 'horizontalRule' });
     },
   },
   {
@@ -107,7 +108,7 @@ export const slashCommands: SlashCommandItem[] = [
     mark: 'Table',
     keywords: ['grid', 'columns', 'rows'],
     command: (editor) => {
-      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      insertNoteTable(editor);
     },
   },
   {
