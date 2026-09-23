@@ -30,17 +30,20 @@ export function TrashPreviewModal({
   // renders the previously previewed note's body while the new one loads.
   const [loaded, setLoaded] = useState<{ id: string; html: string } | null>(null);
 
+  const isLocked = !!note && !note.isFolder && note.filename.endsWith('.md.locked');
   const html = !note
     ? ''
     : note.isFolder
       ? `<p><em>Folder trash — restore to browse its contents.</em></p>
          <ul><li><strong>Folder:</strong> ${escapeHtml(note.filename)}</li></ul>`
-      : loaded?.id === note.id
-        ? loaded.html
-        : '';
+      : isLocked
+        ? '<p><em>Locked note — restore it, then unlock it to read.</em></p>'
+        : loaded?.id === note.id
+          ? loaded.html
+          : '';
 
   useEffect(() => {
-    if (!note || note.isFolder) return;
+    if (!note || note.isFolder || note.filename.endsWith('.md.locked')) return;
     let cancelled = false;
     invoke<string>('read_trashed_note', { trashId: note.id })
       .then((markdown) => {
@@ -90,7 +93,7 @@ export function TrashPreviewModal({
         >
           <div className="flex items-center gap-2 min-w-0">
             <h2 id="trash-preview-title" className="text-base font-semibold truncate">
-              {note.filename.replace(/\.md$/, '')}
+              {note.filename.replace(/\.md(\.locked)?$/, '')}
             </h2>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">

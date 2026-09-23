@@ -211,10 +211,11 @@ export function TrashPopover({
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate font-medium">
-                      {note.filename.replace(/\.md$/, '')}
+                      {note.filename.replace(/\.md(\.locked)?$/, '')}
                     </p>
                     <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                       {note.isFolder ? 'Folder · ' : note.isDaily ? 'Daily · ' : ''}
+                      {note.filename.endsWith('.md.locked') ? 'Locked · ' : ''}
                       {daysAgo(note.daysRemaining)} · {note.daysRemaining}d left
                     </p>
                   </div>

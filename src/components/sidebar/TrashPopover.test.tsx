@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TrashPopover } from './TrashPopover';
+import type { TrashedNote } from '@/types';
 
 function anchorAt(left: number, width = 48) {
   const anchor = document.createElement('button');
@@ -10,12 +11,12 @@ function anchorAt(left: number, width = 48) {
   return anchor;
 }
 
-function renderPopover(anchor: HTMLElement) {
+function renderPopover(anchor: HTMLElement, trashedNotes: TrashedNote[] = []) {
   render(
     <TrashPopover
       isOpen
       anchor={anchor}
-      trashedNotes={[]}
+      trashedNotes={trashedNotes}
       onClose={vi.fn()}
       onRestore={vi.fn()}
       onPermanentDelete={vi.fn()}
@@ -40,5 +41,31 @@ describe('TrashPopover placement', () => {
     const railLeft = window.innerWidth - 48;
     const popover = renderPopover(anchorAt(railLeft));
     expect(popover.style.left).toBe(`${railLeft - 12 - 380}px`);
+  });
+});
+
+describe('TrashPopover items', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // A trashed locked note keeps its ciphertext under `<name>.md.locked`.
+  it('names a locked note by its title and says it is locked', () => {
+    renderPopover(anchorAt(0), [
+      {
+        id: '1',
+        filename: 'Diary.md.locked',
+        originalPath: 'Diary.md.locked',
+        isDaily: false,
+        isWeekly: false,
+        isFolder: false,
+        containedFiles: [],
+        trashedAt: 0,
+        daysRemaining: 7,
+      },
+    ]);
+
+    expect(screen.getByText('Diary')).toBeInTheDocument();
+    expect(screen.getByText(/^Locked · /)).toBeInTheDocument();
   });
 });

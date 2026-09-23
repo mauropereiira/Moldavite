@@ -594,9 +594,9 @@ mod tests {
 
     #[test]
     fn regression_unique_locked_filename_avoids_an_existing_plaintext_note() {
-        // The same collision from the other side: restoring a locked note from
-        // the trash asks for the `md.locked` extension, and must not land
-        // beside a plaintext note that already owns the name.
+        // The same collision from the other side: a name asked for with the
+        // `md.locked` extension must not land beside a plaintext note that
+        // already owns the name.
         let tmp = TempDir::new("unique-locked-restore");
         fs::write(tmp.path().join("hello.md"), "").unwrap();
 

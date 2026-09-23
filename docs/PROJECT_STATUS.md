@@ -47,7 +47,7 @@
 - Folder-relative note addressing (fixed folder-note round-trip data bug) — v1.5
 - **External-edit conflict safety** (v1.6): saves send the content hash from the last read; if the disk copy diverged (sync tool, other editor), the disk version is preserved as a `<name> (conflict YYYY-MM-DD HHMM).md` copy before the save, with a warning toast + list refresh
 - Forge file watcher: external changes refresh the note list live (self-writes suppressed); the Forge switcher refreshes while open so externally created Forges appear without a relaunch
-- Trash with 7-day retention, restore, previews; multiple Forges (vaults) with per-Forge state
+- Trash with 7-day retention, restore, previews; a locked note is trashed and restored as its encrypted `.md.locked` file, and a restore refuses a name taken since (its encryption is bound to the name); multiple Forges (vaults) with per-Forge state
 - Note locking (AES-256-GCM + Argon2id, 64 MiB for new locks with older formats still readable, rate-limited unlock, auto-lock); encrypted vault backups; settings JSON export/import
 - Import/export: Markdown, PDF, plaintext, bulk export, encrypted archive
 - Obsidian vault importer (v1.7): Settings → Import performs a read-only analysis, then copies supported daily notes, standalone notes with sanitized folder structure, converted wiki-link aliases, verbatim YAML frontmatter, and referenced attachments into a new Forge. Name collisions are suffixed deterministically; hidden items, `.trash`, Canvas files, symlinks, unreferenced attachments, and unresolved embeds are skipped or warned in the final report.
