@@ -32,6 +32,7 @@ export function MobileFormattingBar({
       heading: current.isActive('heading', { level: 2 }),
       list: current.isActive('bulletList'),
       task: current.isActive('taskList'),
+      table: current.isActive('table'),
       undo: current.can().undo(),
       redo: current.can().redo(),
     }),
@@ -66,7 +67,7 @@ export function MobileFormattingBar({
     { label: '#', name: 'Tag', run: () => editor.chain().focus().insertContent('#').run() },
     { label: 'Link', run: onInsertLink },
     { label: 'Image', run: onInsertImage },
-    { label: 'Table', run: () => insertNoteTable(editor) },
+    { label: 'Table', disabled: active.table, run: () => insertNoteTable(editor) },
     { label: 'Undo', disabled: !active.undo, run: () => editor.chain().focus().undo().run() },
     { label: 'Redo', disabled: !active.redo, run: () => editor.chain().focus().redo().run() },
   ];
