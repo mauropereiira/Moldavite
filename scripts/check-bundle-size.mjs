@@ -43,7 +43,10 @@ const BUDGETS = [
   // 27 / 5: the phone fixes of 3b7690a left it at 24.3 KB raw / 4.1 KB gz,
   // over both caps; the editor round (formatting-row states and fade, dialog
   // touch targets, the ink caret) adds 1.7 KB raw. Measured 26.0 KB / 4.3 KB gz.
-  { pattern: /^mobile-.*\.css$/, rawKb: 27, gzipKb: 5 },
+  // 30 / 5: the rail, Index, Trash page and Settings round (touch switches and
+  // sliders, stuck-hover fixes, the page scrim above the keyboard, calendar
+  // targets) adds 2.3 KB raw. Measured 28.3 KB / 4.6 KB gz.
+  { pattern: /^mobile-.*\.css$/, rawKb: 30, gzipKb: 5 },
 ];
 
 // Soft cap on combined app (non-vendor) JS — sum of all index-*.js chunks.
@@ -146,7 +149,11 @@ const BUDGETS = [
 // 660 / 186: the note flow round (a new note opening on its title, inline
 // title errors, the share sheet, menus that close together, trash labels for
 // locked notes) adds 2.3 KB raw / 1.1 KB gz. Measured 657.7 KB / 185.1 KB gz.
-const APP_JS_BUDGET = { rawKb: 660, gzipKb: 186 };
+// 660 / 188: the rail round (text hits in Search, the phone Trash page, touch
+// taps in the graph and on tags, long-press menus, plain-text previews) adds
+// 1.8 KB gz, while dropping General's duplicate backup UI takes 4.4 KB raw.
+// Measured 653.3 KB / 186.9 KB gz.
+const APP_JS_BUDGET = { rawKb: 660, gzipKb: 188 };
 
 async function main() {
   let entries;

@@ -23,7 +23,7 @@ const dialogFiles: Array<[string, string, number]> = [
   ['PdfExportOptionsModal', pdfExportOptionsModal, 1],
   ['TagsSection', tagsSection, 1],
   ['SettingsData', settingsData, 3],
-  ['GeneralSection', generalSection, 4],
+  ['GeneralSection', generalSection, 1],
   ['QuickSwitcher', quickSwitcher, 1],
   ['LinkModal', linkModal, 1],
   ['ImageModal', imageModal, 1],
