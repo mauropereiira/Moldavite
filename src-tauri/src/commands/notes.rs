@@ -1158,6 +1158,7 @@ fn rewrite_inbound_links_in_roots(
     index: &Arc<BacklinksIndex>,
     resolver: Option<&crate::backlinks_index::Resolver>,
 ) {
+    let slug_shared = slug_is_owned_in_roots(roots, old_stem);
     for root in roots {
         if !root.exists() {
             continue;
@@ -1180,13 +1181,14 @@ fn rewrite_inbound_links_in_roots(
             // lock keeps a rename from taking file coordination and the save
             // lock once per note in the Forge; the rewrite re-checks under it.
             let links_to_old = fs::read_to_string(path).is_ok_and(|raw| {
-                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem).is_some()
+                crate::wiki::rewrite_links_for_rename(&raw, old_stem, new_stem, slug_shared)
+                    .is_some()
             });
             if !links_to_old {
                 continue;
             }
             let rewritten = match rewrite_note_in_place(path, |raw| {
-                crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem)
+                crate::wiki::rewrite_links_for_rename(raw, old_stem, new_stem, slug_shared)
             }) {
                 Ok(Some(rewritten)) => rewritten,
                 Ok(None) => continue,
@@ -1205,6 +1207,26 @@ fn rewrite_inbound_links_in_roots(
             }
         }
     }
+}
+
+/// Whether a note still on disk, locked or not, has a name that slugifies to
+/// `old_stem`'s. Runs after the rename, so the renamed note counts only when its
+/// new name keeps the slug, and then the slug-only links still reach it.
+fn slug_is_owned_in_roots(roots: &[PathBuf], old_stem: &str) -> bool {
+    let old_slug = crate::wiki::note_name_to_filename(old_stem);
+    roots.iter().filter(|root| root.exists()).any(|root| {
+        walkdir::WalkDir::new(root)
+            .into_iter()
+            .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+            .flatten()
+            .filter(|entry| entry.file_type().is_file())
+            .any(|entry| {
+                let name = entry.file_name().to_string_lossy();
+                name.strip_suffix(".md")
+                    .or_else(|| name.strip_suffix(".md.locked"))
+                    .is_some_and(|stem| crate::wiki::note_name_to_filename(stem) == old_slug)
+            })
+    })
 }
 
 #[tauri::command]
@@ -2122,6 +2144,34 @@ mod tests {
         assert_eq!(
             fs::read_to_string(notes.join("inbound.md")).unwrap(),
             "See [[q3-planning]] and [[agenda|q3-planning]]."
+        );
+    }
+
+    #[test]
+    fn rename_leaves_links_to_another_note_with_the_same_slug() {
+        let tmp = TempDir::new("rename-shared-slug");
+        let notes = tmp.path().join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("Plan (copy).md"), "the copy").unwrap();
+        fs::write(notes.join("Plan copy.md"), "a different note").unwrap();
+        fs::write(
+            notes.join("inbound.md"),
+            "See [[Plan copy]] and [[Plan (copy)]].",
+        )
+        .unwrap();
+
+        rename_note_in(&notes, "Plan (copy).md", "Roadmap.md", false, false).unwrap();
+        rewrite_inbound_links_in_roots(
+            std::slice::from_ref(&notes),
+            note_ref_stem("Plan (copy).md"),
+            note_ref_stem("Roadmap.md"),
+            &Arc::new(BacklinksIndex::new()),
+            Some(&crate::wiki::note_name_to_filename),
+        );
+
+        assert_eq!(
+            fs::read_to_string(notes.join("inbound.md")).unwrap(),
+            "See [[Plan copy]] and [[Roadmap]]."
         );
     }
 
