@@ -2351,6 +2351,24 @@ wiki-link:focus-visible::after {
   background: transparent;
 }
 
+/* A wide table scrolls inside its own box instead of widening the note. */
+.tiptap .tableWrapper {
+  margin: 1.5em 0;
+  overflow-x: auto;
+}
+
+.tiptap .tableWrapper > table {
+  margin: 0;
+}
+
+.tiptap :is(th, td) > p {
+  margin: 0;
+}
+
+.tiptap .selectedCell {
+  background: var(--accent-subtle);
+}
+
 .dark .tiptap mark {
   background-color: var(--syntax-highlight);
   color: var(--text-primary);

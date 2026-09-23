@@ -72,7 +72,7 @@ daily/       Daily notes, one per day (YYYY-MM-DD.md, e.g. 2026-07-12.md)
 weekly/      Weekly notes, one per ISO week (YYYY-Www.md, e.g. 2026-W28.md)
 notes/       Standalone notes; subfolders allowed (notes/projects/roadmap.md)
 templates/   Note templates as JSON files (managed in-app; avoid editing)
-images/      Images pasted or inserted into notes
+images/      Images pasted or inserted into notes, linked as images/<file>
 .trash/      App-managed trash (7-day retention) — do not touch
 .plugins/    Installed Moldavite plugins — do not touch
 .index/      Reserved for app-managed indexes — do not touch
@@ -93,7 +93,8 @@ Note body starts here.
   it **preserves any other keys** on save — you may add your own metadata
   (e.g. \`status\`, \`source\`) and it will survive edits made in the app.
 - Write standard Markdown in the body: headings, lists, task lists
-  (\`- [ ]\`), code blocks, images, links.
+  (\`- [ ]\`), code blocks, pipe tables, images, links. Link an image by its
+  path from the Forge root (\`![](images/photo.png)\`), from any folder.
 
 ## Wiki links
 

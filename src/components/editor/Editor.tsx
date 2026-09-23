@@ -11,6 +11,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { NoteTables } from './extensions/NoteTables';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { slugifyNoteName } from '@/lib/fileSystem';
 import { isContentEmpty } from '@/lib/validation';
@@ -73,8 +74,8 @@ import { useAutoSave, useKeyboardShortcuts, useNotes, useTemplates } from '@/hoo
 import { getNoteBackgroundColor } from '@/components/ui/NoteColorPicker';
 import { useToast } from '@/hooks/useToast';
 import { markdownToHtml, processAndSaveImage } from '@/lib';
+import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
 import { looksLikeMarkdown } from '@/lib/markdownPaste';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { WelcomeEmptyState } from '@/components/ui/EmptyState';
 import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplatePicker';
@@ -368,6 +369,7 @@ export function Editor() {
         TaskItem.configure({
           nested: true,
         }),
+        ...NoteTables,
         WikiLink.configure({
           onLinkClick: handleWikiLinkClick,
         }),
@@ -808,7 +810,8 @@ export function Editor() {
             !pasteEditor ||
             pasteEditor.isDestroyed ||
             pasteEditor.isActive('codeBlock') ||
-            pasteEditor.isActive('code')
+            pasteEditor.isActive('code') ||
+            pasteEditor.isActive('table')
           ) {
             return false;
           }
@@ -864,10 +867,13 @@ export function Editor() {
 
       try {
         const savedPath = await processAndSaveImage(file);
-        const imageUrl = convertFileSrc(savedPath);
 
         if (editor && !editor.isDestroyed) {
-          editor.chain().focus().setImage({ src: imageUrl }).run();
+          editor
+            .chain()
+            .focus()
+            .setImage({ src: forgeImageSrcForSavedPath(savedPath) })
+            .run();
           toast.success('Image added');
         }
       } catch (err) {

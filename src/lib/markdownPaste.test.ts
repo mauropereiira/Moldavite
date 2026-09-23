@@ -26,6 +26,8 @@ describe('looksLikeMarkdown', () => {
     ['horizontal rule in a Markdown document', '**Section**\n\n---'],
     ['wiki link', 'See [[Note]].'],
     ['aliased wiki link', 'See [[Display|Target]].'],
+    ['table', '| a | b |\n|---|:-:|\n| 1 | 2 |'],
+    ['table without outer pipes', 'a | b\n--- | ---'],
     [
       'representative document',
       '# Title\n\nThis is **bold**.\n\n- one\n- two\n\n> quote\n\n[[Note]]',
@@ -51,6 +53,7 @@ describe('looksLikeMarkdown', () => {
     ['JavaScript template literal', 'const greeting = `hello there`;'],
     // A lone `---` is also Moldavite's frontmatter delimiter, so it no longer opts into conversion.
     ['lone horizontal rule', '---'],
+    ['pipe prose above a rule', 'this | that\n---'],
     ['YAML frontmatter block', '---\ntitle: My Note\n---'],
     ['raw Moldavite note', '---\ntitle: My Note\n---\n\n# Markdown body'],
   ])('rejects %s', (_name, text) => {

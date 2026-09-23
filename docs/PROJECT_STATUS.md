@@ -1,6 +1,6 @@
 # Moldavite — Project Status
 
-**Last Updated:** September 20, 2026
+**Last Updated:** September 23, 2026
 **Status:** Shipping on macOS, and on Windows and Linux in beta, with in-app auto-update since v1.3.1
 
 > Keep this file honest: update it whenever a feature ships, changes, or a
@@ -20,7 +20,8 @@
 - A note is renamed from its own title in the editor: Enter commits, Escape abandons, an empty name is refused, and a failed rename restores the previous name so the page never shows a name the file does not have. Daily and weekly notes stay read-only because they are named by date. The context-menu and more-options rename paths still work and now agree with this field rather than owning it.
 
 - Daily notes (auto-created per day, auto-deleted when emptied — media-only content counts as content), weekly notes, standalone notes with folders
-- TipTap rich-text editor: headings, lists, task lists, images (resizable), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
+- TipTap rich-text editor: headings, lists, task lists, images (resizable), GFM tables (insert, Tab between cells, add/delete rows and columns, column alignment kept; cells hold text only, and merged cells from pasted or older HTML are written out as the grid they cover because GFM cannot express them), highlights, alignment, code, links; recognizable raw Markdown pastes as formatted content; slash commands; tabs with pinning
+- Images are stored in notes as Forge-root-relative `images/<file>` and resolved against the open Forge only for display, so they survive syncing between machines and iOS container moves. Absolute asset URLs written by earlier builds are mapped by filename onto the current Forge's `images/` and rewritten relative on the next save; the Obsidian importer's note-relative `../images/<file>` links resolve the same way
 - Wiki-links `[[Note]]` / `[[Display|target]]` with existence styling, backlinks panel, backlinks sidebar section, and a deterministic force-directed graph whose linked components cluster while orphans stay peripheral
 - Standalone note rename UI in the sidebar and editor; open state follows the new path and inbound wiki-links are rewritten vault-wide (v1.6). Unicode-safe NFC slugs are shared by frontend + backend (v1.5)
 - `#tags` with sidebar aggregation and global tag rename
