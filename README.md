@@ -20,7 +20,7 @@ calendar, and a built-in MCP server for the AI tools you already use.
 No Moldavite account. No telemetry. Optional iCloud Drive sync on Mac. If Moldavite disappeared tomorrow,
 you would still have every note, in plain text, exactly where you left it.
 
-Local-first for macOS, and for Windows and Linux in beta.
+Local-first for macOS, iPhone and iPad, and for Windows and Linux in beta.
 
 ## Install
 
@@ -46,6 +46,10 @@ runtime sets that floor. Mark the AppImage executable once, and install
 `libfuse2` if your distribution does not ship it (`sudo apt install libfuse2`
 on Ubuntu). In-app updates work for the AppImage. The deb and the rpm are
 updated by installing the next one.
+
+**iPhone and iPad.** Get Moldavite: Notes & Ideas from the
+[App Store](https://apps.apple.com/app/id6809157286) (iOS and iPadOS 17 or
+later). The MCP server, plugins and the browser clipper stay on the desktop.
 
 ## Connect your AI
 
@@ -153,11 +157,10 @@ notes and folders where you want them and they stay there.
 
 **Clip any page to a note.** A browser extension turns the page you are reading
 into Markdown in the Forge you choose, links kept, images and styling dropped,
-and it works whether or not Moldavite is open. It is distributed from this
-repository rather than the browser stores, so Chrome needs Developer mode and the
-Firefox file is signed by Mozilla without being listed there. The Chrome archive
-is attached to every release; the Firefox `.xpi` is signed and uploaded by hand
-afterwards. See [docs/CLIPPER.md](docs/CLIPPER.md).
+and it works whether or not Moldavite is open. Install it for Chrome, Edge or
+Brave from the [Chrome Web Store](https://chromewebstore.google.com/detail/ngdbcbhchiifacekdkjpjbjmegkeodig). The Firefox
+`.xpi` is signed by Mozilla without being listed there, and is uploaded to a
+release by hand. See [docs/CLIPPER.md](docs/CLIPPER.md).
 
 **Publish to WordPress.com** without minting a credential: sign in once in your
 browser, pick a site, and the note becomes a draft. Publishing it again updates

@@ -19,7 +19,7 @@ flowchart TB
         VA["validation · wiki · backlinks index · search index"]
     end
     subgraph OS["Operating system"]
-        SW["Swift bridge → EventKit<br/>macOS only"]
+        SW["Swift bridge → EventKit<br/>macOS and iOS"]
         KC["OS credential store"]
     end
     GC["Google Calendar API<br/>read-only, OAuth"]
@@ -118,7 +118,7 @@ dialog.
 
 The full authoring surface is in [PLUGINS.md](PLUGINS.md).
 
-The `keyring` backend stores secrets in the macOS Keychain on macOS, Windows
+The `keyring` backend stores secrets in the Keychain on macOS and iOS, Windows
 Credential Manager on Windows, and the Secret Service (GNOME Keyring or KWallet)
 on Linux. Plugin account names remain isolated within the same `Moldavite`
 service on every platform.

@@ -2,6 +2,12 @@
 
 Everything the listing asks for, and the one step that is easy to get wrong.
 
+Published as
+[Moldavite Clipper](https://chromewebstore.google.com/detail/ngdbcbhchiifacekdkjpjbjmegkeodig),
+item id `ngdbcbhchiifacekdkjpjbjmegkeodig`. Each update needs a higher
+`version` in `extension/manifest.json` and `extension/package.json` than the
+one live in the store.
+
 ## Build the package
 
 ```sh
@@ -121,8 +127,7 @@ answers:
 
 ## Screenshots
 
-Still to capture; the store needs at least one at 1280x800 or 640x400. Worth
-having:
+The store needs at least one at 1280x800 or 640x400. Worth having:
 
 1. The popup open on an article, Forge dropdown visible.
 2. The saved note open in Moldavite beside the original page.
@@ -139,5 +144,5 @@ having:
 - [ ] Version in `extension/manifest.json` is higher than the published one.
       The store rejects a re-upload at the same version.
 - [x] The store id is in `CHROME_EXTENSION_IDS`.
-- [ ] An app release carrying that id is out, or goes out with the listing.
-      Until then a store install cannot reach Moldavite.
+- [x] An app release carrying that id is out (every release since 2.7.2).
+      Without one, a store install cannot reach Moldavite.

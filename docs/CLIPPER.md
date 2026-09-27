@@ -24,31 +24,26 @@ becomes `… (2).md`.
 
 ## Installing
 
-The extension is distributed from this repository, not from the browser stores.
-Both browsers ask for something unusual as a result, and neither is a defect in
-Moldavite.
-
 **Chrome, Edge & Brave**
 
-1. Download and unzip `moldavite-clipper-chrome.zip` from the
-   [latest release](https://github.com/mauropereiira/Moldavite/releases/latest).
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Click **Load unpacked** and choose the unzipped folder.
+Install **Moldavite Clipper** from the
+[Chrome Web Store](https://chromewebstore.google.com/detail/ngdbcbhchiifacekdkjpjbjmegkeodig).
+Edge asks you to allow extensions from other stores the first time.
 
-Chrome only allows extensions from outside its store in Developer mode. That is
-Chrome's rule for anything unlisted.
+Contributors can still load `dist/chrome` unpacked; the app accepts both the
+store id and the unpacked one (see `docs/CHROME_STORE.md`).
 
 **Firefox**
 
-1. Download `moldavite-clipper.xpi` from the same release, if that release has
-   one.
+1. Download `moldavite-clipper.xpi` from the
+   [latest release](https://github.com/mauropereiira/Moldavite/releases/latest),
+   if that release has one.
 2. Open it in Firefox and confirm.
 
 Firefox installs only signed add-ons, so the file is signed by Mozilla. It is not
-listed in their store: the download stays here. Unlike the Chrome zip, which CI
-builds and attaches to every release, the `.xpi` is signed and uploaded by hand
-after the release goes public (see `docs/RELEASING.md`), so a given release may
-not carry one. Chrome, Edge and Brave are unaffected either way.
+listed in their store: the download stays here. The `.xpi` is signed and
+uploaded by hand after the release goes public (see `docs/RELEASING.md`), so a
+given release may not carry one.
 
 **Then pair it.** Open Settings → Plugins → Browser clipper and press **Connect
 browser**. Nothing can reach your notes until you do.
@@ -132,7 +127,7 @@ have no text to take.
 cd extension
 npm install
 npm test        # conversion and popup, in jsdom; no browser needed
-npm run build   # dist/chrome and dist/firefox
+npm run build   # dist/chrome, dist/chrome-store and dist/firefox
 ```
 
 Chrome derives the extension ID from `extension/key.pem`, which is gitignored.

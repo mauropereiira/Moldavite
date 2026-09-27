@@ -22,7 +22,11 @@ targets `aarch64-apple-ios` and `aarch64-apple-ios-sim`, CocoaPods
 Node 20 or 22. On Xcode 27, release builds make the Swift plugins' `@_cdecl`
 entry points local, and linking needs `llvm-objcopy` to export them again
 (swift-rs for each plugin's own module, `tauri-plugin-calendar/build.rs` for
-the shared SwiftRs runtime).
+the shared SwiftRs runtime). swift-rs 1.0.8 or later does this only for a
+module named like its package, so each local plugin's Swift target keeps its
+package's name (`tauri-plugin-calendar`, not `CalendarPlugin`). The lockfiles
+pin swift-rs 1.0.8 and `@tauri-apps/cli` 2.12.0, the versions that build on
+Xcode 27.
 
 ```bash
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim
@@ -473,4 +477,4 @@ container keys follow [Apple's Info.plist reference](https://developer.apple.com
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor, and
   the on-demand iCloud checks in [MOBILE_QA.md](MOBILE_QA.md#on-demand-icloud-notes-to-verify-on-a-device).
-- iPad layout, then Android through Tauri's Android target.
+- Android, through Tauri's Android target.
