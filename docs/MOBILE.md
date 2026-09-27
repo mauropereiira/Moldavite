@@ -477,4 +477,4 @@ container keys follow [Apple's Info.plist reference](https://developer.apple.com
 - Note content in the widget (needs an App Group), a Lock Screen widget.
 - A run on a real iPhone: selection handles and autocorrect in the editor, and
   the on-demand iCloud checks in [MOBILE_QA.md](MOBILE_QA.md#on-demand-icloud-notes-to-verify-on-a-device).
-- iPad layout, then Android through Tauri's Android target.
+- Android, through Tauri's Android target.
