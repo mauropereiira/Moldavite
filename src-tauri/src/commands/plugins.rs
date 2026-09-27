@@ -247,7 +247,10 @@ struct PluginFiles<'a> {
     readme: Option<&'a [u8]>,
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) const MAX_MANIFEST_BYTES: u64 = 1024 * 1024;
+pub(crate) const MAX_PLUGIN_JS_BYTES: u64 = 10 * 1024 * 1024;
+
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))
 }
@@ -482,7 +485,9 @@ pub(crate) fn install_plugin_from_data(
     if !is_valid_plugin_id(&id) {
         return Err("invalid plugin id".into());
     }
-    if manifest_json.len() > 1024 * 1024 || plugin_js.len() > 10 * 1024 * 1024 {
+    if manifest_json.len() as u64 > MAX_MANIFEST_BYTES
+        || plugin_js.len() as u64 > MAX_PLUGIN_JS_BYTES
+    {
         return Err("plugin files exceed the safe install size limit".into());
     }
     verify_registry_hash(

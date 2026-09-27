@@ -35,6 +35,10 @@ mod security;
 #[cfg(desktop)]
 mod plugin_net;
 
+/// Starting without third-party plugins: `--safe-mode` and the unfinished-start marker.
+#[cfg(desktop)]
+mod plugin_safety;
+
 /// YAML frontmatter parsing for note files.
 pub(crate) mod frontmatter;
 
@@ -154,6 +158,8 @@ use commands::notes::{
     write_note,
 };
 #[cfg(desktop)]
+use commands::plugin_package::read_plugin_package;
+#[cfg(desktop)]
 use commands::plugins::{
     install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
     plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
@@ -174,6 +180,10 @@ use commands::trash::{
 };
 #[cfg(desktop)]
 use plugin_net::plugin_fetch;
+#[cfg(desktop)]
+use plugin_safety::{
+    begin_plugin_startup, finish_plugin_startup, plugin_safe_mode_status, set_plugin_safe_mode,
+};
 use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
 };
@@ -252,7 +262,11 @@ pub fn run() {
     // before any other plugin setup. Its `deep-link` feature forwards the
     // process argv through the existing `on_open_url` handler.
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|_, _, _| {}));
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _| {
+        if plugin_safety::has_safe_mode_flag(&argv) {
+            plugin_safety::restart_in_safe_mode(app);
+        }
+    }));
 
     let builder = builder
         .plugin(tauri_plugin_shell::init())
@@ -279,6 +293,13 @@ pub fn run() {
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
         .setup(move |app| {
+            // Here rather than on the builder: only the primary instance may
+            // consume the marker, and a second launch exits before setup.
+            #[cfg(desktop)]
+            app.manage(plugin_safety::PluginSafety::at_launch(
+                plugin_safety::marker_path(),
+                plugin_safety::has_safe_mode_flag(&std::env::args().collect::<Vec<_>>()),
+            ));
             cloud_forge::initialize(app.handle().clone());
             // Register before WebView hydration. Live URLs wake the frontend;
             // cold-start URLs remain queued until React drains them.
@@ -456,6 +477,16 @@ pub fn run() {
             plugin_secret_delete,
             #[cfg(desktop)]
             plugin_fetch,
+            #[cfg(desktop)]
+            read_plugin_package,
+            #[cfg(desktop)]
+            plugin_safe_mode_status,
+            #[cfg(desktop)]
+            begin_plugin_startup,
+            #[cfg(desktop)]
+            finish_plugin_startup,
+            #[cfg(desktop)]
+            set_plugin_safe_mode,
             // Folder system commands
             list_folders,
             create_folder,

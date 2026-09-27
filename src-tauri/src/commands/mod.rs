@@ -19,6 +19,8 @@ pub mod mcp_settings;
 pub mod misc;
 pub mod notes;
 #[cfg(desktop)]
+pub mod plugin_package;
+#[cfg(desktop)]
 pub mod plugins;
 pub mod root_files;
 pub mod search;
