@@ -20,7 +20,6 @@
   var METEOR_CADENCE_MAX = 22000;
   var METEOR_DURATION_MIN = 900;
   var METEOR_DURATION_MAX = 1200;
-  var ASTEROID_LERP = 0.18;
   var ASTEROID_SIZE = 14;
   var ASTEROID_TRAIL = [
     { size: 4, lerp: 0.12, opacity: 0.24 },
@@ -1007,6 +1006,7 @@
     var overInteractive = false;
     var overTextEntry = false;
     var impactState = null;
+    var lastTick = 0;
 
     if (!('PointerEvent' in window) || !window.requestAnimationFrame) return;
 
@@ -1049,6 +1049,7 @@
         event.target instanceof Element &&
         event.target.closest('button, a, [role="button"], [role="link"]') !== null;
       setPointerAppearance();
+      placeAsteroid();
     }
 
     function handlePointerLeave() {
@@ -1062,9 +1063,12 @@
       impact.style.opacity = '0.38';
     }
 
-    function tick(currentTime) {
-      position.x += (target.x - position.x) * ASTEROID_LERP;
-      position.y += (target.y - position.y) * ASTEROID_LERP;
+    // The asteroid stands in for the system cursor, so it sits exactly on the
+    // pointer and moves in the event itself rather than on the next frame.
+    function placeAsteroid() {
+      position.x = target.x;
+      position.y = target.y;
+      if (!asteroid) return;
       asteroid.style.transform =
         'translate3d(' +
         (position.x - ASTEROID_SIZE / 2) +
@@ -1073,13 +1077,20 @@
         'px,0) scale(' +
         (overInteractive ? 1.16 : 1) +
         ')';
+    }
+
+    function tick(currentTime) {
+      var frameMs = lastTick ? Math.min(currentTime - lastTick, 100) : 16.7;
+      lastTick = currentTime;
+      placeAsteroid();
       asteroidRock.style.transform = 'rotate(' + ((currentTime % 7000) / 7000) * 360 + 'deg)';
 
       trail.forEach(function (dot, index) {
         var leader = index === 0 ? position : trail[index - 1];
         var spec = ASTEROID_TRAIL[index];
-        dot.x += (leader.x - dot.x) * spec.lerp;
-        dot.y += (leader.y - dot.y) * spec.lerp;
+        var follow = 1 - Math.pow(1 - spec.lerp, frameMs / 16.7);
+        dot.x += (leader.x - dot.x) * follow;
+        dot.y += (leader.y - dot.y) * follow;
         trailElements[index].style.transform =
           'translate3d(' + (dot.x - spec.size / 2) + 'px,' + (dot.y - spec.size / 2) + 'px,0)';
       });

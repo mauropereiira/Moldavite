@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- Confirmation dialogs opened from Settings, such as "Allow agents to write notes?", no longer show up cut off at the top when the Settings page is scrolled.
+
 ## [2.9.0] - 2026-09-27
 
 ### Added

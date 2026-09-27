@@ -1,6 +1,5 @@
 import { isMobilePlatform } from '@/lib/platform';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -1144,20 +1143,16 @@ export function Editor() {
 
   return (
     <div className="editor-root flex flex-col h-full">
-      {/* Delete Confirmation Modal, opened from the footer's menus. Portalled
-          so it paints above them rather than beneath the menu it came from. */}
-      {showDeleteConfirm &&
-        createPortal(
-          <ConfirmDialog
-            title="Delete note"
-            message={`Delete "${deleteName}"? It will be moved to trash for 7 days.`}
-            confirmLabel="Delete"
-            danger
-            onConfirm={handleDeleteConfirm}
-            onCancel={handleDeleteCancel}
-          />,
-          document.body
-        )}
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete note"
+          message={`Delete "${deleteName}"? It will be moved to trash for 7 days.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
 
       {/* Wiki-link note creation */}
       {pendingLinkCreate && (

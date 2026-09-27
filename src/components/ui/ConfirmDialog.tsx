@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { DialogSurface } from './DialogSurface';
 
 interface ConfirmDialogProps {
@@ -14,7 +15,9 @@ interface ConfirmDialogProps {
 
 /**
  * Accessible in-app replacement for window.confirm: role="dialog",
- * focus-trapped, Escape cancels, backdrop click cancels.
+ * focus-trapped, Escape cancels, backdrop click cancels. Portalled to the
+ * body, because inside a transformed or scrolled panel such as Settings a
+ * `fixed` overlay is positioned against that panel and renders clipped.
  */
 export function ConfirmDialog({
   title,
@@ -26,7 +29,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
       onClick={() => !busy && onCancel()}
@@ -62,6 +65,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </DialogSurface>
-    </div>
+    </div>,
+    document.body
   );
 }
