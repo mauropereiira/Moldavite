@@ -22,7 +22,8 @@ the app's behaviour changed.
 
 - App: **Moldavite: Notes & Ideas**, Apple ID `6809157286`.
 - Bundle: `app.moldavite`; widget: `app.moldavite.widget`; team: `J6Z5WJKHZB`.
-- Live version/build: `2.7.2` / `2.7.2`; minimum iOS/iPadOS **17.0**.
+- Live version/build: `2.8.0` / `2.8.0` (`2.9.0` / `2.9.0` in review);
+  minimum iOS/iPadOS **17.0**.
   The next upload must carry a higher build number than the live one.
   `bundle.iOS.bundleVersion` is unset in `tauri.conf.json`, so Tauri uses the
   top-level version for the app plist, and the widget plist carries the same
@@ -89,7 +90,9 @@ Its READ-ME records source provenance and the current submission status.
 ## Prepare the release candidate
 
 - Use Node 20 or 22, the repository's locked dependencies, the stable Xcode
-  installation and the `aarch64-apple-ios` Rust target. Since April 28, 2026,
+  installation, the `aarch64-apple-ios` Rust target and the rustup
+  `llvm-tools` component, which Xcode 27 release builds need to link the Swift
+  plugins (see [MOBILE.md](MOBILE.md#building-and-running)). Since April 28, 2026,
   uploads require Xcode 26 or later and an iOS 26 SDK or later. The deployment
   target is a separate setting; building with a newer SDK does not require all
   users to run that OS. [Apple's current SDK requirement](https://developer.apple.com/news/upcoming-requirements/?id=02032026a)
@@ -228,8 +231,9 @@ Suggested reviewer notes, to be updated only after the features are verified:
 > iCloud account; all local features work without it. Note locking is tested by
 > creating a sample note and choosing Lock from its actions. The passphrase is
 > chosen by the reviewer and cannot be recovered by the developer. The widget
-> opens today's note. Desktop executable plugins, self-updates and desktop
-> integrations are not available in this iOS build.
+> opens today's note. Optional Apple Calendar and Google Calendar are read-only
+> and connect in Settings → Calendar. Desktop executable plugins, MCP, WordPress
+> publishing and self-updates are not available in this iOS build.
 
 ## Direct App Store submission
 

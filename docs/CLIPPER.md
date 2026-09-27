@@ -35,8 +35,9 @@ store id and the unpacked one (see `docs/CHROME_STORE.md`).
 
 **Firefox**
 
-1. Download `moldavite-clipper.xpi` from the same release, if that release has
-   one.
+1. Download `moldavite-clipper.xpi` from the
+   [latest release](https://github.com/mauropereiira/Moldavite/releases/latest),
+   if that release has one.
 2. Open it in Firefox and confirm.
 
 Firefox installs only signed add-ons, so the file is signed by Mozilla. It is not
@@ -126,7 +127,7 @@ have no text to take.
 cd extension
 npm install
 npm test        # conversion and popup, in jsdom; no browser needed
-npm run build   # dist/chrome and dist/firefox
+npm run build   # dist/chrome, dist/chrome-store and dist/firefox
 ```
 
 Chrome derives the extension ID from `extension/key.pem`, which is gitignored.

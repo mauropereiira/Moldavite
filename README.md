@@ -20,7 +20,7 @@ calendar, and a built-in MCP server for the AI tools you already use.
 No Moldavite account. No telemetry. Optional iCloud Drive sync on Mac. If Moldavite disappeared tomorrow,
 you would still have every note, in plain text, exactly where you left it.
 
-Local-first for macOS, and for Windows and Linux in beta.
+Local-first for macOS, iPhone and iPad, and for Windows and Linux in beta.
 
 ## Install
 
@@ -46,6 +46,10 @@ runtime sets that floor. Mark the AppImage executable once, and install
 `libfuse2` if your distribution does not ship it (`sudo apt install libfuse2`
 on Ubuntu). In-app updates work for the AppImage. The deb and the rpm are
 updated by installing the next one.
+
+**iPhone and iPad.** Get Moldavite: Notes & Ideas from the
+[App Store](https://apps.apple.com/app/id6809157286) (iOS and iPadOS 17 or
+later). The MCP server, plugins and the browser clipper stay on the desktop.
 
 ## Connect your AI
 

@@ -127,8 +127,8 @@ Forge on both, and a physical iPhone (or a Mac with **Optimize Mac Storage**).
    The Mac file is unchanged.
 7. On the iPhone, while `Ideas` is still in iCloud, create a new note titled
    `Ideas`, then one from a template with the same title. The first becomes
-   `Ideas (2)`, the template note is refused as a duplicate, and the Mac's
-   `Ideas.md` is unchanged.
+   `Ideas (2)`, the template note `Ideas (3)` with the template's content, and
+   the Mac's `Ideas.md` is unchanged.
 8. Edit the same downloaded note on both devices while one is offline, then
    reconnect. A `(conflict …)` copy of the other version appears beside the note.
 9. Force-quit and relaunch with the synced Forge active and the network off. The
@@ -150,7 +150,7 @@ Forge on both, and a physical iPhone (or a Mac with **Optimize Mac Storage**).
 | iPad | Native narrow-window multitasking, floating keyboard and remaining hardware shortcuts; two-column layout, rotation and Command-N verified |
 | iCloud implementation | Native bridge, Apple Forge selection, metadata listings, Mac discovery, on-demand downloads and conflict-version copies are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
-| Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. Submitted for App Review on 6 September 2026; Waiting for Review. France is excluded pending its encryption documentation. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
+| Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. Live on the App Store; the current version and submission state are in IOS_APP_STORE.md. France is excluded pending its encryption documentation. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
 | Calendar | Apple "Add Events Only" and a physical device; a completed Google sign-in, token refresh after an hour, disconnect; both sources together in the Agenda timeline |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
 

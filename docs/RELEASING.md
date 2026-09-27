@@ -5,7 +5,8 @@ unsigned Windows and Linux builds (an AppImage, a deb and an rpm) via GitHub Act
 including Windows, are signed with `TAURI_SIGNING_PRIVATE_KEY` so the updater can
 verify their integrity. Windows installers are not Authenticode-signed, so
 Windows may show a SmartScreen warning, and Linux bundles are unsigned as well. This is the
-end-to-end release process.
+end-to-end release process. The iPhone and iPad app is built locally and
+uploaded to App Store Connect instead; see [IOS_APP_STORE.md](IOS_APP_STORE.md).
 
 ## 1. Prepare the release branch
 
@@ -65,7 +66,7 @@ end-to-end release process.
    - uploads artifacts and generates `latest.json` (the updater manifest),
    - **publishes the draft only once `publish-release` has verified it**, and
      triggers the Homebrew bump after that. The gate is strict: the release must
-     still be a draft on the right tag, all 18 expected asset names must be
+     still be a draft on the right tag, all 19 expected asset names must be
      present, uploaded and non-empty, there must be no asset it did not expect,
      `latest.json` must parse and carry this version, every `.sig` must verify
      as a real minisign Ed25519 signature against `plugins.updater.pubkey` from
@@ -87,8 +88,8 @@ instead.
 - Confirm the Release has the two DMGs, both unversioned
   `Moldavite_<arch>.app.tar.gz` updater payloads, the `.msi`, the
   `-setup.exe`, the `.AppImage`, the `.deb` and the `.rpm`, a `.sig` next to
-  every one of those except the DMGs, plus `latest.json` and
-  `moldavite-clipper-chrome.zip`. `publish-release` already enforces exactly
+  every one of those except the DMGs, plus `latest.json`,
+  `moldavite-clipper-chrome.zip` and `moldavite-clipper-chrome-store.zip`. `publish-release` already enforces exactly
   this list, so a release that went public passed it; check anyway if something
   looks off.
 - Open an older install → it should detect the update after about 15s (or via
@@ -146,8 +147,10 @@ Do this **after** the release is public, never while it is still a draft:
 `publish-release` rejects any asset it did not expect, so an `.xpi` attached
 early fails the publish gate and blocks the whole release.
 
-CI builds and attaches `moldavite-clipper-chrome.zip` on its own. The Firefox
-build cannot be automated here: release Firefox installs only signed add-ons, and
+CI builds and attaches both Chrome zips on its own. The Chrome Web Store listing
+is updated separately, and only when `extension/` changed: upload the
+`-store` zip with a higher extension version (see `docs/CHROME_STORE.md`). The
+Firefox build cannot be automated here: release Firefox installs only signed add-ons, and
 signing goes through a Mozilla account.
 
 ```bash
@@ -172,8 +175,9 @@ comes from the GitHub release. The API credentials come from the Mozilla add-on
 developer hub; they are not GitHub secrets, because the signing step is not run
 by CI.
 
-Skipping this step is a valid release: Chrome users get the clipper, Firefox
-users see no `.xpi` on that release.
+Skipping this step is a valid release: Chrome, Edge and Brave users install the
+clipper from the Chrome Web Store, and Firefox users see no `.xpi` on that
+release.
 
 ## Required GitHub secrets
 

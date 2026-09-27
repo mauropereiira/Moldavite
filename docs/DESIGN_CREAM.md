@@ -266,7 +266,9 @@ the Index at top-left, and `Index · Agenda · Settings` text links at the botto
 
 Focus mode hides pinned columns, the tab bar, footer and backlinks header at
 once, leaving the note alone on cream. It is implemented as a `.focus-mode`
-class on `<html>`, mirroring how `.compact-mode` already works.
+class on `<html>`, mirroring how `.compact-mode` already works. iPhone and iPad
+never get it: there the rail it hides is the only way back to Settings, so
+`applyFocusMode` ignores a saved value and Appearance does not offer it.
 
 ---
 
@@ -294,6 +296,8 @@ class on `<html>`, mirroring how `.compact-mode` already works.
    `defaultSettings`, and the `partialize` allow-list — or they silently fail
    to persist. There is no migration needed for a new boolean.
 6. **New shortcuts need two edits** — `SHORTCUTS` in `lib/shortcuts.ts` and a
-   `runShortcut` case in `useKeyboardShortcuts.ts`. That hook mounts inside the
+   `runShortcut` case in `useKeyboardShortcuts.ts`. Test the modifier with
+   `isPrimaryModifier`, never `metaKey || ctrlKey`: on Apple platforms Ctrl
+   is a text-editing key. That hook mounts inside the
    editor tree, so anything that must work with no note open mounts at the App
    root instead, following `ShortcutHelpHost`.

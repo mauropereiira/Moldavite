@@ -13,7 +13,9 @@ Edge asks you to allow extensions from other stores the first time.
 
 **Firefox**
 
-1. Download `moldavite-clipper.xpi` from the same release.
+1. Download `moldavite-clipper.xpi` from the
+   [latest release](https://github.com/mauropereiira/Moldavite/releases/latest),
+   if that release has one.
 2. Open it in Firefox and confirm.
 
 Firefox installs only signed add-ons, so this file is signed by Mozilla. It is
@@ -72,9 +74,10 @@ manifest that **Connect browser** writes.
 - `dist/firefox` drops `key` and keeps the Gecko id.
 
 The store assigns an id that will not match the unpacked one, and the app only
-opens the bridge to ids it knows, so the new id has to be added to
-`CHROME_EXTENSION_IDS` in `src-tauri/src/commands/browser_bridge.rs` and shipped
-in an app release. Full checklist, listing copy and permission justifications:
+opens the bridge to ids it knows, so both ids are listed in
+`CHROME_EXTENSION_IDS` in `src-tauri/src/commands/browser_bridge.rs`. A
+recreated store item would get a new id, which has to be added there and
+shipped in an app release. Full checklist, listing copy and permission justifications:
 `docs/CHROME_STORE.md`.
 
 ## Development
@@ -82,7 +85,7 @@ in an app release. Full checklist, listing copy and permission justifications:
 ```bash
 npm install
 npm test          # conversion and popup, in jsdom — no browser needed
-npm run build     # dist/chrome and dist/firefox
+npm run build     # dist/chrome, dist/chrome-store and dist/firefox
 ```
 
 `key.pem` is gitignored and lives in 1Password. Chrome derives the extension ID
