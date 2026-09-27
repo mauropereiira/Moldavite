@@ -153,11 +153,10 @@ notes and folders where you want them and they stay there.
 
 **Clip any page to a note.** A browser extension turns the page you are reading
 into Markdown in the Forge you choose, links kept, images and styling dropped,
-and it works whether or not Moldavite is open. It is distributed from this
-repository rather than the browser stores, so Chrome needs Developer mode and the
-Firefox file is signed by Mozilla without being listed there. The Chrome archive
-is attached to every release; the Firefox `.xpi` is signed and uploaded by hand
-afterwards. See [docs/CLIPPER.md](docs/CLIPPER.md).
+and it works whether or not Moldavite is open. Install it for Chrome, Edge or
+Brave from the [Chrome Web Store](https://chromewebstore.google.com/detail/ngdbcbhchiifacekdkjpjbjmegkeodig). The Firefox
+`.xpi` is signed by Mozilla without being listed there, and is uploaded to a
+release by hand. See [docs/CLIPPER.md](docs/CLIPPER.md).
 
 **Publish to WordPress.com** without minting a credential: sign in once in your
 browser, pick a site, and the note becomes a draft. Publishing it again updates

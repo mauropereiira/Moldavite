@@ -2,6 +2,12 @@
 
 Everything the listing asks for, and the one step that is easy to get wrong.
 
+Published as
+[Moldavite Clipper](https://chromewebstore.google.com/detail/ngdbcbhchiifacekdkjpjbjmegkeodig),
+item id `ngdbcbhchiifacekdkjpjbjmegkeodig`. Each update needs a higher
+`version` in `extension/manifest.json` and `extension/package.json` than the
+one live in the store.
+
 ## Build the package
 
 ```sh
