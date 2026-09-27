@@ -15,6 +15,7 @@ import {
   useSearchStore,
   useSemanticStore,
   useNoteSelectionStore,
+  useNoteColorsStore,
   useSidebarOrderStore,
   useFolderStore,
   applyManualOrder,
@@ -56,12 +57,13 @@ import {
   SemanticIndexingHint,
   SidebarSemanticResults,
 } from './SidebarSemanticSearch';
-import { SidebarNotesList } from './SidebarNotesList';
+import { SidebarNotesList, nextSortToggle } from './SidebarNotesList';
 import { SidebarFolderTree } from './SidebarFolderTree';
 import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import { isMobilePlatform } from '@/lib/platform';
 import { holdKeyboard } from '@/lib/noteTitleFocus';
+import { isPrimaryModifier } from '@/lib/shortcuts';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 
@@ -307,11 +309,10 @@ export function Sidebar({
     return unfiledNotes;
   }, [unfiledNotes, filterByTag, selectedTags.length, notes]);
 
-  // Keyboard shortcuts: Cmd/Ctrl+F or Cmd/Ctrl+K focuses the search input
+  // Not ⌘K: the editor's Insert link owns it.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
-      if (isMod && (e.key === 'f' || e.key === 'k')) {
+      if (isPrimaryModifier(e) && e.key === 'f') {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -544,7 +545,12 @@ export function Sidebar({
       return;
     }
 
-    await createNewFolder(name);
+    try {
+      await createNewFolder(name);
+    } catch {
+      // useFolders showed the error; the modal stays open to fix the name.
+      return;
+    }
     setNewFolderName('');
     setIsCreatingFolder(false);
   };
@@ -571,7 +577,12 @@ export function Sidebar({
     }
 
     if (name !== folderToRename.name) {
-      await renameExistingFolder(folderToRename.path, name);
+      try {
+        await renameExistingFolder(folderToRename.path, name);
+      } catch {
+        // useFolders showed the error; the modal stays open to fix the name.
+        return;
+      }
     }
     setFolderToRename(null);
     setRenameFolderName('');
@@ -585,11 +596,14 @@ export function Sidebar({
   };
 
   const handleDeleteFolderConfirm = async () => {
-    if (folderToDelete) {
-      await trashFolder(folderToDelete.path);
+    try {
+      if (folderToDelete) await trashFolder(folderToDelete.path);
+    } catch {
+      // useTrash showed the error.
+    } finally {
+      setFolderToDelete(null);
+      setShowDeleteFolderConfirm(false);
     }
-    setFolderToDelete(null);
-    setShowDeleteFolderConfirm(false);
   };
 
   const handleNoteDrop = async (notePath: string, toFolder: string) => {
@@ -806,7 +820,10 @@ export function Sidebar({
           note={noteMenu.target}
           position={noteMenu.position}
           onOpenInNewTab={(note) => loadNote(note, true)}
-          onDuplicate={duplicateNote}
+          onDuplicate={async (note) => {
+            await duplicateNote(note);
+            await useNoteColorsStore.getState().loadColors();
+          }}
           onRename={setNoteToRename}
           onLock={handleLockNote}
           onUnlock={handleUnlockNote}
@@ -937,18 +954,8 @@ export function Sidebar({
                 onToggleSection={() => toggleSection('notes')}
                 title={selectedTags.length > 0 ? 'Notes (filtered)' : 'Notes'}
                 count={selectedTags.length > 0 ? displayedNotes.length : unfiledNotes.length}
-                sortOption={
-                  sortOption === 'name-desc' || sortOption === 'manual' ? sortOption : 'name-asc'
-                }
-                onSortToggle={() =>
-                  setSortOption(
-                    sortOption === 'name-desc'
-                      ? 'manual'
-                      : sortOption === 'manual'
-                        ? 'name-asc'
-                        : 'name-desc'
-                  )
-                }
+                sortOption={sortOption}
+                onSortToggle={() => setSortOption(nextSortToggle(sortOption))}
                 onNewNote={() => startNewNote()}
                 onNoteClick={handleSidebarNoteClick}
                 onNoteSelectionClick={handleSelectionClick}

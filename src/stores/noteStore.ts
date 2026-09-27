@@ -145,7 +145,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   setIsSaving: (saving) => set({ isSaving: saving }),
 
-  setSelectedDate: (date) => set({ selectedDate: date }),
+  /** A day and a week are never selected together, so any Today action clears the week. */
+  setSelectedDate: (date) => set({ selectedDate: date, selectedWeek: null }),
 
   /**
    * Sets the selected week for weekly note navigation.
@@ -202,7 +203,9 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
       if (existingTabIndex >= 0) {
         const updatedTabs = state.openTabs.map((t, i) =>
-          i === existingTabIndex ? { ...t, content: note.content } : t
+          i === existingTabIndex
+            ? { ...t, content: note.content, cloudPending: note.cloudPending }
+            : t
         );
         return {
           openTabs: updatedTabs,

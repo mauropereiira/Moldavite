@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
 import { afterEach, describe, expect, it } from 'vitest';
 import { NoteTables } from './extensions/NoteTables';
 import { FormattingMenu } from './FormattingMenu';
@@ -27,5 +28,33 @@ describe('Format menu Table item', () => {
     expect(item).toBeDisabled();
     act(() => item.click());
     expect(editor.view.dom.querySelectorAll('table')).toHaveLength(1);
+  });
+});
+
+describe('Format menu Link item', () => {
+  it('edits the link under the caret', () => {
+    editor = new Editor({
+      extensions: [StarterKit.configure({ link: false }), Link],
+      content: '<p>See <a href="https://old.example">the docs</a> now</p>',
+    });
+    editor.commands.setTextSelection(8);
+    render(<FormattingMenu editor={editor} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Formatting' }));
+    const item = screen
+      .getAllByRole('menuitem')
+      .find((menuItem) => menuItem.textContent?.startsWith('Link'));
+    if (!item) throw new Error('No Link item');
+    fireEvent.click(item);
+    const url = screen.getByLabelText(/URL/);
+    expect(url).toHaveValue('https://old.example');
+    expect(screen.getByLabelText(/Display Text/)).toHaveValue('the docs');
+    fireEvent.change(url, { target: { value: 'https://new.example' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update Link' }));
+
+    expect(editor.getText()).toBe('See the docs now');
+    const links = editor.view.dom.querySelectorAll('a');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', 'https://new.example');
   });
 });

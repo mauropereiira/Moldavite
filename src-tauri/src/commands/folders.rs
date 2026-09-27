@@ -7,9 +7,13 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
+use tauri::State;
+
+use crate::backlinks_index::BacklinksIndex;
 use crate::note_file_access::{self, Access};
-use crate::paths::get_standalone_dir;
+use crate::paths::{get_notes_dir, get_standalone_dir};
 use crate::persist::generate_unique_folder_name;
 use crate::types::FolderInfo;
 use crate::validation::{
@@ -182,9 +186,15 @@ pub(crate) fn create_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn rename_folder(old_path: String, new_name: String) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir()?;
-    rename_folder_from(&standalone_dir, &old_path, &new_name)
+pub(crate) fn rename_folder(
+    old_path: String,
+    new_name: String,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
+    let forge_root = get_notes_dir()?;
+    let new_path = rename_folder_from(&forge_root.join("notes"), &old_path, &new_name)?;
+    reindex_moved_folder(&forge_root, &old_path, &new_path, &index);
+    Ok(new_path)
 }
 
 /// Locked note encryption is bound to its notes-relative path. Changing an
@@ -235,7 +245,9 @@ fn rename_folder_from(
             if !old_folder_path.exists() {
                 return Err("Folder not found".into());
             }
-            if new_folder_path.exists() {
+            if new_folder_path.exists()
+                && !crate::persist::is_case_only_rename(&old_folder_path, &new_folder_path)
+            {
                 return Err("A folder with this name already exists".to_string());
             }
 
@@ -257,9 +269,21 @@ fn rename_folder_from(
 }
 
 #[tauri::command]
-pub(crate) fn delete_folder(path: String, force: bool) -> Result<(), String> {
-    let standalone_dir = get_standalone_dir()?;
-    delete_folder_from(&standalone_dir, &path, force)
+pub(crate) fn delete_folder(
+    path: String,
+    force: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<(), String> {
+    let forge_root = get_notes_dir()?;
+    let standalone_dir = forge_root.join("notes");
+    let notes = if is_safe_existing_note_path(&path) {
+        notes_under(&standalone_dir.join(&path))
+    } else {
+        Vec::new()
+    };
+    delete_folder_from(&standalone_dir, &path, force)?;
+    unindex_deleted_folder(&forge_root, &path, &notes, &index);
+    Ok(())
 }
 
 fn delete_folder_from(standalone_dir: &Path, path: &str, force: bool) -> Result<(), String> {
@@ -303,9 +327,16 @@ fn delete_folder_from(standalone_dir: &Path, path: &str, force: bool) -> Result<
 pub(crate) fn move_folder(
     folder_path: String,
     to_folder: Option<String>,
+    index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
-    let standalone_dir = get_standalone_dir()?;
-    move_folder_from(&standalone_dir, &folder_path, to_folder.as_deref())
+    let forge_root = get_notes_dir()?;
+    let new_path = move_folder_from(
+        &forge_root.join("notes"),
+        &folder_path,
+        to_folder.as_deref(),
+    )?;
+    reindex_moved_folder(&forge_root, &folder_path, &new_path, &index);
+    Ok(new_path)
 }
 
 fn move_folder_from(
@@ -394,6 +425,68 @@ fn move_folder_from(
     };
 
     Ok(new_relative_path)
+}
+
+/// Notes under `dir`, as `/`-separated paths relative to it.
+fn notes_under(dir: &Path) -> Vec<String> {
+    walkdir::WalkDir::new(dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
+        })
+        .flatten()
+        .filter(|entry| {
+            entry.file_type().is_file() && entry.file_name().to_string_lossy().ends_with(".md")
+        })
+        .filter_map(|entry| {
+            let relative = entry.path().strip_prefix(dir).ok()?;
+            Some(relative.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
+}
+
+/// A folder moves in one rename, which the watcher sees only as a directory
+/// event and ignores, so every note inside is re-keyed here.
+fn reindex_moved_folder(
+    forge_root: &Path,
+    old_folder: &str,
+    new_folder: &str,
+    index: &BacklinksIndex,
+) {
+    if old_folder == new_folder {
+        return;
+    }
+    index.move_folder(
+        &format!("notes/{old_folder}"),
+        &format!("notes/{new_folder}"),
+    );
+    let mut old_paths = Vec::new();
+    for relative in notes_under(&forge_root.join("notes").join(new_folder)) {
+        let old_path = format!("notes/{old_folder}/{relative}");
+        let new_path = format!("notes/{new_folder}/{relative}");
+        crate::search_index::note_renamed_in(&old_path, &new_path, forge_root.to_path_buf());
+        crate::semantic::note_changed_in(&new_path, forge_root.to_path_buf());
+        old_paths.push(old_path);
+    }
+    crate::semantic::notes_removed(old_paths);
+}
+
+/// `notes` is what [`notes_under`] listed before the folder was deleted.
+fn unindex_deleted_folder(
+    forge_root: &Path,
+    folder: &str,
+    notes: &[String],
+    index: &BacklinksIndex,
+) {
+    let mut paths = Vec::with_capacity(notes.len());
+    for relative in notes {
+        let path = format!("notes/{folder}/{relative}");
+        crate::search_index::note_removed_in(&path, forge_root.to_path_buf());
+        index.remove_note(&path);
+        paths.push(path);
+    }
+    crate::semantic::notes_removed(paths);
 }
 
 #[cfg(test)]
@@ -523,6 +616,83 @@ mod tests {
         assert_eq!(renamed, "Portable");
         assert!(notes.join("Portable").is_dir());
     }
+
+    #[test]
+    fn a_case_only_folder_rename_is_not_refused_on_a_case_insensitive_volume() {
+        let tmp = TempDir::new("case-only-rename");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Projects")).unwrap();
+        fs::write(notes.join("Projects/note.md"), "body").unwrap();
+        if !notes.join("projects").exists() {
+            return;
+        }
+
+        assert_eq!(
+            rename_folder_from(&notes, "Projects", "projects").unwrap(),
+            "projects"
+        );
+
+        let names: Vec<String> = fs::read_dir(&notes)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["projects"]);
+        assert_eq!(
+            fs::read_to_string(notes.join("projects/note.md")).unwrap(),
+            "body"
+        );
+    }
+
+    #[test]
+    fn the_search_index_follows_a_folder_through_rename_move_and_delete() {
+        let tmp = TempDir::new("reindex-moved");
+        let forge = tmp.0.clone();
+        let notes = forge.join("notes");
+        for dir in ["notes/Projects/Deep", "notes/Archive", "daily", "weekly"] {
+            fs::create_dir_all(forge.join(dir)).unwrap();
+        }
+        fs::write(notes.join("Projects/alpha.md"), "zephyrine alpha").unwrap();
+        fs::write(notes.join("Projects/Deep/beta.md"), "zephyrine beta").unwrap();
+        crate::search_index::reconcile(&forge).unwrap();
+        let paths = || {
+            let mut paths: Vec<String> =
+                crate::search_index::query(&forge, &forge, "zephyrine", 10)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|hit| hit.path)
+                    .collect();
+            paths.sort();
+            paths
+        };
+        let wait_for = |expected: &[&str]| {
+            for _ in 0..200 {
+                if paths() == expected {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            assert_eq!(paths(), expected);
+        };
+
+        let renamed = rename_folder_from(&notes, "Projects", "Plans").unwrap();
+        reindex_moved_folder(&forge, "Projects", &renamed, &BacklinksIndex::new());
+        wait_for(&["notes/Plans/Deep/beta.md", "notes/Plans/alpha.md"]);
+
+        let moved = move_folder_from(&notes, "Plans", Some("Archive")).unwrap();
+        reindex_moved_folder(&forge, "Plans", &moved, &BacklinksIndex::new());
+        wait_for(&[
+            "notes/Archive/Plans/Deep/beta.md",
+            "notes/Archive/Plans/alpha.md",
+        ]);
+
+        let listed = notes_under(&notes.join("Archive/Plans"));
+        delete_folder_from(&notes, "Archive/Plans", true).unwrap();
+        unindex_deleted_folder(&forge, "Archive/Plans", &listed, &BacklinksIndex::new());
+        wait_for(&[]);
+
+        crate::search_index::delete_for(&forge);
+    }
+
     #[test]
     fn moving_or_renaming_a_folder_keeps_locked_notes_at_their_encryption_identity() {
         let tmp = TempDir::new("locked-tree");

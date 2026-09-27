@@ -564,19 +564,21 @@
         The right panel can show a month and your events from two sources. Both are read-only:
         Moldavite never creates, edits, or deletes an event, and never writes one into a note by
         itself. Connect either or both in <strong>Settings → Calendar</strong>, then tick the
-        individual calendars you want on the timeline. Apple Calendar is macOS-only; Google
-        Calendar works on macOS, Windows and Linux. The month grid and your daily-note markers work
-        with no calendar connected at all.
+        individual calendars you want on the timeline. Apple Calendar works on a Mac, iPhone and
+        iPad; Google Calendar works everywhere, including Windows and Linux. The month grid and your
+        daily-note markers work with no calendar connected at all.
       </p>
       <ul>
         <li>
-          <strong>Apple Calendar</strong>: native EventKit on macOS. The system asks for permission
-          the first time, and nothing leaves your machine.
+          <strong>Apple Calendar</strong>: native EventKit on macOS, iOS and iPadOS. The system asks
+          for permission the first time, and nothing leaves your device. On iPhone and iPad, choose
+          <strong>Full Access</strong>: with <strong>Add Events Only</strong> the app cannot read any.
         </li>
         <li>
-          <strong>Google Calendar</strong>: connecting opens your browser for Google's consent
-          screen and returns to a local port. Moldavite asks only for the read-only calendar scope.
-          The refresh token is stored in the OS credential store (macOS Keychain, Windows Credential Manager, or the Linux Secret
+          <strong>Google Calendar</strong>: on a computer, connecting opens your browser for
+          Google's consent screen and returns to a local port; on iPhone and iPad it opens Apple's
+          sign-in sheet inside the app. Moldavite asks only for the read-only calendar scope.
+          The refresh token is stored in the OS credential store (the Keychain on macOS and iOS, Windows Credential Manager, or the Linux Secret
           Service) and stays outside notes and settings files.
           <strong>Disconnect</strong> removes it, and you can also revoke access from your
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.

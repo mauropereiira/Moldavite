@@ -1,11 +1,20 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { open } from '@tauri-apps/plugin-shell';
+import { safeInvoke } from '@/lib/ipc';
 import type { CalendarEvent } from '@/types';
 import { AllDayEvent, EventBlock } from './EventBlock';
 
 vi.mock('@tauri-apps/plugin-shell', () => ({
   open: vi.fn(async () => undefined),
 }));
+
+vi.mock('@/lib/ipc', () => ({
+  safeInvoke: vi.fn(async () => undefined),
+}));
+
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
 
 const SOURCE_BLUE = `#${'336699'}`;
 const SOURCE_GREEN = `#${'557744'}`;
@@ -32,6 +41,45 @@ describe('EventBlock', () => {
   afterEach(() => {
     document.documentElement.style.removeProperty('--calendar-google');
     document.documentElement.style.removeProperty('--accent-primary');
+    platform.mobile = false;
+    vi.mocked(open).mockClear();
+    vi.mocked(safeInvoke).mockClear();
+  });
+
+  it('opens an event link in the browser on the desktop', async () => {
+    const url = 'https://calendar.google.com/event?eid=1';
+    const { container } = render(
+      <EventBlock event={buildEvent({ url })} columnIndex={0} totalColumns={1} />
+    );
+
+    fireEvent.click(container.firstElementChild as HTMLElement);
+
+    await waitFor(() => expect(open).toHaveBeenCalledWith(url));
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it('opens an event link through the native opener on a phone', async () => {
+    platform.mobile = true;
+    const url = 'https://calendar.google.com/event?eid=1';
+    render(<AllDayEvent event={buildEvent({ isAllDay: true, url })} />);
+
+    fireEvent.click(screen.getByText('Calendar event'));
+
+    await waitFor(() => expect(safeInvoke).toHaveBeenCalledWith('open_external_link', { url }));
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('shows times on the same 24-hour clock as the timeline axis', () => {
+    const { container } = render(
+      <EventBlock
+        event={buildEvent({ start: '2025-03-14T13:00:00', end: '2025-03-14T14:30:00' })}
+        columnIndex={0}
+        totalColumns={1}
+      />
+    );
+
+    expect(container.textContent).toContain('13:00');
+    expect(container.textContent).not.toMatch(/PM|AM/);
   });
 
   it('encodes event duration in the computed block height', () => {

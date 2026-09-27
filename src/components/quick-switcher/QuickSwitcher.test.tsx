@@ -4,6 +4,7 @@ import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { isMobilePlatform } from '@/lib/platform';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { QuickSwitcher } from './QuickSwitcher';
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
@@ -16,6 +17,7 @@ vi.mock('@/lib/ipc', () => ({ safeInvoke: search.invoke }));
 
 const notesHarness = vi.hoisted(() => ({
   loadNote: vi.fn().mockResolvedValue(undefined),
+  createFromTemplate: vi.fn().mockResolvedValue(undefined),
   note: {
     name: 'Keyboard.md',
     path: 'notes/Keyboard.md',
@@ -38,6 +40,7 @@ vi.mock('@/hooks/useNotes', () => ({
     loadNote: notesHarness.loadNote,
     loadDailyNote: vi.fn().mockResolvedValue(undefined),
     createNote: vi.fn().mockResolvedValue(undefined),
+    createFromTemplate: notesHarness.createFromTemplate,
   }),
 }));
 
@@ -230,5 +233,97 @@ describe('QuickSwitcher text search', () => {
       expect(titles).not.toContain(title);
     }
     expect(container.querySelector('.quick-switcher-section-header svg')).toBeNull();
+  });
+});
+
+describe('QuickSwitcher Enter', () => {
+  beforeEach(() => {
+    notesHarness.loadNote.mockClear();
+    search.invoke.mockReset();
+    search.invoke.mockResolvedValue([]);
+    useQuickSwitcherStore.setState({ recentSearches: [], pinnedNoteIds: [] });
+    useQuickSwitcherStore.getState().open();
+  });
+
+  it.each([
+    ['isComposing', { isComposing: true }],
+    ['keyCode 229', { keyCode: 229 }],
+  ])('does not open the highlighted row while composing (%s)', (_name, init) => {
+    render(<QuickSwitcher />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Keyb' } });
+
+    fireEvent.keyDown(input, { key: 'Enter', ...init });
+    expect(notesHarness.loadNote).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(notesHarness.loadNote).toHaveBeenCalledWith(notesHarness.note);
+  });
+});
+
+describe('QuickSwitcher New Note from Template', () => {
+  beforeEach(() => {
+    notesHarness.createFromTemplate.mockClear();
+    search.invoke.mockReset();
+    search.invoke.mockImplementation(async (command: string) =>
+      command === 'list_templates'
+        ? [
+            {
+              id: 'meeting',
+              name: 'Meeting',
+              description: 'Agenda and actions',
+              icon: 'users',
+              isDefault: false,
+              content: '',
+            },
+          ]
+        : []
+    );
+    useQuickSwitcherStore.setState({ recentSearches: [], pinnedNoteIds: [] });
+    useQuickSwitcherStore.getState().open();
+  });
+
+  it('creates a new note from the chosen template instead of pressing ⌘T', async () => {
+    const keys: string[] = [];
+    const recordKey = (event: KeyboardEvent) => keys.push(event.key);
+    window.addEventListener('keydown', recordKey);
+    render(<QuickSwitcher />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'from template' } });
+    const command = [...document.querySelectorAll('.quick-switcher-item-title')].find(
+      (title) => title.textContent === 'New Note from Template…'
+    );
+    fireEvent.click(command as Element);
+    window.removeEventListener('keydown', recordKey);
+
+    expect(keys).not.toContain('t');
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+    fireEvent.click(await screen.findByText('Meeting'));
+
+    expect(notesHarness.createFromTemplate).toHaveBeenCalledTimes(1);
+    expect(notesHarness.createFromTemplate).toHaveBeenCalledWith('Untitled', 'meeting');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('QuickSwitcher search field focus', () => {
+  beforeEach(() => {
+    useQuickSwitcherStore.setState({ isOpen: false, recentSearches: [], pinnedNoteIds: [] });
+  });
+
+  afterEach(() => {
+    // Blurring the stand-in is what removes it.
+    (document.activeElement as HTMLElement | null)?.blur();
+    vi.mocked(isMobilePlatform).mockReturnValue(false);
+  });
+
+  it('takes focus from the keyboard stand-in as it opens on a phone', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<QuickSwitcher />);
+
+    holdKeyboard();
+    act(() => useQuickSwitcherStore.getState().open());
+
+    expect(document.activeElement).toBe(screen.getByRole('textbox'));
   });
 });

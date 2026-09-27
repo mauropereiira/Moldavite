@@ -194,12 +194,12 @@ export function NoSearchResultsEmptyState({
   );
 }
 
-export function NoEventsEmptyState() {
+export function NoEventsEmptyState({ isToday = true }: { isToday?: boolean }) {
   return (
     <EmptyState
       icon={SignatureIcon}
       iconClassName="w-5 h-5"
-      heading="No events today"
+      heading={isToday ? 'No events today' : 'No events'}
       message="Enjoy your free time! Your calendar is clear."
       variant="compact"
       iconColor="var(--text-muted)"

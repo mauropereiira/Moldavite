@@ -160,7 +160,7 @@ describe('AgendaOverlay', () => {
     resetStores([], [], false);
   });
 
-  it('keeps the mobile note calendar usable without mounting desktop event connections', async () => {
+  it('shows the phone its note calendar and its event timeline', async () => {
     platform.mobile = true;
     resetStores();
     // A desktop preference must not leave the phone's Agenda empty.
@@ -168,10 +168,19 @@ describe('AgendaOverlay', () => {
     render(<AgendaOverlay isOpen onClose={vi.fn()} />);
     await act(async () => {});
     expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Event timeline' })).toBeInTheDocument();
+    expect(screen.getByText('Events')).toBeInTheDocument();
+    expect(useCalendarStore.getState().checkPermission).toHaveBeenCalled();
+  });
+
+  it('leaves the timeline off a phone whose timeline is switched off', async () => {
+    platform.mobile = true;
+    resetStores();
+    useSettingsStore.setState({ showCalendarWidget: false, showTimelineWidget: false });
+    render(<AgendaOverlay isOpen onClose={vi.fn()} />);
+    await act(async () => {});
+    expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Event timeline' })).not.toBeInTheDocument();
-    expect(screen.queryByText(/connect.*calendar/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Events')).not.toBeInTheDocument();
-    expect(useCalendarStore.getState().checkPermission).not.toHaveBeenCalled();
   });
 
   it('renders a realistic vault without throwing', async () => {

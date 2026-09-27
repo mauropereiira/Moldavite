@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useGraphStore,
   useNoteSelectionStore,
@@ -11,6 +11,16 @@ import {
 } from '@/stores';
 import type { Note } from '@/types';
 import { ChromeShortcutHost } from './ChromeShortcutHost';
+
+beforeEach(() => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('ChromeShortcutHost modes', () => {
   beforeEach(() => {
@@ -198,5 +208,26 @@ describe('ChromeShortcutHost surfaces', () => {
     fireEvent.keyDown(window, { key: 'p', code: 'KeyP', metaKey: true });
     fireEvent.keyDown(window, { key: 'p', code: 'KeyP', metaKey: true });
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+  });
+});
+
+describe('ChromeShortcutHost on a Mac', () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetToDefaults();
+    useOverlayStore.setState({ activeOverlay: null, isSidebarHidden: false });
+    useQuickSwitcherStore.setState({ isOpen: false });
+    useGraphStore.setState({ isOpen: false });
+  });
+
+  it('ignores Ctrl in place of ⌘', () => {
+    render(<ChromeShortcutHost />);
+
+    fireEvent.keyDown(window, { key: 'p', code: 'KeyP', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'G', code: 'KeyG', ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: '\\', code: 'Backslash', ctrlKey: true });
+
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+    expect(useGraphStore.getState().isOpen).toBe(false);
+    expect(useOverlayStore.getState().activeOverlay).toBeNull();
   });
 });

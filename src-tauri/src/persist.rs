@@ -162,6 +162,37 @@ pub(crate) fn write_atomic_with<F>(path: &Path, mode: Option<u32>, write: F) -> 
 where
     F: FnOnce(&mut fs::File) -> Result<(), String>,
 {
+    write_atomic_created(path, mode, created_time(path), write)
+}
+
+fn created_time(path: &Path) -> Option<std::time::SystemTime> {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.created())
+        .ok()
+}
+
+/// [`write_atomic`] for a note changing spelling (`.md` to or from `.md.locked`):
+/// `path` keeps `created_from`'s creation time, as a rename would.
+pub(crate) fn write_atomic_as(
+    path: &Path,
+    contents: &[u8],
+    mode: Option<u32>,
+    created_from: &Path,
+) -> Result<(), String> {
+    write_atomic_created(path, mode, created_time(created_from), |file| {
+        file.write_all(contents).map_err(|e| e.to_string())
+    })
+}
+
+fn write_atomic_created<F>(
+    path: &Path,
+    mode: Option<u32>,
+    created: Option<std::time::SystemTime>,
+    write: F,
+) -> Result<(), String>
+where
+    F: FnOnce(&mut fs::File) -> Result<(), String>,
+{
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -177,9 +208,6 @@ where
         return Err(format!("Refusing to replace symlink {}", path.display()));
     }
 
-    let created = fs::metadata(path)
-        .and_then(|metadata| metadata.created())
-        .ok();
     let (tmp_path, mut file) = open_atomic_temp(parent, &file_name, mode)
         .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
     let result = (|| -> Result<(), String> {
@@ -247,15 +275,33 @@ pub(crate) fn write_config(config: &AppConfig) -> Result<(), String> {
 }
 
 pub(crate) fn read_trash_metadata() -> Result<TrashMetadata, String> {
-    let metadata_path = get_trash_metadata_path()?;
-    if metadata_path.exists() {
-        if let Ok(content) = fs::read_to_string(&metadata_path) {
-            if let Ok(metadata) = serde_json::from_str::<TrashMetadata>(&content) {
-                return Ok(metadata);
-            }
+    read_trash_metadata_at(&get_trash_metadata_path()?)
+}
+
+/// Unparseable metadata is renamed aside, since the next write would otherwise
+/// orphan every trashed note it records. An unreadable file is an error: it may
+/// be perfectly valid.
+fn read_trash_metadata_at(metadata_path: &Path) -> Result<TrashMetadata, String> {
+    if !metadata_path.exists() {
+        return Ok(TrashMetadata::default());
+    }
+    let content = fs::read_to_string(metadata_path)
+        .map_err(|e| format!("Failed to read trash metadata: {e}"))?;
+    match serde_json::from_str::<TrashMetadata>(&content) {
+        Ok(metadata) => Ok(metadata),
+        Err(error) => {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            let aside = metadata_path.with_file_name(format!("metadata.json.corrupt-{stamp}"));
+            fs::rename(metadata_path, &aside).map_err(|e| {
+                format!("Trash metadata is unreadable and could not be set aside: {e}")
+            })?;
+            log::warn!("[trash] unreadable metadata ({error}) moved to {aside:?}");
+            Ok(TrashMetadata::default())
         }
     }
-    Ok(TrashMetadata::default())
 }
 
 pub(crate) fn write_trash_metadata(metadata: &TrashMetadata) -> Result<(), String> {
@@ -309,6 +355,35 @@ pub(crate) fn name_is_taken(dir: &Path, name: &str) -> bool {
         path.exists() || crate::cloud_forge::is_remote_name(&path)
     };
     taken(name) || paired_note_name(name).is_some_and(|paired| taken(&paired))
+}
+
+/// Whether `from` to `to` only changes case or Unicode form. On a
+/// case-insensitive volume (the macOS and Windows default) `to` then "exists" as
+/// `from` itself. Names must fold equal as well as resolve to one file, so two
+/// hard links to one inode still collide.
+pub(crate) fn is_case_only_rename(from: &Path, to: &Path) -> bool {
+    let (Some(from_name), Some(to_name)) = (from.file_name(), to.file_name()) else {
+        return false;
+    };
+    if from == to
+        || from.parent() != to.parent()
+        || !crate::wiki::same_note_name(&from_name.to_string_lossy(), &to_name.to_string_lossy())
+    {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::symlink_metadata(from), fs::symlink_metadata(to)) {
+            (Ok(a), Ok(b)) => a.dev() == b.dev() && a.ino() == b.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    match (fs::canonicalize(from), fs::canonicalize(to)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
 }
 
 /// Core uniqueness search shared by file and folder name generation.
@@ -577,6 +652,27 @@ mod tests {
         assert_eq!(attempts.get(), WINDOWS_RENAME_RETRY_DELAYS.len() + 1);
         assert_eq!(sleeps.get(), WINDOWS_RENAME_RETRY_DELAYS.len());
         assert_eq!(error.to_string(), WINDOWS_RENAME_BUSY_MESSAGE);
+    }
+
+    #[test]
+    fn unreadable_trash_metadata_is_kept_aside_rather_than_overwritten() {
+        let tmp = TempDir::new("trash-corrupt");
+        let path = tmp.path().join("metadata.json");
+        fs::write(&path, "{\"items\": [ truncated").unwrap();
+
+        let metadata = read_trash_metadata_at(&path).unwrap();
+
+        assert!(metadata.items.is_empty());
+        let kept: Vec<String> = fs::read_dir(tmp.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("metadata.json.corrupt-"))
+            .collect();
+        assert_eq!(kept.len(), 1, "the unreadable metadata must be preserved");
+        assert_eq!(
+            fs::read_to_string(tmp.path().join(&kept[0])).unwrap(),
+            "{\"items\": [ truncated"
+        );
     }
 
     #[test]

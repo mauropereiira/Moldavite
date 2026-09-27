@@ -10,12 +10,15 @@ use std::fs;
 use std::io::{Read as IoRead, Seek, Write as IoWrite};
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use walkdir::WalkDir;
 use zeroize::Zeroizing;
 use zip::write::SimpleFileOptions;
 use zip::ZipArchive;
 
+use crate::backlinks_index::BacklinksIndex;
 use crate::encryption;
+use crate::forge_watcher::RecentWrites;
 use crate::paths::get_notes_dir;
 use crate::types::ImportResult;
 use crate::validation::{
@@ -238,13 +241,16 @@ fn is_acceptable_entry_name(name: &str) -> bool {
     has_safe_relative_path_syntax(name)
 }
 
+/// Existing-name rules, not portable ones: a backup holds whatever names the
+/// Forge had (`Q3: plan.md`), so it must import them back. Hidden and `..`
+/// components stay refused.
 fn validated_archive_destination(notes_dir: &Path, name: &str) -> Option<(String, PathBuf)> {
     if !is_acceptable_entry_name(name) || name.ends_with('/') {
         return None;
     }
     let (subdir, rest) = name.split_once('/')?;
     if !["daily", "notes", "templates", "weekly", "images"].contains(&subdir)
-        || !crate::validation::is_safe_note_path(rest)
+        || !crate::validation::is_safe_existing_note_path(rest)
     {
         return None;
     }
@@ -391,7 +397,7 @@ fn extract_archive<R: IoRead + Seek>(
         }
 
         ensure_import_parent(destination_root, &destination)?;
-        if merge && destination.exists() {
+        if merge && destination_is_taken(&destination) {
             continue;
         }
 
@@ -418,6 +424,15 @@ fn extract_archive<R: IoRead + Seek>(
     }
 
     Ok(result)
+}
+
+fn destination_is_taken(destination: &Path) -> bool {
+    match (destination.parent(), destination.file_name()) {
+        (Some(parent), Some(name)) => {
+            crate::persist::name_is_taken(parent, &name.to_string_lossy())
+        }
+        _ => destination.exists(),
+    }
 }
 
 fn create_import_staging_dir(notes_dir: &Path) -> Result<PathBuf, String> {
@@ -602,9 +617,28 @@ fn export_notes_from(notes_dir: &Path, zip_path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn import_notes(zip_path: String, merge: bool) -> Result<ImportResult, String> {
+pub(crate) fn import_notes(
+    zip_path: String,
+    merge: bool,
+    app: tauri::AppHandle,
+    recent: tauri::State<'_, Arc<RecentWrites>>,
+    index: tauri::State<'_, Arc<BacklinksIndex>>,
+) -> Result<ImportResult, String> {
     let notes_dir = get_notes_dir()?;
-    import_notes_into(&notes_dir, Path::new(&zip_path), merge)
+    let imported = import_notes_into(&notes_dir, Path::new(&zip_path), merge)?;
+    refresh_after_import(&app, &recent, &index, notes_dir);
+    Ok(imported)
+}
+
+/// A replace import swaps note trees in by directory rename, which the watcher
+/// ignores, and no import feeds the backlinks index.
+fn refresh_after_import(
+    app: &tauri::AppHandle,
+    recent: &Arc<RecentWrites>,
+    index: &Arc<BacklinksIndex>,
+    notes_dir: PathBuf,
+) {
+    crate::commands::forges::refresh_active_forge(app, recent.clone(), index.clone(), notes_dir);
 }
 
 fn import_notes_into(
@@ -692,10 +726,16 @@ pub(crate) fn import_encrypted_backup(
     backup_path: String,
     password: String,
     merge: bool,
+    app: tauri::AppHandle,
+    recent: tauri::State<'_, Arc<RecentWrites>>,
+    index: tauri::State<'_, Arc<BacklinksIndex>>,
 ) -> Result<ImportResult, String> {
     let password = Zeroizing::new(password);
     let notes_dir = get_notes_dir()?;
-    import_encrypted_backup_into(&notes_dir, Path::new(&backup_path), &password, merge)
+    let imported =
+        import_encrypted_backup_into(&notes_dir, Path::new(&backup_path), &password, merge)?;
+    refresh_after_import(&app, &recent, &index, notes_dir);
+    Ok(imported)
 }
 
 fn import_encrypted_backup_into(
@@ -1147,6 +1187,48 @@ mod tests {
         assert_eq!(
             fs::read_to_string(destination.join("notes/keep.md")).unwrap(),
             "must survive failed import"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_backup_of_notes_with_non_portable_names_imports() {
+        let tmp = TempDir::new("nonportable-names");
+        let archive = tmp.0.join("backup.zip");
+        let names = [
+            "notes/Q3: plan.md",
+            "notes/Legacy/What?.md",
+            "images/Q3: chart.png",
+        ];
+        write_zip(&archive, names.map(String::from));
+
+        for merge in [false, true] {
+            let destination = tmp.0.join(format!("destination-{merge}"));
+            scaffold(&destination);
+
+            import_notes_into(&destination, &archive, merge).unwrap();
+
+            for name in names {
+                assert_eq!(fs::read_to_string(destination.join(name)).unwrap(), "x");
+            }
+        }
+    }
+
+    #[test]
+    fn a_merge_import_never_lands_a_note_beside_its_locked_twin() {
+        let tmp = TempDir::new("merge-locked");
+        let destination = tmp.0.join("destination");
+        scaffold(&destination);
+        fs::write(destination.join("notes/Foo.md.locked"), "ciphertext").unwrap();
+        let archive = tmp.0.join("backup.zip");
+        write_zip(&archive, ["notes/Foo.md".to_string()]);
+
+        import_notes_into(&destination, &archive, true).unwrap();
+
+        assert!(!destination.join("notes/Foo.md").exists());
+        assert_eq!(
+            fs::read_to_string(destination.join("notes/Foo.md.locked")).unwrap(),
+            "ciphertext"
         );
     }
 

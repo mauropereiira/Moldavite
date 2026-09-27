@@ -1,5 +1,5 @@
 /**
- * Calendar events reach the app from more than one place: macOS EventKit and
+ * Calendar events reach the app from more than one place: EventKit (macOS and iOS) and
  * the Google Calendar API. Ids from those two namespaces can collide, so the
  * Rust layer prefixes every event and calendar id with its source
  * (`apple:<uid>`, `google:<id>`) and carries `source` alongside it. Treat both
@@ -40,7 +40,7 @@ export type CalendarPermission =
 
 /**
  * Per-source connection state. `available` is about the build and platform
- * (Apple is macOS-only; Google needs client credentials compiled in), while
+ * (Apple needs macOS or iOS; Google needs client credentials compiled in), while
  * `connected` is about this user having granted access.
  */
 export interface CalendarSourceStatus {

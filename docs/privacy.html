@@ -238,15 +238,22 @@
       </p>
       <p>
         The iPhone and iPad app does not run desktop executable plugins, download semantic
-        search models, connect to desktop calendar integrations, or check GitHub for app
-        updates. App updates are distributed through Apple's App Store. The home-screen
-        widget opens today's note and does not send note content to the developer.
+        search models, or check GitHub for app updates. App updates are distributed through
+        Apple's App Store. The home-screen widget opens today's note and does not send note
+        content to the developer.
+      </p>
+      <p>
+        Apple Calendar and Google Calendar work there as described under
+        <a href="#calendar">Calendar access</a>. Apple Calendar is read on the device after you
+        grant permission. Signing in to Google runs in Apple's in-app web sign-in sheet
+        (<code>ASWebAuthenticationSession</code>), which returns to Moldavite directly; the app
+        opens no local listener.
       </p>
 
       <h2 id="network">Every network connection</h2>
       <p>
         The table lists desktop integrations. On iPhone and iPad, the storage and external-content
-        connections are described above. Each desktop connection is either triggered
+        connections are described above, and the Google Calendar row applies there too. Each desktop connection is either triggered
         by an action you take or, in the case of update checks, disclosed here and limited to
         version information.
       </p>
@@ -312,10 +319,11 @@
         </table>
       </div>
       <p>
-        Two local connections are worth naming, because neither leaves your machine. Connecting a
-        Google account opens a listener on <code>127.0.0.1</code> on a port the operating system
-        picks, so Google's consent page can hand the authorization code back; it closes as soon as
-        the code arrives or the attempt times out. And the browser clipper talks to the app over
+        Two local connections are worth naming, because neither leaves your machine. On a computer,
+        connecting a Google account opens a listener on <code>127.0.0.1</code> on a port the
+        operating system picks, so Google's consent page can hand the authorization code back; it
+        closes as soon as the code arrives or the attempt times out. On iPhone and iPad there is no
+        listener: Apple's sign-in sheet hands the code straight back to the app. And the browser clipper talks to the app over
         the browser's native-messaging pipe, not a network port: your browser starts the Moldavite
         binary, the page you clip is written into your Forge, and nothing is sent anywhere else.
       </p>
@@ -372,8 +380,8 @@
       </p>
       <ul>
         <li>
-          <strong>Apple Calendar</strong> is read through macOS EventKit after you grant permission
-          in the system dialog. Nothing leaves your machine.
+          <strong>Apple Calendar</strong> is read through Apple's EventKit on a Mac, iPhone or iPad
+          after you grant permission in the system dialog. Nothing leaves your device.
         </li>
         <li>
           <strong>Google Calendar</strong> is read through the Google Calendar API after you
@@ -385,7 +393,7 @@
       <p>
         Google calendar data is fetched for the date range you are viewing and held in memory while
         Moldavite draws the timeline. It stays out of disk storage, search indexes, and exports.
-        Network transport is limited to your computer and Google.
+        Network transport is limited to your device and Google.
       </p>
       <p>
         You can disconnect at any time from <strong>Settings → Calendar</strong>, which deletes the

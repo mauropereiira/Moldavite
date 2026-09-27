@@ -56,9 +56,11 @@ Gated in `Cargo.toml` target sections and behind `cfg(desktop)`:
   manifest refresh, and the Forge file watcher. `notify` has no FSEvents on
   iOS and polls, which reported the app's own writes as external edits;
   the iCloud work brings a proper watcher.
-- The Swift EventKit bridge is linked only when the build target is macOS
-  (`build.rs` checks `CARGO_CFG_TARGET_OS`; the `cfg` attribute alone tests
-  the host).
+- `build.rs` links the Swift packages (the EventKit bridge and
+  `MoldaviteCloud`) only when the build target is macOS (it checks
+  `CARGO_CFG_TARGET_OS`; the `cfg` attribute alone tests the host). On iOS
+  they reach the app as dependencies of plugin Swift packages, which Tauri
+  builds for the device: see [Calendar on iOS](#calendar-on-ios).
 
 Capabilities are split: `capabilities/default.json` is desktop-only through
 `platforms`, and `capabilities/mobile.json` carries the same permissions
@@ -68,17 +70,55 @@ enum-restricted command that calls the shell plugin's native Rust opener. The
 JavaScript shell opener takes a desktop code path and fails on iOS. Both public
 links live in Settings → About.
 
-Mobile Agenda always shows the month calendar for daily/weekly note navigation.
-The external-event panel, its legend entry and its Features settings are
-desktop-only. A saved desktop preference cannot hide the mobile note calendar.
+Mobile Agenda always shows the month calendar for daily/weekly note navigation,
+then the event timeline unless Settings → Features turns it off (the phone
+shows only that toggle). A saved desktop preference cannot hide the mobile
+note calendar. Event links open through `open_external_link`, since the
+JavaScript shell opener is not permitted there.
 
 Settings hides on the phone: the Forges folder picker and Open Forge in
-Finder (General), the icon rail toggle, Index and Agenda modes, writing
-column width and the asteroid cursor (Layout), and the AI & Agents and
-Import, Plugins and Calendar connection sections entirely. About omits the
+Finder (General), focus mode (Appearance; it hides the rail, so a value
+saved earlier is ignored), the icon rail toggle, Index and Agenda modes,
+writing column width and the asteroid cursor (Layout), and the AI & Agents,
+Import and Plugins sections entirely. About omits the
 desktop updater and the keyboard shortcuts, and the editor omits WordPress
 publishing and PDF export. The Sidebar section is called Index there.
 Switches are 51 by 31 with a 44pt hit area and an ink-filled knob when on.
+
+## Calendar on iOS
+
+Apple Calendar and Google Calendar both work on iPhone and iPad, behind the
+same Settings → Calendar section, source model and `apple:` / `google:` ids
+as the desktop.
+
+- **Apple.** `calendar::apple` calls the same EventKit bridge
+  (`src-tauri/src-swift`) as macOS. `build.rs` does not build it for iOS;
+  `plugins/tauri-plugin-calendar/ios/Package.swift` depends on it, so
+  Tauri's plugin build compiles it for the device and its C entry points
+  land in that plugin's library. The bridge requests full access
+  (`requestFullAccessToEvents`) and reports "Add Events Only" as denied,
+  because write-only access reads nothing. The prompt text is
+  `NSCalendarsFullAccessUsageDescription`, kept in both `src-tauri/Info.plist`
+  and `gen/apple/project.yml`.
+- **Google.** A phone app cannot listen on the loopback port the desktop
+  flow redirects to, so iOS uses Google's iOS client type:
+  `tauri-plugin-calendar`'s `authenticate` runs the consent page in an
+  `ASWebAuthenticationSession` and returns the redirect to
+  `com.googleusercontent.apps.<id>:/oauth2redirect` (the client id
+  reversed). PKCE, the state check and the token exchange stay in Rust
+  (`calendar/oauth.rs`), and neither token request sends a client secret,
+  since that client type has none. The refresh token goes to the iOS
+  Keychain through the same `secrets.rs` store as the desktop (`keyring`'s
+  `apple-native` feature covers iOS).
+
+The iOS client id is public, so it is committed in `oauth.rs` rather than
+read from the environment: iOS is built locally, where a forgotten variable
+would ship without Google. To build against another Google Cloud project,
+set `MOLDAVITE_GOOGLE_IOS_CLIENT_ID` for the Rust build, either exported in
+the shell that runs `npx tauri ios dev` / `npx tauri ios build` or in
+`src-tauri/.cargo/config.toml` under `[env]` (which also covers a build
+started from Xcode). The desktop `MOLDAVITE_GOOGLE_CLIENT_ID` and `_SECRET`
+play no part on iOS, and the release workflow does not build iOS.
 
 ## Plugins on iOS
 

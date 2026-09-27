@@ -142,7 +142,20 @@ vi.mock('./NoteHeader', () => ({
 }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
 vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => <div data-testid="image-toolbar" /> }));
-vi.mock('./LinkModal', () => ({ LinkModal: () => null }));
+const linkModal = vi.hoisted(() => ({
+  props: null as null | {
+    isOpen: boolean;
+    onInsert: (url: string, text?: string) => void;
+    initialUrl?: string;
+    initialText?: string;
+  },
+}));
+vi.mock('./LinkModal', () => ({
+  LinkModal: (props: NonNullable<typeof linkModal.props>) => {
+    linkModal.props = props;
+    return null;
+  },
+}));
 vi.mock('./ImageModal', () => ({ ImageModal: () => null }));
 // ExternalChangeBanner is deliberately NOT mocked: it renders null unless the
 // note is in `externallyChanged`, so it is already inert for every test that
@@ -732,6 +745,37 @@ describe('Editor image actions', () => {
     await renderEditor(note('notes/image.md', '<p>Body</p>'));
     expect(screen.queryByTestId('image-toolbar') !== null).toBe(shown);
   });
+
+  it.each([
+    [true, 'none'],
+    [false, null],
+  ])('with mobile=%s a tapped image sets inputmode %s', async (mobile, inputMode) => {
+    platform.mobile = mobile;
+    const { editor } = await renderEditor(
+      note('notes/image.md', '<p>Body</p><img src="images/a.png"><p>After</p>')
+    );
+    const image = await waitFor(() => {
+      const element = document.querySelector('img.resizable-image');
+      if (!(element instanceof HTMLElement)) throw new Error('Image was not rendered');
+      return element;
+    });
+    let imagePos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'image') imagePos = pos;
+    });
+
+    fireEvent.pointerDown(image, { pointerType: 'touch' });
+    expect(editor.view.dom.getAttribute('inputmode')).toBe(inputMode);
+    act(() => {
+      editor.commands.setNodeSelection(imagePos);
+    });
+    expect(editor.view.dom.getAttribute('inputmode')).toBe(inputMode);
+
+    act(() => {
+      editor.commands.setTextSelection(2);
+    });
+    expect(editor.view.dom.getAttribute('inputmode')).toBeNull();
+  });
 });
 
 describe('Editor wiki links to impossible dates', () => {
@@ -758,6 +802,61 @@ describe('Editor wiki links to impossible dates', () => {
       )
     );
     expect(notesSpies.loadDailyNote).not.toHaveBeenCalled();
+  });
+});
+
+describe('Editor missing wiki links', () => {
+  it('refreshes the note list after creating the note a link points at', async () => {
+    const user = userEvent.setup();
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'create_note_from_link' ? 'delta-missing.md' : undefined
+    );
+    await renderEditor(
+      note(
+        'notes/links.md',
+        '<p><wiki-link data-target="delta-missing.md" data-label="Delta Missing">Delta Missing</wiki-link></p>'
+      )
+    );
+
+    const link = document.querySelector('wiki-link');
+    if (!(link instanceof HTMLElement)) throw new Error('Wiki link was not rendered');
+    fireEvent.click(link);
+    await user.click(await screen.findByRole('button', { name: 'Create' }));
+
+    await waitFor(() =>
+      expect(notesSpies.loadNote).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'notes/delta-missing.md' })
+      )
+    );
+    expect(notesSpies.refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      '<wiki-link data-target="delta-missing.md" data-label="Delta Missing">Delta Missing</wiki-link>',
+      'Delta Missing',
+    ],
+    [
+      '<wiki-link data-target="delta-missing.md" data-label="shown" data-raw-target="Delta Missing">shown</wiki-link>',
+      'Delta Missing',
+    ],
+  ])('names the note after the link, not its slug: %s', async (html, name) => {
+    const user = userEvent.setup();
+    safeInvoke.mockImplementation(async (command: string) =>
+      command === 'create_note_from_link' ? 'delta-missing.md' : undefined
+    );
+    await renderEditor(note('notes/links.md', `<p>${html}</p>`));
+
+    const link = document.querySelector('wiki-link');
+    if (!(link instanceof HTMLElement)) throw new Error('Wiki link was not rendered');
+    fireEvent.click(link);
+    expect(await screen.findByText(`Note "${name}" doesn't exist. Create it?`)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith('create_note_from_link', { noteName: name })
+    );
+    await waitFor(() => expect(toastSpies.success).toHaveBeenCalledWith(`Created "${name}"`));
   });
 });
 
@@ -923,5 +1022,160 @@ describe('Editor note content', () => {
     expect(htmlToMarkdown(editor.getHTML())).toBe(
       '<img src="images/a.png" alt="" data-alignment="center">'
     );
+  });
+});
+
+describe('Editor undo history across note loads', () => {
+  it('does not undo a note switch into the next note', async () => {
+    const firstNote = note('notes/first.md', '<p>first body</p>');
+    const secondNote = note('notes/second.md', '<p>second body</p>');
+    const { editor } = await renderEditor(firstNote, [secondNote]);
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>first body</p>'));
+
+    act(() => {
+      useNoteStore.getState().switchTab(secondNote.id);
+    });
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>second body</p>'));
+
+    act(() => {
+      editor.commands.undo();
+    });
+
+    expect(editor.getHTML()).toBe('<p>second body</p>');
+    expect(useNoteStore.getState().currentNote?.content).toBe('<p>second body</p>');
+  });
+
+  it('leaves nothing to undo right after a note opens', async () => {
+    const { editor } = await renderEditor(note('notes/daily.md', '<p>body</p>'));
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>body</p>'));
+
+    expect(editor.can().undo()).toBe(false);
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(editor.getHTML()).toBe('<p>body</p>');
+  });
+
+  it('still undoes typing done after the note opened', async () => {
+    const { editor } = await renderEditor(note('notes/typed.md', '<p>body</p>'));
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>body</p>'));
+
+    act(() => {
+      editor.commands.insertContentAt(5, ' more');
+    });
+    expect(editor.getHTML()).toBe('<p>body more</p>');
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(editor.getHTML()).toBe('<p>body</p>');
+  });
+
+  it('does not undo an external reload back to the older text', async () => {
+    const currentNote = note('notes/first.md', '<p>mine</p>');
+    const { editor } = await renderEditor(currentNote);
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>mine</p>'));
+    act(() => {
+      editor.commands.insertContentAt(5, ' edited');
+    });
+
+    act(() => {
+      useNoteStore.getState().applyExternalContent(currentNote.id, '<p>agent version</p>');
+    });
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>agent version</p>'));
+
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(editor.getHTML()).toBe('<p>agent version</p>');
+  });
+
+  it('keeps the phone Undo button disabled until something is typed', async () => {
+    platform.mobile = true;
+    const firstNote = note('notes/first.md', '<p>first body</p>');
+    const secondNote = note('notes/second.md', '<p>second body</p>');
+    const { editor } = await renderEditor(firstNote, [secondNote]);
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>first body</p>'));
+    const undo = await screen.findByRole('button', { name: 'Undo' });
+    await waitFor(() => expect(undo).toBeDisabled());
+
+    act(() => {
+      editor.commands.insertContentAt(1, 'x');
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled());
+
+    act(() => {
+      useNoteStore.getState().switchTab(secondNote.id);
+    });
+    await waitFor(() => expect(editor.getHTML()).toBe('<p>second body</p>'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled());
+  });
+});
+
+describe('Editor link editing', () => {
+  it('edits the link under the caret instead of inserting another', async () => {
+    const { editor } = await renderEditor(
+      note('notes/links.md', '<p>See <a href="https://old.example">the docs</a> now</p>')
+    );
+    await waitFor(() => expect(editor.getHTML()).toContain('the docs'));
+    act(() => {
+      editor.commands.setTextSelection(8);
+    });
+
+    act(() => {
+      (shortcutSpies.options.current?.onInsertLink as () => void)();
+    });
+    expect(linkModal.props).toMatchObject({
+      isOpen: true,
+      initialUrl: 'https://old.example',
+      initialText: 'the docs',
+    });
+
+    act(() => {
+      linkModal.props?.onInsert('https://new.example', 'the docs');
+    });
+
+    expect(editor.getText()).toBe('See the docs now');
+    const links = document.querySelectorAll('.tiptap a');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', 'https://new.example');
+    expect(links[0]).toHaveTextContent('the docs');
+  });
+
+  it('replaces the link text when it was changed in the dialog', async () => {
+    const { editor } = await renderEditor(
+      note('notes/links.md', '<p>See <a href="https://old.example">the docs</a> now</p>')
+    );
+    await waitFor(() => expect(editor.getHTML()).toContain('the docs'));
+    act(() => {
+      editor.commands.setTextSelection(8);
+      (shortcutSpies.options.current?.onInsertLink as () => void)();
+    });
+
+    act(() => {
+      linkModal.props?.onInsert('https://new.example', 'the guide');
+    });
+
+    expect(editor.getText()).toBe('See the guide now');
+    const links = document.querySelectorAll('.tiptap a');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', 'https://new.example');
+    expect(links[0]).toHaveTextContent('the guide');
+  });
+});
+
+describe('Editor typing settings', () => {
+  it('applies Spell Check and Auto-capitalize without a restart', async () => {
+    const { editor } = await renderEditor(note('notes/plain.md', '<p>Body</p>'));
+    const dom = editor.view.dom;
+    expect(dom).toHaveAttribute('spellcheck', 'true');
+    expect(dom).toHaveAttribute('autocapitalize', 'sentences');
+
+    act(() => {
+      useSettingsStore.setState({ spellCheck: false, autoCapitalize: false });
+    });
+
+    expect(tiptapHarness.editor).toBe(editor);
+    expect(dom).toHaveAttribute('spellcheck', 'false');
+    expect(dom).toHaveAttribute('autocapitalize', 'off');
   });
 });

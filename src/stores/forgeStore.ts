@@ -9,7 +9,7 @@
  */
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
-import { rememberActiveForge } from '@/lib/forgeStorage';
+import { clearForgeStorage, moveForgeStorage, rememberActiveForge } from '@/lib/forgeStorage';
 import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
 
 export interface Forge {
@@ -86,16 +86,30 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   },
 
   renameForge: async (oldName, newName) => {
-    const updated = await safeInvoke<Forge>('rename_forge', {
-      oldName,
-      newName,
-    });
+    const rename = async () => {
+      const updated = await safeInvoke<Forge>('rename_forge', {
+        oldName,
+        newName,
+      });
+      moveForgeStorage(oldName, newName);
+      return updated;
+    };
+    if (get().active === oldName) {
+      // Live stores and a pending edit still address the old name, so reload.
+      return await runForgeTransition(async () => {
+        const updated = await rename();
+        rememberActiveForge(newName);
+        return updated;
+      });
+    }
+    const updated = await rename();
     await get().loadForges();
     return updated;
   },
 
   deleteForge: async (name) => {
     await safeInvoke<void>('delete_forge', { name });
+    clearForgeStorage(name);
     await get().loadForges();
   },
 

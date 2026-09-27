@@ -87,3 +87,42 @@ describe('useSidebarTags note scanning', () => {
     errorSpy.mockRestore();
   });
 });
+
+describe('useSidebarTags cache', () => {
+  it('re-reads a note whose modification time changed', async () => {
+    let body = '#before';
+    invokeMock.mockImplementation(async (command: string) =>
+      command === 'read_note' ? { content: body, color: null, contentHash: body } : undefined
+    );
+    const note: NoteFile = { ...notes[0], modifiedAt: 100 };
+    const { rerender } = renderHook(({ list }) => useSidebarTags(list), {
+      initialProps: { list: [note] },
+    });
+    await waitFor(() => expect(useTagStore.getState().allTags.has('before')).toBe(true));
+
+    body = '#after';
+    rerender({ list: [{ ...note, modifiedAt: 101 }] });
+
+    await waitFor(() => expect(useTagStore.getState().allTags.has('after')).toBe(true));
+    expect(useTagStore.getState().allTags.has('before')).toBe(false);
+  });
+});
+
+describe('useSidebarTags selected tag', () => {
+  it('keeps a tag selected before the first scan when the scan finds it', async () => {
+    useTagStore.getState().setSelectedTag('tag-tagged');
+    renderHook(() => useSidebarTags(notes));
+
+    await waitFor(() => expect(useTagStore.getState().allTags.size).toBeGreaterThan(0));
+    expect(useTagStore.getState().allTags.has('tag-tagged')).toBe(true);
+    expect(useTagStore.getState().selectedTag).toBe('tag-tagged');
+  });
+
+  it('clears a selected tag the scan no longer finds', async () => {
+    useTagStore.getState().setSelectedTag('gone');
+    renderHook(() => useSidebarTags(notes));
+
+    await waitFor(() => expect(useTagStore.getState().allTags.size).toBeGreaterThan(0));
+    await waitFor(() => expect(useTagStore.getState().selectedTag).toBeNull());
+  });
+});

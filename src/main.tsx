@@ -11,6 +11,7 @@ import App from './App';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { isMobilePlatform } from './lib/platform';
 import './index.css';
+import './tiptap-base.css';
 
 // Stamped before the first render so the very first paint is already the
 // phone layout on a phone; see src/lib/platform.ts and src/mobile.css.

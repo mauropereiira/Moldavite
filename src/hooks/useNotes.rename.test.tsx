@@ -16,6 +16,7 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
+import { discardNewNoteIfLeftEmpty } from '@/lib/leaveSave';
 import { useNotes } from './useNotes';
 
 const file: NoteFile = {
@@ -107,6 +108,29 @@ describe('useNotes rename', () => {
       'notes/New title.md',
       'notes/Other.md',
     ]);
+    expect(useToastStore.getState().toasts[0]).toMatchObject({
+      type: 'success',
+      message: 'Renamed — inbound links updated',
+    });
+  });
+
+  it('shows no rename toast for the first naming of a note New just made', async () => {
+    const hook = await renderInitializedHook();
+    const untitled: NoteFile = { ...file, name: 'Untitled.md', path: 'notes/Untitled.md' };
+    const untitledTab: Note = { ...openNote, id: untitled.path, title: 'Untitled' };
+    useNoteStore.setState({
+      notes: [untitled],
+      openTabs: [untitledTab],
+      activeTabId: untitled.path,
+      currentNote: untitledTab,
+    });
+    discardNewNoteIfLeftEmpty(untitled.path);
+
+    await act(() => hook.result.current.renameNote(untitled, 'Groceries'));
+    expect(useToastStore.getState().toasts).toEqual([]);
+
+    const named = useNoteStore.getState().notes[0];
+    await act(() => hook.result.current.renameNote(named, 'Shopping'));
     expect(useToastStore.getState().toasts[0]).toMatchObject({
       type: 'success',
       message: 'Renamed — inbound links updated',

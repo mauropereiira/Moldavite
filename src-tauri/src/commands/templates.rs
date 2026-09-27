@@ -260,6 +260,30 @@ mod tests {
         assert!(template_note_destination(&daily, "2026-09-21.md").is_ok());
         let _ = fs::remove_dir_all(root);
     }
+
+    #[test]
+    fn a_standalone_template_note_steps_past_a_taken_name() {
+        let dir = std::env::temp_dir().join(format!(
+            "moldavite-template-unique-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(dir.join("Work")).unwrap();
+        fs::write(dir.join("Plan.md"), "mine").unwrap();
+        fs::write(dir.join("Work/Plan.md.locked"), "ciphertext").unwrap();
+
+        assert_eq!(unique_standalone_name(&dir, "Plan.md"), "Plan (2).md");
+        assert_eq!(
+            unique_standalone_name(&dir, "Work/Plan.md"),
+            "Work/Plan (2).md"
+        );
+        assert_eq!(unique_standalone_name(&dir, "Fresh.md"), "Fresh.md");
+
+        let _ = fs::remove_dir_all(dir);
+    }
 }
 
 #[tauri::command]
@@ -309,7 +333,7 @@ pub(crate) fn create_note_from_template(
     template_id: String,
     is_daily: bool,
     is_weekly: Option<bool>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let is_weekly = is_weekly.unwrap_or(false);
     if !is_valid_template_note_name(&filename, is_daily || is_weekly) {
         return Err("Invalid filename".to_string());
@@ -328,6 +352,12 @@ pub(crate) fn create_note_from_template(
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
 
+    // A dated note's name is its date, so a taken one stays a refusal.
+    let filename = if is_daily || is_weekly {
+        filename
+    } else {
+        unique_standalone_name(&dir, &filename)
+    };
     let path = template_note_destination(&dir, &filename)?;
 
     let template = get_template(template_id)?;
@@ -335,5 +365,22 @@ pub(crate) fn create_note_from_template(
 
     crate::persist::write_atomic(&path, content.as_bytes(), Some(0o600))?;
 
-    Ok(())
+    Ok(filename)
+}
+
+fn unique_standalone_name(dir: &Path, filename: &str) -> String {
+    let (folder, leaf) = match filename.rsplit_once('/') {
+        Some((folder, leaf)) => (Some(folder), leaf),
+        None => (None, filename),
+    };
+    let parent = folder.map_or_else(|| dir.to_path_buf(), |folder| dir.join(folder));
+    if !crate::persist::name_is_taken(&parent, leaf) {
+        return filename.to_string();
+    }
+    let stem = leaf.strip_suffix(".md").unwrap_or(leaf);
+    let leaf = crate::persist::generate_unique_filename(&parent, stem, "md");
+    match folder {
+        Some(folder) => format!("{folder}/{leaf}"),
+        None => leaf,
+    }
 }

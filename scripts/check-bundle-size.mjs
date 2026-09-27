@@ -153,7 +153,9 @@ const BUDGETS = [
 // taps in the graph and on tags, long-press menus, plain-text previews) adds
 // 1.8 KB gz, while dropping General's duplicate backup UI takes 4.4 KB raw.
 // Measured 653.3 KB / 186.9 KB gz.
-const APP_JS_BUDGET = { rawKb: 660, gzipKb: 188 };
+// 666 / 191: the bug sweep after 2.8.0 and iOS calendars add 8.3 KB raw / 2.8 KB gz.
+// Measured 661.6 KB / 189.7 KB gz.
+const APP_JS_BUDGET = { rawKb: 666, gzipKb: 191 };
 
 async function main() {
   let entries;

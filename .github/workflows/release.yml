@@ -210,6 +210,8 @@ jobs:
           # present when cargo compiles or the feature ships disabled and says
           # so. Absent secrets resolve to empty strings, which is exactly the
           # "not configured" path — a build without them still succeeds.
+          # iOS is not built here; it carries its public Google iOS client id
+          # in calendar/oauth.rs (see docs/MOBILE.md).
           MOLDAVITE_WPCOM_CLIENT_ID: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_ID }}
           MOLDAVITE_WPCOM_CLIENT_SECRET: ${{ secrets.MOLDAVITE_WPCOM_CLIENT_SECRET }}
           MOLDAVITE_GOOGLE_CLIENT_ID: ${{ secrets.MOLDAVITE_GOOGLE_CLIENT_ID }}

@@ -50,14 +50,23 @@ export interface Shortcut {
 
 export type AppPlatform = 'macos' | 'windows' | 'linux';
 
-const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+const currentUserAgent = () => (typeof navigator === 'undefined' ? '' : navigator.userAgent);
+
+function platformFromUserAgent(userAgent: string): AppPlatform {
+  return userAgent.includes('Windows') ? 'windows' : userAgent.includes('Mac') ? 'macos' : 'linux';
+}
 
 /** The desktop platform reported by the webview. */
-export const CURRENT_PLATFORM: AppPlatform = userAgent.includes('Windows')
-  ? 'windows'
-  : userAgent.includes('Mac')
-    ? 'macos'
-    : 'linux';
+export const CURRENT_PLATFORM: AppPlatform = platformFromUserAgent(currentUserAgent());
+
+/**
+ * ⌘ on Apple platforms (iOS and iPadOS user agents also say "Mac"), where Ctrl
+ * edits text (Ctrl+N is "next line"); Ctrl elsewhere. Reads the user agent per
+ * call so tests can set it.
+ */
+export function isPrimaryModifier(event: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey'>): boolean {
+  return platformFromUserAgent(currentUserAgent()) === 'macos' ? event.metaKey : event.ctrlKey;
+}
 
 const NON_MAC_MODIFIERS: Record<string, string> = {
   Cmd: 'Ctrl',

@@ -32,6 +32,7 @@ import { notifyConflictCopy } from './noteConflicts';
 import { isNotDownloadedError, isOpenCloudPlaceholder } from './cloudNotes';
 import { isContentEmpty } from './validation';
 import {
+  acquireAutosavePathChange,
   getPendingAutosaveNoteId,
   registerHeldSaves,
   resetAutosaveBaseline,
@@ -58,6 +59,10 @@ export function noteDiskFilename(note: Note): string {
   if (note.isWeekly && note.week) return `${note.week}.md`;
   // The display title can diverge from the filename and must never decide where we save.
   return note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : `${note.title}.md`;
+}
+
+export function fileStem(filename: string): string {
+  return filename.replace(/^.*\//, '').replace(/\.md$/, '');
 }
 
 function errorMessage(error: unknown): string {
@@ -405,6 +410,11 @@ export function discardNewNoteIfLeftEmpty(noteId: string): void {
   newNotesToDiscard.add(noteId);
 }
 
+/** Whether a note still carries the generated name New gave it; nothing links to it yet. */
+export function isNewNoteUnderGeneratedName(noteId: string): boolean {
+  return newNotesToDiscard.has(noteId);
+}
+
 function mayDiscard(noteId: string): boolean {
   const { notes, openTabs, unlockedNotes } = useNoteStore.getState();
   const listed = notes.find((note) => note.path === noteId);
@@ -422,7 +432,10 @@ function mayDiscard(noteId: string): boolean {
 async function discardIfEmpty(note: Note): Promise<void> {
   if (note.cloudPending || !isContentEmpty(note.content) || !mayDiscard(note.id)) return;
   const filename = noteDiskFilename(note);
+  // Leaving the title may have started a rename; deleting now would pull the file from under it.
+  const releasePathChange = await acquireAutosavePathChange();
   try {
+    if (!mayDiscard(note.id)) return;
     const disk = await readNoteSnapshot(filename, false, false);
     if (disk.content !== '' || disk.color || !mayDiscard(note.id)) return;
     // Refused unless the body on disk is still the empty one just read. It never
@@ -431,6 +444,8 @@ async function discardIfEmpty(note: Note): Promise<void> {
   } catch (error) {
     console.error('[leaveSave] Could not discard an empty new note:', error);
     return;
+  } finally {
+    releasePathChange();
   }
   useNoteStore.getState().forgetNoteReferences(note.id);
 }

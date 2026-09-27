@@ -1,8 +1,9 @@
 /**
  * Sidebar tag aggregation and filtering over unlocked note content.
- * Content is cached by stable note path, locked notes and notes still in iCloud are never
- * read (a read must not start a download), and selected-tag filtering uses AND semantics
- * while the tag feature is enabled.
+ * Content is cached by note path until its modification time changes, locked
+ * notes and notes still in iCloud are never read (a read must not start a
+ * download), and selected-tag filtering uses AND semantics while the tag
+ * feature is enabled.
  */
 
 import { useEffect, useRef } from 'react';
@@ -12,20 +13,21 @@ import { useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
 /**
- * Reads every unlocked note once (results cached in-memory per path),
+ * Reads every unlocked note (results cached in-memory per path and modification time),
  * feeds them into `aggregateTags`, keeps `useTagStore` in sync, and
  * exposes helpers for the sidebar to look up tags on a single note and
  * to filter a list of notes by the user's selected tag(s).
  */
 export function useSidebarTags(notes: NoteFile[]) {
   const { tagsEnabled } = useSettingsStore();
-  const { allTags, selectedTag, selectedTags, setAllTags, setSelectedTag } = useTagStore();
+  const { selectedTags, setAllTags, setSelectedTag } = useTagStore();
 
-  // Cache note content by path so we don't re-read on every render.
-  const noteContentCacheRef = useRef<Map<string, string>>(new Map());
+  const noteContentCacheRef = useRef<Map<string, { modifiedAt?: number; content: string }>>(
+    new Map()
+  );
 
   const getNoteTags = (notePath: string): string[] => {
-    const content = noteContentCacheRef.current.get(notePath);
+    const content = noteContentCacheRef.current.get(notePath)?.content;
     if (!content) return [];
     return extractTags(content);
   };
@@ -34,6 +36,7 @@ export function useSidebarTags(notes: NoteFile[]) {
   useEffect(() => {
     if (!tagsEnabled) {
       setAllTags(new Map());
+      setSelectedTag(null);
       return;
     }
 
@@ -44,7 +47,8 @@ export function useSidebarTags(notes: NoteFile[]) {
       for (const note of notes) {
         if (cancelled) return;
         if (note.isLocked || note.notDownloaded) continue;
-        let content = noteContentCacheRef.current.get(note.path);
+        const cached = noteContentCacheRef.current.get(note.path);
+        let content = cached?.modifiedAt === note.modifiedAt ? cached?.content : undefined;
         if (content === undefined) {
           try {
             // Snapshot read: tag scanning must not adopt the note's save
@@ -56,7 +60,10 @@ export function useSidebarTags(notes: NoteFile[]) {
               note.isWeekly || false
             );
             content = snapshot.content;
-            noteContentCacheRef.current.set(note.path, content);
+            noteContentCacheRef.current.set(note.path, {
+              modifiedAt: note.modifiedAt,
+              content,
+            });
           } catch (error) {
             if (isNotDownloadedError(error)) continue;
             console.error('[Sidebar] Failed to read note for tags:', note.name);
@@ -65,7 +72,12 @@ export function useSidebarTags(notes: NoteFile[]) {
         }
         contents.push(content);
       }
-      if (!cancelled) setAllTags(aggregateTags(contents));
+      if (cancelled) return;
+      const tags = aggregateTags(contents);
+      setAllTags(tags);
+      // Only a finished scan can say a tag is gone; earlier, a tag just tapped would be cleared.
+      const { selectedTag } = useTagStore.getState();
+      if (selectedTag && !tags.has(selectedTag)) setSelectedTag(null);
     };
 
     run();
@@ -73,14 +85,7 @@ export function useSidebarTags(notes: NoteFile[]) {
     return () => {
       cancelled = true;
     };
-  }, [notes, setAllTags, tagsEnabled]);
-
-  // Clear tag filter when the tag it references vanishes.
-  useEffect(() => {
-    if (selectedTag && !allTags.has(selectedTag)) {
-      setSelectedTag(null);
-    }
-  }, [allTags, selectedTag, setSelectedTag]);
+  }, [notes, setAllTags, setSelectedTag, tagsEnabled]);
 
   // Filter notes by the user's selected-tag set (AND semantics).
   // Not wrapped in useMemo — React Compiler handles the equivalent
@@ -88,7 +93,7 @@ export function useSidebarTags(notes: NoteFile[]) {
   const filterByTag = (list: NoteFile[]): NoteFile[] => {
     if (selectedTags.length === 0) return list;
     return list.filter((note) => {
-      const content = noteContentCacheRef.current.get(note.path);
+      const content = noteContentCacheRef.current.get(note.path)?.content;
       if (!content) return false;
       return selectedTags.every((tag) => hasTag(content, tag));
     });

@@ -68,6 +68,7 @@ export function TrashPreviewModal({
       extensions: [StarterKit],
       content: html,
       editable: false,
+      injectCSS: false,
     },
     [note?.id, html]
   );

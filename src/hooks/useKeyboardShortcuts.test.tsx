@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore } from '@/stores/noteStore';
 
 const invokeMock = vi.fn();
@@ -11,6 +11,9 @@ vi.mock('@/lib/ipc', () => ({
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 beforeEach(() => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+  );
   invokeMock.mockReset();
   invokeMock.mockImplementation(async (command: string) => {
     if (command === 'read_note') {
@@ -19,6 +22,10 @@ beforeEach(() => {
     return undefined;
   });
   useNoteStore.setState({ notes: [], currentNote: null, openTabs: [], activeTabId: null });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('useKeyboardShortcuts template creation', () => {
@@ -85,5 +92,23 @@ describe('useKeyboardShortcuts on a view-only note', () => {
 
     press('k');
     expect(onInsertLink).not.toHaveBeenCalled();
+  });
+});
+
+describe('useKeyboardShortcuts on a Mac', () => {
+  const press = (init: { key: string; metaKey?: boolean; ctrlKey?: boolean }) =>
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+    });
+
+  it('answers ⌘N and ignores Ctrl+N', () => {
+    const onNewNote = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ editor: null, onNewNote }));
+
+    press({ key: 'n', ctrlKey: true });
+    expect(onNewNote).not.toHaveBeenCalled();
+
+    press({ key: 'n', metaKey: true });
+    expect(onNewNote).toHaveBeenCalledTimes(1);
   });
 });

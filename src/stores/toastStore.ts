@@ -34,6 +34,8 @@ interface ToastState {
   clearAllToasts: () => void;
 }
 
+const MAX_TOASTS = 5;
+
 const generateId = () => `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export const useToastStore = create<ToastState>((set) => ({
@@ -51,9 +53,12 @@ export const useToastStore = create<ToastState>((set) => ({
       ...(actions?.length ? { actions } : {}),
     };
 
-    set((state) => ({
-      toasts: [toast, ...state.toasts].slice(0, 5), // Keep max 5 toasts
-    }));
+    // Never trim a toast with actions: a save failure's Retry is the only way back to the edit.
+    set((state) => {
+      const toasts = [toast, ...state.toasts];
+      let room = MAX_TOASTS - toasts.filter((t) => t.actions).length;
+      return { toasts: toasts.filter((t) => t.actions || room-- > 0) };
+    });
 
     return id;
   },

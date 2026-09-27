@@ -18,8 +18,9 @@ use std::time::{Duration, Instant};
 use notify::RecursiveMode;
 use notify_debouncer_mini::new_debouncer;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
+use crate::backlinks_index::BacklinksIndex;
 use crate::commands::notes::sha256_hex;
 use crate::frontmatter;
 use crate::paths::{get_forges_root, get_notes_dir};
@@ -183,17 +184,18 @@ fn is_relevant(rel: &str) -> bool {
     last.ends_with(".md") || last.ends_with(".md.locked") || last.ends_with(".json")
 }
 
-/// Push one debounced, non-self-write filesystem event into the keyword
-/// index. This is the improvement over the semantic index, which waits for
-/// its next reconcile: an agent, a sync client or another editor touching a
-/// file is searchable without the frontend in the loop.
+/// Push one debounced, non-self-write filesystem event into the keyword and
+/// backlinks indexes. This is the improvement over the semantic index, which
+/// waits for its next reconcile: an agent, a sync client or another editor
+/// touching a file is searchable, and its links count, without the frontend
+/// in the loop.
 ///
 /// `notify-debouncer-mini` collapses create, modify and remove into a single
 /// "something happened here" event, so presence on disk decides which way the
 /// index moves. A rename arrives as two such events — the old path now absent,
 /// the new one present — and therefore needs no special case. A `.md.locked`
 /// event removes the plaintext path it replaced.
-fn index_external_change(root: &Path, rel: &str) {
+fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksIndex>) {
     let rel = match rel.strip_suffix(".locked") {
         Some(plain) => plain,
         None => rel,
@@ -201,10 +203,36 @@ fn index_external_change(root: &Path, rel: &str) {
     if !rel.ends_with(".md") {
         return;
     }
-    if root.join(rel).is_file() {
+    let path = root.join(rel);
+    if path.is_file() {
         crate::search_index::note_changed_in(rel, root.to_path_buf());
     } else {
         crate::search_index::note_removed_in(rel, root.to_path_buf());
+    }
+    if let Some(index) = backlinks {
+        update_backlinks(index, root, rel, &path);
+    }
+}
+
+/// Applies a rebuild's guards, so an external change never indexes a symlinked
+/// or evicted file a rebuild would skip.
+fn update_backlinks(index: &BacklinksIndex, root: &Path, rel: &str, path: &Path) {
+    if !crate::backlinks_index::is_indexed_path(rel) {
+        return;
+    }
+    let readable = std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file())
+        && crate::validation::validate_path_within_base(path, root).is_ok()
+        && !crate::cloud_forge::is_evicted(path);
+    let body = if readable {
+        std::fs::read_to_string(path)
+            .ok()
+            .map(|raw| frontmatter::parse_note(&raw).body)
+    } else {
+        None
+    };
+    match body {
+        Some(body) => index.update_note(rel, &body),
+        None => index.remove_note(rel),
     }
 }
 
@@ -288,7 +316,12 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         if recent_for_thread.matches_current_content(&path) {
                             continue;
                         }
-                        index_external_change(&root_for_thread, &rel);
+                        let backlinks = app_for_thread.try_state::<Arc<BacklinksIndex>>();
+                        index_external_change(
+                            &root_for_thread,
+                            &rel,
+                            backlinks.as_deref().map(Arc::as_ref),
+                        );
                         let payload = ForgeChange {
                             kind: "modified".into(),
                             rel_path: rel,
@@ -412,38 +445,81 @@ mod tests {
     /// upsert-versus-remove is asserted directly. Wiring it to a real notify
     /// event would only re-test the debouncer.
     #[test]
-    fn an_external_write_reaches_the_search_index_and_a_deletion_removes_it() {
+    fn an_external_write_reaches_the_search_and_backlinks_indexes_and_a_deletion_removes_it() {
         let tmp = TempDir::new("index-external");
         let root = tmp.path();
-        for sub in ["notes", "daily", "weekly"] {
+        for sub in ["notes/Seeds", "daily", "weekly"] {
             fs::create_dir_all(root.join(sub)).unwrap();
         }
-        fs::write(root.join("notes/seed.md"), "seed").unwrap();
+        fs::write(root.join("notes/Seeds/seed.md"), "seed [[Target]]").unwrap();
         crate::search_index::reconcile(root).unwrap();
+        let backlinks = BacklinksIndex::new();
+        backlinks.update_note("notes/Seeds/seed.md", "seed [[Target]]");
+        let sources = || -> Vec<String> {
+            let mut paths: Vec<String> = backlinks
+                .get("target.md", "Target")
+                .into_iter()
+                .map(|link| link.from_path)
+                .collect();
+            paths.sort();
+            paths
+        };
 
-        fs::write(root.join("notes/agent.md"), "written by an agent").unwrap();
-        index_external_change(root, "notes/agent.md");
+        fs::write(
+            root.join("notes/agent.md"),
+            "---\ncolor: blue\n---\nwritten by an agent about [[Target]]",
+        )
+        .unwrap();
+        index_external_change(root, "notes/agent.md", Some(&backlinks));
+        assert_eq!(sources(), ["notes/Seeds/seed.md", "notes/agent.md"]);
         wait_for(|| {
             crate::search_index::query(root, root, "agent", 10)
                 .is_some_and(|hits| hits.iter().any(|hit| hit.path == "notes/agent.md"))
         });
 
         fs::remove_file(root.join("notes/agent.md")).unwrap();
-        index_external_change(root, "notes/agent.md");
+        index_external_change(root, "notes/agent.md", Some(&backlinks));
+        assert_eq!(sources(), ["notes/Seeds/seed.md"]);
         wait_for(|| {
             crate::search_index::query(root, root, "agent", 10).is_some_and(|hits| hits.is_empty())
         });
 
         // A note being locked arrives as an event on the `.locked` path; the
         // plaintext row it replaced has to go.
-        fs::write(root.join("notes/seed.md.locked"), "ciphertext").unwrap();
-        fs::remove_file(root.join("notes/seed.md")).unwrap();
-        index_external_change(root, "notes/seed.md.locked");
+        fs::write(root.join("notes/Seeds/seed.md.locked"), "ciphertext").unwrap();
+        fs::remove_file(root.join("notes/Seeds/seed.md")).unwrap();
+        index_external_change(root, "notes/Seeds/seed.md.locked", Some(&backlinks));
+        assert!(sources().is_empty());
         wait_for(|| {
             crate::search_index::query(root, root, "seed", 10).is_some_and(|hits| hits.is_empty())
         });
 
         crate::search_index::delete_for(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_an_external_symlink_never_reaches_the_backlinks_index() {
+        let tmp = TempDir::new("backlinks-symlink");
+        let root = tmp.path();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        let outside = TempDir::new("backlinks-symlink-outside");
+        fs::write(outside.path().join("secret.md"), "outside [[Target]]").unwrap();
+        std::os::unix::fs::symlink(
+            outside.path().join("secret.md"),
+            root.join("notes/planted.md"),
+        )
+        .unwrap();
+        let backlinks = BacklinksIndex::new();
+
+        update_backlinks(
+            &backlinks,
+            root,
+            "notes/planted.md",
+            &root.join("notes/planted.md"),
+        );
+
+        assert!(backlinks.get("target.md", "Target").is_empty());
     }
 
     fn wait_for(mut check: impl FnMut() -> bool) {

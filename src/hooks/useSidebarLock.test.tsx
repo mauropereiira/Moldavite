@@ -2,7 +2,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useNoteStore } from '@/stores/noteStore';
+import { isCurrentNoteViewOnly, useNoteStore } from '@/stores/noteStore';
 import type { NoteFile } from '@/types';
 
 const invokeMock = vi.fn();
@@ -94,5 +94,41 @@ describe('useSidebarLock unlock', () => {
     expect(state.activeTabId).toBeNull();
     expect(state.currentNote).toBeNull();
     expect(invokeMock.mock.calls.map(([command]) => command)).toEqual(['write_note', 'lock_note']);
+  });
+});
+
+describe('useSidebarLock permanent unlock', () => {
+  it('makes a note viewed this session editable again, with its disk body', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'read_note') return { content: 'Plain now', contentHash: 'h1' };
+      return undefined;
+    });
+    const viewed = {
+      id: lockedNote.path,
+      title: 'Secret',
+      content: '<p>Decrypted view</p>',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      isDaily: false,
+      isWeekly: false,
+    };
+    useNoteStore.setState({
+      openTabs: [viewed],
+      activeTabId: viewed.id,
+      currentNote: viewed,
+      unlockedNotes: new Set([lockedNote.path]),
+      savedContent: new Map(),
+    });
+
+    const hook = renderHook(() => useSidebarLock());
+    act(() => hook.result.current.openPermanentUnlock(lockedNote));
+    await act(() => hook.result.current.submit('password', [lockedNote]));
+
+    const state = useNoteStore.getState();
+    expect(state.notes[0].isLocked).toBe(false);
+    expect(state.unlockedNotes.has(lockedNote.path)).toBe(false);
+    expect(isCurrentNoteViewOnly(state)).toBe(false);
+    expect(state.currentNote?.content).toContain('Plain now');
+    expect(state.savedContent.get(lockedNote.path)).toBe(state.currentNote?.content);
   });
 });

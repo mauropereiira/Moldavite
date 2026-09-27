@@ -35,9 +35,21 @@ completed.
   navigation still works. Four Foundation tests cover placeholder/empty-file
   distinction, unknown download state, path containment and account invalidation.
   No account-backed container, metadata notification or download has been proved.
-- Mobile Agenda was inspected without the desktop event panel or Events legend.
-  Its regression test also covers a saved desktop preference hiding the calendar
-  and verifies that mobile does not request calendar permissions.
+- Mobile Agenda shows the event timeline and the Events legend beside the note
+  calendar; its regression test still covers a saved desktop preference hiding
+  the note calendar.
+- Calendar, iPhone 17 simulator (iOS 26.5), 27 September 2026: Settings →
+  Calendar offers Apple and Google. Don't Allow shows the Settings → Privacy &
+  Security → Calendars guidance, and the Agenda says access was denied. Allow
+  Full Access lists the calendars at once: EventKit kept answering "not
+  determined" in the process that granted access until a relaunch, and the
+  bridge now remembers the grant. Three events made in the Calendar app appear
+  on their own days, a calendar selection and the all-day switch filter them,
+  and an empty day no longer says "No events today". Google Connect opens
+  accounts.google.com in the sign-in sheet with the iOS client id, the reversed
+  client-id redirect, `calendar.readonly` and PKCE; Cancel, at the system prompt
+  or in the sheet, returns to "Connection cancelled." with no spinner. No
+  account was signed in.
 - Settings → About → Privacy policy opens the published page in Safari through
   the native opener. The earlier JavaScript shell call failed on iOS. The
   published policy was updated for iPhone and iPad on 6 September 2026.
@@ -139,6 +151,7 @@ Forge on both, and a physical iPhone (or a Mac with **Optimize Mac Storage**).
 | iCloud implementation | Native bridge, Apple Forge selection, metadata listings, Mac discovery, on-demand downloads and conflict-version copies are connected; coordinated access for remaining mutations, cross-Forge moves and account-backed proof remain |
 | Sync proof | iPhone/iPad/Mac round-trip, offline edits, simultaneous edit conflict copies, interrupted and pending downloads, account unavailability |
 | Brand and distribution | Signed archive/export/upload and processing succeeded; icon and five screenshots attached; privacy label/policy published. Submitted for App Review on 6 September 2026; Waiting for Review. France is excluded pending its encryption documentation. Widget runtime behavior and remaining visual checks are still unverified; TestFlight is skipped at Mauro’s request. See IOS_APP_STORE.md |
+| Calendar | Apple "Add Events Only" and a physical device; a completed Google sign-in, token refresh after an hour, disconnect; both sources together in the Agenda timeline |
 | Desktop compatibility | Final frontend and Rust gates; platform-specific runtime checks where available |
 
 ## Final command gates

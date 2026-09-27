@@ -2,6 +2,7 @@ import { SidebarSection } from './SidebarSection';
 import { DraggableNoteItem } from './DraggableNoteItem';
 import type { NoteFile } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
+import type { SortOption } from '@/stores/settingsStore';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarNotesListProps {
@@ -13,7 +14,7 @@ interface SidebarNotesListProps {
   /** Full count label (may differ from notes.length when filtered) */
   count: number;
   title: string;
-  sortOption: 'manual' | 'name-asc' | 'name-desc';
+  sortOption: SortOption;
   onSortToggle: () => void;
   onNewNote: () => void;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
@@ -36,16 +37,21 @@ interface SidebarNotesListProps {
   filteredEmptyTagCount: number;
 }
 
-/**
- * Label and tooltip for the header's sort control, which cycles A–Z → Z–A →
- * Manual. Each entry names what clicking will switch *to*, not the current
- * state — the sort in force is visible in the list itself.
- */
-const SORT_TOGGLE = {
-  'name-asc': { label: 'Sort Z–A', title: 'Sort Z-A' },
-  'name-desc': { label: 'Manual', title: 'Arrange notes and folders by dragging them' },
-  manual: { label: 'Sort A–Z', title: 'Sort A-Z' },
-} as const;
+const SORT_LABELS: Record<SortOption, string> = {
+  'name-asc': 'A–Z',
+  'name-desc': 'Z–A',
+  manual: 'Manual',
+  'modified-desc': 'Modified (newest)',
+  'modified-asc': 'Modified (oldest)',
+  'created-desc': 'Created (newest)',
+  'created-asc': 'Created (oldest)',
+};
+
+export function nextSortToggle(option: SortOption): SortOption {
+  if (option === 'name-desc') return 'manual';
+  if (option === 'manual') return 'name-asc';
+  return 'name-desc';
+}
 
 /**
  * The "Notes" sidebar section — standalone notes not in any folder and
@@ -89,9 +95,10 @@ export function SidebarNotesList({
             style={{ color: 'var(--text-muted)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-            title={SORT_TOGGLE[sortOption].title}
+            aria-label={`Sort: ${SORT_LABELS[sortOption]}`}
+            title={`Switch to ${SORT_LABELS[nextSortToggle(sortOption)]}`}
           >
-            {SORT_TOGGLE[sortOption].label}
+            {SORT_LABELS[sortOption]}
           </button>
           <button
             onClick={onNewNote}

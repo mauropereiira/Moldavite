@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFolders } from './useFolders';
+import { useFolderStore } from '@/stores/folderStore';
 import { useNoteColorsStore } from '@/stores/noteColorsStore';
 import { useNoteSelectionStore } from '@/stores/noteSelectionStore';
 import { useNoteStore } from '@/stores/noteStore';
@@ -198,6 +199,43 @@ describe('useFolders folder renames', () => {
       inside.id,
       'notes/Archive/Plan.md'
     );
+  });
+
+  it('carries the references of notes that are not open to the new folder path', async () => {
+    const idle = 'notes/Projects/Sub/Idea.md';
+    const moved = 'notes/Archive/Sub/Idea.md';
+    useNoteStore.setState({ recentNoteIds: [idle, oldFile.path] });
+    useNoteColorsStore.setState({ colors: { [idle]: 'cosmos', [oldFile.path]: 'ember' } });
+    useNoteSelectionStore.setState({ selectedIds: new Set([idle]) });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: [oldFile.path, idle] });
+    useSidebarOrderStore.setState({
+      noteOrder: [idle, oldFile.path],
+      folderOrder: ['Other', 'Projects', 'Projects/Sub', 'ProjectsOld'],
+    });
+    useFolderStore.setState({ expandedFolders: ['Projects', 'Projects/Sub', 'ProjectsOld'] });
+    const { result } = renderHook(() => useFolders());
+
+    await act(() => result.current.renameExistingFolder('Projects', 'Archive'));
+
+    expect(useNoteStore.getState().recentNoteIds).toEqual([moved, oldFile.path]);
+    expect(useNoteColorsStore.getState().colors).toEqual({
+      [moved]: 'cosmos',
+      [oldFile.path]: 'ember',
+    });
+    expect([...useNoteSelectionStore.getState().selectedIds]).toEqual([moved]);
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([oldFile.path, moved]);
+    expect(useSidebarOrderStore.getState().noteOrder).toEqual([moved, oldFile.path]);
+    expect(useSidebarOrderStore.getState().folderOrder).toEqual([
+      'Other',
+      'Archive',
+      'Archive/Sub',
+      'ProjectsOld',
+    ]);
+    expect(useFolderStore.getState().expandedFolders).toEqual([
+      'Archive',
+      'Archive/Sub',
+      'ProjectsOld',
+    ]);
   });
 
   it('refuses to rename a folder holding a note with unsaved edits', async () => {

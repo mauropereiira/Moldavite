@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react';
 import { isMobilePlatform } from '@/lib/platform';
+import { isHoldingKeyboard } from '@/lib/noteTitleFocus';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -39,6 +40,8 @@ export function useFocusTrap(ref: React.RefObject<HTMLElement | null>, active: b
       // On a phone there is no Tab key to serve; landing focus on the first
       // button only paints a focus ring on the close control of every page.
       if (isMobilePlatform()) {
+        // Taking focus from the stand-in before the dialog's field does drops the keyboard.
+        if (isHoldingKeyboard()) return;
         container.focus({ preventScroll: true });
         return;
       }

@@ -12,6 +12,8 @@ import { safeInvoke as invoke } from '@/lib/ipc';
  * Matches the `BacklinkInfo` struct in `src-tauri/src/lib.rs` (camelCase).
  */
 export interface Backlink {
+  /** Forge-relative path of the source note, e.g. "notes/A/plan.md" or "daily/2026-04-23.md" */
+  fromPath: string;
   /** Filename of the source note, e.g. "projects.md" or "2026-04-23.md" */
   fromNote: string;
   /** First markdown heading in the source note, or filename fallback */
@@ -37,6 +39,15 @@ export function useBacklinks(filename: string | null, refreshKey: unknown = 0) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset during render, not after the debounce, so the previous note's rows never show here.
+  const [shownFor, setShownFor] = useState(filename);
+  if (shownFor !== filename) {
+    setShownFor(filename);
+    setBacklinks([]);
+    setError(null);
+    setLoading(filename !== null);
+  }
 
   useEffect(() => {
     if (!filename) {

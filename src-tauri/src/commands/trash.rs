@@ -342,11 +342,9 @@ pub(crate) fn trash_note(
     metadata.items.push(item);
     write_trash_metadata(&metadata)?;
 
-    let index_name = std::path::Path::new(&filename)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(&filename);
-    index.remove_note(index_name);
+    index.remove_note(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
@@ -474,7 +472,7 @@ pub(crate) fn restore_note(
         .unwrap_or_else(|_| item.original_path.clone());
 
     let restored_path = if item.is_folder {
-        reindex_folder(&dest_path, &index);
+        reindex_folder(&dest_path, &format!("notes/{relative}"), &index);
         crate::semantic::notes_changed(
             item.contained_files
                 .iter()
@@ -496,10 +494,11 @@ pub(crate) fn restore_note(
             format!("notes/{relative}")
         }
     } else {
-        if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
-            let content = fs::read_to_string(&dest_path).unwrap_or_default();
-            index.update_note(name, &content);
-        }
+        let content = fs::read_to_string(&dest_path).unwrap_or_default();
+        index.update_note(
+            &crate::semantic::note_rel_path(&relative, item.is_daily, item.is_weekly),
+            &content,
+        );
         crate::semantic::note_changed(&crate::semantic::note_rel_path(
             &relative,
             item.is_daily,
@@ -525,7 +524,7 @@ pub(crate) fn restore_note(
     Ok(restored_path)
 }
 
-fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
+fn reindex_folder(dir: &std::path::Path, rel_dir: &str, index: &BacklinksIndex) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -537,13 +536,14 @@ fn reindex_folder(dir: &std::path::Path, index: &BacklinksIndex) {
         {
             continue;
         }
+        let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
         if path.is_dir() {
-            reindex_folder(&path, index);
+            reindex_folder(&path, &format!("{rel_dir}/{name}"), index);
         } else if path.extension().and_then(|s| s.to_str()) == Some("md") {
-            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                let content = fs::read_to_string(&path).unwrap_or_default();
-                index.update_note(name, &content);
-            }
+            let content = fs::read_to_string(&path).unwrap_or_default();
+            index.update_note(&format!("{rel_dir}/{name}"), &content);
         }
     }
 }
@@ -589,12 +589,18 @@ fn permanently_delete_trash_in(
 #[tauri::command]
 pub(crate) fn empty_trash() -> Result<(), String> {
     let metadata = read_trash_metadata()?;
-    empty_trash_in(&get_trash_dir()?, &metadata);
-    write_trash_metadata(&TrashMetadata::default())?;
-    Ok(())
+    let remaining = empty_trash_in(&get_trash_dir()?, &metadata);
+    write_trash_metadata(&remaining)?;
+    match remaining.items.len() {
+        0 => Ok(()),
+        1 => Err("1 item could not be removed from the Trash".to_string()),
+        n => Err(format!("{n} items could not be removed from the Trash")),
+    }
 }
 
-fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) {
+/// Returns the entries it could not remove, so their files stay recorded.
+fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) -> TrashMetadata {
+    let mut remaining = TrashMetadata::default();
     for item in &metadata.items {
         let trash_path = trash_item_path(trash_dir, item);
         if validate_path_within_base(&trash_path, trash_dir).is_err() {
@@ -603,13 +609,18 @@ fn empty_trash_in(trash_dir: &std::path::Path, metadata: &TrashMetadata) {
             continue;
         }
         if trash_path.exists() {
-            if item.is_folder {
-                let _ = fs::remove_dir_all(&trash_path);
+            let removed = if item.is_folder {
+                fs::remove_dir_all(&trash_path)
             } else {
-                let _ = fs::remove_file(&trash_path);
+                fs::remove_file(&trash_path)
+            };
+            if let Err(error) = removed {
+                log::warn!("[trash] could not remove {trash_path:?}: {error}");
+                remaining.items.push(item.clone());
             }
         }
     }
+    remaining
 }
 
 #[tauri::command]
@@ -765,7 +776,7 @@ pub(crate) fn trash_folder(
         chrono::Utc::now().timestamp(),
     )?;
 
-    // Forge-relative paths of every trashed note, for the semantic index.
+    // Forge-relative paths of every trashed note, for the indexes.
     let semantic_paths: Vec<String> = item
         .contained_files
         .iter()
@@ -776,18 +787,8 @@ pub(crate) fn trash_folder(
     metadata.items.push(item.clone());
     write_trash_metadata(&metadata)?;
 
-    // Remove every trashed note from the backlinks index. `contained_files`
-    // entries are relative paths inside the folder; we only care about the
-    // leaf .md filename for index keying.
-    for rel in &item.contained_files {
-        if let Some(name) = std::path::Path::new(rel)
-            .file_name()
-            .and_then(|s| s.to_str())
-        {
-            index.remove_note(name);
-        }
-    }
     for path in &semantic_paths {
+        index.remove_note(path);
         crate::search_index::note_removed(path);
     }
     crate::semantic::notes_removed(semantic_paths);
@@ -833,9 +834,10 @@ pub(crate) fn restore_note_from_folder(
 
     // Ciphertext is never indexed.
     if !note_filename.ends_with(".md.locked") {
-        if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+        if let Some(source) = crate::backlinks_index::source_path_under(&standalone_dir, &dest_path)
+        {
             let content = fs::read_to_string(&dest_path).unwrap_or_default();
-            index.update_note(name, &content);
+            index.update_note(&source, &content);
         }
         crate::semantic::note_changed(&format!("notes/{}", note_filename));
         crate::search_index::note_changed(&format!("notes/{}", note_filename));
@@ -951,6 +953,36 @@ mod tests {
             contained_files: Vec::new(),
             trashed_at,
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn emptying_the_trash_keeps_the_entries_it_could_not_remove() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = TempDir::new("empty-partial");
+        let trash = tmp.0.join("trash");
+        let gone = item("1".into(), "gone.md".into(), 0);
+        let mut stuck = item("2".into(), "Stuck".into(), 0);
+        stuck.is_folder = true;
+        fs::write(trash_item_path(&trash, &gone), "x").unwrap();
+        let stuck_path = trash_item_path(&trash, &stuck);
+        fs::create_dir_all(stuck_path.join("sealed")).unwrap();
+        fs::write(stuck_path.join("sealed/note.md"), "x").unwrap();
+        fs::set_permissions(stuck_path.join("sealed"), fs::Permissions::from_mode(0o500)).unwrap();
+        let metadata = TrashMetadata {
+            items: vec![gone.clone(), stuck],
+        };
+
+        let remaining = empty_trash_in(&trash, &metadata);
+
+        fs::set_permissions(stuck_path.join("sealed"), fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(!trash_item_path(&trash, &gone).exists());
+        let ids: Vec<&str> = remaining
+            .items
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(ids, ["2"]);
     }
 
     #[test]

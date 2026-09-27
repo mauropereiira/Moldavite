@@ -1,9 +1,13 @@
 /** Regression coverage for focus activation, inactivity, cycling, and restoration. */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { useRef } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { useFocusTrap } from './useFocusTrap';
+
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
 
 function Harness({ active }: { active: boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -17,6 +21,10 @@ function Harness({ active }: { active: boolean }) {
 }
 
 describe('useFocusTrap', () => {
+  afterEach(() => {
+    platform.mobile = false;
+  });
+
   it('moves focus to the first focusable element when active', async () => {
     render(<Harness active />);
     // Initial focus is deferred via requestAnimationFrame; waitFor retries.
@@ -75,5 +83,22 @@ describe('useFocusTrap', () => {
     render(<Harness active={false} />);
     await new Promise((r) => setTimeout(r, 0));
     expect(document.activeElement).not.toBe(screen.getByText('first'));
+  });
+
+  it('leaves the focus with the stand-in holding the phone keyboard', async () => {
+    platform.mobile = true;
+    holdKeyboard();
+    const standIn = document.activeElement;
+    render(<Harness active />);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+    expect(document.activeElement).toBe(standIn);
+    if (standIn instanceof HTMLElement) standIn.blur();
+  });
+
+  it('focuses the container on a phone when no stand-in holds the focus', async () => {
+    platform.mobile = true;
+    const { container } = render(<Harness active />);
+    await waitFor(() => expect(document.activeElement).toBe(container.firstChild));
   });
 });

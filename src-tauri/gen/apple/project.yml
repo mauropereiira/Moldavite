@@ -56,6 +56,9 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 2.8.0
         CFBundleVersion: "2.8.0"
+        # iOS 17's requestFullAccessToEvents requires the full-access key.
+        NSCalendarsFullAccessUsageDescription: Moldavite needs access to your calendar to display your events in the timeline.
+        NSCalendarsUsageDescription: Moldavite needs access to your calendar to display your events in the timeline.
         NSUbiquitousContainers:
           iCloud.app.moldavite:
             NSUbiquitousContainerIsDocumentScopePublic: true

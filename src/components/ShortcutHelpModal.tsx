@@ -6,6 +6,7 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   formatShortcut,
+  isPrimaryModifier,
   type Shortcut,
   type ShortcutCategory,
 } from '@/lib/shortcuts';
@@ -28,7 +29,7 @@ export function ShortcutHelpHost() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
+      const isMod = isPrimaryModifier(e);
       const key = e.key.toLowerCase();
       if (isMod && (key === '/' || key === '?')) {
         e.preventDefault();

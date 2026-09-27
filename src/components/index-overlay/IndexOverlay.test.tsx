@@ -322,6 +322,9 @@ describe('IndexOverlay', () => {
   });
 
   it('opens from both the footer link and keyboard shortcut', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+    );
     const vault = buildVault();
     resetStores(vault.notes, vault.folders);
     render(

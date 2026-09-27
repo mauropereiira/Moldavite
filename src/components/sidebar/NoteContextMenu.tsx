@@ -73,7 +73,7 @@ export function NoteContextMenu({
       });
       if (destination) {
         await exportSingleNote(
-          note.name,
+          noteFileBackendPath(note),
           destination,
           note.isDaily || false,
           note.isWeekly || false
@@ -130,7 +130,7 @@ export function NoteContextMenu({
       });
       if (destination) {
         await exportNoteAsPlaintext(
-          note.name,
+          noteFileBackendPath(note),
           destination,
           note.isDaily || false,
           note.isWeekly || false
@@ -218,7 +218,8 @@ export function NoteContextMenu({
           Open in new tab
         </button>
       )}
-      {!note.isLocked && (
+      {/* A copy would lose the date or week that autosave identifies these notes by. */}
+      {!note.isLocked && !note.isDaily && !note.isWeekly && (
         <button
           onClick={handleDuplicate}
           className={itemClass}

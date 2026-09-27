@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { PasswordModal } from './PasswordModal';
+
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
 
 describe('PasswordModal accessibility', () => {
   it('exposes a named modal dialog', () => {
@@ -43,5 +47,27 @@ describe('PasswordModal wrong password', () => {
       await screen.findByText('Incorrect password. 1 attempt left before a short lockout.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/remaining/)).not.toBeInTheDocument();
+  });
+});
+
+describe('PasswordModal on a phone', () => {
+  afterEach(() => {
+    platform.mobile = false;
+  });
+
+  it('takes the focus from the keyboard stand-in as it opens', () => {
+    platform.mobile = true;
+    holdKeyboard();
+    render(
+      <PasswordModal
+        isOpen
+        mode="lock"
+        noteTitle="Private note"
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    expect(document.activeElement).toBe(screen.getByLabelText('Password'));
   });
 });

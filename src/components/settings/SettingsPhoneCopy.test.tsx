@@ -26,10 +26,10 @@ describe('Settings on a phone', () => {
     platform.mobile = false;
   });
 
-  it('shows no keyboard shortcut for focus mode on a phone', () => {
+  it('does not offer focus mode on a phone', () => {
     platform.mobile = true;
     renderAppearance();
-    expect(screen.getByText(/leave just the note\.$/)).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Enable focus mode' })).not.toBeInTheDocument();
   });
 
   it('keeps the focus mode shortcut on the desktop', () => {

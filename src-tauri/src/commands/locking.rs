@@ -40,13 +40,6 @@ fn note_dir(forge_root: &Path, is_daily: bool, is_weekly: bool) -> PathBuf {
     }
 }
 
-fn index_key(filename: &str) -> &str {
-    Path::new(filename)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(filename)
-}
-
 fn note_id(filename: &str, is_daily: bool, is_weekly: bool) -> String {
     format!(
         "{}:{}:",
@@ -65,47 +58,27 @@ fn locked_path(dir: &Path, filename: &str) -> PathBuf {
     dir.join(format!("{filename}.locked"))
 }
 
-fn publish_locked_file<F>(
-    original_path: &Path,
-    locked_path: &Path,
-    plaintext: &str,
-    encrypted: &str,
+/// Writes `new` before `transition` removes `old`, so a crash between the two
+/// leaves both forms intact and never ciphertext under the plaintext name.
+fn publish_replacement<F>(
+    old: &Path,
+    new: &Path,
+    contents: &str,
+    label: &str,
     transition: F,
 ) -> Result<(), String>
 where
     F: FnOnce(&Path, &Path) -> std::io::Result<()>,
 {
-    crate::persist::write_atomic(original_path, encrypted.as_bytes(), Some(0o600))
-        .map_err(|e| format!("Failed to write locked note: {e}"))?;
-    if let Err(error) = transition(original_path, locked_path) {
-        crate::persist::write_atomic(original_path, plaintext.as_bytes(), Some(0o600)).map_err(
-            |rollback| {
-                format!(
-                    "Failed to publish locked note: {error}; failed to restore plaintext: {rollback}"
-                )
-            },
-        )?;
-        return Err(format!("Failed to publish locked note: {error}"));
-    }
-    Ok(())
-}
-
-fn publish_unlocked_file(
-    locked_path: &Path,
-    original_path: &Path,
-    plaintext: &str,
-) -> Result<(), String> {
-    fs::rename(locked_path, original_path)
-        .map_err(|e| format!("Failed to prepare unlocked note: {e}"))?;
-    if let Err(error) =
-        crate::persist::write_atomic(original_path, plaintext.as_bytes(), Some(0o600))
-    {
-        fs::rename(original_path, locked_path).map_err(|rollback| {
+    crate::persist::write_atomic_as(new, contents.as_bytes(), Some(0o600), old)
+        .map_err(|e| format!("Failed to write {label} note: {e}"))?;
+    if let Err(error) = transition(old, new) {
+        fs::remove_file(new).map_err(|rollback| {
             format!(
-                "Failed to write unlocked note: {error}; failed to restore locked note: {rollback}"
+                "Failed to publish {label} note: {error}; failed to remove {label} copy: {rollback}"
             )
         })?;
-        return Err(format!("Failed to write unlocked note: {error}"));
+        return Err(format!("Failed to publish {label} note: {error}"));
     }
     Ok(())
 }
@@ -155,19 +128,21 @@ pub(crate) fn lock_note_in(
                 .map_err(|_| "Invalid note path".to_string())?;
             validate_path_within_base(&locked_path, &dir)
                 .map_err(|_| "Invalid note path".to_string())?;
-            publish_locked_file(
+            publish_replacement(
                 &original_path,
                 &locked_path,
-                &content,
                 &encrypted,
-                |original, locked| fs::rename(original, locked),
+                "locked",
+                |original, _| fs::remove_file(original),
             )?;
 
             Ok(())
         },
     )?;
 
-    index.remove_note(index_key(&filename));
+    index.remove_note(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     Ok(())
 }
 
@@ -337,16 +312,23 @@ fn permanently_unlock_note_in(
                 .map_err(|_| "Invalid note path".to_string())?;
             validate_path_within_base(&original_path, &dir)
                 .map_err(|_| "Invalid note path".to_string())?;
-            publish_unlocked_file(&locked_path, &original_path, &decrypted)?;
+            publish_replacement(
+                &locked_path,
+                &original_path,
+                &decrypted,
+                "unlocked",
+                |locked, _| fs::remove_file(locked),
+            )?;
 
             Ok(decrypted)
         },
     )?;
 
     let body = crate::frontmatter::parse_note(&decrypted).body;
+    let source = crate::semantic::note_rel_path(&filename, is_daily, is_weekly);
     match resolver {
-        Some(resolve) => index.update_note_with(index_key(&filename), &body, resolve),
-        None => index.update_note(index_key(&filename), &body),
+        Some(resolve) => index.update_note_with(&source, &body, resolve),
+        None => index.update_note(&source, &body),
     }
     Ok(())
 }
@@ -425,7 +407,7 @@ mod tests {
         let nested_content = "# Private Q3\n\nConfidential context around [[Target]].";
         fs::write(root.join("notes/Q3 Planning.md"), "root note").unwrap();
         fs::write(root.join("notes/Projects/Q3 Planning.md"), nested_content).unwrap();
-        index.update_note_with("Q3 Planning.md", nested_content, &resolver);
+        index.update_note_with("notes/Projects/Q3 Planning.md", nested_content, &resolver);
         assert_eq!(index.get("target.md", "Target").len(), 1);
 
         lock_note_in(
@@ -472,6 +454,7 @@ mod tests {
         );
         let backlinks = index.get("target.md", "Target");
         assert_eq!(backlinks.len(), 1);
+        assert_eq!(backlinks[0].from_path, "notes/Projects/Q3 Planning.md");
         assert_eq!(backlinks[0].from_title, "Private Q3");
         assert!(backlinks[0].context.contains("Confidential context"));
 
@@ -515,11 +498,11 @@ mod tests {
         let locked = root.join("notes/note.md.locked");
         fs::write(&original, "plaintext").unwrap();
 
-        let result = publish_locked_file(
+        let result = publish_replacement(
             &original,
             &locked,
-            "plaintext",
             "ciphertext",
+            "locked",
             |_original, _locked| Err(std::io::Error::other("injected transition failure")),
         );
 
@@ -529,6 +512,112 @@ mod tests {
             !locked.exists(),
             "failed locking left a published locked copy"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn read_if_present(path: &Path) -> Option<String> {
+        fs::read_to_string(path).ok()
+    }
+
+    #[test]
+    fn a_crash_midway_through_locking_leaves_the_plaintext_recoverable() {
+        let root = temp_forge("lock-crash-point");
+        let original = root.join("notes/note.md");
+        let locked = root.join("notes/note.md.locked");
+        fs::write(&original, "plaintext").unwrap();
+        let mut at_crash_point = None;
+
+        publish_replacement(
+            &original,
+            &locked,
+            "ciphertext",
+            "locked",
+            |original, locked| {
+                at_crash_point = Some((read_if_present(original), read_if_present(locked)));
+                fs::remove_file(original)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            at_crash_point.unwrap(),
+            (Some("plaintext".into()), Some("ciphertext".into()))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn locking_and_unlocking_keep_the_note_s_creation_time() {
+        use std::os::macos::fs::FileTimesExt;
+        let root = temp_forge("lock-created");
+        let original = root.join("notes/note.md");
+        let locked = root.join("notes/note.md.locked");
+        fs::write(&original, "plaintext").unwrap();
+        let created = UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&original)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_created(created))
+            .unwrap();
+
+        publish_replacement(&original, &locked, "ciphertext", "locked", |original, _| {
+            fs::remove_file(original)
+        })
+        .unwrap();
+        assert_eq!(fs::metadata(&locked).unwrap().created().unwrap(), created);
+        publish_replacement(&locked, &original, "plaintext", "unlocked", |locked, _| {
+            fs::remove_file(locked)
+        })
+        .unwrap();
+        assert_eq!(fs::metadata(&original).unwrap().created().unwrap(), created);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_crash_midway_through_unlocking_leaves_the_ciphertext_where_it_was() {
+        let root = temp_forge("unlock-crash-point");
+        let original = root.join("notes/note.md");
+        let locked = root.join("notes/note.md.locked");
+        fs::write(&locked, "ciphertext").unwrap();
+        let mut at_crash_point = None;
+
+        publish_replacement(
+            &locked,
+            &original,
+            "plaintext",
+            "unlocked",
+            |locked, original| {
+                at_crash_point = Some((read_if_present(original), read_if_present(locked)));
+                fs::remove_file(locked)
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            at_crash_point.unwrap(),
+            (Some("plaintext".into()), Some("ciphertext".into()))
+        );
+        assert_eq!(read_if_present(&original).as_deref(), Some("plaintext"));
+        assert!(!locked.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_failed_unlock_publish_never_leaves_both_forms() {
+        let root = temp_forge("unlock-failure");
+        let original = root.join("notes/note.md");
+        let locked = root.join("notes/note.md.locked");
+        fs::write(&locked, "ciphertext").unwrap();
+
+        let result = publish_replacement(&locked, &original, "plaintext", "unlocked", |_, _| {
+            Err(std::io::Error::other("injected transition failure"))
+        });
+
+        assert!(result.is_err());
+        assert_eq!(read_if_present(&locked).as_deref(), Some("ciphertext"));
+        assert!(!original.exists());
         fs::remove_dir_all(root).unwrap();
     }
 

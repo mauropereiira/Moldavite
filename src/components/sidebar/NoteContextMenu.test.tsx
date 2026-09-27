@@ -1,9 +1,19 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NoteFile } from '@/types';
 import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import { useSettingsStore } from '@/stores';
+import { save } from '@tauri-apps/plugin-dialog';
+import { exportNoteAsPlaintext, exportSingleNote } from '@/lib';
 import { NoteContextMenu } from './NoteContextMenu';
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }));
+
+vi.mock('@/lib', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib')>()),
+  exportSingleNote: vi.fn(),
+  exportNoteAsPlaintext: vi.fn(),
+}));
 
 vi.mock('@/lib/platform', () => ({
   isMobilePlatform: vi.fn(() => false),
@@ -46,6 +56,14 @@ describe('moving notes from the context menu', () => {
     (flags) => {
       menu(flags);
       expect(screen.queryByRole('button', { name: /Move to folder/ })).not.toBeInTheDocument();
+    }
+  );
+
+  it.each([{ isDaily: true }, { isWeekly: true }])(
+    'does not offer a duplicate, which would be an undated copy, for %j',
+    (flags) => {
+      menu(flags);
+      expect(screen.queryByRole('button', { name: 'Duplicate' })).not.toBeInTheDocument();
     }
   );
 
@@ -99,5 +117,20 @@ describe('menu wording', () => {
     useSettingsStore.setState({ indexMode: 'overlay' });
     menu();
     expect(screen.queryByRole('button', { name: 'Open in new tab' })).not.toBeInTheDocument();
+  });
+});
+
+describe('exporting a note inside a folder', () => {
+  const inFolder = { name: 'Plan.md', path: 'notes/Work/Plan.md', folderPath: 'Work' };
+
+  it.each([
+    ['Export as Markdown', exportSingleNote],
+    ['Export as plain text', exportNoteAsPlaintext],
+  ] as const)('%s addresses the note by its folder path', async (label, exporter) => {
+    vi.mocked(save).mockResolvedValue('/tmp/out');
+    menu(inFolder);
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    await waitFor(() => expect(exporter).toHaveBeenCalled());
+    expect(vi.mocked(exporter).mock.calls[0][0]).toBe('Work/Plan.md');
   });
 });

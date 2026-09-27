@@ -18,7 +18,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
   const { showCalendarWidget, showTimelineWidget } = useSettingsStore();
   const mobile = isMobilePlatform();
   const calendarVisible = mobile || showCalendarWidget;
-  const timelineVisible = !mobile && showTimelineWidget;
+  const timelineVisible = showTimelineWidget;
   const { isRendered, isClosing } = useOverlayPresence(isOpen);
 
   useLayoutEffect(() => {

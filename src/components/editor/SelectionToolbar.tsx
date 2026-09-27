@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { BubbleMenuPlugin } from '@tiptap/extension-bubble-menu';
 import { formatShortcut } from '@/lib/shortcuts';
@@ -13,18 +14,20 @@ interface SelectionToolbarProps {
  * Provides quick access to common formatting options.
  */
 export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  // BubbleMenuPlugin moves this element into the editor and detaches it, so
+  // React may only fill it through a portal: a node React placed goes missing.
+  const [menuElement] = useState(() => document.createElement('div'));
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (!menuRef.current || !editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed) return;
 
     let isCleanedUp = false;
 
     const plugin = BubbleMenuPlugin({
       pluginKey: 'selectionToolbar',
       editor,
-      element: menuRef.current,
+      element: menuElement,
       updateDelay: 100,
       shouldShow: ({ editor: e, state }) => {
         try {
@@ -78,11 +81,10 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
         console.error('[SelectionToolbar] cleanup error:', error);
       }
     };
-  }, [editor]);
+  }, [editor, menuElement]);
 
-  return (
+  return createPortal(
     <div
-      ref={menuRef}
       className={`selection-toolbar ${isVisible ? 'selection-toolbar-visible' : ''}`}
       style={{ visibility: isVisible ? 'visible' : 'hidden' }}
     >
@@ -204,6 +206,7 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       >
         Right
       </button>
-    </div>
+    </div>,
+    menuElement
   );
 }

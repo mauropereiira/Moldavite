@@ -13,17 +13,25 @@ private func logError(_ message: String) {
 // MARK: - Permission Functions
 
 /// Check calendar authorization status
-/// Returns: 0 = NotDetermined, 1 = Restricted, 2 = Denied, 3 = Authorized, 4 = FullAccess (macOS 14+)
+/// Returns: 0 = NotDetermined, 1 = Restricted, 2 = Denied, 3 = Authorized
+/// (`.fullAccess` shares `.authorized`'s raw value on macOS 14 / iOS 17).
+/// `.writeOnly` (iOS "Add Events Only") can read no events, so it reports as Denied.
 @_cdecl("check_calendar_permission")
 public func checkCalendarPermission() -> Int32 {
-    if #available(macOS 14.0, *) {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        return Int32(status.rawValue)
-    } else {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        return Int32(status.rawValue)
+    let status = EKEventStore.authorizationStatus(for: .event)
+    if #available(macOS 14.0, iOS 17.0, *), status == .writeOnly {
+        return 2
     }
+    if status == .notDetermined && grantLock.withLock({ fullAccessGrantedThisLaunch }) {
+        return 3
+    }
+    return Int32(status.rawValue)
 }
+
+/// iOS keeps answering `.notDetermined` for the rest of the process after a
+/// grant (measured on the iOS 26.5 simulator). Revoking access terminates the app.
+private var fullAccessGrantedThisLaunch = false
+private let grantLock = NSLock()
 
 @_cdecl("request_calendar_permission")
 public func requestCalendarPermission() -> Bool {
@@ -32,7 +40,7 @@ public func requestCalendarPermission() -> Bool {
 
     // Request on a background queue to avoid blocking main thread
     // The system will still show the dialog on the main thread automatically
-    if #available(macOS 14.0, *) {
+    if #available(macOS 14.0, iOS 17.0, *) {
         eventStore.requestFullAccessToEvents { success, error in
             granted = success
             if let error = error {
@@ -55,6 +63,9 @@ public func requestCalendarPermission() -> Bool {
     if result == .timedOut {
         logError("EventKit permission request timed out")
         return false
+    }
+    if granted {
+        grantLock.withLock { fullAccessGrantedThisLaunch = true }
     }
     return granted
 }

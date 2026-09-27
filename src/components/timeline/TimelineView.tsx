@@ -9,7 +9,7 @@ import { fetchCalendarEvents, listCalendarSources } from '@/lib/calendar';
 import type { CalendarEvent, NoteFile } from '@/types';
 import { eventsOverlappingLocalDay } from '@/components/calendar/timeLayout';
 
-type BucketId = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'earlier';
+type BucketId = 'upcoming' | 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'earlier';
 
 interface BucketDef {
   id: BucketId;
@@ -17,6 +17,7 @@ interface BucketDef {
 }
 
 const BUCKETS: BucketDef[] = [
+  { id: 'upcoming', label: 'Upcoming' },
   { id: 'today', label: 'Today' },
   { id: 'yesterday', label: 'Yesterday' },
   { id: 'thisWeek', label: 'This week' },
@@ -49,6 +50,8 @@ export function TimelineView() {
   const [previews, setPreviews] = useState<Map<string, string>>(new Map());
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
   const [yesterdayEvents, setYesterdayEvents] = useState<CalendarEvent[]>([]);
+  const calendarEnabled = useCalendarStore((state) => state.calendarEnabled);
+  const showAllDayEvents = useCalendarStore((state) => state.showAllDayEvents);
 
   // Bucket notes up front. We sort each bucket by a best-available proxy for
   // "modified_at": daily notes by `date` descending, standalone alphabetically
@@ -100,6 +103,7 @@ export function TimelineView() {
     let cancelled = false;
 
     const loadEvents = async () => {
+      if (!calendarEnabled) return;
       try {
         const sources = await listCalendarSources();
         if (cancelled) return;
@@ -130,7 +134,7 @@ export function TimelineView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [calendarEnabled]);
 
   // Previews are read only for the rows on screen, and kept once read so
   // showing another page does not re-read the pages already shown. The cache is
@@ -227,8 +231,16 @@ export function TimelineView() {
 
         {BUCKETS.map((bucket) => {
           const items = visibleBuckets[bucket.id];
-          const events =
-            bucket.id === 'today' ? todayEvents : bucket.id === 'yesterday' ? yesterdayEvents : [];
+          const dayEvents = !calendarEnabled
+            ? []
+            : bucket.id === 'today'
+              ? todayEvents
+              : bucket.id === 'yesterday'
+                ? yesterdayEvents
+                : [];
+          const events = showAllDayEvents
+            ? dayEvents
+            : dayEvents.filter((event) => !event.isAllDay);
           if (items.length === 0 && events.length === 0) return null;
 
           return (
@@ -358,12 +370,14 @@ function EventPill({ event }: { event: CalendarEvent }) {
 }
 
 /**
- * Sort notes into the five buckets. Daily notes use their `date` field;
- * standalone and weekly notes use `modifiedAt` when the backend provides
- * it, falling back to "Earlier" + alphabetical when it doesn't.
+ * Sort notes into the buckets. Daily notes use their `date` field, and one
+ * dated after today is Upcoming; standalone and weekly notes use `modifiedAt`
+ * when the backend provides it, falling back to "Earlier" + alphabetical when
+ * it doesn't.
  */
 function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
   const result: Record<BucketId, NoteFile[]> = {
+    upcoming: [],
     today: [],
     yesterday: [],
     thisWeek: [],
@@ -395,7 +409,8 @@ function bucketNotes(notes: NoteFile[]): Record<BucketId, NoteFile[]> {
       } else {
         const d = parseISO(note.date);
         if (isValidDate(d)) {
-          if (d >= weekAgo) result.thisWeek.push(note);
+          if (note.date > todayStr) result.upcoming.push(note);
+          else if (d >= weekAgo) result.thisWeek.push(note);
           else if (d >= monthAgo) result.thisMonth.push(note);
           else result.earlier.push(note);
         } else {

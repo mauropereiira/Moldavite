@@ -88,15 +88,6 @@ fn portable_derived_stem(stem: &str, suffix: &str) -> String {
     format!("{base}{suffix}")
 }
 
-/// The backlinks index is keyed by bare filename, so folder-relative refs
-/// must be reduced to their final component before touching the index.
-fn index_key(filename: &str) -> String {
-    Path::new(filename)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| filename.to_string())
-}
-
 /// A locked note lives as `<name>.md.locked`, so `exists()` on the plaintext
 /// name reports a taken name as free. Every check that picks or accepts a new
 /// note name has to see both forms; otherwise a new note lands beside a locked
@@ -763,12 +754,15 @@ pub(crate) fn write_note(
                 // The copy is our own write — suppress the watcher echo.
                 recent.record(&parent.join(&conflict_name), &sha256_hex(&disk_body));
             }
-            index.update_note(&conflict_name, &disk_body);
             // Echo back the same folder-relative shape we were addressed with.
             let rel = match filename.rsplit_once('/') {
                 Some((folder, _)) => format!("{}/{}", folder, conflict_name),
                 None => conflict_name,
             };
+            index.update_note(
+                &crate::semantic::note_rel_path(&rel, is_daily, is_weekly),
+                &disk_body,
+            );
             Some(rel)
         }
         None => None,
@@ -778,7 +772,10 @@ pub(crate) fn write_note(
     recent.record(&path, &content_hash);
 
     // The backlinks index only cares about the body, not frontmatter.
-    index.update_note(&index_key(&filename), &content);
+    index.update_note(
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+        &content,
+    );
 
     // Keep the semantic index fresh (debounced, async; no-op when disabled).
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
@@ -824,7 +821,9 @@ pub(crate) fn delete_note(
     let path = dir.join(&filename);
 
     delete_note_within_base(&dir, &path, base_hash.as_deref())?;
-    index.remove_note(&index_key(&filename));
+    index.remove_note(&crate::semantic::note_rel_path(
+        &filename, is_daily, is_weekly,
+    ));
     crate::semantic::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
@@ -869,12 +868,15 @@ pub(crate) fn preserve_buffer_copy(
         .ok_or_else(|| "Invalid note path".to_string())?
         .join(&conflict_name);
     recent.record(&conflict_path, &sha256_hex(&content));
-    index.update_note(&conflict_name, &content);
 
     let relative = match filename.rsplit_once('/') {
         Some((folder, _)) => format!("{}/{}", folder, conflict_name),
         None => conflict_name,
     };
+    index.update_note(
+        &crate::semantic::note_rel_path(&relative, is_daily, is_weekly),
+        &content,
+    );
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
         &relative, is_daily, is_weekly,
     ));
@@ -891,8 +893,8 @@ pub(crate) fn create_note(
     index: State<'_, Arc<BacklinksIndex>>,
 ) -> Result<String, String> {
     let base_dir = get_standalone_dir()?;
-    let (filename, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
-    index.update_note(&filename, "");
+    let (_, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
+    index.update_note(&format!("notes/{relative_path}"), "");
     Ok(relative_path)
 }
 
@@ -979,7 +981,10 @@ pub(crate) fn duplicate_note(
 
     write_atomic(&new_path, content.as_bytes(), Some(0o600))?;
 
-    index.update_note(&index_key(&new_filename), &content);
+    index.update_note(
+        &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
+        &content,
+    );
 
     crate::semantic::note_changed(&crate::semantic::note_rel_path(
         &new_filename,
@@ -1070,7 +1075,9 @@ fn rename_note_in(
             validate_path_within_base(&old_path, dir)?;
             validate_path_within_base(&new_path, dir)?;
 
-            if note_name_is_taken(&new_path) {
+            if note_name_is_taken(&new_path)
+                && !crate::persist::is_case_only_rename(&old_path, &new_path)
+            {
                 return Err("A note with this name already exists".to_string());
             }
 
@@ -1103,8 +1110,8 @@ pub(crate) fn rename_note(
 
     let content_after_rename = fs::read_to_string(&new_path).unwrap_or_default();
     index.rename_note(
-        &index_key(&old_filename),
-        &index_key(&new_filename),
+        &crate::semantic::note_rel_path(&old_filename, is_daily, is_weekly),
+        &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
         &content_after_rename,
     );
 
@@ -1162,7 +1169,15 @@ fn rewrite_inbound_links_in_roots(
     index: &Arc<BacklinksIndex>,
     resolver: Option<&crate::backlinks_index::Resolver>,
 ) {
-    let slug_shared = slug_is_owned_in_roots(roots, old_stem);
+    let (slug_shared, mut name_owners) = old_name_owners_in_roots(roots, old_stem);
+    if crate::wiki::same_note_name(new_stem, old_stem) {
+        name_owners = name_owners.saturating_sub(1);
+    }
+    // Another note still answers to the old name, so a link naming it may mean
+    // that note, and rewriting it would repoint links the rename never owned.
+    if name_owners > 0 {
+        return;
+    }
     for root in roots {
         if !root.exists() {
             continue;
@@ -1202,11 +1217,11 @@ fn rewrite_inbound_links_in_roots(
                 }
             };
             let body = crate::frontmatter::parse_note(&rewritten).body;
-            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+            if let Some(source) = crate::backlinks_index::source_path_under(root, path) {
                 if let Some(resolver) = resolver {
-                    index.update_note_with(name, &body, resolver);
+                    index.update_note_with(&source, &body, resolver);
                 } else {
-                    index.update_note(name, &body);
+                    index.update_note(&source, &body);
                 }
             }
         }
@@ -1214,23 +1229,34 @@ fn rewrite_inbound_links_in_roots(
 }
 
 /// Whether a note still on disk, locked or not, has a name that slugifies to
-/// `old_stem`'s. Runs after the rename, so the renamed note counts only when its
-/// new name keeps the slug, and then the slug-only links still reach it.
-fn slug_is_owned_in_roots(roots: &[PathBuf], old_stem: &str) -> bool {
+/// `old_stem`'s, and how many carry `old_stem` itself. Runs after the rename, so
+/// the renamed note counts only when its new name keeps the slug, and then the
+/// slug-only links still reach it.
+fn old_name_owners_in_roots(roots: &[PathBuf], old_stem: &str) -> (bool, usize) {
     let old_slug = crate::wiki::note_name_to_filename(old_stem);
-    roots.iter().filter(|root| root.exists()).any(|root| {
-        walkdir::WalkDir::new(root)
+    let mut slug_shared = false;
+    let mut name_owners = 0;
+    for root in roots.iter().filter(|root| root.exists()) {
+        for entry in walkdir::WalkDir::new(root)
             .into_iter()
             .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
             .flatten()
             .filter(|entry| entry.file_type().is_file())
-            .any(|entry| {
-                let name = entry.file_name().to_string_lossy();
-                name.strip_suffix(".md")
-                    .or_else(|| name.strip_suffix(".md.locked"))
-                    .is_some_and(|stem| crate::wiki::note_name_to_filename(stem) == old_slug)
-            })
-    })
+        {
+            let name = entry.file_name().to_string_lossy();
+            let Some(stem) = name
+                .strip_suffix(".md")
+                .or_else(|| name.strip_suffix(".md.locked"))
+            else {
+                continue;
+            };
+            slug_shared |= crate::wiki::note_name_to_filename(stem) == old_slug;
+            if crate::wiki::same_note_name(stem, old_stem) {
+                name_owners += 1;
+            }
+        }
+    }
+    (slug_shared, name_owners)
 }
 
 #[tauri::command]
@@ -1291,14 +1317,12 @@ pub(crate) fn move_note(
 ) -> Result<String, String> {
     let standalone_dir = get_standalone_dir()?;
     let source_path = standalone_dir.join(&note_path);
-    let (old_filename, final_filename, new_relative_path, dest_path) =
+    let (_, _, new_relative_path, dest_path) =
         move_note_in(&standalone_dir, &note_path, to_folder.as_deref())?;
 
-    // Keep backlinks index in sync: drop entries from old filename, then
-    // re-index using the (possibly deduplicated) new filename + content.
-    index.remove_note(&old_filename);
+    index.remove_note(&format!("notes/{note_path}"));
     let content = fs::read_to_string(&dest_path).unwrap_or_default();
-    index.update_note(&final_filename, &content);
+    index.update_note(&format!("notes/{new_relative_path}"), &content);
 
     if note_path != new_relative_path {
         recent.record_missing(&source_path);
@@ -2246,6 +2270,31 @@ mod tests {
     }
 
     #[test]
+    fn renaming_one_of_two_same_named_notes_leaves_links_to_the_name_alone() {
+        let tmp = TempDir::new("rename-same-name");
+        let notes = tmp.path().join("notes");
+        for folder in ["Work", "Home"] {
+            fs::create_dir_all(notes.join(folder)).unwrap();
+            fs::write(notes.join(folder).join("Plan.md"), folder).unwrap();
+        }
+        fs::write(notes.join("inbound.md"), "See [[Plan]] and [[x|plan]].").unwrap();
+
+        rename_note_in(&notes, "Work/Plan.md", "Work/Roadmap.md", false, false).unwrap();
+        rewrite_inbound_links_in_roots(
+            std::slice::from_ref(&notes),
+            note_ref_stem("Work/Plan.md"),
+            note_ref_stem("Work/Roadmap.md"),
+            &Arc::new(BacklinksIndex::new()),
+            Some(&crate::wiki::note_name_to_filename),
+        );
+
+        assert_eq!(
+            fs::read_to_string(notes.join("inbound.md")).unwrap(),
+            "See [[Plan]] and [[x|plan]]."
+        );
+    }
+
+    #[test]
     fn rename_rewrites_only_the_notes_that_link_to_the_old_name() {
         let tmp = TempDir::new("rename-rewrite-scope");
         let notes = tmp.path().join("notes");
@@ -2450,6 +2499,27 @@ mod tests {
         assert_eq!(error, "A note with this name already exists");
         assert!(notes.join("draft.md").exists());
         assert!(!notes.join("secret.md").exists());
+    }
+
+    #[test]
+    fn a_case_only_rename_is_not_refused_on_a_case_insensitive_volume() {
+        let tmp = TempDir::new("rename-case-only");
+        fs::write(tmp.path().join("Plan.md"), "body").unwrap();
+        if !tmp.path().join("plan.md").exists() {
+            return;
+        }
+
+        rename_note_in(tmp.path(), "Plan.md", "plan.md", false, false).unwrap();
+
+        let names: Vec<String> = fs::read_dir(tmp.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["plan.md"]);
+        assert_eq!(
+            fs::read_to_string(tmp.path().join("plan.md")).unwrap(),
+            "body"
+        );
     }
 
     #[test]

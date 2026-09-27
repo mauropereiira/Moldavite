@@ -247,3 +247,38 @@ describe('noteStore - markNoteSaved', () => {
     expect(useNoteStore.getState().savedContent.get('a')).toBe('<p>edited</p>');
   });
 });
+
+describe('noteStore - selected date and week', () => {
+  it('clears the selected week when a date is selected', () => {
+    useNoteStore.getState().setSelectedWeek(new Date(2026, 8, 28));
+    useNoteStore.getState().setSelectedDate(new Date(2026, 8, 30));
+
+    expect(useNoteStore.getState().selectedWeek).toBeNull();
+  });
+});
+
+describe('noteStore - reopening an open tab', () => {
+  beforeEach(() => {
+    useNoteStore.setState({ openTabs: [], activeTabId: null, currentNote: null });
+  });
+
+  // A blank editable stand-in would be saved over the real note once iCloud delivers it.
+  it('keeps an iCloud placeholder marked as one when its tab is already open', () => {
+    const { openTab } = useNoteStore.getState();
+    openTab(makeNote('notes/Remote.md'), false);
+
+    openTab({ ...makeNote('notes/Remote.md'), content: '', cloudPending: true }, false);
+
+    expect(useNoteStore.getState().currentNote?.cloudPending).toBe(true);
+    expect(useNoteStore.getState().openTabs[0].cloudPending).toBe(true);
+  });
+
+  it('clears the placeholder mark when the real note reopens the tab', () => {
+    const { openTab } = useNoteStore.getState();
+    openTab({ ...makeNote('notes/Remote.md'), content: '', cloudPending: true }, false);
+
+    openTab(makeNote('notes/Remote.md'), false);
+
+    expect(useNoteStore.getState().currentNote?.cloudPending).toBeFalsy();
+  });
+});

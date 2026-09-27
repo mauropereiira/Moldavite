@@ -18,6 +18,7 @@ import { noteNameToFilename, slugifyNoteName } from '@/lib/fileSystem';
 import { hasOnlyEmptyParagraphs } from '@/lib/validation';
 import { ReactRenderer } from '@tiptap/react';
 import type { Editor as TiptapEditor, Range as TiptapRange } from '@tiptap/core';
+import { EditorState } from '@tiptap/pm/state';
 import {
   exitSuggestion,
   type SuggestionProps,
@@ -60,6 +61,7 @@ import { slashCommandsPluginKey } from './extensions/SlashCommands';
 import { openSuggestionPopup, updateSuggestionPopup } from './extensions/suggestionPopup';
 import type { TagItem, SlashCommandItem } from './extensions';
 import { LinkModal } from './LinkModal';
+import { applyLink, linkDialogValues } from './linkEditing';
 import { ConfirmDialog } from '@/components/ui';
 import { ImageModal } from './ImageModal';
 import './extensions/wiki-links.css';
@@ -140,6 +142,7 @@ export function Editor() {
   const currentNoteContent = currentNote?.content;
   const {
     spellCheck,
+    autoCapitalize,
     tagsEnabled,
     backlinksEnabled,
     showNoteHeader,
@@ -218,7 +221,7 @@ export function Editor() {
   }, []);
 
   const handleWikiLinkClick = useCallback(
-    async (target: string) => {
+    async (target: string, linkName: string) => {
       const currentNotes = notesRef.current;
 
       const isDailyNote = /^\d{4}-\d{2}-\d{2}\.md$/.test(target);
@@ -236,7 +239,7 @@ export function Editor() {
         await loadNote(actualNote);
       } else {
         // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
-        const noteName = target.replace('.md', '').replace(/-/g, ' ');
+        const noteName = linkName || target.replace('.md', '').replace(/-/g, ' ');
         setPendingLinkCreate({ target, noteName, isDailyNote });
       }
     },
@@ -257,10 +260,9 @@ export function Editor() {
     }
     try {
       // Create the note; the backend returns the actual slugged filename.
-      const createdFilename = await invoke<string>('create_note_from_link', {
-        noteName: target.replace('.md', ''),
-      });
+      const createdFilename = await invoke<string>('create_note_from_link', { noteName });
       const filename = createdFilename || target;
+      await refreshNotes();
 
       await loadNote({
         name: filename,
@@ -275,7 +277,7 @@ export function Editor() {
       console.error('[Editor] Failed to create note from wiki link:', error);
       toast.error('Failed to create note');
     }
-  }, [pendingLinkCreate, loadDailyNote, loadNote, setSelectedDate, toast]);
+  }, [pendingLinkCreate, loadDailyNote, loadNote, refreshNotes, setSelectedDate, toast]);
 
   // The suggestion list's Create row writes the note where following a missing
   // link would, then stays in the note being written. The editor keeps the
@@ -763,10 +765,10 @@ export function Editor() {
           console.error('[Editor] Selection update error:', error);
         }
       },
+      injectCSS: false,
       editorProps: {
         attributes: {
           class: 'focus:outline-none min-h-full',
-          spellcheck: spellCheck ? 'true' : 'false',
         },
         handleClick: (_view, _position, event) => {
           return event.button === 0 && openExternalEditorLink(event);
@@ -854,6 +856,13 @@ export function Editor() {
   useEffect(() => {
     if (editor && !editor.isDestroyed) editor.setEditable(!isViewOnly, false);
   }, [editor, isViewOnly]);
+
+  // TipTap reads editorProps.attributes only when the editor is built.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dom.setAttribute('spellcheck', spellCheck ? 'true' : 'false');
+    editor.view.dom.setAttribute('autocapitalize', autoCapitalize ? 'sentences' : 'off');
+  }, [editor, spellCheck, autoCapitalize]);
 
   const handleImageFile = useCallback(
     async (file: File) => {
@@ -960,13 +969,22 @@ export function Editor() {
                 : null;
               const keepFocus = preserveEditorState && editor.isFocused;
 
-              // Clear and set content, then blur to clear any selection.
               // emitUpdate:false because TipTap v3 defaults it to true, which
               // made merely *opening* a note fire onUpdate -> autosave and
               // rewrite the file with whatever the schema could model. Anything
               // it cannot represent (Markdown tables, say) was flattened on
               // disk without the user typing a thing.
-              editor.commands.setContent(note.content || '', { emitUpdate: false });
+              // A load must leave nothing to undo, or ⌘Z puts the previous
+              // body into this note for autosave to write (or empties a daily
+              // note, which deletes it): a fresh state clears the history.
+              editor.view.updateState(
+                EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins })
+              );
+              editor
+                .chain()
+                .setMeta('addToHistory', false)
+                .setContent(note.content || '', { emitUpdate: false })
+                .run();
               if (selection) {
                 // setTextSelection clamps out-of-range positions itself, which
                 // matters when the external edit shortened the note.
@@ -1073,36 +1091,14 @@ export function Editor() {
   const handleInsertLink = useCallback(() => {
     if (!editor) return;
 
-    const previousUrl = editor.getAttributes('link').href || '';
-    const { from, to } = editor.state.selection;
-    const hasSelection = from !== to;
-    const selectedText = hasSelection ? editor.state.doc.textBetween(from, to) : '';
-
-    setLinkInitialValues({ url: previousUrl, text: selectedText });
+    setLinkInitialValues(linkDialogValues(editor));
     setIsLinkModalOpen(true);
   }, [editor]);
 
   const handleLinkInsert = useCallback(
     (url: string, text?: string) => {
       if (!editor) return;
-
-      const { from, to } = editor.state.selection;
-      const hasSelection = from !== to;
-
-      if (hasSelection) {
-        editor.chain().focus().setLink({ href: url }).run();
-      } else {
-        const linkText = text || url;
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            type: 'text',
-            marks: [{ type: 'link', attrs: { href: url } }],
-            text: linkText,
-          })
-          .run();
-      }
+      applyLink(editor, url, text);
     },
     [editor]
   );
@@ -1311,6 +1307,7 @@ export function Editor() {
           <React.Suspense fallback={null}>
             <MobileFormattingBar
               editor={editor}
+              noteId={currentNote?.id}
               onInsertLink={handleInsertLink}
               onInsertImage={() => setIsImageModalOpen(true)}
             />

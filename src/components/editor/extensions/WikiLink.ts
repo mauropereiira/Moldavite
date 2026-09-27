@@ -4,7 +4,8 @@ import { noteNameToFilename } from '@/lib/fileSystem';
 
 export interface WikiLinkOptions {
   HTMLAttributes: Record<string, unknown>;
-  onLinkClick: (target: string) => void;
+  /** `name` is the note name as written in the link, for naming a note the link creates. */
+  onLinkClick: (target: string, name: string) => void;
   /** Whether a `data-target` names a note in the Forge, for links typed in full. */
   noteExists: (target: string) => boolean;
 }
@@ -148,7 +149,11 @@ export const WikiLink = Node.create<WikiLinkOptions>({
                 if (dataTarget && this.options.onLinkClick) {
                   event.preventDefault();
                   event.stopPropagation();
-                  this.options.onLinkClick(dataTarget);
+                  const name =
+                    wikiLink.getAttribute('data-raw-target')?.trim() ||
+                    wikiLink.getAttribute('data-label')?.trim() ||
+                    '';
+                  this.options.onLinkClick(dataTarget, name);
                   return true;
                 }
               }

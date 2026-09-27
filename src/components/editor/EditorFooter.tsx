@@ -1,6 +1,6 @@
 import { isMobilePlatform } from '@/lib/platform';
 import { useState } from 'react';
-import { Editor } from '@tiptap/react';
+import { Editor, useEditorState } from '@tiptap/react';
 import { ShareMenu } from './ShareMenu';
 import { WordPressMenu } from './WordPressMenu';
 import { FormattingMenu } from './FormattingMenu';
@@ -64,13 +64,20 @@ export function EditorFooter({
   const notePath = currentNoteId ?? '';
   const currentColorId = getColor(notePath);
 
-  const wordCount = editor
-    ? editor
-        .getText()
-        .split(/\s+/)
-        .filter((word) => word.length > 0).length
-    : 0;
-  const characterCount = editor ? editor.getText().length : 0;
+  // Subscribed, as the footer does not re-render for content. Read from the prop:
+  // right after an editor swap the snapshot still holds the destroyed one.
+  const counts = useEditorState({
+    editor,
+    selector: () => {
+      const text = editor?.getText() ?? '';
+      return {
+        words: text.split(/\s+/).filter((word) => word.length > 0).length,
+        characters: text.length,
+      };
+    },
+  });
+  const wordCount = counts?.words ?? 0;
+  const characterCount = counts?.characters ?? 0;
 
   const showToast = (message: string) => {
     toast.success(message);
@@ -98,7 +105,7 @@ export function EditorFooter({
       )}
 
       {/* Publish to WordPress — absent unless the build has credentials */}
-      {!isMobilePlatform() && (
+      {!isMobilePlatform() && !readOnly && (
         <WordPressMenu
           onShowToast={showToast}
           onShowError={(message) => toast.error(message)}

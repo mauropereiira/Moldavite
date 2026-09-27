@@ -95,6 +95,7 @@ fastembed = { version = "5.17", default-features = false, features = [
 # deployment floor also covers rusqlite's SQLite 3.34.1 minimum.
 rusqlite = { version = "0.40" }
 tauri-plugin-icloud = { path = "plugins/tauri-plugin-icloud" }
+tauri-plugin-calendar = { path = "plugins/tauri-plugin-calendar" }
 tauri-plugin-document-export = { path = "plugins/tauri-plugin-document-export" }
 tauri-plugin-mobile-ui = { path = "plugins/tauri-plugin-mobile-ui" }
 

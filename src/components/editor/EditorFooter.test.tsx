@@ -1,4 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Note, NoteFile } from '@/types';
@@ -10,7 +12,7 @@ const platform = vi.hoisted(() => ({ mobile: false }));
 vi.mock('@/lib/ipc', () => ({ safeInvoke: (...args: unknown[]) => safeInvoke(...args) }));
 vi.mock('@/hooks/useElementWidth', () => ({ useElementWidth: () => footerWidth.current }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }));
-vi.mock('./WordPressMenu', () => ({ WordPressMenu: () => null }));
+vi.mock('./WordPressMenu', () => ({ WordPressMenu: () => <div data-testid="wordpress-menu" /> }));
 vi.mock('@/lib/platform', () => ({
   isMobilePlatform: () => platform.mobile,
   isTabletPlatform: () => false,
@@ -21,8 +23,14 @@ vi.mock('@/lib/autosaveFlush', async (importOriginal) => ({
   getPendingAutosaveNoteId: () => null,
 }));
 
+import { save } from '@tauri-apps/plugin-dialog';
 import { EditorFooter } from './EditorFooter';
-import { useNoteColorsStore, useNoteStore, useQuickSwitcherStore } from '@/stores';
+import {
+  useNoteColorsStore,
+  useNoteStore,
+  useQuickSwitcherStore,
+  useSettingsStore,
+} from '@/stores';
 
 const file: NoteFile = {
   name: 'plan.md',
@@ -213,5 +221,157 @@ describe('EditorFooter on a phone', () => {
     await user.click(screen.getByRole('button', { name: 'More options' }));
 
     expect(menuItems()).toEqual(['Note info', 'Delete note']);
+  });
+});
+
+describe('EditorFooter note in a folder', () => {
+  beforeEach(() => {
+    safeInvoke.mockImplementation(async (command: string) => {
+      if (command === 'read_note') return { content: 'Plan', color: null, contentHash: 'hash' };
+      if (command === 'duplicate_note') return 'Projects/plan (copy).md';
+      return undefined;
+    });
+  });
+
+  it('exports it as Markdown by its path', async () => {
+    vi.mocked(save).mockResolvedValueOnce('/tmp/plan.md');
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'More options' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export as Markdown' }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith('export_single_note', {
+        filename: 'Projects/plan.md',
+        destination: '/tmp/plan.md',
+        isDaily: false,
+        isWeekly: false,
+      })
+    );
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: 'plan.md' }));
+  });
+
+  it('exports it as plain text by its path', async () => {
+    vi.mocked(save).mockResolvedValueOnce('/tmp/plan.txt');
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'More options' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export as plain text' }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith(
+        'read_note',
+        expect.objectContaining({ filename: 'Projects/plan.md' })
+      )
+    );
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: 'plan.txt' }));
+  });
+
+  it('duplicates it beside the original, as the Index does', async () => {
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'More options' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Duplicate note' }));
+
+    await waitFor(() =>
+      expect(safeInvoke).toHaveBeenCalledWith('duplicate_note', {
+        filename: 'Projects/plan.md',
+        isDaily: false,
+        isWeekly: false,
+      })
+    );
+    await waitFor(() =>
+      expect(useNoteStore.getState().notes.map((n) => n.path)).toContain(
+        'notes/Projects/plan (copy).md'
+      )
+    );
+    expect(safeInvoke).not.toHaveBeenCalledWith('create_note', expect.anything());
+  });
+});
+
+describe('EditorFooter wiki link', () => {
+  it('copies a complete wiki link to the note', async () => {
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy wiki link' }));
+
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe('[[plan]]'));
+  });
+
+  it('targets the file when the title differs from it', async () => {
+    useNoteStore.setState({ currentNote: { ...note, title: 'Q3 plan' } });
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy wiki link' }));
+
+    await waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe('[[Q3 plan|plan]]')
+    );
+  });
+});
+
+describe('EditorFooter publishing', () => {
+  it('offers WordPress publishing on an ordinary note', () => {
+    renderFooter();
+    expect(screen.getByTestId('wordpress-menu')).toBeInTheDocument();
+  });
+
+  it('does not offer WordPress publishing on a view-only note', () => {
+    renderFooter({ readOnly: true });
+    expect(screen.queryByTestId('wordpress-menu')).toBeNull();
+  });
+});
+
+describe('EditorFooter word count', () => {
+  it('follows the editor content', () => {
+    useSettingsStore.setState({ showWordCount: true });
+    const editor = new Editor({ extensions: [StarterKit], content: '<p>one two</p>' });
+    const { unmount } = render(
+      <EditorFooter
+        editor={editor}
+        onDelete={vi.fn()}
+        isSaving={false}
+        showSaveSuccess={false}
+        onRenameNote={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+    expect(screen.getByText('2 words')).toBeInTheDocument();
+
+    act(() => {
+      editor.commands.setContent('<p>one two three four five</p>');
+    });
+
+    expect(screen.getByText('5 words')).toBeInTheDocument();
+    unmount();
+    editor.destroy();
+    useSettingsStore.setState({ showWordCount: false });
+  });
+
+  it('counts a replacement editor once the old one is destroyed', () => {
+    useSettingsStore.setState({ showWordCount: true });
+    const props = {
+      onDelete: vi.fn(),
+      isSaving: false,
+      showSaveSuccess: false,
+      onRenameNote: vi.fn().mockResolvedValue(undefined),
+    };
+    const first = new Editor({ extensions: [StarterKit], content: '<p>one two</p>' });
+    const { rerender, unmount } = render(<EditorFooter editor={first} {...props} />);
+    const second = new Editor({ extensions: [StarterKit], content: '<p>one two three</p>' });
+    first.destroy();
+
+    rerender(<EditorFooter editor={second} {...props} />);
+
+    expect(screen.getByText('3 words')).toBeInTheDocument();
+    unmount();
+    second.destroy();
+    useSettingsStore.setState({ showWordCount: false });
   });
 });

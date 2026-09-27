@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { isPrimaryModifier } from '@/lib/shortcuts';
 import {
   useGraphStore,
   useNoteSelectionStore,
@@ -60,7 +61,7 @@ export function ChromeShortcutHost() {
         return;
       }
 
-      if (!(e.metaKey || e.ctrlKey)) return;
+      if (!isPrimaryModifier(e)) return;
 
       const key = e.key.toLowerCase();
       if (key === 'p' && !e.altKey && !e.shiftKey) {

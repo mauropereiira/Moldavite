@@ -68,6 +68,19 @@ describe('AppOnboardingModal', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('starts a replayed tour on the welcome step', () => {
+    vi.mocked(isMobilePlatform).mockReturnValue(true);
+    render(<AppOnboardingModal />);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /get started/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    act(() => useSettingsStore.getState().setHasSeenAppOnboarding(false));
+
+    expect(screen.getByRole('heading', { name: /welcome to moldavite/i })).toBeInTheDocument();
+  });
+
   it('uses the local mobile Forge without a folder picker or desktop feature pages', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     render(<AppOnboardingModal />);

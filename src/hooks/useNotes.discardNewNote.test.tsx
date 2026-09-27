@@ -184,6 +184,38 @@ describe('a note is kept', () => {
     expect(disk['Groceries.md']).toEqual({ content: '' });
   });
 
+  it('when it is left while its rename is in flight', async () => {
+    const hook = renderNotes();
+    await newNote(hook);
+    let finishRename!: () => void;
+    const renameGate = new Promise<void>((resolve) => {
+      finishRename = resolve;
+    });
+    const base = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation(async (command: string, payload?: Record<string, unknown>) => {
+      if (command !== 'rename_note') return base?.(command, payload);
+      await renameGate;
+      if (!disk[String(payload?.oldFilename)]) throw new Error('Note not found');
+      return base?.(command, payload);
+    });
+
+    const untitled: NoteFile = { ...other, name: 'Untitled.md', path: 'notes/Untitled.md' };
+    let renamed!: Promise<void>;
+    act(() => {
+      renamed = hook.result.current.renameNote(untitled, 'Groceries');
+    });
+    await settle();
+    await act(() => hook.result.current.loadNote(other));
+    await settle();
+    finishRename();
+    await act(() => renamed);
+    await settle();
+
+    expect(deletes()).toHaveLength(0);
+    expect(disk['Groceries.md']).toEqual({ content: '' });
+    expect(listed('notes/Groceries.md')).toBe(true);
+  });
+
   it('when it was not made by New', async () => {
     const hook = renderNotes();
     await newNote(hook, false);

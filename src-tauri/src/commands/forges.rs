@@ -264,7 +264,13 @@ pub(crate) fn refresh_active_forge(
 }
 
 #[tauri::command]
-pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeInfo, String> {
+pub(crate) fn rename_forge(
+    old_name: String,
+    new_name: String,
+    app: AppHandle,
+    recent: State<'_, Arc<RecentWrites>>,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<ForgeInfo, String> {
     if !is_valid_forge_name(&old_name) || !is_valid_forge_name(&new_name) {
         return Err("Invalid Forge name".to_string());
     }
@@ -279,16 +285,7 @@ pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeIn
             is_active: !read_config().active_synced_forge && get_active_forge_name() == new_name,
         });
     }
-    let root = get_forges_root();
-    let from = root.join(&old_name);
-    let to = root.join(&new_name);
-    if !from.is_dir() {
-        return Err(format!("Forge \"{}\" does not exist", old_name));
-    }
-    if to.exists() {
-        return Err(format!("A Forge named \"{}\" already exists", new_name));
-    }
-    fs::rename(&from, &to).map_err(|e| format!("Failed to rename Forge: {}", e))?;
+    let to = rename_forge_dir(&get_forges_root(), &old_name, &new_name)?;
 
     // If the renamed Forge was active, update the config so it stays active
     // under the new name.
@@ -296,6 +293,14 @@ pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeIn
     if cfg.active_forge.as_deref() == Some(old_name.as_str()) {
         cfg.active_forge = Some(new_name.clone());
         write_config(&cfg)?;
+        if !cfg.active_synced_forge {
+            refresh_active_forge(
+                &app,
+                recent.inner().clone(),
+                index.inner().clone(),
+                to.clone(),
+            );
+        }
     }
 
     Ok(ForgeInfo {
@@ -306,6 +311,22 @@ pub(crate) fn rename_forge(old_name: String, new_name: String) -> Result<ForgeIn
         is_active: !read_config().active_synced_forge
             && read_config().active_forge.as_deref() == Some(new_name.as_str()),
     })
+}
+
+fn rename_forge_dir(root: &Path, old_name: &str, new_name: &str) -> Result<PathBuf, String> {
+    let from = root.join(old_name);
+    let to = root.join(new_name);
+    if !from.is_dir() {
+        return Err(format!("Forge \"{}\" does not exist", old_name));
+    }
+    if to.exists() && !crate::persist::is_case_only_rename(&from, &to) {
+        return Err(format!("A Forge named \"{}\" already exists", new_name));
+    }
+    // Filed under the old path's hash, the index would outlive the rename as a
+    // full-text copy of the notes that no later delete_forge finds.
+    crate::search_index::delete_for(&from);
+    fs::rename(&from, &to).map_err(|e| format!("Failed to rename Forge: {}", e))?;
+    Ok(to)
 }
 
 #[tauri::command]
@@ -610,7 +631,12 @@ pub(crate) fn validate_storage_location(
 }
 
 #[tauri::command]
-pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
+pub(crate) fn set_forges_root(
+    path: String,
+    app: AppHandle,
+    recent: State<'_, Arc<RecentWrites>>,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<String, String> {
     if cfg!(target_os = "ios") {
         return Err("The Forges folder is fixed to the app's container on iOS".to_string());
     }
@@ -636,12 +662,29 @@ pub(crate) fn set_forges_root(path: String) -> Result<String, String> {
 
     fs::create_dir_all(&canonical).map_err(|e| format!("Failed to create root: {}", e))?;
     ensure_forge_at(&canonical.join(DEFAULT_FORGE_NAME))?;
+    let active = active_forge_under(&canonical, &get_active_forge_name());
     let mut cfg = read_config();
     cfg.forges_root = Some(canonical.to_string_lossy().to_string());
+    cfg.active_forge = Some(active.clone());
     cfg.active_synced_forge = false;
     cfg.notes_directory = None;
     write_config(&cfg)?;
+    refresh_active_forge(
+        &app,
+        recent.inner().clone(),
+        index.inner().clone(),
+        canonical.join(active),
+    );
     Ok(canonical.to_string_lossy().to_string())
+}
+
+/// Keeping a name with no Forge under `root` would scaffold an empty Forge there.
+fn active_forge_under(root: &Path, current: &str) -> String {
+    if is_valid_forge_name(current) && looks_like_forge(&root.join(current)) {
+        current.to_string()
+    } else {
+        DEFAULT_FORGE_NAME.to_string()
+    }
 }
 
 #[tauri::command]
@@ -694,6 +737,72 @@ mod tests {
         fs::create_dir_all(&tmp2).unwrap();
         assert!(!looks_like_forge(&tmp2));
         let _ = fs::remove_dir_all(&tmp2);
+    }
+
+    fn temp_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "{label}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn a_case_only_forge_rename_is_not_refused_on_a_case_insensitive_volume() {
+        let root = temp_root("moldavite-forge-case-rename");
+        scaffold_forge(&root.join("Work")).unwrap();
+        if !root.join("work").exists() {
+            let _ = fs::remove_dir_all(&root);
+            return;
+        }
+
+        let renamed = rename_forge_dir(&root, "Work", "work");
+
+        let names: Vec<String> = fs::read_dir(&root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        let _ = fs::remove_dir_all(&root);
+        assert_eq!(renamed.unwrap(), root.join("work"));
+        assert_eq!(names, ["work"]);
+    }
+
+    #[test]
+    fn renaming_a_forge_leaves_no_search_index_behind_for_the_old_path() {
+        let root = temp_root("moldavite-forge-rename-index");
+        scaffold_forge(&root.join("Work")).unwrap();
+        fs::write(root.join("Work/notes/secret.md"), "full text copy").unwrap();
+        crate::search_index::reconcile(&root.join("Work")).unwrap();
+        let old_index = PathBuf::from(crate::search_index::status(&root.join("Work")).index_path);
+        assert!(old_index.is_file());
+
+        rename_forge_dir(&root, "Work", "Life").unwrap();
+
+        let orphaned = old_index.exists();
+        crate::search_index::delete_for(&root.join("Life"));
+        let _ = fs::remove_dir_all(&root);
+        assert!(
+            !orphaned,
+            "the old path's index still holds the notes' text"
+        );
+    }
+
+    #[test]
+    fn a_new_forges_root_keeps_the_active_forge_only_if_it_exists_there() {
+        let root = temp_root("moldavite-forge-new-root");
+        scaffold_forge(&root.join("Work")).unwrap();
+        fs::create_dir_all(root.join("Plain")).unwrap();
+
+        let kept = active_forge_under(&root, "Work");
+        let missing = active_forge_under(&root, "Personal");
+        let not_a_forge = active_forge_under(&root, "Plain");
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(kept, "Work");
+        assert_eq!(missing, DEFAULT_FORGE_NAME);
+        assert_eq!(not_a_forge, DEFAULT_FORGE_NAME);
     }
 
     #[cfg(unix)]

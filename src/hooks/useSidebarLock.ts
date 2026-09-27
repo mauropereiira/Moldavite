@@ -13,6 +13,7 @@ import {
   markdownToHtml,
   noteFileBackendPath,
   permanentlyUnlockNote,
+  readNote,
   unlockNote,
   writeNote,
 } from '@/lib';
@@ -33,6 +34,7 @@ export function useSidebarLock() {
     setNotes,
     setCurrentNote,
     removeTabByPath,
+    applyExternalContent,
     unlockNote: trackUnlockedNote,
   } = useNoteStore();
   const toast = useToast();
@@ -103,6 +105,27 @@ export function useSidebarLock() {
       );
       toast.success('Note permanently unlocked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: false } : n)));
+      const { unlockedNotes, openTabs } = useNoteStore.getState();
+      if (!unlockedNotes.has(noteToLock.path)) return;
+      const remaining = new Set(unlockedNotes);
+      remaining.delete(noteToLock.path);
+      useNoteStore.setState({ unlockedNotes: remaining });
+      if (!openTabs.some((tab) => tab.id === noteToLock.path)) return;
+      // The decrypted view has no save-conflict baseline; reading the plain file sets one.
+      try {
+        const content = await readNote(
+          backendPath,
+          noteToLock.isDaily,
+          noteToLock.isWeekly || false
+        );
+        applyExternalContent(
+          noteToLock.path,
+          isHtmlContent(content) ? content : markdownToHtml(content)
+        );
+      } catch (error) {
+        console.error('[useSidebarLock] Failed to reload a permanently unlocked note:', error);
+        removeTabByPath(noteToLock.path);
+      }
     }
   };
 

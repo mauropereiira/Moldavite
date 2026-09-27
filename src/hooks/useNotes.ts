@@ -53,6 +53,7 @@ import {
 } from '@/lib/autosaveFlush';
 import {
   discardNewNoteIfLeftEmpty,
+  isNewNoteUnderGeneratedName,
   hasUnsavedEdits,
   heldLeaveSaveNote,
   readdressLeaveSave,
@@ -522,14 +523,15 @@ export function useNotes() {
     ) => {
       try {
         setIsLoading(true);
-        const filename = isDaily ? `${title}.md` : `${title}.md`;
-        const fullPath = folderPath ? `${folderPath}/${filename}` : filename;
+        const requested = folderPath ? `${folderPath}/${title}.md` : `${title}.md`;
 
-        await invoke('create_note_from_template', {
-          filename: fullPath,
+        // A standalone name that is already taken comes back as "Title (2)".
+        const fullPath = await invoke<string>('create_note_from_template', {
+          filename: requested,
           templateId,
           isDaily,
         });
+        const filename = fullPath.split('/').pop() ?? fullPath;
 
         const noteFile: NoteFile = {
           name: filename,
@@ -585,6 +587,7 @@ export function useNotes() {
 
       if (newPath === oldPath) return;
 
+      const firstNaming = isNewNoteUnderGeneratedName(oldPath);
       const releasePathChange = await acquireAutosavePathChange();
       let heldAutosavePath: string | null = null;
       try {
@@ -612,7 +615,9 @@ export function useNotes() {
         useQuickSwitcherStore.getState().renamePinnedNote(oldPath, newPath);
         useSidebarOrderStore.getState().renameNote(oldPath, newPath);
         useWordPressStore.getState().notePathChanged(oldPath, newPath);
-        useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
+        if (!firstNaming) {
+          useToastStore.getState().addToast('success', 'Renamed — inbound links updated');
+        }
       } catch (error) {
         if (heldAutosavePath) {
           await abortAutosavePathChange(heldAutosavePath).catch(() => {});

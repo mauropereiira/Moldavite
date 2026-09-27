@@ -5,6 +5,8 @@
  * `fileSystem.ts` and `src-tauri/src/wiki.rs`.
  */
 
+import { slugifyNoteName } from './fileSystem';
+
 /**
  * Extracts all wiki link targets from HTML content.
  * @param content - The HTML content to parse
@@ -66,7 +68,7 @@ export function linkMatchesNote(linkTarget: string, noteName: string): boolean {
   const noteFileName = normalizedNote.split('/').pop() || '';
   if (normalizedTarget === noteFileName) return true;
 
-  return false;
+  return slugifyNoteName(normalizedTarget) === slugifyNoteName(noteFileName);
 }
 
 export interface BacklinkInfo {
@@ -122,4 +124,62 @@ export function findBacklinks(
     }
     return a.sourceName.localeCompare(b.sourceName);
   });
+}
+
+export interface SnippetPart {
+  text: string;
+  /** A wiki link, shown as its display text. */
+  link: boolean;
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  '#39': "'",
+  nbsp: ' ',
+};
+
+function readableMarkdown(markdown: string): string {
+  return markdown
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/\*\*|__|~~|==/g, '')
+    .replace(/\\([\\`*_{}[\]()#+\-.!|<>~=])/g, '$1')
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_entity, name: string) => HTML_ENTITIES[name])
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * A backlink's raw Markdown context as one line of readable parts. The backend
+ * cuts the window by length and marks a cut with `...`, so a tag can be split.
+ */
+export function snippetParts(context: string): SnippetPart[] {
+  const lead = context.startsWith('...') ? '...' : '';
+  const tail = context.length > lead.length && context.endsWith('...') ? '...' : '';
+  let body = context.slice(lead.length, context.length - tail.length);
+  if (lead)
+    body = body.replace(/^[^<>]*"\s*\/?>/, '').replace(/^([^[\]]*?)(?:\\?\|[^[\]]*)?\]\]/, '$1');
+  if (tail)
+    body = body.replace(/<[a-zA-Z/][^>]*$/, '').replace(/\[\[([^\]|]*)(?:\\?\|[^\]]*)?$/, '$1');
+
+  const parts: SnippetPart[] = [];
+  const linkRegex = /\[\[([^\]|]+)(?:\\?\|[^\]]*)?\]\]/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(body)) !== null) {
+    parts.push({ text: readableMarkdown(body.slice(lastIndex, match.index)), link: false });
+    parts.push({ text: match[1].trim(), link: true });
+    lastIndex = match.index + match[0].length;
+  }
+  parts.push({ text: readableMarkdown(body.slice(lastIndex)), link: false });
+
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  first.text = lead + first.text.trimStart();
+  last.text = last.text.trimEnd() + tail;
+  return parts.filter((part) => part.text !== '');
 }

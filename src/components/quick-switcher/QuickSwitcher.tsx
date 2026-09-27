@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   Search,
   FileText,
@@ -23,6 +23,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useGraphStore } from '@/stores/graphStore';
+import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from '@/hooks/useNotes';
 import {
   filterCommands,
@@ -36,9 +37,11 @@ import type { NoteFile } from '@/types';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { isMobilePlatform } from '@/lib/platform';
+import { isHoldingKeyboard } from '@/lib/noteTitleFocus';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import { HighlightedText } from '@/components/ui/HighlightedText';
+import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 
 const CONTENT_SEARCH_DEBOUNCE_MS = 150;
 const CONTENT_SEARCH_LIMIT = 30;
@@ -91,9 +94,8 @@ function HighlightedTitle({ title, indices }: { title: string; indices: number[]
 }
 
 /**
- * Dispatch a synthetic Cmd+key event so we can reuse the existing global
- * keyboard handlers (e.g. ShortcutHelpHost / template picker) without
- * duplicating their state plumbing here.
+ * Dispatch a synthetic Cmd+key event so we can reuse an existing global
+ * keyboard handler (ShortcutHelpHost) without duplicating its state here.
  */
 function dispatchModKey(key: string) {
   const event = new KeyboardEvent('keydown', {
@@ -282,7 +284,7 @@ export function QuickSwitcher() {
   const { isOpen, close, recentSearches, pinnedNoteIds, addRecentSearch, togglePinned } =
     useQuickSwitcherStore();
   const recentNoteIds = useNoteStore((state) => state.recentNoteIds);
-  const { notes, loadNote, loadDailyNote, createNote } = useNotes();
+  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate } = useNotes();
   const { theme, setTheme } = useThemeStore();
   const { setIsSettingsOpen } = useSettingsStore();
   const { toggle: toggleTimeline } = useTimelineStore();
@@ -294,6 +296,7 @@ export function QuickSwitcher() {
     hits: [],
   });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
   const isMobile = isMobilePlatform();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -516,8 +519,14 @@ export function QuickSwitcher() {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
+      setIsTemplatePickerOpen(false);
     }
   }
+
+  // iOS lowers the keyboard unless focus moves straight from the stand-in the rail tap focused.
+  useLayoutEffect(() => {
+    if (isOpen && isHoldingKeyboard()) inputRef.current?.focus();
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -545,9 +554,8 @@ export function QuickSwitcher() {
           );
           return;
         case 'new-note-from-template':
-          // Re-trigger the existing Cmd+T handler so the template picker
-          // (owned by Editor scope) opens without us having to duplicate it.
-          dispatchModKey('t');
+          // Not ⌘T: that applies a template to the open note, replacing it.
+          setIsTemplatePickerOpen(true);
           return;
         case 'toggle-timeline':
           toggleTimeline();
@@ -574,6 +582,18 @@ export function QuickSwitcher() {
     },
     [setIsSettingsOpen, loadDailyNote, createNote, toggleTimeline, theme, setTheme, openGraph]
   );
+
+  const handleTemplateSelect = async (templateId: string | null) => {
+    if (!templateId) {
+      await createNote('Untitled', null, { discardIfLeftEmpty: true });
+      return;
+    }
+    try {
+      await createFromTemplate('Untitled', templateId);
+    } catch {
+      useToastStore.getState().addToast('error', 'Failed to create note from template');
+    }
+  };
 
   const selectNote = useCallback(
     async (note: NoteFile) => {
@@ -616,6 +636,8 @@ export function QuickSwitcher() {
       // Once focus leaves the search field, native controls own their keys.
       // In particular, Enter on a Pin button must not activate the selected row.
       if (e.target !== inputRef.current) return;
+      // Keys during IME composition pick candidates; WebKit reports some only as keyCode 229.
+      if (e.isComposing || e.keyCode === 229) return;
 
       switch (e.key) {
         case 'ArrowDown':
@@ -653,7 +675,16 @@ export function QuickSwitcher() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, close]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return isTemplatePickerOpen ? (
+      <TemplatePickerModal
+        isOpen
+        onClose={() => setIsTemplatePickerOpen(false)}
+        onSelect={(templateId) => void handleTemplateSelect(templateId)}
+        title="New note from template"
+      />
+    ) : null;
+  }
 
   return (
     <div className="quick-switcher-backdrop">

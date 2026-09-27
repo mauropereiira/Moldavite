@@ -53,7 +53,7 @@ pub(crate) fn create_note_from_link(
 ) -> Result<String, String> {
     let notes_dir = get_notes_dir()?;
     let (filename, initial_content) = create_note_from_link_at(&notes_dir, &note_name)?;
-    index.update_note(&filename, &initial_content);
+    index.update_note(&format!("notes/{filename}"), &initial_content);
     Ok(filename)
 }
 

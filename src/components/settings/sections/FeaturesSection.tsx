@@ -64,19 +64,19 @@ export function FeaturesSection() {
         </div>
       </div>
 
-      {/* Mobile Agenda always shows the note calendar; event sources are desktop-only. */}
-      {!isMobilePlatform() && (
-        <div
-          className="p-4 space-y-1"
-          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-        >
-          <div className="flex items-center gap-1 mb-3">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Agenda
-            </h3>
-            <InfoTooltip text="Choose which calendar surfaces appear in the Agenda overlay and pinned right panel." />
-          </div>
+      <div
+        className="p-4 space-y-1"
+        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
+      >
+        <div className="flex items-center gap-1 mb-3">
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Agenda
+          </h3>
+          <InfoTooltip text="Choose which calendar surfaces appear in the Agenda overlay and pinned right panel." />
+        </div>
 
+        {/* A phone always shows the note calendar: it is how daily and weekly notes are reached. */}
+        {!isMobilePlatform() && (
           <div
             className="flex items-center justify-between py-2"
             style={{ borderTop: '1px solid var(--border-muted)' }}
@@ -93,25 +93,25 @@ export function FeaturesSection() {
               ariaLabel="Show calendar widget"
             />
           </div>
+        )}
 
-          <div
-            className="flex items-center justify-between py-2"
-            style={{ borderTop: '1px solid var(--border-muted)' }}
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Timeline Widget
-              </span>
-              <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
-            </div>
-            <Toggle
-              enabled={settings.showTimelineWidget}
-              onChange={settings.setShowTimelineWidget}
-              ariaLabel="Show timeline widget"
-            />
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: '1px solid var(--border-muted)' }}
+        >
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Timeline Widget
+            </span>
+            <InfoTooltip text="Shows your daily schedule with events from Apple Calendar or Google Calendar (connect a source in Settings → Calendar)." />
           </div>
+          <Toggle
+            enabled={settings.showTimelineWidget}
+            onChange={settings.setShowTimelineWidget}
+            ariaLabel="Show timeline widget"
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 }

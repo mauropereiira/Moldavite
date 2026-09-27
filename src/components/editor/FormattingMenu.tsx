@@ -5,6 +5,7 @@ import { Dropdown, DropdownItem, DropdownDivider, DropdownLabel } from '@/compon
 import { formatShortcut } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
 import { LinkModal } from './LinkModal';
+import { applyLink, linkDialogValues } from './linkEditing';
 import { ImageModal } from './ImageModal';
 import { insertBlock, insertNoteTable } from './extensions/NoteTables';
 
@@ -35,34 +36,11 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
   if (!editor) return null;
 
   const handleLink = () => {
-    const previousUrl = editor.getAttributes('link').href || '';
-    const { from, to } = editor.state.selection;
-    const hasSelection = from !== to;
-    const selectedText = hasSelection ? editor.state.doc.textBetween(from, to) : '';
-
-    setLinkInitialValues({ url: previousUrl, text: selectedText });
+    setLinkInitialValues(linkDialogValues(editor));
     setIsLinkModalOpen(true);
   };
 
-  const handleLinkInsert = (url: string, text?: string) => {
-    const { from, to } = editor.state.selection;
-    const hasSelection = from !== to;
-
-    if (hasSelection) {
-      editor.chain().focus().setLink({ href: url }).run();
-    } else {
-      const linkText = text || url;
-      editor
-        .chain()
-        .focus()
-        .insertContent({
-          type: 'text',
-          marks: [{ type: 'link', attrs: { href: url } }],
-          text: linkText,
-        })
-        .run();
-    }
-  };
+  const handleLinkInsert = (url: string, text?: string) => applyLink(editor, url, text);
 
   const handleImage = () => {
     setIsImageModalOpen(true);

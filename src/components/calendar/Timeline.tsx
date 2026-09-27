@@ -8,6 +8,7 @@ import { EventBlock, AllDayEvent } from './EventBlock';
 import { CurrentTimeLine, HOUR_HEIGHT } from './CurrentTimeLine';
 import { NoEventsEmptyState, ConnectCalendarEmptyState } from '@/components/ui/EmptyState';
 import { CalendarSyncComingSoon } from './CalendarSyncComingSoon';
+import { isMobilePlatform } from '@/lib/platform';
 import { eventsOverlappingLocalDay, localDayInterval, MILLISECONDS_PER_HOUR } from './timeLayout';
 
 const TIME_COLUMN_WIDTH = 60; // pixels
@@ -149,6 +150,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 function PermissionDeniedState() {
+  const mobile = isMobilePlatform();
   const handleOpenSettings = async () => {
     try {
       // Open macOS System Settings to Calendar privacy pane
@@ -170,20 +172,25 @@ function PermissionDeniedState() {
         Calendar Access Denied
       </h3>
       <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-        To see your events, grant calendar access in System Settings
+        {mobile
+          ? 'To see your events, open Settings → Privacy & Security → Calendars and choose Full Access for Moldavite'
+          : 'To see your events, grant calendar access in System Settings'}
       </p>
-      <button
-        onClick={handleOpenSettings}
-        className="text-xs font-medium transition-colors"
-        style={{
-          color: 'var(--text-primary)',
-          borderBottom: '1px solid currentColor',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-      >
-        Open Settings
-      </button>
+      {/* The deep link is a macOS URL, and the phone webview has no shell opener. */}
+      {!mobile && (
+        <button
+          onClick={handleOpenSettings}
+          className="text-xs font-medium transition-colors"
+          style={{
+            color: 'var(--text-primary)',
+            borderBottom: '1px solid currentColor',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+        >
+          Open Settings
+        </button>
+      )}
     </div>
   );
 }
@@ -218,7 +225,11 @@ export function ConnectCalendarPrompt() {
   }
   if (google?.available && !google.connected) {
     actions.push({
-      label: isConnectingGoogle ? 'Waiting for your browser…' : 'Connect Google Calendar',
+      label: isConnectingGoogle
+        ? isMobilePlatform()
+          ? 'Waiting for Google sign-in…'
+          : 'Waiting for your browser…'
+        : 'Connect Google Calendar',
       onClick: () => void connectGoogle(),
       variant: actions.length === 0 ? 'primary' : 'secondary',
     });
@@ -248,7 +259,7 @@ export function ConnectCalendarPrompt() {
       <ConnectCalendarEmptyState actions={actions} />
       {appleBlocked && (
         <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
-          Apple Calendar access was denied in System Settings.
+          Apple Calendar access was denied in {isMobilePlatform() ? 'Settings' : 'System Settings'}.
         </p>
       )}
     </div>
@@ -380,7 +391,7 @@ function TimeGrid({ events, selectedDate }: TimeGridProps) {
           {/* Empty state message (show even when no events) */}
           {timedEvents.length === 0 && allDayEvents.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <NoEventsEmptyState />
+              <NoEventsEmptyState isToday={isTodaySelected} />
             </div>
           )}
         </div>
@@ -495,7 +506,7 @@ export function Timeline() {
               className="text-[10px] uppercase"
               style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
             >
-              Synced {format(lastSynced, 'h:mm a')}
+              Synced {format(lastSynced, 'HH:mm')}
             </div>
           )}
         </div>
@@ -506,7 +517,7 @@ export function Timeline() {
           style={{ color: 'var(--text-muted)', borderBottom: '1px solid currentColor' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-          title={lastSynced ? `Last synced: ${format(lastSynced, 'h:mm a')}` : 'Refresh'}
+          title={lastSynced ? `Last synced: ${format(lastSynced, 'HH:mm')}` : 'Refresh'}
           aria-label="Sync calendar events"
         >
           {isLoadingEvents ? 'Syncing…' : 'Sync'}

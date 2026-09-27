@@ -1,7 +1,9 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { NodeViewWrapper, ReactNodeViewRenderer, NodeViewProps } from '@tiptap/react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForgeImageSrc } from '@/lib/forgeImages';
+import { isMobilePlatform } from '@/lib/platform';
 import { TABLE_BLOCK_INSERT, afterEnclosingTable } from './NoteTables';
 
 export type ImageAlignment = 'left' | 'center' | 'right';
@@ -197,6 +199,46 @@ export const ResizableImage = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(ImageNodeView);
+  },
+
+  /**
+   * iOS raises the keyboard when a tap on an image focuses the editor.
+   * `inputmode="none"` must be set on pointerdown, before that focus, and held
+   * while the image is selected; clearing it brings the keyboard back.
+   */
+  addProseMirrorPlugins() {
+    if (!isMobilePlatform()) return [];
+    const setKeyboardOff = (dom: HTMLElement, off: boolean) => {
+      if (off) dom.setAttribute('inputmode', 'none');
+      else dom.removeAttribute('inputmode');
+    };
+    return [
+      new Plugin({
+        key: new PluginKey('imageKeepsKeyboardDown'),
+        props: {
+          handleDOMEvents: {
+            pointerdown: (view, event) => {
+              if (
+                event.target instanceof Element &&
+                event.target.closest('.resizable-image-wrapper')
+              ) {
+                setKeyboardOff(view.dom, true);
+              }
+              return false;
+            },
+          },
+        },
+        view: () => ({
+          update: (view) => {
+            const { selection } = view.state;
+            setKeyboardOff(
+              view.dom,
+              selection instanceof NodeSelection && selection.node.type.name === this.name
+            );
+          },
+        }),
+      }),
+    ];
   },
 
   addCommands() {

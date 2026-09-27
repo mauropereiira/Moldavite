@@ -131,8 +131,8 @@ Graphite, each in light and dark, and S–XL text sizes for the editor and
 desktop Settings. Settings → Layout puts the icon rail on the left or the right.
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
-Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on macOS
-only), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
+Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on a Mac,
+iPhone and iPad; Google everywhere), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
 an encrypted archive, a one-time Obsidian importer that copies rather than
 moves, and sandboxed plugins that run in a Worker with no network unless you
 grant it.

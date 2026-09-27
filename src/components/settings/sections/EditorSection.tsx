@@ -5,11 +5,6 @@
 import { useSettingsStore } from '@/stores';
 import { SectionHeading, SegmentedControl, Toggle } from '../common';
 
-const NOTE_TYPE_OPTIONS = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'standalone', label: 'Standalone' },
-] as const;
-
 const LINE_HEIGHT_OPTIONS = [
   { value: 'comfortable', label: 'Comfortable' },
   { value: 'compact', label: 'Compact' },
@@ -19,21 +14,6 @@ export function EditorSection() {
   const settings = useSettingsStore();
   return (
     <div className="space-y-6">
-      <section className="settings-section">
-        <div>
-          <SectionHeading>Default Note Type</SectionHeading>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            What type of note to create by default
-          </p>
-        </div>
-        <SegmentedControl
-          ariaLabel="Default Note Type"
-          value={settings.defaultNoteType}
-          onChange={settings.setDefaultNoteType}
-          options={NOTE_TYPE_OPTIONS}
-        />
-      </section>
-
       {/* Formatting Section */}
       <section className="settings-section">
         <SectionHeading>Formatting</SectionHeading>

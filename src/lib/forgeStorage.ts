@@ -142,3 +142,47 @@ export const forgeNamespacedStorageWithLegacyFallback: StateStorage = {
   setItem: forgeNamespacedStorage.setItem,
   removeItem: forgeNamespacedStorage.removeItem,
 };
+
+/** Base keys never contain a colon, so the first one is the separator, even for `icloud://moldavite`. */
+function forgeKeys(forge: string): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key === null) continue;
+      const separator = key.indexOf(':');
+      if (separator > 0 && key.slice(separator + 1) === forge) keys.push(key);
+    }
+  } catch {
+    // ignore — private mode etc.
+  }
+  return keys;
+}
+
+/** Drop a Forge's slice so a later Forge with the same name inherits nothing, consent included. */
+export function clearForgeStorage(forge: string) {
+  for (const key of forgeKeys(forge)) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/** Move a renamed Forge's slice to its new name, replacing anything already there. */
+export function moveForgeStorage(from: string, to: string) {
+  if (from === to) return;
+  clearForgeStorage(to);
+  for (const key of forgeKeys(from)) {
+    try {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        localStorage.setItem(`${key.slice(0, key.indexOf(':'))}:${to}`, value);
+      }
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+}

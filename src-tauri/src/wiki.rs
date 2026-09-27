@@ -101,7 +101,7 @@ fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), S
     Ok((false, filename))
 }
 
-fn same_note_name(a: &str, b: &str) -> bool {
+pub(crate) fn same_note_name(a: &str, b: &str) -> bool {
     use unicode_normalization::UnicodeNormalization;
     let fold = |name: &str| name.nfc().collect::<String>().to_lowercase();
     fold(a) == fold(b)

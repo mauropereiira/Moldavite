@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEvent } from '@/types';
 import { useCalendarStore, useNoteStore } from '@/stores';
@@ -46,7 +46,11 @@ describe('TimelineView calendar day buckets', () => {
     vi.setSystemTime(new Date('2026-08-15T12:00:00+01:00'));
     expect(new Date().getTimezoneOffset()).toBe(-60);
     useNoteStore.setState({ notes: [] });
-    useCalendarStore.setState({ selectedCalendarIds: [] });
+    useCalendarStore.setState({
+      selectedCalendarIds: [],
+      calendarEnabled: true,
+      showAllDayEvents: true,
+    });
     calendarApi.listCalendarSources.mockResolvedValue([
       {
         source: 'google',
@@ -95,6 +99,27 @@ describe('TimelineView calendar day buckets', () => {
     expect(within(yesterday as HTMLElement).getByText('Overnight deployment')).toBeInTheDocument();
     expect(within(yesterday as HTMLElement).getByText('Three-day conference')).toBeInTheDocument();
   });
+
+  it('shows no events while calendar sync is turned off', async () => {
+    useCalendarStore.setState({ calendarEnabled: false });
+    calendarApi.fetchCalendarEvents.mockClear();
+    render(<TimelineView />);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(calendarApi.fetchCalendarEvents).not.toHaveBeenCalled();
+    expect(screen.queryByText('Overnight deployment')).not.toBeInTheDocument();
+  });
+
+  it('leaves out all-day events when they are hidden', async () => {
+    useCalendarStore.setState({ showAllDayEvents: false });
+    render(<TimelineView />);
+
+    expect((await screen.findAllByText('Overnight deployment')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Three-day conference')).not.toBeInTheDocument();
+  });
 });
 
 describe('TimelineView rows', () => {
@@ -127,5 +152,39 @@ describe('TimelineView rows', () => {
     expect(await screen.findByText('15 August')).toBeInTheDocument();
     expect(await screen.findByText('Plan [[draft]] A B 1 2')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close Timeline' })).toHaveTextContent('×');
+  });
+});
+
+describe('TimelineView buckets', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-15T12:00:00+01:00'));
+    calendarApi.listCalendarSources.mockResolvedValue([]);
+    calendarApi.fetchCalendarEvents.mockResolvedValue({ events: [], errors: [] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('puts a future daily note under Upcoming, not This week', async () => {
+    useNoteStore.setState({
+      notes: [
+        {
+          name: '2026-08-20.md',
+          path: 'daily/2026-08-20.md',
+          isDaily: true,
+          isWeekly: false,
+          isLocked: false,
+          date: '2026-08-20',
+        },
+      ],
+    });
+
+    render(<TimelineView />);
+
+    expect(screen.queryByRole('heading', { name: 'This week' })).not.toBeInTheDocument();
+    const upcoming = screen.getByRole('heading', { name: 'Upcoming' }).closest('section');
+    expect(within(upcoming as HTMLElement).getByText('20 August')).toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@ import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 /**
  * Shown where events would go when no calendar source can be connected at all
- * — Apple is macOS-only, and Google is compiled out of builds without OAuth
+ * — Apple needs macOS or iOS, and Google is compiled out of builds without OAuth
  * credentials (issue #96). That is not a state the user can fix from Settings,
  * so it must not read like the "connect a calendar" prompt, which can be.
  *

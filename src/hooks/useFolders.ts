@@ -39,6 +39,36 @@ import {
 import { useWordPressStore } from '@/stores/wordpressStore';
 import { useToast } from './useToast';
 
+function readdressFolderContents(
+  folderPath: string,
+  newFolderPath: string,
+  inside: (ids: Iterable<string>) => string[],
+  readdress: (id: string) => string
+) {
+  const colors = useNoteColorsStore.getState();
+  for (const id of inside(Object.keys(colors.colors))) colors.renameColor(id, readdress(id));
+  const selection = useNoteSelectionStore.getState();
+  for (const id of inside(selection.selectedIds)) selection.rename(id, readdress(id));
+  const pinned = useQuickSwitcherStore.getState();
+  for (const id of inside(pinned.pinnedNoteIds)) pinned.renamePinnedNote(id, readdress(id));
+  const order = useSidebarOrderStore.getState();
+  for (const id of inside(order.noteOrder)) order.renameNote(id, readdress(id));
+  const wordpress = useWordPressStore.getState();
+  for (const id of inside(useNoteStore.getState().notes.map((note) => note.path))) {
+    wordpress.notePathChanged(id, readdress(id));
+  }
+
+  const readdressFolder = (path: string) =>
+    path === folderPath || path.startsWith(`${folderPath}/`)
+      ? newFolderPath + path.slice(folderPath.length)
+      : path;
+  useSidebarOrderStore.setState((state) => ({
+    folderOrder: state.folderOrder.map(readdressFolder),
+  }));
+  const folders = useFolderStore.getState();
+  folders.setExpandedFolders(folders.expandedFolders.map(readdressFolder));
+}
+
 /**
  * Renames or moves a folder while the open tabs inside it keep pointing at their
  * files. Owed edits are saved first; one typed during the move is held and written
@@ -70,14 +100,25 @@ async function changeFolderPath(
     const newFolderPath = await change();
     const newPrefix = `notes/${newFolderPath}/`;
     if (newPrefix !== prefix) {
-      for (const tab of useNoteStore.getState().openTabs) {
-        if (!tab.id.startsWith(prefix)) continue;
-        const newId = newPrefix + tab.id.slice(prefix.length);
-        useNoteStore.getState().renameNoteReferences(tab.id, newId, tab.title);
+      const readdress = (id: string) => newPrefix + id.slice(prefix.length);
+      const inside = (ids: Iterable<string>) => [...ids].filter((id) => id.startsWith(prefix));
+      const notes = useNoteStore.getState();
+      const titles = new Map(notes.openTabs.map((tab) => [tab.id, tab.title]));
+      const referenced = new Set(
+        inside([...titles.keys(), ...notes.recentNoteIds, ...notes.unlockedNotes])
+      );
+      for (const id of referenced) {
+        const title = titles.get(id) ?? (id.split('/').pop() || id).replace(/\.md$/, '');
+        notes.renameNoteReferences(id, readdress(id), title);
       }
       for (const id of heldLeaveSaveIds()) {
         if (!id.startsWith(prefix)) continue;
-        readdressLeaveSave(id, newPrefix + id.slice(prefix.length));
+        readdressLeaveSave(id, readdress(id));
+      }
+      try {
+        readdressFolderContents(folderPath, newFolderPath, inside, readdress);
+      } catch (error) {
+        console.error('[useFolders] Failed to migrate secondary folder references:', error);
       }
     }
     if (heldAutosavePath) {

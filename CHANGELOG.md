@@ -2,6 +2,58 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Apple Calendar and Google Calendar on iPhone and iPad.** Connect either or both in Settings → Calendar and your events appear in the Agenda under the month calendar; Settings → Features can hide that timeline. Google signs in through Apple's own sign-in sheet inside the app. Apple Calendar needs Full Access: "Add Events Only" cannot show events, so it now reads as not allowed, with the steps to change it, instead of looking connected and showing empty days. Tapping an event opens its link. Calendars appear as soon as you allow access, without restarting the app.
+
+- **Google Calendar in the released apps on Mac, Windows and Linux.** Earlier releases were built without the app's Google credentials, so Google Calendar said it was not configured. On Windows and Linux, Settings → Calendar now says plainly that Apple Calendar needs a Mac, iPhone or iPad.
+
+### Fixed
+
+- **Opening another note no longer blanks the editor with "Editor encountered an error."** Once you had selected any text, following a wiki link or switching notes could leave the editor empty, and after a few switches it showed that message until you picked yet another note. The floating formatting toolbar was the cause.
+
+- **Undo can no longer overwrite a note.** Pressing ⌘Z, or Undo on iPhone, right after opening or switching a note used to undo the opening itself: the previous note's text appeared in this one and was saved into it, a daily note could be emptied and deleted, and after an agent or sync rewrote a note, Undo put your older text back over theirs. Opening a note now starts with nothing to undo.
+
+- **Exports and duplicates of notes in folders.** Export as Markdown or plain text, from the Index or the editor's More menu, exported the wrong note or failed for a note inside a folder. Duplicate in the editor's menu put the copy at the top level instead of beside the original. Duplicate is no longer offered for daily and weekly notes, where it made an undated copy.
+
+- **Folders keep their notes' colours, pins and order.** Renaming or moving a folder lost the colour, pin, manual order and place in Recent of every note inside that was not open, and collapsed the folder. A restored folder now appears in the Index straight away instead of after a restart, which on iPhone it needed.
+
+- **Renaming.** Changing only the capitalisation of a note, folder or Forge name ("meeting" to "Meeting") no longer fails with "already exists" on a Mac or iPhone. Renaming one of two notes that share a name in different folders no longer rewrites the links meant for the other.
+
+- **Locking.** Remove lock on a note you had opened this session left it read-only until restart. Locking and unlocking now write the new file before removing the old one, so an interruption can no longer leave encrypted text in a note that looks unlocked. Publish to WordPress is no longer offered on a locked note opened for viewing.
+
+- **Search, backlinks and tags stay current.** Search found notes at their old paths after a folder was renamed, moved or deleted. Backlinks from the previous note stayed on screen for a moment after switching, two notes with the same name in different folders mixed up each other's backlinks, and edits made outside the app, by an agent, sync or git, now update backlinks without a restart. The Tags list ignored edits and tag renames until restart.
+
+- **Trash.** A damaged Trash record is set aside instead of being replaced, which left every trashed note impossible to restore. Emptying the Trash keeps the entries it could not remove, and shows what is left.
+
+- **Backups and imports.** A backup holding a note with a character such as `:` or `?` in its name could not be restored at all. A merge import no longer puts a plain note beside the locked note of the same name.
+
+- **Forges.** Renaming a Forge no longer disables its plugins or forgets its pinned tabs, recent notes, sort order and open folders, and renaming the open Forge or changing the Forges folder no longer leaves search, backlinks, images and outside edits working from the old place until restart. A new Forge with a deleted one's name no longer inherits its plugin permissions. Settings export and import now carry folder state.
+
+- **Templates.** A note from a template under a name already in use is created as "Name (2)" instead of a blank note that lost the template, and New Note from Template in the command palette makes a new note instead of applying the template over the open one.
+
+- **Calendar and Timeline.** Week numbers were one week behind, so clicking a week opened the week before it, including at New Year. Today clears a selected week and brings the calendar back to this month. Sync refreshes the month's event dots. The Timeline respects turning calendar sync and all-day events off, and daily notes dated in the future appear under Upcoming rather than This week.
+
+- **Shortcuts.** On a Mac, iPad or iPhone keyboard, Ctrl no longer stands in for ⌘, so Ctrl+N moves to the next line again instead of making a note. ⌘K opens Insert link only, without also jumping to search. Pressing Return to confirm Japanese or Chinese input in the command palette no longer opens a note.
+
+- **Settings that did nothing.** Spell Check changes take effect straight away rather than after a restart, and Auto-capitalize now works in notes on iPhone and iPad. Default Note Type never changed anything and is gone: New makes a note and Today opens the daily note. Disabling a plugin while plugins were reloading could leave it running.
+
+- **Links.** Edit Link with the cursor inside a link changes that link instead of adding a second one beside it. Copy wiki link copies a complete `[[link]]`.
+
+- **iPhone.** Search and the lock and unlock password field raise the keyboard when opened. A note still in iCloud that was already open in a tab no longer opens as a blank, editable note. Naming a new note and moving away quickly can no longer delete it as empty. Replaying the tour starts at the beginning.
+
+- A "Couldn't save" message with Retry is no longer pushed away by newer messages.
+
+- Following a link to a note that does not exist yet lists the new note in the Index straight away, and the link stops looking missing. The Index's Backlinks section finds links that differ from the note's name only in spacing or case, as Linked mentions already did. Tapping a #tag right after launch opens the Index filtered to it.
+
+- Following a link to a note that does not exist yet names the new note after the link, and naming a brand-new note no longer says "inbound links updated". Linked mentions show readable text instead of raw Markdown and image tags. The Index sort button names the sort in use, date sorts included. The word count updates when you switch notes. Paragraphs that end in a link no longer gain a large gap after the Trash preview is closed.
+
+- Agenda event times and the last sync time use the same 24-hour clock as the timeline beside them, and an empty day that is not today says "No events" rather than "No events today". On iPhone, tapping an image no longer brings up the keyboard.
+
+- On iPhone, opening another note no longer leaves the formatting row up over it, editing the new note. Focus mode is no longer offered on the phone, where it hid the rail and left no way back to Settings. Settings → Templates' New template button is visible again.
+
 ## [2.8.0] - 2026-09-23
 
 ### Added

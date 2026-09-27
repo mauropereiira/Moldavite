@@ -2,7 +2,7 @@
  * Calendar source connections, calendar selection, event cache, and loading
  * state.
  *
- * Events can come from macOS EventKit and from Google, and the backend merges
+ * Events can come from EventKit (macOS and iOS) and from Google, and the backend merges
  * them behind one call. Two consequences shape this store: a fetch reports
  * per-source failures instead of failing as a whole, so one dead source never
  * blanks the timeline; and calendar ids are namespaced by source, so the
@@ -234,7 +234,7 @@ export const useCalendarStore = create<CalendarState>()(
       hasSeenOnboarding: false,
 
       /**
-       * Checks the current macOS calendar permission and refreshes source state.
+       * Checks the current EventKit permission and refreshes source state.
        */
       checkPermission: async () => {
         try {
@@ -242,7 +242,7 @@ export const useCalendarStore = create<CalendarState>()(
           const authorized = await isCalendarAuthorized();
           set({ permissionStatus: status, isAuthorized: authorized });
         } catch {
-          // Non-macOS builds have no EventKit commands at all; that is not an
+          // Windows and Linux have no EventKit commands at all; that is not an
           // error, it just means Apple is not an available source here.
           set({ permissionStatus: 'NotDetermined', isAuthorized: false });
         }
@@ -250,7 +250,7 @@ export const useCalendarStore = create<CalendarState>()(
       },
 
       /**
-       * Requests macOS calendar access from the user.
+       * Requests EventKit calendar access from the user.
        * Includes a small delay so the app window is focused before the system
        * dialog appears.
        * @returns True if permission was granted
@@ -301,7 +301,7 @@ export const useCalendarStore = create<CalendarState>()(
       },
 
       /**
-       * Runs the Google OAuth flow. The browser handoff happens in Rust, so
+       * Runs the Google OAuth flow. The consent handoff happens in Rust, so
        * this resolves only once the user finishes or abandons consent.
        * @returns True if an account was connected
        */

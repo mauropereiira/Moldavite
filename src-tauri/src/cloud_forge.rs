@@ -325,12 +325,12 @@ fn resolve_conflicts(app: &AppHandle, rel: String) {
             Ok(copies) => {
                 let folder = rel.rsplit_once('/').map_or("", |(folder, _)| folder);
                 for (name, body) in copies {
+                    let copy = format!("{folder}/{name}");
                     if let Some(index) =
                         app.try_state::<std::sync::Arc<crate::backlinks_index::BacklinksIndex>>()
                     {
-                        index.update_note(&name, &body);
+                        index.update_note(&copy, &body);
                     }
-                    let copy = format!("{folder}/{name}");
                     crate::search_index::note_changed(&copy);
                     crate::semantic::note_changed(&copy);
                 }

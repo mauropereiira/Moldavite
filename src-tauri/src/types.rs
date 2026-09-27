@@ -99,6 +99,9 @@ pub(crate) struct WikiLink {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BacklinkInfo {
+    /// Forge-relative (`notes/A/plan.md`); `from_note` is only the filename,
+    /// which notes in different folders can share.
+    pub(crate) from_path: String,
     pub(crate) from_note: String,
     pub(crate) from_title: String,
     pub(crate) context: String,

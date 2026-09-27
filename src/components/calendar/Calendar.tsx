@@ -21,7 +21,6 @@ import { fetchCalendarEvents } from '@/lib/calendar';
 import { useCalendarStore, useNoteStore, useTaskStatusStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import type { CalendarEvent } from '@/types';
-import { isMobilePlatform } from '@/lib/platform';
 
 interface CalendarProps {
   onNavigate?: () => void;
@@ -43,7 +42,6 @@ const DAY_MARKS = [
 ] as const;
 
 export function Calendar({ onNavigate }: CalendarProps = {}) {
-  const mobile = isMobilePlatform();
   // Narrow selectors: none of these change on a content-only edit, unlike
   // `currentNote` (not read here), so the calendar does not re-render while typing.
   const selectedDate = useNoteStore((state) => state.selectedDate);
@@ -58,10 +56,16 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     selectedCalendarIds,
     legacySelectedAppleCalendarId,
     showAllDayEvents,
+    lastSynced,
     checkPermission,
   } = useCalendarStore();
   const { loadDailyNote, loadWeeklyNote } = useNotes();
   const [viewDate, setViewDate] = React.useState(selectedDate);
+  const [prevSelectedDate, setPrevSelectedDate] = React.useState(selectedDate);
+  if (prevSelectedDate !== selectedDate) {
+    setPrevSelectedDate(selectedDate);
+    if (!isSameMonth(selectedDate, viewDate)) setViewDate(selectedDate);
+  }
   const [monthEvents, setMonthEvents] = React.useState<CalendarEvent[]>([]);
 
   const monthStart = startOfMonth(viewDate);
@@ -71,14 +75,15 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const calendarStartKey = format(calendarStart, 'yyyy-MM-dd');
   const calendarEndKey = format(calendarEnd, 'yyyy-MM-dd');
-  const anyConnected = !mobile && sources.some((source) => source.available && source.connected);
+  const anyConnected = sources.some((source) => source.available && source.connected);
 
   React.useEffect(() => {
-    if (!mobile) void checkPermission();
-  }, [checkPermission, mobile]);
+    void checkPermission();
+  }, [checkPermission]);
 
   // The timeline owns a selected-day event range in the shared store. Fetch
   // the visible six-week range locally so month indicators cannot overwrite it.
+  // `lastSynced` is unread: it refetches the dots after a Sync or background poll.
   React.useEffect(() => {
     let cancelled = false;
 
@@ -109,6 +114,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     calendarEnabled,
     calendarEndKey,
     calendarStartKey,
+    lastSynced,
     legacySelectedAppleCalendarId,
     selectedCalendarIds,
     showAllDayEvents,
@@ -165,7 +171,6 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
-    setSelectedWeek(null);
     loadDailyNote(date);
     onNavigate?.();
   };
@@ -252,9 +257,11 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
       {/* Days grid with week numbers */}
       <div key={format(viewDate, 'yyyy-MM')} className="calendar-month-enter flex flex-col">
         {weeks.map((week, weekIndex) => {
-          const weekNum = getISOWeek(week[0]);
-          const weekHasNote = hasWeeklyNote(week[0]);
-          const weekSelected = isWeekSelected(week[0]);
+          // Rows start on Sunday, which ISO puts in the previous week.
+          const weekMonday = week[1];
+          const weekNum = getISOWeek(weekMonday);
+          const weekHasNote = hasWeeklyNote(weekMonday);
+          const weekSelected = isWeekSelected(weekMonday);
 
           return (
             <div
@@ -264,7 +271,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
             >
               {/* Week number */}
               <button
-                onClick={() => handleWeekClick(week[0])}
+                onClick={() => handleWeekClick(weekMonday)}
                 className="calendar-date list-item-stagger focus-ring flex h-8 items-center justify-center transition-colors"
                 style={
                   {
@@ -388,16 +395,14 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
           register as the rest of the chrome — it should be readable when you
           look for it and invisible when you are not. */}
       <div className="calendar-legend" aria-label="What the marks under each date mean">
-        {DAY_MARKS.filter(({ kind }) => !mobile || kind !== 'events').map(
-          ({ kind, label, color }) => (
-            <span key={kind} className="calendar-legend-item">
-              <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
-                <circle cx="3" cy="3" r="3" fill={color} />
-              </svg>
-              {label}
-            </span>
-          )
-        )}
+        {DAY_MARKS.map(({ kind, label, color }) => (
+          <span key={kind} className="calendar-legend-item">
+            <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+              <circle cx="3" cy="3" r="3" fill={color} />
+            </svg>
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   );

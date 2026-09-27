@@ -213,10 +213,10 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
           </h3>
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors focus-ring"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-colors focus-ring"
             style={{
-              backgroundColor: 'var(--accent-primary)',
-              color: 'var(--text-on-accent)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
             }}
           >
             <Plus className="w-3.5 h-3.5" />

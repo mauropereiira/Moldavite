@@ -61,6 +61,24 @@ describe('mobile formatting', () => {
     expect(screen.getByRole('toolbar')).toHaveAttribute('data-editing', 'false');
   });
 
+  it('stops editing when another note opens', () => {
+    editor = new Editor({ extensions: [StarterKit], content: '<p>Body</p>' });
+    const props = { editor, onInsertLink: vi.fn(), onInsertImage: vi.fn() };
+    const { rerender } = render(<MobileFormattingBar {...props} noteId="notes/a.md" />);
+    act(() => {
+      editor.emit('focus', {
+        editor,
+        event: new window.FocusEvent('focus'),
+        transaction: editor.state.tr,
+      });
+    });
+    expect(screen.getByRole('toolbar')).toHaveAttribute('data-editing', 'true');
+
+    rerender(<MobileFormattingBar {...props} noteId="notes/b.md" />);
+
+    expect(screen.getByRole('toolbar')).toHaveAttribute('data-editing', 'false');
+  });
+
   it('creates a task list with the real editor command', () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Task list' }));

@@ -4,6 +4,9 @@ import type { CalendarEvent, CalendarSourceStatus } from '@/types';
 import { useCalendarStore, useNoteStore } from '@/stores';
 import { Timeline } from './Timeline';
 
+const platform = vi.hoisted(() => ({ mobile: false }));
+vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
+
 const unavailableSources: CalendarSourceStatus[] = [
   {
     source: 'apple',
@@ -69,11 +72,57 @@ describe('Timeline calendar source states', () => {
       checkPermission: vi.fn(async () => {}),
       fetchEvents: vi.fn(async () => {}),
       connectGoogle: vi.fn(async () => true),
+      isConnectingGoogle: false,
     });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    platform.mobile = false;
+  });
+
+  const deniedApple: CalendarSourceStatus = {
+    source: 'apple',
+    available: true,
+    connected: false,
+    account: null,
+    permission: 'Denied',
+    error: null,
+  };
+
+  it('points a denied Mac at System Settings with a button', () => {
+    useCalendarStore.setState({ permissionStatus: 'Denied', sources: [deniedApple] });
+
+    render(<Timeline />);
+
+    expect(screen.getByText('Calendar Access Denied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Settings' })).toBeInTheDocument();
+  });
+
+  it('tells a denied phone where Full Access is instead of offering a dead button', () => {
+    platform.mobile = true;
+    useCalendarStore.setState({ permissionStatus: 'Denied', sources: [deniedApple] });
+
+    render(<Timeline />);
+
+    expect(screen.getByText('Calendar Access Denied')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Privacy & Security → Calendars and choose Full Access/)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Settings' })).not.toBeInTheDocument();
+  });
+
+  it('offers both sources on a phone and names the sign-in sheet while it is open', () => {
+    platform.mobile = true;
+    useCalendarStore.setState({
+      sources: [{ ...deniedApple, permission: 'NotDetermined' }, availableGoogle],
+      isConnectingGoogle: true,
+    });
+
+    render(<Timeline />);
+
+    expect(screen.getByRole('button', { name: 'Connect Apple Calendar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Waiting for Google sign-in…' })).toBeInTheDocument();
   });
 
   it('shows a coming-soon state when every reported source is unavailable', () => {
@@ -110,6 +159,18 @@ describe('Timeline calendar source states', () => {
     expect(screen.getByText('Product review')).toBeInTheDocument();
     expect(screen.queryByText('Connect Your Calendar')).not.toBeInTheDocument();
     expect(screen.queryByText("Calendar sync isn't available here yet.")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [new Date(2025, 2, 14, 12), 'No events'],
+    [new Date(), 'No events today'],
+  ])('names the empty day it shows: %s', (selectedDate, heading) => {
+    useNoteStore.setState({ selectedDate });
+    useCalendarStore.setState({ sources: [{ ...availableGoogle, connected: true }] });
+
+    render(<Timeline />);
+
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
   });
 
   it('orders provider timestamps by instant rather than serialized text', () => {

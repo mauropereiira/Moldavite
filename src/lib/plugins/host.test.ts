@@ -262,3 +262,17 @@ describe('untrusted commandRegistered messages', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('overlapping plugin reloads', () => {
+  useGrantedPluginHarness();
+
+  it('leaves no orphaned worker running when two reloads overlap', async () => {
+    await Promise.all([loadEnabledPlugins(), loadEnabledPlugins()]);
+
+    unloadPlugin('crashy');
+    for (const worker of workerHarness.MockWorker.instances) {
+      expect(worker.terminate).toHaveBeenCalled();
+    }
+    expect(workerHarness.MockWorker.instances).toHaveLength(1);
+  });
+});

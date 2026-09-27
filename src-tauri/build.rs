@@ -13,9 +13,9 @@ fn main() {
     }
 
     // The Swift package is compiled by the host, so the attribute alone would
-    // also build it for an iOS target from a Mac. The EventKit bridge is
-    // macOS-shaped and `calendar::apple` is gated on the target, so only link
-    // it when the target is macOS too.
+    // also build it for an iOS target from a Mac. On iOS both packages arrive
+    // as dependencies of the calendar and iCloud plugins' Swift packages, which
+    // Tauri builds for the device, so only link them here for macOS.
     #[cfg(target_os = "macos")]
     if target_os == "macos" {
         use swift_rs::SwiftLinker;

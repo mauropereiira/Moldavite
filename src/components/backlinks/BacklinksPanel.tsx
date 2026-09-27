@@ -4,6 +4,7 @@ import { useNoteStore, useSemanticStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { useBacklinks, type Backlink } from '@/hooks/useBacklinks';
 import { useRelatedNotes } from '@/hooks/useRelatedNotes';
+import { snippetParts } from '@/lib/backlinks';
 import type { SemanticHit } from '@/lib/semantic';
 import type { NoteFile } from '@/types';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
@@ -60,7 +61,7 @@ export function BacklinksPanel() {
   );
 
   const handleRowClick = (bl: Backlink) => {
-    const target: NoteFile | undefined = notes.find((n) => n.name === bl.fromNote);
+    const target: NoteFile | undefined = notes.find((n) => n.path === bl.fromPath);
     if (target) {
       loadNote(target);
     }
@@ -120,11 +121,7 @@ export function BacklinksPanel() {
             </SignatureEmptyState>
           ) : (
             backlinks.map((bl) => (
-              <BacklinkRow
-                key={`${bl.fromNote}:${bl.context}`}
-                backlink={bl}
-                onClick={() => handleRowClick(bl)}
-              />
+              <BacklinkRow key={bl.fromPath} backlink={bl} onClick={() => handleRowClick(bl)} />
             ))
           )}
         </div>
@@ -260,30 +257,16 @@ function BacklinkRow({ backlink, onClick }: BacklinkRowProps) {
   );
 }
 
-/**
- * Render a backlink snippet with any `[[wiki-links]]` visually emphasized.
- * Returns a fragment of alternating plain text and styled spans.
- */
+/** A backlink snippet as readable text, with its wiki links emphasized. */
 function renderSnippet(context: string): React.ReactNode {
   if (!context) return null;
-  const parts: React.ReactNode[] = [];
-  const regex = /\[\[([^\]]+)\]\]/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  while ((match = regex.exec(context)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(context.slice(lastIndex, match.index));
-    }
-    parts.push(
-      <span key={`link-${key++}`} style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
-        [[{match[1]}]]
+  return snippetParts(context).map((part, index) =>
+    part.link ? (
+      <span key={index} style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
+        {part.text}
       </span>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < context.length) {
-    parts.push(context.slice(lastIndex));
-  }
-  return parts.length > 0 ? parts : context;
+    ) : (
+      part.text
+    )
+  );
 }

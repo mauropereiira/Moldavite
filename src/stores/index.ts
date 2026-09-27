@@ -41,7 +41,6 @@ export {
 export type {
   FontSize,
   LineHeight,
-  DefaultNoteType,
   FontFamily,
   AutoLockTimeout,
   ChromeMode,

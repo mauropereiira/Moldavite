@@ -120,6 +120,11 @@ describe('SettingsModal on a phone', () => {
     expect(screen.getByRole('button', { name: /^Data/ })).toBeInTheDocument();
   });
 
+  it('lists Calendar on the phone, where Apple and Google both connect', () => {
+    render(<SettingsModal />);
+    expect(screen.getByRole('button', { name: /^Calendar/ })).toBeInTheDocument();
+  });
+
   it('closes from the list', () => {
     render(<SettingsModal />);
 

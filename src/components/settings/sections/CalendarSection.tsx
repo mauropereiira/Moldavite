@@ -3,9 +3,10 @@
  * then display options and a per-calendar selection spanning both.
  *
  * Sources differ in kind, not just in wording: Apple is an OS permission the
- * user grants in System Settings, Google is an account connection the app can
- * make and break itself. Each block is rendered from `sources`, so a build
- * without EventKit or without Google credentials simply omits that block.
+ * user grants in System Settings (Settings on iPhone and iPad), Google is an
+ * account connection the app can make and break itself. Each block is rendered
+ * from `sources`, so a source this platform or build lacks says why in its
+ * block instead of offering a button that cannot work.
  */
 
 import { useEffect } from 'react';
@@ -15,6 +16,7 @@ import type { CalendarInfo, CalendarSource } from '@/types';
 import { Toggle } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { CalendarSyncComingSoon } from '@/components/calendar/CalendarSyncComingSoon';
+import { isMobilePlatform } from '@/lib/platform';
 
 const REFRESH_INTERVALS = [5, 15, 30, 60];
 
@@ -63,6 +65,7 @@ export function CalendarSection() {
     return <CalendarSyncComingSoon />;
   }
 
+  const mobile = isMobilePlatform();
   const apple = sources.find((s) => s.source === 'apple');
   const google = sources.find((s) => s.source === 'google');
   const anyConnected = sources.some((s) => s.available && s.connected);
@@ -75,7 +78,17 @@ export function CalendarSection() {
 
   return (
     <div className="space-y-6">
-      {/* Apple Calendar — OS permission, macOS only */}
+      {/* Apple Calendar: OS permission, macOS and iOS only */}
+      {apple && !apple.available && (
+        <div className="p-4 space-y-1" style={panel}>
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Apple Calendar
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            {apple.error ?? 'Apple Calendar is not available here.'}
+          </p>
+        </div>
+      )}
       {apple?.available && (
         <div className="p-4 space-y-4" style={panel}>
           <div>
@@ -83,7 +96,7 @@ export function CalendarSection() {
               Apple Calendar
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Display events from Calendar.app in your timeline
+              Display events from the Calendar app in your timeline
             </p>
           </div>
 
@@ -108,7 +121,7 @@ export function CalendarSection() {
                   Calendar Access Enabled
                 </p>
                 <p className="text-xs" style={{ color: 'var(--success)', opacity: 0.8 }}>
-                  Connected to Calendar.app
+                  Connected to the Calendar app
                 </p>
               </div>
             </div>
@@ -134,9 +147,11 @@ export function CalendarSection() {
                 className="text-xs list-decimal list-inside space-y-1"
                 style={{ color: 'var(--error)', opacity: 0.9 }}
               >
-                <li>Open System Settings</li>
+                <li>Open {mobile ? 'Settings' : 'System Settings'}</li>
                 <li>Go to Privacy &amp; Security → Calendars</li>
-                <li>Enable access for Moldavite</li>
+                <li>
+                  {mobile ? 'Choose Full Access for Moldavite' : 'Enable access for Moldavite'}
+                </li>
               </ol>
             </div>
           ) : (
@@ -233,7 +248,7 @@ export function CalendarSection() {
               {isConnectingGoogle ? (
                 <>
                   <DotLoader label="Connecting Google Calendar" />
-                  Waiting for your browser...
+                  {mobile ? 'Waiting for Google sign-in...' : 'Waiting for your browser...'}
                 </>
               ) : (
                 <>

@@ -7,11 +7,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useOverlayStore } from './overlayStore';
+import { isMobilePlatform } from '@/lib/platform';
 
 export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
 export type LineHeight = 'comfortable' | 'compact';
 export type EditorWidth = 'narrow' | 'medium' | 'wide' | 'full';
-export type DefaultNoteType = 'daily' | 'standalone';
 export type FontFamily = 'system-sans' | 'system-serif' | 'system-mono' | 'inter' | 'merriweather';
 export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60; // 0 = never, values in minutes
 export type SortOption =
@@ -51,7 +51,6 @@ export interface SettingsState {
   rightPanelWidth: number;
   compactMode: boolean;
 
-  defaultNoteType: DefaultNoteType;
   spellCheck: boolean;
   autoCapitalize: boolean;
   showWordCount: boolean;
@@ -109,7 +108,6 @@ export interface SettingsState {
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   setCompactMode: (compact: boolean) => void;
-  setDefaultNoteType: (type: DefaultNoteType) => void;
   setSpellCheck: (enabled: boolean) => void;
   setAutoCapitalize: (enabled: boolean) => void;
   setShowWordCount: (show: boolean) => void;
@@ -144,7 +142,6 @@ const defaultSettings = {
   sidebarWidth: 280,
   rightPanelWidth: 288,
   compactMode: false,
-  defaultNoteType: 'daily' as DefaultNoteType,
   spellCheck: true,
   autoCapitalize: true,
   showWordCount: false,
@@ -240,7 +237,6 @@ export const useSettingsStore = create<SettingsState>()(
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
       setRightPanelWidth: (width) => set({ rightPanelWidth: width }),
       setCompactMode: (compact) => set({ compactMode: compact }),
-      setDefaultNoteType: (type) => set({ defaultNoteType: type }),
       setSpellCheck: (enabled) => set({ spellCheck: enabled }),
       setAutoCapitalize: (enabled) => set({ autoCapitalize: enabled }),
       setShowWordCount: (show) => set({ showWordCount: show }),
@@ -301,7 +297,6 @@ export const useSettingsStore = create<SettingsState>()(
         sidebarWidth: state.sidebarWidth,
         rightPanelWidth: state.rightPanelWidth,
         compactMode: state.compactMode,
-        defaultNoteType: state.defaultNoteType,
         spellCheck: state.spellCheck,
         autoCapitalize: state.autoCapitalize,
         showWordCount: state.showWordCount,
@@ -393,8 +388,9 @@ export function applyFontFamily(family: FontFamily) {
   document.documentElement.style.setProperty('--editor-font-family', fonts[family]);
 }
 
+// On a phone the icon rail focus mode hides is the only way back to Settings.
 export function applyFocusMode(enabled: boolean) {
-  if (enabled) {
+  if (enabled && !isMobilePlatform()) {
     document.documentElement.classList.add('focus-mode');
   } else {
     document.documentElement.classList.remove('focus-mode');

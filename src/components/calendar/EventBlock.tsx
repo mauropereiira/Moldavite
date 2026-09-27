@@ -1,12 +1,24 @@
 import { useState, type CSSProperties } from 'react';
 import { format } from 'date-fns';
 import { open } from '@tauri-apps/plugin-shell';
+import { safeInvoke as invoke } from '@/lib/ipc';
+import { isMobilePlatform } from '@/lib/platform';
 import type { CalendarEvent } from '@/types';
 import { eventLayoutForDay } from './timeLayout';
 
 const HOUR_HEIGHT = 60; // pixels per hour
 const EVENT_WASH_ALPHA = 0.09;
 const EVENT_WASH_HOVER_ALPHA = 0.14;
+
+// The phone grants the webview no shell permissions, so it uses the native opener.
+async function openEventUrl(url: string) {
+  if (!url) return;
+  try {
+    await (isMobilePlatform() ? invoke('open_external_link', { url }) : open(url));
+  } catch (error) {
+    console.error('[EventBlock] Failed to open event link:', error);
+  }
+}
 
 function sourceColorWash(sourceColor: string, alpha: number, fallback: string): string {
   let resolvedColor = sourceColor.trim();
@@ -45,11 +57,7 @@ export function EventBlock({
 }: EventBlockProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const handleClick = async () => {
-    if (event.url) {
-      await open(event.url);
-    }
-  };
+  const handleClick = () => openEventUrl(event.url);
 
   // Position by elapsed instants and clip to the displayed local day. Wall
   // clock fields collide during a fall-back hour and go negative overnight.
@@ -60,7 +68,7 @@ export function EventBlock({
   const width = `calc((100% - 60px - ${(totalColumns - 1) * 2}px) / ${totalColumns})`;
   const left = `calc(60px + ${columnIndex} * ((100% - 60px) / ${totalColumns}) + ${columnIndex * 2}px)`;
 
-  const timeDisplay = `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
+  const timeDisplay = `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`;
 
   const sourceColor = event.calendarColor || 'var(--calendar-google)';
   const wash = sourceColorWash(
@@ -117,7 +125,7 @@ export function EventBlock({
               className="flex-shrink-0 text-[10px] leading-tight"
               style={{ color: 'var(--text-muted)' }}
             >
-              {format(start, 'h:mm a')}
+              {format(start, 'HH:mm')}
             </span>
           </div>
 
@@ -194,11 +202,7 @@ interface AllDayEventProps {
 export function AllDayEvent({ event, index = 0 }: AllDayEventProps) {
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleClick = async () => {
-    if (event.url) {
-      await open(event.url);
-    }
-  };
+  const handleClick = () => openEventUrl(event.url);
 
   const sourceColor = event.calendarColor || 'var(--calendar-google)';
   const wash = sourceColorWash(

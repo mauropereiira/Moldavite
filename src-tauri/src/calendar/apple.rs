@@ -1,4 +1,7 @@
-//! Safe Rust wrappers around the macOS EventKit Swift bridge.
+//! Safe Rust wrappers around the EventKit Swift bridge in `src-swift`.
+//!
+//! macOS links the bridge through `build.rs`; iOS links it through
+//! `tauri-plugin-calendar`'s Swift package, which Tauri builds for the device.
 //!
 //! This module owns the FFI boundary and JSON decoding for Apple calendar
 //! data. Swift allocates the returned C strings, so every non-null pointer

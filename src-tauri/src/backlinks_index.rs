@@ -1,14 +1,17 @@
 //! Shared in-memory backlinks index.
 //!
 //! Maintains an inverted index from target filename -> list of notes
-//! that link to it, plus an outbound map from source filename -> set of
+//! that link to it, plus an outbound map from source path -> set of
 //! targets it currently references. This replaces O(n) full-disk scans
 //! on every `get_backlinks` call.
 //!
+//! Sources are keyed by Forge-relative path (`notes/A/plan.md`) because notes in
+//! different folders may share a filename. Targets stay bare filenames: a
+//! `[[link]]` names a note, not a path, and passes through the wiki slug resolver.
+//!
 //! Both maps are updated under one write lock so they cannot disagree. Rebuilds
 //! scan only visible Markdown files, never follow symlinks, and publish the new
-//! state only after the scan completes. Source keys retain their note address;
-//! targets pass through the shared wiki slug resolver.
+//! state only after the scan completes.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -22,6 +25,7 @@ use crate::wiki::{get_link_context, note_exists, note_name_to_filename, parse_wi
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
+    pub(crate) from_path: String,
     pub(crate) from_note: String,
     pub(crate) from_title: String,
     pub(crate) context: String,
@@ -31,7 +35,7 @@ pub(crate) struct Entry {
 struct State {
     /// Keyed by resolved target filename (e.g. "meeting-notes.md").
     by_target: HashMap<String, Vec<Entry>>,
-    /// Keyed by source filename; value is set of target filenames it links to.
+    /// Keyed by source path; value is set of target filenames it links to.
     outbound: HashMap<String, HashSet<String>>,
 }
 
@@ -64,6 +68,41 @@ fn default_resolver(name: &str) -> String {
         }
         Err(_) => note_name_to_filename(name),
     }
+}
+
+fn leaf(path: &str) -> &str {
+    path.rsplit('/').next().unwrap_or(path)
+}
+
+/// Mirrors what a rebuild scans, so a watcher update cannot admit a note a
+/// restart would drop.
+pub(crate) fn is_indexed_path(rel: &str) -> bool {
+    let Some((top, rest)) = rel.split_once('/') else {
+        return false;
+    };
+    let flat = match top {
+        "daily" | "weekly" => true,
+        "notes" => false,
+        _ => return false,
+    };
+    if !rest.ends_with(".md") || (flat && rest.contains('/')) {
+        return false;
+    }
+    rest.split('/')
+        .all(|part| !part.is_empty() && !part.starts_with('.'))
+}
+
+/// `note_root` must be a Forge's `daily`, `weekly` or `notes` directory; its
+/// name becomes the path's first component.
+pub(crate) fn source_path_under(note_root: &Path, abs: &Path) -> Option<String> {
+    let top = note_root.file_name()?.to_str()?;
+    let rel = abs.strip_prefix(note_root).ok()?;
+    let mut path = top.to_string();
+    for part in rel.components() {
+        path.push('/');
+        path.push_str(part.as_os_str().to_str()?);
+    }
+    Some(path)
 }
 
 fn extract_title(content: &str, fallback: &str) -> String {
@@ -139,12 +178,9 @@ impl BacklinksIndex {
                 return;
             }
         };
-        let daily = root.join("daily");
-        collect_md_files_flat(&daily, &mut files);
-        let weekly = root.join("weekly");
-        collect_md_files_flat(&weekly, &mut files);
-        let standalone = root.join("notes");
-        collect_md_files_recursive(&standalone, &mut files);
+        collect_md_files_flat(&root.join("daily"), "daily", &mut files);
+        collect_md_files_flat(&root.join("weekly"), "weekly", &mut files);
+        collect_md_files_recursive(&root.join("notes"), "notes", &mut files);
 
         {
             let mut state = match self.inner.write() {
@@ -158,22 +194,22 @@ impl BacklinksIndex {
             state.outbound.clear();
         }
 
-        for (filename, content) in files {
-            self.update_note_with(&filename, &content, &default_resolver);
+        for (path, content) in files {
+            self.update_note_with(&path, &content, &default_resolver);
         }
 
         *last_failure = None;
         self.mark_ready();
     }
 
-    /// Update (or insert) entries originating from `filename` based on
-    /// `content`. Uses the real on-disk resolver.
-    pub(crate) fn update_note(&self, filename: &str, content: &str) {
-        self.update_note_with(filename, content, &default_resolver);
+    /// `path` is Forge-relative, e.g. `notes/A/plan.md`. Uses the real on-disk resolver.
+    pub(crate) fn update_note(&self, path: &str, content: &str) {
+        self.update_note_with(path, content, &default_resolver);
     }
 
     /// Same as `update_note` but allows injecting a resolver for tests.
-    pub(crate) fn update_note_with(&self, filename: &str, content: &str, resolver: &Resolver) {
+    pub(crate) fn update_note_with(&self, path: &str, content: &str, resolver: &Resolver) {
+        let filename = leaf(path);
         let title = extract_title(content, filename);
         let link_names = parse_wiki_links(content);
 
@@ -186,6 +222,7 @@ impl BacklinksIndex {
             let context = get_link_context(content, raw);
 
             let entry = Entry {
+                from_path: path.to_string(),
                 from_note: filename.to_string(),
                 from_title: title.clone(),
                 context,
@@ -211,17 +248,16 @@ impl BacklinksIndex {
             }
         };
 
-        // Remove existing entries originating from this filename.
-        remove_from_by_target(&mut state.by_target, filename);
-        state.outbound.remove(filename);
+        remove_from_by_target(&mut state.by_target, path);
+        state.outbound.remove(path);
 
         for (key, entry) in new_entries {
             state.by_target.entry(key).or_default().push(entry);
         }
-        state.outbound.insert(filename.to_string(), new_targets);
+        state.outbound.insert(path.to_string(), new_targets);
     }
 
-    pub(crate) fn remove_note(&self, filename: &str) {
+    pub(crate) fn remove_note(&self, path: &str) {
         let mut state = match self.inner.write() {
             Ok(g) => g,
             Err(poisoned) => {
@@ -229,12 +265,12 @@ impl BacklinksIndex {
                 poisoned.into_inner()
             }
         };
-        remove_from_by_target(&mut state.by_target, filename);
-        state.outbound.remove(filename);
+        remove_from_by_target(&mut state.by_target, path);
+        state.outbound.remove(path);
     }
 
+    /// `old` and `new` are Forge-relative paths.
     pub(crate) fn rename_note(&self, old: &str, new: &str, new_content: &str) {
-        // First, re-key any entries whose target key equals `old` to `new`.
         {
             let mut state = match self.inner.write() {
                 Ok(g) => g,
@@ -243,17 +279,45 @@ impl BacklinksIndex {
                     poisoned.into_inner()
                 }
             };
-            if let Some(entries) = state.by_target.remove(old) {
+            if let Some(entries) = state.by_target.remove(leaf(old)) {
                 state
                     .by_target
-                    .entry(new.to_string())
+                    .entry(leaf(new).to_string())
                     .or_default()
                     .extend(entries);
             }
         }
-        // Drop old outbound / entries originating from old and re-insert under new.
         self.remove_note(old);
         self.update_note(new, new_content);
+    }
+
+    /// Re-keys sources under `old_prefix` (e.g. `notes/A`). Filenames are
+    /// unchanged, so no target moves.
+    pub(crate) fn move_folder(&self, old_prefix: &str, new_prefix: &str) {
+        let old_dir = format!("{}/", old_prefix.trim_end_matches('/'));
+        let new_dir = format!("{}/", new_prefix.trim_end_matches('/'));
+        let moved = |path: &str| {
+            path.strip_prefix(&old_dir)
+                .map(|rest| format!("{new_dir}{rest}"))
+        };
+        let mut state = match self.inner.write() {
+            Ok(g) => g,
+            Err(poisoned) => {
+                log::warn!("backlinks index lock poisoned during folder move; recovering");
+                poisoned.into_inner()
+            }
+        };
+        for entries in state.by_target.values_mut() {
+            for entry in entries.iter_mut() {
+                if let Some(path) = moved(&entry.from_path) {
+                    entry.from_path = path;
+                }
+            }
+        }
+        state.outbound = std::mem::take(&mut state.outbound)
+            .into_iter()
+            .map(|(path, targets)| (moved(&path).unwrap_or(path), targets))
+            .collect();
     }
 
     pub(crate) fn remove_all(&self) {
@@ -268,7 +332,7 @@ impl BacklinksIndex {
         state.outbound.clear();
     }
 
-    /// Get deduplicated backlinks for a target. `note_stem` is the raw
+    /// Get backlinks for a target, one per source path. `note_stem` is the raw
     /// display name (without .md) so we can also match entries that linked
     /// by display name even if the file didn't exist at link time.
     pub(crate) fn get(&self, target_filename: &str, note_stem: &str) -> Vec<BacklinkInfo> {
@@ -289,8 +353,9 @@ impl BacklinksIndex {
                 if e.from_note == target_filename {
                     continue;
                 }
-                if seen.insert(e.from_note.clone()) {
+                if seen.insert(e.from_path.clone()) {
                     out.push(BacklinkInfo {
+                        from_path: e.from_path.clone(),
                         from_note: e.from_note.clone(),
                         from_title: e.from_title.clone(),
                         context: e.context.clone(),
@@ -311,10 +376,10 @@ impl BacklinksIndex {
     }
 }
 
-fn remove_from_by_target(by_target: &mut HashMap<String, Vec<Entry>>, from_note: &str) {
+fn remove_from_by_target(by_target: &mut HashMap<String, Vec<Entry>>, from_path: &str) {
     let mut empty_keys: Vec<String> = Vec::new();
     for (k, v) in by_target.iter_mut() {
-        v.retain(|e| e.from_note != from_note);
+        v.retain(|e| e.from_path != from_path);
         if v.is_empty() {
             empty_keys.push(k.clone());
         }
@@ -324,7 +389,7 @@ fn remove_from_by_target(by_target: &mut HashMap<String, Vec<Entry>>, from_note:
     }
 }
 
-fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
+fn collect_md_files_flat(dir: &Path, rel_dir: &str, out: &mut Vec<(String, String)>) {
     if !dir.exists() {
         return;
     }
@@ -359,14 +424,14 @@ fn collect_md_files_flat(dir: &Path, out: &mut Vec<(String, String)>) {
         match fs::read_to_string(&path) {
             Ok(content) => {
                 let body = crate::frontmatter::parse_note(&content).body;
-                out.push((filename, body));
+                out.push((format!("{rel_dir}/{filename}"), body));
             }
             Err(err) => log::warn!("backlinks index: failed to read {:?}: {}", path, err),
         }
     }
 }
 
-fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
+fn collect_md_files_recursive(dir: &Path, rel_dir: &str, out: &mut Vec<(String, String)>) {
     if !dir.exists() {
         return;
     }
@@ -390,7 +455,7 @@ fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
             if name.starts_with('.') {
                 continue;
             }
-            collect_md_files_recursive(&path, out);
+            collect_md_files_recursive(&path, &format!("{rel_dir}/{name}"), out);
         } else if path.is_file()
             && path.extension().and_then(|s| s.to_str()) == Some("md")
             && !crate::cloud_forge::is_evicted(&path)
@@ -405,7 +470,7 @@ fn collect_md_files_recursive(dir: &Path, out: &mut Vec<(String, String)>) {
             match fs::read_to_string(&path) {
                 Ok(content) => {
                     let body = crate::frontmatter::parse_note(&content).body;
-                    out.push((filename, body));
+                    out.push((format!("{rel_dir}/{filename}"), body));
                 }
                 Err(err) => log::warn!("backlinks index: failed to read {:?}: {}", path, err),
             }
@@ -575,12 +640,102 @@ mod tests {
         fs::write(daily.join("2026-01-02.md"), "# Real\n").unwrap();
 
         let mut files = Vec::new();
-        collect_md_files_flat(&daily, &mut files);
+        collect_md_files_flat(&daily, "daily", &mut files);
 
         let names: Vec<&str> = files.iter().map(|(name, _)| name.as_str()).collect();
-        assert_eq!(names, ["2026-01-02.md"]);
+        assert_eq!(names, ["daily/2026-01-02.md"]);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn same_named_notes_in_different_folders_keep_their_own_links() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-backlinks-same-name-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(root.join("notes/A")).unwrap();
+        fs::create_dir_all(root.join("notes/B")).unwrap();
+        fs::create_dir_all(root.join("daily")).unwrap();
+        fs::write(root.join("notes/A/plan.md"), "# Plan A\n[[Target]]\n").unwrap();
+        fs::write(root.join("notes/B/plan.md"), "# Plan B\n[[Target]]\n").unwrap();
+        fs::write(root.join("daily/2026-01-01.md"), "# Daily\n[[Target]]\n").unwrap();
+        fs::write(
+            root.join("notes/2026-01-01.md"),
+            "# Standalone\n[[Target]]\n",
+        )
+        .unwrap();
+
+        let idx = BacklinksIndex::new();
+        idx.rebuild_from(|| Ok(root.clone()));
+
+        assert_eq!(
+            sources(&idx),
+            [
+                "daily/2026-01-01.md",
+                "notes/2026-01-01.md",
+                "notes/A/plan.md",
+                "notes/B/plan.md"
+            ]
+        );
+
+        idx.update_note_with("notes/A/plan.md", "# Plan A\nno links", &slug_resolver);
+        idx.remove_note("daily/2026-01-01.md");
+        assert_eq!(sources(&idx), ["notes/2026-01-01.md", "notes/B/plan.md"]);
+        let links = idx.get("target.md", "Target");
+        let plan = links.iter().find(|l| l.from_note == "plan.md").unwrap();
+        assert_eq!(plan.from_path, "notes/B/plan.md");
+        assert_eq!(plan.from_title, "Plan B");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn sources(idx: &BacklinksIndex) -> Vec<String> {
+        let mut paths: Vec<String> = idx
+            .get("target.md", "Target")
+            .into_iter()
+            .map(|link| link.from_path)
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    #[test]
+    fn moving_a_folder_rekeys_only_the_sources_inside_it() {
+        let idx = BacklinksIndex::new();
+        idx.update_note_with("notes/A/plan.md", "[[Target]]", &slug_resolver);
+        idx.update_note_with("notes/A/Deep/plan.md", "[[Target]]", &slug_resolver);
+        idx.update_note_with("notes/AB/plan.md", "[[Target]]", &slug_resolver);
+
+        idx.move_folder("notes/A", "notes/Archive/A");
+
+        assert_eq!(
+            sources(&idx),
+            [
+                "notes/AB/plan.md",
+                "notes/Archive/A/Deep/plan.md",
+                "notes/Archive/A/plan.md"
+            ]
+        );
+        idx.update_note_with("notes/Archive/A/plan.md", "no links", &slug_resolver);
+        idx.remove_note("notes/Archive/A/Deep/plan.md");
+        assert_eq!(sources(&idx), ["notes/AB/plan.md"]);
+    }
+
+    #[test]
+    fn indexed_paths_match_what_a_rebuild_scans() {
+        assert!(is_indexed_path("daily/2026-01-01.md"));
+        assert!(is_indexed_path("weekly/2026-W01.md"));
+        assert!(is_indexed_path("notes/A/B/plan.md"));
+        assert!(!is_indexed_path("daily/nested/2026-01-01.md"));
+        assert!(!is_indexed_path("notes/.hidden/plan.md"));
+        assert!(!is_indexed_path("templates/plan.md"));
+        assert!(!is_indexed_path("notes/plan.md.locked"));
+        assert!(!is_indexed_path("plan.md"));
     }
 
     #[test]

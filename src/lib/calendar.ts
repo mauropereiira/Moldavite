@@ -11,7 +11,7 @@ import { safeInvoke as invoke } from './ipc';
 import type { CalendarFetchResult, CalendarPermission, CalendarSourceStatus } from '@/types';
 
 /**
- * Gets the current macOS calendar access permission status.
+ * Gets the current Apple Calendar (EventKit) permission status on macOS or iOS.
  * @returns Permission status (Authorized, Denied, NotDetermined, etc.)
  */
 export async function getCalendarPermission(): Promise<CalendarPermission> {
@@ -19,7 +19,7 @@ export async function getCalendarPermission(): Promise<CalendarPermission> {
 }
 
 /**
- * Requests macOS calendar access from the user.
+ * Requests Apple Calendar access from the user on macOS or iOS.
  * Shows the system permission dialog on first request.
  * @returns True if permission was granted
  */
@@ -28,7 +28,7 @@ export async function requestCalendarPermission(): Promise<boolean> {
 }
 
 /**
- * Checks if macOS calendar access has been authorized.
+ * Checks if Apple Calendar access has been authorized on macOS or iOS.
  * @returns True if the app has calendar access
  */
 export async function isCalendarAuthorized(): Promise<boolean> {
@@ -59,8 +59,9 @@ export async function fetchCalendarEvents(
 }
 
 /**
- * Runs the Google OAuth flow in the system browser and stores the resulting
- * refresh token in the OS keychain.
+ * Runs the Google OAuth flow (the system browser on the desktop, an in-app
+ * sign-in sheet on iOS) and stores the resulting refresh token in the OS
+ * keychain.
  * @returns The Google source status after connecting
  */
 export async function connectGoogleCalendar(): Promise<CalendarSourceStatus> {

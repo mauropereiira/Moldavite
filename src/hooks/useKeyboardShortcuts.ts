@@ -16,7 +16,7 @@ import {
   justCreatedTimes,
   readNoteWithMeta,
 } from '@/lib';
-import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
+import { SHORTCUTS, isPrimaryModifier, type ShortcutId } from '@/lib/shortcuts';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
 
@@ -124,7 +124,7 @@ export function useKeyboardShortcuts({
      * ensures the help modal and handler agree on what each combo means.
      */
     const identify = (e: KeyboardEvent): ShortcutId | null => {
-      const isMod = e.metaKey || e.ctrlKey;
+      const isMod = isPrimaryModifier(e);
       const key = e.key.toLowerCase();
 
       // Cmd+/ (help modal), Cmd+P (search) and Cmd+Shift+G (graph) are

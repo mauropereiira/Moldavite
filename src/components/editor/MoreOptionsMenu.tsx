@@ -5,14 +5,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore, useQuickSwitcherStore } from '@/stores';
-import {
-  createNote,
-  writeNote,
-  htmlToMarkdown,
-  exportSingleNote,
-  exportNoteToPdf,
-  exportNoteAsPlaintext,
-} from '@/lib';
+import { htmlToMarkdown, exportSingleNote, exportNoteToPdf, exportNoteAsPlaintext } from '@/lib';
+import { fileStem, noteDiskFilename } from '@/lib/leaveSave';
+import { useNotes } from '@/hooks/useNotes';
 import { SaveTemplateModal } from '@/components/templates/SaveTemplateModal';
 import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
@@ -57,7 +52,7 @@ export function MoreOptionsMenu({
     }))
   );
   const notes = useNoteStore((state) => state.notes);
-  const setNotes = useNoteStore((state) => state.setNotes);
+  const { duplicateNote } = useNotes();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -88,28 +83,8 @@ export function MoreOptionsMenu({
     }
 
     try {
-      let newTitle = `${currentNote.title} Copy`;
-      let attempt = 1;
-
-      while (notes.some((n) => n.name === `${newTitle}.md`)) {
-        attempt++;
-        newTitle = `${currentNote.title} Copy ${attempt}`;
-      }
-
-      const filename = await createNote(newTitle);
-
-      const markdownContent = htmlToMarkdown(currentNote.content);
-      await writeNote(filename, markdownContent, false);
-
-      const noteFile: NoteFile = {
-        name: filename,
-        path: filename,
-        isDaily: false,
-        isWeekly: false,
-        isLocked: false,
-      };
-      setNotes([...notes, noteFile]);
-
+      if (!currentNoteFile) throw new Error(`${currentNote.id} is not in the note list`);
+      await duplicateNote(currentNoteFile);
       onShowToast?.('Note duplicated');
     } catch (error) {
       console.error('[MoreOptionsMenu] Failed to duplicate:', error);
@@ -127,17 +102,10 @@ export function MoreOptionsMenu({
         if (await exportMobileNote(currentNote.id, 'markdown')) onShowToast?.('Note exported');
         return;
       }
-      const filename =
-        currentNote.isDaily && currentNote.date
-          ? `${currentNote.date}.md`
-          : currentNote.isWeekly && currentNote.week
-            ? `${currentNote.week}.md`
-            : `${currentNote.title}.md`;
-
-      const defaultName = filename.replace(/\.md$/, '');
+      const filename = noteDiskFilename(currentNote);
       const destination = await save({
         title: 'Export Note',
-        defaultPath: `${defaultName}.md`,
+        defaultPath: `${fileStem(filename)}.md`,
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
 
@@ -202,17 +170,10 @@ export function MoreOptionsMenu({
     if (!currentNote) return;
 
     try {
-      const filename =
-        currentNote.isDaily && currentNote.date
-          ? `${currentNote.date}.md`
-          : currentNote.isWeekly && currentNote.week
-            ? `${currentNote.week}.md`
-            : `${currentNote.title}.md`;
-
-      const baseName = filename.replace(/\.md$/, '');
+      const filename = noteDiskFilename(currentNote);
       const destination = await save({
         title: 'Export as plain text',
-        defaultPath: `${baseName}.txt`,
+        defaultPath: `${fileStem(filename)}.txt`,
         filters: [{ name: 'Plain Text', extensions: ['txt'] }],
       });
 

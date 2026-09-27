@@ -147,6 +147,8 @@ export function AppOnboardingModal() {
     // feature-update flow between the two store updates.
     setLastSeenOnboardingVersion(APP_ONBOARDING_VERSION);
     setHasSeenAppOnboarding(true);
+    // The modal stays mounted after closing, so a replay from About must start over.
+    setStepIndex(0);
     // Restore focus to whatever was focused before the modal opened.
     previouslyFocusedRef.current?.focus?.();
   }, [setHasSeenAppOnboarding, setLastSeenOnboardingVersion]);

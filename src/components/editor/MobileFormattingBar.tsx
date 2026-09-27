@@ -14,6 +14,7 @@ interface Control {
 
 interface MobileFormattingBarProps {
   editor: Editor;
+  noteId?: string;
   onInsertLink: () => void;
   onInsertImage: () => void;
 }
@@ -21,12 +22,18 @@ interface MobileFormattingBarProps {
 /** Sits at the bottom of the resized shell, immediately above the iOS keyboard. */
 export function MobileFormattingBar({
   editor,
+  noteId,
   onInsertLink,
   onInsertImage,
 }: MobileFormattingBarProps) {
   // Keep the row mounted while a touch moves focus from the editor to a
   // formatting button. Hiding on :focus would remove the target before click.
   const [editing, setEditing] = useState(editor.isFocused);
+  const [editingNoteId, setEditingNoteId] = useState(noteId);
+  if (editingNoteId !== noteId) {
+    setEditingNoteId(noteId);
+    setEditing(false);
+  }
   useEffect(() => {
     const focus = () => setEditing(true);
     editor.on('focus', focus);

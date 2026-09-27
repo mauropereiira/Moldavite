@@ -185,13 +185,14 @@ export function useTrash() {
         await useNoteColorsStore.getState().loadColors();
         const notes = await listNotes();
         setNotes(notes);
+        setFolders(await listFolders());
         toast.success('Note restored');
       } catch (error) {
         toast.error(String(error));
         throw error;
       }
     },
-    [setNotes, removeFromTrash, toast]
+    [setNotes, setFolders, removeFromTrash, toast]
   );
 
   /**
@@ -222,10 +223,12 @@ export function useTrash() {
       setTrashedNotes([]);
       toast.success('Trash emptied');
     } catch (error) {
+      // A partial failure has still removed some items; show what is left.
+      await loadTrash().catch(() => {});
       toast.error(String(error));
       throw error;
     }
-  }, [setTrashedNotes, toast]);
+  }, [setTrashedNotes, loadTrash, toast]);
 
   /**
    * Cleans up old trash items (older than 7 days).
@@ -268,11 +271,23 @@ export function useTrash() {
         }
         await trashFolderApi(path);
         heldAutosavePath = null;
-        for (const tab of useNoteStore.getState().openTabs) {
+        const noteState = useNoteStore.getState();
+        for (const tab of noteState.openTabs) {
           if (!tab.id.startsWith(prefix)) continue;
           discardPendingAutosaveForNote(tab.id, tab.content);
           discardLeaveSave(tab.id);
-          forgetTrashedNoteReferences(tab.id);
+        }
+        const referenced = new Set([
+          ...noteState.notes.map((note) => note.path),
+          ...noteState.openTabs.map((tab) => tab.id),
+          ...noteState.recentNoteIds,
+          ...Object.keys(useNoteColorsStore.getState().colors),
+          ...useNoteSelectionStore.getState().selectedIds,
+          ...useQuickSwitcherStore.getState().pinnedNoteIds,
+          ...useSidebarOrderStore.getState().noteOrder,
+        ]);
+        for (const id of referenced) {
+          if (id.startsWith(prefix)) forgetTrashedNoteReferences(id);
         }
         for (const id of heldLeaveSaveIds()) {
           if (id.startsWith(prefix)) discardLeaveSave(id);

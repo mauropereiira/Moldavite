@@ -14,7 +14,7 @@
 //! - Unlock attempts are rate limited in-process; a copied `.locked` file is
 //!   protected only by Argon2id and the password itself
 
-/// Calendar integration: Apple (EventKit, macOS) and Google (REST, all platforms)
+/// Calendar integration: Apple (EventKit, macOS and iOS) and Google (REST, all platforms)
 mod calendar;
 
 /// OS credential store, shared by plugins and calendar accounts
@@ -126,7 +126,7 @@ fn dispatch_note_io(
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use calendar::CalendarPermission;
 use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};
 
@@ -178,23 +178,28 @@ use wordpress::{
     wordpress_connect, wordpress_disconnect, wordpress_publish, wordpress_sites, wordpress_status,
 };
 
-// The three EventKit permission commands stay macOS-only because they wrap an
-// Apple-specific authorization model. Everything else dispatches across sources
-// and compiles everywhere, so Google Calendar works on Windows and Linux too.
+// The three EventKit permission commands exist only on macOS and iOS because
+// they wrap an Apple-specific authorization model. Everything else dispatches
+// across sources and compiles everywhere, so Google Calendar works on Windows
+// and Linux too.
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[tauri::command]
 fn get_calendar_permission() -> CalendarPermission {
     calendar::apple::get_permission_status()
 }
 
-#[cfg(target_os = "macos")]
+/// Async so the bridge's wait (up to a minute) for the system prompt stays off
+/// the main thread, which iOS needs free while the alert is up.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[tauri::command]
-fn request_calendar_permission() -> bool {
-    calendar::apple::request_permission()
+async fn request_calendar_permission() -> bool {
+    tauri::async_runtime::spawn_blocking(calendar::apple::request_permission)
+        .await
+        .unwrap_or(false)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[tauri::command]
 fn is_calendar_authorized() -> bool {
     calendar::apple::is_authorized()
@@ -257,6 +262,7 @@ pub fn run() {
     #[cfg(target_os = "ios")]
     let builder = builder
         .plugin(tauri_plugin_icloud::init())
+        .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_document_export::init())
         .plugin(tauri_plugin_mobile_ui::init());
 
@@ -522,12 +528,12 @@ pub fn run() {
             import_settings_json,
             // Image handling
             save_image,
-            // Calendar: EventKit permission is macOS-only, the rest is cross-platform
-            #[cfg(target_os = "macos")]
+            // Calendar: EventKit permission is macOS and iOS only, the rest is cross-platform
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             get_calendar_permission,
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             request_calendar_permission,
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             is_calendar_authorized,
             list_calendar_sources,
             fetch_calendar_events,

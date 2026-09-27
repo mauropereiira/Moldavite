@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Lock, Unlock, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 import { checkPasswordStrength, type PasswordStrength } from '@/lib/validation';
+import { isHoldingKeyboard } from '@/lib/noteTitleFocus';
 import { DialogSurface } from './DialogSurface';
 
 interface PasswordModalProps {
@@ -68,6 +69,12 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
 
     return () => clearInterval(timer);
   }, [lockoutSeconds]);
+
+  // iOS lowers the keyboard unless focus moves straight from the tap's stand-in field. Only
+  // then: on the desktop, the focus trap would restore this early focus on close.
+  useLayoutEffect(() => {
+    if (isOpen && isHoldingKeyboard()) inputRef.current?.focus();
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {

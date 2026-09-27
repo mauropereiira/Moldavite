@@ -179,25 +179,27 @@ export function AppearanceSection({
           />
         </div>
 
-        <div
-          className="flex items-center justify-between pt-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
-        >
-          <div>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Focus mode
-            </span>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Hide every panel at once and leave just the note.
-              {!isMobilePlatform() && ` ${formatShortcut('⌘.')}`}
-            </p>
+        {/* Focus mode hides the rail, a phone's only way back to Settings to undo it. */}
+        {!isMobilePlatform() && (
+          <div
+            className="flex items-center justify-between pt-2"
+            style={{ borderTop: '1px solid var(--border-muted)' }}
+          >
+            <div>
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Focus mode
+              </span>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Hide every panel at once and leave just the note. {formatShortcut('⌘.')}
+              </p>
+            </div>
+            <Toggle
+              enabled={settings.focusModeEnabled}
+              onChange={settings.setFocusModeEnabled}
+              ariaLabel="Enable focus mode"
+            />
           </div>
-          <Toggle
-            enabled={settings.focusModeEnabled}
-            onChange={settings.setFocusModeEnabled}
-            ariaLabel="Enable focus mode"
-          />
-        </div>
+        )}
       </section>
     </div>
   );

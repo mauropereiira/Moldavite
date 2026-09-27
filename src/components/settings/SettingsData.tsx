@@ -24,9 +24,9 @@ import { DialogSurface } from '@/components/ui/DialogSurface';
 // name whichever Forge was active before the last switch.
 const settingsLsKeys = (): string[] => [
   'moldavite-calendar',
-  'moldavite-folders',
   'moldavite-settings',
   'moldavite-theme',
+  namespacedKey('moldavite-folders'),
   namespacedKey('moldavite-pinned-tabs'),
   namespacedKey('moldavite-recent-notes'),
 ];

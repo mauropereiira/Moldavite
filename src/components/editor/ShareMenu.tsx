@@ -1,6 +1,8 @@
 import { Dropdown, DropdownItem, DropdownDivider } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { htmlToMarkdown } from '@/lib';
+import { slugifyNoteName } from '@/lib/fileSystem';
+import { fileStem, noteDiskFilename } from '@/lib/leaveSave';
 import { isMobilePlatform } from '@/lib/platform';
 
 interface ShareMenuProps {
@@ -24,10 +26,13 @@ export function ShareMenu({
   const handleCopyLink = async () => {
     if (!currentNote) return;
 
-    // Create partial wiki link for easy paste - user can confirm via autocomplete
+    // Links resolve by file name in any folder, and the title can differ from it.
     const noteName = currentNote.isDaily && currentNote.date ? currentNote.date : currentNote.title;
-
-    const wikiLink = `[${noteName}`;
+    const fileName = fileStem(noteDiskFilename(currentNote));
+    const wikiLink =
+      slugifyNoteName(noteName) === slugifyNoteName(fileName)
+        ? `[[${noteName}]]`
+        : `[[${noteName}|${fileName}]]`;
 
     try {
       await navigator.clipboard.writeText(wikiLink);

@@ -37,6 +37,11 @@ export function holdKeyboard(): void {
   }, 3000);
 }
 
+/** True while the stand-in still has the focus, so the keyboard is up for a field yet to mount. */
+export function isHoldingKeyboard(): boolean {
+  return standIn !== null && document.activeElement === standIn;
+}
+
 export function requestTitleFocus(noteId: string): void {
   pendingNoteId = noteId;
 }

@@ -93,6 +93,8 @@ interface PluginRuntime {
 }
 
 const runtimes = new Map<string, PluginRuntime>();
+/** Only the newest `loadEnabledPlugins` call may start workers; an older one still returns its list. */
+let loadGeneration = 0;
 const INVOCATION_TIMEOUT_MS = 30_000;
 
 function terminateRuntime(pluginId: string, reason = 'plugin was unloaded') {
@@ -247,6 +249,8 @@ async function loadOne(info: PluginInfo, code: string): Promise<void> {
     registeredCommandIds: new Set(),
     commandDropWarned: false,
   };
+  // Overwriting the map entry would orphan a live worker that no unload can reach.
+  terminateRuntime(id);
   runtimes.set(id, rt);
 
   worker.addEventListener('message', (e) => {
@@ -282,13 +286,17 @@ async function loadOne(info: PluginInfo, code: string): Promise<void> {
 export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   // Synced Forge folders may contain desktop plugins. Never execute them on iOS.
   if (isMobilePlatform()) return [];
+  const generation = ++loadGeneration;
+  const isCurrent = () => generation === loadGeneration;
   setPluginAppVersion(await getVersion().catch(() => '0.0.0'));
 
-  // Tear down any running workers before reloading.
-  for (const id of Array.from(runtimes.keys())) {
-    terminateRuntime(id);
+  if (isCurrent()) {
+    // Tear down any running workers before reloading.
+    for (const id of Array.from(runtimes.keys())) {
+      terminateRuntime(id);
+    }
+    usePluginCommandStore.getState().clear();
   }
-  usePluginCommandStore.getState().clear();
 
   let raw: RawPlugin[];
   try {
@@ -302,6 +310,7 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
   const infos = classified.map(({ info }) => info);
   const store = usePluginStore.getState();
   for (const { info, code } of classified) {
+    if (!isCurrent()) break;
     if (info.status !== 'ok') continue;
     if (
       typeof code === 'string' &&
