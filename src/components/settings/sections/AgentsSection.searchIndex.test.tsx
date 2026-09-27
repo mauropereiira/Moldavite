@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SearchIndexStatus } from '@/lib/searchIndex';
 import { useToastStore } from '@/stores/toastStore';
@@ -124,7 +124,8 @@ describe('AgentsSection — Search index', () => {
     render(<AgentsSection />);
     await screen.findByText('Indexing…');
     expect(calls).toBe(1);
-    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
+    // The interval starts in an effect, which can land after the text renders.
+    await waitFor(() => expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000));
 
     // Other components on the page (e.g. tooltips) also start intervals, so
     // find the one registered at our 2-second poll cadence.
