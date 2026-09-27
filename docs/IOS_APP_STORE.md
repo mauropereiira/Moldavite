@@ -6,6 +6,10 @@ Transporter from `src-tauri/gen/apple/build/arm64/`, and answers No to French
 distribution, matching the territory list. France stays excluded until its
 encryption paperwork is resolved; the app is free in the other 174 territories.
 
+2.8.0 was submitted to App Review on 2026-09-23. 2.9.0 adds Apple Calendar and
+Google Calendar on iPhone and iPad, both read on the device only, so the **Data
+Not Collected** answer still holds; it can go to review once 2.8.0 is out of it.
+
 Everything after this point is therefore an **update** to a live app, not a
 first submission. Create a new version in App Store Connect, attach a build with
 a higher version and build number, and submit that. The listing, pricing,

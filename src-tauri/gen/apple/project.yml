@@ -54,8 +54,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 2.8.0
-        CFBundleVersion: "2.8.0"
+        CFBundleShortVersionString: 2.9.0
+        CFBundleVersion: "2.9.0"
         # iOS 17's requestFullAccessToEvents requires the full-access key.
         NSCalendarsFullAccessUsageDescription: Moldavite needs access to your calendar to display your events in the timeline.
         NSCalendarsUsageDescription: Moldavite needs access to your calendar to display your events in the timeline.
@@ -127,8 +127,8 @@ targets:
       path: ../../ios/Widget/Info.plist
       properties:
         CFBundleDisplayName: Moldavite
-        CFBundleShortVersionString: 2.8.0
-        CFBundleVersion: "2.8.0"
+        CFBundleShortVersionString: 2.9.0
+        CFBundleVersion: "2.9.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
