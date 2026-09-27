@@ -155,7 +155,11 @@ const BUDGETS = [
 // Measured 653.3 KB / 186.9 KB gz.
 // 666 / 191: the bug sweep after 2.8.0 and iOS calendars add 8.3 KB raw / 2.8 KB gz.
 // Measured 661.6 KB / 189.7 KB gz.
-const APP_JS_BUDGET = { rawKb: 666, gzipKb: 191 };
+// 676 / 195: the plugin directory round (install and update confirmation with
+// permission changes, installing from a .zip or folder, safe mode with its
+// startup marker, starting and stopping one plugin instead of all) adds
+// 11.4 KB raw / 3.4 KB gz. Measured 673.0 KB / 193.1 KB gz.
+const APP_JS_BUDGET = { rawKb: 676, gzipKb: 195 };
 
 async function main() {
   let entries;

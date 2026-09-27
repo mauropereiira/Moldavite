@@ -4,6 +4,7 @@
  * from a validated id and the pinned repository base below.
  */
 
+import { isNewerVersion } from '@/lib/changelog';
 import { isValidAllowedHost } from './manifest';
 import { SUPPORTED_PLUGIN_API_VERSIONS, type PluginInfo } from './types';
 
@@ -11,6 +12,10 @@ export const COMMUNITY_REGISTRY_URL =
   'https://raw.githubusercontent.com/mauropereiira/moldavite-plugins/main/registry.json';
 export const COMMUNITY_PLUGIN_RAW_BASE =
   'https://raw.githubusercontent.com/mauropereiira/moldavite-plugins/main/plugins';
+const COMMUNITY_PLUGIN_SOURCE_BASE =
+  'https://github.com/mauropereiira/moldavite-plugins/tree/main/plugins';
+export const COMMUNITY_REPORT_URL =
+  'https://github.com/mauropereiira/moldavite-plugins/issues/new?template=report-plugin.yml';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const SHA256_RE = /^[a-f0-9]{64}$/;
@@ -23,6 +28,7 @@ export interface CommunityPlugin {
   description: string;
   author: string;
   apiVersion: number;
+  minAppVersion?: string;
   permissions: string[];
   allowedHosts: string[];
   files: {
@@ -75,6 +81,7 @@ function parseEntry(value: unknown): CommunityPlugin | null {
   const description = boundedString(entry.description, 1_000);
   const author = boundedString(entry.author, 160);
   const apiVersion = entry.apiVersion;
+  const minAppVersion = entry.minAppVersion;
   const permissions = stringArray(entry.permissions, 50, 128);
   const allowedHosts = stringArray(entry.allowedHosts, 50, 253);
   const files = record(entry.files);
@@ -88,7 +95,10 @@ function parseEntry(value: unknown): CommunityPlugin | null {
     !description ||
     !author ||
     typeof apiVersion !== 'number' ||
-    !(SUPPORTED_PLUGIN_API_VERSIONS as readonly number[]).includes(apiVersion) ||
+    !Number.isInteger(apiVersion) ||
+    apiVersion < 1 ||
+    apiVersion > 99 ||
+    (minAppVersion !== undefined && !boundedString(minAppVersion, 64)) ||
     !permissions ||
     !allowedHosts ||
     allowedHosts.some((host) => !isValidAllowedHost(host)) ||
@@ -110,6 +120,7 @@ function parseEntry(value: unknown): CommunityPlugin | null {
     description,
     author,
     apiVersion,
+    ...(typeof minAppVersion === 'string' ? { minAppVersion } : {}),
     permissions,
     allowedHosts,
     files: {
@@ -150,6 +161,24 @@ export function communityPluginFileUrl(
   file: 'manifest.json' | 'plugin.js'
 ): string {
   return `${COMMUNITY_PLUGIN_RAW_BASE}/${plugin.id}/${file}`;
+}
+
+export function communityPluginSourceUrl(plugin: CommunityPlugin): string {
+  return `${COMMUNITY_PLUGIN_SOURCE_BASE}/${plugin.id}`;
+}
+
+/** Why this app can't run a listed plugin, or `null` when it can. */
+export function communityIncompatibility(
+  plugin: CommunityPlugin,
+  appVersion: string
+): string | null {
+  if (plugin.minAppVersion && isNewerVersion(plugin.minAppVersion, appVersion)) {
+    return `Needs Moldavite ${plugin.minAppVersion} or later`;
+  }
+  if (!(SUPPORTED_PLUGIN_API_VERSIONS as readonly number[]).includes(plugin.apiVersion)) {
+    return 'Needs a newer version of Moldavite';
+  }
+  return null;
 }
 
 export function communityInstallState(

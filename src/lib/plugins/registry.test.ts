@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import type { PluginInfo } from './types';
 import {
   COMMUNITY_PLUGIN_RAW_BASE,
+  communityIncompatibility,
   communityInstallState,
   communityPluginFileUrl,
+  communityPluginSourceUrl,
   parseCommunityRegistry,
   type CommunityPlugin,
 } from './registry';
@@ -72,6 +74,41 @@ describe('parseCommunityRegistry', () => {
     const plugin = parseOne({ path: 'plugins/safe-plugin/' });
     expect(communityPluginFileUrl(plugin, 'plugin.js')).toBe(
       `${COMMUNITY_PLUGIN_RAW_BASE}/safe-plugin/plugin.js`
+    );
+  });
+});
+
+describe('directory entries this app cannot run', () => {
+  it('keeps an entry for a future API version so it can say what is needed', () => {
+    const plugin = parseOne({ apiVersion: 3 });
+    expect(communityIncompatibility(plugin, '2.10.0')).toBe('Needs a newer version of Moldavite');
+  });
+
+  it('reads minAppVersion and compares it with this app', () => {
+    const plugin = parseOne({ minAppVersion: '2.11.0' });
+    expect(plugin.minAppVersion).toBe('2.11.0');
+    expect(communityIncompatibility(plugin, '2.10.0')).toBe('Needs Moldavite 2.11.0 or later');
+    expect(communityIncompatibility(plugin, '2.11.0')).toBeNull();
+    expect(communityIncompatibility(parseOne(), '1.0.0')).toBeNull();
+  });
+
+  it('still rejects API versions and minimum versions that are not sane', () => {
+    const parsed = parseCommunityRegistry({
+      registryVersion: 1,
+      plugins: [
+        entry({ apiVersion: 0 }),
+        entry({ apiVersion: 2.5 }),
+        entry({ apiVersion: 1000 }),
+        entry({ minAppVersion: 7 }),
+        entry({ minAppVersion: 'x'.repeat(65) }),
+      ],
+    });
+    expect(parsed.rejectedEntries).toBe(5);
+  });
+
+  it('links to the reviewed source in the pinned repository', () => {
+    expect(communityPluginSourceUrl(parseOne())).toBe(
+      'https://github.com/mauropereiira/moldavite-plugins/tree/main/plugins/safe-plugin'
     );
   });
 });

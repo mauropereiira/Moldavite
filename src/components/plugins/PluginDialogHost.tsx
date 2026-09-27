@@ -8,6 +8,21 @@ import {
   subscribePluginDialogs,
 } from '@/lib/plugins/dialogs';
 import type { PluginPromptOptions } from '@/lib/plugins/types';
+import { unloadPlugin } from '@/lib/plugins/host';
+import { usePluginStore } from '@/stores/pluginStore';
+import { useToastStore } from '@/stores/toastStore';
+
+/**
+ * Always in reach of the user, because a plugin that reopens its prompt every
+ * time it is dismissed would otherwise hold the window hostage.
+ */
+function turnOffPlugin(pluginId: string, pluginName: string): void {
+  usePluginStore.getState().disable(pluginId);
+  unloadPlugin(pluginId);
+  useToastStore
+    .getState()
+    .addToast('success', `Turned off ${pluginName}. Turn it back on in Settings → Plugins.`);
+}
 
 function PromptForm({ options, onCancel }: { options: PluginPromptOptions; onCancel: () => void }) {
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -138,14 +153,24 @@ export function PluginDialogHost() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={cancel}
-            className="p-1 focus-ring"
-            aria-label="Cancel plugin request"
-          >
-            <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => turnOffPlugin(request.pluginId, request.pluginName)}
+              className="text-xs hover:underline focus-ring"
+              style={{ color: 'var(--text-tertiary)', borderRadius: 'var(--radius-sm)' }}
+            >
+              Turn off plugin
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              className="p-1 focus-ring"
+              aria-label="Cancel plugin request"
+            >
+              <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+            </button>
+          </div>
         </div>
 
         {request.kind === 'host-access' ? (

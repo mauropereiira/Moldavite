@@ -5,7 +5,7 @@ export const PLUGIN_PERMISSION_LABELS: Record<string, string> = {
   ui: 'Show notifications and trusted prompts',
   'notes.read': 'List notes and read unlocked Markdown content',
   'net.fetch': 'Make HTTPS requests through Moldavite',
-  secrets: 'Store plugin-owned credentials in macOS Keychain',
+  secrets: "Store the plugin's own credentials in your system's password store",
 };
 
 /** The single source of truth for what a manifest may declare. */
