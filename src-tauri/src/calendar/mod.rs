@@ -706,9 +706,13 @@ mod tests {
     fn swift_gates_full_access_on_both_platforms() {
         let source = include_str!("../../src-swift/Sources/EventKitBridge/EventKitBridge.swift");
 
-        assert!(source.contains(
-            "#available(macOS 14.0, iOS 17.0, *) {\n        eventStore.requestFullAccessToEvents"
-        ));
+        let gated = source
+            .split("#available(macOS 14.0, iOS 17.0, *) {")
+            .nth(1)
+            .unwrap_or_default();
+        assert!(gated
+            .trim_start()
+            .starts_with("eventStore.requestFullAccessToEvents"));
         assert!(!source.contains("#available(macOS 14.0, *)"));
     }
 
