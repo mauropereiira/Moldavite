@@ -11,6 +11,7 @@ import { isMobilePlatform } from '@/lib/platform';
 
 import { safeInvoke } from '@/lib/ipc';
 import { getVersion } from '@tauri-apps/api/app';
+import { isNewerVersion } from '@/lib/changelog';
 import {
   MAX_COMMAND_ID_LENGTH,
   MAX_COMMAND_LABEL_LENGTH,
@@ -32,6 +33,13 @@ import type {
 } from './rpc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import {
+  PLUGINS_RUNNING,
+  toSafeModeStatus,
+  usePluginSafeModeStore,
+  type SafeModeStatus,
+} from '@/stores/pluginSafeModeStore';
+import { whenMainThreadSettles } from './settle';
 import PluginWorker from './pluginWorker.ts?worker';
 import { cancelPluginDialog } from './dialogs';
 
@@ -45,7 +53,7 @@ interface RawPlugin {
 }
 
 /** Classify one raw backend record; only validated manifests become loadable. */
-function classify(raw: RawPlugin): PluginInfo {
+function classify(raw: RawPlugin, appVersion: string): PluginInfo {
   const contentHash = raw.contentHash ?? undefined;
   if (
     raw.readError ||
@@ -71,11 +79,21 @@ function classify(raw: RawPlugin): PluginInfo {
       contentHash,
     };
   }
+  const needs = v.manifest.minAppVersion;
+  if (needs && isNewerVersion(needs, appVersion)) {
+    return {
+      manifest: v.manifest,
+      status: 'incompatible',
+      reason: `Needs Moldavite ${needs} or later`,
+      contentHash,
+    };
+  }
   return { manifest: v.manifest, status: 'ok', contentHash };
 }
 
 interface PluginRuntime {
   worker: Worker;
+  contentHash: string | undefined;
   permissions: readonly string[];
   manifestHosts: readonly string[];
   pluginName: string;
@@ -93,8 +111,10 @@ interface PluginRuntime {
 }
 
 const runtimes = new Map<string, PluginRuntime>();
-/** Only the newest `loadEnabledPlugins` call may start workers; an older one still returns its list. */
-let loadGeneration = 0;
+/** Only the newest snapshot may start or stop workers; an older one still returns its list. */
+let applyGeneration = 0;
+/** Only the newest launch-time start may report that plugins settled. */
+let startupGeneration = 0;
 const INVOCATION_TIMEOUT_MS = 30_000;
 
 function terminateRuntime(pluginId: string, reason = 'plugin was unloaded') {
@@ -234,12 +254,13 @@ async function handleWorkerMessage(pluginId: string, event: MessageEvent<WorkerT
   }
 }
 
-async function loadOne(info: PluginInfo, code: string): Promise<void> {
+function loadOne(info: PluginInfo, code: string): void {
   const { id, permissions = [], allowedHosts = [] } = info.manifest;
 
   const worker = new PluginWorker();
   const rt: PluginRuntime = {
     worker,
+    contentHash: info.contentHash,
     permissions,
     manifestHosts: allowedHosts,
     pluginName: info.manifest.name,
@@ -276,28 +297,13 @@ async function loadOne(info: PluginInfo, code: string): Promise<void> {
   worker.postMessage(init);
 }
 
-/**
- * Scan the active Forge's plugins, (re)load every enabled + granted +
- * compatible one in an isolated Worker sandbox, and return the full
- * classified list for the Settings UI. Clears previously-registered commands
- * and terminates every prior worker first so it is safe to call on
- * enable/disable/refresh.
- */
-export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
-  // Synced Forge folders may contain desktop plugins. Never execute them on iOS.
-  if (isMobilePlatform()) return [];
-  const generation = ++loadGeneration;
-  const isCurrent = () => generation === loadGeneration;
+interface SnapshotEntry {
+  info: PluginInfo;
+  code: string | null;
+}
+
+async function snapshot(): Promise<SnapshotEntry[]> {
   setPluginAppVersion(await getVersion().catch(() => '0.0.0'));
-
-  if (isCurrent()) {
-    // Tear down any running workers before reloading.
-    for (const id of Array.from(runtimes.keys())) {
-      terminateRuntime(id);
-    }
-    usePluginCommandStore.getState().clear();
-  }
-
   let raw: RawPlugin[];
   try {
     raw = (await safeInvoke<RawPlugin[]>('list_plugins')) ?? [];
@@ -305,21 +311,111 @@ export async function loadEnabledPlugins(): Promise<PluginInfo[]> {
     console.error('[plugins] list_plugins failed:', err);
     return [];
   }
+  const appVersion = getPluginAppVersion();
+  return raw.map((record) => ({ info: classify(record, appVersion), code: record.code }));
+}
 
-  const classified = raw.map((record) => ({ info: classify(record), code: record.code }));
-  const infos = classified.map(({ info }) => info);
+function runnable(entries: SnapshotEntry[]): Map<string, { info: PluginInfo; code: string }> {
   const store = usePluginStore.getState();
-  for (const { info, code } of classified) {
-    if (!isCurrent()) break;
-    if (info.status !== 'ok') continue;
+  const wanted = new Map<string, { info: PluginInfo; code: string }>();
+  if (usePluginSafeModeStore.getState().status.active) return wanted;
+  for (const { info, code } of entries) {
+    const { id, version } = info.manifest;
     if (
+      info.status === 'ok' &&
       typeof code === 'string' &&
-      store.isEnabledAndGranted(info.manifest.id, info.manifest.version, info.contentHash)
+      store.isEnabledAndGranted(id, version, info.contentHash)
     ) {
-      await loadOne(info, code);
+      wanted.set(id, { info, code });
     }
   }
-  return infos;
+  return wanted;
+}
+
+/**
+ * Start what should run and stop what should not, leaving every other worker
+ * alone: a plugin keeps running while another one is toggled, and one whose
+ * code changed on disk is stopped because its grant no longer matches.
+ */
+function apply(entries: SnapshotEntry[]): void {
+  const wanted = runnable(entries);
+  for (const [id, rt] of Array.from(runtimes)) {
+    if (wanted.get(id)?.info.contentHash !== rt.contentHash) terminateRuntime(id);
+  }
+  for (const [id, { info, code }] of wanted) {
+    if (!runtimes.has(id)) loadOne(info, code);
+  }
+}
+
+/** The active Forge's plugins, classified for display. Starts and stops nothing. */
+export async function listPlugins(): Promise<PluginInfo[]> {
+  // Synced Forge folders may contain desktop plugins. Never execute them on iOS.
+  if (isMobilePlatform()) return [];
+  return (await snapshot()).map(({ info }) => info);
+}
+
+/** Bring running workers in line with what is installed, enabled and granted. */
+export async function reconcilePlugins(): Promise<PluginInfo[]> {
+  if (isMobilePlatform()) return [];
+  const generation = ++applyGeneration;
+  const entries = await snapshot();
+  if (generation === applyGeneration) apply(entries);
+  return entries.map(({ info }) => info);
+}
+
+async function reportSafeMode(
+  command: string,
+  args: Record<string, unknown>
+): Promise<SafeModeStatus> {
+  const status = toSafeModeStatus(await safeInvoke<unknown>(command, args));
+  usePluginSafeModeStore.getState().setStatus(status);
+  return status;
+}
+
+/**
+ * Start plugins for a freshly loaded window. Rust records which plugins are
+ * starting before any worker exists and forgets it once the window has kept
+ * time for a few seconds; if this launch dies or freezes first, the next one
+ * starts without plugins.
+ */
+export async function startPluginsAtLaunch(): Promise<SafeModeStatus> {
+  if (isMobilePlatform()) return PLUGINS_RUNNING;
+  const launch = ++startupGeneration;
+  const generation = ++applyGeneration;
+  const entries = await snapshot();
+  const starting = Array.from(runnable(entries).keys());
+  let status: SafeModeStatus;
+  try {
+    status = await reportSafeMode('begin_plugin_startup', { pluginIds: starting });
+  } catch (err) {
+    // Without the marker a crash here goes unnoticed next launch, but the
+    // plugins themselves are fine to run.
+    console.error('[plugins] could not record the plugin start:', err);
+    status = usePluginSafeModeStore.getState().status;
+  }
+  if (generation === applyGeneration) apply(entries);
+  if (!status.active && starting.length > 0) {
+    void whenMainThreadSettles().then(() => {
+      if (launch !== startupGeneration) return;
+      return safeInvoke('finish_plugin_startup').catch((err: unknown) =>
+        console.error('[plugins] could not record that plugins started:', err)
+      );
+    });
+  }
+  return status;
+}
+
+/** Stop every plugin for the rest of this session, or start them again. */
+export async function setPluginsPaused(paused: boolean): Promise<SafeModeStatus> {
+  if (isMobilePlatform()) return PLUGINS_RUNNING;
+  const status = await reportSafeMode('set_plugin_safe_mode', { active: paused });
+  if (status.active) {
+    ++startupGeneration;
+    ++applyGeneration;
+    for (const id of Array.from(runtimes.keys())) terminateRuntime(id);
+    return status;
+  }
+  return startPluginsAtLaunch();
 }
 
 /** Terminate a plugin's worker and drop its commands (on disable/uninstall). */

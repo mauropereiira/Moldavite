@@ -60,13 +60,17 @@ export function routePluginInstallRequest(value: unknown): boolean {
     return false;
   }
 
+  openPluginSettings();
+  usePluginInstallStore.getState().request(value);
+  return true;
+}
+
+export function openPluginSettings(): void {
   useTimelineStore.getState().close();
   useGraphStore.getState().close();
   const settings = useSettingsStore.getState();
   settings.setActiveSettingsTab('plugins');
   settings.setIsSettingsOpen(true);
-  usePluginInstallStore.getState().request(value);
-  return true;
 }
 
 function isSafeNoteReference(value: unknown): value is string {

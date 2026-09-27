@@ -7,6 +7,7 @@ import { safeInvoke } from '@/lib/ipc';
 import { usePluginStore } from '@/stores/pluginStore';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
 import { useToastStore } from '@/stores/toastStore';
+import { PLUGINS_RUNNING, usePluginSafeModeStore } from '@/stores/pluginSafeModeStore';
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
@@ -40,9 +41,32 @@ const workerHarness = vi.hoisted(() => {
 vi.mock('./pluginWorker.ts?worker', () => ({ default: workerHarness.MockWorker }));
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('1.6.0') }));
 
-import { loadEnabledPlugins, unloadPlugin } from './host';
+import {
+  listPlugins,
+  reconcilePlugins,
+  setPluginsPaused,
+  startPluginsAtLaunch,
+  unloadPlugin,
+} from './host';
 
 const mockInvoke = vi.mocked(safeInvoke);
+let installed: unknown[] = [];
+let safeModeReply: unknown = PLUGINS_RUNNING;
+
+function routeInvoke(command: string, args?: unknown): Promise<unknown> {
+  if (command === 'list_plugins') return Promise.resolve(installed);
+  if (command === 'begin_plugin_startup' || command === 'plugin_safe_mode_status') {
+    return Promise.resolve(safeModeReply);
+  }
+  if (command === 'set_plugin_safe_mode') {
+    const active = (args as { active: boolean }).active;
+    return Promise.resolve(
+      active ? { active, reason: 'userRequest', pluginIds: [] } : PLUGINS_RUNNING
+    );
+  }
+  return Promise.resolve(undefined);
+}
+
 const plugin = {
   id: 'crashy',
   manifestRaw: {
@@ -60,7 +84,7 @@ const plugin = {
 type LoadedWorker = InstanceType<typeof workerHarness.MockWorker>;
 
 async function loadWorker(): Promise<LoadedWorker> {
-  await loadEnabledPlugins();
+  await reconcilePlugins();
   const worker = workerHarness.MockWorker.instances[workerHarness.MockWorker.instances.length - 1];
   if (!worker) throw new Error('plugin worker was not created');
   return worker;
@@ -85,7 +109,10 @@ function useGrantedPluginHarness() {
     usePluginCommandStore.getState().clear();
     usePluginStore.setState({ grants: {} });
     usePluginStore.getState().grant('crashy', '1.0.0', 'hash');
-    mockInvoke.mockResolvedValue([plugin]);
+    usePluginSafeModeStore.setState({ status: PLUGINS_RUNNING });
+    installed = [plugin];
+    safeModeReply = PLUGINS_RUNNING;
+    mockInvoke.mockImplementation(routeInvoke as typeof safeInvoke);
     vi.stubGlobal('fetch', vi.fn());
   });
 
@@ -101,7 +128,9 @@ describe('plugin source loading', () => {
 
   it('never reads or executes plugins from a mobile Forge, even with desktop consent', async () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
-    expect(await loadEnabledPlugins()).toEqual([]);
+    expect(await reconcilePlugins()).toEqual([]);
+    expect(await listPlugins()).toEqual([]);
+    expect(await startPluginsAtLaunch()).toEqual(PLUGINS_RUNNING);
     expect(mockInvoke).not.toHaveBeenCalled();
     expect(workerHarness.MockWorker.instances).toHaveLength(0);
   });
@@ -171,9 +200,9 @@ describe('untrusted message shapes', () => {
   });
 
   it('rejects a call whose args are not an array instead of indexing into them', async () => {
-    mockInvoke.mockResolvedValue([
+    installed = [
       { ...plugin, manifestRaw: { ...plugin.manifestRaw, permissions: ['commands', 'ui'] } },
-    ]);
+    ];
     const worker = await loadWorker();
     useToastStore.setState({ toasts: [] });
     worker.postMessage.mockClear();
@@ -213,9 +242,7 @@ describe('untrusted commandRegistered messages', () => {
   });
 
   it('drops a registration when the manifest omitted the commands permission', async () => {
-    mockInvoke.mockResolvedValue([
-      { ...plugin, manifestRaw: { ...plugin.manifestRaw, permissions: [] } },
-    ]);
+    installed = [{ ...plugin, manifestRaw: { ...plugin.manifestRaw, permissions: [] } }];
     const worker = await loadWorker();
     postFromWorker(worker, {
       kind: 'commandRegistered',
@@ -267,12 +294,103 @@ describe('overlapping plugin reloads', () => {
   useGrantedPluginHarness();
 
   it('leaves no orphaned worker running when two reloads overlap', async () => {
-    await Promise.all([loadEnabledPlugins(), loadEnabledPlugins()]);
+    await Promise.all([reconcilePlugins(), reconcilePlugins()]);
 
     unloadPlugin('crashy');
     for (const worker of workerHarness.MockWorker.instances) {
       expect(worker.terminate).toHaveBeenCalled();
     }
     expect(workerHarness.MockWorker.instances).toHaveLength(1);
+  });
+});
+
+describe('reconciling running plugins', () => {
+  useGrantedPluginHarness();
+
+  it('lists plugins without starting or stopping anything', async () => {
+    const infos = await listPlugins();
+    expect(infos.map((info) => info.status)).toEqual(['ok']);
+    expect(workerHarness.MockWorker.instances).toHaveLength(0);
+  });
+
+  it('leaves an unchanged plugin running when another reconcile happens', async () => {
+    const worker = await loadWorker();
+    await reconcilePlugins();
+    expect(worker.terminate).not.toHaveBeenCalled();
+    expect(workerHarness.MockWorker.instances).toHaveLength(1);
+  });
+
+  it('stops a plugin whose files changed since the grant', async () => {
+    const worker = await loadWorker();
+    installed = [{ ...plugin, contentHash: 'edited' }];
+    await reconcilePlugins();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    expect(workerHarness.MockWorker.instances).toHaveLength(1);
+  });
+
+  it('stops a plugin that was uninstalled or disabled', async () => {
+    const worker = await loadWorker();
+    usePluginStore.getState().disable('crashy');
+    await reconcilePlugins();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it('does not run a plugin that needs a newer Moldavite', async () => {
+    installed = [{ ...plugin, manifestRaw: { ...plugin.manifestRaw, minAppVersion: '99.0.0' } }];
+    const [info] = await reconcilePlugins();
+    expect(info).toMatchObject({
+      status: 'incompatible',
+      reason: 'Needs Moldavite 99.0.0 or later',
+    });
+    expect(workerHarness.MockWorker.instances).toHaveLength(0);
+  });
+});
+
+describe('starting without plugins', () => {
+  useGrantedPluginHarness();
+
+  it('records what is starting before any worker exists, then reports it settled', async () => {
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    await startPluginsAtLaunch();
+    expect(mockInvoke).toHaveBeenCalledWith('begin_plugin_startup', { pluginIds: ['crashy'] });
+    expect(workerHarness.MockWorker.instances).toHaveLength(1);
+    expect(mockInvoke).not.toHaveBeenCalledWith('finish_plugin_startup');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockInvoke).toHaveBeenCalledWith('finish_plugin_startup');
+  });
+
+  it('starts nothing when Rust says this launch is in safe mode', async () => {
+    safeModeReply = { active: true, reason: 'unfinishedStart', pluginIds: ['crashy'] };
+    const status = await startPluginsAtLaunch();
+    expect(status).toEqual(safeModeReply);
+    expect(usePluginSafeModeStore.getState().status).toEqual(safeModeReply);
+    expect(workerHarness.MockWorker.instances).toHaveLength(0);
+
+    await reconcilePlugins();
+    expect(workerHarness.MockWorker.instances).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(mockInvoke).not.toHaveBeenCalledWith('finish_plugin_startup');
+  });
+
+  it('never arms the marker when no plugin is enabled', async () => {
+    usePluginStore.setState({ grants: {} });
+    await startPluginsAtLaunch();
+    expect(mockInvoke).toHaveBeenCalledWith('begin_plugin_startup', { pluginIds: [] });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(mockInvoke).not.toHaveBeenCalledWith('finish_plugin_startup');
+  });
+
+  it('stops every plugin on request and starts them again when resumed', async () => {
+    const worker = await loadWorker();
+    const paused = await setPluginsPaused(true);
+    expect(paused).toMatchObject({ active: true, reason: 'userRequest' });
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    expect(usePluginCommandStore.getState().commands).toEqual([]);
+
+    await setPluginsPaused(false);
+    expect(mockInvoke).toHaveBeenCalledWith('set_plugin_safe_mode', { active: false });
+    expect(mockInvoke).toHaveBeenCalledWith('begin_plugin_startup', { pluginIds: ['crashy'] });
+    expect(workerHarness.MockWorker.instances).toHaveLength(2);
   });
 });
