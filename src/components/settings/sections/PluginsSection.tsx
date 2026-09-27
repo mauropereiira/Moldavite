@@ -260,7 +260,7 @@ export function PluginsSection() {
     setBusy(true);
     try {
       await safeInvoke(command);
-      await afterInstall(id, `${name} installed — enable it below`);
+      await afterInstall(id, `${name} installed. Turn it on below when you're ready.`);
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
     } finally {
@@ -380,7 +380,7 @@ export function PluginsSection() {
       });
       await afterInstall(
         plugin.id,
-        `${plugin.name} ${confirmUpdate ? 'updated' : 'installed'} — enable it below`
+        `${plugin.name} ${confirmUpdate ? 'updated' : 'installed'}. Turn it on below when you're ready.`
       );
     } catch (error) {
       const message =
@@ -434,7 +434,7 @@ export function PluginsSection() {
       await installImportCandidate(pending.candidate, !!pending.installed);
       await afterInstall(
         manifest.id,
-        `${manifest.name} ${pending.installed ? 'replaced' : 'installed'} — enable it below`
+        `${manifest.name} ${pending.installed ? 'replaced' : 'installed'}. Turn it on below when you're ready.`
       );
     } catch (e) {
       addToast('error', e instanceof Error ? e.message : 'Install failed');
