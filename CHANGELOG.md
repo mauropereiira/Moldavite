@@ -4,8 +4,22 @@ All notable changes to Moldavite are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Install a plugin from a file.** Settings → Plugins has **Install from .zip…** and **Install from folder…** for a plugin you made or downloaded. Moldavite checks it first with the same rules as every installed plugin, shows what it can do and which sites it can send data to, warns that it did not come from the reviewed directory, and installs it turned off.
+- **Safe mode for plugins.** If Moldavite crashes, freezes or is quit while plugins are starting, the next launch starts with plugins off and names the ones that were starting, so a bad plugin can no longer keep Moldavite from opening. You can also start without plugins on purpose with `--safe-mode`, stop every plugin from Settings → Plugins, or turn a plugin off from any dialog it opens. The plugin guide has the exact steps for Mac, Windows and Linux.
+
+### Changed
+
+- Every plugin install now asks first, including from the community list, and an update shows which permissions and sites are new and which are no longer asked for.
+- The community list can be searched and links to each plugin's source and a report form. A plugin that needs a newer Moldavite says so instead of disappearing from the list, and one whose files changed since you approved it shows **Needs review**.
+- Turning one plugin on or off, or opening Settings → Plugins, no longer restarts every other plugin.
+- A plugin's minimum Moldavite version is now enforced instead of being informational.
+
 ### Fixed
 
+- **Publish to WordPress** installed from the community directory registered no commands, because its listing was missing a permission the app requires. The listing is fixed as version 1.0.1, which matches the copy bundled with Moldavite.
+- The permission for a plugin's stored credentials no longer says macOS Keychain on Windows and Linux.
 - Confirmation dialogs opened from Settings, such as "Allow agents to write notes?", no longer show up cut off at the top when the Settings page is scrolled.
 
 ## [2.9.0] - 2026-09-27

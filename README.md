@@ -139,7 +139,9 @@ Markdown tables you edit in place, daily and weekly notes, Apple and Google Cale
 iPhone and iPad; Google everywhere), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
 an encrypted archive, a one-time Obsidian importer that copies rather than
 moves, and sandboxed plugins that run in a Worker with no network unless you
-grant it.
+grant it. Plugins come from a community directory the maintainer reviews, or
+from a file you pick, and a safe mode starts Moldavite without them if one
+misbehaves.
 
 Keyword search answers from a local SQLite index kept outside the Forge, so it
 stays instant as a Forge grows. Local semantic search is opt-in, downloads its

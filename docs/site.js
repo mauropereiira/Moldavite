@@ -1432,6 +1432,21 @@
     return card;
   }
 
+  function isMobileInstallOs() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+    return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  }
+
+  function replaceMobileInstallLinks(root) {
+    if (!isMobileInstallOs()) return;
+    root.querySelectorAll('.directory-install-button').forEach(function (link) {
+      var note = document.createElement('span');
+      note.textContent = 'Install from Moldavite on a Mac, Windows or Linux computer.';
+      link.replaceWith(note);
+    });
+  }
+
   function loadPluginDirectory() {
     var directory = document.querySelector('[data-plugin-directory]');
     if (!directory) return;
@@ -1442,6 +1457,8 @@
     var empty = document.querySelector('[data-plugin-empty]');
     var registryUrl =
       'https://raw.githubusercontent.com/mauropereiira/moldavite-plugins/main/registry.json';
+
+    replaceMobileInstallLinks(directory);
 
     function filterDirectory() {
       var query = search ? search.value.trim().toLowerCase() : '';
@@ -1492,6 +1509,7 @@
           fragment.appendChild(pluginCard(plugin));
         });
         directory.replaceChildren(fragment);
+        replaceMobileInstallLinks(directory);
         if (status) {
           status.textContent =
             'Live directory · ' + plugins.length + (plugins.length === 1 ? ' plugin' : ' plugins');

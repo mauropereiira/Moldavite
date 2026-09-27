@@ -130,7 +130,10 @@ Follow the documentation-maintenance rules:
 - Feature changes need corresponding updates in `README.md` and
   `docs/PROJECT_STATUS.md`.
 - Plugin API or permission changes must update both `docs/PLUGINS.md` and
-  `docs/plugins.html`.
+  `docs/plugins.html`, and the community directory's `docs/api.md` and
+  `scripts/lib/rules.mjs` in
+  [moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins) in the
+  same release.
 - Website claims must stay aligned with shipped behavior.
 
 Before opening a pull request, ask whether any documentation now describes behavior

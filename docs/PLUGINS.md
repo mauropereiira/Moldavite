@@ -33,28 +33,61 @@ the OS credential store, and show notifications.
 > approved service. Only enable plugins you trust, and request the narrowest
 > permissions your plugin needs.
 
-## Installing from the directory
+## Installing plugins
 
-The [website directory](https://mauropereiira.github.io/Moldavite/plugins.html#directory) can be
-searched by name, description, author, and permission. Each listed plugin has an
-**Install in Moldavite** link using the exact shape
-`moldavite://plugin/<plugin-id>`. Clicking it opens **Settings → Plugins**, explicitly fetches the
-community registry, highlights the requested entry, and shows an install confirmation with its
-permissions and allowed hosts.
+Every plugin in the community directory lives in the public
+[moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins) repository and is listed only
+after the Moldavite maintainer reviews and approves it. There are three ways to install one, and all
+of them stop at the same confirmation, which names the plugin, what it can do, and every site it can
+send data to. Installing never turns a plugin on.
 
-The link never carries file URLs or plugin code, and other `moldavite://` shapes are ignored. The
-id must pass Moldavite's normal plugin-id validation and must exist in the fetched registry. The
-normal security flow is unchanged: Rust verifies both registry hashes before the atomic install,
-installation leaves the plugin disabled, and the user must separately enable it and grant the
-content-hash-pinned permissions. Browsing directly from **Settings → Plugins** and manual folder
-installation remain available.
+- **Settings → Plugins → Browse community plugins.** Moldavite fetches the directory only when you
+  click it. Each entry links to its source code and to a report form.
+- **The website directory.** The [website directory](https://mauropereiira.github.io/Moldavite/plugins.html#directory)
+  can be searched by name, description, author, and permission. Each **Install in Moldavite** link has
+  the exact shape `moldavite://plugin/<plugin-id>`: it opens **Settings → Plugins**, fetches the
+  directory, highlights the entry, and shows the confirmation. The link never carries file URLs or
+  plugin code, other `moldavite://` shapes are ignored, and the id must exist in the fetched
+  registry.
+- **Install from .zip… or Install from folder…** for a plugin you made or downloaded. See
+  [Installing from a file](#installing-from-a-file).
+
+Rust verifies both registry hashes before the atomic install. An update shows which permissions and
+hosts are new and which are no longer asked for, and changed code always needs fresh approval
+before it runs. A directory entry that needs a newer Moldavite stays listed with the reason instead
+of an Install button.
+
+## Installing from a file
+
+A plugin package is a folder holding `manifest.json` and `plugin.js`, or a `.zip` of that folder.
+The two files can sit at the top of the package or inside one folder in it, which is what unzipping
+a download usually leaves. A `README.md` is recommended for people reading the package; Moldavite
+installs only the two files it runs and ignores everything else.
+
+Before anything is written, Moldavite checks the package:
+
+- `manifest.json` must pass the same validation as an installed plugin, including a supported
+  `apiVersion` and `minAppVersion`.
+- `manifest.json` may be up to 1 MB and `plugin.js` up to 10 MB, both UTF-8. A `.zip` may be up to
+  32 MB with at most 2,000 entries.
+- Links (symlinks) are refused rather than followed, and a package holding more than one plugin is
+  refused.
+
+The confirmation warns that the plugin did not come from the reviewed directory and shows the
+SHA-256 of `plugin.js`, so you can compare it with what the author published. The plugin is
+installed turned off, into `.plugins/<id>/` of the active Forge. If a plugin with the same id is
+already installed, the confirmation says so and replaces it only when you choose **Update** or
+**Replace**; the old approval stops applying because the files changed.
+
+Copying a folder into `<Forge>/.plugins/` by hand still works for development: reopen
+**Settings → Plugins** and it appears.
 
 ## Quick start
 
-Create this layout in the active Forge:
+Make a folder named after your plugin id:
 
 ```text
-<Forge>/.plugins/my-plugin/
+my-plugin/
 ├── manifest.json
 ├── plugin.js
 └── README.md          # optional, recommended for distribution
@@ -62,10 +95,16 @@ Create this layout in the active Forge:
 
 1. Make the folder name match the manifest `id`.
 2. Add a v2 manifest and a default `register(api)` export.
-3. Open or reopen **Settings → Plugins**.
+3. In **Settings → Plugins**, choose **Install from folder…** and pick the folder. (Copying it into
+   `<Forge>/.plugins/` and reopening Settings works too.)
 4. Enable the plugin and review the permission sheet.
 5. Run its commands through the command palette (⌘/Ctrl+P) or editor slash
    menu.
+
+After you edit the files, install the folder again (or reopen Settings if you copied it in): the
+changed files need your approval again before the plugin runs. The
+[moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins) repository has a starter
+template and a validator you can run before sharing a plugin.
 
 There is no required package manager or build step. A dependency-free
 `plugin.js` works as written. If you bundle dependencies, distribute the final
@@ -104,8 +143,8 @@ self-contained ES module because Moldavite loads only this one entry file.
 | `apiVersion`    |              yes | Use `2` for this API. Versions 1 and 2 are supported.                                                                                                                                                                     |
 | `author`        |               no | Display metadata.                                                                                                                                                                                                         |
 | `description`   |               no | Display metadata. Explain what the plugin does and where data may go.                                                                                                                                                     |
-| `minAppVersion` |               no | Informational metadata in v1.6; it is not currently semver-enforced. Do not use it as a runtime guard.                                                                                                                    |
-| `permissions`   |               no | Supported capability strings from the permission table below. Commands are always available.                                                                                                                              |
+| `minAppVersion` |               no | The oldest Moldavite version the plugin works with, such as `2.10.0`. Older versions show it as incompatible, do not run it, and refuse to install it from a file.                                                          |
+| `permissions`   |               no | Supported capability strings from the permission table below. Registering commands needs `commands`.                                                                                                                      |
 | `allowedHosts`  | with `net.fetch` | Non-empty, unique array of exact lowercase public DNS hostnames. No scheme, port, path, IP, single-label name, localhost label, or wildcard.                                                                              |
 | `commands`      |               no | Up to 50 `{ "id", "label" }` entries shown before the plugin is enabled. Each id must match the id registered through `api.commands.add`; ids are limited to 128 characters and labels to 200. Duplicate ids are invalid. |
 | `instructions`  |               no | Ordered setup/use steps shown in the post-install **About this plugin** dialog. Up to 20 strings, 500 characters each. Inline `**bold**` and `` `code` `` are rendered; other text remains literal.                       |
@@ -160,7 +199,7 @@ settles is rejected by the host after 30 seconds.
 interface PluginAPI {
   app: { version: string; apiVersion: 2 };
 
-  // Always available.
+  // Requires "commands".
   commands: {
     add(command: { id: string; label: string; handler: () => void | Promise<void> }): void;
   };
@@ -179,7 +218,7 @@ interface PluginAPI {
     // Requires "ui".
     toast(message: string, kind?: 'info' | 'success' | 'error'): Promise<void>;
 
-    // API v2, always available and user-mediated.
+    // Requires "ui". API v2 only.
     prompt(options: {
       title: string;
       message?: string;
@@ -246,8 +285,8 @@ The API version selected by this manifest.
 
 #### `api.commands.add(command): void`
 
-Always available. Adds a namespaced command to the command palette and editor
-slash menu.
+Requires the `commands` permission. Adds a namespaced command to the command
+palette and editor slash menu.
 
 ```js
 if (api.app.apiVersion !== 2) throw new Error('Plugin API v2 required');
@@ -303,9 +342,9 @@ await api.ui.toast('Ready to publish', 'success');
 
 #### `ui.prompt(options): Promise<Record<string, string> | null>`
 
-Available to API v2 without a manifest permission because every prompt is a
-user-mediated, Moldavite-rendered form. Submit returns a string map keyed by
-field name. Cancel or Escape returns `null`.
+Requires the `ui` permission and API v2. Every prompt is a Moldavite-rendered
+form. Submit returns a string map keyed by field name. Cancel or Escape returns
+`null`, and so does the user turning the plugin off from the dialog.
 
 ```js
 const values = await api.ui.prompt({
@@ -332,7 +371,9 @@ if (!values) return;
 
 Moldavite permits one plugin prompt or runtime-host consent dialog at a time
 and always labels it **Request from plugin**, above the plugin's name, in
-trusted chrome above any plugin-supplied content.
+trusted chrome above any plugin-supplied content. That chrome also has a
+**Turn off plugin** button, so a plugin that reopens its prompt every time it
+is dismissed cannot trap the user.
 
 Prompt validation:
 
@@ -508,8 +549,42 @@ Runtime host consent is deliberately separate. Runtime grants:
 
 Disabling a plugin, uninstalling it, switching Forges, a worker crash, or an
 unreadable worker message terminates the worker, removes its commands, and
-rejects pending command invocations. Malformed manifests are shown as invalid
-rather than executed.
+rejects pending command invocations. Turning one plugin on or off leaves the
+others running. Malformed manifests are shown as invalid rather than executed,
+and a plugin whose files changed since you approved it shows **Needs review**
+and stays off until you approve it again.
+
+## If a plugin stops Moldavite from working
+
+Moldavite can start without running any plugin, and none of the ways to do it
+touches your notes or needs the Settings screen to work first.
+
+1. **Automatically.** Moldavite notes which plugins are starting and clears
+   that note once the window has stayed responsive for a few seconds. If it
+   crashes, freezes, or is quit before then, the next launch starts with
+   plugins off and names the plugins that were starting.
+2. **Safe mode from the command line.** If Moldavite is still running, even
+   frozen, this restarts it without plugins; otherwise it starts that way.
+   - macOS, in Terminal: `open -n -a Moldavite --args --safe-mode`
+   - Windows, in the Run box (Win+R):
+     `"%LOCALAPPDATA%\Moldavite\Moldavite.exe" --safe-mode`, or
+     `"%ProgramFiles%\Moldavite\Moldavite.exe" --safe-mode` if you installed
+     the `.msi`
+   - Linux: `moldavite --safe-mode`, or
+     `./Moldavite_<version>_amd64.AppImage --safe-mode`
+3. **From inside Moldavite.** **Settings → Plugins → Stop all plugins**, or
+   **Turn off plugin** in any dialog a plugin opens.
+
+Then open **Settings → Plugins**, turn off or uninstall the plugin you
+suspect, and choose **Turn plugins back on**. Plugins stay off until you do
+that or restart Moldavite.
+
+As a last resort you can remove a plugin without opening Moldavite: move its
+folder out of `<Forge>/.plugins/`. The `.plugins` folder is hidden; show
+hidden files with ⌘⇧. in a Finder window, **View → Show → Hidden items** in
+Windows File Explorer, or Ctrl+H in most Linux file managers. Your notes live
+in the Forge's other folders and are not affected, and approvals are stored by
+Moldavite rather than in the plugin folder.
 
 ## Worked reference: Publish to WordPress
 
@@ -538,27 +613,36 @@ client ID, and the reference plugin intentionally does not embed or fake one.
 
 ## Distributing your plugin
 
-- Distribute one folder whose name equals the manifest id and which contains
-  `manifest.json`, the final self-contained `plugin.js`, and a README.
-- To list it publicly, fork
-  [moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins), add
-  the folder under `plugins/<id>/`, add its metadata and the exact SHA-256 of
-  both distributed files to the root `registry.json`, and open a pull request.
-  Registry review is the distribution gate; keep the submitted source and
-  hashes synchronized in the same PR.
+- Share one folder whose name equals the manifest id and which contains
+  `manifest.json`, the final self-contained `plugin.js`, and a README, or a
+  `.zip` of that folder. People install it with **Install from .zip…** or
+  **Install from folder…**.
+- To list it in the community directory, open a pull request against
+  [moldavite-plugins](https://github.com/mauropereiira/moldavite-plugins). Its
+  `CONTRIBUTING.md` walks through the whole process for people, and its
+  `AGENTS.md` gives the same rules to AI coding agents. In short: copy
+  `template/` to `plugins/<id>/`, run `npm run check` (the validator and a
+  sandbox smoke test, Node 20 or later, no dependencies), run
+  `npm run registry -- <id>` to write the entry and both SHA-256 hashes into
+  `registry.json`, and open the pull request.
+- Every pull request runs two automatic checks with a read-only token and no
+  secrets. They are a baseline, not the review: nothing is published until the
+  maintainer has read the code and approved the pull request.
 - Document every external service, exact manifest host, runtime-host reason,
   credential key, destructive action, and publishing action. Keep permissions
-  minimal.
+  minimal, and submit readable source rather than minified code.
 - Users select **Settings → Plugins → Browse community plugins**, or click a
   website **Install in Moldavite** link, to fetch the directory explicitly;
   Moldavite never checks it at startup. Website links contain only the validated
   registry id and always stop at a permission-visible confirmation. The app
   constructs file URLs only inside the pinned registry repository, and Rust
   verifies the registry hashes before the shared staged/atomic installer writes
-  either file. Manual folder copies under `<Forge>/.plugins/` remain supported.
-- To update, submit the new files, hashes, metadata, and incremented `version`
-  together. Installed users see an Update action and must confirm replacement.
-  Any byte change invalidates the content-hash grant and requires fresh consent.
+  either file.
+- Versions follow semantic versioning. To update, submit the new files,
+  hashes, metadata, and a higher `version` together; the directory's checks
+  refuse a changed plugin whose version did not go up. Installed users see an
+  Update action that lists new permissions and hosts, and any byte change
+  invalidates the content-hash grant and requires fresh consent.
 - Successful community and bundled installs open **About this plugin** with the
   manifest instructions. Installation never enables a plugin; enable state and
   consent remain per Forge.
@@ -581,4 +665,7 @@ secrets.
 
 ## iOS
 
-Plugins are desktop-only. The iOS app does not execute plugins from a Forge, expose plugin installation commands, or accept plugin installation links. A Forge can retain its desktop plugin files without running them on iOS.
+Plugins run on Mac, Windows, and Linux. The iPhone and iPad app does not run them: it has no plugin
+settings, ignores plugin installation links, and never executes plugin files that reach it through a
+synced Forge, which keeps them for your computers. Apple allows JavaScript plug-ins in an app only
+under conditions Moldavite does not meet yet, including a universal link for every plugin offered.
