@@ -18,10 +18,15 @@ app that cannot exist on a phone are compiled out.
 Prerequisites on a Mac: Xcode with the iOS simulator runtime, the Rust
 targets `aarch64-apple-ios` and `aarch64-apple-ios-sim`, CocoaPods
 (`brew install cocoapods`; `tauri ios init` also installs `xcodegen` and
-`libimobiledevice` through Homebrew), and Node 20 or 22.
+`libimobiledevice` through Homebrew), the rustup `llvm-tools` component and
+Node 20 or 22. On Xcode 27, release builds make the Swift plugins' `@_cdecl`
+entry points local, and linking needs `llvm-objcopy` to export them again
+(swift-rs for each plugin's own module, `tauri-plugin-calendar/build.rs` for
+the shared SwiftRs runtime).
 
 ```bash
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+rustup component add llvm-tools
 npx tauri ios dev "iPhone 17"       # build, install and launch with hot reload
 cargo check --target aarch64-apple-ios-sim --lib   # fast compile check, from src-tauri
 ```
