@@ -5,7 +5,7 @@ let package = Package(
     name: "tauri-plugin-calendar",
     platforms: [.iOS(.v14)],
     products: [
-        .library(name: "tauri-plugin-calendar", type: .static, targets: ["CalendarPlugin"])
+        .library(name: "tauri-plugin-calendar", type: .static, targets: ["tauri-plugin-calendar"])
     ],
     dependencies: [
         .package(name: "Tauri", path: "../.tauri/tauri-api"),
@@ -13,6 +13,6 @@ let package = Package(
         .package(name: "EventKitBridge", path: "../../../src-swift")
     ],
     targets: [
-        .target(name: "CalendarPlugin", dependencies: ["Tauri", "EventKitBridge"], path: "Sources")
+        .target(name: "tauri-plugin-calendar", dependencies: ["Tauri", "EventKitBridge"], path: "Sources")
     ]
 )

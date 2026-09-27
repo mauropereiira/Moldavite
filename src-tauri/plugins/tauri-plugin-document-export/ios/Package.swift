@@ -5,8 +5,8 @@ let package = Package(
     name: "tauri-plugin-document-export",
     platforms: [.iOS(.v14)],
     products: [
-        .library(name: "tauri-plugin-document-export", type: .static, targets: ["DocumentExportPlugin"])
+        .library(name: "tauri-plugin-document-export", type: .static, targets: ["tauri-plugin-document-export"])
     ],
     dependencies: [.package(name: "Tauri", path: "../.tauri/tauri-api")],
-    targets: [.target(name: "DocumentExportPlugin", dependencies: ["Tauri"], path: "Sources")]
+    targets: [.target(name: "tauri-plugin-document-export", dependencies: ["Tauri"], path: "Sources")]
 )

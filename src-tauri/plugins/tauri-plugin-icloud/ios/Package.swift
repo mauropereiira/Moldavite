@@ -5,13 +5,13 @@ let package = Package(
     name: "tauri-plugin-icloud",
     platforms: [.iOS(.v14), .macOS(.v10_15)],
     products: [
-        .library(name: "tauri-plugin-icloud", type: .static, targets: ["ICloudPlugin"])
+        .library(name: "tauri-plugin-icloud", type: .static, targets: ["tauri-plugin-icloud"])
     ],
     dependencies: [
         .package(name: "Tauri", path: "../.tauri/tauri-api"),
         .package(name: "MoldaviteCloud", path: "Core")
     ],
     targets: [
-        .target(name: "ICloudPlugin", dependencies: ["Tauri", "MoldaviteCloud"], path: "Sources")
+        .target(name: "tauri-plugin-icloud", dependencies: ["Tauri", "MoldaviteCloud"], path: "Sources")
     ]
 )
