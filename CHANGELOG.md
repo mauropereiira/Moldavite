@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [Unreleased]
+## [2.9.1] - 2026-09-28
 
 ### Added
 
@@ -17,6 +17,8 @@ All notable changes to Moldavite are documented here.
 - A plugin's minimum Moldavite version is now enforced instead of being informational.
 
 ### Fixed
+
+- **The iPhone and iPad app opens again on iOS 27.** Version 2.9.0 closed immediately at launch on iOS 27, because apps built for iOS 27 must use Apple's newer way of managing app windows. Moldavite now does.
 
 - **Publish to WordPress** installed from the community directory registered no commands, because its listing was missing a permission the app requires. The listing is fixed as version 1.0.1, which matches the copy bundled with Moldavite.
 - The permission for a plugin's stored credentials no longer says macOS Keychain on Windows and Linux.
