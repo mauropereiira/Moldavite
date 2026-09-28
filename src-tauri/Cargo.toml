@@ -14,7 +14,7 @@ name = "moldavite_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.5.1", features = [] }
+tauri-build = { version = "2.7.0", features = [] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { version = "1.0", features = ["build"] }
@@ -23,7 +23,7 @@ swift-rs = { version = "1.0", features = ["build"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.9.2", features = ["protocol-asset"] }
+tauri = { version = "2.12.0", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 dirs = "6.0"
@@ -123,4 +123,4 @@ panic = "abort"
 # (STATUS_ENTRYPOINT_NOT_FOUND), so the scope test is Unix-only. The behaviour
 # under test is platform-independent.
 [target.'cfg(not(windows))'.dev-dependencies]
-tauri = { version = "2.9.2", features = ["protocol-asset", "test"] }
+tauri = { version = "2.12.0", features = ["protocol-asset", "test"] }
