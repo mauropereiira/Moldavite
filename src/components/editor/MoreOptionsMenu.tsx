@@ -13,6 +13,16 @@ import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 import { noteDeepLink } from '@/hooks/usePluginDeepLinks';
+import { isLooseNote } from '@/lib/looseId';
+import { addLooseToForge, revealLooseFile, saveLooseCopy } from '@/lib/looseFiles';
+import { CURRENT_PLATFORM } from '@/lib/shortcuts';
+
+const REVEAL_LABEL =
+  CURRENT_PLATFORM === 'macos'
+    ? 'Show in Finder'
+    : CURRENT_PLATFORM === 'windows'
+      ? 'Show in Explorer'
+      : 'Show in folder';
 
 const RenameNoteModal = lazy(() =>
   import('@/components/ui/RenameNoteModal').then((m) => ({ default: m.RenameNoteModal }))
@@ -43,16 +53,18 @@ export function MoreOptionsMenu({
   // of that requires `content`, so it is read fresh from the store (never
   // subscribed) and a content-only edit in the editor does not re-render
   // this menu.
-  const { currentNoteId, currentNoteIsDaily, currentNoteTitle, currentNoteDate } = useNoteStore(
-    useShallow((state) => ({
-      currentNoteId: state.currentNote?.id ?? null,
-      currentNoteIsDaily: state.currentNote?.isDaily ?? false,
-      currentNoteTitle: state.currentNote?.title ?? '',
-      currentNoteDate: state.currentNote?.date,
-    }))
-  );
+  const { currentNoteId, currentNoteIsDaily, currentNoteTitle, currentNoteDate, isLoose } =
+    useNoteStore(
+      useShallow((state) => ({
+        currentNoteId: state.currentNote?.id ?? null,
+        currentNoteIsDaily: state.currentNote?.isDaily ?? false,
+        currentNoteTitle: state.currentNote?.title ?? '',
+        currentNoteDate: state.currentNote?.date,
+        isLoose: isLooseNote(state.currentNote),
+      }))
+    );
   const notes = useNoteStore((state) => state.notes);
-  const { duplicateNote } = useNotes();
+  const { duplicateNote, loadNote, refresh } = useNotes();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -192,6 +204,44 @@ export function MoreOptionsMenu({
     }
   };
 
+  const handleReveal = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
+    if (!currentNote) return;
+    try {
+      await revealLooseFile(currentNote);
+    } catch (error) {
+      console.error('[MoreOptionsMenu] Failed to reveal the file:', error);
+      onShowToast?.('Could not show the file');
+    }
+  };
+
+  const handleAddToForge = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
+    if (!currentNote) return;
+    try {
+      const path = await addLooseToForge(currentNote);
+      await refresh();
+      const added = useNoteStore.getState().notes.find((note) => note.path === path);
+      if (added) await loadNote(added);
+      onShowToast?.('Added to the Forge');
+    } catch (error) {
+      console.error('[MoreOptionsMenu] Failed to add to the Forge:', error);
+      onShowToast?.('Could not add to the Forge');
+    }
+  };
+
+  const handleSaveCopy = async () => {
+    const currentNote = useNoteStore.getState().currentNote;
+    if (!currentNote) return;
+    try {
+      const name = await saveLooseCopy(currentNote);
+      if (name) onShowToast?.(`Saved a copy as ${name}`);
+    } catch (error) {
+      console.error('[MoreOptionsMenu] Failed to save a copy:', error);
+      onShowToast?.('Could not save a copy');
+    }
+  };
+
   const handleShowInfo = () => {
     setShowNoteInfo(true);
   };
@@ -224,15 +274,27 @@ export function MoreOptionsMenu({
           </button>
         }
       >
+        {/* A file outside the Forge has no Forge address, so nothing that
+            links, pins, duplicates, renames or deletes by one applies. */}
+        {isLoose && (
+          <>
+            {!mobile && <DropdownItem onClick={handleReveal}>{REVEAL_LABEL}</DropdownItem>}
+            <DropdownItem onClick={handleAddToForge}>Add to Forge</DropdownItem>
+            {!mobile && <DropdownItem onClick={handleSaveCopy}>Save a copy…</DropdownItem>}
+            {!mobile && <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>}
+          </>
+        )}
         {/* On the phone, pinning lives in the Index's note options and a note
             leaves the app through Share's system sheet. */}
-        {!mobile && currentNoteId && (
+        {!isLoose && !mobile && currentNoteId && (
           <DropdownItem onClick={() => togglePinned(currentNoteId)}>
             {isPinned(currentNoteId) ? 'Unpin from the top bar' : 'Pin to the top bar'}
           </DropdownItem>
         )}
-        {!mobile && <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>}
-        {!readOnly && (
+        {!isLoose && !mobile && (
+          <DropdownItem onClick={handleCopyUrl}>Copy URL to note</DropdownItem>
+        )}
+        {!isLoose && !readOnly && (
           <>
             <DropdownItem onClick={handleDuplicate} disabled={currentNoteIsDaily}>
               Duplicate note
@@ -250,12 +312,16 @@ export function MoreOptionsMenu({
             </DropdownItem>
           </>
         )}
-        {(!mobile || !readOnly) && <DropdownDivider />}
-        <DropdownItem onClick={handleShowInfo}>Note info</DropdownItem>
-        <DropdownDivider />
-        <DropdownItem onClick={onDelete} variant="danger">
-          Delete note
-        </DropdownItem>
+        {!isLoose && (
+          <>
+            {(!mobile || !readOnly) && <DropdownDivider />}
+            <DropdownItem onClick={handleShowInfo}>Note info</DropdownItem>
+            <DropdownDivider />
+            <DropdownItem onClick={onDelete} variant="danger">
+              Delete note
+            </DropdownItem>
+          </>
+        )}
       </Dropdown>
 
       {/* The footer can fold this menu into the Actions menu, whose entry

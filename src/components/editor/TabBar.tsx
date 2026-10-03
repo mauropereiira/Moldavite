@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNoteStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import type { Note } from '@/types';
+import { looseDisplayPath } from '@/lib/looseId';
 
 /**
  * Formats a note's title for display in a tab.
@@ -142,7 +143,7 @@ export function TabBar() {
             handleTabClick(note.id);
           }
         }}
-        title={note.title}
+        title={note.loose ? looseDisplayPath(note.loose) : note.title}
         draggable
         onDragStart={(e) => handleDragStart(e, index)}
         onDragEnd={handleDragEnd}

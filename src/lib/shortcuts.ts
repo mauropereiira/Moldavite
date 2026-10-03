@@ -27,6 +27,7 @@ export type ShortcutId =
   | 'search'
   | 'settings'
   | 'newNote'
+  | 'openFile'
   | 'toggleTheme'
   | 'closeTab'
   | 'templatePicker'
@@ -132,6 +133,12 @@ export const SHORTCUTS: Shortcut[] = [
     id: 'newNote',
     keys: ['⌘', 'N'],
     description: 'Create a new note',
+    category: 'files',
+  },
+  {
+    id: 'openFile',
+    keys: ['⌘', 'O'],
+    description: 'Open a Markdown file from anywhere',
     category: 'files',
   },
   {

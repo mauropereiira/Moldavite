@@ -8,6 +8,7 @@ import { snippetParts } from '@/lib/backlinks';
 import type { SemanticHit } from '@/lib/semantic';
 import type { NoteFile } from '@/types';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { isLooseNote } from '@/lib/looseId';
 
 /**
  * Collapsible "Linked mentions" panel mounted below the editor scroll area,
@@ -29,8 +30,9 @@ export function BacklinksPanel() {
   // Resolve current note → backend filename (backend's get_backlinks wants the
   // exact filename including .md). For daily / weekly notes the filename
   // derives from date / week; for standalone notes, use the last path segment.
+  const isLoose = isLooseNote(currentNote);
   const filename = useMemo<string | null>(() => {
-    if (!currentNote) return null;
+    if (!currentNote || isLooseNote(currentNote)) return null;
     if (currentNote.isDaily && currentNote.date) return `${currentNote.date}.md`;
     if (currentNote.isWeekly && currentNote.week) return `${currentNote.week}.md`;
     // currentNote.id is the full path (e.g. "notes/folder/foo.md"); the backend
@@ -43,7 +45,7 @@ export function BacklinksPanel() {
   // "notes/folder/foo.md"). For standalone notes `currentNote.id` already is
   // that path; daily/weekly notes derive it from their date/week.
   const relPath = useMemo<string | null>(() => {
-    if (!currentNote) return null;
+    if (!currentNote || isLooseNote(currentNote)) return null;
     if (currentNote.isDaily && currentNote.date) return `daily/${currentNote.date}.md`;
     if (currentNote.isWeekly && currentNote.week) return `weekly/${currentNote.week}.md`;
     return currentNote.id;
@@ -76,7 +78,7 @@ export function BacklinksPanel() {
     }
   };
 
-  if (!currentNote) return null;
+  if (!currentNote || isLoose) return null;
 
   const count = backlinks.length;
 

@@ -375,3 +375,57 @@ describe('EditorFooter word count', () => {
     useSettingsStore.setState({ showWordCount: false });
   });
 });
+
+describe('EditorFooter on a file outside the Forge', () => {
+  const looseNote: Note = {
+    id: 'loose:0123456789abcdef0123456789abcdef',
+    title: 'Read me.md',
+    content: '<p>Outside</p>',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    isDaily: false,
+    isWeekly: false,
+    loose: {
+      looseId: '0123456789abcdef0123456789abcdef',
+      name: 'Read me.md',
+      dir: '~/Desktop',
+      readOnly: false,
+    },
+  };
+
+  beforeEach(() => {
+    useNoteStore.setState({ notes: [file], currentNote: looseNote, openTabs: [looseNote] });
+  });
+
+  it('offers only what works on the file itself, and says it is not in the Forge', async () => {
+    const user = userEvent.setup();
+    renderFooter();
+
+    expect(screen.getByText('Not in Forge')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Change note background colour' })).toBeNull();
+    expect(screen.queryByTestId('wordpress-menu')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'More options' }));
+    expect(menuItems()).toEqual([
+      expect.stringMatching(/^Show in (Finder|Explorer|folder)$/),
+      'Add to Forge',
+      'Save a copy…',
+      'Export as PDF…',
+    ]);
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    expect(menuItems()).toEqual(['Export as plain text']);
+  });
+
+  it('reveals the file by its session id', async () => {
+    const user = userEvent.setup();
+    renderFooter();
+
+    await user.click(screen.getByRole('button', { name: 'More options' }));
+    await user.click(screen.getByRole('menuitem', { name: /^Show in / }));
+
+    expect(safeInvoke).toHaveBeenCalledWith('reveal_loose_file', {
+      id: '0123456789abcdef0123456789abcdef',
+    });
+  });
+});

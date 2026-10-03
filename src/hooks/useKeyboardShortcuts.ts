@@ -9,6 +9,7 @@ import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
 import { isCurrentNoteViewOnly } from '@/stores/noteStore';
+import { isLooseNote } from '@/lib/looseId';
 import {
   filenameToNote,
   markdownToHtml,
@@ -60,7 +61,7 @@ export function useKeyboardShortcuts({
       if (!templateId) return;
 
       const { currentNote } = useNoteStore.getState();
-      if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
+      if (isCurrentNoteViewOnly(useNoteStore.getState()) || isLooseNote(currentNote)) return;
 
       try {
         if (currentNote && editor) {

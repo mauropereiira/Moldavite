@@ -22,9 +22,15 @@ function ShortcutHint({ keys }: { keys: string }) {
 interface FormattingMenuProps {
   editor: Editor | null;
   openDirection?: 'up' | 'down';
+  /** Off for a file outside the Forge: an inserted image is saved into the Forge's images/. */
+  allowImages?: boolean;
 }
 
-export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMenuProps) {
+export function FormattingMenu({
+  editor,
+  openDirection = 'down',
+  allowImages = true,
+}: FormattingMenuProps) {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [linkInitialValues, setLinkInitialValues] = useState({ url: '', text: '' });
@@ -133,7 +139,7 @@ export function FormattingMenu({ editor, openDirection = 'down' }: FormattingMen
             Link
             <ShortcutHint keys="⌘K" />
           </DropdownItem>
-          <DropdownItem onClick={handleImage}>Image</DropdownItem>
+          {allowImages && <DropdownItem onClick={handleImage}>Image</DropdownItem>}
           <DropdownItem disabled={!!inTable} onClick={() => insertNoteTable(editor)}>
             Table
           </DropdownItem>

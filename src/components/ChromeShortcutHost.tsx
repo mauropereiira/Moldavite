@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
 import { isPrimaryModifier } from '@/lib/shortcuts';
+import { isMobilePlatform } from '@/lib/platform';
+import { openFileWithDialog } from '@/lib/looseFiles';
+import { routeNoteRequest } from '@/hooks/usePluginDeepLinks';
+import { useNotes } from '@/hooks/useNotes';
 import {
   useGraphStore,
   useNoteSelectionStore,
@@ -36,7 +40,8 @@ function closeActiveNote(event: KeyboardEvent) {
 /**
  * Keyboard handling for the navigation surfaces — ⌘\ (Index), ⌘⌥\ (Agenda),
  * ⌘P (Search), ⌘⇧G (Graph), Esc (close the active one, or the open note when
- * none is up) — and ⌘. (focus mode). Mount once near the app root.
+ * none is up) — ⌘. (focus mode) and ⌘O (open a Markdown file). Mount once near
+ * the app root.
  *
  * The listener lives here rather than in `useKeyboardShortcuts` for the same
  * reason `ShortcutHelpHost` does: that hook is owned by the editor tree, which
@@ -49,6 +54,8 @@ function closeActiveNote(event: KeyboardEvent) {
  * Registered in `src/lib/shortcuts.ts` so the help modal lists them.
  */
 export function ChromeShortcutHost() {
+  const { loadNote, refresh } = useNotes();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -67,6 +74,11 @@ export function ChromeShortcutHost() {
       if (key === 'p' && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         useQuickSwitcherStore.getState().toggle();
+        return;
+      }
+      if (key === 'o' && !e.altKey && !e.shiftKey && !isMobilePlatform()) {
+        e.preventDefault();
+        void openFileWithDialog((rel) => routeNoteRequest(rel, loadNote, refresh));
         return;
       }
       if (key === 'g' && e.shiftKey) {
@@ -98,7 +110,7 @@ export function ChromeShortcutHost() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [loadNote, refresh]);
 
   return null;
 }

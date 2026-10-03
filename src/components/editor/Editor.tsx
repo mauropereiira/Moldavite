@@ -93,6 +93,9 @@ import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplat
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { LooseFileBanner } from './LooseFileBanner';
+import { isLooseNote } from '@/lib/looseId';
+import { checkLooseNoteOnDisk } from '@/lib/looseFiles';
 import { CloudNotePlaceholder } from './CloudNotePlaceholder';
 import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
@@ -139,6 +142,11 @@ export function Editor() {
     );
   const currentNoteId = currentNote?.id;
   const currentNoteContent = currentNote?.content;
+  // A file outside the Forge: nothing that reads or writes the Forge by this
+  // note's address (links, tags, templates, images, rename) applies to it.
+  const isLoose = isLooseNote(currentNote);
+  const isLooseRef = useRef(isLoose);
+  isLooseRef.current = isLoose;
   const {
     spellCheck,
     autoCapitalize,
@@ -193,7 +201,9 @@ export function Editor() {
   // (broken) upload. An event keeps the extension free of a React dependency;
   // the extension runs inside ProseMirror, not the component tree.
   useEffect(() => {
-    const open = () => setIsImageModalOpen(true);
+    const open = () => {
+      if (!isLooseRef.current) setIsImageModalOpen(true);
+    };
     window.addEventListener('moldavite:open-image-dialog', open);
     return () => window.removeEventListener('moldavite:open-image-dialog', open);
   }, []);
@@ -236,13 +246,15 @@ export function Editor() {
 
       if (noteExists && actualNote) {
         await loadNote(actualNote);
+      } else if (isLooseRef.current) {
+        toast.error(`No note named "${linkName || target}" in this Forge`);
       } else {
         // Note doesn't exist - ask to create it (in-app dialog, not window.confirm)
         const noteName = linkName || target.replace('.md', '').replace(/-/g, ' ');
         setPendingLinkCreate({ target, noteName, isDailyNote });
       }
     },
-    [loadNote]
+    [loadNote, toast]
   );
 
   const handleConfirmLinkCreate = useCallback(async () => {
@@ -322,7 +334,7 @@ export function Editor() {
   }, [currentNoteId, currentNoteContent]);
 
   const handleTemplateSelect = async (templateId: string) => {
-    if (isCurrentNoteViewOnly(useNoteStore.getState())) return;
+    if (isCurrentNoteViewOnly(useNoteStore.getState()) || isLooseRef.current) return;
     try {
       const markdownContent = await getTemplateContent(templateId);
       if (editor) {
@@ -450,7 +462,7 @@ export function Editor() {
                   // plugin active until Escape or onBlur explicitly exits it.
                   // The list buttons preserve focus until their clicks insert.
                   allow: ({ editor, isActive }: { editor: TiptapEditor; isActive?: boolean }) =>
-                    isActive === true || editor.isFocused,
+                    !isLooseRef.current && (isActive === true || editor.isFocused),
                   items: ({ query }: { query: string }) => {
                     const currentTags = tagsRef.current;
                     const tagItems: TagItem[] = [];
@@ -545,7 +557,8 @@ export function Editor() {
             // on a single '[' makes the query keep the second bracket
             // ("[Menta"), which can never match a note name.
             allowSpaces: true,
-            allow: wikiLinkSuggestionAllowed,
+            allow: (props: Parameters<typeof wikiLinkSuggestionAllowed>[0]) =>
+              !isLooseRef.current && wikiLinkSuggestionAllowed(props),
             items: ({ query }: { query: string }) =>
               wikiLinkSuggestionItems(notesRef.current, query),
             render: () => {
@@ -820,7 +833,7 @@ export function Editor() {
           const text = clipboard.getData('text/plain');
           if (!looksLikeMarkdown(text)) return false;
 
-          const html = markdownToHtml(text);
+          const html = markdownToHtml(text, { forgeImages: !isLooseRef.current });
           if (!html) return false;
 
           const { from, to } = view.state.selection;
@@ -865,6 +878,10 @@ export function Editor() {
 
   const handleImageFile = useCallback(
     async (file: File) => {
+      if (isLooseRef.current) {
+        toast.error("Images can't be added to a file outside the Forge");
+        return;
+      }
       const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
       if (!validTypes.includes(file.type)) {
         toast.error('Unsupported image format');
@@ -1087,6 +1104,24 @@ export function Editor() {
 
   useAutoSave();
 
+  useEffect(() => {
+    const check = () => {
+      const note = useNoteStore.getState().currentNote;
+      if (note && isLooseNote(note)) void checkLooseNoteOnDisk(note);
+    };
+    if (!isLoose) return;
+    check();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [currentNoteId, isLoose]);
+
   const handleInsertLink = useCallback(() => {
     if (!editor) return;
 
@@ -1138,8 +1173,12 @@ export function Editor() {
   }
 
   const isCloudPlaceholder = !!currentNote.cloudPending;
-  const showTemplatePrompt = showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly;
-  const deleteName = noteDiskFilename(currentNote).replace(/\.md$/, '').split('/').pop();
+  const showTemplatePrompt =
+    showInlineTemplatePicker && !isCloudPlaceholder && !isViewOnly && !isLoose;
+  const deleteName = isLoose
+    ? currentNote.title
+    : noteDiskFilename(currentNote).replace(/\.md$/, '').split('/').pop();
+  const looseReason = currentNote.loose?.viewOnlyReason;
 
   return (
     <div className="editor-root flex flex-col h-full">
@@ -1169,6 +1208,7 @@ export function Editor() {
       {showTabBar && openTabs.length > 1 && <TabBar />}
 
       <ExternalChangeBanner />
+      <LooseFileBanner />
 
       {/* Editor */}
       <div
@@ -1208,7 +1248,7 @@ export function Editor() {
               // A locked note's ciphertext is bound to its path, so it cannot
               // be renamed while it is only open for viewing.
               onRename={
-                isViewOnly
+                isViewOnly || isLoose
                   ? undefined
                   : async (title) => {
                       const file = notes.find((n) => n.path === currentNote?.id);
@@ -1217,9 +1257,46 @@ export function Editor() {
               }
             />
           )}
-          {isViewOnly && (
+          {isViewOnly && !isLoose && (
             <p className="note-view-only" role="status">
               View only · Remove the lock to edit
+            </p>
+          )}
+          {isViewOnly && isLoose && (
+            <p className="note-view-only" role="status">
+              {looseReason === 'permissions'
+                ? 'View only · This file cannot be saved here'
+                : looseReason === 'lossy'
+                  ? 'View only · Editing would rewrite parts of this file'
+                  : 'View only'}
+              {looseReason === 'lossy' && currentNote.loose && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      currentNote.loose &&
+                      useNoteStore
+                        .getState()
+                        .updateLooseInfo(currentNote.id, { ...currentNote.loose, editAnyway: true })
+                    }
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: '1px solid var(--border-default)',
+                      padding: 0,
+                      width: 'auto',
+                      font: 'inherit',
+                      letterSpacing: 'inherit',
+                      textTransform: 'inherit',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Edit anyway
+                  </button>
+                </>
+              )}
             </p>
           )}
           {isCloudPlaceholder ? (

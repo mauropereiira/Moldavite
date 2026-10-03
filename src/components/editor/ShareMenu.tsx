@@ -4,6 +4,7 @@ import { htmlToMarkdown } from '@/lib';
 import { slugifyNoteName } from '@/lib/fileSystem';
 import { fileStem, noteDiskFilename } from '@/lib/leaveSave';
 import { isMobilePlatform } from '@/lib/platform';
+import { isLooseNote } from '@/lib/looseId';
 
 interface ShareMenuProps {
   onShowToast?: (message: string) => void;
@@ -22,6 +23,7 @@ export function ShareMenu({
   // `currentNote` (rather than the whole store) so unrelated state changes
   // elsewhere don't also re-render it.
   const currentNote = useNoteStore((state) => state.currentNote);
+  const isLoose = isLooseNote(currentNote);
 
   const handleCopyLink = async () => {
     if (!currentNote) return;
@@ -97,13 +99,13 @@ export function ShareMenu({
         </button>
       }
     >
-      {isMobilePlatform() && !readOnly && (
+      {isMobilePlatform() && !readOnly && !isLoose && (
         <DropdownItem onClick={handleShareNote}>Share note…</DropdownItem>
       )}
-      <DropdownItem onClick={handleCopyLink}>Copy wiki link</DropdownItem>
+      {!isLoose && <DropdownItem onClick={handleCopyLink}>Copy wiki link</DropdownItem>}
       {!readOnly && (
         <>
-          <DropdownDivider />
+          {!isLoose && <DropdownDivider />}
           <DropdownItem onClick={handleExportText}>Export as plain text</DropdownItem>
         </>
       )}
