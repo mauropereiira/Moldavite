@@ -294,7 +294,7 @@ never get it: there the rail it hides is the only way back to Settings, so
    `PRESETS[]` light and dark swatches need hand-syncing. One more preset is
    **seasonal** (Autumn now): it ships with a release and is retired when the
    next seasonal release replaces it, through `RETIRED_PRESETS`. Its touches
-   (falling leaves, the Settings pumpkin, Index icons, the welcome field) are
+   (falling leaves, the Settings pumpkin, Index icons) are
    hairline line art in `--text-muted` at lucide's 1.25 stroke, faded into the
    background behind the wordmark, never animated under reduced motion, and
    switchable with Seasonal touches. `ACTIVE_SEASON` in `lib/seasons.ts` picks

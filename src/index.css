@@ -3989,29 +3989,6 @@ button[aria-expanded='true'] .wn-caret {
   }
 }
 
-.autumn-field {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 34px;
-  width: 100%;
-  opacity: 0.3;
-  pointer-events: none;
-  user-select: none;
-  z-index: 0;
-  -webkit-mask-image: linear-gradient(to top, black 60%, transparent);
-  mask-image: linear-gradient(to top, black 60%, transparent);
-}
-
-.autumn-field-dark,
-.dark .autumn-field-light {
-  display: none;
-}
-
-.dark .autumn-field-dark {
-  display: block;
-}
-
 .seasonal-section-icon {
   width: 14px;
   height: 14px;

@@ -160,8 +160,8 @@ const BUDGETS = [
 // startup marker, starting and stopping one plugin instead of all) adds
 // 11.4 KB raw / 3.4 KB gz. Measured 673.0 KB / 193.1 KB gz.
 // 680 / 197: the Autumn round (the seasonal preset, falling leaves, the Settings
-// pumpkin and the Index icons) adds 4.7 KB raw / 1.8 KB gz; the field art ships as
-// SVG files, not code. Measured 677.7 KB / 194.9 KB gz.
+// pumpkin and the Index icons) adds 4.7 KB raw / 1.8 KB gz.
+// Measured 677.7 KB / 194.9 KB gz.
 // 686 / 198: Markdown files opened from outside the Forge (the loose-file IPC
 // layer and fidelity check, the on-disk change banner, the guards across
 // autosave, menus and plugins, ⌘O) and the window drop guard add 10.1 KB raw /

@@ -46,14 +46,19 @@ import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboardi
 import { ACTIVE_SEASON, type Season } from '@/lib/seasons';
 import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
 import { useSettingsHydration } from '@/hooks/useSettingsHydration';
+import { PumpkinIcon } from '@/components/ui/SeasonalIcons';
 
 export { APP_ONBOARDING_VERSION } from '@/lib/appOnboarding';
 
-const SEASON_PAGES: Record<Season, { title: string; body: string; preset: ThemePreset }> = {
+const SEASON_PAGES: Record<
+  Season,
+  { title: string; body: string; preset: ThemePreset; icon: React.ReactNode }
+> = {
   autumn: {
     title: 'Autumn is here',
     body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Layout › Seasonal touches.',
     preset: 'autumn',
+    icon: <PumpkinIcon className="w-7 h-7" />,
   },
 };
 
@@ -751,6 +756,13 @@ function SeasonStep({ titleId, page }: { titleId: string; page: (typeof SEASON_P
 
   return (
     <div className="text-center">
+      <div
+        className="flex justify-center mb-3"
+        style={{ color: 'var(--text-muted)' }}
+        aria-hidden="true"
+      >
+        {page.icon}
+      </div>
       <h2
         id={titleId}
         className="text-xl font-semibold mb-3"
@@ -820,7 +832,11 @@ function OpenFilesStep({
           onClick={onMakeDefault}
           disabled={isMakingDefault}
           className="px-3 py-2 mt-4 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
-          style={{ border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-secondary)',
+          }}
         >
           {makeDefaultLabel(status)}
         </button>
