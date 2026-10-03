@@ -936,6 +936,27 @@ fn create_note_in(
     }
 }
 
+/// Write `content` as a new standalone note named after `title` at the
+/// `notes/` root, stepping past taken names. Returns its `notes/`-relative path.
+pub(crate) fn create_note_with_content(
+    title: &str,
+    content: &str,
+    index: &BacklinksIndex,
+) -> Result<String, String> {
+    let dir = get_standalone_dir()?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let filename = unique_unlocked_filename(&dir, &sanitize_note_name(title, "Untitled"));
+    let path = dir.join(&filename);
+    validate_path_within_base(&path, &dir).map_err(|_| "Invalid note path".to_string())?;
+    write_atomic(&path, content.as_bytes(), Some(0o600))?;
+
+    let rel = crate::semantic::note_rel_path(&filename, false, false);
+    index.update_note(&rel, &frontmatter::parse_note(content).body);
+    crate::semantic::note_changed(&rel);
+    crate::search_index::note_changed(&rel);
+    Ok(filename)
+}
+
 #[tauri::command]
 pub(crate) fn duplicate_note(
     filename: String,

@@ -3122,6 +3122,7 @@ dependencies = [
  "fastembed",
  "keyring",
  "lazy_static",
+ "libc",
  "log",
  "notify",
  "notify-debouncer-mini",
