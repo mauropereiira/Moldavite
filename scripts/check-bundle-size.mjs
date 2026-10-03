@@ -171,7 +171,9 @@ const BUDGETS = [
 // 698 / 202: dropped Markdown files (the per-platform drop route, the read-only
 // fallback tab and its banner) add 3.1 KB raw / 1.2 KB gz. Measured 695.0 KB /
 // 200.1 KB gz.
-const APP_JS_BUDGET = { rawKb: 698, gzipKb: 202 };
+// 700 / 202: the release welcome pages and shared launch decision.
+// Measured 698.7 KB raw / 201.3 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 700, gzipKb: 202 };
 
 async function main() {
   let entries;

@@ -1,27 +1,10 @@
 /**
- * AppOnboardingModal — first-run app-level onboarding.
- *
- * Six-step flow for new users: Welcome → Pick your Forge → Quick tour →
- * AI & Agents → Local semantic search → Default Markdown app.
- *
- * Visibility is gated by two persisted `useSettingsStore` flags:
- * - `hasSeenAppOnboarding` — false on first launch → show the full flow.
- * - `lastSeenOnboardingVersion` — highest content version the user has seen.
- *   Each step records the version it shipped in (`since`). When new pages
- *   ship, bump `APP_ONBOARDING_VERSION`; users who already completed
- *   onboarding then see once only the steps newer than what they saw, never
- *   the whole flow again. Phones skip that update flow entirely.
- *
- * The default-app step is left out where it cannot help: unsupported
- * platforms, Moldavite already the default, or a launch that opened a file.
- * When it was the only new step the modal stays closed and the version is
- * still recorded, so it is asked at most once.
- *
- * Esc on all but the final step is a no-op (matches `CalendarOnboardingModal`
- * UX — onboarding requires explicit dismissal). The final step closes on Esc.
+ * First-run onboarding and versioned feature pages, filtered by platform and
+ * active season. The shared decision also coordinates automatic release notes.
+ * Escape closes only the final page; earlier pages require an explicit action.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Sparkles,
   FolderOpen,
@@ -59,50 +42,20 @@ import {
   type DefaultAppStatus,
 } from '@/lib/defaultApp';
 import { wasLaunchedWithFile } from '@/lib/launchContext';
+import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboarding';
+import { ACTIVE_SEASON, type Season } from '@/lib/seasons';
+import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
+import { useSettingsHydration } from '@/hooks/useSettingsHydration';
 
-/**
- * Bump this when adding new feature pages so existing users see them once.
- * v1 — original Welcome / Forge / Tour flow.
- * v2 — AI & Agents pages (agent-ready Forge, MCP server, semantic search).
- * v3: make Moldavite the default app for .md files.
- */
-export const APP_ONBOARDING_VERSION = 3;
+export { APP_ONBOARDING_VERSION } from '@/lib/appOnboarding';
 
-type StepKey = 'welcome' | 'forge' | 'tour' | 'ai-agents' | 'ai-search' | 'default-app';
-
-const STEPS: ReadonlyArray<{ key: StepKey; since: number; mobile: boolean }> = [
-  { key: 'welcome', since: 1, mobile: true },
-  { key: 'forge', since: 1, mobile: true },
-  { key: 'tour', since: 1, mobile: true },
-  { key: 'ai-agents', since: 2, mobile: false },
-  { key: 'ai-search', since: 2, mobile: false },
-  { key: 'default-app', since: 3, mobile: false },
-];
-
-/**
- * A user who finished onboarding before the version key existed persisted
- * `hasSeenAppOnboarding` with version 0, and had seen v1.
- */
-function candidateSteps(mobile: boolean, firstRun: boolean, lastSeenVersion: number): StepKey[] {
-  if (mobile) return firstRun ? STEPS.filter((s) => s.mobile).map((s) => s.key) : [];
-  const seen = firstRun ? 0 : Math.max(lastSeenVersion, 1);
-  return STEPS.filter((s) => s.since > seen).map((s) => s.key);
-}
-
-type DefaultAppOffer = { status: DefaultAppStatus; offer: boolean };
-
-function subscribeToSettingsHydration(onStoreChange: () => void) {
-  const stopWaiting = useSettingsStore.persist.onHydrate(onStoreChange);
-  const finishWaiting = useSettingsStore.persist.onFinishHydration(onStoreChange);
-  return () => {
-    stopWaiting();
-    finishWaiting();
-  };
-}
-
-function getSettingsHydrationSnapshot() {
-  return useSettingsStore.persist.hasHydrated();
-}
+const SEASON_PAGES: Record<Season, { title: string; body: string; preset: ThemePreset }> = {
+  autumn: {
+    title: 'Autumn is here',
+    body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Layout › Seasonal touches.',
+    preset: 'autumn',
+  },
+};
 
 export function AppOnboardingModal() {
   const {
@@ -116,14 +69,12 @@ export function AppOnboardingModal() {
   const [forgePath, setForgePath] = useState<string>('');
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
-  const [defaultApp, setDefaultApp] = useState<DefaultAppOffer | null>(null);
+  const [defaultApp, setDefaultApp] = useState<DefaultAppStatus | null>(null);
   const [isMakingDefault, setIsMakingDefault] = useState(false);
   const [makeDefaultError, setMakeDefaultError] = useState<string | null>(null);
-  const settingsHydrated = useSyncExternalStore(
-    subscribeToSettingsHydration,
-    getSettingsHydrationSnapshot,
-    getSettingsHydrationSnapshot
-  );
+  const settingsHydrated = useSettingsHydration();
+  const { theme, preset, setPreset } = useThemeStore();
+  const seasonPage = ACTIVE_SEASON !== null ? SEASON_PAGES[ACTIVE_SEASON] : null;
 
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -132,13 +83,11 @@ export function AppOnboardingModal() {
   const mobile = isMobilePlatform();
   const isFirstRun = !hasSeenAppOnboarding;
   const isFeatureUpdate = !isFirstRun;
-  const candidates = settingsHydrated
-    ? candidateSteps(mobile, isFirstRun, lastSeenOnboardingVersion)
+  const steps = settingsHydrated
+    ? getAppOnboardingSteps(mobile, isFirstRun, lastSeenOnboardingVersion)
     : [];
-  const wantsDefaultApp = candidates.includes('default-app');
-  // The step joins only once the status says it can help, so the flow only
-  // ever grows at its end and the current step never shifts.
-  const steps = candidates.filter((key) => key !== 'default-app' || defaultApp?.offer);
+  const wantsDefaultApp = steps.includes('open-files');
+  const offerDefaultApp = defaultApp && canOfferDefaultApp(defaultApp) && !wasLaunchedWithFile();
   const isOpen = steps.length > 0;
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLastStep = stepIndex >= steps.length - 1;
@@ -148,14 +97,18 @@ export function AppOnboardingModal() {
     let cancelled = false;
     getDefaultMarkdownAppStatus().then((status) => {
       if (cancelled) return;
-      setDefaultApp({ status, offer: canOfferDefaultApp(status) && !wasLaunchedWithFile() });
+      setDefaultApp(status);
     });
     return () => {
       cancelled = true;
     };
   }, [wantsDefaultApp, defaultApp]);
 
-  const nothingLeftToShow = candidates.length > 0 && steps.length === 0 && defaultApp !== null;
+  const nothingLeftToShow =
+    settingsHydrated &&
+    !isFirstRun &&
+    lastSeenOnboardingVersion < APP_ONBOARDING_VERSION &&
+    steps.length === 0;
   useEffect(() => {
     if (nothingLeftToShow) setLastSeenOnboardingVersion(APP_ONBOARDING_VERSION);
   }, [nothingLeftToShow, setLastSeenOnboardingVersion]);
@@ -360,7 +313,7 @@ export function AppOnboardingModal() {
                 style={{
                   width: i === stepIndex ? '1.5rem' : '0.5rem',
                   backgroundColor:
-                    i === stepIndex ? 'var(--accent-primary)' : 'var(--border-default)',
+                    i === stepIndex ? 'var(--text-primary)' : 'var(--border-default)',
                 }}
               />
             ))}
@@ -388,8 +341,18 @@ export function AppOnboardingModal() {
 
             {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
 
-            {step === 'default-app' && (
-              <DefaultAppStep titleId="app-onboarding-title" error={makeDefaultError} />
+            {step === 'season' && seasonPage && (
+              <SeasonStep titleId="app-onboarding-title" page={seasonPage} />
+            )}
+
+            {step === 'open-files' && (
+              <OpenFilesStep
+                titleId="app-onboarding-title"
+                status={offerDefaultApp ? defaultApp : null}
+                isMakingDefault={isMakingDefault}
+                onMakeDefault={handleMakeDefault}
+                error={makeDefaultError}
+              />
             )}
           </div>
 
@@ -408,35 +371,50 @@ export function AppOnboardingModal() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {step === 'default-app' && defaultApp ? (
+              {step === 'season' && seasonPage && preset !== seasonPage.preset ? (
                 <>
                   <button
                     type="button"
                     onClick={finishStep}
                     className="px-3 py-2 text-sm font-medium transition-colors focus-ring"
                     style={{
-                      backgroundColor: 'var(--bg-panel)',
                       border: '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-sm)',
                       color: 'var(--text-secondary)',
                     }}
                   >
-                    Not now
+                    Keep my theme
                   </button>
                   <button
                     ref={primaryButtonRef}
                     type="button"
-                    onClick={handleMakeDefault}
-                    disabled={isMakingDefault}
-                    className="px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50 focus-ring"
+                    onClick={() => {
+                      setPreset(seasonPage.preset);
+                      applyTheme(theme, seasonPage.preset);
+                      finishStep();
+                    }}
+                    className="px-4 py-2 text-sm font-medium transition-colors focus-ring"
                     style={{
-                      backgroundColor: 'var(--accent-primary)',
-                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-default)',
+                      color: 'var(--text-primary)',
                     }}
                   >
-                    {makeDefaultLabel(defaultApp.status)}
+                    Use {PRESETS.find((p) => p.id === seasonPage.preset)?.label}
                   </button>
                 </>
+              ) : step === 'season' || step === 'open-files' ? (
+                <button
+                  ref={primaryButtonRef}
+                  type="button"
+                  onClick={finishStep}
+                  disabled={isMakingDefault}
+                  className="px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
+                  style={{
+                    border: '1px solid var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Continue
+                </button>
               ) : !isLastStep ? (
                 <button
                   ref={primaryButtonRef}
@@ -762,27 +740,91 @@ function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeature
   );
 }
 
-function DefaultAppStep({ titleId, error }: { titleId: string; error: string | null }) {
+function SeasonStep({ titleId, page }: { titleId: string; page: (typeof SEASON_PAGES)[Season] }) {
+  const { theme, preset } = useThemeStore();
+  const palette = PRESETS.find((p) => p.id === page.preset);
+  if (!palette) return null;
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const swatches = isDark ? palette.darkSwatches : palette.swatches;
+
   return (
-    <div>
-      <div
-        className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
-        style={{ backgroundColor: 'var(--accent-subtle)' }}
-        aria-hidden="true"
+    <div className="text-center">
+      <h2
+        id={titleId}
+        className="text-xl font-semibold mb-3"
+        style={{
+          color: 'var(--text-primary)',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '-0.015em',
+        }}
       >
-        <FileText className="w-7 h-7" style={{ color: 'var(--accent-primary)' }} />
+        {page.title}
+      </h2>
+      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+        {page.body}
+      </p>
+      <div
+        role="img"
+        aria-label={`${palette.label} palette`}
+        className="flex gap-1 p-1 mt-5 mx-auto"
+        style={{ border: '1px solid var(--border-default)', maxWidth: '15rem', height: '2rem' }}
+      >
+        {Object.entries(swatches).map(([key, color]) => (
+          <span key={key} className="flex-1" style={{ backgroundColor: color }} />
+        ))}
       </div>
+      {preset === page.preset && (
+        <p className="text-sm mt-4" style={{ color: 'var(--text-secondary)' }}>
+          You&apos;re already using {palette.label}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function OpenFilesStep({
+  titleId,
+  status,
+  isMakingDefault,
+  onMakeDefault,
+  error,
+}: {
+  titleId: string;
+  status: DefaultAppStatus | null;
+  isMakingDefault: boolean;
+  onMakeDefault: () => void;
+  error: string | null;
+}) {
+  return (
+    <div className="text-center">
       <h2
         id={titleId}
         className="text-xl font-semibold mb-3 text-center"
-        style={{ color: 'var(--text-primary)' }}
+        style={{
+          color: 'var(--text-primary)',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '-0.015em',
+        }}
       >
-        Open Markdown files with Moldavite
+        Open any Markdown file
       </h2>
       <p className="text-sm leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
-        Double-click any .md file and it opens here, wherever it lives. No Forge needed. You can
-        change this later in Settings › General.
+        Choose Moldavite in Open With, drop a file on the window, or press {formatShortcut('⌘O')}.
+        It opens where it lives, no Forge needed, and your changes save back to the file.
       </p>
+      {status && (
+        <button
+          type="button"
+          onClick={onMakeDefault}
+          disabled={isMakingDefault}
+          className="px-3 py-2 mt-4 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
+          style={{ border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+        >
+          {makeDefaultLabel(status)}
+        </button>
+      )}
       {error && (
         <p className="text-xs mt-3 text-center" style={{ color: 'var(--error)' }}>
           {error}

@@ -14,6 +14,10 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { shouldShowWhatsNew } from '@/lib/changelog';
 import { getReleaseNotes } from '@/lib/releaseNotes';
 import { useWhatsNewStore } from '@/stores/whatsNewStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsHydration } from '@/hooks/useSettingsHydration';
+import { getAppOnboardingSteps } from '@/lib/appOnboarding';
+import { isMobilePlatform } from '@/lib/platform';
 
 const RELEASES_URL = 'https://github.com/mauropereiira/Moldavite/releases';
 
@@ -21,6 +25,7 @@ export function WhatsNewModal() {
   const { isOpen, entry, open, close, markSeen } = useWhatsNewStore();
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const settingsHydrated = useSettingsHydration();
   useFocusTrap(dialogRef, isOpen);
 
   const handleClose = useCallback(() => {
@@ -30,6 +35,11 @@ export function WhatsNewModal() {
 
   // Launch check: show notes once per upgrade. Never blocks app startup.
   useEffect(() => {
+    if (!settingsHydrated) return;
+    const { hasSeenAppOnboarding, lastSeenOnboardingVersion } = useSettingsStore.getState();
+    const hasUpdatePages =
+      hasSeenAppOnboarding &&
+      getAppOnboardingSteps(isMobilePlatform(), false, lastSeenOnboardingVersion).length > 0;
     let cancelled = false;
     (async () => {
       try {
@@ -38,6 +48,7 @@ export function WhatsNewModal() {
         const lastSeen = useWhatsNewStore.getState().lastSeenVersion;
         if (
           !cancelled &&
+          !hasUpdatePages &&
           shouldShowWhatsNew({
             lastSeenVersion: lastSeen,
             currentVersion: current,
@@ -55,9 +66,7 @@ export function WhatsNewModal() {
     return () => {
       cancelled = true;
     };
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [settingsHydrated, open, markSeen]);
 
   useEffect(() => {
     if (!isOpen) return;
