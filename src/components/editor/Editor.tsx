@@ -93,7 +93,7 @@ import { EmptyNoteTemplatePicker } from '@/components/templates/EmptyNoteTemplat
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
 import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
-import { LooseFileBanner } from './LooseFileBanner';
+import { DroppedFileBanner, LooseFileBanner } from './LooseFileBanner';
 import { isLooseNote } from '@/lib/looseId';
 import { checkLooseNoteOnDisk } from '@/lib/looseFiles';
 import { CloudNotePlaceholder } from './CloudNotePlaceholder';
@@ -1209,6 +1209,7 @@ export function Editor() {
 
       <ExternalChangeBanner />
       <LooseFileBanner />
+      <DroppedFileBanner />
 
       {/* Editor */}
       <div

@@ -32,6 +32,10 @@ mod security;
 /// Markdown files opened from outside the Forge, edited in place by session id.
 pub(crate) mod loose_files;
 
+/// Markdown files dropped on the window, admitted as loose files when the
+/// platform can say where they live.
+mod dropped_files;
+
 /// Host-side network execution for the plugin `net.fetch` API — the request
 /// leaves from this process, not the webview, so the CSP's `connect-src`
 /// cannot block it.
@@ -127,6 +131,7 @@ fn dispatch_note_io(
                     | "write_loose_file"
                     | "stat_loose_file"
                     | "add_loose_to_forge"
+                    | "add_dropped_to_forge"
             );
         if waits_on_forge_scan || coordinates_note_files {
             tauri::async_runtime::spawn_blocking(move || handler(invoke));
@@ -345,6 +350,8 @@ pub fn run() {
         .manage(loose_files::LooseFiles::default())
         .setup(move |app| {
             deep_link::mark_launch();
+            #[cfg(windows)]
+            dropped_files::listen_for_drops(app.handle());
             // Here rather than on the builder: only the primary instance may
             // consume the marker, and a second launch exits before setup.
             #[cfg(desktop)]
@@ -474,6 +481,8 @@ pub fn run() {
             loose_files::close_loose_file,
             loose_files::list_open_loose_files,
             loose_files::add_loose_to_forge,
+            dropped_files::admit_dropped_files,
+            dropped_files::add_dropped_to_forge,
             #[cfg(desktop)]
             loose_files::open_loose_file_dialog,
             #[cfg(desktop)]

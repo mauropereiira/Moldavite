@@ -1,9 +1,10 @@
 //! Markdown files opened from outside the Forge and edited in place ("loose files").
 //!
-//! Paths come only from the OS: Open With, a launch argument, or the open
-//! dialog. Rust admits each one into a session allowlist and hands the webview a
-//! random id. No command here takes a path, so a compromised page can reach only
-//! files the user opened. Nothing is persisted.
+//! Open With, launch arguments and the open dialog supply paths from the OS.
+//! Drops use the platform routes in `dropped_files`: Linux accepts page-supplied
+//! URIs after a metadata check, a weaker boundary. Rust admits paths into a
+//! session allowlist and hands the webview a random id. No command here takes
+//! a path. Nothing is persisted.
 //!
 //! A save never re-serializes frontmatter, because the Forge save path reorders
 //! YAML: the bytes before the body are kept exactly, and the body's line endings
@@ -105,7 +106,7 @@ struct Inspected {
     read_only: bool,
 }
 
-fn has_markdown_extension(path: &Path) -> bool {
+pub(crate) fn has_markdown_extension(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
@@ -489,8 +490,7 @@ impl LooseFiles {
     }
 }
 
-/// Admit a path the OS handed us. The only entry point for a path: the Open
-/// With event, launch arguments, and the open dialog all come through here.
+/// The shared admission gate for Open With, launch arguments, the dialog and drops.
 pub(crate) fn admit(state: &LooseFiles, path: &Path) -> Result<Admission, String> {
     let forge_root = crate::paths::get_notes_dir().ok();
     state.admit_with(path, forge_root.as_deref(), home_dir().as_deref())

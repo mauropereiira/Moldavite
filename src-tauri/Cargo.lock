@@ -3151,6 +3151,8 @@ dependencies = [
  "tauri-plugin-window-state",
  "unicode-normalization",
  "walkdir",
+ "webview2-com",
+ "windows-core",
  "winreg 0.52.0",
  "zeroize",
  "zip 2.4.2",

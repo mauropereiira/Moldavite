@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/useToast';
-import { isLooseNote } from '@/lib/looseId';
+import { useNotes } from '@/hooks/useNotes';
+import { addDroppedToForge } from '@/lib/droppedFiles';
+import { isDroppedId, isLooseNote } from '@/lib/looseId';
+import { formatShortcut } from '@/lib/shortcuts';
 import {
   keepMineLooseNote,
   reloadLooseNote,
@@ -19,6 +22,52 @@ const actionStyle: React.CSSProperties = {
   color: 'var(--text-primary)',
   cursor: 'pointer',
 };
+
+const bannerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'baseline',
+  gap: '6px 16px',
+  padding: '8px 20px',
+  borderBottom: '1px solid var(--border-default)',
+  fontSize: 13,
+  color: 'var(--text-secondary)',
+};
+
+export function DroppedFileBanner() {
+  const currentNote = useNoteStore((state) => state.currentNote);
+  const { loadNote, refresh } = useNotes();
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  if (!currentNote || !isDroppedId(currentNote.id)) return null;
+
+  const addToForge = async () => {
+    setBusy(true);
+    try {
+      const path = await addDroppedToForge(currentNote);
+      await refresh();
+      const added = useNoteStore.getState().notes.find((note) => note.path === path);
+      if (added) await loadNote(added);
+      toast.success('Added to the Forge');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div role="status" className="loose-file-banner" style={bannerStyle}>
+      <span style={{ flex: '1 1 auto' }}>
+        {`Moldavite couldn't find where this file lives, so it opened read-only. Use Open With or ${formatShortcut('⌘O')} to edit it.`}
+      </span>
+      <button type="button" style={actionStyle} disabled={busy} onClick={() => void addToForge()}>
+        Add to Forge
+      </button>
+    </div>
+  );
+}
 
 /** What a file outside the Forge did on disk while it was open, and the ways out. */
 export function LooseFileBanner() {
@@ -49,20 +98,7 @@ export function LooseFileBanner() {
     });
 
   return (
-    <div
-      role="status"
-      className="loose-file-banner"
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'baseline',
-        gap: '6px 16px',
-        padding: '8px 20px',
-        borderBottom: '1px solid var(--border-default)',
-        fontSize: 13,
-        color: 'var(--text-secondary)',
-      }}
-    >
+    <div role="status" className="loose-file-banner" style={bannerStyle}>
       <span style={{ flex: '1 1 auto' }}>
         {status === 'moved'
           ? 'This file was moved or deleted. Your text is still here.'

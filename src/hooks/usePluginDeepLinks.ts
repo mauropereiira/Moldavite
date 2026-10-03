@@ -13,6 +13,8 @@ import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from './useNotes';
 import { openLooseFile } from '@/lib/looseFiles';
+import { openDroppedFiles } from '@/lib/droppedFiles';
+import { setWindowFileDropHandler } from '@/lib/dropGuard';
 import type { Note, NoteFile } from '@/types';
 
 export const DEEP_LINK_EVENT = 'deep-link-requested';
@@ -181,7 +183,8 @@ function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {
 /**
  * Subscribe before draining so a URL arriving during startup cannot be lost.
  * The Rust queue is also the payload source for live events, avoiding separate
- * cold/running routing paths.
+ * cold/running routing paths. Markdown files dropped on the window open through
+ * the same note routing.
  */
 export function usePluginDeepLinks() {
   const { loadNote, refresh, loadDailyNote } = useNotes();
@@ -231,4 +234,12 @@ export function usePluginDeepLinks() {
       unlisten?.();
     };
   }, [loadDailyNote, loadNote, refresh]);
+
+  useEffect(
+    () =>
+      setWindowFileDropHandler((files, event) => {
+        void openDroppedFiles(files, event, (rel) => routeNoteRequest(rel, loadNote, refresh));
+      }),
+    [loadNote, refresh]
+  );
 }

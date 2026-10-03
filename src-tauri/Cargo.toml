@@ -111,6 +111,10 @@ libc = "0.2"
 # Native-messaging hosts are discovered through HKCU on Windows; every other
 # platform finds them by directory.
 winreg = "0.52"
+# The path of a file dropped on the window, from WebView2. Versions match the
+# ones Tauri 2.12's wry links, so `PlatformWebview::controller` is this type.
+webview2-com = "0.39"
+windows-core = "0.62"
 
 [profile.release]
 # Shipped builds only. `lto` and a single codegen unit let the optimiser work

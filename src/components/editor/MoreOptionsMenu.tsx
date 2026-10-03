@@ -13,8 +13,9 @@ import { PdfExportOptionsModal } from './PdfExportOptionsModal';
 import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 import { noteDeepLink } from '@/hooks/usePluginDeepLinks';
-import { isLooseNote } from '@/lib/looseId';
+import { isDroppedId, isLooseNote } from '@/lib/looseId';
 import { addLooseToForge, revealLooseFile, saveLooseCopy } from '@/lib/looseFiles';
+import { addDroppedToForge } from '@/lib/droppedFiles';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 
 const REVEAL_LABEL =
@@ -63,6 +64,7 @@ export function MoreOptionsMenu({
         isLoose: isLooseNote(state.currentNote),
       }))
     );
+  const isDropped = isDroppedId(currentNoteId);
   const notes = useNoteStore((state) => state.notes);
   const { duplicateNote, loadNote, refresh } = useNotes();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
@@ -219,7 +221,9 @@ export function MoreOptionsMenu({
     const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
     try {
-      const path = await addLooseToForge(currentNote);
+      const path = isDroppedId(currentNote.id)
+        ? await addDroppedToForge(currentNote)
+        : await addLooseToForge(currentNote);
       await refresh();
       const added = useNoteStore.getState().notes.find((note) => note.path === path);
       if (added) await loadNote(added);
@@ -278,9 +282,13 @@ export function MoreOptionsMenu({
             links, pins, duplicates, renames or deletes by one applies. */}
         {isLoose && (
           <>
-            {!mobile && <DropdownItem onClick={handleReveal}>{REVEAL_LABEL}</DropdownItem>}
+            {!mobile && !isDropped && (
+              <DropdownItem onClick={handleReveal}>{REVEAL_LABEL}</DropdownItem>
+            )}
             <DropdownItem onClick={handleAddToForge}>Add to Forge</DropdownItem>
-            {!mobile && <DropdownItem onClick={handleSaveCopy}>Save a copy…</DropdownItem>}
+            {!mobile && !isDropped && (
+              <DropdownItem onClick={handleSaveCopy}>Save a copy…</DropdownItem>
+            )}
             {!mobile && <DropdownItem onClick={handleExportPdf}>Export as PDF…</DropdownItem>}
           </>
         )}

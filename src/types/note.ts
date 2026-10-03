@@ -23,8 +23,11 @@ export interface Note {
 export type LooseViewOnlyReason = 'permissions' | 'lossy' | 'dropped';
 
 export interface LooseNoteInfo {
-  /** Rust's session id for the file; the webview never holds its path. */
-  looseId: string;
+  /**
+   * Rust's session id for the file; the webview never holds its path. Absent on
+   * a dropped file Rust could not place, which nothing can save.
+   */
+  looseId?: string;
   name: string;
   /** The containing folder for display, with `~` for the home folder. */
   dir: string;

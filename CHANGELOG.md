@@ -6,7 +6,7 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
-- **Open any Markdown file with Moldavite.** Choose Moldavite in Finder's Open With, double-click a `.md` file once Moldavite is its app, or press ⌘O (Ctrl+O) or use **Open File…** in the Quick Switcher. The file opens in its own tab and saves back to the same file, wherever it lives; it is not copied into your Forge. A file inside your Forge opens as that note instead. The tab says **Not in Forge** and shows where the file is, and its More menu can show it in Finder, add a copy to your Forge, save a copy or export a PDF.
+- **Open any Markdown file with Moldavite.** Choose Moldavite in Finder's Open With, double-click a `.md` file once Moldavite is its app, drop it on the Moldavite window, or press ⌘O (Ctrl+O) or use **Open File…** in the Quick Switcher. When its location is available, the file opens in its own tab and saves back to the same file, wherever it lives; it is not copied into your Forge. A file inside your Forge opens as that note instead. The tab says **Not in Forge** and shows where the file is, and its More menu can show it in Finder, add a copy to your Forge, save a copy or export a PDF.
 - A file Moldavite cannot save, or whose formatting the editor would change (tables, raw HTML, lists or line breaks written differently), opens view-only and says why. **Edit anyway** lets you edit a file the editor would reformat. Nothing is written until you type.
 - If the file changes on disk while it is open, Moldavite stops saving it and asks: **Reload**, **Keep mine** or **Save a copy…**. It never writes a conflict copy into the file's folder.
 - **Make Moldavite your Markdown app.** Settings → General shows whether Moldavite opens `.md` files and has a **Make default** button on Mac and Linux. Windows does not let an app set this itself, so there the button opens Default Apps settings. Existing users are asked once, on the next launch, and never when Moldavite is already the default.
@@ -14,7 +14,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
-- **Dropping a file on the window no longer breaks Moldavite.** Dropping a file anywhere the editor does not take it used to replace the app with the file, after which the window could not be closed.
+- **Dropping a file on the window no longer breaks Moldavite.** Dropping a file anywhere the editor does not take it used to replace the app with the file, after which the window could not be closed. A dropped Markdown file now opens and saves back to the same file. If Moldavite can't tell where a dropped file lives, it opens it read-only, says so, and offers **Add to Forge**; other dropped files are ignored.
 
 ## [2.9.1] - 2026-09-28
 

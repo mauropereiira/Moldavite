@@ -168,7 +168,10 @@ const BUDGETS = [
 // 3.1 KB gz. Measured 683.1 KB / 196.2 KB gz.
 // 694 / 200: those two together with the default Markdown app prompt (the
 // Settings row and the onboarding step). Measured 691.9 KB / 198.9 KB gz.
-const APP_JS_BUDGET = { rawKb: 694, gzipKb: 200 };
+// 698 / 202: dropped Markdown files (the per-platform drop route, the read-only
+// fallback tab and its banner) add 3.1 KB raw / 1.2 KB gz. Measured 695.0 KB /
+// 200.1 KB gz.
+const APP_JS_BUDGET = { rawKb: 698, gzipKb: 202 };
 
 async function main() {
   let entries;

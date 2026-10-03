@@ -15,7 +15,7 @@ import { safeInvoke as invoke } from './ipc';
 import { htmlToMarkdown, noteContentToEditorHtml, type ConversionOptions } from './fileSystem';
 import { flushPendingAutosave, resetAutosaveBaseline } from './autosaveFlush';
 import { markLaunchedWithFile } from './launchContext';
-import { isLooseId, isLooseNote, looseNoteId } from './looseId';
+import { isDroppedId, isLooseId, isLooseNote, looseNoteId } from './looseId';
 // Concrete store modules, not the '@/stores' index, to avoid a module cycle.
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -80,6 +80,7 @@ function errorMessage(error: unknown): string {
 }
 
 function looseIdOf(note: Pick<Note, 'id' | 'loose'>): string {
+  if (isDroppedId(note.id)) throw new Error('This file opened without its location');
   return note.loose?.looseId ?? note.id.slice('loose:'.length);
 }
 
@@ -252,7 +253,7 @@ export function reportLooseSaveFailure(note: Note, error: unknown): void {
 
 /** Compare the file with what this window last read or wrote, and raise the banner if it moved on. */
 export async function checkLooseNoteOnDisk(note: Note): Promise<void> {
-  if (!isLooseNote(note)) return;
+  if (!isLooseNote(note) || isDroppedId(note.id)) return;
   const looseId = looseIdOf(note);
   const setStatus = useLooseStatusStore.getState().setStatus;
   await (writeTails.get(looseId) ?? Promise.resolve());
@@ -343,7 +344,11 @@ async function releaseLooseFile(noteId: string): Promise<void> {
 useNoteStore.subscribe((state, previous) => {
   if (state.openTabs === previous.openTabs) return;
   for (const tab of previous.openTabs) {
-    if (isLooseId(tab.id) && !state.openTabs.some((open) => open.id === tab.id)) {
+    if (
+      isLooseId(tab.id) &&
+      !isDroppedId(tab.id) &&
+      !state.openTabs.some((open) => open.id === tab.id)
+    ) {
       void releaseLooseFile(tab.id);
     }
   }

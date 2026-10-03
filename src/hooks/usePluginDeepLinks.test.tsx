@@ -10,6 +10,7 @@ import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note, NoteFile } from '@/types';
 import { wasLaunchedWithFile } from '@/lib/launchContext';
+import { installWindowDropGuard } from '@/lib/dropGuard';
 
 const invokeMock = vi.fn();
 const listenMock = vi.fn();
@@ -62,6 +63,16 @@ beforeEach(() => {
       return requests;
     }
     if (command === 'list_notes') return listedNotes;
+    if (command === 'admit_dropped_files') {
+      return [
+        {
+          kind: 'loose',
+          id: '0123456789abcdef0123456789abcdef',
+          name: 'Read me.md',
+          dirDisplay: '~',
+        },
+      ];
+    }
     if (command === 'read_loose_file') {
       return {
         body: 'Opened from Finder',
@@ -217,6 +228,28 @@ describe('app deep links', () => {
     expect(invokeMock).toHaveBeenCalledWith('read_loose_file', { id });
     expect(invokeMock).not.toHaveBeenCalledWith('read_note', expect.anything());
     expect(wasLaunchedWithFile()).toBe(true);
+  });
+
+  it('opens a Markdown file dropped on the window through Rust, as a loose tab', async () => {
+    const uninstall = installWindowDropGuard();
+    const { unmount } = renderHook(() => usePluginDeepLinks());
+    const file = new File(['# Hi'], 'Read me.md', { type: 'text/markdown' });
+    const drop = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent;
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: { types: ['Files'], files: [file], getData: () => '' },
+    });
+
+    document.body.dispatchEvent(drop);
+
+    await waitFor(() =>
+      expect(useNoteStore.getState().currentNote?.id).toBe('loose:0123456789abcdef0123456789abcdef')
+    );
+    expect(invokeMock).toHaveBeenCalledWith(
+      'admit_dropped_files',
+      expect.objectContaining({ candidates: [expect.objectContaining({ name: 'Read me.md' })] })
+    );
+    unmount();
+    uninstall();
   });
 
   it('rejects malformed frontend payloads defensively', async () => {

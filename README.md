@@ -117,8 +117,11 @@ all at it. Edit the files in another editor while Moldavite is open and it
 notices.
 
 Markdown files outside a Forge open too: use Open With in Finder, double-click
-one once Moldavite is its app, or press ⌘O (Ctrl+O). The file is edited where
-it is, not copied in, and **Add to Forge** copies it in when you want it there.
+one once Moldavite is its app, drop it on the window, or press ⌘O (Ctrl+O). The
+file is edited where it is, not copied in, and **Add to Forge** copies it in
+when you want it there. If Moldavite can't find a dropped file's location, it
+opens read-only with **Add to Forge**. Use Open With or ⌘O (Ctrl+O) to edit the
+original instead.
 
 ### Start syncing on Mac
 
