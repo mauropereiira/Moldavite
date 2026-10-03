@@ -4,6 +4,7 @@ import { AppOnboardingModal, APP_ONBOARDING_VERSION } from './AppOnboardingModal
 import { isMobilePlatform } from '@/lib/platform';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { invoke } from '@tauri-apps/api/core';
 
 // The Forge dir picker plugin isn't available in jsdom — stub it.
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -12,10 +13,17 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
+const launch = vi.hoisted(() => ({ withFile: false }));
+vi.mock('@/lib/launchContext', () => ({
+  markLaunchedWithFile: vi.fn(),
+  wasLaunchedWithFile: () => launch.withFile,
+}));
+
 describe('AppOnboardingModal', () => {
   beforeEach(() => {
     vi.mocked(isMobilePlatform).mockReturnValue(false);
     vi.mocked(openDirDialog).mockClear();
+    vi.mocked(invoke).mockReset();
     // Reset to a known first-run state before each test.
     act(() => {
       useSettingsStore.getState().setHasSeenAppOnboarding(false);
@@ -233,6 +241,158 @@ describe('AppOnboardingModal', () => {
       expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
       expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
       expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  describe('the default Markdown app step', () => {
+    type Status = { mode: 'set' | 'open-settings' | 'unsupported'; isDefault: boolean | null };
+
+    function answer(status: Status) {
+      vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+        if (cmd === 'default_markdown_app_status') return status;
+        if (cmd === 'make_default_markdown_app') return { ...status, isDefault: true };
+        return undefined;
+      });
+    }
+
+    function seen(version: number) {
+      act(() => {
+        useSettingsStore.getState().setHasSeenAppOnboarding(true);
+        useSettingsStore.getState().setLastSeenOnboardingVersion(version);
+      });
+    }
+
+    const heading = /open markdown files with moldavite/i;
+
+    beforeEach(() => {
+      launch.withFile = false;
+      answer({ mode: 'set', isDefault: false });
+    });
+
+    it('shows a v2 user only the new step, not the AI pages again', async () => {
+      seen(2);
+      render(<AppOnboardingModal />);
+
+      expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /built for ai agents/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /back/i })).toBeNull();
+      expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(1);
+    });
+
+    it('makes Moldavite the default and records the version', async () => {
+      seen(2);
+      render(<AppOnboardingModal />);
+
+      const makeDefault = await screen.findByRole('button', { name: 'Make default' });
+      await act(async () => {
+        fireEvent.click(makeDefault);
+      });
+
+      expect(invoke).toHaveBeenCalledWith('make_default_markdown_app', undefined);
+      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('Not now closes without changing the default', async () => {
+      seen(2);
+      render(<AppOnboardingModal />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+
+      expect(invoke).not.toHaveBeenCalledWith('make_default_markdown_app', undefined);
+      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('offers Default Apps settings on Windows', async () => {
+      answer({ mode: 'open-settings', isDefault: null });
+      seen(2);
+      render(<AppOnboardingModal />);
+
+      expect(
+        await screen.findByRole('button', { name: 'Open Default Apps settings' })
+      ).toBeInTheDocument();
+    });
+
+    it('ends the first-run flow with the step when it is supported', async () => {
+      render(<AppOnboardingModal />);
+      await act(async () => {});
+
+      const order = [
+        /welcome to moldavite/i,
+        /pick your forge/i,
+        /a quick tour/i,
+        /built for ai agents/i,
+        /semantic search, fully offline/i,
+      ];
+      for (const name of order) {
+        expect(screen.getByRole('heading', { name })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /next/i }));
+      }
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Make default' })).toBeInTheDocument();
+    });
+
+    it('shows a user from before v2 the AI pages and then the step', async () => {
+      seen(1);
+      render(<AppOnboardingModal />);
+      await act(async () => {});
+
+      expect(
+        screen.getByRole('heading', { name: /new: built for ai agents/i })
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    });
+
+    it('shows a v3 user nothing and does not ask for the status', async () => {
+      seen(3);
+      render(<AppOnboardingModal />);
+      await act(async () => {});
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['unsupported', { mode: 'unsupported', isDefault: null } as Status, false],
+      ['already the default', { mode: 'set', isDefault: true } as Status, false],
+      ['launched by opening a file', { mode: 'set', isDefault: false } as Status, true],
+    ])(
+      'does not open just for the step when %s, but records the version',
+      async (_label, status, withFile) => {
+        answer(status);
+        launch.withFile = withFile;
+        seen(2);
+        render(<AppOnboardingModal />);
+        await act(async () => {});
+
+        expect(screen.queryByRole('dialog')).toBeNull();
+        expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(APP_ONBOARDING_VERSION);
+      }
+    );
+
+    it('leaves the step out of a first-run flow when Moldavite is already the default', async () => {
+      answer({ mode: 'set', isDefault: true });
+      render(<AppOnboardingModal />);
+      await act(async () => {});
+
+      for (let i = 0; i < 4; i++) fireEvent.click(screen.getByRole('button', { name: /next/i }));
+      expect(
+        screen.getByRole('heading', { name: /semantic search, fully offline/i })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /get started/i })).toBeInTheDocument();
+    });
+
+    it('never asks on a phone', async () => {
+      vi.mocked(isMobilePlatform).mockReturnValue(true);
+      seen(2);
+      render(<AppOnboardingModal />);
+      await act(async () => {});
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(invoke).not.toHaveBeenCalled();
     });
   });
 });
