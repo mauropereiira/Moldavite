@@ -84,13 +84,41 @@ function looseIdOf(note: Pick<Note, 'id' | 'loose'>): string {
   return note.loose?.looseId ?? note.id.slice('loose:'.length);
 }
 
+const STRUCTURAL_LINE = /^\s*(?:[-*+]\s|\d+[.)]\s|#|>|\||```|~~~|<)/;
+
+/**
+ * List marker spacing, bullet characters, nesting indentation and soft line
+ * wrapping change how a file is spelled but not what it says, so they do not
+ * count as lossy. Paragraph and block boundaries still do.
+ */
 function normalizeForComparison(markdown: string): string {
   return markdown
     .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) => line.replace(/[ \t]+$/, ''))
-    .join('\n')
-    .replace(/\n+$/, '');
+    .split(/\n[ \t]*\n+/)
+    .map((block) =>
+      block
+        .split('\n')
+        .map((line) =>
+          line
+            .trim()
+            .replace(/^[*+-]\s+/, '- ')
+            .replace(/^(\d+[.)])\s+/, '$1 ')
+            .replace(/[ \t]+/g, ' ')
+        )
+        .filter((line) => line.length > 0)
+        .reduce<string[]>((lines, line) => {
+          const last = lines.length - 1;
+          if (last >= 0 && !STRUCTURAL_LINE.test(line) && !STRUCTURAL_LINE.test(lines[last])) {
+            lines[last] = `${lines[last]} ${line}`;
+          } else {
+            lines.push(line);
+          }
+          return lines;
+        }, [])
+        .join('\n')
+    )
+    .filter((block) => block.length > 0)
+    .join('\n');
 }
 
 /**

@@ -182,6 +182,26 @@ turndownService.addRule('taskList', {
   },
 });
 
+// Turndown's default writes "-   item" and "1.  item"; other editors and
+// CommonMark examples use one space after the marker, so outside files keep
+// their lists when saved.
+turndownService.addRule('listItem', {
+  filter: (node) => node.nodeName === 'LI' && node.getAttribute('data-type') !== 'taskItem',
+  replacement: function (content, node, options) {
+    const parent = node.parentNode as HTMLElement | null;
+    let prefix = `${options.bulletListMarker} `;
+    if (parent?.nodeName === 'OL') {
+      const start = Number(parent.getAttribute('start') ?? 1);
+      const index = Array.prototype.indexOf.call(parent.children, node);
+      prefix = `${start + index}. `;
+    }
+    const indent = ' '.repeat(prefix.length);
+    const body = content.replace(/^\n+/, '').replace(/\n+$/, '\n').replace(/\n/gm, `\n${indent}`);
+    const trailer = node.nextSibling && !/\n$/.test(body) ? '\n' : '';
+    return prefix + body + trailer;
+  },
+});
+
 /**
  * Attribute values are written into a raw `<img>` tag, so an unescaped quote in
  * an alt text closes the attribute early. markdown-it then fails to recognise
