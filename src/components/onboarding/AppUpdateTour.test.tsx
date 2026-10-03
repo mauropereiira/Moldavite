@@ -3,16 +3,18 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { invoke } from '@tauri-apps/api/core';
 import { AppOnboardingModal } from './AppOnboardingModal';
 import { WhatsNewModal } from '@/components/updates/WhatsNewModal';
+import { CalendarOnboardingModal } from '@/components/calendar/CalendarOnboardingModal';
+import { useCalendarStore } from '@/stores/calendarStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PRESETS, useThemeStore } from '@/stores/themeStore';
 import { useWhatsNewStore } from '@/stores/whatsNewStore';
 import { formatShortcut } from '@/lib/shortcuts';
 import type { DefaultAppStatus } from '@/lib/defaultApp';
+import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
 
 const mocks = vi.hoisted(() => ({
   mobile: false,
   season: 'autumn' as 'autumn' | null,
-  withFile: false,
   getVersion: vi.fn<() => Promise<string>>(),
 }));
 
@@ -20,7 +22,6 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: mocks.getVersion }));
 vi.mock('@tauri-apps/plugin-shell', () => ({ open: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => mocks.mobile }));
-vi.mock('@/lib/launchContext', () => ({ wasLaunchedWithFile: () => mocks.withFile }));
 vi.mock('@/lib/seasons', () => ({
   get ACTIVE_SEASON() {
     return mocks.season;
@@ -39,7 +40,7 @@ describe('release welcome tour', () => {
   beforeEach(() => {
     mocks.mobile = false;
     mocks.season = 'autumn';
-    mocks.withFile = false;
+    useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     mocks.getVersion.mockReset().mockResolvedValue('2.10.0');
     vi.mocked(invoke).mockReset();
     answer({ mode: 'set', isDefault: false });
@@ -136,24 +137,19 @@ describe('release welcome tour', () => {
   });
 
   it.each([
-    ['unsupported', { mode: 'unsupported', isDefault: null }, false],
-    ['already default', { mode: 'set', isDefault: true }, false],
-    ['launched with a file', { mode: 'set', isDefault: false }, true],
-  ] as const)(
-    'keeps open-files but hides the default action when %s',
-    async (_label, status, withFile) => {
-      answer(status);
-      mocks.withFile = withFile;
-      render(<AppOnboardingModal />);
-      fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
-      await act(async () => {});
-      expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Make default' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Open Default Apps settings' })).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
-    }
-  );
+    ['unsupported', { mode: 'unsupported', isDefault: null }],
+    ['already default', { mode: 'set', isDefault: true }],
+  ] as const)('keeps open-files but hides the default action when %s', async (_label, status) => {
+    answer(status);
+    render(<AppOnboardingModal />);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
+    await act(async () => {});
+    expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make default' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open Default Apps settings' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+  });
 
   it('appends season after the existing first-run desktop pages', async () => {
     useSettingsStore.setState({ hasSeenAppOnboarding: false, lastSeenOnboardingVersion: 0 });
@@ -174,6 +170,103 @@ describe('release welcome tour', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
     expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
     expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+  });
+
+  it.each([false, true])(
+    'defers every welcome without recording versions on a file launch (existing user: %s)',
+    async (existingUser) => {
+      useSettingsStore.setState({
+        hasSeenAppOnboarding: existingUser,
+        lastSeenOnboardingVersion: existingUser ? 2 : 0,
+      });
+      useWhatsNewStore.setState({ lastSeenVersion: existingUser ? '2.9.1' : null });
+      useLaunchContextStore.setState({ ready: false });
+      const first = render(
+        <>
+          <WhatsNewModal />
+          <AppOnboardingModal />
+        </>
+      );
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(mocks.getVersion).not.toHaveBeenCalled();
+
+      act(() => {
+        markLaunchedWithFile();
+        useLaunchContextStore.setState({ ready: true });
+      });
+      await act(async () => {});
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(existingUser);
+      expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(existingUser ? 2 : 0);
+      expect(useWhatsNewStore.getState().lastSeenVersion).toBe(existingUser ? '2.9.1' : null);
+      expect(invoke).not.toHaveBeenCalled();
+
+      first.unmount();
+      useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
+      render(
+        <>
+          <WhatsNewModal />
+          <AppOnboardingModal />
+        </>
+      );
+      expect(
+        screen.getByRole('heading', {
+          name: existingUser ? 'Autumn is here' : 'Welcome to Moldavite',
+        })
+      ).toBeInTheDocument();
+      await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
+    }
+  );
+
+  it('defers automatic release notes until the next normal launch', async () => {
+    useSettingsStore.setState({ lastSeenOnboardingVersion: 3 });
+    markLaunchedWithFile();
+    const first = render(<WhatsNewModal />);
+    await act(async () => {});
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.9.1');
+
+    first.unmount();
+    useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
+    render(<WhatsNewModal />);
+    expect(
+      await screen.findByRole('heading', { name: /what's new in version 2.10.0/i })
+    ).toBeInTheDocument();
+    expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0');
+  });
+
+  it('does not record an empty update flow on a file launch', () => {
+    mocks.mobile = true;
+    mocks.season = null;
+    markLaunchedWithFile();
+    render(<AppOnboardingModal />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(2);
+  });
+
+  it('defers calendar onboarding on a file launch without recording completion', () => {
+    useCalendarStore.setState({
+      hasSeenOnboarding: false,
+      sources: [
+        {
+          source: 'google',
+          available: true,
+          connected: true,
+          account: null,
+          permission: null,
+          error: null,
+        },
+      ],
+    });
+    markLaunchedWithFile();
+    const first = render(<CalendarOnboardingModal />);
+    expect(screen.queryByText('Calendar Events in Your Timeline')).toBeNull();
+    expect(useCalendarStore.getState().hasSeenOnboarding).toBe(false);
+
+    first.unmount();
+    useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
+    render(<CalendarOnboardingModal />);
+    expect(screen.getByText('Calendar Events in Your Timeline')).toBeInTheDocument();
   });
 
   it('records the version when no mobile update pages apply', () => {

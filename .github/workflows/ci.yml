@@ -434,8 +434,11 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           deb="src-tauri/target/release/bundle/deb/Moldavite_${version}_amd64.deb"
-          entry=usr/share/applications/Moldavite.desktop
-          dpkg-deb -c "$deb" | grep -q "\./$entry\$" || { echo "::error::The deb has no $entry"; exit 1; }
+          listing=$(dpkg-deb -c "$deb")
+          printf '%s\n' "$listing"
+          mapfile -t entries < <(printf '%s\n' "$listing" | sed -n 's|^.* \./\(usr/share/applications/[^/]*\.desktop\)$|\1|p')
+          [ "${#entries[@]}" -eq 1 ] || { echo "::error::Expected exactly one desktop entry, found ${#entries[@]}"; exit 1; }
+          entry="${entries[0]}"
           extracted=$(mktemp -d)
           dpkg-deb -x "$deb" "$extracted"
           cat "$extracted/$entry"

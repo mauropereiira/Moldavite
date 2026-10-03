@@ -9,7 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note, NoteFile } from '@/types';
-import { wasLaunchedWithFile } from '@/lib/launchContext';
+import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { installWindowDropGuard } from '@/lib/dropGuard';
 
 const invokeMock = vi.fn();
@@ -53,6 +53,7 @@ const folderedNote: NoteFile = {
 
 beforeEach(() => {
   localStorage.clear();
+  useLaunchContextStore.setState({ ready: false, launchedWithFile: false });
   eventHandler = undefined;
   pendingRequests = [];
   listedNotes = [rootNote, folderedNote];
@@ -163,7 +164,7 @@ describe('app deep links', () => {
     act(() => eventHandler?.());
 
     await waitFor(() => expect(useNoteStore.getState().currentNote?.id).toBe(rootNote.path));
-    expect(invokeMock).toHaveBeenLastCalledWith('read_note', {
+    expect(invokeMock).toHaveBeenCalledWith('read_note', {
       filename: 'Root note.md',
       isDaily: false,
       isWeekly: false,
@@ -228,6 +229,35 @@ describe('app deep links', () => {
     expect(invokeMock).toHaveBeenCalledWith('read_loose_file', { id });
     expect(invokeMock).not.toHaveBeenCalledWith('read_note', expect.anything());
     expect(wasLaunchedWithFile()).toBe(true);
+    await waitFor(() => expect(useLaunchContextStore.getState().ready).toBe(true));
+  });
+
+  it('waits for the initial drain before deciding whether welcome pages can open', async () => {
+    let finishDrain: ((requests: unknown[]) => void) | undefined;
+    const delayedDrain = new Promise<unknown[]>((resolve) => {
+      finishDrain = resolve;
+    });
+    const invoke = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation((command: string, ...args: unknown[]) =>
+      command === 'take_pending_deep_links' ? delayedDrain : invoke?.(command, ...args)
+    );
+    renderHook(() => usePluginDeepLinks());
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('take_pending_deep_links'));
+    expect(useLaunchContextStore.getState().ready).toBe(false);
+    await act(async () => finishDrain?.([]));
+    expect(useLaunchContextStore.getState().ready).toBe(true);
+    expect(wasLaunchedWithFile()).toBe(false);
+  });
+
+  it('uses Rust launch knowledge when file admission has not reached the queue yet', async () => {
+    invokeMock.mockImplementation(async (command: string) =>
+      command === 'was_launched_with_file' ? true : []
+    );
+    renderHook(() => usePluginDeepLinks());
+    await waitFor(() => expect(useLaunchContextStore.getState().ready).toBe(true));
+    expect(invokeMock).toHaveBeenCalledWith('was_launched_with_file');
+    expect(wasLaunchedWithFile()).toBe(true);
+    expect(useNoteStore.getState().openTabs).toHaveLength(0);
   });
 
   it('opens a Markdown file dropped on the window through Rust, as a loose tab', async () => {

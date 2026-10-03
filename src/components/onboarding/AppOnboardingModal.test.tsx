@@ -5,6 +5,7 @@ import { isMobilePlatform } from '@/lib/platform';
 import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
+import { useLaunchContextStore } from '@/lib/launchContext';
 
 // The Forge dir picker plugin isn't available in jsdom — stub it.
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -13,17 +14,12 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
-const launch = vi.hoisted(() => ({ withFile: false }));
-vi.mock('@/lib/launchContext', () => ({
-  markLaunchedWithFile: vi.fn(),
-  wasLaunchedWithFile: () => launch.withFile,
-}));
-
 describe('AppOnboardingModal', () => {
   beforeEach(() => {
     vi.mocked(isMobilePlatform).mockReturnValue(false);
     vi.mocked(openDirDialog).mockClear();
     vi.mocked(invoke).mockReset();
+    useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     // Reset to a known first-run state before each test.
     act(() => {
       useSettingsStore.getState().setHasSeenAppOnboarding(false);
@@ -243,7 +239,6 @@ describe('AppOnboardingModal', () => {
 
   describe('the inline default Markdown app action', () => {
     beforeEach(() => {
-      launch.withFile = false;
       useSettingsStore.setState({ hasSeenAppOnboarding: true, lastSeenOnboardingVersion: 2 });
       vi.mocked(invoke).mockImplementation(async (command) => {
         if (command === 'default_markdown_app_status') return { mode: 'set', isDefault: false };

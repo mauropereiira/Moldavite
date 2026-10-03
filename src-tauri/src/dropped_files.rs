@@ -411,7 +411,7 @@ mod tests {
                     .as_nanos()
             ));
             fs::create_dir_all(&dir).unwrap();
-            Self(fs::canonicalize(&dir).unwrap())
+            Self(dunce::canonicalize(&dir).unwrap())
         }
 
         fn file(&self, name: &str, contents: &str) -> PathBuf {

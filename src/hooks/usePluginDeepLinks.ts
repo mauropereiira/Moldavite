@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { safeInvoke } from '@/lib/ipc';
 import { whenForgeReady } from '@/lib/forgeReadiness';
+import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
 import { useGraphStore } from '@/stores/graphStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -192,8 +193,9 @@ export function usePluginDeepLinks() {
   useEffect(() => {
     let disposed = false;
     let unlisten: UnlistenFn | undefined;
+    let draining = Promise.resolve();
 
-    const drain = async () => {
+    const drainPending = async () => {
       try {
         await whenForgeReady();
         const pending = await safeInvoke<unknown>('take_pending_deep_links');
@@ -211,9 +213,17 @@ export function usePluginDeepLinks() {
             await routeNoteRequest(request.path, loadNote, refresh);
           }
         }
+        if (await safeInvoke<boolean>('was_launched_with_file')) markLaunchedWithFile();
       } catch (error) {
         console.error('[deep-link] could not read pending requests:', error);
+      } finally {
+        if (!disposed) useLaunchContextStore.setState({ ready: true });
       }
+    };
+
+    const drain = () => {
+      draining = draining.then(drainPending);
+      return draining;
     };
 
     const initialize = async () => {

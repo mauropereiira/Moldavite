@@ -67,11 +67,14 @@ fn is_launch_delivery() -> bool {
 
 /// Valid links wait here until the frontend is ready to drain them.
 #[derive(Default)]
-pub(crate) struct PendingDeepLinks(Mutex<VecDeque<DeepLinkRequest>>);
+pub(crate) struct PendingDeepLinks {
+    pending: Mutex<VecDeque<DeepLinkRequest>>,
+    launched_with_file: AtomicBool,
+}
 
 impl PendingDeepLinks {
     fn push(&self, request: DeepLinkRequest) -> Result<(), String> {
-        let mut pending = self.0.lock().map_err(|error| error.to_string())?;
+        let mut pending = self.pending.lock().map_err(|error| error.to_string())?;
         if pending.len() >= MAX_PENDING_DEEP_LINKS {
             pending.pop_front();
         }
@@ -193,6 +196,12 @@ fn focus_main_window<R: Runtime>(app: &AppHandle<R>) {
 /// bring the window forward.
 pub(crate) fn route_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
     let at_launch = is_launch_delivery();
+    if at_launch && !paths.is_empty() {
+        // File admission runs off-thread and may finish after the first queue drain.
+        app.state::<PendingDeepLinks>()
+            .launched_with_file
+            .store(true, Ordering::SeqCst);
+    }
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let mut delivered = false;
@@ -262,11 +271,16 @@ where
     }
 }
 
+#[tauri::command]
+pub(crate) fn was_launched_with_file(state: State<'_, PendingDeepLinks>) -> bool {
+    state.launched_with_file.load(Ordering::SeqCst)
+}
+
 /// Atomically hand all validated requests to the initialized frontend.
 #[tauri::command]
 pub(crate) fn take_pending_deep_links(state: State<'_, PendingDeepLinks>) -> Vec<DeepLinkRequest> {
     DRAINED.store(true, Ordering::SeqCst);
-    match state.0.lock() {
+    match state.pending.lock() {
         Ok(mut pending) => pending.drain(..).collect(),
         Err(error) => {
             log::warn!("[deep-link] could not drain requests: {error}");
@@ -398,7 +412,10 @@ mod tests {
                 .unwrap();
         }
 
-        assert_eq!(pending.0.lock().unwrap().len(), MAX_PENDING_DEEP_LINKS);
+        assert_eq!(
+            pending.pending.lock().unwrap().len(),
+            MAX_PENDING_DEEP_LINKS
+        );
     }
 
     #[test]
@@ -429,6 +446,7 @@ mod tests {
         };
 
         let secret_url = url("secret.md");
+        assert!(!super::was_launched_with_file(app.state()));
         super::route_urls(
             app.handle(),
             [
@@ -438,17 +456,18 @@ mod tests {
                 url("notes.txt"),
             ],
         );
+        assert!(super::was_launched_with_file(app.state()));
 
         let pending = app.state::<PendingDeepLinks>();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        while pending.0.lock().unwrap().is_empty() {
+        while pending.pending.lock().unwrap().is_empty() {
             assert!(
                 std::time::Instant::now() < deadline,
                 "File admission was never delivered"
             );
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        let queued: Vec<_> = pending.0.lock().unwrap().drain(..).collect();
+        let queued: Vec<_> = pending.pending.lock().unwrap().drain(..).collect();
         std::fs::remove_dir_all(&dir).ok();
         assert_eq!(queued.len(), 1, "{queued:?}");
         assert_eq!(
@@ -505,7 +524,7 @@ mod tests {
         );
         let pending = app.state::<PendingDeepLinks>();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while pending.0.lock().unwrap().len() < names.len() {
+        while pending.pending.lock().unwrap().len() < names.len() {
             assert!(
                 std::time::Instant::now() < deadline,
                 "File admission was never delivered"
@@ -513,7 +532,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         let queued: Vec<_> = pending
-            .0
+            .pending
             .lock()
             .unwrap()
             .drain(..)

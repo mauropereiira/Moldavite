@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { WhatsNewModal } from './WhatsNewModal';
 import { useWhatsNewStore } from '@/stores/whatsNewStore';
+import { useLaunchContextStore } from '@/lib/launchContext';
 
 const mocks = vi.hoisted(() => ({
   getVersion: vi.fn<() => Promise<string>>(),
@@ -51,6 +52,7 @@ const ENTRY = {
 describe('WhatsNewModal', () => {
   beforeEach(() => {
     localStorage.clear();
+    useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     mocks.getVersion.mockReset();
     mocks.getVersion.mockResolvedValue('1.4.0');
     mocks.shellOpen.mockReset();

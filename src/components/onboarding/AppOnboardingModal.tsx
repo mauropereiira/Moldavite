@@ -41,7 +41,7 @@ import {
   makeDefaultMarkdownApp,
   type DefaultAppStatus,
 } from '@/lib/defaultApp';
-import { wasLaunchedWithFile } from '@/lib/launchContext';
+import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboarding';
 import { ACTIVE_SEASON, type Season } from '@/lib/seasons';
 import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
@@ -78,6 +78,8 @@ export function AppOnboardingModal() {
   const [isMakingDefault, setIsMakingDefault] = useState(false);
   const [makeDefaultError, setMakeDefaultError] = useState<string | null>(null);
   const settingsHydrated = useSettingsHydration();
+  const launchContext = useLaunchContextStore();
+  const canShowWelcome = settingsHydrated && launchContext.ready && !wasLaunchedWithFile();
   const { theme, preset, setPreset } = useThemeStore();
   const seasonPage = ACTIVE_SEASON !== null ? SEASON_PAGES[ACTIVE_SEASON] : null;
 
@@ -88,11 +90,11 @@ export function AppOnboardingModal() {
   const mobile = isMobilePlatform();
   const isFirstRun = !hasSeenAppOnboarding;
   const isFeatureUpdate = !isFirstRun;
-  const steps = settingsHydrated
+  const steps = canShowWelcome
     ? getAppOnboardingSteps(mobile, isFirstRun, lastSeenOnboardingVersion)
     : [];
   const wantsDefaultApp = steps.includes('open-files');
-  const offerDefaultApp = defaultApp && canOfferDefaultApp(defaultApp) && !wasLaunchedWithFile();
+  const offerDefaultApp = defaultApp && canOfferDefaultApp(defaultApp);
   const isOpen = steps.length > 0;
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLastStep = stepIndex >= steps.length - 1;
@@ -110,7 +112,7 @@ export function AppOnboardingModal() {
   }, [wantsDefaultApp, defaultApp]);
 
   const nothingLeftToShow =
-    settingsHydrated &&
+    canShowWelcome &&
     !isFirstRun &&
     lastSeenOnboardingVersion < APP_ONBOARDING_VERSION &&
     steps.length === 0;

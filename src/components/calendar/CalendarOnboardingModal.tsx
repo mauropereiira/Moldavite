@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCalendarStore } from '@/stores/calendarStore';
+import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 
 export function CalendarOnboardingModal() {
   const { sources, hasSeenOnboarding, setHasSeenOnboarding } = useCalendarStore();
@@ -7,8 +8,10 @@ export function CalendarOnboardingModal() {
   // Windows and Linux, Google is the only source there is.
   const isAuthorized = sources.some((s) => s.available && s.connected);
   const [step, setStep] = useState(0);
+  const launchContext = useLaunchContextStore();
 
-  if (!isAuthorized || hasSeenOnboarding) return null;
+  if (!launchContext.ready || wasLaunchedWithFile() || !isAuthorized || hasSeenOnboarding)
+    return null;
 
   const steps = [
     {

@@ -32,6 +32,8 @@
 
 ### Navigation & Welcome
 
+- A file launch defers first-run onboarding, release welcome pages and automatic release notes without recording their versions, so they appear on the next normal launch.
+
 - Pinned notes sit in a bar across the whole app, above the icon rail and index. Four stay on the bar and the rest collapse behind a count; drag or `alt`+arrow reorders them. Pins are the same list the Quick Switcher shows, so a note cannot be pinned in one surface and not the other. Opening a pinned note focuses the tab it is already in rather than opening a second copy.
 
 - The icon rail sits on the left or the right edge (Settings → Layout → Rail side, persisted as `iconRailSide`, desktop and iOS). A pinned Index travels with it and a pinned Agenda takes the opposite edge; tooltips, the Trash popover, resize handles, full-window surfaces and the iPhone landscape safe-area inset all follow the side

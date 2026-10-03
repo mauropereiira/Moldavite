@@ -18,6 +18,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSettingsHydration } from '@/hooks/useSettingsHydration';
 import { getAppOnboardingSteps } from '@/lib/appOnboarding';
 import { isMobilePlatform } from '@/lib/platform';
+import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 
 const RELEASES_URL = 'https://github.com/mauropereiira/Moldavite/releases';
 
@@ -26,6 +27,8 @@ export function WhatsNewModal() {
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const settingsHydrated = useSettingsHydration();
+  const launchContext = useLaunchContextStore();
+  const canShowWelcome = settingsHydrated && launchContext.ready && !wasLaunchedWithFile();
   useFocusTrap(dialogRef, isOpen);
 
   const handleClose = useCallback(() => {
@@ -35,7 +38,7 @@ export function WhatsNewModal() {
 
   // Launch check: show notes once per upgrade. Never blocks app startup.
   useEffect(() => {
-    if (!settingsHydrated) return;
+    if (!canShowWelcome) return;
     const { hasSeenAppOnboarding, lastSeenOnboardingVersion } = useSettingsStore.getState();
     const hasUpdatePages =
       hasSeenAppOnboarding &&
@@ -66,7 +69,7 @@ export function WhatsNewModal() {
     return () => {
       cancelled = true;
     };
-  }, [settingsHydrated, open, markSeen]);
+  }, [canShowWelcome, open, markSeen]);
 
   useEffect(() => {
     if (!isOpen) return;

@@ -479,6 +479,7 @@ pub fn run() {
         })
         .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            deep_link::was_launched_with_file,
             loose_files::read_loose_file,
             loose_files::write_loose_file,
             loose_files::stat_loose_file,
