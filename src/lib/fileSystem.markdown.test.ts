@@ -124,3 +124,10 @@ describe('link target hardening', () => {
     expect(dom.querySelector('a')?.hasAttribute('rel')).toBe(false);
   });
 });
+
+describe('list spelling', () => {
+  it('writes one space after bullet and number markers, nested under the marker', () => {
+    const markdown = '- one\n- two\n  - nested\n\n1. first\n2. second\n   1. inner';
+    expect(htmlToMarkdown(markdownToHtml(markdown))).toBe(markdown);
+  });
+});

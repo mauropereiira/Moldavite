@@ -191,6 +191,16 @@ describe('the fidelity check', () => {
     expect(isFaithfulRoundTrip('<div class="note">Hello</div>')).toBe(false);
   });
 
+  it('passes ordinary files written in another style: bullets, spacing and wrapped lines', () => {
+    const readme =
+      '# Notes\n\nA paragraph that the author\nwrapped by hand at a fixed\nwidth.\n\n* apples\n* pears\n\n1.  first\n2.  second\n';
+    expect(isFaithfulRoundTrip(readme)).toBe(true);
+  });
+
+  it('still trips when two paragraphs would become one', () => {
+    expect(isFaithfulRoundTrip('one\n\n\n<!-- note -->\n\ntwo')).toBe(false);
+  });
+
   it('passes Markdown the editor writes the same way, ignoring trailing whitespace', () => {
     expect(isFaithfulRoundTrip('# Title\n\nSome *emphasis* and **bold**.  \n\n> A quote\n')).toBe(
       true
