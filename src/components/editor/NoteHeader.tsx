@@ -3,6 +3,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import type { Note } from '@/types';
 import { getNoteTitleError } from '@/lib/validation';
 import { takeTitleFocus } from '@/lib/noteTitleFocus';
+import { looseDisplayPath } from '@/lib/looseId';
 
 /**
  * The note's masthead: title set large in the display face, with the date
@@ -87,11 +88,13 @@ export function NoteHeader({
 
   if (!note) return null;
 
-  const label = isDateNamed
-    ? format(asDate, 'EEEE · yyyy')
-    : note.updatedAt
-      ? `Edited ${format(new Date(note.updatedAt), 'd MMM yyyy')}`
-      : null;
+  const label = note.loose
+    ? 'Not in Forge'
+    : isDateNamed
+      ? format(asDate, 'EEEE · yyyy')
+      : note.updatedAt
+        ? `Edited ${format(new Date(note.updatedAt), 'd MMM yyyy')}`
+        : null;
 
   const headingStyle = {
     fontFamily: 'var(--font-display)',
@@ -218,6 +221,18 @@ export function NoteHeader({
           }}
         >
           {label}
+        </p>
+      )}
+      {note.loose && (
+        <p
+          style={{
+            marginTop: '4px',
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {looseDisplayPath(note.loose)}
         </p>
       )}
     </header>

@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note, NoteFile } from '@/types';
+import { wasLaunchedWithFile } from '@/lib/launchContext';
 
 const invokeMock = vi.fn();
 const listenMock = vi.fn();
@@ -61,6 +62,15 @@ beforeEach(() => {
       return requests;
     }
     if (command === 'list_notes') return listedNotes;
+    if (command === 'read_loose_file') {
+      return {
+        body: 'Opened from Finder',
+        hash: 'loose-hash',
+        readOnly: false,
+        name: 'Read me.md',
+        dirDisplay: '~/Desktop',
+      };
+    }
     if (command === 'read_note') {
       return { content: '# Opened note', color: null, contentHash: 'content-hash' };
     }
@@ -186,6 +196,27 @@ describe('app deep links', () => {
       expect(usePluginInstallStore.getState().pending?.id).toBe('publish-wordpress')
     );
     expect(useSettingsStore.getState().activeSettingsTab).toBe('plugins');
+  });
+
+  it('opens a file the OS handed over as a loose tab, never a Forge note', async () => {
+    const id = '0123456789abcdef0123456789abcdef';
+    pendingRequests = [
+      { kind: 'loose', id, name: 'Read me.md', dirDisplay: '~/Desktop', atLaunch: true },
+      { kind: 'loose', id: '../../etc/passwd', name: 'x', dirDisplay: '/' },
+    ];
+
+    renderHook(() => usePluginDeepLinks());
+
+    await waitFor(() => expect(useNoteStore.getState().currentNote?.id).toBe(`loose:${id}`));
+    expect(useNoteStore.getState().openTabs).toHaveLength(1);
+    expect(useNoteStore.getState().currentNote?.loose).toMatchObject({
+      looseId: id,
+      name: 'Read me.md',
+      dir: '~/Desktop',
+    });
+    expect(invokeMock).toHaveBeenCalledWith('read_loose_file', { id });
+    expect(invokeMock).not.toHaveBeenCalledWith('read_note', expect.anything());
+    expect(wasLaunchedWithFile()).toBe(true);
   });
 
   it('rejects malformed frontend payloads defensively', async () => {

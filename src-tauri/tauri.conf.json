@@ -74,6 +74,17 @@
       "nsis"
     ],
     "createUpdaterArtifacts": true,
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd"],
+        "contentTypes": ["net.daringfireball.markdown"],
+        "name": "Markdown document",
+        "description": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Editor",
+        "rank": "Alternate"
+      }
+    ],
     "resources": [
       "example-plugin/moldavite-example/**/*",
       "example-plugin/moldavite-wordpress/**/*"

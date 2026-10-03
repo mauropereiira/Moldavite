@@ -29,6 +29,9 @@ mod deep_link;
 /// Security utilities (rate limiting)
 mod security;
 
+/// Markdown files opened from outside the Forge, edited in place by session id.
+pub(crate) mod loose_files;
+
 /// Host-side network execution for the plugin `net.fetch` API — the request
 /// leaves from this process, not the webview, so the CSP's `connect-src`
 /// cannot block it.
@@ -120,6 +123,10 @@ fn dispatch_note_io(
                     | "move_folder"
                     | "delete_folder"
                     | "set_note_color"
+                    | "read_loose_file"
+                    | "write_loose_file"
+                    | "stat_loose_file"
+                    | "add_loose_to_forge"
             );
         if waits_on_forge_scan || coordinates_note_files {
             tauri::async_runtime::spawn_blocking(move || handler(invoke));
@@ -244,6 +251,44 @@ fn google_calendar_disconnect() -> Result<(), String> {
     calendar::disconnect_google()
 }
 
+/// Whether the main webview may navigate to `url`: only the app's own origin,
+/// plus the dev server in a debug build. A file dropped on the window, or a
+/// stray link, would otherwise replace the app with the file and leave the
+/// close guard registered by the page that is gone, so the window can no
+/// longer be closed.
+#[cfg(desktop)]
+pub(crate) fn is_app_navigation_url(url: &tauri::Url, dev: Option<&tauri::Url>) -> bool {
+    match (url.scheme(), url.host_str()) {
+        ("tauri", Some("localhost")) => true,
+        ("http" | "https", Some("tauri.localhost")) => true,
+        _ => dev.is_some_and(|dev| {
+            dev.scheme() == url.scheme()
+                && dev.host_str() == url.host_str()
+                && dev.port_or_known_default() == url.port_or_known_default()
+        }),
+    }
+}
+
+#[cfg(desktop)]
+fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    use tauri::Manager;
+
+    tauri::plugin::Builder::new("nav-guard")
+        .on_navigation(|webview, url| {
+            let dev = if cfg!(debug_assertions) {
+                webview.config().build.dev_url.clone()
+            } else {
+                None
+            };
+            let allowed = is_app_navigation_url(url, dev.as_ref());
+            if !allowed {
+                log::info!("[nav-guard] blocked a navigation away from the app");
+            }
+            allowed
+        })
+        .build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use std::sync::Arc;
@@ -262,10 +307,14 @@ pub fn run() {
     // before any other plugin setup. Its `deep-link` feature forwards the
     // process argv through the existing `on_open_url` handler.
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _| {
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
         if plugin_safety::has_safe_mode_flag(&argv) {
             plugin_safety::restart_in_safe_mode(app);
         }
+        deep_link::route_paths(
+            app,
+            loose_files::file_args(&argv, std::path::Path::new(&cwd)),
+        );
     }));
 
     let builder = builder
@@ -284,6 +333,7 @@ pub fn run() {
     // has no window geometry to restore.
     #[cfg(desktop)]
     let builder = builder
+        .plugin(navigation_guard())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_window_state::Builder::new().build());
@@ -292,7 +342,9 @@ pub fn run() {
         .manage(backlinks_index.clone())
         .manage(recent_writes.clone())
         .manage(deep_link::PendingDeepLinks::default())
+        .manage(loose_files::LooseFiles::default())
         .setup(move |app| {
+            deep_link::mark_launch();
             // Here rather than on the builder: only the primary instance may
             // consume the marker, and a second launch exits before setup.
             #[cfg(desktop)]
@@ -309,6 +361,13 @@ pub fn run() {
             });
             if let Some(urls) = app.deep_link().get_current()? {
                 deep_link::route_urls(app.handle(), urls.iter().map(|url| url.as_str()));
+            }
+            // Windows and Linux hand a double-clicked file to a cold start as
+            // an argument; macOS delivers it to `on_open_url` as a file URL.
+            #[cfg(desktop)]
+            if let Ok(cwd) = std::env::current_dir() {
+                let argv: Vec<String> = std::env::args().collect();
+                deep_link::route_paths(app.handle(), loose_files::file_args(&argv, &cwd));
             }
             // macOS schemes are registered through the generated app bundle.
             // Linux, and Windows development builds without an installer,
@@ -409,6 +468,18 @@ pub fn run() {
         })
         .invoke_handler(dispatch_note_io(tauri::generate_handler![
             deep_link::take_pending_deep_links,
+            loose_files::read_loose_file,
+            loose_files::write_loose_file,
+            loose_files::stat_loose_file,
+            loose_files::close_loose_file,
+            loose_files::list_open_loose_files,
+            loose_files::add_loose_to_forge,
+            #[cfg(desktop)]
+            loose_files::open_loose_file_dialog,
+            #[cfg(desktop)]
+            loose_files::save_loose_copy_dialog,
+            #[cfg(desktop)]
+            loose_files::reveal_loose_file,
             commands::forges::set_synced_forge_enabled,
             commands::forges::icloud_readiness,
             commands::notes::icloud_download_note,
@@ -585,6 +656,48 @@ mod tests {
 
     use crate::commands::search::search_notes_content_in;
     use crate::validation::{is_safe_filename, validate_path_within_base};
+
+    #[test]
+    fn navigation_stays_on_the_app_origin() {
+        use super::is_app_navigation_url;
+        let url = |value: &str| tauri::Url::parse(value).unwrap();
+        let dev = url("http://localhost:5173");
+
+        for allowed in [
+            "tauri://localhost",
+            "tauri://localhost/index.html#note",
+            "http://tauri.localhost/",
+            "https://tauri.localhost/settings",
+        ] {
+            assert!(is_app_navigation_url(&url(allowed), None), "{allowed}");
+        }
+        assert!(is_app_navigation_url(
+            &url("http://localhost:5173/src/main.tsx"),
+            Some(&dev)
+        ));
+
+        for blocked in [
+            "file:///Users/me/Desktop/note.md",
+            "https://example.com/",
+            "http://localhost:5173/",
+            "tauri://evil.com",
+            "http://tauri.localhost.evil.com/",
+            "asset://localhost/x.png",
+            "about:blank",
+        ] {
+            assert!(!is_app_navigation_url(&url(blocked), None), "{blocked}");
+        }
+        for blocked in [
+            "http://localhost:5174/",
+            "https://localhost:5173/",
+            "http://127.0.0.1:5173/",
+        ] {
+            assert!(
+                !is_app_navigation_url(&url(blocked), Some(&dev)),
+                "{blocked}"
+            );
+        }
+    }
 
     #[test]
     fn is_safe_filename_accepts_simple_names() {

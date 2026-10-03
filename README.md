@@ -116,6 +116,10 @@ Real Markdown with YAML frontmatter. Point Dropbox, iCloud, git or nothing at
 all at it. Edit the files in another editor while Moldavite is open and it
 notices.
 
+Markdown files outside a Forge open too: use Open With in Finder, double-click
+one once Moldavite is its app, or press ⌘O (Ctrl+O). The file is edited where
+it is, not copied in, and **Add to Forge** copies it in when you want it there.
+
 ### Start syncing on Mac
 
 In Moldavite 2.7.0 or later, open **Settings → General → Use synced Forge** to

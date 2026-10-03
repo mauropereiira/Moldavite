@@ -162,7 +162,13 @@ const BUDGETS = [
 // 680 / 197: the Autumn round (the seasonal preset, falling leaves, the Settings
 // pumpkin and the Index icons) adds 4.7 KB raw / 1.8 KB gz; the field art ships as
 // SVG files, not code. Measured 677.7 KB / 194.9 KB gz.
-const APP_JS_BUDGET = { rawKb: 680, gzipKb: 197 };
+// 686 / 198: Markdown files opened from outside the Forge (the loose-file IPC
+// layer and fidelity check, the on-disk change banner, the guards across
+// autosave, menus and plugins, ⌘O) and the window drop guard add 10.1 KB raw /
+// 3.1 KB gz. Measured 683.1 KB / 196.2 KB gz.
+// 694 / 200: those two together with the default Markdown app prompt (the
+// Settings row and the onboarding step). Measured 691.9 KB / 198.9 KB gz.
+const APP_JS_BUDGET = { rawKb: 694, gzipKb: 200 };
 
 async function main() {
   let entries;

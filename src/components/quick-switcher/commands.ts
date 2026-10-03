@@ -47,6 +47,13 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     keywords: ['create', 'new', 'note'],
   },
   {
+    id: 'open-file',
+    title: 'Open File…',
+    category: 'notes',
+    keywords: ['open', 'file', 'markdown', 'finder', 'import'],
+    desktopOnly: true,
+  },
+  {
     id: 'new-note-from-template',
     title: 'New Note from Template…',
     category: 'notes',

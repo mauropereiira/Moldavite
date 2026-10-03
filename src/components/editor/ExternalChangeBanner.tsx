@@ -10,6 +10,7 @@ import {
 import { flushPendingAutosave, resetAutosaveBaseline } from '@/lib/autosaveFlush';
 import { useNoteStore } from '@/stores/noteStore';
 import { ConfirmDialog } from '@/components/ui';
+import { isLooseNote } from '@/lib/looseId';
 
 export function ExternalChangeBanner() {
   const currentNote = useNoteStore((state) => state.currentNote);
@@ -17,7 +18,9 @@ export function ExternalChangeBanner() {
   const [isResolving, setIsResolving] = useState(false);
   const toast = useToast();
 
-  if (!currentNote || !externallyChanged.has(currentNote.id)) return null;
+  if (!currentNote || isLooseNote(currentNote) || !externallyChanged.has(currentNote.id)) {
+    return null;
+  }
 
   const filename = currentNote.isDaily
     ? `${currentNote.date}.md`

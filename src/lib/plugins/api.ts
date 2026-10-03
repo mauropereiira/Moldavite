@@ -13,6 +13,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { editorHandle } from '@/stores/editorHandleStore';
 import { listNotes, noteFileBackendPath, readNote } from '@/lib/fileSystem';
 import { safeInvoke } from '@/lib/ipc';
+import { isLooseNote } from '@/lib/looseId';
 import { usePluginStore } from '@/stores/pluginStore';
 import { PLUGIN_API_VERSION } from './types';
 import type { PluginFetchResponse, PluginPromptField, PluginPromptOptions } from './types';
@@ -78,13 +79,19 @@ export async function dispatchPluginCall(
   }
 
   switch (method) {
+    // A file outside the Forge was opened by the user alone; plugins are
+    // granted the Forge, not wherever else that file lives.
     case 'editor.getActiveNote': {
       const note = useNoteStore.getState().currentNote;
-      return note ? { path: note.id, title: note.title, content: note.content } : null;
+      if (!note || isLooseNote(note)) return null;
+      return { path: note.id, title: note.title, content: note.content };
     }
     case 'editor.insertText': {
       const text = args[0];
       if (typeof text !== 'string') throw new Error('editor.insertText: text must be a string');
+      if (isLooseNote(useNoteStore.getState().currentNote)) {
+        throw new Error('The active note is not in the Forge');
+      }
       const ok = editorHandle.insertTextAtCursor(text);
       if (!ok) useToastStore.getState().addToast('error', 'No active editor to insert into');
       return null;

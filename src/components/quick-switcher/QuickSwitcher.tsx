@@ -25,6 +25,8 @@ import { useTimelineStore } from '@/stores/timelineStore';
 import { useGraphStore } from '@/stores/graphStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from '@/hooks/useNotes';
+import { routeNoteRequest } from '@/hooks/usePluginDeepLinks';
+import { openFileWithDialog } from '@/lib/looseFiles';
 import {
   filterCommands,
   commandCategoryLabel,
@@ -284,7 +286,7 @@ export function QuickSwitcher() {
   const { isOpen, close, recentSearches, pinnedNoteIds, addRecentSearch, togglePinned } =
     useQuickSwitcherStore();
   const recentNoteIds = useNoteStore((state) => state.recentNoteIds);
-  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate } = useNotes();
+  const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, refresh } = useNotes();
   const { theme, setTheme } = useThemeStore();
   const { setIsSettingsOpen } = useSettingsStore();
   const { toggle: toggleTimeline } = useTimelineStore();
@@ -553,6 +555,9 @@ export function QuickSwitcher() {
             console.error('[QuickSwitcher] createNote failed', e)
           );
           return;
+        case 'open-file':
+          void openFileWithDialog((rel) => routeNoteRequest(rel, loadNote, refresh));
+          return;
         case 'new-note-from-template':
           // Not ⌘T: that applies a template to the open note, replacing it.
           setIsTemplatePickerOpen(true);
@@ -580,7 +585,17 @@ export function QuickSwitcher() {
           void usePluginCommandStore.getState().execute(id);
       }
     },
-    [setIsSettingsOpen, loadDailyNote, createNote, toggleTimeline, theme, setTheme, openGraph]
+    [
+      setIsSettingsOpen,
+      loadDailyNote,
+      createNote,
+      toggleTimeline,
+      theme,
+      setTheme,
+      openGraph,
+      loadNote,
+      refresh,
+    ]
   );
 
   const handleTemplateSelect = async (templateId: string | null) => {

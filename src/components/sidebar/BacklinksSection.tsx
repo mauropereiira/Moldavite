@@ -5,6 +5,7 @@ import { useNoteStore } from '@/stores';
 import { findBacklinks, readNoteSnapshot, noteFileBackendPath, type BacklinkInfo } from '@/lib';
 import type { NoteFile } from '@/types';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { isLooseId } from '@/lib/looseId';
 
 interface BacklinksSectionProps {
   notes: NoteFile[];
@@ -27,7 +28,8 @@ export function BacklinksSection({
   const { currentNoteId, currentNoteTitle } = useNoteStore(
     useShallow((state) => ({
       currentNoteId: state.currentNote?.id ?? null,
-      currentNoteTitle: state.currentNote?.title ?? null,
+      currentNoteTitle:
+        state.currentNote && !isLooseId(state.currentNote.id) ? state.currentNote.title : null,
     }))
   );
   const [noteContents, setNoteContents] = useState<Map<string, string>>(new Map());

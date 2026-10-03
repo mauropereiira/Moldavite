@@ -103,6 +103,10 @@ tauri-plugin-mobile-ui = { path = "plugins/tauri-plugin-mobile-ui" }
 # Keep bundled FTS5 on desktop and Android, independent of the OS library.
 rusqlite = { version = "0.40", features = ["bundled"] }
 
+[target.'cfg(unix)'.dependencies]
+# `access(2)` and `geteuid(2)`: whether a loose file may be saved in place.
+libc = "0.2"
+
 [target.'cfg(target_os = "windows")'.dependencies]
 # Native-messaging hosts are discovered through HKCU on Windows; every other
 # platform finds them by directory.

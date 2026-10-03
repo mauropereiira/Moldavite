@@ -12,6 +12,7 @@ import { useNoteStore, useThemeStore, useNoteColorsStore, useSettingsStore } fro
 import { useToast } from '@/hooks/useToast';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import type { NoteFile } from '@/types';
+import { isLooseId } from '@/lib/looseId';
 
 /**
  * Below this editor width the action labels no longer fit beside the centred
@@ -48,6 +49,7 @@ export function EditorFooter({
   // Only the id is read (note-color key + the "no note" gate), so a
   // content-only edit in the editor does not re-render the footer.
   const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
+  const isLoose = isLooseId(currentNoteId);
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
   const { showWordCount, showAutoSaveStatus } = useSettingsStore();
@@ -93,7 +95,7 @@ export function EditorFooter({
   const actions = (
     <>
       {/* Note Color Picker */}
-      {!readOnly && (
+      {!readOnly && !isLoose && (
         <div className="editor-footer-color">
           <NoteColorPicker
             currentColorId={currentColorId}
@@ -105,7 +107,7 @@ export function EditorFooter({
       )}
 
       {/* Publish to WordPress — absent unless the build has credentials */}
-      {!isMobilePlatform() && !readOnly && (
+      {!isMobilePlatform() && !readOnly && !isLoose && (
         <WordPressMenu
           onShowToast={showToast}
           onShowError={(message) => toast.error(message)}
@@ -114,10 +116,10 @@ export function EditorFooter({
       )}
 
       {/* Share Menu */}
-      <ShareMenu onShowToast={showToast} openDirection="up" readOnly={readOnly} />
+      <ShareMenu onShowToast={showToast} openDirection="up" readOnly={readOnly && !isLoose} />
 
       {/* Formatting Menu */}
-      {!readOnly && <FormattingMenu editor={editor} openDirection="up" />}
+      {!readOnly && <FormattingMenu editor={editor} openDirection="up" allowImages={!isLoose} />}
 
       {/* More Options Menu */}
       <MoreOptionsMenu
@@ -136,6 +138,7 @@ export function EditorFooter({
     <div className="editor-footer" ref={setFooterNode}>
       {/* Left: Word count and save status */}
       <div className="editor-footer-left">
+        {isLoose && <span style={{ marginRight: 16 }}>Not in Forge</span>}
         {showWordCount && editor && <span>{wordCount} words</span>}
         {showAutoSaveStatus && (isSaving || showSaveSuccess) && (
           <div className="flex items-center ml-4">

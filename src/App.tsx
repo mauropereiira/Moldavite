@@ -38,6 +38,8 @@ import {
   usePluginHost,
 } from './hooks';
 import { flushAutosaveWhenHidden, registerAutosaveCloseGuard } from './lib/autosaveFlush';
+import { installWindowDropGuard } from './lib/dropGuard';
+import { restoreOpenLooseFiles } from './lib/looseFiles';
 import { useForgeReadinessStore, watchForgeReadiness } from './lib/forgeReadiness';
 import { ForgeReadinessScreen } from './components/ui/ForgeReadinessScreen';
 
@@ -63,12 +65,16 @@ function App() {
 
   useEffect(() => watchForgeReadiness(), []);
 
+  useEffect(() => installWindowDropGuard(), []);
+
   // The one note-list load for the window; components that use useNotes share it.
   // The synced Forge cannot be read until iCloud is ready, so everything that
   // reads it waits for that.
   useEffect(() => {
     if (forgeStatus !== 'ready') return;
     void initializeNotes();
+    // A Forge switch reloads the window; files opened from outside it stay open.
+    if (isTauri()) void restoreOpenLooseFiles();
     fixNotePermissions().catch(console.error);
     loadColors();
   }, [forgeStatus, loadColors]);

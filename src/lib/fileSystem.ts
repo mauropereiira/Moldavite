@@ -26,6 +26,28 @@ import {
   toForgeImageSrc,
 } from './forgeImages';
 
+/**
+ * Off while converting a loose note, a file outside the Forge: its `images/x`
+ * would otherwise be read and rewritten as the open Forge's image. Conversion
+ * is synchronous, so a module flag set around one call cannot leak into another.
+ */
+let forgeImagesEnabled = true;
+
+export interface ConversionOptions {
+  forgeImages?: boolean;
+}
+
+function convertWith<T>(options: ConversionOptions | undefined, convert: () => T): T {
+  if (options?.forgeImages !== false) return convert();
+  const previous = forgeImagesEnabled;
+  forgeImagesEnabled = false;
+  try {
+    return convert();
+  } finally {
+    forgeImagesEnabled = previous;
+  }
+}
+
 const turndownService = new TurndownService({
   headingStyle: 'atx',
   hr: '---',
@@ -179,7 +201,7 @@ turndownService.addRule('image', {
   replacement: function (_content, node) {
     const element = node as HTMLElement;
     const rawSrc = element.getAttribute('src') || '';
-    const src = toForgeImageSrc(rawSrc) ?? rawSrc;
+    const src = (forgeImagesEnabled ? toForgeImageSrc(rawSrc) : null) ?? rawSrc;
     const alt = element.getAttribute('alt') || '';
     const width = element.getAttribute('width');
     const alignment = element.getAttribute('data-alignment');
@@ -379,7 +401,8 @@ const DOMPURIFY_CONFIG = {
 
 DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
   if (data.attrName === 'src' && data.attrValue) {
-    const forgeImage = node.nodeName === 'IMG' ? toForgeImageSrc(data.attrValue) : null;
+    const forgeImage =
+      forgeImagesEnabled && node.nodeName === 'IMG' ? toForgeImageSrc(data.attrValue) : null;
     if (forgeImage) {
       // Not force-kept: DOMPurify skips writing a rewritten value back when it is.
       data.attrValue = forgeImage;
@@ -443,9 +466,9 @@ export function noteNameToFilename(noteName: string): string {
  * @param html - The HTML content to convert
  * @returns Markdown representation
  */
-export function htmlToMarkdown(html: string): string {
+export function htmlToMarkdown(html: string, options?: ConversionOptions): string {
   if (!html || html.trim() === '') return '';
-  return turndownService.turndown(html);
+  return convertWith(options, () => turndownService.turndown(html));
 }
 
 /**
@@ -629,9 +652,12 @@ function padRaggedTables(markdown: string): string {
  * @param markdown - The Markdown content to convert
  * @returns Sanitized HTML representation with wiki links and task lists processed
  */
-export function markdownToHtml(markdown: string): string {
+export function markdownToHtml(markdown: string, options?: ConversionOptions): string {
   if (!markdown || markdown.trim() === '') return '';
+  return convertWith(options, () => renderMarkdown(markdown));
+}
 
+function renderMarkdown(markdown: string): string {
   let processed = markdown;
 
   // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
@@ -736,10 +762,10 @@ export function isHtmlContent(content: string): boolean {
  * @param content - The raw note content read from disk
  * @returns Sanitized HTML safe to hand to the editor
  */
-export function noteContentToEditorHtml(content: string): string {
+export function noteContentToEditorHtml(content: string, options?: ConversionOptions): string {
   return isHtmlContent(content)
-    ? DOMPurify.sanitize(content, DOMPURIFY_CONFIG)
-    : markdownToHtml(content);
+    ? convertWith(options, () => DOMPurify.sanitize(content, DOMPURIFY_CONFIG))
+    : markdownToHtml(content, options);
 }
 
 export async function ensureDirectories(): Promise<void> {

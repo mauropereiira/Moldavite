@@ -37,11 +37,11 @@ vi.mock('@/lib/fileSystem', () => ({
     note.folderPath ? `${note.folderPath}/${note.name}` : note.name,
   readNote: (...args: unknown[]) => readNote(...args),
 }));
+const forgeNote = { id: 'notes/N.md', title: 'N', content: '<p>hi there</p>' };
+const activeNote = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 vi.mock('@/stores/noteStore', () => ({
   useNoteStore: {
-    getState: () => ({
-      currentNote: { id: 'notes/N.md', title: 'N', content: '<p>hi there</p>' },
-    }),
+    getState: () => ({ currentNote: activeNote.current }),
   },
 }));
 const insertTextAtCursor = vi.fn((_t: string) => true);
@@ -60,6 +60,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     secretValues.clear();
     usePluginStore.setState({ grants: {} });
     if (getPluginDialogSnapshot()) resolvePluginDialog(null);
+    activeNote.current = forgeNote;
   });
 
   const ALL = ['editor', 'ui', 'notes.read', 'net.fetch', 'secrets'];
@@ -67,6 +68,21 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
   it('editor.getActiveNote returns path + title + content when editor is permitted', async () => {
     const v = await dispatchPluginCall('demo', ALL, 'editor.getActiveNote', []);
     expect(v).toEqual({ path: 'notes/N.md', title: 'N', content: '<p>hi there</p>' });
+  });
+
+  it('editor.getActiveNote and insertText do not reach a file outside the Forge', async () => {
+    activeNote.current = {
+      id: 'loose:0123456789abcdef0123456789abcdef',
+      title: 'Read me.md',
+      content: '<p>private</p>',
+      loose: { looseId: '0123456789abcdef0123456789abcdef', name: 'Read me.md', dir: '~' },
+    };
+
+    expect(await dispatchPluginCall('demo', ALL, 'editor.getActiveNote', [])).toBeNull();
+    await expect(dispatchPluginCall('demo', ALL, 'editor.insertText', ['x'])).rejects.toThrow(
+      'The active note is not in the Forge'
+    );
+    expect(insertTextAtCursor).not.toHaveBeenCalled();
   });
 
   it('editor.insertText routes to the editor handle when editor is permitted', async () => {

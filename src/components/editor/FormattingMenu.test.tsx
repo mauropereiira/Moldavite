@@ -58,3 +58,17 @@ describe('Format menu Link item', () => {
     expect(links[0]).toHaveAttribute('href', 'https://new.example');
   });
 });
+
+describe('Format menu Image item', () => {
+  // An inserted image is saved into the Forge's images/, which a file
+  // outside the Forge cannot reach.
+  it('is left out for a file outside the Forge', () => {
+    editor = new Editor({ extensions: [StarterKit], content: '<p></p>' });
+    render(<FormattingMenu editor={editor} allowImages={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Formatting' }));
+    const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(labels).not.toContain('Image');
+    expect(labels).toContain('Table');
+  });
+});
