@@ -138,7 +138,9 @@ and troubleshooting. The full iOS guide will follow separately.
 
 Settings → Appearance offers seven themes, Cream, Sage, Slate, Clay, Plum,
 Graphite and the seasonal Autumn, each in light and dark, and S–XL text sizes for the editor and
-desktop Settings. Settings → Layout puts the icon rail on the left or the right.
+desktop Settings. Settings → Layout puts the icon rail on the left or the right. The home screen
+has faint constellations with a sun or moon, and the seasonal theme adds an autumn field and falling
+leaves (Settings → Layout → Seasonal touches turns them off).
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
 Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on a Mac,

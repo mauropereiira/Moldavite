@@ -6,11 +6,13 @@ Transporter from `src-tauri/gen/apple/build/arm64/`, and answers No to French
 distribution, matching the territory list. France stays excluded until its
 encryption paperwork is resolved; the app is free in the other 174 territories.
 
-2.8.0 was approved and is Ready for Distribution. 2.9.0 was submitted to App
-Review on 2026-09-27 (build 2.9.0, exported on Xcode 27). It adds Apple Calendar
-and Google Calendar on iPhone and iPad, both read on the device only, so the
-**Data Not Collected** answer still holds, and the review notes now describe the
-optional calendars.
+2.9.1 is live, released on 2026-09-29. 2.9.0 added Apple Calendar and Google
+Calendar on iPhone and iPad, both read on the device only, so the **Data Not
+Collected** answer still holds, and the review notes describe the optional
+calendars. 2.10.1 (build 2.10.1) is exported for upload. It carries Autumn and the
+home screen art; the 2.10.0 build never went to review, so 2.10.1's What's New
+covers both. iOS has no Markdown document types yet (`tauri.ios.conf.json`
+clears `bundle.fileAssociations`).
 
 Everything after this point is therefore an **update** to a live app, not a
 first submission. Create a new version in App Store Connect, attach a build with
@@ -22,7 +24,7 @@ the app's behaviour changed.
 
 - App: **Moldavite: Notes & Ideas**, Apple ID `6809157286`.
 - Bundle: `app.moldavite`; widget: `app.moldavite.widget`; team: `J6Z5WJKHZB`.
-- Live version/build: `2.8.0` / `2.8.0` (`2.9.0` / `2.9.0` in review);
+- Live version/build: `2.9.1` / `2.9.1` (`2.10.1` / `2.10.1` exported for upload);
   minimum iOS/iPadOS **17.0**.
   The next upload must carry a higher build number than the live one.
   `bundle.iOS.bundleVersion` is unset in `tauri.conf.json`, so Tauri uses the
