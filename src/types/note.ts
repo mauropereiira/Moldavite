@@ -16,6 +16,21 @@ export interface Note {
    * text, so the tab is never edited, saved or deleted (see `lib/cloudNotes.ts`).
    */
   cloudPending?: boolean;
+  /** Present only on a file opened from outside the Forge (see `lib/looseFiles.ts`). */
+  loose?: LooseNoteInfo;
+}
+
+export type LooseViewOnlyReason = 'permissions' | 'lossy' | 'dropped';
+
+export interface LooseNoteInfo {
+  /** Rust's session id for the file; the webview never holds its path. */
+  looseId: string;
+  name: string;
+  /** The containing folder for display, with `~` for the home folder. */
+  dir: string;
+  readOnly: boolean;
+  viewOnlyReason?: LooseViewOnlyReason;
+  editAnyway?: boolean;
 }
 
 export interface NoteFile {

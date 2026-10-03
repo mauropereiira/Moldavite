@@ -13,6 +13,8 @@
  * iCloud (`cloudPending`) has no text of its own and is never written, retried or copied.
  * A note New made under a generated name and left with nothing in it is deleted, as
  * iOS Notes does (see `discardNewNoteIfLeftEmpty`).
+ * A loose note (a file outside the Forge) is written to its own file and is never
+ * held or retried: a conflict waits for the user in `LooseFileBanner`.
  */
 
 import {
@@ -31,6 +33,8 @@ import {
 import { notifyConflictCopy } from './noteConflicts';
 import { isNotDownloadedError, isOpenCloudPlaceholder } from './cloudNotes';
 import { isContentEmpty } from './validation';
+import { isLooseNote, isLooseViewOnly } from './looseId';
+import { reportLooseSaveFailure, writeLooseNote } from './looseFiles';
 import {
   acquireAutosavePathChange,
   getPendingAutosaveNoteId,
@@ -55,6 +59,7 @@ interface PendingLeaveSave {
 const pendingLeaveSaves = new Map<string, PendingLeaveSave>();
 
 export function noteDiskFilename(note: Note): string {
+  if (isLooseNote(note)) throw new Error('A file outside the Forge has no Forge filename');
   if (note.isDaily && note.date) return `${note.date}.md`;
   if (note.isWeekly && note.week) return `${note.week}.md`;
   // The display title can diverge from the filename and must never decide where we save.
@@ -72,6 +77,12 @@ function errorMessage(error: unknown): string {
 /** Write one note, deleting a daily or weekly note whose body was emptied. */
 async function writeNoteToDisk(note: Note): Promise<void> {
   if (note.cloudPending) throw new CloudPlaceholderWriteError();
+  if (isLooseNote(note)) {
+    if (isLooseViewOnly(note)) return;
+    await writeLooseNote(note);
+    useNoteStore.getState().markNoteSaved(note.id, note.content);
+    return;
+  }
   const filename = noteDiskFilename(note);
   const isEmpty = isContentEmpty(note.content);
   const { notes: freshNotes, setNotes } = useNoteStore.getState();
@@ -351,6 +362,10 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
   } catch (error) {
     if (error instanceof LockedNoteWriteError || isPlaceholderRefusal(error, note.id)) {
       return true;
+    }
+    if (isLooseNote(note)) {
+      reportLooseSaveFailure(note, error);
+      return false;
     }
     console.error('[leaveSave] Save on leave failed:', error);
     // Hold the newest text, including anything typed while the write was failing.

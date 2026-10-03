@@ -7,6 +7,8 @@
  * reject new writes and drain in-flight writes in `lib/fileSystem.ts`. Temporarily
  * unlocked notes are view-only and must never be written back as plaintext, and a
  * tab still waiting for iCloud (`cloudPending`) has no text of its own to write.
+ * A loose note (a file outside the Forge) is saved to its own file by session id
+ * and never reaches the Forge addressing below.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -30,6 +32,8 @@ import {
   registerAutosavePendingProbe,
 } from '@/lib/autosaveFlush';
 import { discardLeaveSave } from '@/lib/leaveSave';
+import { isLooseNote, isLooseViewOnly } from '@/lib/looseId';
+import { reportLooseSaveFailure, writeLooseNote } from '@/lib/looseFiles';
 import type { Note, NoteFile } from '@/types';
 
 type PendingAutosaveDiscard = (noteId: string, content: string) => void;
@@ -70,6 +74,36 @@ export function useAutoSave() {
     async (note: Note) => {
       if (note.cloudPending) {
         if (pendingRef.current === note) pendingRef.current = null;
+        return;
+      }
+      const settled = () => {
+        if (pendingRef.current === note) pendingRef.current = null;
+        const liveNote = getState().openTabs.find((tab) => tab.id === note.id);
+        if (
+          lastNoteIdRef.current === note.id &&
+          liveNote?.content === note.content &&
+          pendingRef.current?.id !== note.id
+        ) {
+          lastContentRef.current = note.content;
+        }
+        getState().markNoteSaved(note.id, note.content);
+        discardLeaveSave(note.id);
+      };
+      if (isLooseNote(note)) {
+        if (isLooseViewOnly(note)) {
+          if (pendingRef.current === note) pendingRef.current = null;
+          return;
+        }
+        try {
+          setIsSaving(true);
+          await writeLooseNote(note);
+          settled();
+        } catch (error) {
+          if (pendingRef.current === note) pendingRef.current = null;
+          reportLooseSaveFailure(note, error);
+        } finally {
+          setIsSaving(false);
+        }
         return;
       }
       try {
@@ -173,17 +207,7 @@ export function useAutoSave() {
           notifyConflictCopy(await writeNote(filename, markdownContent, false, false));
         }
 
-        if (pendingRef.current === note) pendingRef.current = null;
-        const liveNote = getState().openTabs.find((tab) => tab.id === note.id);
-        if (
-          lastNoteIdRef.current === note.id &&
-          liveNote?.content === note.content &&
-          pendingRef.current?.id !== note.id
-        ) {
-          lastContentRef.current = note.content;
-        }
-        getState().markNoteSaved(note.id, note.content);
-        discardLeaveSave(note.id);
+        settled();
       } catch (error) {
         if (error instanceof LockedNoteWriteError) {
           if (pendingRef.current === note) pendingRef.current = null;
@@ -362,7 +386,7 @@ export function useAutoSave() {
     }
 
     // Temporarily decrypted notes remain encrypted on disk and are view-only.
-    if (getState().unlockedNotes.has(currentNote.id)) {
+    if (getState().unlockedNotes.has(currentNote.id) || isLooseViewOnly(currentNote)) {
       return;
     }
 

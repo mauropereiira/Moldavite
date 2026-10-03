@@ -15,8 +15,9 @@
  */
 
 import { create } from 'zustand';
-import type { Note, NoteFile } from '@/types';
+import type { LooseNoteInfo, Note, NoteFile } from '@/types';
 import { namespacedKey, onActiveForgeChange } from '@/lib/forgeStorage';
+import { isLooseId, isLooseViewOnly } from '@/lib/looseId';
 import { useGraphStore } from './graphStore';
 import { useTimelineStore } from './timelineStore';
 
@@ -63,6 +64,7 @@ interface NoteState {
   /** Forget a tab's saved body, so its text counts as unsaved until it is written. */
   markNoteUnsaved: (noteId: string) => void;
   markExternallyChanged: (noteId: string, client?: string) => void;
+  updateLooseInfo: (noteId: string, loose: LooseNoteInfo) => void;
   clearExternallyChanged: (noteId: string) => void;
   renameNoteReferences: (oldPath: string, newPath: string, newTitle: string) => void;
   acknowledgeNoteReaddress: (noteId: string) => void;
@@ -97,12 +99,20 @@ const loadRecentNotes = (): string[] => {
 
 /**
  * A locked note opened with its password is decrypted in memory only; autosave
- * skips it, so nothing may write into it. TipTap's content commands do not
- * check the editor's editable flag, so every one reached from outside the
- * editor's own input checks this.
+ * skips it, so nothing may write into it. A loose file opened read-only is the
+ * same. TipTap's content commands do not check the editor's editable flag, so
+ * every one reached from outside the editor's own input checks this.
  */
 export function isCurrentNoteViewOnly(state: Pick<NoteState, 'currentNote' | 'unlockedNotes'>) {
-  return !!state.currentNote && state.unlockedNotes.has(state.currentNote.id);
+  return (
+    !!state.currentNote &&
+    (state.unlockedNotes.has(state.currentNote.id) || isLooseViewOnly(state.currentNote))
+  );
+}
+
+/** Pins persist per Forge by note path; a loose tab's session id means nothing after this run. */
+function persistedPinnedIds(tabs: Note[]): string[] {
+  return tabs.filter((tab) => tab.isPinned && !isLooseId(tab.id)).map((tab) => tab.id);
 }
 
 export const useNoteStore = create<NoteState>((set, get) => ({
@@ -283,7 +293,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       try {
         localStorage.setItem(
           namespacedKey('moldavite-pinned-tabs'),
-          JSON.stringify(newTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
+          JSON.stringify(persistedPinnedIds(newTabs))
         );
       } catch (error) {
         // Auto-lock closes tabs to drop decrypted content. Unavailable storage
@@ -401,6 +411,19 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       return { externallyChanged };
     }),
 
+  updateLooseInfo: (noteId, loose) =>
+    set((state) => {
+      if (!state.openTabs.some((tab) => tab.id === noteId)) return state;
+      const openTabs = state.openTabs.map((tab) => (tab.id === noteId ? { ...tab, loose } : tab));
+      return {
+        openTabs,
+        currentNote:
+          state.activeTabId === noteId
+            ? openTabs.find((tab) => tab.id === noteId) || null
+            : state.currentNote,
+      };
+    }),
+
   clearExternallyChanged: (noteId) =>
     set((state) => {
       if (!state.externallyChanged.has(noteId)) return state;
@@ -445,8 +468,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
           namespacedKey('moldavite-recent-notes'),
           JSON.stringify(recentNoteIds)
         );
-        const pinnedIds = openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id);
-        localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
+        localStorage.setItem(
+          namespacedKey('moldavite-pinned-tabs'),
+          JSON.stringify(persistedPinnedIds(openTabs))
+        );
       } catch (error) {
         console.error('[noteStore] Failed to persist renamed note references:', error);
       }
@@ -535,7 +560,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       try {
         localStorage.setItem(
           namespacedKey('moldavite-pinned-tabs'),
-          JSON.stringify(openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id))
+          JSON.stringify(persistedPinnedIds(openTabs))
         );
       } catch (error) {
         console.error('[noteStore] Failed to restore closed tab:', error);
@@ -576,7 +601,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       // Persist pinned tab IDs to localStorage. Pinned ids are Forge-relative
       // note paths, so the slot has to be per Forge like recent notes — a
       // global key resurrects another Forge's pins on unrelated notes.
-      const pinnedIds = sortedTabs.filter((t) => t.isPinned).map((t) => t.id);
+      const pinnedIds = persistedPinnedIds(sortedTabs);
       try {
         localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
       } catch (error) {
@@ -713,6 +738,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    */
   addRecentNote: (noteId) =>
     set((state) => {
+      if (isLooseId(noteId)) return state;
       const filtered = state.recentNoteIds.filter((id) => id !== noteId);
       const updated = [noteId, ...filtered].slice(0, 7);
 

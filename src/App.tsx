@@ -39,6 +39,7 @@ import {
 } from './hooks';
 import { flushAutosaveWhenHidden, registerAutosaveCloseGuard } from './lib/autosaveFlush';
 import { installWindowDropGuard } from './lib/dropGuard';
+import { restoreOpenLooseFiles } from './lib/looseFiles';
 import { useForgeReadinessStore, watchForgeReadiness } from './lib/forgeReadiness';
 import { ForgeReadinessScreen } from './components/ui/ForgeReadinessScreen';
 
@@ -72,6 +73,8 @@ function App() {
   useEffect(() => {
     if (forgeStatus !== 'ready') return;
     void initializeNotes();
+    // A Forge switch reloads the window; files opened from outside it stay open.
+    if (isTauri()) void restoreOpenLooseFiles();
     fixNotePermissions().catch(console.error);
     loadColors();
   }, [forgeStatus, loadColors]);

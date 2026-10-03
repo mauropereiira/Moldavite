@@ -118,13 +118,14 @@ function subscribe(listener: () => void): () => void {
 
 /**
  * Empty until the Forge path is known: a bare `images/x` would otherwise be
- * requested from the app's own origin first.
+ * requested from the app's own origin first. With `resolve` off (a file outside
+ * the Forge, whose `images/` is not the Forge's), a relative image stays empty.
  */
-export function useForgeImageSrc(src: string): string {
+export function useForgeImageSrc(src: string, resolve = true): string {
   const root = useSyncExternalStore(subscribe, getForgeRoot);
   useEffect(() => {
     void loadForgeRoot();
   }, []);
-  if (!root && relativeImageName(src)) return '';
-  return resolveForgeImageSrc(src, root);
+  if ((!resolve || !root) && relativeImageName(src)) return '';
+  return resolveForgeImageSrc(src, resolve ? root : null);
 }

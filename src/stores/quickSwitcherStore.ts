@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { forgeNamespacedStorage, onActiveForgeChange, readNamespaced } from '@/lib/forgeStorage';
+import { isLooseId } from '@/lib/looseId';
 import { useOverlayStore } from './overlayStore';
 
 const MAX_RECENT_SEARCHES = 5;
@@ -71,6 +72,7 @@ export const useQuickSwitcherStore = create<QuickSwitcherState>()(
 
       togglePinned: (noteId) =>
         set((state) => {
+          if (isLooseId(noteId)) return state;
           if (state.pinnedNoteIds.includes(noteId)) {
             return {
               pinnedNoteIds: state.pinnedNoteIds.filter((id) => id !== noteId),

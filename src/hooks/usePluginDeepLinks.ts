@@ -12,11 +12,13 @@ import { useTimelineStore } from '@/stores/timelineStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from './useNotes';
+import { openLooseFile } from '@/lib/looseFiles';
 import type { Note, NoteFile } from '@/types';
 
 export const DEEP_LINK_EVENT = 'deep-link-requested';
 const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const DRIVE_PREFIX_RE = /^[a-z]:/i;
+const LOOSE_ID_RE = /^[0-9a-f]{32}$/;
 
 interface PluginDeepLinkRequest {
   kind: 'plugin';
@@ -33,7 +35,20 @@ interface TodayDeepLinkRequest {
   kind: 'today';
 }
 
-type DeepLinkRequest = PluginDeepLinkRequest | NoteDeepLinkRequest | TodayDeepLinkRequest;
+/** A Markdown file the OS opened with the app, admitted by Rust under a session id. */
+interface LooseDeepLinkRequest {
+  kind: 'loose';
+  id: string;
+  name: string;
+  dirDisplay: string;
+  atLaunch?: boolean;
+}
+
+type DeepLinkRequest =
+  | PluginDeepLinkRequest
+  | NoteDeepLinkRequest
+  | TodayDeepLinkRequest
+  | LooseDeepLinkRequest;
 type LoadDailyNote = (date: Date) => Promise<void>;
 type LoadNote = (note: NoteFile, inNewTab?: boolean) => Promise<void>;
 type RefreshNotes = () => Promise<void>;
@@ -152,6 +167,14 @@ function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {
   if (request.kind === 'plugin') {
     return typeof request.id === 'string' && PLUGIN_ID_RE.test(request.id);
   }
+  if (request.kind === 'loose') {
+    return (
+      typeof request.id === 'string' &&
+      LOOSE_ID_RE.test(request.id) &&
+      typeof request.name === 'string' &&
+      typeof request.dirDisplay === 'string'
+    );
+  }
   return request.kind === 'note' && isSafeNoteReference(request.path);
 }
 
@@ -178,6 +201,9 @@ export function usePluginDeepLinks() {
             routePluginInstallRequest(request.id);
           } else if (request.kind === 'today') {
             await routeTodayRequest(loadDailyNote);
+          } else if (request.kind === 'loose') {
+            useSettingsStore.getState().setIsSettingsOpen(false);
+            await openLooseFile(request, { atLaunch: request.atLaunch === true });
           } else {
             await routeNoteRequest(request.path, loadNote, refresh);
           }

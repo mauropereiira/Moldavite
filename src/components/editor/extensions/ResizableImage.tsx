@@ -3,6 +3,8 @@ import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { NodeViewWrapper, ReactNodeViewRenderer, NodeViewProps } from '@tiptap/react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForgeImageSrc } from '@/lib/forgeImages';
+import { isLooseId } from '@/lib/looseId';
+import { useNoteStore } from '@/stores/noteStore';
 import { isMobilePlatform } from '@/lib/platform';
 import { TABLE_BLOCK_INSERT, afterEnclosingTable } from './NoteTables';
 
@@ -43,7 +45,8 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | null>(null);
 
   const { src, alt, width, alignment = 'center' } = node.attrs;
-  const displaySrc = useForgeImageSrc(src ?? '');
+  const inForge = useNoteStore((state) => !isLooseId(state.activeTabId));
+  const displaySrc = useForgeImageSrc(src ?? '', inForge);
 
   const currentWidth = width
     ? typeof width === 'number'
