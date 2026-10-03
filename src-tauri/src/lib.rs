@@ -244,6 +244,44 @@ fn google_calendar_disconnect() -> Result<(), String> {
     calendar::disconnect_google()
 }
 
+/// Whether the main webview may navigate to `url`: only the app's own origin,
+/// plus the dev server in a debug build. A file dropped on the window, or a
+/// stray link, would otherwise replace the app with the file and leave the
+/// close guard registered by the page that is gone, so the window can no
+/// longer be closed.
+#[cfg(desktop)]
+pub(crate) fn is_app_navigation_url(url: &tauri::Url, dev: Option<&tauri::Url>) -> bool {
+    match (url.scheme(), url.host_str()) {
+        ("tauri", Some("localhost")) => true,
+        ("http" | "https", Some("tauri.localhost")) => true,
+        _ => dev.is_some_and(|dev| {
+            dev.scheme() == url.scheme()
+                && dev.host_str() == url.host_str()
+                && dev.port_or_known_default() == url.port_or_known_default()
+        }),
+    }
+}
+
+#[cfg(desktop)]
+fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    use tauri::Manager;
+
+    tauri::plugin::Builder::new("nav-guard")
+        .on_navigation(|webview, url| {
+            let dev = if cfg!(debug_assertions) {
+                webview.config().build.dev_url.clone()
+            } else {
+                None
+            };
+            let allowed = is_app_navigation_url(url, dev.as_ref());
+            if !allowed {
+                log::info!("[nav-guard] blocked a navigation away from the app");
+            }
+            allowed
+        })
+        .build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use std::sync::Arc;
@@ -284,6 +322,7 @@ pub fn run() {
     // has no window geometry to restore.
     #[cfg(desktop)]
     let builder = builder
+        .plugin(navigation_guard())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_window_state::Builder::new().build());
@@ -583,6 +622,48 @@ mod tests {
 
     use crate::commands::search::search_notes_content_in;
     use crate::validation::{is_safe_filename, validate_path_within_base};
+
+    #[test]
+    fn navigation_stays_on_the_app_origin() {
+        use super::is_app_navigation_url;
+        let url = |value: &str| tauri::Url::parse(value).unwrap();
+        let dev = url("http://localhost:5173");
+
+        for allowed in [
+            "tauri://localhost",
+            "tauri://localhost/index.html#note",
+            "http://tauri.localhost/",
+            "https://tauri.localhost/settings",
+        ] {
+            assert!(is_app_navigation_url(&url(allowed), None), "{allowed}");
+        }
+        assert!(is_app_navigation_url(
+            &url("http://localhost:5173/src/main.tsx"),
+            Some(&dev)
+        ));
+
+        for blocked in [
+            "file:///Users/me/Desktop/note.md",
+            "https://example.com/",
+            "http://localhost:5173/",
+            "tauri://evil.com",
+            "http://tauri.localhost.evil.com/",
+            "asset://localhost/x.png",
+            "about:blank",
+        ] {
+            assert!(!is_app_navigation_url(&url(blocked), None), "{blocked}");
+        }
+        for blocked in [
+            "http://localhost:5174/",
+            "https://localhost:5173/",
+            "http://127.0.0.1:5173/",
+        ] {
+            assert!(
+                !is_app_navigation_url(&url(blocked), Some(&dev)),
+                "{blocked}"
+            );
+        }
+    }
 
     #[test]
     fn is_safe_filename_accepts_simple_names() {

@@ -38,6 +38,7 @@ import {
   usePluginHost,
 } from './hooks';
 import { flushAutosaveWhenHidden, registerAutosaveCloseGuard } from './lib/autosaveFlush';
+import { installWindowDropGuard } from './lib/dropGuard';
 import { useForgeReadinessStore, watchForgeReadiness } from './lib/forgeReadiness';
 import { ForgeReadinessScreen } from './components/ui/ForgeReadinessScreen';
 
@@ -62,6 +63,8 @@ function App() {
   usePluginDeepLinks();
 
   useEffect(() => watchForgeReadiness(), []);
+
+  useEffect(() => installWindowDropGuard(), []);
 
   // The one note-list load for the window; components that use useNotes share it.
   // The synced Forge cannot be read until iCloud is ready, so everything that
