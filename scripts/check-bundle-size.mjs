@@ -159,7 +159,10 @@ const BUDGETS = [
 // permission changes, installing from a .zip or folder, safe mode with its
 // startup marker, starting and stopping one plugin instead of all) adds
 // 11.4 KB raw / 3.4 KB gz. Measured 673.0 KB / 193.1 KB gz.
-const APP_JS_BUDGET = { rawKb: 676, gzipKb: 195 };
+// 680 / 197: the Autumn round (the seasonal preset, falling leaves, the Settings
+// pumpkin and the Index icons) adds 4.7 KB raw / 1.8 KB gz; the field art ships as
+// SVG files, not code. Measured 677.7 KB / 194.9 KB gz.
+const APP_JS_BUDGET = { rawKb: 680, gzipKb: 197 };
 
 async function main() {
   let entries;

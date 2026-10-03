@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFolderStore, useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
+import { useThemeStore } from '@/stores/themeStore';
 import { CONSTELLATIONS } from './constellations';
 import { BACKGROUND_STAR_COUNT, WelcomeEmptyState } from './WelcomeScreen';
 
@@ -207,5 +208,20 @@ describe('WelcomeScreen layout settings', () => {
     );
     expect(container.querySelectorAll('.welcome-leaf').length).toBeGreaterThan(0);
     expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
+  });
+
+  it('draws the autumn field only with the Autumn theme', () => {
+    const { container, unmount } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(container.querySelector('.autumn-field')).toBeNull();
+    unmount();
+
+    useThemeStore.setState({ preset: 'autumn' });
+    const { container: autumn } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(autumn.querySelector('.autumn-field')).not.toBeNull();
+    useThemeStore.setState({ preset: 'default' });
   });
 });

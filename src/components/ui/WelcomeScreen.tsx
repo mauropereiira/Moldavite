@@ -4,7 +4,7 @@ import { formatShortcut } from '@/lib/shortcuts';
 import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
-import { useSeasonalTouches } from '@/lib/seasons';
+import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
 import { FallingLeafIcon } from './SeasonalIcons';
 
 const COUNTER_DURATION_FALLBACK_MS = 700;
@@ -666,6 +666,26 @@ function FallingLeaves({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
+/** Recraft free-plan art, not licensed for commercial use: regenerate on a paid plan or replace before shipping. */
+function AutumnField() {
+  return (
+    <>
+      <img
+        src="/seasonal/autumn-field-light.svg"
+        alt=""
+        aria-hidden="true"
+        className="autumn-field autumn-field-light"
+      />
+      <img
+        src="/seasonal/autumn-field-dark.svg"
+        alt=""
+        aria-hidden="true"
+        className="autumn-field autumn-field-dark"
+      />
+    </>
+  );
+}
+
 export function WelcomeEmptyState({
   onCreateToday,
   onCreateNote,
@@ -675,6 +695,7 @@ export function WelcomeEmptyState({
 }) {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const season = useSeasonalTouches();
+  const autumnArt = useAutumnArt();
   const coarsePointer = useMediaQuery('(pointer: coarse)');
   const { showWelcomeDots, showWelcomeStats, showWelcomeDate, showAsteroidCursor, isSettingsOpen } =
     useSettingsStore();
@@ -718,6 +739,7 @@ export function WelcomeEmptyState({
         !isSettingsOpen && <AsteroidCursor />}
       {showWelcomeDots && <ConstellationField reducedMotion={reducedMotion} />}
       {showWelcomeDots && season === 'autumn' && <FallingLeaves reducedMotion={reducedMotion} />}
+      {showWelcomeDots && autumnArt && <AutumnField />}
       {showWelcomeDate && (
         <p
           className="welcome-reveal welcome-reveal-date"
