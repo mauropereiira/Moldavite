@@ -78,6 +78,8 @@ import { ImportSection } from './sections/ImportSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useSeasonalTouches } from '@/lib/seasons';
+import { PumpkinIcon } from '@/components/ui/SeasonalIcons';
 
 const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins'];
 
@@ -94,6 +96,7 @@ export function SettingsModal() {
   const activeTab = settingsStore.activeSettingsTab;
   const setActiveTab = settingsStore.setActiveSettingsTab;
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
+  const season = useSeasonalTouches();
   const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
     general: null,
     appearance: null,
@@ -351,6 +354,11 @@ export function SettingsModal() {
                 </button>
               );
             })}
+            {season === 'autumn' && (
+              <div className="mt-auto px-3 pt-4" style={{ color: 'var(--text-muted)' }}>
+                <PumpkinIcon className="w-5 h-5" title="Happy autumn" />
+              </div>
+            )}
           </div>
 
           <div
@@ -400,6 +408,7 @@ function MobileSettingsPage({
 }) {
   // In the store rather than local state so the rail's Settings button can
   // walk back to the list from a section.
+  const season = useSeasonalTouches();
   const sectionId = useSettingsStore((state) => state.settingsSection);
   const setSectionId = useSettingsStore((state) => state.setSettingsSection);
   const section = sectionId === null ? null : (tabs.find((tab) => tab.id === sectionId) ?? null);
@@ -525,6 +534,11 @@ function MobileSettingsPage({
                 <ChevronRight aria-hidden="true" className="w-4 h-4 flex-shrink-0" />
               </button>
             ))}
+            {season === 'autumn' && (
+              <div className="flex justify-center py-6" style={{ color: 'var(--text-muted)' }}>
+                <PumpkinIcon className="w-5 h-5" title="Happy autumn" />
+              </div>
+            )}
           </nav>
         )}
       </DialogSurface>

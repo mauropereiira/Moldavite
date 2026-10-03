@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { CollapsibleSection } from './CollapsibleSection';
 
 describe('CollapsibleSection', () => {
@@ -19,5 +21,28 @@ describe('CollapsibleSection', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Hidden action' })).toBeInTheDocument();
+  });
+
+  afterEach(() => {
+    useThemeStore.setState({ preset: 'default' });
+    useSettingsStore.setState({ showSeasonalTouches: true });
+  });
+
+  it('draws the section icon only with the Autumn theme and seasonal touches on', () => {
+    const section = (
+      <CollapsibleSection title="Folders" isCollapsed={false} onToggle={vi.fn()}>
+        <span />
+      </CollapsibleSection>
+    );
+    const { container, rerender } = render(section);
+    expect(container.querySelector('.seasonal-section-icon')).toBeNull();
+
+    useThemeStore.setState({ preset: 'autumn' });
+    rerender(section);
+    expect(container.querySelector('.seasonal-section-icon')).not.toBeNull();
+
+    useSettingsStore.setState({ showSeasonalTouches: false });
+    rerender(section);
+    expect(container.querySelector('.seasonal-section-icon')).toBeNull();
   });
 });

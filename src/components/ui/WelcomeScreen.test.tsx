@@ -185,4 +185,27 @@ describe('WelcomeScreen layout settings', () => {
     );
     expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
   });
+
+  it('drifts autumn leaves across the sky only while seasonal touches are on', () => {
+    const { container, unmount } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(container.querySelectorAll('.welcome-leaf-falling').length).toBeGreaterThan(0);
+    unmount();
+
+    useSettingsStore.setState({ showSeasonalTouches: false });
+    const { container: plain } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(plain.querySelectorAll('.welcome-leaf').length).toBe(0);
+  });
+
+  it('keeps the leaves still when reduced motion is preferred', () => {
+    setPointerPreferences({ reducedMotion: true });
+    const { container } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(container.querySelectorAll('.welcome-leaf').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
+  });
 });

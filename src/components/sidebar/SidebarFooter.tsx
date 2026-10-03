@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
 import { formatShortcut } from '@/lib/shortcuts';
+import { useAutumnArt } from '@/lib/seasons';
+import { JackOLanternIcon } from '@/components/ui/SeasonalIcons';
 
 interface SidebarFooterProps {
   onToday: () => void;
@@ -21,6 +23,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
   const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
   const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
+  const autumnArt = useAutumnArt();
 
   useEffect(() => {
     getVersion()
@@ -149,6 +152,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
 
       <div className="sidebar-footer-version px-3 pb-3 flex flex-col items-center">
         <div className="text-center">
+          {autumnArt && <JackOLanternIcon className="seasonal-brand-icon" />}
           <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
             MOLDAVITE
           </p>

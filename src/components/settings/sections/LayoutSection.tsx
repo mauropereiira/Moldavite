@@ -12,7 +12,8 @@ type BooleanLayoutSetting =
   | 'showWelcomeDots'
   | 'showWelcomeStats'
   | 'showWelcomeDate'
-  | 'showAsteroidCursor';
+  | 'showAsteroidCursor'
+  | 'showSeasonalTouches';
 
 const EDITOR_CONTROLS = [
   ['Note header', 'showNoteHeader'],
@@ -26,6 +27,7 @@ const WELCOME_CONTROLS = [
   ['Live counts', 'showWelcomeStats'],
   ['Date', 'showWelcomeDate'],
   ['Asteroid cursor', 'showAsteroidCursor'],
+  ['Seasonal touches', 'showSeasonalTouches'],
 ] as const;
 
 const MODES: readonly { value: ChromeMode; label: string }[] = [

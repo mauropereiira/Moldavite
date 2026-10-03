@@ -15,7 +15,7 @@ import { persist } from 'zustand/middleware';
  */
 export type BaseMode = 'light' | 'dark' | 'system';
 
-export type ThemePreset = 'default' | 'sage' | 'slate' | 'clay' | 'plum' | 'graphite';
+export type ThemePreset = 'default' | 'sage' | 'slate' | 'clay' | 'plum' | 'graphite' | 'autumn';
 
 export interface PresetSwatches {
   bg: string;
@@ -140,6 +140,24 @@ export const PRESETS: PresetMeta[] = [
       accent: '#CCD1D8',
       text: '#E5EAF0',
       border: 'rgba(229, 234, 240, 0.14)',
+    },
+  },
+  {
+    id: 'autumn',
+    label: 'Autumn',
+    swatches: {
+      bg: '#FBEFD6',
+      surface: '#EAD3A8',
+      accent: '#9A3B10',
+      text: '#1F1308',
+      border: 'rgba(31, 19, 8, 0.13)',
+    },
+    darkSwatches: {
+      bg: '#231A11',
+      surface: '#160F08',
+      accent: '#EE9550',
+      text: '#F3E4CB',
+      border: 'rgba(243, 228, 203, 0.14)',
     },
   },
 ];

@@ -1,4 +1,6 @@
 import React from 'react';
+import { useAutumnArt } from '@/lib/seasons';
+import { SECTION_ICONS } from '@/components/ui/SeasonalIcons';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -17,6 +19,8 @@ export function CollapsibleSection({
   children,
   count,
 }: CollapsibleSectionProps) {
+  const autumnArt = useAutumnArt();
+  const SectionIcon = autumnArt ? SECTION_ICONS[title] : undefined;
   return (
     <div className="flex flex-col">
       <div className="section-header mx-3">
@@ -36,6 +40,7 @@ export function CollapsibleSection({
             aria-hidden="true"
             className={`sidebar-caret ${isCollapsed ? '' : 'sidebar-caret-expanded'}`}
           />
+          {SectionIcon && <SectionIcon className="seasonal-section-icon" />}
           <span>{title}</span>
         </button>
         <div className="ml-auto flex items-center gap-2">

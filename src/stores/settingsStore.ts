@@ -76,6 +76,7 @@ export interface SettingsState {
   showWelcomeStats: boolean;
   showWelcomeDate: boolean;
   showAsteroidCursor: boolean;
+  showSeasonalTouches: boolean;
 
   sortOption: SortOption;
   showFoldersSection: boolean;
@@ -161,6 +162,7 @@ const defaultSettings = {
   showWelcomeStats: true,
   showWelcomeDate: true,
   showAsteroidCursor: true,
+  showSeasonalTouches: true,
   sortOption: 'name-asc' as SortOption,
   showFoldersSection: true,
   showBacklinksSection: true,
@@ -316,6 +318,7 @@ export const useSettingsStore = create<SettingsState>()(
         showWelcomeStats: state.showWelcomeStats,
         showWelcomeDate: state.showWelcomeDate,
         showAsteroidCursor: state.showAsteroidCursor,
+        showSeasonalTouches: state.showSeasonalTouches,
         sortOption: state.sortOption,
         showFoldersSection: state.showFoldersSection,
         showBacklinksSection: state.showBacklinksSection,

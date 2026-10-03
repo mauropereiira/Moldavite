@@ -14,6 +14,7 @@ import { ShortcutRow, Toggle } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useToast } from '@/hooks/useToast';
 import { safeInvoke } from '@/lib/ipc';
+import { useSeasonalTouches } from '@/lib/seasons';
 
 function SoftwareUpdatesSection() {
   const {
@@ -193,6 +194,7 @@ function SoftwareUpdatesSection() {
 export function AboutSection() {
   const toast = useToast();
   const [appVersion, setAppVersion] = useState<string>('');
+  const season = useSeasonalTouches();
   const setHasSeenAppOnboarding = useSettingsStore((s) => s.setHasSeenAppOnboarding);
   const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
 
@@ -247,6 +249,7 @@ export function AboutSection() {
           </h3>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             Version {appVersion || '...'}
+            {season === 'autumn' && ' · Autumn edition'}
           </p>
           <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
             Moldavite is a tektite — natural glass formed by a meteorite impact, found in Bohemia.

@@ -689,6 +689,84 @@
   --focus-ring: var(--text-primary);
 }
 
+/* Autumn Light: wheat ground, maple accent */
+:root[data-theme='autumn'] {
+  --bg-base: #f4e2bf;
+  --bg-sidebar: #ead3a8;
+  --bg-editor: #fbefd6;
+  --bg-panel: #ead3a8;
+  --bg-elevated: #fbefd6;
+  --bg-inset: #e9d1a3;
+
+  --border-default: rgba(31, 19, 8, 0.13);
+  --border-strong: rgba(31, 19, 8, 0.24);
+  --border-muted: rgba(31, 19, 8, 0.08);
+
+  --text-primary: #1f1308;
+  --text-secondary: rgba(31, 19, 8, 0.7);
+  --text-tertiary: rgba(31, 19, 8, 0.45);
+  --text-muted: rgba(31, 19, 8, 0.34);
+
+  --accent-primary: #9a3b10;
+  --accent-hover: #ab4c21;
+  --accent-active: #852f08;
+  --accent-muted: rgba(154, 59, 16, 0.55);
+  --accent-subtle: rgba(31, 19, 8, 0.06);
+
+  --syntax-bold: #1f1308;
+  --syntax-italic: var(--text-secondary);
+  --syntax-h1: #8a1e2c;
+  --syntax-h2: #9a3b10;
+  --syntax-h3: #5c5a12;
+  --syntax-code: #6b3a5a;
+  --syntax-link: #1f5866;
+  --syntax-highlight: rgba(196, 140, 30, 0.24);
+
+  --hover-overlay: rgba(31, 19, 8, 0.06);
+  --active-overlay: rgba(31, 19, 8, 0.12);
+  --folder-icon-bg: rgba(154, 59, 16, 0.12);
+  --focus-ring: var(--text-primary);
+}
+
+/* Autumn Dark: bonfire night */
+:root[data-theme='autumn'].dark {
+  --bg-base: #1c140c;
+  --bg-sidebar: #160f08;
+  --bg-editor: #231a11;
+  --bg-panel: #160f08;
+  --bg-elevated: #231a11;
+  --bg-inset: #110b05;
+
+  --border-default: rgba(243, 228, 203, 0.14);
+  --border-strong: rgba(243, 228, 203, 0.26);
+  --border-muted: rgba(243, 228, 203, 0.08);
+
+  --text-primary: #f3e4cb;
+  --text-secondary: rgba(243, 228, 203, 0.62);
+  --text-tertiary: rgba(243, 228, 203, 0.45);
+  --text-muted: rgba(243, 228, 203, 0.34);
+
+  --accent-primary: #ee9550;
+  --accent-hover: #fba562;
+  --accent-active: #d98340;
+  --accent-muted: rgba(238, 149, 80, 0.55);
+  --accent-subtle: rgba(243, 228, 203, 0.08);
+
+  --syntax-bold: #f3e4cb;
+  --syntax-italic: var(--text-secondary);
+  --syntax-h1: #f08c8c;
+  --syntax-h2: #ee9550;
+  --syntax-h3: #cdbf6a;
+  --syntax-code: #dda6c6;
+  --syntax-link: #86c3d2;
+  --syntax-highlight: rgba(196, 140, 30, 0.24);
+
+  --hover-overlay: rgba(243, 228, 203, 0.08);
+  --active-overlay: rgba(243, 228, 203, 0.15);
+  --folder-icon-bg: rgba(238, 149, 80, 0.15);
+  --focus-ring: var(--text-primary);
+}
+
 /* Legacy semantic aliases. Keep every surface theme-aware instead of hiding
    missing tokens behind hardcoded var() fallbacks. */
 :root,
@@ -702,7 +780,9 @@
 :root[data-theme='plum'],
 :root[data-theme='plum'].dark,
 :root[data-theme='graphite'],
-:root[data-theme='graphite'].dark {
+:root[data-theme='graphite'].dark,
+:root[data-theme='autumn'],
+:root[data-theme='autumn'].dark {
   --bg-hover: var(--hover-overlay);
   --border-primary: var(--border-default);
   --bg-surface: var(--bg-elevated);
@@ -3827,6 +3907,103 @@ button[aria-expanded='true'] .wn-caret {
 
 /* The welcome composition tells the brand story in three beats: the letters
    land, the impact-glass `a` reflects, then the useful controls arrive. */
+/* Autumn's own touches in notes: maple selection, caret and ticks, and a leaf on dividers. */
+:root[data-theme='autumn'] ::selection,
+:root[data-theme='autumn'] .tiptap ::selection {
+  background-color: var(--accent-primary) !important;
+  color: var(--bg-editor) !important;
+}
+
+:root[data-theme='autumn'] .tiptap {
+  caret-color: var(--accent-primary);
+}
+
+:root[data-theme='autumn'] .tiptap input[type='checkbox']:checked {
+  border-color: var(--accent-primary) !important;
+  background: var(--accent-primary) !important;
+  background-color: var(--accent-primary) !important;
+}
+
+:root[data-theme='autumn'] .tiptap hr {
+  position: relative;
+  overflow: visible;
+  border-top: none;
+  height: 14px;
+  background:
+    linear-gradient(var(--border-default), var(--border-default)) left center / calc(50% - 18px) 1px
+      no-repeat,
+    linear-gradient(var(--border-default), var(--border-default)) right center / calc(50% - 18px)
+      1px no-repeat;
+}
+
+:root[data-theme='autumn'] .tiptap hr::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%);
+  background-color: var(--text-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 19c0-7.5 5.2-12.6 14-14-1.1 8.6-6.4 14-14 14z'/%3E%3Cpath d='M5 19l8.5-8.5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 19c0-7.5 5.2-12.6 14-14-1.1 8.6-6.4 14-14 14z'/%3E%3Cpath d='M5 19l8.5-8.5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.welcome-leaf {
+  --leaf-sway: 0px;
+  position: absolute;
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.welcome-leaf svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.welcome-leaf-falling {
+  top: -6%;
+  animation-name: welcome-leaf-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes welcome-leaf-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(var(--leaf-sway), 28vh) rotate(70deg);
+  }
+  50% {
+    transform: translate(0, 56vh) rotate(150deg);
+  }
+  75% {
+    transform: translate(calc(var(--leaf-sway) * -1), 84vh) rotate(220deg);
+  }
+  100% {
+    transform: translate(0, 112vh) rotate(300deg);
+  }
+}
+
+.seasonal-section-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.seasonal-brand-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto 4px;
+  color: var(--text-muted);
+}
+
 @keyframes welcome-glyph-in {
   from {
     opacity: 0;
