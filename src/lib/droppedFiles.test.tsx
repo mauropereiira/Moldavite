@@ -393,6 +393,9 @@ describe('a dropped file Rust cannot place', () => {
     expect(activeNote().id).toBe('notes/Dropped.md');
     expect(isCurrentNoteViewOnly(useNoteStore.getState())).toBe(false);
     expect(screen.queryByRole('status')).toBeNull();
+    expect(useToastStore.getState().toasts.filter((toast) => toast.type === 'success')).toEqual([
+      expect.objectContaining({ message: 'Added to the Forge' }),
+    ]);
   });
 
   it('copies its text, frontmatter included, into the Forge on Add to Forge', async () => {

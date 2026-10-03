@@ -2,7 +2,6 @@ import { BannerAction } from './BannerAction';
 import { useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useNotes } from '@/hooks/useNotes';
-import { addDroppedToForge } from '@/lib/droppedFiles';
 import { isDroppedId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { formatShortcut } from '@/lib/shortcuts';
 import {
@@ -26,7 +25,7 @@ const bannerStyle: React.CSSProperties = {
 
 export function DroppedFileBanner() {
   const currentNote = useNoteStore((state) => state.currentNote);
-  const { loadNote, refresh } = useNotes();
+  const { addFileToForge } = useNotes();
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
@@ -35,11 +34,7 @@ export function DroppedFileBanner() {
   const addToForge = async () => {
     setBusy(true);
     try {
-      const path = await addDroppedToForge(currentNote);
-      await refresh();
-      const added = useNoteStore.getState().notes.find((note) => note.path === path);
-      if (added) await loadNote(added);
-      toast.success('Added to the Forge');
+      await addFileToForge(currentNote);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {

@@ -310,6 +310,12 @@ fn display_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
+fn display_parent(path: &Path, home: Option<&Path>) -> String {
+    path.parent()
+        .map(|dir| display_dir(dir, home))
+        .unwrap_or_default()
+}
+
 /// The Forge address of a note inside the active Forge, in the shape a
 /// `moldavite://note/` link resolves: `notes/<path>`, `daily/<name>`, `weekly/<name>`.
 fn forge_note_rel(canonical: &Path, forge_root: &Path) -> Option<String> {
@@ -373,11 +379,7 @@ impl LooseFiles {
         Ok(Admission::Loose {
             id,
             name: display_name(&inspected.path),
-            dir_display: inspected
-                .path
-                .parent()
-                .map(|dir| display_dir(dir, home))
-                .unwrap_or_default(),
+            dir_display: display_parent(&inspected.path, home),
         })
     }
 
@@ -425,11 +427,7 @@ impl LooseFiles {
             hash: inspected.hash,
             read_only: inspected.read_only,
             name: display_name(&entry.path),
-            dir_display: entry
-                .path
-                .parent()
-                .map(|dir| display_dir(dir, home))
-                .unwrap_or_default(),
+            dir_display: display_parent(&entry.path, home),
         })
     }
 
@@ -482,11 +480,7 @@ impl LooseFiles {
             .map(|(id, entry)| OpenLooseFile {
                 id: id.clone(),
                 name: display_name(&entry.path),
-                dir_display: entry
-                    .path
-                    .parent()
-                    .map(|dir| display_dir(dir, home))
-                    .unwrap_or_default(),
+                dir_display: display_parent(&entry.path, home),
             })
             .collect()
     }
@@ -530,13 +524,14 @@ pub(crate) fn file_args<S: AsRef<str>>(argv: &[S], cwd: &Path) -> Vec<PathBuf> {
             if arg.is_empty() || arg.starts_with('-') {
                 return None;
             }
-            if let Ok(url) = tauri::Url::parse(arg) {
-                if url.scheme() == "file" {
-                    return url.to_file_path().ok();
-                }
-                if arg.contains("://") && !Path::new(arg).is_absolute() {
-                    return None;
-                }
+            if let Some(path) = file_url_path(arg) {
+                return Some(path);
+            }
+            if arg.contains("://")
+                && !Path::new(arg).is_absolute()
+                && tauri::Url::parse(arg).is_ok()
+            {
+                return None;
             }
             let path = Path::new(arg);
             Some(if path.is_absolute() {

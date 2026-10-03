@@ -41,7 +41,10 @@ import {
   renameNote as renameNoteFile,
   getNoteTitleError,
 } from '@/lib';
-import type { NoteFile } from '@/types';
+import type { Note, NoteFile } from '@/types';
+import { isDroppedId } from '@/lib/looseId';
+import { addLooseToForge } from '@/lib/looseFiles';
+import { addDroppedToForge } from '@/lib/droppedFiles';
 import { format, getISOWeek, getISOWeekYear } from 'date-fns';
 import {
   acquireAutosavePathChange,
@@ -264,6 +267,19 @@ export function useNotes() {
       await openNoteFile(noteFile, inNewTab || !saved, navigation);
     },
     [flushCurrentNote, openNoteFile]
+  );
+
+  const addFileToForge = useCallback(
+    async (note: Note) => {
+      const path = isDroppedId(note.id)
+        ? await addDroppedToForge(note)
+        : await addLooseToForge(note);
+      await loadNoteList();
+      const added = getState().notes.find((file) => file.path === path);
+      if (added) await loadNote(added);
+      useToastStore.getState().addToast('success', 'Added to the Forge');
+    },
+    [getState, loadNote]
   );
 
   /**
@@ -689,6 +705,7 @@ export function useNotes() {
     createNote,
     createFromTemplate,
     duplicateNote,
+    addFileToForge,
     renameNote,
     refresh: loadNoteList,
   };

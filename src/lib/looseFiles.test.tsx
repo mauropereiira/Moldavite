@@ -1,7 +1,10 @@
 /** Loose notes: files outside the Forge open, save, conflict and close without touching it. */
 
-import { act, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { LooseFileBanner } from '@/components/editor/LooseFileBanner';
+import { MoreOptionsMenu } from '@/components/editor/MoreOptionsMenu';
+import { NoteCloseButton } from '@/components/editor/NoteCloseButton';
+import { TabBar } from '@/components/editor/TabBar';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore, isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
@@ -55,7 +58,7 @@ const standalone = (name: string): NoteFile => ({
   isLocked: false,
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorage.clear();
   diskBody = 'Hello from outside';
   diskHash = 'hash-1';
@@ -104,6 +107,8 @@ beforeEach(() => {
   useLooseStatusStore.setState({ status: {} });
   useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
   useToastStore.setState({ toasts: [] });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  invokeMock.mockClear();
 });
 
 afterEach(() => {
@@ -137,6 +142,37 @@ async function openAndEdit(typed: string) {
 }
 
 describe('opening a loose file', () => {
+  it('adds a Forge copy from the menu, refreshes and opens it, and toasts once', async () => {
+    await act(() => openLooseFile(admission));
+    const backend = invokeMock.getMockImplementation();
+    if (!backend) throw new Error('No file backend');
+    invokeMock.mockImplementation(async (command: string, payload?: Record<string, unknown>) => {
+      if (command === 'add_loose_to_forge') return 'Copy.md';
+      if (command === 'list_notes') return [standalone('Copy.md')];
+      return backend(command, payload);
+    });
+    render(
+      <MoreOptionsMenu
+        onDelete={vi.fn()}
+        wordCount={3}
+        characterCount={18}
+        onRenameNote={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Add to Forge'));
+    });
+
+    expect(calls('add_loose_to_forge')).toEqual([['add_loose_to_forge', { id: LOOSE_ID }]]);
+    expect(calls('list_notes')).toHaveLength(1);
+    expect(activeNote().id).toBe('notes/Copy.md');
+    expect(useToastStore.getState().toasts).toEqual([
+      expect.objectContaining({ type: 'success', message: 'Added to the Forge' }),
+    ]);
+  });
+
   it('opens it in its own tab, editable, without adding it to recent notes', async () => {
     await act(() => openLooseFile(admission));
 
@@ -403,6 +439,117 @@ describe('a loose file changed on disk', () => {
 });
 
 describe('pins and closing', () => {
+  describe.each(['⌘W', 'tab bar', 'NoteCloseButton'])('%s', (control) => {
+    it.each(['conflict:hash-disk', 'Moved', 'Disk full'])(
+      'keeps unsaved edits and the file session after a failed save: %s',
+      async (error) => {
+        vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15'
+        );
+        renderEditing();
+        renderHook(() => useKeyboardShortcuts({ editor: null }));
+        await openAndEdit('<p>mine</p>');
+        writeError = error;
+        await act(() => flushPendingAutosave());
+        const saved = useNoteStore.getState().savedContent.get(NOTE_ID);
+        if (control === 'tab bar') render(<TabBar />);
+        if (control === 'NoteCloseButton') {
+          render(
+            <NoteCloseButton
+              title={admission.name}
+              onClose={() => useNoteStore.getState().closeTab(NOTE_ID)}
+            />
+          );
+        }
+        render(<LooseFileBanner />);
+
+        await act(async () => {
+          if (control === '⌘W') {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', metaKey: true }));
+          } else {
+            fireEvent.click(screen.getByRole('button', { name: /^Close Read me/ }));
+          }
+        });
+
+        expect(useNoteStore.getState().openTabs).toHaveLength(1);
+        expect(activeNote().content).toBe('<p>mine</p>');
+        expect(useNoteStore.getState().savedContent.get(NOTE_ID)).toBe(saved);
+        expect(calls('close_loose_file')).toHaveLength(0);
+        expect(useToastStore.getState().toasts[0].message).toMatch(/still open.*Save a copy/);
+        if (error !== 'Disk full') {
+          expect(screen.getByRole('button', { name: 'Save a copy…' })).toBeInTheDocument();
+        }
+      }
+    );
+  });
+
+  it('flushes pending edits before closing a loose tab', async () => {
+    renderEditing();
+    await openAndEdit('<p>saved before closing</p>');
+
+    await act(async () => {
+      await useNoteStore.getState().closeTab(NOTE_ID);
+    });
+
+    expect(diskBody).toBe('saved before closing');
+    expect(useNoteStore.getState().openTabs).toHaveLength(0);
+    expect(calls('close_loose_file')).toHaveLength(1);
+  });
+
+  it('keeps edits typed while the close flush is writing', async () => {
+    renderEditing();
+    await openAndEdit('<p>first</p>');
+    let finish!: (result: { hash: string }) => void;
+    invokeMock.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const closing = useNoteStore.getState().closeTab(NOTE_ID);
+    await act(async () => {
+      await Promise.resolve();
+      useNoteStore.getState().updateNoteContent('<p>newer</p>', NOTE_ID);
+      finish({ hash: 'hash-of:first' });
+      await closing;
+    });
+
+    expect(activeNote().content).toBe('<p>newer</p>');
+    expect(useNoteStore.getState().savedContent.get(NOTE_ID)).toBe('<p>first</p>');
+    expect(calls('close_loose_file')).toHaveLength(0);
+  });
+
+  it('closes after Keep mine has saved the previously conflicted edits', async () => {
+    renderEditing();
+    await openAndEdit('<p>mine</p>');
+    writeError = 'conflict:hash-disk';
+    await act(() => flushPendingAutosave());
+    await act(() => useNoteStore.getState().closeTab(NOTE_ID));
+    expect(activeNote().content).toBe('<p>mine</p>');
+
+    writeError = null;
+    diskHash = 'hash-disk';
+    await act(() => keepMineLooseNote(activeNote()));
+    await act(() => useNoteStore.getState().closeTab(NOTE_ID));
+
+    expect(diskBody).toBe('mine');
+    expect(useNoteStore.getState().openTabs).toHaveLength(0);
+    expect(calls('close_loose_file')).toHaveLength(1);
+  });
+
+  it('keeps and activates an inactive unsaved loose tab when closing all tabs', async () => {
+    const hook = renderEditing();
+    await openAndEdit('<p>mine</p>');
+    writeError = 'conflict:hash-disk';
+    await act(() => hook.result.current.loadNote(standalone('Elsewhere.md')));
+    expect(activeNote().id).toBe('notes/Elsewhere.md');
+    render(<TabBar />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close all' }));
+    });
+
+    expect(useNoteStore.getState().openTabs).toHaveLength(1);
+    expect(activeNote().id).toBe(NOTE_ID);
+    expect(activeNote().content).toBe('<p>mine</p>');
+    expect(calls('close_loose_file')).toHaveLength(0);
+  });
+
   it('keeps loose tabs out of persisted pins and the quick switcher', async () => {
     await act(() => openLooseFile(admission));
 
@@ -435,7 +582,7 @@ describe('pins and closing', () => {
     renderHook(() => useKeyboardShortcuts({ editor: null }));
     await act(() => openLooseFile(admission));
 
-    act(() => {
+    await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', metaKey: true }));
     });
 

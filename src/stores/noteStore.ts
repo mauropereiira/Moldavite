@@ -17,7 +17,9 @@
 import { create } from 'zustand';
 import type { LooseNoteInfo, Note, NoteFile } from '@/types';
 import { namespacedKey, onActiveForgeChange } from '@/lib/forgeStorage';
-import { isLooseId, isLooseViewOnly } from '@/lib/looseId';
+import { isLooseId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
+import { flushPendingAutosave } from '@/lib/autosaveFlush';
+import { useToastStore } from './toastStore';
 import { useGraphStore } from './graphStore';
 import { useTimelineStore } from './timelineStore';
 
@@ -55,7 +57,7 @@ interface NoteState {
   updateNoteContent: (content: string, noteId?: string) => void;
 
   openTab: (note: Note, inNewTab?: boolean, activate?: boolean) => void;
-  closeTab: (noteId: string) => void;
+  closeTab: (noteId: string) => void | Promise<void>;
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
   applyExternalContent: (noteId: string, content: string) => void;
@@ -286,47 +288,72 @@ export const useNoteStore = create<NoteState>((set, get) => ({
   /**
    * Closes a tab and switches to an adjacent tab if needed.
    */
-  closeTab: (noteId) =>
-    set((state) => {
-      const tabIndex = state.openTabs.findIndex((t) => t.id === noteId);
-      if (tabIndex < 0) return state;
+  closeTab: (noteId) => {
+    const close = () =>
+      set((state) => {
+        const tabIndex = state.openTabs.findIndex((t) => t.id === noteId);
+        if (tabIndex < 0) return state;
 
-      const newTabs = state.openTabs.filter((t) => t.id !== noteId);
-      const externallyChanged = new Map(state.externallyChanged);
-      externallyChanged.delete(noteId);
-      const savedContent = new Map(state.savedContent);
-      savedContent.delete(noteId);
-      try {
-        localStorage.setItem(
-          namespacedKey('moldavite-pinned-tabs'),
-          JSON.stringify(persistedPinnedIds(newTabs))
-        );
-      } catch (error) {
-        // Auto-lock closes tabs to drop decrypted content. Unavailable storage
-        // must not abort the update and leave that content in a tab.
-        console.error('[noteStore] Failed to persist pinned tabs:', error);
-      }
+        const newTabs = state.openTabs.filter((t) => t.id !== noteId);
+        const externallyChanged = new Map(state.externallyChanged);
+        externallyChanged.delete(noteId);
+        const savedContent = new Map(state.savedContent);
+        savedContent.delete(noteId);
+        try {
+          localStorage.setItem(
+            namespacedKey('moldavite-pinned-tabs'),
+            JSON.stringify(persistedPinnedIds(newTabs))
+          );
+        } catch (error) {
+          // Auto-lock closes tabs to drop decrypted content. Unavailable storage
+          // must not abort the update and leave that content in a tab.
+          console.error('[noteStore] Failed to persist pinned tabs:', error);
+        }
 
-      let newActiveId: string | null = null;
-      let newCurrentNote: Note | null = null;
+        let newActiveId: string | null = null;
+        let newCurrentNote: Note | null = null;
 
-      if (newTabs.length > 0 && state.activeTabId === noteId) {
-        const newIndex = Math.min(tabIndex, newTabs.length - 1);
-        newActiveId = newTabs[newIndex].id;
-        newCurrentNote = newTabs[newIndex];
-      } else if (newTabs.length > 0) {
-        newActiveId = state.activeTabId;
-        newCurrentNote = newTabs.find((t) => t.id === state.activeTabId) || null;
-      }
+        if (newTabs.length > 0 && state.activeTabId === noteId) {
+          const newIndex = Math.min(tabIndex, newTabs.length - 1);
+          newActiveId = newTabs[newIndex].id;
+          newCurrentNote = newTabs[newIndex];
+        } else if (newTabs.length > 0) {
+          newActiveId = state.activeTabId;
+          newCurrentNote = newTabs.find((t) => t.id === state.activeTabId) || null;
+        }
 
-      return {
-        openTabs: newTabs,
-        activeTabId: newActiveId,
-        currentNote: newCurrentNote,
-        externallyChanged,
-        savedContent,
-      };
-    }),
+        return {
+          openTabs: newTabs,
+          activeTabId: newActiveId,
+          currentNote: newCurrentNote,
+          externallyChanged,
+          savedContent,
+        };
+      });
+    const note = get().openTabs.find((tab) => tab.id === noteId);
+    if (isLooseNote(note) && !isLooseViewOnly(note)) {
+      return flushPendingAutosave().then(() => {
+        const state = get();
+        const liveNote = state.openTabs.find((tab) => tab.id === noteId);
+        if (
+          liveNote &&
+          !isLooseViewOnly(liveNote) &&
+          liveNote.content !== state.savedContent.get(noteId)
+        ) {
+          state.switchTab(noteId);
+          useToastStore
+            .getState()
+            .addToast(
+              'warning',
+              `Couldn't save ${liveNote.title}. The tab is still open. Use the file banner or Save a copy… before closing.`
+            );
+          return;
+        }
+        close();
+      });
+    }
+    close();
+  },
 
   switchTab: (noteId) =>
     set((state) => {

@@ -14,6 +14,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
+- Closing a file opened outside the Forge keeps its tab and edits when saving fails, including when the file changed on disk or was moved.
 - **Dropped Markdown files open editable** and save to the original file when Moldavite can recover their location. Otherwise they open read-only with **Add to Forge**. Other dropped files are ignored, and window drops no longer navigate away from the app.
 
 ## [2.9.1] - 2026-09-28

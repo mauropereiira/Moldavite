@@ -14,8 +14,7 @@ import type { NoteFile } from '@/types';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 import { noteDeepLink } from '@/hooks/usePluginDeepLinks';
 import { isDroppedId, isLooseNote } from '@/lib/looseId';
-import { addLooseToForge, revealLooseFile, saveLooseCopy } from '@/lib/looseFiles';
-import { addDroppedToForge } from '@/lib/droppedFiles';
+import { revealLooseFile, saveLooseCopy } from '@/lib/looseFiles';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 
 const REVEAL_LABEL =
@@ -66,7 +65,7 @@ export function MoreOptionsMenu({
     );
   const isDropped = isDroppedId(currentNoteId);
   const notes = useNoteStore((state) => state.notes);
-  const { duplicateNote, loadNote, refresh } = useNotes();
+  const { duplicateNote, addFileToForge } = useNotes();
   const { togglePinned, isPinned } = useQuickSwitcherStore();
   const [showNoteInfo, setShowNoteInfo] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -221,13 +220,7 @@ export function MoreOptionsMenu({
     const currentNote = useNoteStore.getState().currentNote;
     if (!currentNote) return;
     try {
-      const path = isDroppedId(currentNote.id)
-        ? await addDroppedToForge(currentNote)
-        : await addLooseToForge(currentNote);
-      await refresh();
-      const added = useNoteStore.getState().notes.find((note) => note.path === path);
-      if (added) await loadNote(added);
-      onShowToast?.('Added to the Forge');
+      await addFileToForge(currentNote);
     } catch (error) {
       console.error('[MoreOptionsMenu] Failed to add to the Forge:', error);
       onShowToast?.('Could not add to the Forge');
