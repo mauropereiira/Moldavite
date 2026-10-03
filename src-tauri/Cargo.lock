@@ -3111,7 +3111,7 @@ dependencies = [
 
 [[package]]
 name = "moldavite"
-version = "2.9.1"
+version = "2.10.0"
 dependencies = [
  "aes-gcm",
  "argon2",

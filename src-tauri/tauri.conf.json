@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Moldavite",
-  "version": "2.9.1",
+  "version": "2.10.0",
   "identifier": "app.moldavite",
   "build": {
     "frontendDist": "../dist",
@@ -76,8 +76,15 @@
     "createUpdaterArtifacts": true,
     "fileAssociations": [
       {
-        "ext": ["md", "markdown", "mdown", "mkd"],
-        "contentTypes": ["net.daringfireball.markdown"],
+        "ext": [
+          "md",
+          "markdown",
+          "mdown",
+          "mkd"
+        ],
+        "contentTypes": [
+          "net.daringfireball.markdown"
+        ],
         "name": "Markdown document",
         "description": "Markdown document",
         "mimeType": "text/markdown",
