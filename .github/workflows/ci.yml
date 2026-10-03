@@ -426,6 +426,24 @@ jobs:
             echo "::error::The AppImage bundles libwayland-client (#130)"; exit 1
           fi
 
+      # Settings › General finds this entry by its Exec and hands its name to
+      # `xdg-mime default`; without the MIME type and a file-list field code,
+      # a double-clicked .md opens an empty window.
+      - name: Assert the deb's desktop entry opens Markdown files
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          deb="src-tauri/target/release/bundle/deb/Moldavite_${version}_amd64.deb"
+          entry=usr/share/applications/Moldavite.desktop
+          dpkg-deb -c "$deb" | grep -q "\./$entry\$" || { echo "::error::The deb has no $entry"; exit 1; }
+          extracted=$(mktemp -d)
+          dpkg-deb -x "$deb" "$extracted"
+          cat "$extracted/$entry"
+          grep -Eq '^MimeType=(.*;)?text/markdown(;|$)' "$extracted/$entry" \
+            || { echo "::error::$entry does not list text/markdown in MimeType"; exit 1; }
+          grep -Eq '^Exec=.*%[FU]' "$extracted/$entry" \
+            || { echo "::error::$entry's Exec takes no %F or %U, so opened files are dropped"; exit 1; }
+
       - name: Keep the bundles for the Fedora smoke test
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
