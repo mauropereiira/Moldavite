@@ -54,6 +54,10 @@ from `$HOME` rather than the bundle, the executable also runs correctly from
 outside `Moldavite.app`. That is what lets the Homebrew cask symlink it onto
 `PATH` as `moldavite`.
 
+## Files outside a Forge
+
+Open With, launch arguments and the open dialog admit Markdown files into a Rust session allowlist. Dropped files recover paths from the macOS drag pasteboard, Windows WebView2 File objects, or Linux page-supplied file URLs checked against name, size and required mtime; every route uses `loose_files::admit`, and real platform drags remain unverified. The webview saves by opaque id, with a conflict check before atomic replacement and macOS xattrs preserved. The frontend checks fidelity through the editor schema; lossy or permission-read-only files open view-only, and drops without a location cannot save but offer Add to Forge.
+
 ## MCP request path
 
 ```mermaid

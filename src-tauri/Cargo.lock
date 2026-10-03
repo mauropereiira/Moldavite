@@ -3119,6 +3119,7 @@ dependencies = [
  "bincode",
  "chrono",
  "dirs 6.0.0",
+ "dunce",
  "fastembed",
  "keyring",
  "lazy_static",
@@ -3154,6 +3155,7 @@ dependencies = [
  "webview2-com",
  "windows-core",
  "winreg 0.52.0",
+ "xattr",
  "zeroize",
  "zip 2.4.2",
 ]

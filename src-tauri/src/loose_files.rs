@@ -29,9 +29,9 @@ use crate::note_file_access::{self, Access};
 use crate::validation::is_safe_existing_note_path;
 
 pub(crate) const MAX_LOOSE_FILE_BYTES: u64 = 10 * 1024 * 1024;
-pub(crate) const MARKDOWN_EXTENSIONS: [&str; 4] = ["md", "markdown", "mdown", "mkd"];
-pub(crate) const MOVED: &str = "Moved";
-pub(crate) const CONFLICT_PREFIX: &str = "conflict:";
+const MARKDOWN_EXTENSIONS: [&str; 4] = ["md", "markdown", "mdown", "mkd"];
+const MOVED: &str = "Moved";
+const CONFLICT_PREFIX: &str = "conflict:";
 const NOT_OPEN: &str = "This file is no longer open";
 const READ_ONLY: &str = "This file is read-only";
 const NOT_FOUND: &str = "The file could not be found";
@@ -39,9 +39,6 @@ const NOT_FOUND: &str = "The file could not be found";
 #[derive(Clone)]
 struct Entry {
     path: PathBuf,
-    hash: String,
-    mode: Option<u32>,
-    read_only: bool,
     open: bool,
     opened: u64,
 }
@@ -95,7 +92,6 @@ pub(crate) struct OpenLooseFile {
     id: String,
     name: String,
     dir_display: String,
-    read_only: bool,
 }
 
 struct Inspected {
@@ -194,7 +190,7 @@ fn inspect(path: &Path) -> Result<Inspected, String> {
     if leaf.file_type().is_symlink() {
         return Err("Links to other files cannot be opened".to_string());
     }
-    let canonical = fs::canonicalize(path).map_err(|_| NOT_FOUND.to_string())?;
+    let canonical = dunce::canonicalize(path).map_err(|_| NOT_FOUND.to_string())?;
     read_canonical(&canonical)
 }
 
@@ -206,7 +202,7 @@ fn strip_eol(line: &str) -> &str {
 /// Split a file into the bytes kept verbatim (a BOM and any `---` frontmatter
 /// block, closing fence line included) and the body. Unclosed frontmatter is
 /// body text, as in the Forge parser.
-pub(crate) fn split_raw_frontmatter(raw: &str) -> (&str, &str) {
+fn split_raw_frontmatter(raw: &str) -> (&str, &str) {
     let bom = if raw.starts_with('\u{feff}') {
         '\u{feff}'.len_utf8()
     } else {
@@ -240,7 +236,7 @@ fn editor_body(raw: &str) -> String {
 }
 
 /// The file `raw` becomes with `body` in place of its own body.
-pub(crate) fn compose(raw: &str, body: &str) -> String {
+fn compose(raw: &str, body: &str) -> String {
     let (prefix, old_body) = split_raw_frontmatter(raw);
     let old_body = old_body.replace("\r\n", "\n");
     let trailing_newlines = old_body.len() - old_body.trim_end_matches('\n').len();
@@ -252,26 +248,51 @@ pub(crate) fn compose(raw: &str, body: &str) -> String {
     if uses_crlf(raw) {
         text = text.replace('\n', "\r\n");
     }
-    format!("{prefix}{text}")
+    let separator = if !text.is_empty()
+        && !prefix.is_empty()
+        && prefix != "\u{feff}"
+        && !prefix.ends_with('\n')
+    {
+        if uses_crlf(raw) {
+            "\r\n"
+        } else {
+            "\n"
+        }
+    } else {
+        ""
+    };
+    format!("{prefix}{separator}{text}")
 }
 
 /// Mode is set on the open file as well as at creation, because the creation
 /// mode passes through the umask and would drop group or other bits it had.
-fn write_preserving_mode(path: &Path, bytes: &[u8], mode: Option<u32>) -> Result<(), String> {
-    crate::persist::write_atomic_with(path, mode.or(Some(0o600)), |file| {
-        file.write_all(bytes).map_err(|error| error.to_string())?;
-        #[cfg(unix)]
-        if let Some(mode) = mode {
-            use std::os::unix::fs::PermissionsExt;
-            file.set_permissions(fs::Permissions::from_mode(mode))
-                .map_err(|error| error.to_string())?;
-        }
-        Ok(())
-    })
+fn write_preserving_mode(
+    path: &Path,
+    bytes: &[u8],
+    mode: Option<u32>,
+    preserve_xattrs: bool,
+    before_rename: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    crate::persist::write_atomic_checked(
+        path,
+        mode.or(Some(0o600)),
+        preserve_xattrs,
+        |file| {
+            file.write_all(bytes).map_err(|error| error.to_string())?;
+            #[cfg(unix)]
+            if let Some(mode) = mode {
+                use std::os::unix::fs::PermissionsExt;
+                file.set_permissions(fs::Permissions::from_mode(mode))
+                    .map_err(|error| error.to_string())?;
+            }
+            Ok(())
+        },
+        before_rename,
+    )
 }
 
 fn display_dir(dir: &Path, home: Option<&Path>) -> String {
-    if let Some(home) = home.and_then(|home| fs::canonicalize(home).ok()) {
+    if let Some(home) = home.and_then(|home| dunce::canonicalize(home).ok()) {
         if let Ok(rest) = dir.strip_prefix(&home) {
             return if rest.as_os_str().is_empty() {
                 "~".to_string()
@@ -292,7 +313,7 @@ fn display_name(path: &Path) -> String {
 /// The Forge address of a note inside the active Forge, in the shape a
 /// `moldavite://note/` link resolves: `notes/<path>`, `daily/<name>`, `weekly/<name>`.
 fn forge_note_rel(canonical: &Path, forge_root: &Path) -> Option<String> {
-    let root = fs::canonicalize(forge_root).ok()?;
+    let root = dunce::canonicalize(forge_root).ok()?;
     let parts = canonical
         .strip_prefix(&root)
         .ok()?
@@ -313,10 +334,6 @@ fn new_id() -> String {
     let mut bytes = [0u8; 16];
     OsRng.fill_bytes(&mut bytes);
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn home_dir() -> Option<PathBuf> {
-    dirs::home_dir()
 }
 
 impl LooseFiles {
@@ -349,9 +366,6 @@ impl LooseFiles {
             id.clone(),
             Entry {
                 path: inspected.path.clone(),
-                hash: inspected.hash,
-                mode: inspected.mode,
-                read_only: inspected.read_only,
                 open: true,
                 opened,
             },
@@ -391,7 +405,7 @@ impl LooseFiles {
     /// A file renamed, deleted or swapped for a link since it was admitted no
     /// longer resolves to the admitted path.
     fn ensure_in_place(entry: &Entry) -> Result<(), String> {
-        match fs::canonicalize(&entry.path) {
+        match dunce::canonicalize(&entry.path) {
             Ok(current) if current == entry.path => Ok(()),
             _ => Err(MOVED.to_string()),
         }
@@ -401,16 +415,11 @@ impl LooseFiles {
         let entry = self.entry(id)?;
         Self::ensure_in_place(&entry)?;
         let inspected = read_canonical(&entry.path)?;
-        self.update(id, |stored| {
-            stored.mode = inspected.mode;
-            stored.read_only = inspected.read_only;
-        });
         Ok((entry, inspected))
     }
 
     pub(crate) fn read(&self, id: &str, home: Option<&Path>) -> Result<LooseRead, String> {
         let (entry, inspected) = self.read_current(id)?;
-        self.update(id, |stored| stored.hash = inspected.hash.clone());
         Ok(LooseRead {
             body: editor_body(&inspected.raw),
             hash: inspected.hash,
@@ -428,11 +437,7 @@ impl LooseFiles {
         Ok(self.read_current(id)?.1.hash)
     }
 
-    pub(crate) fn write(&self, id: &str, body: &str, base_hash: &str) -> Result<String, String> {
-        let _guard = self
-            .writes
-            .lock()
-            .map_err(|_| "Loose-file write lock poisoned".to_string())?;
+    fn writable_base(&self, id: &str, base_hash: &str) -> Result<(Entry, Inspected), String> {
         let (entry, disk) = self.read_current(id)?;
         if disk.hash != base_hash {
             return Err(format!("{CONFLICT_PREFIX}{}", disk.hash));
@@ -440,14 +445,23 @@ impl LooseFiles {
         if disk.read_only {
             return Err(READ_ONLY.to_string());
         }
+        Ok((entry, disk))
+    }
+
+    pub(crate) fn write(&self, id: &str, body: &str, base_hash: &str) -> Result<String, String> {
+        let _guard = self
+            .writes
+            .lock()
+            .map_err(|_| "Loose-file write lock poisoned".to_string())?;
+        let (entry, disk) = self.writable_base(id, base_hash)?;
         let next = compose(&disk.raw, body);
         if next == disk.raw {
             return Ok(disk.hash);
         }
-        write_preserving_mode(&entry.path, next.as_bytes(), disk.mode)?;
-        let hash = sha256_hex(&next);
-        self.update(id, |stored| stored.hash = hash.clone());
-        Ok(hash)
+        write_preserving_mode(&entry.path, next.as_bytes(), disk.mode, true, || {
+            self.writable_base(id, base_hash).map(|_| ())
+        })?;
+        Ok(sha256_hex(&next))
     }
 
     pub(crate) fn close(&self, id: &str) {
@@ -473,31 +487,39 @@ impl LooseFiles {
                     .parent()
                     .map(|dir| display_dir(dir, home))
                     .unwrap_or_default(),
-                read_only: entry.read_only,
             })
             .collect()
     }
 
-    /// The bytes a copy of the open file holds with `body` as its body: the
-    /// file's own frontmatter and line endings when it can still be read.
     #[cfg(desktop)]
-    fn copy_bytes(&self, id: &str, body: &str) -> Result<String, String> {
+    fn copy_bytes(&self, id: &str, body: Option<&str>) -> Result<(String, Option<u32>), String> {
         let entry = self.entry(id)?;
-        Ok(match read_canonical(&entry.path) {
-            Ok(disk) => compose(&disk.raw, body),
-            Err(_) => body.to_string(),
-        })
+        match read_canonical(&entry.path) {
+            Ok(disk) => {
+                let text = body.map_or_else(|| disk.raw.clone(), |body| compose(&disk.raw, body));
+                Ok((text, disk.mode.map(|mode| mode | 0o200)))
+            }
+            Err(error) => body.map(|body| (body.to_string(), None)).ok_or(error),
+        }
     }
 }
 
 /// The shared admission gate for Open With, launch arguments, the dialog and drops.
 pub(crate) fn admit(state: &LooseFiles, path: &Path) -> Result<Admission, String> {
     let forge_root = crate::paths::get_notes_dir().ok();
-    state.admit_with(path, forge_root.as_deref(), home_dir().as_deref())
+    state.admit_with(path, forge_root.as_deref(), dirs::home_dir().as_deref())
 }
 
-/// File paths among launch arguments. Flags and URLs are skipped (URLs belong
-/// to the deep-link router); relative paths resolve against the launching
+pub(crate) fn file_url_path(url: &str) -> Option<PathBuf> {
+    let url = tauri::Url::parse(url).ok()?;
+    if url.scheme() != "file" {
+        return None;
+    }
+    url.to_file_path().ok()
+}
+
+/// File paths and file URLs among launch arguments. Flags and other URL schemes
+/// are skipped (those belong to the deep-link router); relative paths resolve against the launching
 /// process's working directory, which for a second instance is not ours.
 #[cfg(desktop)]
 pub(crate) fn file_args<S: AsRef<str>>(argv: &[S], cwd: &Path) -> Vec<PathBuf> {
@@ -508,11 +530,13 @@ pub(crate) fn file_args<S: AsRef<str>>(argv: &[S], cwd: &Path) -> Vec<PathBuf> {
             if arg.is_empty() || arg.starts_with('-') {
                 return None;
             }
-            if arg.starts_with("file://") {
-                return tauri::Url::parse(arg).ok()?.to_file_path().ok();
-            }
-            if arg.contains("://") {
-                return None;
+            if let Ok(url) = tauri::Url::parse(arg) {
+                if url.scheme() == "file" {
+                    return url.to_file_path().ok();
+                }
+                if arg.contains("://") && !Path::new(arg).is_absolute() {
+                    return None;
+                }
             }
             let path = Path::new(arg);
             Some(if path.is_absolute() {
@@ -531,7 +555,7 @@ pub(crate) fn read_loose_file(
 ) -> Result<LooseRead, String> {
     let path = state.path_of(&id)?;
     note_file_access::transaction(&[Access::read(&path)], || {
-        state.read(&id, home_dir().as_deref())
+        state.read(&id, dirs::home_dir().as_deref())
     })
 }
 
@@ -569,7 +593,7 @@ pub(crate) fn close_loose_file(id: String, state: State<'_, LooseFiles>) {
 
 #[tauri::command]
 pub(crate) fn list_open_loose_files(state: State<'_, LooseFiles>) -> Vec<OpenLooseFile> {
-    state.list_open(home_dir().as_deref())
+    state.list_open(dirs::home_dir().as_deref())
 }
 
 /// Copy the file as it is on disk into the active Forge's `notes/` under a
@@ -610,7 +634,9 @@ pub(crate) async fn open_loose_file_dialog(
         return Ok(None);
     };
     let path = picked.into_path().map_err(|error| error.to_string())?;
-    admit(&app.state::<LooseFiles>(), &path).map(Some)
+    tauri::async_runtime::spawn_blocking(move || admit(&app.state::<LooseFiles>(), &path).map(Some))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 /// Returns the copy's file name, or `None` when the dialog was cancelled.
@@ -619,7 +645,7 @@ pub(crate) async fn open_loose_file_dialog(
 pub(crate) async fn save_loose_copy_dialog(
     app: tauri::AppHandle,
     id: String,
-    body: String,
+    body: Option<String>,
 ) -> Result<Option<String>, String> {
     use tauri::Manager;
     use tauri_plugin_dialog::DialogExt;
@@ -627,11 +653,8 @@ pub(crate) async fn save_loose_copy_dialog(
     let (source, bytes, mode) = {
         let state = app.state::<LooseFiles>();
         let entry = state.entry(&id)?;
-        (
-            entry.path.clone(),
-            state.copy_bytes(&id, &body)?,
-            entry.mode,
-        )
+        let (bytes, mode) = state.copy_bytes(&id, body.as_deref())?;
+        (entry.path, bytes, mode)
     };
     let stem = source
         .file_stem()
@@ -656,10 +679,10 @@ pub(crate) async fn save_loose_copy_dialog(
         return Ok(None);
     };
     let destination = picked.into_path().map_err(|error| error.to_string())?;
-    if fs::canonicalize(&destination).is_ok_and(|existing| existing == source) {
+    if dunce::canonicalize(&destination).is_ok_and(|existing| existing == source) {
         return Err("Choose a different file for the copy".to_string());
     }
-    write_preserving_mode(&destination, bytes.as_bytes(), mode)?;
+    write_preserving_mode(&destination, bytes.as_bytes(), mode, false, || Ok(()))?;
     Ok(Some(display_name(&destination)))
 }
 
@@ -716,7 +739,7 @@ mod tests {
                 new_id()
             ));
             fs::create_dir_all(&dir).unwrap();
-            Self(fs::canonicalize(&dir).unwrap())
+            Self(dunce::canonicalize(&dir).unwrap())
         }
 
         fn file(&self, name: &str, contents: &[u8]) -> PathBuf {
@@ -834,6 +857,47 @@ mod tests {
         assert_eq!(files.list_open(None).len(), 1);
     }
 
+    #[cfg(all(desktop, not(windows)))]
+    #[test]
+    fn os_delivery_returns_while_admission_waits_and_delivers_afterward() {
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+        use tauri::Manager;
+        let dir = TempDir::new("async-admission");
+        let path = dir.file("a.md", b"text");
+        let app = tauri::test::mock_app();
+        app.manage(LooseFiles::default());
+        app.manage(crate::deep_link::PendingDeepLinks::default());
+        let files = app.state::<LooseFiles>();
+        let held = files.registry.lock().unwrap();
+        let handle = app.handle().clone();
+        let (sender, receiver) = mpsc::channel();
+        let dispatch = std::thread::spawn(move || {
+            crate::deep_link::route_paths(&handle, vec![path]);
+            sender.send(()).unwrap();
+        });
+        let returned = receiver.recv_timeout(Duration::from_secs(2)).is_ok();
+        drop(held);
+        dispatch.join().unwrap();
+        assert!(returned, "OS delivery blocked on admission");
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let requests = crate::deep_link::take_pending_deep_links(app.state());
+            if !requests.is_empty() {
+                assert!(matches!(
+                    &requests[0],
+                    crate::deep_link::DeepLinkRequest::LooseFile { .. }
+                ));
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Admitted file was never delivered"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     #[test]
     fn ids_are_128_bit_hex() {
         let dir = TempDir::new("idshape");
@@ -899,6 +963,79 @@ mod tests {
         assert_eq!(mode, 0o644);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn a_view_only_copy_keeps_disk_bytes_and_is_writable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = TempDir::new("copy-readonly");
+        let files = LooseFiles::default();
+        let raw = "\u{feff}---\r\ntitle: [bad\r\n---\r\n<div>Keep exactly</div>\r\n";
+        let path = dir.file("source.md", raw.as_bytes());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+        let id = admit_loose(&files, &path);
+        let (bytes, mode) = files.copy_bytes(&id, None).unwrap();
+        let copy = dir.0.join("copy.md");
+        write_preserving_mode(&copy, bytes.as_bytes(), mode, false, || Ok(())).unwrap();
+        assert_eq!(fs::read(&copy).unwrap(), raw.as_bytes());
+        assert_eq!(file_mode(&fs::metadata(&copy).unwrap()), Some(0o644));
+        assert_eq!(file_mode(&fs::metadata(&path).unwrap()), Some(0o444));
+        fs::remove_file(&path).unwrap();
+        assert!(files.copy_bytes(&id, None).is_err());
+        assert_eq!(
+            files.copy_bytes(&id, Some("Recovered")).unwrap().0,
+            "Recovered"
+        );
+    }
+
+    #[test]
+    fn an_external_change_during_the_temp_write_is_a_conflict_before_rename() {
+        let dir = TempDir::new("late-conflict");
+        let files = LooseFiles::default();
+        let path = dir.file("a.md", b"old");
+        let id = admit_loose(&files, &path);
+        let base = files.read(&id, None).unwrap().hash;
+        let error = crate::persist::write_atomic_checked(
+            &path,
+            None,
+            true,
+            |file| {
+                file.write_all(b"mine").unwrap();
+                fs::write(&path, "external").unwrap();
+                Ok(())
+            },
+            || files.writable_base(&id, &base).map(|_| ()),
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            format!("{CONFLICT_PREFIX}{}", sha256_hex("external"))
+        );
+        assert_eq!(fs::read_to_string(&path).unwrap(), "external");
+        assert_eq!(fs::read_dir(&dir.0).unwrap().count(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_admission_display_and_comparison_use_non_verbatim_paths() {
+        let dir = TempDir::new("windows-path");
+        let path = dir.file("a.md", b"old");
+        let files = LooseFiles::default();
+        let id = admit_loose(&files, &fs::canonicalize(&path).unwrap());
+        assert!(!files
+            .path_of(&id)
+            .unwrap()
+            .to_string_lossy()
+            .starts_with(r"\\?\"));
+        assert!(!files
+            .read(&id, None)
+            .unwrap()
+            .dir_display
+            .starts_with(r"\\?\"));
+        assert_eq!(admit_loose(&files, &path), id);
+        let read = files.read(&id, None).unwrap();
+        files.write(&id, "new", &read.hash).unwrap();
+    }
+
     #[test]
     fn invalid_frontmatter_bom_and_crlf_round_trip_byte_exact() {
         let raw =
@@ -941,6 +1078,44 @@ mod tests {
         assert_eq!(compose("a", "b\n"), "b");
         assert_eq!(compose("a\n\n", "b"), "b\n\n");
         assert_eq!(compose("---\nx: 1\n---\na\n", ""), "---\nx: 1\n---\n");
+    }
+
+    #[test]
+    fn frontmatter_without_a_final_newline_gets_an_eol_before_new_text() {
+        assert_eq!(
+            compose("---\ntitle: x\n---", "Hello"),
+            "---\ntitle: x\n---\nHello"
+        );
+        assert_eq!(
+            compose("---\r\ntitle: x\r\n---", "Hello"),
+            "---\r\ntitle: x\r\n---\r\nHello"
+        );
+        assert_eq!(compose("---\ntitle: x\n---", ""), "---\ntitle: x\n---");
+        assert_eq!(compose("\u{feff}", "Hello"), "\u{feff}Hello");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_save_keeps_finder_tags_and_other_xattrs() {
+        let dir = TempDir::new("xattrs");
+        let files = LooseFiles::default();
+        let path = dir.file("tagged.md", b"old");
+        let tags = b"<?xml version=\"1.0\"?><plist version=\"1.0\"><array><string>Review\n6</string></array></plist>";
+        for (name, value) in [
+            ("com.apple.metadata:_kMDItemUserTags", tags.as_slice()),
+            ("user.moldavite-test", b"keep".as_slice()),
+        ] {
+            xattr::set(&path, name, value).unwrap();
+        }
+        let id = admit_loose(&files, &path);
+        let base = files.read(&id, None).unwrap().hash;
+        files.write(&id, "new", &base).unwrap();
+        for (name, expected) in [
+            ("com.apple.metadata:_kMDItemUserTags", tags.as_slice()),
+            ("user.moldavite-test", b"keep".as_slice()),
+        ] {
+            assert_eq!(xattr::get(&path, name).unwrap().unwrap(), expected);
+        }
     }
 
     #[cfg(unix)]
@@ -1031,10 +1206,43 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn only_file_urls_can_supply_a_local_path() {
+        for url in [
+            "moldavite:///Users/x/diary.md",
+            "moldavite://localhost/Users/x/diary.md",
+        ] {
+            assert_eq!(file_url_path(url), None, "{url}");
+        }
+        assert_eq!(
+            file_url_path("file:///Users/x/diary.md"),
+            Some(PathBuf::from("/Users/x/diary.md"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn launch_arguments_keep_relative_colon_filenames() {
+        assert_eq!(
+            file_args(&["app", "Meeting: notes.md"], Path::new("/work")),
+            vec![PathBuf::from("/work/Meeting: notes.md")]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn launch_arguments_accept_file_urls() {
         assert_eq!(
-            file_args(&["app", "file:///tmp/a%20b.md"], Path::new("/")),
-            vec![PathBuf::from("/tmp/a b.md")]
+            file_args(
+                &[
+                    "app",
+                    "file:///tmp/a%20b.md",
+                    "file:///tmp/caf%C3%A9.md",
+                    "https://example.com/a.md",
+                    "file://remote/share.md"
+                ],
+                Path::new("/")
+            ),
+            vec![PathBuf::from("/tmp/a b.md"), PathBuf::from("/tmp/café.md")]
         );
     }
 }

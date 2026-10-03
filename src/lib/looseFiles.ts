@@ -11,13 +11,28 @@
  */
 
 import { create } from 'zustand';
+import { generateHTML, generateJSON } from '@tiptap/core';
+import { createNoteExtensions } from '@/components/editor/noteExtensions';
 import { safeInvoke as invoke } from './ipc';
-import { htmlToMarkdown, noteContentToEditorHtml, type ConversionOptions } from './fileSystem';
+import {
+  htmlToMarkdown,
+  markdownForComparison,
+  noteContentToEditorHtml,
+  type ConversionOptions,
+} from './fileSystem';
 import { flushPendingAutosave, resetAutosaveBaseline } from './autosaveFlush';
 import { markLaunchedWithFile } from './launchContext';
-import { isDroppedId, isLooseId, isLooseNote, looseNoteId } from './looseId';
+import {
+  isDroppedId,
+  isLooseId,
+  isLooseNote,
+  isLooseViewOnly,
+  looseNoteId,
+  looseSessionId,
+} from './looseId';
 // Concrete store modules, not the '@/stores' index, to avoid a module cycle.
 import { useNoteStore } from '@/stores/noteStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { LooseNoteInfo, LooseViewOnlyReason, Note } from '@/types';
 
@@ -81,60 +96,23 @@ function errorMessage(error: unknown): string {
 
 function looseIdOf(note: Pick<Note, 'id' | 'loose'>): string {
   if (isDroppedId(note.id)) throw new Error('This file opened without its location');
-  return note.loose?.looseId ?? note.id.slice('loose:'.length);
+  return note.loose?.looseId ?? looseSessionId(note.id);
 }
 
-const STRUCTURAL_LINE = /^\s*(?:[-*+]\s|\d+[.)]\s|#|>|\||```|~~~|<)/;
-
-/**
- * List marker spacing, bullet characters, nesting indentation and soft line
- * wrapping change how a file is spelled but not what it says, so they do not
- * count as lossy. Paragraph and block boundaries still do.
- */
-function normalizeForComparison(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, '\n')
-    .split(/\n[ \t]*\n+/)
-    .map((block) =>
-      block
-        .split('\n')
-        .map((line) =>
-          line
-            .trim()
-            .replace(/^[*+-]\s+/, '- ')
-            .replace(/^(\d+[.)])\s+/, '$1 ')
-            .replace(/[ \t]+/g, ' ')
-        )
-        .filter((line) => line.length > 0)
-        .reduce<string[]>((lines, line) => {
-          const last = lines.length - 1;
-          if (last >= 0 && !STRUCTURAL_LINE.test(line) && !STRUCTURAL_LINE.test(lines[last])) {
-            lines[last] = `${lines[last]} ${line}`;
-          } else {
-            lines.push(line);
-          }
-          return lines;
-        }, [])
-        .join('\n')
-    )
-    .filter((block) => block.length > 0)
-    .join('\n');
+/** Whether the editor's actual parse and save preserves this Markdown. */
+export function isFaithfulRoundTrip(
+  body: string,
+  html = noteContentToEditorHtml(body, LOOSE_CONVERSION)
+): boolean {
+  const extensions = createNoteExtensions(useSettingsStore.getState().tagsEnabled);
+  const editorHtml = generateHTML(generateJSON(html, extensions), extensions);
+  const back = htmlToMarkdown(editorHtml, LOOSE_CONVERSION);
+  return markdownForComparison(back) === markdownForComparison(body);
 }
 
-/**
- * Whether opening and saving `body` unedited would give back the same Markdown,
- * ignoring trailing whitespace. Tables, raw HTML and Markdown spelled differently
- * from how the editor writes it do not survive, so such a file opens view-only.
- */
-export function isFaithfulRoundTrip(body: string): boolean {
-  const html = noteContentToEditorHtml(body, LOOSE_CONVERSION);
-  const back = htmlToMarkdown(html, LOOSE_CONVERSION);
-  return normalizeForComparison(back) === normalizeForComparison(body);
-}
-
-function viewOnlyReason(read: LooseRead): LooseViewOnlyReason | undefined {
+function viewOnlyReason(read: LooseRead, html: string): LooseViewOnlyReason | undefined {
   if (read.readOnly) return 'permissions';
-  return isFaithfulRoundTrip(read.body) ? undefined : 'lossy';
+  return isFaithfulRoundTrip(read.body, html) ? undefined : 'lossy';
 }
 
 async function readLooseFile(looseId: string): Promise<{ read: LooseRead; html: string }> {
@@ -143,8 +121,13 @@ async function readLooseFile(looseId: string): Promise<{ read: LooseRead; html: 
   return { read, html: noteContentToEditorHtml(read.body, LOOSE_CONVERSION) };
 }
 
-function looseInfo(looseId: string, read: LooseRead, previous?: LooseNoteInfo): LooseNoteInfo {
-  const reason = viewOnlyReason(read);
+function looseInfo(
+  looseId: string,
+  read: LooseRead,
+  html: string,
+  previous?: LooseNoteInfo
+): LooseNoteInfo {
+  const reason = viewOnlyReason(read, html);
   return {
     looseId,
     name: read.name,
@@ -158,13 +141,13 @@ function looseInfo(looseId: string, read: LooseRead, previous?: LooseNoteInfo): 
 /** Open a file Rust admitted, or switch to its tab if it is already open. */
 export async function openLooseFile(
   admission: LooseAdmission,
-  options: { atLaunch?: boolean } = {}
+  options: { atLaunch?: boolean; activate?: boolean } = {}
 ): Promise<boolean> {
   if (options.atLaunch) markLaunchedWithFile();
   const noteId = looseNoteId(admission.id);
   const store = useNoteStore.getState();
   if (store.openTabs.some((tab) => tab.id === noteId)) {
-    store.switchTab(noteId);
+    if (options.activate !== false) store.switchTab(noteId);
     return true;
   }
   try {
@@ -178,9 +161,9 @@ export async function openLooseFile(
       updatedAt: now,
       isDaily: false,
       isWeekly: false,
-      loose: looseInfo(admission.id, read),
+      loose: looseInfo(admission.id, read, html),
     };
-    useNoteStore.getState().openTab(note, true);
+    useNoteStore.getState().openTab(note, true, options.activate !== false);
     return true;
   } catch (error) {
     useToastStore
@@ -194,7 +177,7 @@ export async function openLooseFile(
 export async function openFileResult(
   result: OpenFileResult,
   openForgeNote: (rel: string) => Promise<unknown>,
-  options: { atLaunch?: boolean } = {}
+  options: { atLaunch?: boolean; activate?: boolean } = {}
 ): Promise<void> {
   if (result.kind === 'forgeNote') {
     if (options.atLaunch) markLaunchedWithFile();
@@ -227,6 +210,7 @@ export async function openFileWithDialog(
  * base that would read as a conflict.
  */
 export function writeLooseNote(note: Note): Promise<void> {
+  if (isLooseViewOnly(note)) return Promise.reject(new Error('This file is view-only'));
   const looseId = looseIdOf(note);
   const markdown = htmlToMarkdown(note.content, LOOSE_CONVERSION);
   const run = async () => {
@@ -255,13 +239,14 @@ export function writeLooseNote(note: Note): Promise<void> {
     }
   };
   const write = (writeTails.get(looseId) ?? Promise.resolve()).then(run, run);
-  writeTails.set(
-    looseId,
-    write.then(
-      () => undefined,
-      () => undefined
-    )
+  const tail = write.then(
+    () => undefined,
+    () => undefined
   );
+  writeTails.set(looseId, tail);
+  void tail.then(() => {
+    if (writeTails.get(looseId) === tail) writeTails.delete(looseId);
+  });
   return write;
 }
 
@@ -300,13 +285,14 @@ export async function reloadLooseNote(note: Note): Promise<void> {
   const { read, html } = await readLooseFile(looseId);
   const store = useNoteStore.getState();
   store.applyExternalContent(note.id, html);
-  store.updateLooseInfo(note.id, looseInfo(looseId, read, note.loose));
+  store.updateLooseInfo(note.id, looseInfo(looseId, read, html, note.loose));
   resetAutosaveBaseline(note.id, html);
   useLooseStatusStore.getState().setStatus(note.id, null);
 }
 
 /** Overwrite the file with the tab's text, accepting what is on disk now as the base. */
 export async function keepMineLooseNote(note: Note): Promise<void> {
+  if (isLooseViewOnly(note)) throw new Error('This file is view-only');
   const looseId = looseIdOf(note);
   const { hash } = await invoke<{ hash: string }>('stat_loose_file', { id: looseId });
   baseHashes.set(looseId, hash);
@@ -321,7 +307,7 @@ export async function keepMineLooseNote(note: Note): Promise<void> {
 export async function saveLooseCopy(note: Note): Promise<string | null> {
   return invoke<string | null>('save_loose_copy_dialog', {
     id: looseIdOf(note),
-    body: htmlToMarkdown(note.content, LOOSE_CONVERSION),
+    ...(isLooseViewOnly(note) ? {} : { body: htmlToMarkdown(note.content, LOOSE_CONVERSION) }),
   });
 }
 
@@ -339,7 +325,7 @@ export async function addLooseToForge(note: Note): Promise<string> {
 
 /** Reopen the loose tabs a Forge switch's window reload dropped. */
 export async function restoreOpenLooseFiles(): Promise<void> {
-  let open: Array<LooseAdmission & { readOnly: boolean }>;
+  let open: LooseAdmission[];
   try {
     open = await invoke('list_open_loose_files');
   } catch (error) {
@@ -347,7 +333,7 @@ export async function restoreOpenLooseFiles(): Promise<void> {
     return;
   }
   if (!Array.isArray(open)) return;
-  for (const file of open) await openLooseFile(file);
+  for (const file of open) await openLooseFile(file, { activate: false });
 }
 
 /**
@@ -355,7 +341,7 @@ export async function restoreOpenLooseFiles(): Promise<void> {
  * run; closing it first would refuse that last save.
  */
 async function releaseLooseFile(noteId: string): Promise<void> {
-  const looseId = noteId.slice('loose:'.length);
+  const looseId = looseSessionId(noteId);
   await flushPendingAutosave();
   await (writeTails.get(looseId) ?? Promise.resolve());
   if (useNoteStore.getState().openTabs.some((tab) => tab.id === noteId)) return;

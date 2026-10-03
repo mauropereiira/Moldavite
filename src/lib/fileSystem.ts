@@ -327,6 +327,46 @@ md.use(markdownItTaskLists, {
   label: false,
 });
 
+/** Compare Markdown structure while preserving code and joining soft-wrapped prose. */
+export function markdownForComparison(markdown: string): string {
+  const source = markdown.replace(/\r\n/g, '\n');
+  const tokens = md.parse(source, {});
+  return JSON.stringify(
+    tokens.map((token) => {
+      const children: unknown[] = [];
+      for (const child of token.children ?? []) {
+        if (child.type === 'text' || child.type === 'softbreak') {
+          const text = child.type === 'softbreak' ? ' ' : child.content.replace(/[ \t]+/g, ' ');
+          const previous = children[children.length - 1];
+          if (typeof previous === 'string') children[children.length - 1] = previous + text;
+          else children.push(text);
+        } else {
+          children.push([
+            child.type,
+            child.content,
+            child.attrs,
+            child.type === 'code_inline' ? child.markup : null,
+          ]);
+        }
+      }
+      if (token.type === 'table_open' && token.map) {
+        return source
+          .split('\n')
+          .slice(...token.map)
+          .map((line) => line.trimEnd());
+      }
+      return [
+        token.type,
+        token.nesting,
+        token.attrs,
+        token.info,
+        token.type === 'fence' ? token.markup : null,
+        token.type === 'inline' ? children : token.content,
+      ];
+    })
+  );
+}
+
 // Allow only tags and attributes needed for note content
 const DOMPURIFY_CONFIG = {
   ALLOWED_TAGS: [

@@ -1,6 +1,7 @@
 /** Loose notes: files outside the Forge open, save, conflict and close without touching it. */
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
+import { LooseFileBanner } from '@/components/editor/LooseFileBanner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore, isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
@@ -27,6 +28,9 @@ import {
   isFaithfulRoundTrip,
   keepMineLooseNote,
   openLooseFile,
+  restoreOpenLooseFiles,
+  saveLooseCopy,
+  writeLooseNote,
   useLooseStatusStore,
 } from './looseFiles';
 
@@ -183,6 +187,35 @@ describe('opening a loose file', () => {
 });
 
 describe('the fidelity check', () => {
+  it('rejects code whitespace lost by the editor schema', () => {
+    expect(isFaithfulRoundTrip('Use `a  b` here.')).toBe(false);
+  });
+
+  it('preserves fenced code whitespace', () => {
+    expect(isFaithfulRoundTrip('```\na  b\n  c\n```')).toBe(true);
+    expect(isFaithfulRoundTrip('```\na  b\n```', '<pre><code>a b\n</code></pre>')).toBe(false);
+  });
+
+  it('compares code delimiters verbatim too', () => {
+    expect(isFaithfulRoundTrip('~~~\na  b\n~~~')).toBe(false);
+    expect(isFaithfulRoundTrip('Use ``a b`` here.')).toBe(false);
+  });
+
+  it('keeps list nesting significant', () => {
+    expect(isFaithfulRoundTrip('- a\n  - b')).toBe(true);
+    expect(isFaithfulRoundTrip('- a\n  - b', '<ul><li>a</li><li>b</li></ul>')).toBe(false);
+  });
+
+  it('distinguishes a paragraph inside a list item from one after it', () => {
+    expect(isFaithfulRoundTrip('- a\n\n  paragraph', '<ul><li>a</li></ul><p>paragraph</p>')).toBe(
+      false
+    );
+  });
+
+  it('detects when adjacent lists become one', () => {
+    expect(isFaithfulRoundTrip('* a\n\n- b')).toBe(false);
+  });
+
   it('trips on a table', () => {
     expect(isFaithfulRoundTrip('| a | b |\n|---|---|\n| 1 | 2 |')).toBe(false);
   });
@@ -209,6 +242,57 @@ describe('the fidelity check', () => {
 });
 
 describe('saving a loose file', () => {
+  it('refuses every direct write of a view-only file, including Keep mine', async () => {
+    diskBody = '<div>Unsupported HTML</div>';
+    await act(() => openLooseFile(admission));
+    diskHash = 'changed';
+    await expect(keepMineLooseNote(activeNote())).rejects.toThrow(/view.only/i);
+    await expect(writeLooseNote(activeNote())).rejects.toThrow(/view.only/i);
+    expect(calls('write_loose_file')).toHaveLength(0);
+  });
+
+  it('copies view-only disk bytes without sending converted content', async () => {
+    diskBody = '<div>Unsupported HTML</div>';
+    await act(() => openLooseFile(admission));
+    await saveLooseCopy(activeNote());
+    expect(calls('save_loose_copy_dialog')).toEqual([['save_loose_copy_dialog', { id: LOOSE_ID }]]);
+  });
+
+  it('offers Reload without Keep mine for a changed view-only file', async () => {
+    diskBody = '<div>Unsupported HTML</div>';
+    await act(() => openLooseFile(admission));
+    diskHash = 'changed';
+    await act(() => checkLooseNoteOnDisk(activeNote()));
+    render(<LooseFileBanner />);
+    expect(screen.queryByRole('button', { name: 'Keep mine' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reload' })).toHaveClass('focus-ring');
+    expect(screen.getByRole('status').querySelector('button')).toBeNull();
+  });
+
+  it('copies an editable tab with its current content', async () => {
+    await openAndEdit('<p>Edited</p>');
+    await saveLooseCopy(activeNote());
+    expect(calls('save_loose_copy_dialog')).toEqual([
+      ['save_loose_copy_dialog', { id: LOOSE_ID, body: 'Edited' }],
+    ]);
+  });
+
+  it('restores loose tabs without activating them', async () => {
+    const forge: Note = {
+      id: 'notes/Here.md',
+      title: 'Here',
+      content: '<p>Forge</p>',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isDaily: false,
+      isWeekly: false,
+    };
+    useNoteStore.getState().openTab(forge, true);
+    invokeMock.mockImplementationOnce(async () => [admission]);
+    await restoreOpenLooseFiles();
+    expect(useNoteStore.getState().openTabs.map((note) => note.id)).toEqual([forge.id, NOTE_ID]);
+    expect(useNoteStore.getState().currentNote?.id).toBe(forge.id);
+  });
   // Regression: a tab whose id is not `notes/…` used to fall back to
   // `${title}.md` and be written into the Forge.
   it('autosave writes the file by session id and never writes a Forge note', async () => {

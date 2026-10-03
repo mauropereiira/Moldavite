@@ -227,6 +227,14 @@ mod linux {
                 let Ok(contents) = fs::read_to_string(&file) else {
                     continue;
                 };
+                let markdown = desktop_entry_value(&contents, "MimeType")
+                    .is_some_and(|value| value.split(';').any(|mime| mime == "text/markdown"));
+                let hidden = ["NoDisplay", "Hidden"]
+                    .iter()
+                    .any(|key| desktop_entry_value(&contents, key) == Some("true"));
+                if !markdown || hidden {
+                    continue;
+                }
                 let launches_us = exec_program(&contents)
                     .and_then(|program| resolve_program(&program, path_dirs))
                     .is_some_and(|program| program == exe);
@@ -241,6 +249,10 @@ mod linux {
     /// The program of the `[Desktop Entry]` group's `Exec` key: its first
     /// argument, honouring the spec's double quoting and backslash escapes.
     pub(super) fn exec_program(contents: &str) -> Option<String> {
+        first_argument(desktop_entry_value(contents, "Exec")?)
+    }
+
+    fn desktop_entry_value<'a>(contents: &'a str, wanted: &str) -> Option<&'a str> {
         let mut in_entry = false;
         for line in contents.lines() {
             let line = line.trim();
@@ -254,8 +266,8 @@ mod linux {
             let Some((key, value)) = line.split_once('=') else {
                 continue;
             };
-            if key.trim() == "Exec" {
-                return first_argument(value.trim());
+            if key.trim() == wanted {
+                return Some(value.trim());
             }
         }
         None
@@ -390,6 +402,52 @@ mod linux_tests {
         assert_eq!(
             find_desktop_id(&fx.app_dirs(), &fx.exe(), &[]),
             Some("Moldavite.desktop".to_string())
+        );
+    }
+
+    #[test]
+    fn mime_and_visibility_keys_only_apply_in_the_desktop_entry_section() {
+        let fx = Fixture::new("entry-section");
+        let file = fx.path("apps/Moldavite.desktop");
+        for (mime, expected) in [
+            ("text/markdown;", Some("Moldavite.desktop".to_string())),
+            ("text/plain;", None),
+        ] {
+            fs::write(&file, format!(
+                "[Desktop Action Other]\nMimeType=text/markdown;\n[Desktop Entry]\nExec={} %U\nMimeType={mime}\n[Desktop Action New]\nNoDisplay=true\nHidden=true\nMimeType=text/markdown;\nExec=other\n",
+                fx.exe().display()
+            )).unwrap();
+            assert_eq!(find_desktop_id(&fx.app_dirs(), &fx.exe(), &[]), expected);
+        }
+    }
+
+    #[test]
+    fn ignores_hidden_and_non_markdown_handlers_for_this_binary() {
+        let fx = Fixture::new("hidden-handler");
+        for (mime, extra) in [
+            ("text/markdown;", "NoDisplay=true"),
+            ("text/markdown;", "Hidden=true"),
+            ("x-scheme-handler/moldavite;", ""),
+        ] {
+            let contents = format!(
+                "[Desktop Entry]\nExec={} %u\nMimeType={mime}\n{extra}\n",
+                fx.exe().display()
+            );
+            fs::write(fx.path("user-apps/moldavite-handler.desktop"), contents).unwrap();
+            assert_eq!(
+                find_desktop_id(&fx.app_dirs(), &fx.exe(), &[]),
+                None,
+                "{extra}"
+            );
+        }
+        fx.desktop(
+            "apps",
+            "Moldavite.desktop",
+            &format!("{} %U", fx.exe().display()),
+        );
+        assert_eq!(
+            find_desktop_id(&fx.app_dirs(), &fx.exe(), &[]),
+            Some("Moldavite.desktop".into())
         );
     }
 

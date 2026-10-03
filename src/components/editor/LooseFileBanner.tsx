@@ -1,8 +1,9 @@
+import { BannerAction } from './BannerAction';
 import { useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useNotes } from '@/hooks/useNotes';
 import { addDroppedToForge } from '@/lib/droppedFiles';
-import { isDroppedId, isLooseNote } from '@/lib/looseId';
+import { isDroppedId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { formatShortcut } from '@/lib/shortcuts';
 import {
   keepMineLooseNote,
@@ -11,17 +12,6 @@ import {
   useLooseStatusStore,
 } from '@/lib/looseFiles';
 import { useNoteStore } from '@/stores/noteStore';
-
-const actionStyle: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  borderBottom: '1px solid var(--border-default)',
-  padding: 0,
-  width: 'auto',
-  font: 'inherit',
-  color: 'var(--text-primary)',
-  cursor: 'pointer',
-};
 
 const bannerStyle: React.CSSProperties = {
   display: 'flex',
@@ -58,13 +48,13 @@ export function DroppedFileBanner() {
   };
 
   return (
-    <div role="status" className="loose-file-banner" style={bannerStyle}>
-      <span style={{ flex: '1 1 auto' }}>
+    <div style={bannerStyle}>
+      <span role="status" style={{ flex: '1 1 auto' }}>
         {`Moldavite couldn't find where this file lives, so it opened read-only. Use Open With or ${formatShortcut('⌘O')} to edit it.`}
       </span>
-      <button type="button" style={actionStyle} disabled={busy} onClick={() => void addToForge()}>
+      <BannerAction disabled={busy} onClick={() => void addToForge()}>
         Add to Forge
-      </button>
+      </BannerAction>
     </div>
   );
 }
@@ -78,7 +68,8 @@ export function LooseFileBanner() {
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
-  if (!currentNote || !isLooseNote(currentNote) || !status) return null;
+  if (!currentNote || !isLooseNote(currentNote) || isDroppedId(currentNote.id) || !status)
+    return null;
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -98,35 +89,33 @@ export function LooseFileBanner() {
     });
 
   return (
-    <div role="status" className="loose-file-banner" style={bannerStyle}>
-      <span style={{ flex: '1 1 auto' }}>
+    <div style={bannerStyle}>
+      <span role="status" style={{ flex: '1 1 auto' }}>
         {status === 'moved'
           ? 'This file was moved or deleted. Your text is still here.'
           : 'This file changed on disk since you opened it.'}
       </span>
       {status === 'changed' && (
         <>
-          <button
-            type="button"
-            style={actionStyle}
+          <BannerAction
             disabled={busy}
             onClick={() => void run(() => reloadLooseNote(currentNote))}
           >
             Reload
-          </button>
-          <button
-            type="button"
-            style={actionStyle}
-            disabled={busy}
-            onClick={() => void run(() => keepMineLooseNote(currentNote))}
-          >
-            Keep mine
-          </button>
+          </BannerAction>
+          {!isLooseViewOnly(currentNote) && (
+            <BannerAction
+              disabled={busy}
+              onClick={() => void run(() => keepMineLooseNote(currentNote))}
+            >
+              Keep mine
+            </BannerAction>
+          )}
         </>
       )}
-      <button type="button" style={actionStyle} disabled={busy} onClick={() => void saveCopy()}>
+      <BannerAction disabled={busy} onClick={() => void saveCopy()}>
         Save a copy…
-      </button>
+      </BannerAction>
     </div>
   );
 }

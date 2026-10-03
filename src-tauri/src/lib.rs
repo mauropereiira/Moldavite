@@ -263,6 +263,10 @@ fn google_calendar_disconnect() -> Result<(), String> {
 /// longer be closed.
 #[cfg(desktop)]
 pub(crate) fn is_app_navigation_url(url: &tauri::Url, dev: Option<&tauri::Url>) -> bool {
+    if url.scheme() == "blob" {
+        return tauri::Url::parse(url.path())
+            .is_ok_and(|inner| inner.scheme() != "blob" && is_app_navigation_url(&inner, dev));
+    }
     match (url.scheme(), url.host_str()) {
         ("tauri", Some("localhost")) => true,
         ("http" | "https", Some("tauri.localhost")) => true,
@@ -677,11 +681,17 @@ mod tests {
             "tauri://localhost/index.html#note",
             "http://tauri.localhost/",
             "https://tauri.localhost/settings",
+            "blob:http://tauri.localhost/1234",
+            "blob:https://tauri.localhost/1234",
         ] {
             assert!(is_app_navigation_url(&url(allowed), None), "{allowed}");
         }
         assert!(is_app_navigation_url(
             &url("http://localhost:5173/src/main.tsx"),
+            Some(&dev)
+        ));
+        assert!(is_app_navigation_url(
+            &url("blob:http://localhost:5173/1234"),
             Some(&dev)
         ));
 
@@ -693,6 +703,10 @@ mod tests {
             "http://tauri.localhost.evil.com/",
             "asset://localhost/x.png",
             "about:blank",
+            "blob:https://example.com/1234",
+            "blob:file:///tmp/1234",
+            "blob:null/1234",
+            "blob:blob:http://tauri.localhost/1234",
         ] {
             assert!(!is_app_navigation_url(&url(blocked), None), "{blocked}");
         }
@@ -700,6 +714,7 @@ mod tests {
             "http://localhost:5174/",
             "https://localhost:5173/",
             "http://127.0.0.1:5173/",
+            "blob:http://localhost:5174/1234",
         ] {
             assert!(
                 !is_app_navigation_url(&url(blocked), Some(&dev)),

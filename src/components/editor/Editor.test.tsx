@@ -97,6 +97,7 @@ const toastSpies = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
 }));
+const getTemplateContent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks', () => ({
   useAutoSave: vi.fn(),
@@ -116,7 +117,7 @@ vi.mock('@/hooks', () => ({
     renameNote: notesSpies.renameNote,
     refresh: notesSpies.refresh,
   }),
-  useTemplates: () => ({ getTemplateContent: vi.fn() }),
+  useTemplates: () => ({ getTemplateContent }),
   useTrash: () => ({ trashNote: notesSpies.trashNote }),
 }));
 
@@ -128,8 +129,18 @@ vi.mock('@/hooks/useToast', () => ({
 // tests can reach Editor's own `handleDeleteConfirm` without rendering the
 // full (unrelated) footer.
 vi.mock('./EditorFooter', () => ({
-  EditorFooter: (props: { onDelete: () => void; readOnly?: boolean }) => (
-    <footer data-testid="editor-footer" data-read-only={String(!!props.readOnly)}>
+  EditorFooter: (props: {
+    onDelete: () => void;
+    readOnly?: boolean;
+    isSaving: boolean;
+    showSaveSuccess: boolean;
+  }) => (
+    <footer
+      data-testid="editor-footer"
+      data-read-only={String(!!props.readOnly)}
+      data-saving={String(props.isSaving)}
+      data-save-success={String(props.showSaveSuccess)}
+    >
       <button onClick={props.onDelete}>Delete note</button>
     </footer>
   ),
@@ -164,7 +175,11 @@ vi.mock('@/components/backlinks', () => ({
   BacklinksPanel: () => <aside data-testid="backlinks-panel" />,
 }));
 vi.mock('@/components/templates/EmptyNoteTemplatePicker', () => ({
-  EmptyNoteTemplatePicker: () => <div data-testid="empty-note-prompt" />,
+  EmptyNoteTemplatePicker: (props: { onSelectTemplate: (id: string) => void }) => (
+    <div data-testid="empty-note-prompt">
+      <button onClick={() => props.onSelectTemplate('example')}>Apply template</button>
+    </div>
+  ),
 }));
 vi.mock('@/components/templates/TemplatePickerModal', () => ({
   TemplatePickerModal: () => null,
@@ -298,6 +313,7 @@ beforeEach(() => {
   notesSpies.refresh.mockReset().mockResolvedValue(undefined);
   toastSpies.success.mockReset();
   toastSpies.error.mockReset();
+  getTemplateContent.mockReset().mockResolvedValue('# Template content');
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -369,6 +385,105 @@ describe('Editor layout settings', () => {
     });
 
     expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+  });
+});
+
+describe('Editor save feedback', () => {
+  it('shows saved for two seconds after completion without extending it on unrelated renders', async () => {
+    await renderEditor(note('notes/save.md', '<p>Content</p>'));
+    const footer = screen.getByTestId('editor-footer');
+    expect(footer).toHaveAttribute('data-save-success', 'false');
+    vi.useFakeTimers();
+    try {
+      act(() => useNoteStore.setState({ isSaving: true }));
+      expect(footer).toHaveAttribute('data-saving', 'true');
+      expect(footer).toHaveAttribute('data-save-success', 'false');
+      act(() => useNoteStore.setState({ isSaving: false }));
+      expect(footer).toHaveAttribute('data-saving', 'false');
+      expect(footer).toHaveAttribute('data-save-success', 'true');
+      act(() => vi.advanceTimersByTime(1000));
+      act(() => useSettingsStore.setState({ showNoteHeader: false }));
+      act(() => vi.advanceTimersByTime(999));
+      expect(footer).toHaveAttribute('data-save-success', 'true');
+      act(() => vi.advanceTimersByTime(1));
+      expect(footer).toHaveAttribute('data-save-success', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('restarts saved feedback after another save completes', async () => {
+    await renderEditor(note('notes/save.md', '<p>Content</p>'));
+    const footer = screen.getByTestId('editor-footer');
+    vi.useFakeTimers();
+    try {
+      act(() => useNoteStore.setState({ isSaving: true }));
+      act(() => useNoteStore.setState({ isSaving: false }));
+      act(() => vi.advanceTimersByTime(1000));
+      act(() => useNoteStore.setState({ isSaving: true }));
+      act(() => vi.advanceTimersByTime(5000));
+      expect(footer).toHaveAttribute('data-saving', 'true');
+      act(() => useNoteStore.setState({ isSaving: false }));
+      act(() => vi.advanceTimersByTime(1999));
+      expect(footer).toHaveAttribute('data-save-success', 'true');
+      act(() => vi.advanceTimersByTime(1));
+      expect(footer).toHaveAttribute('data-save-success', 'false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('Editor empty-note template prompt', () => {
+  it('hides when typing content and reappears when it is cleared', async () => {
+    const { editor } = await renderEditor(note('notes/empty.md', '<p></p>'));
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+    act(() => editor.commands.insertContent('Typed'));
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+    act(() => editor.commands.clearContent());
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+  });
+
+  it('keeps dismissal during unrelated renders and resets it after a note switch', async () => {
+    const empty = note('notes/empty.md', '<p></p>');
+    const other = note('notes/other.md', '<p>Other</p>');
+    await renderEditor(empty, [other]);
+    const dismiss = screen.getByTestId('empty-note-prompt').parentElement?.previousElementSibling;
+    if (!(dismiss instanceof HTMLElement)) throw new Error('Template dismiss overlay is missing');
+    fireEvent.click(dismiss);
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+    act(() => useSettingsStore.setState({ showNoteHeader: false }));
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+    act(() => useNoteStore.getState().switchTab(other.id));
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+    act(() => useNoteStore.getState().switchTab(empty.id));
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+  });
+
+  it('applies a template and dismisses the prompt', async () => {
+    const { editor } = await renderEditor(note('notes/empty.md', '<p></p>'));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
+    await waitFor(() => expect(editor.getHTML()).toContain('<h1>Template content</h1>'));
+    expect(getTemplateContent).toHaveBeenCalledWith('example');
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+  });
+
+  it('resets dismissal when empty paragraph content changes', async () => {
+    const { editor } = await renderEditor(note('notes/empty.md', '<p></p>'));
+    const dismiss = screen.getByTestId('empty-note-prompt').parentElement?.previousElementSibling;
+    if (!(dismiss instanceof HTMLElement)) throw new Error('Template dismiss overlay is missing');
+    fireEvent.click(dismiss);
+    expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
+    act(() => editor.commands.setContent('<p></p><p></p>'));
+    expect(screen.getByTestId('empty-note-prompt')).toBeInTheDocument();
+  });
+
+  it('dismisses after applying a template whose empty content is unchanged', async () => {
+    getTemplateContent.mockResolvedValueOnce('');
+    const { editor } = await renderEditor(note('notes/empty.md', '<p></p>'));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
+    await waitFor(() => expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument());
+    expect(editor.getHTML()).toBe('<p></p>');
   });
 });
 

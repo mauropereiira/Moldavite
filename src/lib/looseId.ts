@@ -20,6 +20,11 @@ export function looseNoteId(looseId: string): string {
   return `${LOOSE_ID_PREFIX}${looseId}`;
 }
 
+export function looseSessionId(noteId: string): string {
+  if (!noteId.startsWith(LOOSE_ID_PREFIX)) throw new Error('This file opened without its location');
+  return noteId.slice(LOOSE_ID_PREFIX.length);
+}
+
 /** 32 random hex digits. Not `crypto.randomUUID`: Safari 15 before 15.4 lacks it. */
 export function randomHexId(): string {
   const bytes = window.crypto.getRandomValues(new Uint8Array(16));

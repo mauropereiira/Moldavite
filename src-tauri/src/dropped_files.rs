@@ -39,7 +39,7 @@ fn same_name(path: &Path, name: &str) -> bool {
         .is_some_and(|leaf| leaf.nfc().eq(name.nfc()))
 }
 
-fn matches(candidate: &DropCandidate, path: &Path) -> bool {
+fn matches(candidate: &DropCandidate, path: &Path, require_mtime: bool) -> bool {
     if !path.is_absolute()
         || !same_name(path, &candidate.name)
         || !loose_files::has_markdown_extension(path)
@@ -53,26 +53,36 @@ fn matches(candidate: &DropCandidate, path: &Path) -> bool {
         .modified()
         .ok()
         .map(|time| match time.duration_since(UNIX_EPOCH) {
-            Ok(since) => since.as_secs_f64() * 1000.0,
-            Err(before) => -before.duration().as_secs_f64() * 1000.0,
+            Ok(since) => since.as_millis() as f64,
+            Err(before) => -(before.duration().as_millis() as f64),
         });
     metadata.is_file()
         && metadata.len() == candidate.size
-        && candidate
-            .last_modified
-            .zip(modified_ms)
-            .is_none_or(|(reported, actual)| (actual - reported).abs() <= MTIME_TOLERANCE_MS)
+        && if require_mtime {
+            candidate
+                .last_modified
+                .zip(modified_ms)
+                .is_some_and(|(reported, actual)| (actual - reported).abs() <= 1.0)
+        } else {
+            candidate
+                .last_modified
+                .zip(modified_ms)
+                .is_none_or(|(reported, actual)| (actual - reported).abs() <= MTIME_TOLERANCE_MS)
+        }
 }
 
-fn match_candidates(candidates: &[DropCandidate], paths: &[PathBuf]) -> Vec<Option<PathBuf>> {
+fn match_candidates(
+    candidates: &[DropCandidate],
+    paths: &[PathBuf],
+    require_mtime: bool,
+) -> Vec<Option<PathBuf>> {
     let mut claimed = vec![false; paths.len()];
     candidates
         .iter()
         .map(|candidate| {
-            let index = paths
-                .iter()
-                .enumerate()
-                .position(|(index, path)| !claimed[index] && matches(candidate, path))?;
+            let index = paths.iter().enumerate().position(|(index, path)| {
+                !claimed[index] && matches(candidate, path, require_mtime)
+            })?;
             claimed[index] = true;
             Some(paths[index].clone())
         })
@@ -82,9 +92,10 @@ fn match_candidates(candidates: &[DropCandidate], paths: &[PathBuf]) -> Vec<Opti
 fn admit_candidates(
     candidates: &[DropCandidate],
     paths: &[PathBuf],
+    require_mtime: bool,
     admit: impl Fn(&Path) -> Result<Admission, String>,
 ) -> Vec<Option<Admission>> {
-    match_candidates(candidates, paths)
+    match_candidates(candidates, paths, require_mtime)
         .into_iter()
         .map(|path| {
             path.and_then(|path| match admit(&path) {
@@ -116,7 +127,7 @@ fn parse_uri_list(list: &str) -> Vec<PathBuf> {
     list.lines()
         .map(str::trim)
         .filter(|line| line.starts_with("file://"))
-        .filter_map(|line| tauri::Url::parse(line).ok()?.to_file_path().ok())
+        .filter_map(loose_files::file_url_path)
         .collect()
 }
 
@@ -352,7 +363,12 @@ pub(crate) async fn admit_dropped_files<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || {
         let paths = dropped_paths(&app, uri_list.as_deref(), token.as_deref());
         let state = app.state::<LooseFiles>();
-        admit_candidates(&candidates, &paths, |path| loose_files::admit(&state, path))
+        admit_candidates(
+            &candidates,
+            &paths,
+            cfg!(all(desktop, not(any(target_os = "macos", windows)))),
+            |path| loose_files::admit(&state, path),
+        )
     })
     .await
     .map_err(|error| error.to_string())
@@ -419,8 +435,7 @@ mod tests {
             .unwrap()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs()
-            .saturating_mul(1000) as f64
+            .as_millis() as f64
     }
 
     fn candidate_for(path: &Path) -> DropCandidate {
@@ -437,7 +452,7 @@ mod tests {
         let note = dir.file("Read me.md", "# Hello");
         let other = dir.file("Other.md", "# Other");
 
-        let matched = match_candidates(&[candidate_for(&note)], &[other, note.clone()]);
+        let matched = match_candidates(&[candidate_for(&note)], &[other, note.clone()], false);
 
         assert_eq!(matched, vec![Some(note)]);
     }
@@ -464,11 +479,11 @@ mod tests {
         };
 
         assert_eq!(
-            match_candidates(&[mismatched], std::slice::from_ref(&note)),
+            match_candidates(&[mismatched], std::slice::from_ref(&note), false),
             vec![None]
         );
         assert_eq!(
-            match_candidates(&[candidate], std::slice::from_ref(&note)),
+            match_candidates(&[candidate], std::slice::from_ref(&note), false),
             vec![Some(note)]
         );
     }
@@ -481,9 +496,40 @@ mod tests {
             serde_json::from_str(r#"{"name":"Note.md","size":4}"#).unwrap();
 
         assert_eq!(
-            match_candidates(&[candidate], std::slice::from_ref(&note)),
+            match_candidates(&[candidate], std::slice::from_ref(&note), false),
             vec![Some(note)]
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linux_uri_admission_requires_mtime_within_one_millisecond() {
+        let dir = TempDir::new("linux-mtime");
+        let note = dir.file("Note.md", "note");
+        let candidate = candidate_for(&note);
+        let missing = DropCandidate {
+            last_modified: None,
+            ..candidate.clone()
+        };
+        let changed = DropCandidate {
+            last_modified: candidate.last_modified.map(|time| time + 2.0),
+            ..candidate.clone()
+        };
+        for offset in [-2.0, -1.0, 0.0, 1.0, 2.0] {
+            let rounded = DropCandidate {
+                last_modified: candidate.last_modified.map(|time| time + offset),
+                ..candidate.clone()
+            };
+            assert_eq!(matches(&rounded, &note, true), offset.abs() <= 1.0);
+        }
+        let paths = parse_uri_list(tauri::Url::from_file_path(&note).unwrap().as_ref());
+        let state = LooseFiles::default();
+        let admitted = admit_candidates(&[missing, changed, candidate], &paths, true, |path| {
+            state.admit_with(path, None, None)
+        });
+        assert_eq!(admitted[..2], [None, None]);
+        assert!(admitted[2].is_some());
+        assert_eq!(state.list_open(None).len(), 1);
     }
 
     #[test]
@@ -501,6 +547,7 @@ mod tests {
         let admissions = admit_candidates(
             &[wrong, candidate_for(&text), candidate_for(&note)],
             &[stale, text, note.clone()],
+            false,
             |path| state.admit_with(path, None, None),
         );
 
@@ -522,7 +569,7 @@ mod tests {
         let state = LooseFiles::default();
 
         assert_eq!(
-            admit_candidates(&[candidate_for(&link)], &[link], |path| {
+            admit_candidates(&[candidate_for(&link)], &[link], false, |path| {
                 state.admit_with(path, None, None)
             }),
             vec![None]
@@ -551,10 +598,10 @@ mod tests {
         };
 
         assert_eq!(
-            match_candidates(&[bigger, renamed, older], &paths),
+            match_candidates(&[bigger, renamed, older], &paths, false),
             vec![None, None, None]
         );
-        assert_eq!(match_candidates(&[base], &paths), vec![Some(note)]);
+        assert_eq!(match_candidates(&[base], &paths, false), vec![Some(note)]);
     }
 
     #[test]
@@ -565,8 +612,11 @@ mod tests {
         let candidate = candidate_for(&dropped);
         fs::remove_file(&dropped).unwrap();
 
-        assert_eq!(match_candidates(&[candidate], &[stale]), vec![None]);
-        assert_eq!(match_candidates(&[], &[dir.0.join("stale.md")]), vec![]);
+        assert_eq!(match_candidates(&[candidate], &[stale], false), vec![None]);
+        assert_eq!(
+            match_candidates(&[], &[dir.0.join("stale.md")], false),
+            vec![]
+        );
     }
 
     #[test]
@@ -578,6 +628,7 @@ mod tests {
         let matched = match_candidates(
             &[candidate_for(&text), candidate_for(&markdown)],
             &[text.clone(), markdown.clone()],
+            false,
         );
 
         assert_eq!(matched, vec![None, Some(markdown)]);
@@ -593,6 +644,7 @@ mod tests {
         let matched = match_candidates(
             &[candidate.clone(), candidate.clone(), candidate],
             &[first.clone(), second.clone()],
+            false,
         );
 
         assert_eq!(matched, vec![Some(first), Some(second), None]);
@@ -608,7 +660,7 @@ mod tests {
         };
 
         assert_eq!(
-            match_candidates(&[candidate], std::slice::from_ref(&note)),
+            match_candidates(&[candidate], std::slice::from_ref(&note), false),
             vec![Some(note)]
         );
     }
@@ -663,9 +715,12 @@ mod tests {
             size: candidate.size + 1,
             ..candidate.clone()
         };
-        let admitted = admit_candidates(&[mismatched, candidate], &parse_uri_list(&list), |path| {
-            state.admit_with(path, None, None)
-        });
+        let admitted = admit_candidates(
+            &[mismatched, candidate],
+            &parse_uri_list(&list),
+            true,
+            |path| state.admit_with(path, None, None),
+        );
 
         assert_eq!(admitted[0], None);
         let Some(Admission::Loose { id, .. }) = &admitted[1] else {

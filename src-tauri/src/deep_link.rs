@@ -149,6 +149,7 @@ fn request_from_url(url: &str) -> Option<DeepLinkRequest> {
 fn request_from_path(
     state: &LooseFiles,
     path: &std::path::Path,
+    at_launch: bool,
 ) -> Result<DeepLinkRequest, String> {
     Ok(match loose_files::admit(state, path)? {
         Admission::ForgeNote { rel } => DeepLinkRequest::Note { path: rel },
@@ -160,16 +161,9 @@ fn request_from_path(
             id,
             name,
             dir_display,
-            at_launch: is_launch_delivery(),
+            at_launch,
         },
     })
-}
-
-fn file_url_path(url: &str) -> Option<PathBuf> {
-    if !url.starts_with("file://") {
-        return None;
-    }
-    tauri::Url::parse(url).ok()?.to_file_path().ok()
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>, request: DeepLinkRequest) {
@@ -198,19 +192,23 @@ fn focus_main_window<R: Runtime>(app: &AppHandle<R>) {
 /// Open files the OS handed us (launch arguments, a second launch), then
 /// bring the window forward.
 pub(crate) fn route_paths<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
-    let mut delivered = false;
-    for path in paths {
-        match request_from_path(&app.state::<LooseFiles>(), &path) {
-            Ok(request) => {
-                deliver(app, request);
-                delivered = true;
+    let at_launch = is_launch_delivery();
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut delivered = false;
+        for path in paths {
+            match request_from_path(&app.state::<LooseFiles>(), &path, at_launch) {
+                Ok(request) => {
+                    deliver(&app, request);
+                    delivered = true;
+                }
+                Err(reason) => log::info!("[deep-link] ignored file reason={reason}"),
             }
-            Err(reason) => log::info!("[deep-link] ignored file reason={reason}"),
         }
-    }
-    if delivered {
-        focus_main_window(app);
-    }
+        if delivered {
+            focus_main_window(&app);
+        }
+    });
 }
 
 fn rejected_url_context(url: &str) -> (&'static str, &'static str) {
@@ -232,6 +230,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
+    let mut paths = Vec::new();
     for url in urls {
         let url = url.as_ref();
 
@@ -245,8 +244,8 @@ where
             continue;
         }
 
-        if let Some(path) = file_url_path(url) {
-            route_paths(app, vec![path]);
+        if let Some(path) = loose_files::file_url_path(url) {
+            paths.push(path);
             continue;
         }
 
@@ -257,6 +256,9 @@ where
         };
 
         deliver(app, request);
+    }
+    if !paths.is_empty() {
+        route_paths(app, paths);
     }
 }
 
@@ -419,18 +421,42 @@ mod tests {
         let note = dir.join("Read me.md");
         std::fs::write(&note, "# Hello").unwrap();
         std::fs::write(dir.join("notes.txt"), "plain").unwrap();
+        std::fs::write(dir.join("secret.md"), "private").unwrap();
         let url = |name: &str| {
             tauri::Url::from_file_path(dir.join(name))
                 .unwrap()
                 .to_string()
         };
 
-        super::route_urls(app.handle(), [url("Read me.md"), url("notes.txt")]);
+        let secret_url = url("secret.md");
+        super::route_urls(
+            app.handle(),
+            [
+                secret_url.replacen("file:", "moldavite:", 1),
+                secret_url.replacen("file://", "moldavite://localhost", 1),
+                url("Read me.md"),
+                url("notes.txt"),
+            ],
+        );
 
         let pending = app.state::<PendingDeepLinks>();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while pending.0.lock().unwrap().is_empty() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "File admission was never delivered"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         let queued: Vec<_> = pending.0.lock().unwrap().drain(..).collect();
         std::fs::remove_dir_all(&dir).ok();
         assert_eq!(queued.len(), 1, "{queued:?}");
+        assert_eq!(
+            app.state::<crate::loose_files::LooseFiles>()
+                .list_open(None)
+                .len(),
+            1
+        );
         match &queued[0] {
             DeepLinkRequest::LooseFile { id, name, .. } => {
                 assert_eq!(name, "Read me.md");
@@ -438,6 +464,66 @@ mod tests {
             }
             other => panic!("expected a loose file, got {other:?}"),
         }
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn file_urls_are_delivered_in_reported_order() {
+        use tauri::Manager;
+
+        let app = tauri::test::mock_app();
+        app.manage(PendingDeepLinks::default());
+        app.manage(crate::loose_files::LooseFiles::default());
+        let dir = std::env::temp_dir().join(format!(
+            "moldavite-url-order-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let names = ["First.md", "Second.md", "Third.md"];
+        for (index, name) in names.iter().enumerate() {
+            std::fs::write(
+                dir.join(name),
+                if index == 0 {
+                    "a".repeat(9_000_000)
+                } else {
+                    "small".to_string()
+                },
+            )
+            .unwrap();
+        }
+        super::route_urls(
+            app.handle(),
+            names.map(|name| {
+                tauri::Url::from_file_path(dir.join(name))
+                    .unwrap()
+                    .to_string()
+            }),
+        );
+        let pending = app.state::<PendingDeepLinks>();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while pending.0.lock().unwrap().len() < names.len() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "File admission was never delivered"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let queued: Vec<_> = pending
+            .0
+            .lock()
+            .unwrap()
+            .drain(..)
+            .map(|request| match request {
+                DeepLinkRequest::LooseFile { name, .. } => name,
+                other => panic!("expected a loose file, got {other:?}"),
+            })
+            .collect();
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(queued, names);
     }
 
     #[test]

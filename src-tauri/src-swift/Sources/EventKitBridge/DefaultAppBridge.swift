@@ -53,20 +53,17 @@ public func setDefaultMarkdownHandler() -> Bool {
     }
     if #available(macOS 12.0, *) {
         guard let type = markdownType() else { return false }
-        var succeeded = false
         let done = DispatchSemaphore(value: 0)
         NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpen: type) { error in
             if let error = error {
                 logDefaultAppError("Could not set the Markdown default: \(error.localizedDescription)")
             }
-            succeeded = error == nil
             done.signal()
         }
-        guard done.wait(timeout: .now() + 30) == .success else {
+        if done.wait(timeout: .now() + 30) != .success {
             logDefaultAppError("Timed out setting the Markdown default")
-            return false
         }
-        return succeeded
+        return isDefaultMarkdownHandler()
     }
     guard let bundleID = Bundle.main.bundleIdentifier else { return false }
     return LSSetDefaultRoleHandlerForContentType(

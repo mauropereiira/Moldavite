@@ -116,12 +116,11 @@ Real Markdown with YAML frontmatter. Point Dropbox, iCloud, git or nothing at
 all at it. Edit the files in another editor while Moldavite is open and it
 notices.
 
-Markdown files outside a Forge open too: use Open With in Finder, double-click
-one once Moldavite is its app, drop it on the window, or press ⌘O (Ctrl+O). The
-file is edited where it is, not copied in, and **Add to Forge** copies it in
-when you want it there. If Moldavite can't find a dropped file's location, it
-opens read-only with **Add to Forge**. Use Open With or ⌘O (Ctrl+O) to edit the
-original instead.
+Open Markdown outside a Forge with Open With, a file association, a window drop,
+or ⌘O (Ctrl+O). Editable files save where they are; **Add to Forge** creates a
+Forge copy, and files whose formatting cannot survive an edit open view-only.
+A drop whose location cannot be recovered opens read-only with **Add to Forge**;
+use Open With or ⌘O (Ctrl+O) to edit the original.
 
 ### Start syncing on Mac
 

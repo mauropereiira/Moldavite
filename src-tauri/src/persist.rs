@@ -157,12 +157,48 @@ fn keep_created(file: &fs::File, created: Option<std::time::SystemTime>) {
 #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 fn keep_created(_file: &fs::File, _created: Option<std::time::SystemTime>) {}
 
+#[cfg(target_os = "macos")]
+fn copy_xattrs(source: &Path, destination: &fs::File) {
+    use xattr::FileExt;
+    let Ok(source) = fs::File::open(source) else {
+        return;
+    };
+    let Ok(names) = source.list_xattr() else {
+        return;
+    };
+    for name in names {
+        if let Ok(Some(value)) = source.get_xattr(&name) {
+            let _ = destination.set_xattr(&name, &value);
+        }
+    }
+}
+
 /// Atomically replace `path` after writing a securely created same-directory temp file.
 pub(crate) fn write_atomic_with<F>(path: &Path, mode: Option<u32>, write: F) -> Result<(), String>
 where
     F: FnOnce(&mut fs::File) -> Result<(), String>,
 {
-    write_atomic_created(path, mode, created_time(path), write)
+    write_atomic_checked(path, mode, false, write, || Ok(()))
+}
+
+pub(crate) fn write_atomic_checked<F>(
+    path: &Path,
+    mode: Option<u32>,
+    preserve_xattrs: bool,
+    write: F,
+    before_rename: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String>
+where
+    F: FnOnce(&mut fs::File) -> Result<(), String>,
+{
+    write_atomic_created(
+        path,
+        mode,
+        created_time(path),
+        preserve_xattrs,
+        write,
+        before_rename,
+    )
 }
 
 fn created_time(path: &Path) -> Option<std::time::SystemTime> {
@@ -179,16 +215,23 @@ pub(crate) fn write_atomic_as(
     mode: Option<u32>,
     created_from: &Path,
 ) -> Result<(), String> {
-    write_atomic_created(path, mode, created_time(created_from), |file| {
-        file.write_all(contents).map_err(|e| e.to_string())
-    })
+    write_atomic_created(
+        path,
+        mode,
+        created_time(created_from),
+        false,
+        |file| file.write_all(contents).map_err(|e| e.to_string()),
+        || Ok(()),
+    )
 }
 
 fn write_atomic_created<F>(
     path: &Path,
     mode: Option<u32>,
     created: Option<std::time::SystemTime>,
+    preserve_xattrs: bool,
     write: F,
+    before_rename: impl FnOnce() -> Result<(), String>,
 ) -> Result<(), String>
 where
     F: FnOnce(&mut fs::File) -> Result<(), String>,
@@ -212,26 +255,38 @@ where
         .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
     let result = (|| -> Result<(), String> {
         write(&mut file)?;
+        #[cfg(target_os = "macos")]
+        if preserve_xattrs {
+            copy_xattrs(path, &file);
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = preserve_xattrs;
         keep_created(&file, created);
         file.sync_all().map_err(|e| e.to_string())?;
         drop(file);
+        Ok(())
+    })()
+    .map_err(|e| format!("Failed to write {}: {}", path.display(), e));
+    let result = result.and_then(|()| before_rename()).and_then(|()| {
         #[cfg(windows)]
         {
-            rename_with_retry(&tmp_path, path).map_err(|e| e.to_string())
+            rename_with_retry(&tmp_path, path)
+                .map_err(|e| format!("Failed to write {}: {e}", path.display()))
         }
         #[cfg(not(windows))]
         {
-            fs::rename(&tmp_path, path).map_err(|e| e.to_string())?;
+            fs::rename(&tmp_path, path)
+                .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
             #[cfg(unix)]
             sync_parent_dir(parent);
             Ok(())
         }
-    })();
+    });
 
     if result.is_err() {
         let _ = fs::remove_file(&tmp_path);
     }
-    result.map_err(|e| format!("Failed to write {}: {}", path.display(), e))
+    result
 }
 
 /// Atomically replace `path` after a same-directory temp write, a file `fsync`
@@ -511,6 +566,36 @@ mod tests {
         assert!(leftovers.is_empty());
     }
 
+    #[test]
+    fn pre_rename_check_runs_after_the_temp_write_and_leaves_external_changes_intact() {
+        let tmp = TempDir::new("pre-rename");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "before").unwrap();
+        let result = write_atomic_checked(
+            &path,
+            None,
+            false,
+            |file| {
+                file.write_all(b"mine").unwrap();
+                fs::write(&path, "external").unwrap();
+                Ok(())
+            },
+            || {
+                assert_eq!(fs::read_to_string(&path).unwrap(), "external");
+                let temp = fs::read_dir(tmp.path())
+                    .unwrap()
+                    .flatten()
+                    .find(|entry| entry.path() != path)
+                    .unwrap();
+                assert_eq!(fs::read(temp.path()).unwrap(), b"mine");
+                Err("conflict:external".into())
+            },
+        );
+        assert_eq!(result.unwrap_err(), "conflict:external");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "external");
+        assert_eq!(fs::read_dir(tmp.path()).unwrap().count(), 1);
+    }
+
     #[cfg(any(target_os = "macos", windows))]
     #[test]
     fn write_atomic_keeps_the_creation_time() {
@@ -528,6 +613,17 @@ mod tests {
 
         assert_eq!(fs::read_to_string(&path).unwrap(), "second");
         assert_eq!(fs::metadata(&path).unwrap().created().unwrap(), created);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn ordinary_atomic_writes_do_not_copy_xattrs() {
+        let tmp = TempDir::new("atomic-xattrs");
+        let path = tmp.path().join("note.md");
+        fs::write(&path, "first").unwrap();
+        xattr::set(&path, "user.moldavite-test", b"original inode").unwrap();
+        write_atomic(&path, b"second", None).unwrap();
+        assert_eq!(xattr::get(&path, "user.moldavite-test").unwrap(), None);
     }
 
     #[test]

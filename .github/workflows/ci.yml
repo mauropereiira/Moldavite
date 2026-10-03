@@ -441,7 +441,7 @@ jobs:
           cat "$extracted/$entry"
           grep -Eq '^MimeType=(.*;)?text/markdown(;|$)' "$extracted/$entry" \
             || { echo "::error::$entry does not list text/markdown in MimeType"; exit 1; }
-          grep -Eq '^Exec=.*%[FU]' "$extracted/$entry" \
+          grep -Eq '^Exec=.*[[:space:]]%[FU]([[:space:]]|$)' "$extracted/$entry" \
             || { echo "::error::$entry's Exec takes no %F or %U, so opened files are dropped"; exit 1; }
 
       - name: Keep the bundles for the Fedora smoke test

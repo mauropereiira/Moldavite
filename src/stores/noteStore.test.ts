@@ -80,6 +80,29 @@ describe('noteStore - pinned tabs', () => {
     expect(state.activeTabId).toBe('b');
   });
 
+  it.each([null, 'closed-tab'])(
+    'keeps restored loose tabs with no active tab (%s)',
+    (activeTabId) => {
+      const { openTab, setCurrentNote } = useNoteStore.getState();
+      const loose = makeNote('loose:0123456789abcdef0123456789abcdef', {
+        loose: {
+          looseId: '0123456789abcdef0123456789abcdef',
+          name: 'Outside.md',
+          dir: '/tmp',
+          readOnly: false,
+        },
+      });
+      openTab(loose, true, false);
+      expect(useNoteStore.getState().activeTabId).toBeNull();
+      useNoteStore.setState({ activeTabId });
+      setCurrentNote(makeNote('notes/forge.md'));
+      const state = useNoteStore.getState();
+      expect(state.openTabs.map((tab) => tab.id)).toEqual([loose.id, 'notes/forge.md']);
+      expect(state.currentNote?.id).toBe('notes/forge.md');
+      expect(state.savedContent.get(loose.id)).toBe(loose.content);
+    }
+  );
+
   it('preserves multiple pinned tabs across sidebar navigation', () => {
     const { openTab, pinTab } = useNoteStore.getState();
 

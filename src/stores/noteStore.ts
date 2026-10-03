@@ -54,7 +54,7 @@ interface NoteState {
   setSelectedWeek: (date: Date | null) => void;
   updateNoteContent: (content: string, noteId?: string) => void;
 
-  openTab: (note: Note, inNewTab?: boolean) => void;
+  openTab: (note: Note, inNewTab?: boolean, activate?: boolean) => void;
   closeTab: (noteId: string) => void;
   switchTab: (noteId: string) => void;
   updateTabContent: (noteId: string, content: string) => void;
@@ -197,7 +197,16 @@ export const useNoteStore = create<NoteState>((set, get) => ({
    * Opens a note in tabs. If inNewTab is false, replaces content in active tab
    * or switches to existing tab if already open.
    */
-  openTab: (note, inNewTab = false) => {
+  openTab: (note, inNewTab = false, activate = true) => {
+    if (!activate) {
+      set((state) => {
+        if (state.openTabs.some((tab) => tab.id === note.id)) return state;
+        const savedContent = new Map(state.savedContent);
+        savedContent.set(note.id, note.content);
+        return { openTabs: [...state.openTabs, note], savedContent };
+      });
+      return;
+    }
     // A note becoming active always yields transient exploration views. Keep
     // this at the canonical tab entry point so sidebar, search, quick switcher,
     // locked-note unlocks, graph nodes, and virtual notes cannot diverge.
@@ -225,9 +234,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
-      if (inNewTab || state.openTabs.length === 0) {
-        // Explicit new tabs never consume the preview slot. The first tab has
-        // nothing available to reuse.
+      const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
+      if (inNewTab || activeIndex < 0) {
         const newTabs = [...state.openTabs, note];
         return {
           openTabs: newTabs,
@@ -237,8 +245,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
-      const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
-      if (activeIndex >= 0 && !state.openTabs[activeIndex].isPinned) {
+      if (!state.openTabs[activeIndex].isPinned) {
         // The active unpinned tab is the current preview slot.
         const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
         savedContent.delete(state.openTabs[activeIndex].id);
@@ -252,8 +259,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
       // A pinned active tab is protected, but it does not require a fresh
       // preview every time it is revisited. Reuse the existing unpinned slot
-      // first. The same lookup repairs a stale/null activeTabId without
-      // allowing plain sidebar navigation to append indefinitely.
+      // first.
       const previewIndex = state.openTabs.findIndex((tab) => !tab.isPinned);
       if (previewIndex >= 0) {
         const newTabs = state.openTabs.map((tab, index) => (index === previewIndex ? note : tab));

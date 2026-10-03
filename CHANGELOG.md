@@ -14,7 +14,7 @@ All notable changes to Moldavite are documented here.
 
 ### Fixed
 
-- **Dropping a file on the window no longer breaks Moldavite.** Dropping a file anywhere the editor does not take it used to replace the app with the file, after which the window could not be closed. A dropped Markdown file now opens and saves back to the same file. If Moldavite can't tell where a dropped file lives, it opens it read-only, says so, and offers **Add to Forge**; other dropped files are ignored.
+- **Dropped Markdown files open editable** and save to the original file when Moldavite can recover their location. Otherwise they open read-only with **Add to Forge**. Other dropped files are ignored, and window drops no longer navigate away from the app.
 
 ## [2.9.1] - 2026-09-28
 

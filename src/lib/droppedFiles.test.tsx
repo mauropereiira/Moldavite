@@ -21,9 +21,16 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { useNotes } from '@/hooks/useNotes';
 import { installWindowDropGuard, setWindowFileDropHandler } from './dropGuard';
 import { addDroppedToForge, openDroppedFiles } from './droppedFiles';
-import { saveNoteOnLeave } from './leaveSave';
+import { noteDiskFilename, saveNoteOnLeave } from './leaveSave';
+import {
+  keepMineLooseNote,
+  saveLooseCopy,
+  writeLooseNote,
+  useLooseStatusStore,
+} from './looseFiles';
 import { isLooseViewOnly } from './looseId';
-import { DroppedFileBanner } from '@/components/editor/LooseFileBanner';
+import { DroppedFileBanner, LooseFileBanner } from '@/components/editor/LooseFileBanner';
+import { ExternalChangeBanner } from '@/components/editor/ExternalChangeBanner';
 
 const LOOSE_ID = '0123456789abcdef0123456789abcdef';
 const WRITE_COMMAND = /write|create|delete|trash|rename|move|save|add_/;
@@ -339,6 +346,22 @@ describe('a dropped file Rust cannot place', () => {
       await saveNoteOnLeave(activeNote());
     });
 
+    expect(writeCalls()).toEqual([]);
+    expect(() => noteDiskFilename(note)).toThrow(/no Forge filename/);
+    await expect(keepMineLooseNote(note)).rejects.toThrow(/view-only/);
+    await expect(writeLooseNote(note)).rejects.toThrow(/view-only/);
+    await expect(saveLooseCopy(note)).rejects.toThrow(/without its location/);
+    act(() => {
+      useLooseStatusStore.getState().setStatus(note.id, 'changed');
+      useNoteStore.setState({ externallyChanged: new Map([[note.id, null]]) });
+    });
+    const banners = render(
+      <>
+        <ExternalChangeBanner />
+        <LooseFileBanner />
+      </>
+    );
+    expect(banners.container).toBeEmptyDOMElement();
     expect(writeCalls()).toEqual([]);
     expect(isLooseViewOnly(note)).toBe(true);
     expect(

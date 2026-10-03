@@ -124,11 +124,13 @@
     },
     "linux": {
       "deb": {
+        "desktopTemplate": "linux/moldavite.desktop",
         "depends": [
           "libc6 (>= 2.38)"
         ]
       },
       "rpm": {
+        "desktopTemplate": "linux/moldavite.desktop",
         "depends": [
           "webkit2gtk4.1",
           "gtk3"
