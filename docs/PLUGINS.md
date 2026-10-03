@@ -143,7 +143,7 @@ self-contained ES module because Moldavite loads only this one entry file.
 | `apiVersion`    |              yes | Use `2` for this API. Versions 1 and 2 are supported.                                                                                                                                                                     |
 | `author`        |               no | Display metadata.                                                                                                                                                                                                         |
 | `description`   |               no | Display metadata. Explain what the plugin does and where data may go.                                                                                                                                                     |
-| `minAppVersion` |               no | The oldest Moldavite version the plugin works with, such as `2.10.0`. Older versions show it as incompatible, do not run it, and refuse to install it from a file.                                                          |
+| `minAppVersion` |               no | The oldest Moldavite version the plugin works with, such as `2.10.0`. Older versions show it as incompatible, do not run it, and refuse to install it from a file.                                                        |
 | `permissions`   |               no | Supported capability strings from the permission table below. Registering commands needs `commands`.                                                                                                                      |
 | `allowedHosts`  | with `net.fetch` | Non-empty, unique array of exact lowercase public DNS hostnames. No scheme, port, path, IP, single-label name, localhost label, or wildcard.                                                                              |
 | `commands`      |               no | Up to 50 `{ "id", "label" }` entries shown before the plugin is enabled. Each id must match the id registered through `api.commands.add`; ids are limited to 128 characters and labels to 200. Duplicate ids are invalid. |
@@ -309,13 +309,16 @@ Requires the `editor` permission.
 #### `editor.getActiveNote(): Promise<ActiveNote | null>`
 
 Returns the active note's Forge-relative `path`, display `title`, and live
-editor HTML in `content`, or `null` when no note is open.
+editor HTML in `content`, or `null` when no note is open. A Markdown file opened
+from outside the Forge (Open With, ⌘O) is never visible to plugins: while one is
+the active tab this returns `null`.
 
 #### `editor.insertText(text: string): Promise<void>`
 
 Inserts text at the active editor cursor. If there is no active editor, or the
 open note is read only (a locked note opened to view), nothing is inserted and
-Moldavite displays an error notification.
+Moldavite displays an error notification. While a file from outside the Forge is
+the active tab, the call rejects with "The active note is not in the Forge".
 
 ```js
 const active = await api.editor.getActiveNote();

@@ -607,7 +607,8 @@ api.commands.<span class="f">add</span>({
           </p>
           <p class="method-description">
             Returns the active note's Forge-relative path, display title, and live editor HTML, or
-            <code>null</code> when no note is open.
+            <code>null</code> when no note is open. A Markdown file opened from outside the Forge is
+            never visible to plugins: while one is the active tab this returns <code>null</code>.
           </p>
         </div>
         <div class="method-card">
@@ -618,7 +619,8 @@ api.commands.<span class="f">add</span>({
           <p class="method-description">
             Inserts text at the current editor cursor. If no editor is active, or the open note is
             read only (a locked note opened to view), nothing is inserted and Moldavite shows an
-            error notification.
+            error notification. While a file from outside the Forge is the active tab, the call
+            rejects.
           </p>
         </div>
       </div>

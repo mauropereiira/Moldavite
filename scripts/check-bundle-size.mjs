@@ -159,7 +159,11 @@ const BUDGETS = [
 // permission changes, installing from a .zip or folder, safe mode with its
 // startup marker, starting and stopping one plugin instead of all) adds
 // 11.4 KB raw / 3.4 KB gz. Measured 673.0 KB / 193.1 KB gz.
-const APP_JS_BUDGET = { rawKb: 676, gzipKb: 195 };
+// 686 / 198: Markdown files opened from outside the Forge (the loose-file IPC
+// layer and fidelity check, the on-disk change banner, the guards across
+// autosave, menus and plugins, ⌘O) and the window drop guard add 10.1 KB raw /
+// 3.1 KB gz. Measured 683.1 KB / 196.2 KB gz.
+const APP_JS_BUDGET = { rawKb: 686, gzipKb: 198 };
 
 async function main() {
   let entries;
