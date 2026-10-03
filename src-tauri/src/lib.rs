@@ -431,6 +431,8 @@ pub fn run() {
             wordpress_disconnect,
             wordpress_sites,
             wordpress_publish,
+            commands::default_app::default_markdown_app_status,
+            commands::default_app::make_default_markdown_app,
             agent_writes::take_agent_write,
             ensure_directories,
             get_app_binary_path,
