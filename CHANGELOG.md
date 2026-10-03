@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.10.0] - Unreleased
+
+### Added
+
+- **Autumn.** A new Autumn theme in Settings → Appearance, light and dark: a golden wheat ground with maple, cranberry and olive in notes. With it on, selected text, the typing cursor and ticked to-dos turn maple, divider lines carry a tiny leaf, the Index shows small icons beside Notes, Folders, Daily and Tags, and a field with a scarecrow and a pile of leaves sits quietly at the bottom of the home screen. With any theme, a few leaves drift across the home screen, a small pumpkin sits in the corner of Settings, and About says it's the Autumn edition. Turn the seasonal bits off in Settings → Layout → Seasonal touches.
+
 ## [2.9.1] - 2026-09-28
 
 ### Added

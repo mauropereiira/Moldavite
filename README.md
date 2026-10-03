@@ -130,8 +130,8 @@ and troubleshooting. The full iOS guide will follow separately.
 
 ## What else it does
 
-Settings → Appearance offers six themes, Cream, Sage, Slate, Clay, Plum and
-Graphite, each in light and dark, and S–XL text sizes for the editor and
+Settings → Appearance offers seven themes, Cream, Sage, Slate, Clay, Plum,
+Graphite and the seasonal Autumn, each in light and dark, and S–XL text sizes for the editor and
 desktop Settings. Settings → Layout puts the icon rail on the left or the right.
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,

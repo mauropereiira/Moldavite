@@ -291,7 +291,14 @@ never get it: there the rail it hides is the only way back to Settings, so
    (`themePalettes.test.ts` enforces it). Within a preset the chrome stays
    two-colour; presets differ by which two colours. Any new token added to
    `:root` must be considered across all twelve blocks, and `themeStore.ts`'s
-   `PRESETS[]` light and dark swatches need hand-syncing.
+   `PRESETS[]` light and dark swatches need hand-syncing. One more preset is
+   **seasonal** (Autumn now): it ships with a release and is retired when the
+   next seasonal release replaces it, through `RETIRED_PRESETS`. Its touches
+   (falling leaves, the Settings pumpkin, Index icons, the welcome field) are
+   hairline line art in `--text-muted` at lucide's 1.25 stroke, faded into the
+   background behind the wordmark, never animated under reduced motion, and
+   switchable with Seasonal touches. `ACTIVE_SEASON` in `lib/seasons.ts` picks
+   the season per release; `null` ships none.
 5. **New settings need three edits** — the `SettingsState` interface,
    `defaultSettings`, and the `partialize` allow-list — or they silently fail
    to persist. There is no migration needed for a new boolean.
