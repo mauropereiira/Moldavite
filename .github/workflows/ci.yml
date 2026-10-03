@@ -436,7 +436,7 @@ jobs:
           deb="src-tauri/target/release/bundle/deb/Moldavite_${version}_amd64.deb"
           listing=$(dpkg-deb -c "$deb")
           printf '%s\n' "$listing"
-          mapfile -t entries < <(printf '%s\n' "$listing" | sed -n 's|^.* \./\(usr/share/applications/[^/]*\.desktop\)$|\1|p')
+          mapfile -t entries < <(printf '%s\n' "$listing" | sed -n 's|^.* \(\./\)\{0,1\}\(usr/share/applications/[^/]*\.desktop\)$|\2|p')
           [ "${#entries[@]}" -eq 1 ] || { echo "::error::Expected exactly one desktop entry, found ${#entries[@]}"; exit 1; }
           entry="${entries[0]}"
           extracted=$(mktemp -d)
