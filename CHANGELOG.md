@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Make Moldavite your Markdown app.** Settings → General shows whether Moldavite opens `.md` files and has a **Make default** button on Mac and Linux. Windows does not let an app set this itself, so there the button opens Default Apps settings. Existing users are asked once, on the next launch, and never when Moldavite is already the default.
+
 ## [2.9.1] - 2026-09-28
 
 ### Added

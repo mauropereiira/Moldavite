@@ -148,6 +148,10 @@ stays instant as a Forge grows. Local semantic search is opt-in, downloads its
 model once and then runs offline; it ships on Apple Silicon Macs, Windows and
 Linux, and Intel Macs keep the keyword search.
 
+Settings → General can make Moldavite the app that opens a double-clicked
+`.md` file (on Windows it opens Default Apps settings, since Windows leaves that
+choice to you).
+
 Updates are checked quietly in the background, verified against a signing key
 before they install, and a "What's New" window shows that version's notes the
 first time you open it.
