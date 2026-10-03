@@ -46,7 +46,7 @@ import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboardi
 import { ACTIVE_SEASON, type Season } from '@/lib/seasons';
 import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
 import { useSettingsHydration } from '@/hooks/useSettingsHydration';
-import { PumpkinIcon } from '@/components/ui/SeasonalIcons';
+import { MaskArt } from '@/components/ui/MaskArt';
 
 export { APP_ONBOARDING_VERSION } from '@/lib/appOnboarding';
 
@@ -58,7 +58,7 @@ const SEASON_PAGES: Record<
     title: 'Autumn is here',
     body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Layout › Seasonal touches.',
     preset: 'autumn',
-    icon: <PumpkinIcon className="w-7 h-7" />,
+    icon: <MaskArt src="/seasonal/pumpkin.webp" className="w-10 h-10" />,
   },
 };
 

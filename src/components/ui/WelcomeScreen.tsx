@@ -4,8 +4,8 @@ import { formatShortcut } from '@/lib/shortcuts';
 import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
-import { useSeasonalTouches } from '@/lib/seasons';
-import { FallingLeafIcon } from './SeasonalIcons';
+import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
+import { MaskArt } from './MaskArt';
 
 const COUNTER_DURATION_FALLBACK_MS = 700;
 const COUNTER_DELAY_FALLBACK_MS = 640;
@@ -461,6 +461,9 @@ function MeteorLayer() {
   );
 }
 
+/** A four-point sparkle on a unit radius, scaled per star. */
+const SPARKLE_PATH = 'M0-1C.1-.1.1-.1 1 0C.1.1.1.1 0 1C-.1.1-.1.1-1 0C-.1-.1-.1-.1 0-1Z';
+
 function ConstellationField({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <svg
@@ -542,7 +545,7 @@ function ConstellationField({ reducedMotion }: { reducedMotion: boolean }) {
               {constellation.stars.map((star, starIndex) => {
                 const magnitude = Math.min(4.5, Math.max(1, star.m));
                 const brightness = (4.5 - magnitude) / 3.5;
-                const radius = 1.2 + brightness * 1.2;
+                const radius = (1.2 + brightness * 1.2) * 2.5;
                 const globalIndex = CONSTELLATION_STAR_OFFSETS[constellationIndex] + starIndex;
                 const starStyle: CSSProperties & { '--welcome-star-base-opacity': string } = {
                   '--welcome-star-base-opacity': `calc(var(--welcome-constellation-star-opacity-min) + ${(brightness * 0.08).toFixed(4)})`,
@@ -559,11 +562,10 @@ function ConstellationField({ reducedMotion }: { reducedMotion: boolean }) {
                     }}
                   >
                     <g className="welcome-constellation-star-twinkle" style={starStyle}>
-                      <circle
+                      <path
                         className="welcome-constellation-star"
-                        cx={star.x * layout.width}
-                        cy={star.y * layout.height}
-                        r={radius}
+                        d={SPARKLE_PATH}
+                        transform={`translate(${star.x * layout.width} ${star.y * layout.height}) scale(${radius})`}
                         fill="currentColor"
                       />
                     </g>
@@ -629,41 +631,34 @@ function AnimatedWordmark() {
 }
 
 const FALLING_LEAVES = [
-  { left: 12, size: 24, duration: 26, delay: -4, sway: 34 },
-  { left: 27, size: 19, duration: 31, delay: -19, sway: -28 },
-  { left: 63, size: 26, duration: 28, delay: -11, sway: 40 },
-  { left: 78, size: 20, duration: 34, delay: -25, sway: -36 },
-  { left: 90, size: 17, duration: 24, delay: -8, sway: 26 },
+  { left: 12, size: 36, duration: 26, delay: -4, sway: 34 },
+  { left: 27, size: 29, duration: 31, delay: -19, sway: -28 },
+  { left: 63, size: 40, duration: 28, delay: -11, sway: 40 },
+  { left: 78, size: 31, duration: 34, delay: -25, sway: -36 },
+  { left: 90, size: 26, duration: 24, delay: -8, sway: 26 },
 ];
+const LEAF_MASKS = ['maple', 'oak', 'birch', 'ginkgo'];
 
 function FallingLeaves({ reducedMotion }: { reducedMotion: boolean }) {
-  return (
-    <div
-      aria-hidden="true"
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}
-    >
-      {FALLING_LEAVES.map((leaf, index) => {
-        const style: CSSProperties & { '--leaf-sway': string } = {
-          '--leaf-sway': `${leaf.sway}px`,
-          left: `${leaf.left}%`,
-          top: reducedMotion ? `${15 + index * 16}%` : undefined,
-          width: leaf.size,
-          height: leaf.size,
-          animationDuration: `${leaf.duration}s`,
-          animationDelay: `${leaf.delay}s`,
-        };
-        return (
-          <span
-            key={index}
-            className={reducedMotion ? 'welcome-leaf' : 'welcome-leaf welcome-leaf-falling'}
-            style={style}
-          >
-            <FallingLeafIcon />
-          </span>
-        );
-      })}
-    </div>
-  );
+  return FALLING_LEAVES.map(({ left, size, duration, delay, sway }, index) => {
+    const style: CSSProperties & { '--leaf-sway': string } = {
+      '--leaf-sway': `${sway}px`,
+      left: `${left}%`,
+      top: reducedMotion ? `${15 + index * 16}%` : undefined,
+      width: size,
+      height: size,
+      animationDuration: `${duration}s`,
+      animationDelay: `${delay}s`,
+    };
+    return (
+      <MaskArt
+        key={index}
+        src={`/seasonal/leaf-${LEAF_MASKS[index % LEAF_MASKS.length]}.webp`}
+        className={reducedMotion ? 'welcome-leaf' : 'welcome-leaf welcome-leaf-falling'}
+        style={style}
+      />
+    );
+  });
 }
 
 export function WelcomeEmptyState({
@@ -675,6 +670,7 @@ export function WelcomeEmptyState({
 }) {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const season = useSeasonalTouches();
+  const autumnArt = useAutumnArt();
   const coarsePointer = useMediaQuery('(pointer: coarse)');
   const { showWelcomeDots, showWelcomeStats, showWelcomeDate, showAsteroidCursor, isSettingsOpen } =
     useSettingsStore();
@@ -716,8 +712,16 @@ export function WelcomeEmptyState({
         !coarsePointer &&
         activeOverlay === null &&
         !isSettingsOpen && <AsteroidCursor />}
-      {showWelcomeDots && <ConstellationField reducedMotion={reducedMotion} />}
-      {showWelcomeDots && season === 'autumn' && <FallingLeaves reducedMotion={reducedMotion} />}
+      {showWelcomeDots && (
+        <>
+          <ConstellationField reducedMotion={reducedMotion} />
+          {['sun', 'moon'].map((art) => (
+            <MaskArt key={art} src={`/sky/${art}.webp`} className={`welcome-${art}`} />
+          ))}
+          {season === 'autumn' && <FallingLeaves reducedMotion={reducedMotion} />}
+          {autumnArt && <div aria-hidden="true" className="mask-art autumn-field" />}
+        </>
+      )}
       {showWelcomeDate && (
         <p
           className="welcome-reveal welcome-reveal-date"

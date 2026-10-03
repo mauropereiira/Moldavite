@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFolderStore, useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
+import { PRESETS, useThemeStore } from '@/stores/themeStore';
 import { CONSTELLATIONS } from './constellations';
 import { BACKGROUND_STAR_COUNT, WelcomeEmptyState } from './WelcomeScreen';
 
@@ -29,6 +30,7 @@ describe('WelcomeScreen layout settings', () => {
   beforeEach(() => {
     setPointerPreferences();
     useSettingsStore.getState().resetToDefaults();
+    useThemeStore.setState({ theme: 'light', baseMode: 'light', preset: 'default' });
     useNoteStore.setState({ notes: [] });
     useFolderStore.setState({ folders: [] });
     useOverlayStore.getState().closeOverlay();
@@ -46,6 +48,8 @@ describe('WelcomeScreen layout settings', () => {
 
     expect(container.querySelector('.welcome-reveal-date')).toBeInTheDocument();
     expect(container.querySelector('.welcome-constellation-field')).toBeInTheDocument();
+    expect(container.querySelector('.welcome-sun')).toBeInTheDocument();
+    expect(container.querySelector('.welcome-moon')).toBeInTheDocument();
     expect(container.querySelectorAll('.welcome-background-star')).toHaveLength(
       BACKGROUND_STAR_COUNT
     );
@@ -65,7 +69,67 @@ describe('WelcomeScreen layout settings', () => {
 
     expect(container.querySelector('.welcome-reveal-date')).not.toBeInTheDocument();
     expect(container.querySelector('.welcome-constellation-field')).not.toBeInTheDocument();
+    expect(container.querySelector('.welcome-sun')).not.toBeInTheDocument();
+    expect(container.querySelector('.welcome-moon')).not.toBeInTheDocument();
+    expect(container.querySelector('.welcome-leaf')).not.toBeInTheDocument();
+    expect(container.querySelector('.autumn-field')).not.toBeInTheDocument();
     expect(container.querySelector('.welcome-reveal-stats')).not.toBeInTheDocument();
+  });
+
+  it.each(PRESETS.map(({ id }) => id))('renders sun and moon masks with the %s theme', (preset) => {
+    useThemeStore.setState({ preset });
+    useSettingsStore.setState({ showSeasonalTouches: false });
+    const { container } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+
+    for (const art of ['sun', 'moon']) {
+      const element = container.querySelector<HTMLElement>(`.welcome-${art}`);
+      expect(element?.style.maskImage).toBe(`url("/sky/${art}.webp")`);
+      expect(element).toHaveAttribute('aria-hidden', 'true');
+    }
+  });
+
+  it('draws constellation stars as sparkles while keeping background stars circular', () => {
+    const { container } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    for (const constellation of CONSTELLATIONS) {
+      const group = container.querySelector(`[data-constellation="${constellation.name}"]`);
+      const stars = group?.querySelectorAll('path.welcome-constellation-star');
+      expect(stars).toHaveLength(constellation.stars.length);
+      stars?.forEach((star) => {
+        expect(star).toHaveAttribute('fill', 'currentColor');
+        expect(star.closest('.welcome-constellation-star-twinkle')).not.toBeNull();
+        expect(star.closest('.welcome-constellation-star-reveal')).not.toBeNull();
+      });
+      expect(group?.querySelectorAll('line')).toHaveLength(constellation.lines.length);
+    }
+    expect(container.querySelectorAll('circle.welcome-background-star')).toHaveLength(
+      BACKGROUND_STAR_COUNT
+    );
+    expect(container.querySelector('circle.welcome-constellation-star')).toBeNull();
+  });
+
+  it.each([
+    { preset: 'default', touches: true, sky: true, field: false },
+    { preset: 'autumn', touches: true, sky: true, field: true },
+    { preset: 'autumn', touches: false, sky: true, field: false },
+    { preset: 'autumn', touches: true, sky: false, field: false },
+  ] as const)('shows the autumn field only with its theme and decorations: %j', (settings) => {
+    useThemeStore.setState({ preset: settings.preset });
+    useSettingsStore.setState({
+      showSeasonalTouches: settings.touches,
+      showWelcomeDots: settings.sky,
+    });
+    const { container } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    const field = container.querySelector<HTMLElement>('.autumn-field');
+    expect(Boolean(field)).toBe(settings.field);
+    if (field) {
+      expect(field).toHaveAttribute('aria-hidden', 'true');
+    }
   });
 
   it('shows a meteor after the randomized cadence', () => {
@@ -190,7 +254,15 @@ describe('WelcomeScreen layout settings', () => {
     const { container, unmount } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
     );
-    expect(container.querySelectorAll('.welcome-leaf-falling').length).toBeGreaterThan(0);
+    const leaves = container.querySelectorAll<HTMLElement>('.welcome-leaf-falling');
+    expect(leaves).toHaveLength(5);
+    const variants = ['maple', 'oak', 'birch', 'ginkgo', 'maple'];
+    leaves.forEach((leaf, index) => {
+      expect(leaf.style.maskImage).toBe(`url("/seasonal/leaf-${variants[index]}.webp")`);
+      expect(leaf).toHaveAttribute('aria-hidden', 'true');
+      expect(parseFloat(leaf.style.width)).toBeGreaterThanOrEqual(26);
+      expect(parseFloat(leaf.style.width)).toBeLessThanOrEqual(40);
+    });
     unmount();
 
     useSettingsStore.setState({ showSeasonalTouches: false });
@@ -205,7 +277,11 @@ describe('WelcomeScreen layout settings', () => {
     const { container } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
     );
-    expect(container.querySelectorAll('.welcome-leaf').length).toBeGreaterThan(0);
+    const leaves = container.querySelectorAll<HTMLElement>('.welcome-leaf');
+    expect(leaves).toHaveLength(5);
+    leaves.forEach((leaf, index) => {
+      expect(leaf.style.top).toBe(`${15 + index * 16}%`);
+    });
     expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
   });
 });

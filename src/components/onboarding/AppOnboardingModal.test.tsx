@@ -148,6 +148,10 @@ describe('AppOnboardingModal', () => {
     useSettingsStore.setState({ hasSeenAppOnboarding: true, lastSeenOnboardingVersion: 0 });
     render(<AppOnboardingModal />);
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
+    const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
+    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
+    expect(pumpkin).toHaveClass('w-10', 'h-10');
     expect(screen.queryByRole('heading', { name: /built for ai agents/i })).toBeNull();
   });
 

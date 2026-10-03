@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.10.1] - Unreleased
+
+### Added
+
+- An autumn field at the bottom of the home screen with the Autumn theme: a scarecrow, pumpkins, a leaf pile and hay bales. Redrawn falling leaves and pumpkin, a faint sun or moon in the sky, and sparkle stars in the constellations.
+
 ## [2.10.0] - 2026-10-03
 
 ### Added

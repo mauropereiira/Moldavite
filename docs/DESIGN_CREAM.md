@@ -293,10 +293,11 @@ never get it: there the rail it hides is the only way back to Settings, so
    `:root` must be considered across all twelve blocks, and `themeStore.ts`'s
    `PRESETS[]` light and dark swatches need hand-syncing. One more preset is
    **seasonal** (Autumn now): it ships with a release and is retired when the
-   next seasonal release replaces it, through `RETIRED_PRESETS`. Its touches
-   (falling leaves, the Settings pumpkin, Index icons) are
-   hairline line art in `--text-muted` at lucide's 1.25 stroke, faded into the
-   background behind the wordmark, never animated under reduced motion, and
+   next seasonal release replaces it, through `RETIRED_PRESETS`. Seasonal art
+   (the field, falling leaves and Settings pumpkin) and welcome sky art are
+   line drawings converted to tinted masks (`scripts/art`), faded into the
+   background behind the wordmark. Index icons stay hairline SVGs at 1.25 stroke.
+   Seasonal touches are never animated under reduced motion and are
    switchable with Seasonal touches. `ACTIVE_SEASON` in `lib/seasons.ts` picks
    the season per release; `null` ships none.
 5. **New settings need three edits** — the `SettingsState` interface,

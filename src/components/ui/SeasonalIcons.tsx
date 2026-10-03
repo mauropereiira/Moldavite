@@ -1,8 +1,7 @@
 /**
  * Small seasonal icons. AcornIcon, LeafIcon, MugIcon, MushroomIcon and
  * JackOLanternIcon are Tabler Icons 3.48 (https://tabler.io/icons),
- * MIT License, Copyright (c) 2020-2026 Paweł Kuna. The pumpkin and the falling
- * leaf are Moldavite's own.
+ * MIT License, Copyright (c) 2020-2026 Paweł Kuna.
  */
 import type { ReactNode } from 'react';
 
@@ -69,24 +68,6 @@ export const JackOLanternIcon = (props: IconProps) => (
     <path d="M14 11h.01" />
     <path d="M17 6.082c2.609 .588 3.627 4.162 2.723 7.983c-.903 3.82 -2.75 6.44 -5.359 5.853a3.355 3.355 0 0 1 -.774 -.279a3.728 3.728 0 0 1 -1.59 .361c-.556 0 -1.09 -.127 -1.59 -.362a3.296 3.296 0 0 1 -.774 .28c-2.609 .588 -4.456 -2.033 -5.36 -5.853c-.903 -3.82 .115 -7.395 2.724 -7.983c1.085 -.244 1.575 .066 2.585 .787c.716 -.554 1.54 -.869 2.415 -.869c.876 0 1.699 .315 2.415 .87c1.01 -.722 1.5 -1.032 2.585 -.788" />
     <path d="M12 6c0 -1.226 .693 -2.346 1.789 -2.894l.211 -.106" />
-  </LineIcon>
-);
-
-export const PumpkinIcon = (props: IconProps) => (
-  <LineIcon {...props}>
-    <path d="M12 8c-2.1 0-3.4 2.7-3.4 5.9S9.9 20 12 20s3.4-2.9 3.4-6.1S14.1 8 12 8z" />
-    <path d="M9.3 8.5C6.4 8 3.6 10.2 3.6 14s2.6 6.3 6 5.8" />
-    <path d="M14.7 8.5c2.9-.5 5.7 1.7 5.7 5.5s-2.6 6.3-6 5.8" />
-    <path d="M12 8V5.2c0-.7.3-1.2.9-1.5" />
-    <path d="M12.6 6.2c.9-1 2.6-1.2 3.7-.4" />
-  </LineIcon>
-);
-
-export const FallingLeafIcon = (props: IconProps) => (
-  <LineIcon {...props}>
-    <path d="M5 19c0-7.5 5.2-12.6 14-14-1.1 8.6-6.4 14-14 14z" />
-    <path d="M5 19l8.5-8.5" />
-    <path d="M5 19l-2 2" />
   </LineIcon>
 );
 

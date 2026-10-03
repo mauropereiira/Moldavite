@@ -59,6 +59,9 @@ describe('release welcome tour', () => {
       </>
     );
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
+    const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
+    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(2);
     await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);

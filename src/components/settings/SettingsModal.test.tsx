@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
 import { SettingsModal } from './SettingsModal';
@@ -38,6 +38,27 @@ vi.mock('./sections/SidebarSection', () => ({ SidebarSection: () => null }));
 const list = () => screen.queryByRole('navigation', { name: 'Settings sections' });
 const backButton = () => screen.queryByRole('button', { name: 'Back to settings' });
 const closeButton = () => screen.getByRole('button', { name: 'Close settings' });
+
+describe('Settings seasonal art', () => {
+  it.each([true, false])(
+    'shows a labelled pumpkin mask while touches are on (phone: %s)',
+    (mobile) => {
+      platform.mobile = mobile;
+      useSettingsStore.setState({ isSettingsOpen: true, showSeasonalTouches: true });
+      render(<SettingsModal />);
+
+      const pumpkin = screen.getByRole('img', { name: 'Happy autumn' });
+      expect(pumpkin).toHaveAttribute('title', 'Happy autumn');
+      expect(pumpkin).not.toHaveAttribute('aria-hidden');
+      expect(pumpkin.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+      expect(pumpkin.tagName).toBe('SPAN');
+      expect(pumpkin.closest(mobile ? 'nav' : '[role="tablist"]')).not.toBeNull();
+
+      act(() => useSettingsStore.setState({ showSeasonalTouches: false }));
+      expect(screen.queryByRole('img', { name: 'Happy autumn' })).toBeNull();
+    }
+  );
+});
 
 describe('SettingsModal on a phone', () => {
   beforeEach(() => {

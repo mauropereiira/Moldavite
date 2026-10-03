@@ -79,9 +79,12 @@ import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useSeasonalTouches } from '@/lib/seasons';
-import { PumpkinIcon } from '@/components/ui/SeasonalIcons';
+import { MaskArt } from '@/components/ui/MaskArt';
 
 const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins'];
+const AUTUMN_PUMPKIN = (
+  <MaskArt src="/seasonal/pumpkin.webp" className="size-[22px]" label="Happy autumn" />
+);
 
 interface SettingsTabItem {
   id: SettingsTab;
@@ -356,7 +359,7 @@ export function SettingsModal() {
             })}
             {season === 'autumn' && (
               <div className="mt-auto px-3 pt-4" style={{ color: 'var(--text-muted)' }}>
-                <PumpkinIcon className="w-5 h-5" title="Happy autumn" />
+                {AUTUMN_PUMPKIN}
               </div>
             )}
           </div>
@@ -536,7 +539,7 @@ function MobileSettingsPage({
             ))}
             {season === 'autumn' && (
               <div className="flex justify-center py-6" style={{ color: 'var(--text-muted)' }}>
-                <PumpkinIcon className="w-5 h-5" title="Happy autumn" />
+                {AUTUMN_PUMPKIN}
               </div>
             )}
           </nav>
