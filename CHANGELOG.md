@@ -2,7 +2,7 @@
 
 All notable changes to Moldavite are documented here.
 
-## [2.10.1] - Unreleased
+## [2.10.1] - 2026-10-03
 
 ### Added
 
