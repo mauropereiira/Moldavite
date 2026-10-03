@@ -9,6 +9,7 @@ pub mod backlinks;
 /// has no browser extension to pair.
 #[cfg(desktop)]
 pub mod browser_bridge;
+pub mod default_app;
 pub mod export_import;
 pub mod folders;
 pub mod forges;

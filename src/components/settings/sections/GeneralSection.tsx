@@ -26,6 +26,7 @@ import { isMobilePlatform } from '@/lib/platform';
 import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import SyncedForgeControl from '../SyncedForgeControl';
+import DefaultMarkdownAppControl from '../DefaultMarkdownAppControl';
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }> = [
   { value: 5, label: '5 min' },
@@ -279,6 +280,8 @@ export function GeneralSection() {
       <p className="px-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
         Backups, exports and restores are in Data.
       </p>
+
+      <DefaultMarkdownAppControl />
 
       {/* Security Section */}
       <div

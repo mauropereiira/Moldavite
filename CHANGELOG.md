@@ -6,6 +6,7 @@ All notable changes to Moldavite are documented here.
 
 ### Added
 
+- **Make Moldavite your Markdown app.** Settings → General shows whether Moldavite opens `.md` files and has a **Make default** button on Mac and Linux. Windows does not let an app set this itself, so there the button opens Default Apps settings. Existing users are asked once, on the next launch, and never when Moldavite is already the default.
 - **Autumn.** A new Autumn theme in Settings → Appearance, light and dark: a golden wheat ground with maple, cranberry and olive in notes. With it on, selected text, the typing cursor and ticked to-dos turn maple, divider lines carry a tiny leaf, the Index shows small icons beside Notes, Folders, Daily and Tags, and a field with a scarecrow and a pile of leaves sits quietly at the bottom of the home screen. With any theme, a few leaves drift across the home screen, a small pumpkin sits in the corner of Settings, and About says it's the Autumn edition. Turn the seasonal bits off in Settings → Layout → Seasonal touches.
 
 ## [2.9.1] - 2026-09-28
