@@ -210,7 +210,7 @@ or desktop-only features:
 | Subtitle | Write, journal, connect |
 | Category | Productivity |
 | Description | Short notes-app paragraph in IOS_STORE_LISTING.json |
-| Support URL | Verify a working public support route; the current project uses `https://github.com/mauropereiira/Moldavite/issues` |
+| Support URL | `https://moldavite.dev`; support email `support@moldavite.dev` (issues: `https://github.com/mauropereiira/Moldavite/issues`) |
 | Privacy Policy URL | The published privacy URL above, updated for the shipped iOS build |
 | Age rating | Complete Apple's current questionnaire based on actual app features |
 | Copyright | Mauro's chosen legal copyright attribution |

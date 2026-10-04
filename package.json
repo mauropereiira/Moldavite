@@ -42,7 +42,7 @@
     "privacy",
     "moldavite"
   ],
-  "author": "Mauro Pereira",
+  "author": "Mauro Pereira <mauro@moldavite.dev> (https://moldavite.dev)",
   "license": "MIT",
   "private": false,
   "repository": {
