@@ -278,7 +278,7 @@
           if (frame) return;
           frame = window.requestAnimationFrame(function () {
             frame = 0;
-            root.style.setProperty('--mx', target.toFixed(2));
+            hero.style.setProperty('--mx', target.toFixed(2));
           });
         },
         { passive: true }

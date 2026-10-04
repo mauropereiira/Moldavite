@@ -824,16 +824,28 @@ pre {
 
 /* Three groups twinkle, each as a single animated element, on different
    rhythms so the sky never pulses in step. */
-.stars.tw {
+/* Twinkle layers: plain, unmasked layers (their stars sit only in the top
+   of the sky), so animating their opacity is cheap for the compositor. */
+.tw {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 72%;
+  pointer-events: none;
   animation: twinkle 5s ease-in-out infinite alternate;
 }
 
-.stars.tw2 {
+.tw path {
+  fill: var(--star);
+}
+
+.tw2 {
   animation-duration: 6.5s;
   animation-delay: -2s;
 }
 
-.stars.tw3 {
+.tw3 {
   animation-duration: 8s;
   animation-delay: -4s;
 }
@@ -1131,14 +1143,6 @@ main > section:not(.hero, .product) {
   position: relative;
   z-index: 1;
   background: var(--ground);
-}
-
-.docs-page main {
-  position: relative;
-  z-index: 1;
-  background: var(--ground);
-  box-shadow: 0 0 0 100vmax var(--ground);
-  clip-path: inset(0 -100vmax);
 }
 
 /* Sections */
