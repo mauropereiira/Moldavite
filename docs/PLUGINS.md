@@ -43,7 +43,7 @@ send data to. Installing never turns a plugin on.
 
 - **Settings → Plugins → Browse community plugins.** Moldavite fetches the directory only when you
   click it. Each entry links to its source code and to a report form.
-- **The website directory.** The [website directory](https://mauropereiira.github.io/Moldavite/plugins.html#directory)
+- **The website directory.** The [website directory](https://moldavite.dev/plugins.html#directory)
   can be searched by name, description, author, and permission. Each **Install in Moldavite** link has
   the exact shape `moldavite://plugin/<plugin-id>`: it opens **Settings → Plugins**, fetches the
   directory, highlights the entry, and shows the confirmation. The link never carries file URLs or

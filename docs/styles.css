@@ -1269,6 +1269,40 @@ main > section:not(.hero, .product) {
   color: var(--faint);
 }
 
+/* Multi-line commands (JSON, slash commands) keep the box but drop the
+   shell prompt, and sit full width inside a docs column. */
+.command.no-prompt code::before {
+  content: none;
+}
+
+.command pre,
+.docs-content .command pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  line-height: 1.6;
+}
+
+.command {
+  align-items: flex-start;
+}
+
+.docs-content .command {
+  max-width: none;
+  margin: 12px 0 24px;
+}
+
+.docs-content .command code {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+}
+
 .copy {
   flex: none;
   padding: 4px 0;

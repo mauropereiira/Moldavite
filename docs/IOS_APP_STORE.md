@@ -40,7 +40,7 @@ the app's behaviour changed.
 - Three iPhone and two iPad screenshots are saved. Reusable assets are in
   [the brand kit](../branding/README.md), including logos and social graphics.
 - **Data Not Collected** is published. The updated iPhone/iPad privacy policy is
-  live at `https://mauropereiira.github.io/Moldavite/privacy.html`.
+  live at `https://moldavite.dev/privacy.html`.
 - App and widget privacy manifests are packaged. The main app declares file
   timestamps for its own container and user-selected files. iOS now links
   Apple's SQLite; the archive no longer imports bundled SQLite's disk-volume
@@ -177,7 +177,7 @@ storage alone is not collection under Apple's definition. Optional iCloud is
 user-selected storage through Apple and must be described accurately in the
 policy. [Apple's collection definition](https://developer.apple.com/app-store/app-privacy-details/)
 
-The policy URL is `https://mauropereiira.github.io/Moldavite/privacy.html`.
+The policy URL is `https://moldavite.dev/privacy.html`.
 Check that the published page reflects the iOS features and that Settings →
 About opens it. The in-app policy and support links are implemented. A privacy
 policy URL is required for every app, even one that collects no data.

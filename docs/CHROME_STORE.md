@@ -82,7 +82,7 @@ still pins only the unpacked id gets a clipper that cannot reach Moldavite.
 > Settings, then Plugins, then Connect browser. Until you do, the clipper
 > cannot reach your notes at all.
 >
-> Requires the Moldavite desktop app: https://mauropereiira.github.io/Moldavite/
+> Requires the Moldavite desktop app: https://moldavite.dev/
 
 **Category.** Productivity. **Language.** English.
 
@@ -123,7 +123,7 @@ answers:
   purpose.** Certify. The single purpose is saving a page as a note.
 - **Not being used to determine creditworthiness or for lending.** Certify.
 
-**Privacy policy URL.** `https://mauropereiira.github.io/Moldavite/privacy.html`
+**Privacy policy URL.** `https://moldavite.dev/privacy.html`
 
 ## Screenshots
 

@@ -14,9 +14,11 @@ space="${SPACEFAST_SPACE:-moldavite}"
 
 rm -rf "$out"
 mkdir -p "$out"
-cp docs/index.html docs/guide.html docs/plugins.html docs/privacy.html docs/demo.html "$out"/
+cp docs/index.html docs/guide.html docs/plugins.html docs/privacy.html docs/demo.html docs/skills.html "$out"/
 cp docs/styles.css docs/site.js docs/demo.js "$out"/
 cp docs/*.webp docs/favicon.png docs/icon.png docs/og-image.png "$out"/
 cp -R docs/fonts "$out"/
 
-npx -y spacefast publish "$out" --space "$space" --message "$(git log -1 --pretty=%s)" "$@"
+# The version note defaults to the last commit's subject; --message overrides it.
+export SPACEFAST_PUBLISH_MESSAGE="${SPACEFAST_PUBLISH_MESSAGE:-$(git log -1 --pretty=%s)}"
+npx -y spacefast publish "$out" --space "$space" "$@"

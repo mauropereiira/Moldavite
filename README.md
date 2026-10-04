@@ -4,10 +4,10 @@
 </picture>
 
 <p align="center">
-  <a href="https://mauropereiira.github.io/Moldavite/">Website</a> ·
-  <a href="https://mauropereiira.github.io/Moldavite/demo.html">Try it in your browser</a> ·
-  <a href="https://mauropereiira.github.io/Moldavite/guide.html">Guide</a> ·
-  <a href="https://github.com/mauropereiira/moldavite-skills">Agent Skills</a> ·
+  <a href="https://moldavite.dev/">Website</a> ·
+  <a href="https://moldavite.dev/demo.html">Try it in your browser</a> ·
+  <a href="https://moldavite.dev/guide.html">Guide</a> ·
+  <a href="https://moldavite.dev/skills.html">Agent Skills</a> ·
   <a href="https://github.com/mauropereiira/Moldavite/releases/latest">Download</a>
 </p>
 
@@ -185,7 +185,7 @@ WordPress.com account to sign in with.
 ## Privacy
 
 Every network connection the app can make is listed in
-[the privacy note](https://mauropereiira.github.io/Moldavite/privacy.html). The
+[the privacy note](https://moldavite.dev/privacy.html). The
 short version: update checks, and whatever you explicitly connect. Fonts are
 self-hosted, so no page or panel in the app calls a CDN. Your notes are never
 uploaded to be indexed, including by the semantic search, which runs its model

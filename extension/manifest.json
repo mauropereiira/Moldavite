@@ -3,7 +3,7 @@
   "name": "Moldavite Clipper",
   "version": "1.0.0",
   "description": "Save the page you are reading as a Markdown note in Moldavite.",
-  "homepage_url": "https://mauropereiira.github.io/Moldavite/",
+  "homepage_url": "https://moldavite.dev/",
   "permissions": [
     "activeTab",
     "scripting",
