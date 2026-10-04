@@ -31,7 +31,7 @@
           callback(entry.target);
         });
       },
-      options || { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
+      options || { rootMargin: '0px 0px 15% 0px', threshold: 0 }
     );
     elements.forEach(function (element) {
       observer.observe(element);
@@ -208,7 +208,13 @@
     var docsTitle = document.querySelector('.docs-hero h1');
 
     document.querySelectorAll('[data-words]').forEach(function (element) {
-      splitWords(element, element === heroTitle ? '120ms' : '');
+      if (element === heroTitle) {
+        splitWords(element, '120ms');
+      } else {
+        // Section headings fade in with the rest of the page while scrolling.
+        element.removeAttribute('data-words');
+        element.setAttribute('data-reveal', '');
+      }
     });
 
     if (docsTitle && !docsTitle.hasAttribute('data-words')) {

@@ -2355,15 +2355,14 @@ main > section:not(.hero, .product) {
   font-size: 15px;
 }
 
-/* Entrances. Content is in the page from the first frame; these only decide
-   how it settles. Each runs once. */
+/* Entrances while scrolling are a short fade with no movement, started just
+   before a block reaches the screen. Anything that moves against the scroll
+   reads as stutter, so movement is kept for the page-load entrance and the
+   wordmark. Each runs once. */
 .has-js [data-reveal] {
   opacity: 0;
-  transform: translateY(28px);
-  transition:
-    opacity 900ms var(--ease-out),
-    transform 1100ms var(--ease-out);
-  transition-delay: calc(var(--i, 0) * 90ms);
+  transition: opacity 600ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 60ms);
 }
 
 .has-js [data-reveal].is-in,
