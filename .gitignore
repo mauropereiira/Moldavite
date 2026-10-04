@@ -87,3 +87,6 @@ brand/
 *.mobileprovision
 *.p12
 *.pem
+
+# Website publish staging (scripts/publish-site.sh)
+.site-build/
