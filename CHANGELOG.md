@@ -2,6 +2,12 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.10.2] - Unreleased
+
+### Changed
+
+- The Moldavite website moved to [moldavite.dev](https://moldavite.dev), and the app's Privacy link now opens the policy there. Agent Skills have a page on it too, at [moldavite.dev/skills](https://moldavite.dev/skills).
+
 ## [2.10.1] - 2026-10-03
 
 ### Added
