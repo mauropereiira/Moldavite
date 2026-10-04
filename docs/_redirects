@@ -1,0 +1,7 @@
+# The site uses clean addresses; the old .html ones redirect to them.
+/index.html / 301
+/guide.html /guide 301
+/plugins.html /plugins 301
+/skills.html /skills 301
+/demo.html /demo 301
+/privacy.html /privacy 301

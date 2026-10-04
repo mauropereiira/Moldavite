@@ -14,7 +14,8 @@ space="${SPACEFAST_SPACE:-moldavite}"
 
 rm -rf "$out"
 mkdir -p "$out"
-cp docs/index.html docs/guide.html docs/plugins.html docs/privacy.html docs/demo.html docs/skills.html "$out"/
+cp docs/index.html docs/guide.html docs/plugins.html docs/privacy.html docs/demo.html docs/skills.html docs/404.html "$out"/
+cp docs/sitemap.xml docs/robots.txt docs/_redirects docs/_headers "$out"/
 cp docs/styles.css docs/site.js docs/demo.js "$out"/
 cp docs/*.webp docs/favicon.png docs/icon.png docs/og-image.png "$out"/
 cp -R docs/fonts "$out"/

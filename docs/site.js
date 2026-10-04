@@ -40,20 +40,37 @@
 
   // Theme. Cream first, dark only when chosen; the choice is remembered and
   // the new colours spread out from the button that was pressed.
-  function readTheme() {
+  // The site follows the system's light or dark setting. Pressing the toggle
+  // records an explicit choice; choosing the system's own theme again clears
+  // it, so the site goes back to following the system.
+  var systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function systemTheme() {
+    return systemDark.matches ? 'dark' : 'light';
+  }
+
+  function savedTheme() {
     try {
-      return window.localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+      var value = window.localStorage.getItem(THEME_KEY);
+      return value === 'dark' || value === 'light' ? value : null;
     } catch (error) {
-      return 'light';
+      return null;
     }
+  }
+
+  function readTheme() {
+    return savedTheme() || systemTheme();
   }
 
   function applyTheme(theme) {
     var dark = theme === 'dark';
     if (dark) root.setAttribute('data-theme', 'dark');
     else root.removeAttribute('data-theme');
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#14120C' : '#F9F6ED');
+    // Both theme-color tags (light and dark schemes) follow the theme shown,
+    // so a toggled choice also colours the browser's own chrome.
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
+      meta.setAttribute('content', dark ? '#14120C' : '#F9F6ED');
+    });
     document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
       button.setAttribute('aria-pressed', dark ? 'true' : 'false');
       button.setAttribute('aria-label', dark ? 'Switch to light' : 'Switch to dark');
@@ -62,11 +79,17 @@
 
   function setupTheme() {
     applyTheme(readTheme());
+    var followSystem = function () {
+      if (!savedTheme()) applyTheme(systemTheme());
+    };
+    if (systemDark.addEventListener) systemDark.addEventListener('change', followSystem);
+    else systemDark.addListener(followSystem);
     document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
       button.addEventListener('click', function () {
         var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         try {
-          window.localStorage.setItem(THEME_KEY, next);
+          if (next === systemTheme()) window.localStorage.removeItem(THEME_KEY);
+          else window.localStorage.setItem(THEME_KEY, next);
         } catch (error) {
           // Private modes can refuse storage; the switch still works for this visit.
         }
@@ -297,92 +320,88 @@
     schedule(firstDelay);
   }
 
-  // One wordmark falls through the whole page. Its two resting places are
-  // the hidden marks in the hero and footer landscapes, so the CSS still
-  // decides where it sits at every screen size and this only reads them.
-  //   1. Hero: it moves down the page at under half the scroll speed, so the
-  //      hills overtake it slowly and it sets behind the forest.
-  //   2. Between: it is behind the content and simply not drawn.
-  //   3. Footer: it starts just above the footer's top edge and comes down
-  //      through the night sky to land behind the forest, easing to a stop
-  //      as the hills come fully into view; after that it rests there.
-  // Scroll events arrive once per frame and this only writes two custom
-  // properties, so it runs directly in the handler.
-  function setupJourney() {
-    var mark = document.querySelector('.journey-mark');
+  // The wordmarks move on the browser's scroll timeline (see styles.css);
+  // this only measures where each movement starts and ends, once and again
+  // on resize, and hands the numbers to CSS. Browsers without scroll
+  // timelines get the same movement from a scroll listener instead.
+  //   Hero: it moves down the page at under half the scroll speed, so the
+  //   hills overtake it, setting fully as its top reaches the forest body.
+  //   Footer: it starts just above the footer's top edge, where the footer
+  //   clips it, and comes down to land as the hills come fully into view.
+  function setupMarks() {
+    if (prefersReducedMotion()) return;
+    var heroWrap = document.querySelector('.hero .mark-wrap');
     var footer = document.querySelector('.site-footer');
-    var landing = footer && footer.querySelector('.landscape-mark');
-    if (!mark || !landing || prefersReducedMotion()) return;
-    var start = document.querySelector('.hero .landscape-mark');
-    var hills = start && start.parentElement;
+    var footWrap = footer && footer.querySelector('.mark-wrap');
+    if (!heroWrap && !footWrap) return;
+    var timeline = window.CSS && CSS.supports && CSS.supports('animation-timeline: scroll()');
     var m = {};
 
     function docTop(element) {
       return element.getBoundingClientRect().top + window.scrollY;
     }
 
-    function smooth(from, to, value) {
-      var t = Math.min(1, Math.max(0, (value - from) / (to - from)));
-      return t * t * (3 - 2 * t);
-    }
-
     function measure() {
-      var height = landing.getBoundingClientRect().height;
-      var footerTop = docTop(footer);
-      m.max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      m.landAt = docTop(landing);
-      m.enterAt = footerTop - height - 24;
-      m.footerFrom = Math.min(m.max - 1, Math.max(0, footerTop - window.innerHeight * 0.85));
-      // It lands as the footer hills come fully into view, not at the very
-      // end of the page, so the whole word is on screen when it settles.
-      var hillsBottom = docTop(landing.parentElement) + landing.parentElement.offsetHeight;
-      m.landBy = Math.min(m.max, Math.max(m.footerFrom + 1, hillsBottom - window.innerHeight));
-      if (start) {
+      // Measure at rest: the animations are paused out of the way first.
+      [heroWrap, footWrap].forEach(function (wrap) {
+        if (wrap) wrap.style.animation = 'none';
+        if (wrap) wrap.style.transform = '';
+      });
+      var max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      if (heroWrap) {
+        var hills = heroWrap.parentElement;
         var lw = Math.max(window.innerWidth, 900);
-        m.startAt = docTop(start);
-        // Set: its top has passed below the opaque body of the forest.
-        m.setBy = Math.max(1, (docTop(hills) + hills.offsetHeight - lw * 0.1 - m.startAt) / 0.45);
+        var top = docTop(heroWrap);
+        m.setBy = Math.max(1, (docTop(hills) + hills.offsetHeight - lw * 0.1 - top) / 0.45);
+        m.setDepth = m.setBy * 0.45;
+        heroWrap.style.setProperty('--set-by', m.setBy.toFixed(0) + 'px');
+        heroWrap.style.setProperty('--set-depth', m.setDepth.toFixed(0) + 'px');
       }
+      if (footWrap) {
+        var land = footWrap.parentElement;
+        var footerTop = docTop(footer);
+        var height = footWrap.getBoundingClientRect().height;
+        m.landFrom = Math.min(max - 1, Math.max(0, footerTop - window.innerHeight * 0.85));
+        m.landTo = Math.min(
+          max,
+          Math.max(m.landFrom + 1, docTop(land) + land.offsetHeight - window.innerHeight)
+        );
+        m.landOffset = footerTop - height - 24 - docTop(footWrap);
+        footWrap.style.setProperty('--land-from', m.landFrom.toFixed(0) + 'px');
+        footWrap.style.setProperty('--land-to', m.landTo.toFixed(0) + 'px');
+        footWrap.style.setProperty('--land-offset', m.landOffset.toFixed(0) + 'px');
+      }
+      [heroWrap, footWrap].forEach(function (wrap) {
+        if (wrap) wrap.style.animation = '';
+      });
     }
 
-    function update() {
-      var y = -2000;
-      var shown = 0;
-      var inFooter = false;
+    function fallback() {
       var s = window.scrollY;
-      if (s >= m.footerFrom) {
-        var p = Math.min(1, (s - m.footerFrom) / (m.landBy - m.footerFrom));
-        var eased = 1 - Math.pow(1 - p, 3);
-        y = m.enterAt + (m.landAt - m.enterAt) * eased - s;
-        shown = 1;
-        inFooter = true;
-      } else if (start && s < m.setBy) {
-        y = m.startAt - 0.55 * s;
-        // It fades over the last stretch, so no single tall letter is left
-        // standing alone in the valley between the hills.
-        shown = 1 - smooth(0.55, 0.92, s / m.setBy);
+      if (heroWrap) {
+        var p = Math.min(1, s / m.setBy);
+        heroWrap.style.transform = 'translateY(' + (p * m.setDepth).toFixed(1) + 'px)';
+        heroWrap.style.opacity = String(1 - Math.min(1, Math.max(0, (p - 0.45) / 0.4)));
       }
-      mark.style.setProperty('--jy', y.toFixed(1) + 'px');
-      mark.style.setProperty('--jo', shown.toFixed(3));
-      mark.classList.toggle('in-footer', inFooter);
+      if (footWrap) {
+        var q = Math.min(1, Math.max(0, (s - m.landFrom) / (m.landTo - m.landFrom)));
+        var eased = 1 - Math.pow(1 - q, 3);
+        footWrap.style.transform = 'translateY(' + (m.landOffset * (1 - eased)).toFixed(1) + 'px)';
+      }
     }
 
-    root.classList.add('journey');
     measure();
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    function remeasure() {
+    var onResize = function () {
       measure();
-      update();
+      if (!timeline) fallback();
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('load', onResize);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+    if (!timeline) {
+      fallback();
+      window.addEventListener('scroll', fallback, { passive: true });
     }
-    window.addEventListener('resize', remeasure, { passive: true });
-    window.addEventListener('load', remeasure);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(remeasure);
-
-    // The rise on load: from behind the forest into the sky.
-    window.setTimeout(function () {
-      root.classList.add('is-landed');
-    }, 60);
   }
 
   // The app window types its note. As each line finishes, it lands in the
@@ -795,7 +814,7 @@
   setupSafely(setupMenu);
   setupSafely(setupEntrances);
   setupSafely(setupHero);
-  setupSafely(setupJourney);
+  setupSafely(setupMarks);
   setupSafely(function () {
     var footer = document.querySelector('.site-footer');
     if (footer && !prefersReducedMotion()) setupMeteors(footer, 3000);

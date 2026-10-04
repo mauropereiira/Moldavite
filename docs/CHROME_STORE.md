@@ -123,7 +123,7 @@ answers:
   purpose.** Certify. The single purpose is saving a page as a note.
 - **Not being used to determine creditworthiness or for lending.** Certify.
 
-**Privacy policy URL.** `https://moldavite.dev/privacy.html`
+**Privacy policy URL.** `https://moldavite.dev/privacy`
 
 ## Screenshots
 

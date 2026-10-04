@@ -49,7 +49,8 @@
   color-scheme: light;
 }
 
-/* Dark is opt-in. Cream is what everyone gets first, because it is the
+/* Dark follows the visitor's system setting unless they choose with the
+   toggle; the head script applies it before first paint. Cream remains the
    identity; the toggle wins and is remembered. */
 :root[data-theme='dark'] {
   --ground: #14120c;
@@ -366,9 +367,7 @@ pre {
 .site-header.is-solid,
 .docs-page .site-header {
   border-bottom-color: var(--rule);
-  background: color-mix(in srgb, var(--ground) 86%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
+  background: color-mix(in srgb, var(--ground) 95%, transparent);
 }
 
 /* Over the night footer the header takes the night's colours. */
@@ -574,16 +573,6 @@ pre {
     margin-top: 24px;
   }
 
-  /* A backdrop filter makes the header the containing block for fixed
-     children, which would trap the menu sheet inside the 68px bar. Phones
-     get a solid header instead of the blur. */
-  .site-header.is-solid,
-  .docs-page .site-header {
-    background: var(--ground);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
   .is-menu-open .site-header {
     border-bottom-color: var(--rule);
     background: var(--ground);
@@ -660,7 +649,7 @@ pre {
   --lw: max(100vw, 900px);
   position: relative;
   height: calc(var(--lw) * 0.2475);
-  overflow: clip;
+  overflow-x: clip;
   pointer-events: none;
 }
 
@@ -670,8 +659,7 @@ pre {
   margin-top: clamp(0px, 1vh, 16px);
 }
 
-.landscape img,
-.landscape-mark {
+.landscape img {
   position: absolute;
   left: 50%;
   max-width: none;
@@ -697,80 +685,80 @@ pre {
   z-index: 1;
 }
 
-/* The resting places of the wordmark, between the far hills and the forest.
-   Without JavaScript, or with reduced motion, it simply sits here. With
-   motion on, these stay in the layout as markers and the travelling
-   wordmark below does the moving. */
-.landscape-mark {
+/* The wordmark sits between the far hills and the forest. Its wrapper is
+   moved by the browser's own scroll timeline, so the movement is locked to
+   the scroll instead of trailing it by a frame:
+   - in the hero it sets behind the forest as you scroll down;
+   - in the footer it comes down from the top edge of the night sky and lands.
+   site.js measures the distances once (and on resize) into custom
+   properties. Browsers without scroll timelines get the same motion from
+   site.js; with reduced motion it simply sits still. */
+.mark-wrap {
+  position: absolute;
+  left: 50%;
   bottom: calc(var(--lw) * 0.205);
   width: var(--mw);
+  margin-left: calc(var(--mw) / -2);
+  translate: calc(var(--mx, 0) * 2px) 0;
+  transition: translate 1400ms var(--ease-out);
 }
 
-.landscape-mark path,
-.journey-mark path {
+.landscape-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.landscape-mark path {
   fill: var(--mark);
 }
 
-.journey .landscape-mark {
-  visibility: hidden;
-}
+@supports (animation-timeline: scroll()) {
+  .hero .mark-wrap {
+    animation: mark-set linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0px var(--set-by, 800px);
+  }
 
-/* One wordmark for the whole page. It starts in the hero sky, sets behind
-   the hills as you read on, falls behind the content, and comes down
-   through the footer sky to land behind the night forest. site.js writes
-   its position (--jy) and visibility (--jo) from the scroll; the rise on
-   load uses transform and filter so neither fights those. */
-.journey-mark {
-  display: none;
-}
-
-.journey .journey-mark {
-  position: fixed;
-  z-index: 0;
-  top: 0;
-  left: 50%;
-  display: block;
-  width: min(82vw, 1240px);
-  max-width: none;
-  height: auto;
-  opacity: var(--jo, 0);
-  pointer-events: none;
-  will-change: translate, opacity;
-  translate: calc(-50% + var(--mx, 0) * 2px) var(--jy, -100vh);
-  transform: translateY(45%);
-  filter: opacity(0);
-  transition:
-    transform 2200ms var(--ease-out) 380ms,
-    filter 1200ms var(--ease-out) 380ms;
-}
-
-.journey.is-landed .journey-mark {
-  transform: none;
-  filter: none;
-}
-
-.journey-mark.in-footer path {
-  fill: #f9f6ed;
-}
-
-@media (max-width: 700px) {
-  .journey .journey-mark {
-    width: 94vw;
+  .site-footer .mark-wrap {
+    animation: mark-land cubic-bezier(0.33, 1, 0.68, 1) both;
+    animation-timeline: scroll(root);
+    animation-range: var(--land-from, 0px) var(--land-to, 1px);
   }
 }
 
-/* Docs headers show the same hills full width, with the dark base cropped
-   so the band stays short. Never narrower than the screen: a landscape that
-   stops short of the edges shows its corners. */
-/* On narrow screens the hills are drawn wider than the viewport, so their
-   trees stand taller next to the wordmark. Lift and enlarge it to match. */
-@media (max-width: 700px) {
-  .landscape.has-mark {
-    --mw: 94vw;
-    height: max(calc(var(--lw) * 0.2475), calc(var(--lw) * 0.22 + var(--mw) * 0.1992 + 8px));
+@keyframes mark-set {
+  0%,
+  45% {
+    opacity: 1;
   }
 
-  .landscape-mark {
+  0% {
+    transform: none;
+  }
+
+  85%,
+  100% {
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(var(--set-depth, 400px));
+  }
+}
+
+@keyframes mark-land {
+  from {
+    transform: translateY(var(--land-offset, -600px));
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .mark-wrap {
     bottom: calc(var(--lw) * 0.22);
   }
 }
@@ -781,7 +769,7 @@ pre {
   height: max(calc(var(--lw) * 0.2475), calc(var(--lw) * 0.12 + var(--mw) * 0.1992 + 8px));
 }
 
-.site-footer .landscape-mark {
+.site-footer .mark-wrap {
   bottom: calc(var(--lw) * 0.12);
 }
 
@@ -790,7 +778,7 @@ pre {
     height: max(calc(var(--lw) * 0.2475), calc(var(--lw) * 0.16 + var(--mw) * 0.1992 + 8px));
   }
 
-  .site-footer .landscape-mark {
+  .site-footer .mark-wrap {
     bottom: calc(var(--lw) * 0.16);
   }
 }
@@ -836,16 +824,16 @@ pre {
 
 /* Three groups twinkle, each as a single animated element, on different
    rhythms so the sky never pulses in step. */
-.stars .tw {
+.stars.tw {
   animation: twinkle 5s ease-in-out infinite alternate;
 }
 
-.stars .tw2 {
+.stars.tw2 {
   animation-duration: 6.5s;
   animation-delay: -2s;
 }
 
-.stars .tw3 {
+.stars.tw3 {
   animation-duration: 8s;
   animation-delay: -4s;
 }
@@ -2410,6 +2398,19 @@ main > section:not(.hero, .product) {
 
 /* The landscape arrives once: the far hills settle, then the wordmark rises
    from behind the forest. */
+.has-js .hero .landscape-mark {
+  opacity: 0;
+  transform: translateY(45%);
+  transition:
+    opacity 1200ms var(--ease-out) 380ms,
+    transform 2200ms var(--ease-out) 380ms;
+}
+
+.has-js .hero.is-in .landscape-mark {
+  opacity: 1;
+  transform: none;
+}
+
 .has-js .hero .landscape .far {
   opacity: 0;
   transform: translateY(32px);
@@ -2577,6 +2578,7 @@ main > section:not(.hero, .product) {
   .has-js [data-reveal],
   .has-js [data-words] .w > span,
   .has-js .hero .landscape .far,
+  .has-js .hero .landscape-mark,
   .has-js .hero-note,
   .has-js .hero-lede,
   .has-js .hero-actions,
