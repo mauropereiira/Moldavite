@@ -351,7 +351,7 @@ export function FolderItem({
             e.stopPropagation();
             onContextMenu(e);
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-0 group-hover:opacity-60 focus-visible:opacity-100 transition-all"
+          className="row-options absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-0 group-hover:opacity-60 focus-visible:opacity-100 transition-all"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'var(--text-primary)';

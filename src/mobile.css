@@ -182,10 +182,6 @@ html[data-platform='mobile']
     /* index.css paints hover with !important; these selectors out-rank it. */
     background: transparent !important;
   }
-
-  html[data-platform='mobile'] :is(.text-link, .welcome-note-action):hover::after {
-    transform: scaleX(0);
-  }
 }
 
 /* 2. ICON RAIL */
@@ -386,10 +382,6 @@ html[data-platform='mobile'] .index-overlay-content > .sidebar-footer {
 
 html[data-platform='mobile'] .index-overlay-content :is(.forge-switcher, .sidebar-search) {
   padding-inline: var(--mobile-page-inset);
-}
-
-html[data-platform='mobile'] .forge-switcher > button {
-  padding-inline: 0;
 }
 
 html[data-platform='mobile'] .forge-switcher :is(button, input) {

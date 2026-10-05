@@ -3769,20 +3769,15 @@ button[aria-expanded='true'] .wn-caret {
   color: var(--text-primary);
 }
 
-/* Text links reveal their hairline from the left. These include prose and
-   wiki links plus the two families of typographic navigation controls. */
-:is(.text-link, .editor-navigation-links button, .welcome-note-action, .tiptap a, wiki-link) {
+/* Links in a note reveal their hairline from the left. Controls in the
+   chrome never underline; they take a padded hover fill instead (see SMALL
+   CHROME CONTROLS). */
+:is(.tiptap a, wiki-link) {
   position: relative;
   text-decoration: none;
 }
 
-:is(
-  .text-link,
-  .editor-navigation-links button,
-  .welcome-note-action,
-  .tiptap a,
-  wiki-link
-)::after {
+:is(.tiptap a, wiki-link)::after {
   content: '';
   position: absolute;
   right: 0;
@@ -3796,29 +3791,16 @@ button[aria-expanded='true'] .wn-caret {
   pointer-events: none;
 }
 
-:is(
-    .text-link,
-    .editor-navigation-links button,
-    .welcome-note-action,
-    .tiptap a,
-    wiki-link
-  ):hover::after,
-:is(
-    .text-link,
-    .editor-navigation-links button,
-    .welcome-note-action,
-    .tiptap a,
-    wiki-link
-  ):focus-visible::after {
+:is(.tiptap a, wiki-link):hover::after,
+:is(.tiptap a, wiki-link):focus-visible::after {
   transform: scaleX(1);
 }
 
 /* Colour alone is not enough to mark a link — someone who cannot separate that
    hue from the body ink gets nothing. The hairline is therefore present at
    rest, just quiet, and comes up to full on hover rather than being drawn from
-   nothing. Scoped to note content: the navigation controls that share the rule
-   above are standalone and already read as controls. These rules tie with that
-   one on specificity and must stay after it, or it hides the hairline at rest. */
+   nothing. These rules tie with that one on specificity and must stay after
+   it, or it hides the hairline at rest. */
 .tiptap a::after,
 .tiptap wiki-link::after {
   transform: scaleX(1);
@@ -4302,7 +4284,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 }
 
 /* Every control along the bottom shares one look: a padded wash on hover and,
-   while its menu is open, the outline the current tab wears. No underlines. */
+   while its menu is open, the outline the current tab wears. */
 .editor-navigation-links button {
   height: 24px;
   padding: 0 8px;
@@ -4311,8 +4293,108 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
     background-color var(--dur-micro) var(--ease-standard);
 }
 
-.editor-navigation-links button::after {
-  display: none;
+/* SMALL CHROME CONTROLS
+   Text buttons in the chrome: section titles and actions, the Index's links,
+   the welcome actions, row Options and the calendar arrows. Every button gets
+   the hover fill below; these give it room round the letters, as the footer's
+   controls have, and the negative margins keep each one where it was laid
+   out. */
+:is(
+  .section-header button,
+  .sidebar-footer-links .text-link,
+  .welcome-note-action,
+  .calendar-nav-button
+) {
+  padding: 3px 6px;
+  margin: -3px -6px;
+}
+
+/* The Forge switcher: a captioned name with a caret, the same padded fill,
+   and a menu as wide as its longest Forge rather than the whole column. */
+.forge-switcher-trigger {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.forge-switcher-trigger[aria-expanded='true'] {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.forge-switcher-caption {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.forge-switcher-name {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.forge-switcher-caret {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-right: 1px solid var(--text-muted);
+  border-bottom: 1px solid var(--text-muted);
+  transform: rotate(45deg);
+}
+
+.forge-switcher-menu {
+  position: absolute;
+  top: 100%;
+  left: -8px;
+  z-index: 30;
+  min-width: 240px;
+  max-width: calc(100% + 16px);
+  margin-top: 6px;
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  box-shadow: var(--shadow-md);
+}
+
+.forge-switcher-row {
+  padding: 7px 14px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  box-shadow: inset 2px 0 0 0 transparent;
+}
+
+.forge-switcher-row[aria-selected='true'] {
+  box-shadow: inset 2px 0 0 0 var(--text-primary);
+}
+
+.forge-switcher-divider {
+  margin: 4px 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+/* Options sits absolutely at the row's end, so only its own edge moves back. */
+.row-options {
+  padding: 3px 6px;
+  margin-right: -6px;
 }
 
 .editor-footer :is(.toolbar-button, .editor-footer-overflow-toggle)[aria-expanded='true'],
