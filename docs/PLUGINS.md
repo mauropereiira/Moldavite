@@ -313,7 +313,8 @@ Requires the `editor` permission.
 Returns the active note's Forge-relative `path`, display `title`, and live
 editor HTML in `content`, or `null` when no note is open. A Markdown file opened
 from outside the Forge (Open With, ⌘O) is never visible to plugins: while one is
-the active tab this returns `null`.
+the active tab this returns `null`. The same holds for a locked note opened to
+view: its decrypted text never reaches a plugin.
 
 #### `editor.insertText(text: string): Promise<void>`
 
