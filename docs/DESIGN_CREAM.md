@@ -213,10 +213,15 @@ Chrome controls never underline; underlines belong to links in a note.
 **No fills, no boxes.** Selection is a 2px ink left-marker, not a filled card.
 Counts are plain right-aligned numerals, not badge pills. Tags are plain
 `#tag` text. Buttons are type on a hairline. Nothing has a background tint
-except the ground itself.
+except the ground itself, and the Index's section bands and cards below.
 
 **Section labels are editorial.** `10px`, `letter-spacing: 0.14em`, uppercase,
-`--text-muted`, on a `1px solid var(--border-muted)` hairline.
+`--text-muted`, on a `1px solid var(--border-muted)` hairline. The Index's own
+sections are the exception: each opens with a filled band (`--bg-inset`
+between `--border-default` hairlines, 11px uppercase in `--text-primary`)
+holding the toggle, a square count chip and the section's actions. In the
+Index each section is a card on `--bg-elevated`; pinned, the bands run across
+the column.
 
 **One measure.** `--editor-measure` governs both the note header and the prose
 body. Never hardcode a column width beside it. It is **user-controlled** —

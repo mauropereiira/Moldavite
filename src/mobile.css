@@ -494,9 +494,9 @@ html[data-platform='mobile'] .index-overlay-content .search-input + button {
   height: var(--touch-target);
 }
 
-html[data-platform='mobile'] .index-overlay-content .section-header {
-  margin-top: 12px;
-  padding-bottom: 12px;
+/* A card's band is one touch target tall; its controls fill that height. */
+html[data-platform='mobile'] .index-overlay-content .section-band {
+  min-height: var(--touch-target);
 }
 
 /* Header controls (toggle, New, sort) grow a hit area without moving. */

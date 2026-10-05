@@ -893,6 +893,62 @@ time,
   line-height: 1;
 }
 
+/* INDEX SECTIONS
+   Each section's header is a filled band holding the toggle (caret, the
+   season's icon, the name), a count chip and the section's actions. In the
+   pinned column the band runs across the column; in the Index each section
+   is a card with the band on top (see INDEX CARDS). */
+.section-band {
+  gap: 10px;
+  min-height: 36px;
+  margin-top: 20px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-inset);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* In the pinned column the band sits on the sidebar's own ground, which in
+   dark themes is as deep as --bg-inset; the overlay tint keeps it visible. */
+.app-sidebar .section-band {
+  background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
+}
+
+.section-band .seasonal-section-icon {
+  color: var(--text-secondary);
+}
+
+.section-count {
+  min-width: 20px;
+  padding: 3px 5px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.section-actions {
+  gap: 12px;
+  margin-left: auto;
+}
+
+.section-actions button {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section-body {
+  padding-top: 8px;
+}
+
 .sidebar-caret {
   width: 5px;
   height: 5px;
@@ -4551,6 +4607,35 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   --index: 0;
   animation: app-overlay-section-enter var(--dur-slow) var(--ease-standard) both;
   animation-delay: calc(var(--index) * var(--stagger-step));
+}
+
+/* INDEX CARDS
+   In the Index every section is a square card: the band on top, flush with
+   the card's edges, and the list below. The grid in Sidebar.tsx drops to
+   fewer columns as the window narrows, down to one on a phone. */
+.app-index-grid > .app-overlay-section {
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+/* Backlinks renders nothing without an open note; no empty frame then. */
+.app-index-grid > .app-overlay-section:empty {
+  display: none;
+}
+
+.app-index-grid .section-band {
+  margin-top: 0;
+  border-top: 0;
+}
+
+/* A folded card is only its band; the card's own edge closes it. */
+.app-index-grid .section-band:has(> .section-toggle[aria-expanded='false']) {
+  border-bottom-color: transparent;
+}
+
+.app-index-grid .section-body {
+  padding-bottom: 12px;
 }
 
 .index-overlay-content .note-card-title {

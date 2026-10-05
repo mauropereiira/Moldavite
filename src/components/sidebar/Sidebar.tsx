@@ -937,9 +937,9 @@ export function Sidebar({
               isIndex
                 ? {
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                     alignItems: 'start',
-                    gap: '28px',
+                    gap: '24px',
                     padding: '20px 12px 28px',
                   }
                 : undefined
@@ -973,23 +973,6 @@ export function Sidebar({
                 showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
                 filteredEmptyTagCount={selectedTags.length}
               />
-              {isIndex && backlinksEnabled && showBacklinksSection && (
-                <div style={{ marginTop: '24px' }}>
-                  <BacklinksSection
-                    notes={notes}
-                    isCollapsed={sectionsCollapsed.backlinks}
-                    onToggle={() => toggleSection('backlinks')}
-                    onNoteClick={(note) => {
-                      if (note.isLocked) {
-                        handleUnlockNote(note);
-                      } else {
-                        loadNote(note);
-                        onNavigate?.();
-                      }
-                    }}
-                  />
-                </div>
-              )}
             </div>
 
             {showFoldersSection && (
@@ -1057,6 +1040,24 @@ export function Sidebar({
                   onClearFilter={clearTagFilter}
                   onSearchChange={setTagSearchQuery}
                   onTagsChanged={refreshNotes}
+                />
+              </div>
+            )}
+
+            {isIndex && backlinksEnabled && showBacklinksSection && (
+              <div className="app-overlay-section" style={{ '--index': 4 } as React.CSSProperties}>
+                <BacklinksSection
+                  notes={notes}
+                  isCollapsed={sectionsCollapsed.backlinks}
+                  onToggle={() => toggleSection('backlinks')}
+                  onNoteClick={(note) => {
+                    if (note.isLocked) {
+                      handleUnlockNote(note);
+                    } else {
+                      loadNote(note);
+                      onNavigate?.();
+                    }
+                  }}
                 />
               </div>
             )}
