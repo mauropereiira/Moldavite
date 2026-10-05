@@ -8,7 +8,7 @@ import '@fontsource/inter/latin-700.css';
 import '@fontsource/merriweather/latin-400.css';
 import '@fontsource/merriweather/latin-700.css';
 import App from './App';
-import { AppErrorBoundary } from './AppErrorBoundary';
+import { AppErrorBoundary, AppErrorFallback } from './AppErrorBoundary';
 import { isMobilePlatform } from './lib/platform';
 import './index.css';
 import './tiptap-base.css';
@@ -32,4 +32,7 @@ async function mountApp() {
     </React.StrictMode>
   );
 }
-void mountApp();
+mountApp().catch((error: unknown) => {
+  console.error('[main] Failed to start the app:', error);
+  root.render(<AppErrorFallback />);
+});

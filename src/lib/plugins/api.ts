@@ -80,10 +80,11 @@ export async function dispatchPluginCall(
 
   switch (method) {
     // A file outside the Forge was opened by the user alone; plugins are
-    // granted the Forge, not wherever else that file lives.
+    // granted the Forge, not wherever else that file lives. A locked note open
+    // for viewing holds its decrypted text, and locked notes are never theirs.
     case 'editor.getActiveNote': {
-      const note = useNoteStore.getState().currentNote;
-      if (!note || isLooseNote(note)) return null;
+      const { currentNote: note, unlockedNotes } = useNoteStore.getState();
+      if (!note || isLooseNote(note) || unlockedNotes.has(note.id)) return null;
       return { path: note.id, title: note.title, content: note.content };
     }
     case 'editor.insertText': {
