@@ -20,11 +20,13 @@ interface MobileFormattingBarProps {
   onInsertImage: () => void;
 }
 
+type Panel = 'format' | 'insert';
+
 /**
  * Sits at the bottom of the resized shell, immediately above the iOS keyboard.
- * Undo, Redo and Aa never scroll away. Aa swaps the row between the inserts
- * (links, tags, images, tables) and the text styles, so neither set crowds the
- * other.
+ * The row itself is short enough never to scroll: Undo, Redo, Format, Insert
+ * and Done. Format and Insert each open a strip above it with their controls.
+ * A selected image or a caret in a table puts its own actions in that strip.
  */
 export function MobileFormattingBar({
   editor,
@@ -36,11 +38,11 @@ export function MobileFormattingBar({
   // formatting button. Hiding on :focus would remove the target before click.
   const [editing, setEditing] = useState(editor.isFocused);
   const [editingNoteId, setEditingNoteId] = useState(noteId);
-  const [styling, setStyling] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
   if (editingNoteId !== noteId) {
     setEditingNoteId(noteId);
     setEditing(false);
-    setStyling(false);
+    setPanel(null);
   }
   useEffect(() => {
     const focus = () => setEditing(true);
@@ -86,7 +88,7 @@ export function MobileFormattingBar({
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollLeft = 0;
     measure();
-  }, [context, editing, styling, measure]);
+  }, [context, editing, panel, measure]);
   useEffect(() => {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
@@ -195,8 +197,26 @@ export function MobileFormattingBar({
     { label: 'Table', disabled: active.table, run: () => insertNoteTable(editor) },
   ];
 
-  const controls = [...contextControls, ...(styling ? styleControls : insertControls)];
+  const controls = [
+    ...contextControls,
+    ...(panel === 'format' ? styleControls : panel === 'insert' ? insertControls : []),
+  ];
+  const toggle = (next: Panel) => setPanel((open) => (open === next ? null : next));
   const keepFocus = (event: React.PointerEvent) => event.preventDefault();
+
+  const button = (control: Control) => (
+    <button
+      key={control.label}
+      type="button"
+      aria-label={control.name}
+      aria-pressed={control.pressed}
+      disabled={control.disabled}
+      onPointerDown={keepFocus}
+      onClick={control.run}
+    >
+      {control.label}
+    </button>
+  );
 
   return (
     <div
@@ -205,69 +225,69 @@ export function MobileFormattingBar({
       role="toolbar"
       aria-label="Note formatting"
     >
-      <button
-        type="button"
-        className="mobile-formatting-icon"
-        aria-label="Undo"
-        disabled={!active.undo}
-        onPointerDown={keepFocus}
-        onClick={() => editor.chain().focus().undo().run()}
-      >
-        <Undo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="mobile-formatting-icon"
-        aria-label="Redo"
-        disabled={!active.redo}
-        onPointerDown={keepFocus}
-        onClick={() => editor.chain().focus().redo().run()}
-      >
-        <Redo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="mobile-formatting-styles"
-        aria-label="Text styles"
-        aria-pressed={styling}
-        onPointerDown={keepFocus}
-        onClick={() => setStyling((open) => !open)}
-      >
-        Aa
-      </button>
-      <div
-        ref={scrollRef}
-        className="mobile-formatting-scroll"
-        data-more-before={overflow.before}
-        data-more-after={overflow.after}
-        onScroll={measure}
-      >
-        {controls.map((control) => (
-          <button
-            key={control.label}
-            type="button"
-            aria-label={control.name}
-            aria-pressed={control.pressed}
-            disabled={control.disabled}
-            onPointerDown={keepFocus}
-            onClick={control.run}
-          >
-            {control.label}
-          </button>
-        ))}
+      {controls.length > 0 && (
+        <div
+          ref={scrollRef}
+          className="mobile-formatting-scroll"
+          role="group"
+          aria-label={panel === 'format' ? 'Format' : panel === 'insert' ? 'Insert' : 'Actions'}
+          data-more-before={overflow.before}
+          data-more-after={overflow.after}
+          onScroll={measure}
+        >
+          {controls.map(button)}
+        </div>
+      )}
+      <div className="mobile-formatting-main">
+        <button
+          type="button"
+          className="mobile-formatting-icon"
+          aria-label="Undo"
+          disabled={!active.undo}
+          onPointerDown={keepFocus}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          <Undo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="mobile-formatting-icon"
+          aria-label="Redo"
+          disabled={!active.redo}
+          onPointerDown={keepFocus}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          <Redo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-expanded={panel === 'format'}
+          onPointerDown={keepFocus}
+          onClick={() => toggle('format')}
+        >
+          Format
+        </button>
+        <button
+          type="button"
+          aria-expanded={panel === 'insert'}
+          onPointerDown={keepFocus}
+          onClick={() => toggle('insert')}
+        >
+          Insert
+        </button>
+        <button
+          type="button"
+          className="mobile-keyboard-done"
+          aria-label="Dismiss keyboard"
+          onClick={() => {
+            editor.commands.blur();
+            setEditing(false);
+            setPanel(null);
+          }}
+        >
+          Done
+        </button>
       </div>
-      <button
-        type="button"
-        className="mobile-keyboard-done"
-        aria-label="Dismiss keyboard"
-        onClick={() => {
-          editor.commands.blur();
-          setEditing(false);
-          setStyling(false);
-        }}
-      >
-        Done
-      </button>
     </div>
   );
 }

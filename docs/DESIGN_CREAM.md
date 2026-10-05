@@ -190,7 +190,8 @@ Icons are used deliberately in four places, and only these: the **icon rail**
 rows** (`Folder`/`FolderOpen` — in a list mixing folders, notes and tags the
 glyph's job is to say which *kind* of row this is, which type cannot), the
 **writing controls** (the writing toolbar's + and the phone formatting row's
-Undo and Redo, which are known by their shapes), and **dialogs**. All of them use `lucide-react` at `strokeWidth={1.25}` in
+Undo and Redo, which are known by their shapes; Format and Insert beside them
+are words), and **dialogs**. All of them use `lucide-react` at `strokeWidth={1.25}` in
 `--text-muted`. Anything heavier reads as a different app.
 
 This rule was once written as "zero icons in chrome" and that went too far —

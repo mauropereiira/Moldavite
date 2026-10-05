@@ -1340,6 +1340,7 @@ html[data-platform='mobile'] .mobile-formatting-bar {
   padding-right: var(--page-safe-right);
   display: none;
   flex: 0 0 auto;
+  flex-direction: column;
   align-items: stretch;
   background: var(--bg-base);
   border-top: 1px solid var(--border-default);
@@ -1357,12 +1358,18 @@ html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
   display: none !important;
 }
 
+/* Format's or Insert's controls, in a strip above the row that opened them. */
 html[data-platform='mobile'] .mobile-formatting-scroll {
   display: flex;
   min-width: 0;
-  flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+html[data-platform='mobile'] .mobile-formatting-main {
+  display: flex;
+  align-items: stretch;
 }
 
 html[data-platform='mobile'] .mobile-formatting-bar button {
@@ -1376,7 +1383,9 @@ html[data-platform='mobile'] .mobile-formatting-bar button {
   font-size: 13px;
 }
 
-html[data-platform='mobile'] .mobile-formatting-bar button[aria-pressed='true'] {
+html[data-platform='mobile']
+  .mobile-formatting-bar
+  :is(button[aria-pressed='true'], button[aria-expanded='true']) {
   color: var(--text-primary);
   box-shadow: inset 0 -2px var(--text-primary);
 }
@@ -1397,7 +1406,7 @@ html[data-platform='mobile'] .mobile-formatting-bar button:disabled {
 
   html[data-platform='mobile']
     .mobile-formatting-bar
-    button[aria-pressed='true']:not(:disabled):hover {
+    :is(button[aria-pressed='true'], button[aria-expanded='true']):not(:disabled):hover {
     color: var(--text-primary) !important;
   }
 }
@@ -1431,20 +1440,15 @@ html[data-platform='mobile']
 }
 
 html[data-platform='mobile'] .mobile-keyboard-done {
+  margin-left: auto;
   border-left: 1px solid var(--border-default);
 }
 
-/* Undo, Redo and Aa hold their place at the start of the row. */
 html[data-platform='mobile'] .mobile-formatting-bar .mobile-formatting-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-}
-
-html[data-platform='mobile'] .mobile-formatting-styles {
-  border-right: 1px solid var(--border-default);
-  font-weight: 500;
 }
 
 /* Text fields keep a dismissal control after removing the native accessory. */
