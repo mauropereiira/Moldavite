@@ -63,8 +63,10 @@ use crate::commands::search::{build_snippet, classify_note_path, content_match_f
 use crate::types::ContentMatch;
 
 /// On-disk schema version. Bump on any change to [`SCHEMA_SQL`]; a stored
-/// value that does not match drops the tables and forces a rebuild.
-const SCHEMA_VERSION: &str = "1";
+/// value that does not match drops the tables and forces a rebuild. Version 2
+/// turned on secure delete, so a file from version 1, which still holds the
+/// text of notes deleted from it, is scrubbed once.
+const SCHEMA_VERSION: &str = "2";
 /// How long either process waits for a lock the other one holds.
 const BUSY_TIMEOUT: Duration = Duration::from_millis(250);
 /// Self-heal cadence for the app process.
@@ -236,6 +238,10 @@ impl ForgeIndex {
         }
         let conn = Connection::open(&self.file).map_err(|e| e.to_string())?;
         conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
+        // Locking a note deletes it from the index. Without this its text
+        // stays readable in the freed pages of the file.
+        conn.execute_batch("PRAGMA secure_delete=ON;")
+            .map_err(|e| e.to_string())?;
         // `journal_mode` answers with a row, so it cannot go through execute().
         let _: String = conn
             .query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))
@@ -259,7 +265,16 @@ impl ForgeIndex {
                 );
             }
             conn.execute_batch(DROP_SQL).map_err(|e| e.to_string())?;
+            scrub(&conn)?;
             conn.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
+            // FTS5 otherwise keeps a deleted note's terms in its segments until
+            // they happen to be merged. Needs SQLite 3.44; the system SQLite on
+            // older iOS lacks it, and the page-level setting still applies.
+            if let Err(error) = conn
+                .execute_batch("INSERT INTO notes_fts(notes_fts, rank) VALUES('secure-delete', 1);")
+            {
+                log::warn!("[search index] FTS5 secure-delete unavailable: {error}");
+            }
             meta_set(&conn, "schema_version", SCHEMA_VERSION).map_err(|e| e.to_string())?;
             meta_set(&conn, "forge_root", &want_root).map_err(|e| e.to_string())?;
         } else {
@@ -312,6 +327,15 @@ impl ForgeIndex {
         self.with_conn(false, |conn| Ok(last_reconcile_ms(conn).is_some()))
             .unwrap_or(false)
     }
+}
+
+/// Return the zeroed pages of dropped tables to the filesystem and empty the
+/// WAL, which can still hold images of pages from before the drop.
+fn scrub(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("VACUUM;").map_err(|e| e.to_string())?;
+    // Another process may hold a read open; the next checkpoint finishes it.
+    let _ = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()));
+    Ok(())
 }
 
 fn last_reconcile_ms(conn: &Connection) -> Option<i64> {
@@ -1058,7 +1082,10 @@ mod tests {
                     |row| row.get(0),
                 )?;
                 assert_eq!(triggers, 3);
-                assert_eq!(meta_get(conn, "schema_version").as_deref(), Some("1"));
+                assert_eq!(
+                    meta_get(conn, "schema_version").as_deref(),
+                    Some(SCHEMA_VERSION)
+                );
                 assert!(meta_get(conn, "forge_root").is_some());
                 let journal: String =
                     conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
@@ -1512,6 +1539,119 @@ mod tests {
         assert_eq!(status(forge.path()).note_count, 0);
         reconcile(forge.path()).unwrap();
         assert_eq!(index_paths(&forge, "needle"), vec!["notes/alpha.md"]);
+    }
+
+    /// Every byte of the index's files, so a test can look for text that
+    /// should be gone. The WAL is included: it can hold old page images.
+    fn index_bytes(forge: &TempForge) -> Vec<u8> {
+        let file = handle(forge.path()).file.clone();
+        let mut bytes = fs::read(&file).unwrap();
+        let mut wal = file.into_os_string();
+        wal.push("-wal");
+        if let Ok(more) = fs::read(PathBuf::from(wal)) {
+            bytes.extend(more);
+        }
+        bytes
+    }
+
+    fn contains(haystack: &[u8], needle: &str) -> bool {
+        haystack
+            .windows(needle.len())
+            .any(|window| window == needle.as_bytes())
+    }
+
+    fn filler(forge: &TempForge) {
+        for i in 0..50 {
+            forge.write(
+                &format!("notes/filler{i}.md"),
+                &format!("ordinary body text number {i}"),
+            );
+        }
+    }
+
+    #[test]
+    fn a_locked_note_leaves_no_text_behind_in_the_index_file() {
+        let forge = TempForge::new("scrub");
+        reconcile(forge.path()).unwrap();
+        // One save hook per note, so each lands in its own FTS segment and
+        // automerge folds them together, the way an index grows in use.
+        filler(&forge);
+        for i in 0..50 {
+            note_changed_in(&format!("notes/filler{i}.md"), forge.path().into());
+        }
+        forge.write(
+            "notes/secret.md",
+            "pin ZEBRAQUARTZ4417 passphrase hunter2lemon",
+        );
+        note_changed_in("notes/secret.md", forge.path().into());
+        eventually("indexed the note", || status(forge.path()).note_count == 51);
+        close_connections();
+        assert!(contains(&index_bytes(&forge), "ZEBRAQUARTZ4417"));
+
+        fs::rename(
+            forge.path().join("notes/secret.md"),
+            forge.path().join("notes/secret.md.locked"),
+        )
+        .unwrap();
+        note_removed_in("notes/secret.md", forge.path().into());
+        eventually("dropped the locked note", || {
+            status(forge.path()).note_count == 50
+        });
+        close_connections();
+
+        let bytes = index_bytes(&forge);
+        assert!(!contains(&bytes, "ZEBRAQUARTZ4417"));
+        assert!(!contains(&bytes, "zebraquartz4417"));
+        assert!(!contains(&bytes, "hunter2lemon"));
+        assert_eq!(index_paths(&forge, "ordinary").len(), 50);
+    }
+
+    #[test]
+    fn an_index_written_before_secure_delete_is_scrubbed_once_on_open() {
+        let forge = TempForge::new("scrub-upgrade");
+        filler(&forge);
+        reconcile(forge.path()).unwrap();
+        close_connections();
+
+        // What an older build left behind: a deleted note's text still in
+        // free pages and FTS segments, under the previous schema version.
+        {
+            let conn = Connection::open(&handle(forge.path()).file).unwrap();
+            conn.execute_batch(
+                "PRAGMA secure_delete=OFF; \
+                 INSERT INTO notes_fts(notes_fts, rank) VALUES('secure-delete', 0); \
+                 INSERT INTO notes(path, title, body, hash, mtime_ms, size, is_daily, is_weekly, folder) \
+                   VALUES ('notes/old.md', 'old', 'pin ZEBRAQUARTZ4417', 'x', 0, 0, 0, 0, NULL); \
+                 DELETE FROM notes WHERE path = 'notes/old.md'; \
+                 UPDATE meta SET value = '1' WHERE key = 'schema_version';",
+            )
+            .unwrap();
+        }
+        assert!(contains(&index_bytes(&forge), "ZEBRAQUARTZ4417"));
+
+        assert!(!status(forge.path()).ready, "the old index is rebuilt");
+        close_connections();
+        assert!(!contains(&index_bytes(&forge), "ZEBRAQUARTZ4417"));
+        assert!(!contains(&index_bytes(&forge), "zebraquartz4417"));
+
+        reconcile(forge.path()).unwrap();
+        close_connections();
+        // Reopening the upgraded file keeps it: no second rebuild.
+        assert!(status(forge.path()).ready);
+        assert_eq!(index_paths(&forge, "ordinary").len(), 50);
+        handle(forge.path())
+            .with_conn(false, |conn| {
+                let on: i64 = conn.query_row("PRAGMA secure_delete", [], |row| row.get(0))?;
+                assert_eq!(on, 1);
+                let fts: i64 = conn.query_row(
+                    "SELECT v FROM notes_fts_config WHERE k = 'secure-delete'",
+                    [],
+                    |row| row.get(0),
+                )?;
+                assert_eq!(fts, 1);
+                Ok(())
+            })
+            .unwrap();
     }
 
     /// Force every cached connection shut so the next access reopens and

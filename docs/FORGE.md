@@ -71,7 +71,9 @@ corrupt a database inside Dropbox or iCloud. A Forge that moves hashes
 differently and simply rebuilds; deleting a Forge deletes its index. The index
 can lag the disk, for example when a note is locked on another synced Mac, so
 every hit is checked first: one whose note is gone or has a `.locked` twin is
-dropped and removed from the index.
+dropped and removed from the index. The database overwrites what it deletes
+(SQLite `secure_delete` and FTS5 `secure-delete`), so a note that is locked or
+trashed does not stay readable in the file.
 
 ## Frontmatter schema
 
