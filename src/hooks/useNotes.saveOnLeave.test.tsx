@@ -14,6 +14,7 @@ import {
   registerAutosaveCloseGuard,
 } from '@/lib/autosaveFlush';
 import { discardLeaveSave, hasUnsavedEdits, heldLeaveSaveIds } from '@/lib/leaveSave';
+import { htmlToMarkdown, markdownToHtml } from '@/lib/fileSystem';
 
 const invokeMock = vi.fn();
 
@@ -471,6 +472,87 @@ describe('writes that race new typing', () => {
     expect(lastWrite()).toMatchObject({ filename: 'Loose.md', content: 'never autosaved' });
     expect(destroy).toHaveBeenCalledOnce();
     stopGuard();
+  });
+});
+
+describe('undoing back to the saved text', () => {
+  const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
+
+  it('writes nothing more when the user leaves after undoing to what autosave wrote', async () => {
+    useSettingsStore.setState({ autoSaveDelay: 10 });
+    disk = { 'Edited.md': 'start', 'Other.md': 'other' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Edited.md')));
+    act(() => useNoteStore.getState().updateNoteContent('<p>A</p>', 'notes/Edited.md'));
+    await settle();
+    expect(writes()).toHaveLength(1);
+
+    act(() => useNoteStore.getState().updateNoteContent('<p>AB</p>', 'notes/Edited.md'));
+    act(() => useNoteStore.getState().updateNoteContent('<p>A</p>', 'notes/Edited.md'));
+    expect(getPendingAutosaveNoteId()).toBeNull();
+    await act(() => hook.result.current.loadNote(standalone('Other.md')));
+    await settle();
+
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite()).toMatchObject({ filename: 'Edited.md', content: 'A' });
+  });
+
+  it('writes nothing when every edit since opening was undone', async () => {
+    disk = { 'Edited.md': 'start', 'Other.md': 'other' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Edited.md')));
+    const opened = useNoteStore.getState().currentNote?.content ?? '';
+    act(() => useNoteStore.getState().updateNoteContent('<p>startX</p>', 'notes/Edited.md'));
+    act(() => useNoteStore.getState().updateNoteContent(opened, 'notes/Edited.md'));
+    await act(() => hook.result.current.loadNote(standalone('Other.md')));
+    await settle();
+
+    expect(writes()).toHaveLength(0);
+  });
+
+  it('leaves the last text on disk through rapid typing, undoing and switching', async () => {
+    useSettingsStore.setState({ autoSaveDelay: 5 });
+    disk = { 'A.md': 'a', 'B.md': 'b' };
+    invokeMock.mockImplementation(
+      async (command: string, payload?: { filename?: string; content?: string }) => {
+        const filename = payload?.filename ?? '';
+        if (command === 'write_note') {
+          disk[filename] = payload?.content ?? '';
+          return { contentHash: 'w', conflictCopy: null };
+        }
+        if (command === 'read_note') {
+          return { content: disk[filename] ?? '', color: null, contentHash: `h:${disk[filename]}` };
+        }
+        if (command === 'list_notes') return [];
+        return undefined;
+      }
+    );
+    const hook = renderNotes();
+    const texts = ['<p>one</p>', '<p>two</p>', '<p>three</p>'];
+    let seed = 7;
+    const next = (n: number) => (seed = (seed * 48271) % 2147483647) % n;
+    const lastText: Record<string, string> = {};
+    for (let step = 0; step < 40; step++) {
+      const name = next(2) === 0 ? 'A.md' : 'B.md';
+      await act(() => hook.result.current.loadNote(standalone(name)));
+      const opened = useNoteStore.getState().currentNote?.content ?? '';
+      for (let edit = next(4); edit >= 0; edit--) {
+        const text = texts[next(texts.length)];
+        act(() => useNoteStore.getState().updateNoteContent(text, `notes/${name}`));
+        lastText[name] = text;
+      }
+      if (next(2) === 0) {
+        act(() => useNoteStore.getState().updateNoteContent(opened, `notes/${name}`));
+        lastText[name] = opened;
+      }
+      if (next(3) === 0) await settle();
+    }
+    await act(() => hook.result.current.loadNote(standalone('Neither.md')));
+    await settle();
+
+    for (const [name, text] of Object.entries(lastText)) {
+      expect(markdownToHtml(disk[name])).toBe(markdownToHtml(htmlToMarkdown(text)));
+    }
   });
 });
 

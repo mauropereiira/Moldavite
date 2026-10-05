@@ -420,8 +420,14 @@ export function useAutoSave() {
       return;
     }
 
-    // Don't save if content hasn't changed
+    // Undoing back to the saved text leaves nothing owed; a pending write of
+    // the text in between would otherwise be flushed when the note is left.
     if (currentNote.content === lastContentRef.current) {
+      if (pendingRef.current?.id === currentNote.id) {
+        if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+        pendingRef.current = null;
+      }
       return;
     }
 
