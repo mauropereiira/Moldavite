@@ -126,6 +126,23 @@ async function saveHeldNow(): Promise<void> {
   }
 }
 
+/**
+ * Settle every owed write, held saves included, before a reload or relaunch that
+ * skips React cleanup, and refuse with `action` named while any note is still
+ * unsaved. A failed leave save is held in `leaveSave.ts`, not by autosave.
+ */
+export async function settleOwedWritesFor(action: string): Promise<void> {
+  await flushPendingAutosave();
+  const pendingNoteId = getPendingAutosaveNoteId();
+  if (pendingNoteId) {
+    throw new Error(`${action} cancelled because ${pendingNoteId} could not be saved`);
+  }
+  await saveHeldNow();
+  if (heldSaves?.isPending()) {
+    throw new Error(`${action} cancelled because a note could not be saved`);
+  }
+}
+
 export function registerAutosavePendingProbe(fn: PendingProbe): () => void {
   pendingProbe = fn;
   return () => {

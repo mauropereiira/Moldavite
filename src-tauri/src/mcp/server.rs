@@ -645,6 +645,39 @@ mod tests {
     }
 
     #[test]
+    fn regression_173_an_interrupted_lock_stays_locked_to_agents() {
+        let root = temp_forge("pair");
+        fs::write(root.join("notes/secret.md"), "plaintext twin").unwrap();
+        fs::write(root.join("notes/secret.md.locked"), "ciphertext").unwrap();
+        fs::write(root.join("notes/zeta.md"), "open").unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+
+        let listed = context.call("list_notes", &json!({"folder": "notes"}));
+        assert_eq!(
+            listed["structuredContent"]["notes"],
+            json!([
+                {"path": "notes/secret.md", "isLocked": true},
+                {"path": "notes/zeta.md", "isLocked": false},
+            ])
+        );
+        for (tool, arguments) in [
+            ("read_note", json!({"path": "notes/secret.md"})),
+            (
+                "write_note",
+                json!({"path": "notes/secret.md", "content": "oops"}),
+            ),
+        ] {
+            let response = context.call(tool, &arguments);
+            assert_eq!(response["isError"], true, "{tool}");
+        }
+        assert_eq!(
+            fs::read_to_string(root.join("notes/secret.md")).unwrap(),
+            "plaintext twin"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn malformed_oversized_unknown_and_recovery_are_bounded() {
         let root = temp_forge("bad-input");
         let mut input = "{definitely not json}\n".to_string();
@@ -893,9 +926,9 @@ mod tests {
     }
 
     /// `search_notes` must be answered by the persistent index when one is
-    /// available. Deleting the file after the index is built is what makes
-    /// that provable: the live scan has nothing left to find, so a hit can
-    /// only have come out of the index.
+    /// available. The words are out of order, which the index matches and the
+    /// scan's literal substring does not, so a hit can only have come out of
+    /// the index.
     #[test]
     fn search_notes_is_answered_by_the_persistent_index() {
         let root = temp_forge("index-search");
@@ -905,10 +938,11 @@ mod tests {
         )
         .unwrap();
         crate::search_index::reconcile(&root).unwrap();
-        fs::remove_file(root.join("notes/indexed.md")).unwrap();
 
-        let response = ToolContext::new(root.clone(), false, false)
-            .call("search_notes", &json!({"query":"kryptonite","limit":10}));
+        let response = ToolContext::new(root.clone(), false, false).call(
+            "search_notes",
+            &json!({"query":"once kryptonite","limit":10}),
+        );
         assert_eq!(response["isError"], false);
         assert_eq!(response["structuredContent"]["mode"], "keyword");
         let results = response["structuredContent"]["results"].as_array().unwrap();
@@ -918,6 +952,30 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("kryptonite"));
+
+        crate::search_index::delete_for(&root);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The MCP process never reconciles, so a note locked on another synced
+    /// machine keeps its plaintext row here. Search must not serve it.
+    #[test]
+    fn search_notes_does_not_serve_a_note_locked_since_indexing() {
+        let root = temp_forge("index-locked");
+        fs::write(root.join("notes/secret.md"), "the vault code is kryptonite").unwrap();
+        crate::search_index::reconcile(&root).unwrap();
+        fs::rename(
+            root.join("notes/secret.md"),
+            root.join("notes/secret.md.locked"),
+        )
+        .unwrap();
+
+        let response = ToolContext::new(root.clone(), false, false)
+            .call("search_notes", &json!({"query":"kryptonite","limit":10}));
+        assert_eq!(response["isError"], false);
+        let results = response["structuredContent"]["results"].as_array().unwrap();
+        assert!(results.is_empty(), "{results:?}");
+        assert!(!response.to_string().contains("vault code"));
 
         crate::search_index::delete_for(&root);
         fs::remove_dir_all(root).unwrap();

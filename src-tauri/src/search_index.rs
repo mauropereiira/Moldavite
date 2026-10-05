@@ -32,13 +32,13 @@
 //!
 //! Modelled on [`crate::semantic`]. Note commands, the MCP tools and the
 //! filesystem watcher call the cheap [`note_changed`] / [`note_removed`] /
-//! [`note_renamed`] hooks, which hand the work to one background worker thread
-//! so a save is never blocked. Startup, a Forge switch, the rebuild command
-//! and a 24-hour timer run [`reconcile`], which compares every note's
-//! `(mtime, size)` against the table and only hashes the ones that differ. A
-//! missing file, a `schema_version` mismatch or a `forge_root` mismatch drops
-//! the tables, and the index is not trusted again until the next reconcile
-//! stamps `last_reconcile_ms`.
+//! [`note_renamed`] / [`folder_changed_in`] hooks, which hand the work to one
+//! background worker thread so a save is never blocked. Startup, a Forge
+//! switch, the rebuild command and a 24-hour timer run [`reconcile`], which
+//! compares every note's `(mtime, size)` against the table and only hashes the
+//! ones that differ. A missing file, a `schema_version` mismatch or a
+//! `forge_root` mismatch drops the tables, and the index is not trusted again
+//! until the next reconcile stamps `last_reconcile_ms`.
 //!
 //! # Two processes
 //!
@@ -124,7 +124,7 @@ DROP TABLE IF EXISTS meta;
 /// negative) numbers for better matches, so the ordering is ascending.
 const QUERY_SQL: &str = "SELECT notes.path, notes.body FROM notes_fts \
      JOIN notes ON notes.rowid = notes_fts.rowid \
-     WHERE notes_fts MATCH ?1 ORDER BY bm25(notes_fts, 2.0, 1.0) LIMIT ?2";
+     WHERE notes_fts MATCH ?1 ORDER BY bm25(notes_fts, 2.0, 1.0) LIMIT ?2 OFFSET ?3";
 
 /// Snapshot of the index for Settings.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -444,6 +444,7 @@ enum Job {
     Changed(PathBuf, String),
     Removed(PathBuf, String),
     Renamed(PathBuf, String, String),
+    Folder(PathBuf, String),
 }
 
 static WORKER: OnceLock<Option<Sender<Job>>> = OnceLock::new();
@@ -476,6 +477,12 @@ fn apply(job: Job) {
         Job::Changed(root, rel) => (root, vec![(rel, true)]),
         Job::Removed(root, rel) => (root, vec![(rel, false)]),
         Job::Renamed(root, old, new) => (root, vec![(old, false), (new, true)]),
+        Job::Folder(root, rel_dir) => {
+            if let Err(error) = reconcile_now(&handle(&root), &root, Some(&rel_dir)) {
+                log::warn!("[search index] folder update failed: {error}");
+            }
+            return;
+        }
     };
     let index = handle(&forge_root);
     let result = index.with_conn(true, |conn| {
@@ -551,6 +558,13 @@ pub(crate) fn note_renamed_in(old_rel: &str, new_rel: &str, forge_root: PathBuf)
     ));
 }
 
+/// A folder (`notes/A`, `daily`) was renamed, moved or removed by another
+/// process, which the watcher sees as one event for the folder and none for
+/// the notes inside. Reconciling just that folder re-keys them.
+pub(crate) fn folder_changed_in(rel_dir: &str, forge_root: PathBuf) {
+    enqueue(Job::Folder(forge_root, rel_dir.to_string()));
+}
+
 /// Every note was deleted (`clear_all_notes`).
 pub(crate) fn all_notes_removed_in(forge_root: PathBuf) {
     let index = handle(&forge_root);
@@ -598,6 +612,20 @@ fn hit_fields(body: &str, full_term: &str, terms: &[String]) -> (String, usize, 
     (build_snippet(line, "", 120), 1, 1)
 }
 
+/// A row can outlive its plaintext: the MCP process never reconciles, and a
+/// note locked on another synced machine changes here only when this process
+/// notices. A locked note owns both spellings of its name, so a `.locked` twin
+/// means the stored body must not be served either.
+fn still_plaintext(forge_root: &Path, rel: &str) -> bool {
+    let abs = forge_root.join(rel);
+    let mut locked = abs.clone().into_os_string();
+    locked.push(".locked");
+    let locked = PathBuf::from(locked);
+    fs::symlink_metadata(&abs).is_ok_and(|metadata| metadata.is_file())
+        && fs::symlink_metadata(&locked).is_err()
+        && !crate::cloud_forge::is_remote_name(&locked)
+}
+
 /// Answer a keyword search from the index.
 ///
 /// `None` means "ask the scan instead": no index, not reconciled yet, a
@@ -619,47 +647,68 @@ pub(crate) fn query(
     }
     let expression = fts_match_expression(trimmed)?;
     let cap = limit.clamp(1, 500) as i64;
-    let rows: Vec<(String, String)> = index
-        .with_conn(false, |conn| {
-            let mut stmt = conn.prepare(QUERY_SQL)?;
-            let mapped = stmt.query_map(params![expression, cap], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?;
-            mapped.collect::<rusqlite::Result<Vec<_>>>()
-        })
-        .map_err(|error| {
-            log::debug!("[search index] query fell back to the scan: {error}");
-            #[cfg(test)]
-            eprintln!("[search index] query fell back to the scan: {error}");
-        })
-        .ok()?;
-
     let full_term = trimmed.to_lowercase();
     let terms: Vec<String> = trimmed.split_whitespace().map(str::to_lowercase).collect();
-    let mut matches = Vec::with_capacity(rows.len());
-    for (rel, body) in rows {
-        // Re-derive the addressing fields through the scan's own helper so a
-        // hit is shaped identically whichever engine produced it.
-        let Some((path, is_daily, is_weekly, folder_path)) =
-            classify_note_path(notes_dir, &notes_dir.join(&rel))
-        else {
-            continue;
-        };
-        let filename = match rel.rsplit_once('/') {
-            Some((_, leaf)) => leaf.to_string(),
-            None => rel.clone(),
-        };
-        let (snippet, line_number, match_count) = hit_fields(&body, &full_term, &terms);
-        matches.push(ContentMatch {
-            filename,
-            path,
-            snippet,
-            line_number,
-            match_count,
-            is_daily,
-            is_weekly,
-            folder_path,
-        });
+    let mut matches = Vec::with_capacity(cap as usize);
+    let mut stale = Vec::new();
+    // Pages, so hits dropped by `still_plaintext` do not leave the limit
+    // unfilled. Stale rows are removed only after the last page: deleting
+    // between pages would shift the offsets.
+    let mut offset = 0;
+    loop {
+        let rows: Vec<(String, String)> = index
+            .with_conn(false, |conn| {
+                let mut stmt = conn.prepare(QUERY_SQL)?;
+                let mapped = stmt.query_map(params![expression, cap, offset], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?;
+                mapped.collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .map_err(|error| {
+                log::debug!("[search index] query fell back to the scan: {error}");
+                #[cfg(test)]
+                eprintln!("[search index] query fell back to the scan: {error}");
+            })
+            .ok()?;
+        let page_len = rows.len() as i64;
+        for (rel, body) in rows {
+            if matches.len() as i64 == cap {
+                break;
+            }
+            if !still_plaintext(forge_root, &rel) {
+                stale.push(rel);
+                continue;
+            }
+            // Re-derive the addressing fields through the scan's own helper so a
+            // hit is shaped identically whichever engine produced it.
+            let Some((path, is_daily, is_weekly, folder_path)) =
+                classify_note_path(notes_dir, &notes_dir.join(&rel))
+            else {
+                continue;
+            };
+            let filename = match rel.rsplit_once('/') {
+                Some((_, leaf)) => leaf.to_string(),
+                None => rel.clone(),
+            };
+            let (snippet, line_number, match_count) = hit_fields(&body, &full_term, &terms);
+            matches.push(ContentMatch {
+                filename,
+                path,
+                snippet,
+                line_number,
+                match_count,
+                is_daily,
+                is_weekly,
+                folder_path,
+            });
+        }
+        if matches.len() as i64 == cap || page_len < cap {
+            break;
+        }
+        offset += cap;
+    }
+    for rel in stale {
+        note_removed_in(&rel, forge_root.to_path_buf());
     }
     Some(matches)
 }
@@ -678,7 +727,7 @@ pub(crate) fn reconcile(forge_root: &Path) -> Result<u64, String> {
         return Ok(index.snapshot().1);
     }
     let started = SystemTime::now();
-    let result = reconcile_now(&index, forge_root);
+    let result = reconcile_now(&index, forge_root, None);
     index.building.store(false, Ordering::SeqCst);
     match &result {
         Ok(count) => log::info!(
@@ -748,8 +797,15 @@ impl ReconcileWrite {
 /// Walking and reading the Forge happens without the connection lock, which
 /// is taken only to read the stored stats and then once per write batch, so a
 /// search during the reconcile of a large Forge is not stuck behind the walk.
-fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
-    let existing: HashMap<String, (i64, i64, String)> = index.with_conn(true, |conn| {
+///
+/// `folder` limits the pass to the notes under one folder, and such a partial
+/// pass does not mark the index as reconciled.
+fn reconcile_now(
+    index: &ForgeIndex,
+    forge_root: &Path,
+    folder: Option<&str>,
+) -> Result<u64, String> {
+    let mut existing: HashMap<String, (i64, i64, String)> = index.with_conn(true, |conn| {
         let mut stmt = conn.prepare("SELECT path, mtime_ms, size, hash FROM notes")?;
         let rows = stmt.query_map([], |row| {
             Ok((
@@ -764,7 +820,14 @@ fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
         rows.collect()
     })?;
 
-    let candidates = crate::semantic::scan_note_paths(forge_root);
+    let candidates = match folder {
+        Some(rel_dir) => {
+            let prefix = format!("{rel_dir}/");
+            existing.retain(|path, _| path.starts_with(&prefix));
+            crate::semantic::scan_note_paths_in(forge_root, rel_dir)
+        }
+        None => crate::semantic::scan_note_paths(forge_root),
+    };
     let mut kept: HashSet<String> = HashSet::with_capacity(candidates.len());
     let mut writes = Vec::new();
     for (abs, rel) in &candidates {
@@ -813,9 +876,11 @@ fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
             tx.commit()
         })?;
     }
-    index.with_conn(true, |conn| {
-        meta_set(conn, "last_reconcile_ms", &now_ms().to_string())
-    })?;
+    if folder.is_none() {
+        index.with_conn(true, |conn| {
+            meta_set(conn, "last_reconcile_ms", &now_ms().to_string())
+        })?;
+    }
     Ok(kept.len() as u64)
 }
 
@@ -835,7 +900,7 @@ pub(crate) fn rebuild(forge_root: &Path) -> Result<u64, String> {
                  DELETE FROM meta WHERE key = 'last_reconcile_ms';",
             )
         })
-        .and_then(|()| reconcile_now(&index, forge_root));
+        .and_then(|()| reconcile_now(&index, forge_root, None));
     index.building.store(false, Ordering::SeqCst);
     result
 }
@@ -1243,6 +1308,58 @@ mod tests {
         assert_eq!(index_paths(&forge, "confidential"), vec!["notes/secret.md"]);
     }
 
+    /// A note locked on another synced machine reaches this one as a rename the
+    /// index never hears about, and the MCP process never reconciles.
+    #[test]
+    fn a_note_locked_since_indexing_is_not_served_from_its_stale_row() {
+        let forge = TempForge::new("locked-elsewhere");
+        forge.write("notes/secret.md", "confidential needle");
+        forge.write("notes/twin.md", "confidential needle");
+        forge.write("notes/open.md", "confidential needle");
+        reconcile(forge.path()).unwrap();
+        assert_eq!(index_paths(&forge, "confidential").len(), 3);
+
+        fs::rename(
+            forge.path().join("notes/secret.md"),
+            forge.path().join("notes/secret.md.locked"),
+        )
+        .unwrap();
+        // An interrupted lock leaves both spellings; the locked one wins.
+        forge.write("notes/twin.md.locked", "ciphertext");
+
+        assert_eq!(index_paths(&forge, "confidential"), vec!["notes/open.md"]);
+    }
+
+    #[test]
+    fn the_limit_is_still_filled_when_many_hits_are_locked() {
+        let forge = TempForge::new("locked-many");
+        for i in 0..60 {
+            forge.write(&format!("notes/n{i:02}.md"), "needle needle needle");
+        }
+        reconcile(forge.path()).unwrap();
+        for i in 0..45 {
+            fs::rename(
+                forge.path().join(format!("notes/n{i:02}.md")),
+                forge.path().join(format!("notes/n{i:02}.md.locked")),
+            )
+            .unwrap();
+        }
+
+        let hits = query(forge.path(), forge.path(), "needle", 10).unwrap();
+        assert_eq!(hits.len(), 10);
+        let all = query(forge.path(), forge.path(), "needle", 100).unwrap();
+        assert_eq!(all.len(), 15);
+        for hit in all {
+            let n: usize = hit.path["notes/n".len().."notes/n".len() + 2]
+                .parse()
+                .unwrap();
+            assert!(n >= 45, "{} is locked", hit.path);
+        }
+        eventually("dropped the stale rows", || {
+            status(forge.path()).note_count == 15
+        });
+    }
+
     /// The hooks hand their work to a background thread, so a hook's effect
     /// lands shortly after the call rather than during it.
     fn eventually(what: &str, mut check: impl FnMut() -> bool) {
@@ -1586,12 +1703,10 @@ mod tests {
                 )
             })
             .unwrap();
-        assert_eq!(
-            index_paths(&forge, "needle"),
-            vec!["notes/alpha.md", "notes/ghost.md"]
-        );
+        assert_eq!(status(forge.path()).note_count, 2);
 
         rebuild(forge.path()).unwrap();
+        assert_eq!(status(forge.path()).note_count, 1);
         assert_eq!(index_paths(&forge, "needle"), vec!["notes/alpha.md"]);
     }
 

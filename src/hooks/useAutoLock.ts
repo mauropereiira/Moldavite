@@ -20,7 +20,8 @@ import { useNoteStore } from '@/stores/noteStore';
  */
 export function useAutoLock() {
   const { autoLockTimeout } = useSettingsStore();
-  const { unlockedNotes, lockNote } = useNoteStore();
+  const unlockedNotes = useNoteStore((state) => state.unlockedNotes);
+  const lockNote = useNoteStore((state) => state.lockNote);
   const timeoutRef = useRef<number | null>(null);
   // Initialized in the effect below (cannot call Date.now() during render).
   const lastActivityRef = useRef<number | null>(null);

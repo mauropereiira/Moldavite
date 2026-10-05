@@ -128,7 +128,7 @@ export function useAutoSave() {
 
         if (currentNote.isDaily) {
           const dateStr = currentNote.date;
-          const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
+          const existsInList = freshNotes.some((n) => n.path === currentNote.id);
           const { setTaskStatus, removeTaskStatus } = useTaskStatusStore.getState();
 
           if (isEmpty) {
@@ -136,7 +136,7 @@ export function useAutoSave() {
             if (existsInList) {
               try {
                 await deleteNote(filename, true, false, { guarded: true });
-                const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
+                const updatedNotes = freshNotes.filter((n) => n.path !== currentNote.id);
                 setNotes(updatedNotes);
                 if (dateStr) removeTaskStatus(dateStr);
               } catch (deleteError) {
@@ -170,14 +170,14 @@ export function useAutoSave() {
           }
         } else if (currentNote.isWeekly) {
           const weekStr = currentNote.week;
-          const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
+          const existsInList = freshNotes.some((n) => n.path === currentNote.id);
 
           if (isEmpty) {
             // Content is empty - delete the file if it exists
             if (existsInList) {
               try {
                 await deleteNote(filename, false, true, { guarded: true });
-                const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
+                const updatedNotes = freshNotes.filter((n) => n.path !== currentNote.id);
                 setNotes(updatedNotes);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete weekly note failed:', deleteError);
@@ -420,8 +420,14 @@ export function useAutoSave() {
       return;
     }
 
-    // Don't save if content hasn't changed
+    // Undoing back to the saved text leaves nothing owed; a pending write of
+    // the text in between would otherwise be flushed when the note is left.
     if (currentNote.content === lastContentRef.current) {
+      if (pendingRef.current?.id === currentNote.id) {
+        if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+        pendingRef.current = null;
+      }
       return;
     }
 

@@ -446,8 +446,8 @@ fn notes_under(dir: &Path) -> Vec<String> {
         .collect()
 }
 
-/// A folder moves in one rename, which the watcher sees only as a directory
-/// event and ignores, so every note inside is re-keyed here.
+/// A folder moves in one rename. The watcher reconciles the folder too, but
+/// only after its debounce, so every note inside is re-keyed here at once.
 fn reindex_moved_folder(
     forge_root: &Path,
     old_folder: &str,
