@@ -638,6 +638,55 @@ describe('closing with a held save', () => {
   });
 });
 
+describe('closing a tab whose autosave fails', () => {
+  it('holds the edit for retry instead of losing it to typing in another note', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Other.md': 'other', 'Draft.md': 'draft' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Other.md')));
+    await act(() => hook.result.current.loadNote(standalone('Draft.md'), true));
+    act(() => useNoteStore.getState().updateNoteContent('<p>important</p>', 'notes/Draft.md'));
+
+    writeError = new Error('disk full');
+    await act(async () => {
+      useNoteStore.getState().closeTab('notes/Draft.md');
+    });
+    await act(async () => {});
+    writeError = null;
+    act(() => useNoteStore.getState().updateNoteContent('<p>typing</p>', 'notes/Other.md'));
+
+    expect(heldLeaveSaveIds()).toContain('notes/Draft.md');
+    expect(hasUnsavedEdits('notes/Draft.md')).toBe(true);
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 1100)));
+    expect(
+      writes().some(
+        ([, payload]) => payload.filename === 'Draft.md' && payload.content === 'important'
+      )
+    ).toBe(true);
+    expect(heldLeaveSaveIds()).not.toContain('notes/Draft.md');
+    consoleError.mockRestore();
+  });
+
+  it('holds a failed edit on the last tab closed', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Only.md': 'only' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Only.md')));
+    act(() => useNoteStore.getState().updateNoteContent('<p>last words</p>', 'notes/Only.md'));
+
+    writeError = new Error('disk full');
+    await act(async () => {
+      useNoteStore.getState().closeTab('notes/Only.md');
+    });
+    await act(async () => {});
+
+    expect(useNoteStore.getState().currentNote).toBeNull();
+    expect(heldLeaveSaveIds()).toContain('notes/Only.md');
+    consoleError.mockRestore();
+  });
+});
+
 describe('navigation', () => {
   it('ignores a load that finishes after a newer one', async () => {
     let releaseSlow!: () => void;
