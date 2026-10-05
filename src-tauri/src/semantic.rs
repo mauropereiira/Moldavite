@@ -64,6 +64,12 @@ pub(crate) const INDEX_FILE: &str = "embeddings.v1.bin";
 const CHUNK_WORDS: usize = 350;
 /// Debounce window for re-embedding after a note save.
 const DEBOUNCE_MS: u64 = 600;
+/// How long a change to the in-memory index waits before the index file is
+/// rewritten. At 10,000 notes the file is 16.9 MB, and rewriting and fsyncing
+/// it on every autosave was most of a save's cost. A crash loses at most this
+/// window, and the next build re-embeds whatever the file is missing, since it
+/// reconciles by content hash.
+const PERSIST_DELAY: Duration = Duration::from_secs(30);
 /// Error string used to signal a user-initiated cancellation (disable
 /// mid-build). Not surfaced to the UI as an error.
 pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
@@ -698,6 +704,10 @@ pub(crate) struct SemanticService {
     building: AtomicBool,
     /// Serializes index-file writes.
     save_lock: Mutex<()>,
+    /// The Forge and model of a write waiting out [`PERSIST_DELAY`]. The model
+    /// is taken when the change is made, so a write that lands after a model
+    /// switch cannot label the old vectors with the new model.
+    pending_persist: Mutex<Option<(PathBuf, String)>>,
 }
 
 static SERVICE: OnceLock<SemanticService> = OnceLock::new();
@@ -716,6 +726,7 @@ impl SemanticService {
             pending_gen: AtomicU64::new(0),
             building: AtomicBool::new(false),
             save_lock: Mutex::new(()),
+            pending_persist: Mutex::new(None),
         }
     }
 
@@ -759,6 +770,7 @@ impl SemanticService {
     /// Feature switched off: forget everything (the on-disk index is kept so
     /// a re-enable only re-embeds notes that changed in the meantime).
     pub(crate) fn disable(&self) {
+        self.flush_persist();
         self.set_phase(Phase::Disabled);
         self.replace_entries(Vec::new());
         if let Ok(mut e) = self.embedder.write() {
@@ -771,6 +783,7 @@ impl SemanticService {
 
     /// The active Forge changed: in-memory entries belong to the old vault.
     pub(crate) fn reset_for_forge_switch(&self) {
+        self.flush_persist();
         self.replace_entries(Vec::new());
         if let Ok(mut p) = self.pending.lock() {
             p.clear();
@@ -813,14 +826,45 @@ impl SemanticService {
         }
     }
 
-    /// Snapshot the in-memory entries and persist them for the given Forge.
-    fn persist_entries(&self, forge_root: &Path) {
+    /// Persist the in-memory entries for the given Forge within [`PERSIST_DELAY`].
+    fn persist_entries(&'static self, forge_root: &Path) {
+        let target = (forge_root.to_path_buf(), configured_model_id());
+        let previous = match self.pending_persist.lock() {
+            Ok(mut pending) => pending.replace(target.clone()),
+            Err(_) => return,
+        };
+        match previous {
+            None => {
+                std::thread::spawn(move || {
+                    std::thread::sleep(PERSIST_DELAY);
+                    self.flush_persist();
+                });
+            }
+            Some(previous) if previous != target => self.write_index(&previous.0, &previous.1),
+            Some(_) => {}
+        }
+    }
+
+    /// Write a persist that is still waiting out [`PERSIST_DELAY`] now. Runs on
+    /// quit, at the end of an MCP session, and before a Forge switch or disable
+    /// drops the entries it would write.
+    pub(crate) fn flush_persist(&self) {
+        let pending = match self.pending_persist.lock() {
+            Ok(mut pending) => pending.take(),
+            Err(_) => return,
+        };
+        if let Some((forge_root, model_id)) = pending {
+            self.write_index(&forge_root, &model_id);
+        }
+    }
+
+    fn write_index(&self, forge_root: &Path, model_id: &str) {
+        let _guard = self.save_lock.lock();
         let snapshot = match self.entries.read() {
             Ok(e) => e.clone(),
             Err(_) => return,
         };
-        let _guard = self.save_lock.lock();
-        if let Err(e) = save_index(forge_root, &snapshot, &configured_model_id()) {
+        if let Err(e) = save_index(forge_root, &snapshot, model_id) {
             log::warn!("[semantic] failed to persist index: {}", e);
         }
     }
@@ -1586,9 +1630,10 @@ mod tests {
             forge.path().to_path_buf(),
         );
         wait_until(|| indexed_paths(svc) == ["notes/Projects/b.md", "notes/a.md"]);
-        wait_until(|| {
-            load_index(forge.path(), &configured_model_id()).is_some_and(|saved| saved.len() == 2)
-        });
+        wait_until(|| svc.pending_persist.lock().unwrap().is_some());
+        svc.flush_persist();
+        let saved = load_index(forge.path(), &configured_model_id()).unwrap();
+        assert_eq!(saved.len(), 2);
 
         fs::remove_file(forge.path().join("notes/Projects/b.md")).unwrap();
         svc.notes_changed_in(
@@ -1596,6 +1641,66 @@ mod tests {
             forge.path().to_path_buf(),
         );
         wait_until(|| indexed_paths(svc) == ["notes/a.md"]);
+    }
+
+    fn saved_paths(forge: &TempForge) -> Option<Vec<String>> {
+        let saved = load_index(forge.path(), &configured_model_id())?;
+        Some(saved.into_iter().map(|e| e.path).collect())
+    }
+
+    #[test]
+    fn a_burst_of_changes_waits_and_is_written_once_with_the_latest_entries() {
+        let forge = TempForge::new("persist-burst");
+        let (svc, _) = ready_service();
+        for i in 0..50 {
+            svc.replace_entries(
+                (0..=i)
+                    .map(|n| entry(&format!("notes/n{n}.md"), vec![0.5; EMBED_DIM as usize]))
+                    .collect(),
+            );
+            svc.persist_entries(forge.path());
+        }
+        assert!(!index_path(forge.path()).exists());
+
+        svc.flush_persist();
+        assert_eq!(saved_paths(&forge).unwrap().len(), 50);
+        fs::remove_file(index_path(forge.path())).unwrap();
+        svc.flush_persist();
+        assert!(!index_path(forge.path()).exists());
+    }
+
+    #[test]
+    fn a_forge_switch_or_disable_writes_the_waiting_entries_first() {
+        let switched = TempForge::new("persist-switch");
+        let (svc, _) = ready_service();
+        svc.replace_entries(vec![entry("notes/kept.md", vec![0.5; EMBED_DIM as usize])]);
+        svc.persist_entries(switched.path());
+        svc.reset_for_forge_switch();
+        assert_eq!(saved_paths(&switched).unwrap(), ["notes/kept.md"]);
+        assert_eq!(svc.indexed_count(), 0);
+
+        let disabled = TempForge::new("persist-disable");
+        svc.replace_entries(vec![entry(
+            "notes/also-kept.md",
+            vec![0.5; EMBED_DIM as usize],
+        )]);
+        svc.persist_entries(disabled.path());
+        svc.disable();
+        assert_eq!(saved_paths(&disabled).unwrap(), ["notes/also-kept.md"]);
+    }
+
+    #[test]
+    fn a_change_for_another_forge_writes_the_one_waiting() {
+        let first = TempForge::new("persist-first");
+        let second = TempForge::new("persist-second");
+        let (svc, _) = ready_service();
+        svc.replace_entries(vec![entry("notes/a.md", vec![0.5; EMBED_DIM as usize])]);
+        svc.persist_entries(first.path());
+        svc.persist_entries(second.path());
+        assert_eq!(saved_paths(&first).unwrap(), ["notes/a.md"]);
+        assert!(!index_path(second.path()).exists());
+        svc.flush_persist();
+        assert_eq!(saved_paths(&second).unwrap(), ["notes/a.md"]);
     }
 
     /// A `git checkout` touching 500 notes is one batch: one thread, each note

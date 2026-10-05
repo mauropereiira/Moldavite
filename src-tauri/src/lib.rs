@@ -667,8 +667,13 @@ pub fn run() {
             google_calendar_connect,
             google_calendar_disconnect
         ]))
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_, event| {
+            if let tauri::RunEvent::Exit = event {
+                semantic::service().flush_persist();
+            }
+        });
 }
 
 #[cfg(test)]
