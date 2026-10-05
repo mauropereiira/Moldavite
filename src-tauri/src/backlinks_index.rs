@@ -1,8 +1,8 @@
 //! Shared in-memory backlinks index.
 //!
 //! Maintains an inverted index from target filename -> list of notes
-//! that link to it, plus an outbound map from source path -> set of
-//! targets it currently references. This replaces O(n) full-disk scans
+//! that link to it, plus an outbound map from source path -> the index
+//! keys it currently has entries under. This replaces O(n) full-disk scans
 //! on every `get_backlinks` call.
 //!
 //! Sources are keyed by Forge-relative path (`notes/A/plan.md`) because notes in
@@ -21,7 +21,7 @@ use std::sync::{Mutex, PoisonError, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::types::BacklinkInfo;
-use crate::wiki::{get_link_context, note_exists, note_name_to_filename, parse_wiki_links};
+use crate::wiki::{get_link_context, note_exists_in, note_name_to_filename, parse_wiki_links};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
@@ -35,7 +35,10 @@ pub(crate) struct Entry {
 struct State {
     /// Keyed by resolved target filename (e.g. "meeting-notes.md").
     by_target: HashMap<String, Vec<Entry>>,
-    /// Keyed by source path; value is set of target filenames it links to.
+    /// Keyed by source path: every `by_target` key it has entries under,
+    /// resolved targets and `__stem__:` keys both, so replacing or removing a
+    /// source visits only those keys. Each indexed source has an entry, even
+    /// with no links.
     outbound: HashMap<String, HashSet<String>>,
 }
 
@@ -53,20 +56,21 @@ pub(crate) struct BacklinksIndex {
 }
 
 /// Resolver converts a raw link name (e.g. "Meeting Notes" or "2026-01-02")
-/// into a concrete filename. The real implementation uses `wiki::note_exists`
+/// into a concrete filename. The real implementation uses `wiki::note_exists_in`
 /// which hits disk; tests may inject a pure resolver.
 pub(crate) type Resolver = dyn Fn(&str) -> String + Send + Sync;
 
 fn default_resolver(name: &str) -> String {
-    match note_exists(name) {
-        Ok((_, target)) => {
-            if target.is_empty() {
-                note_name_to_filename(name)
-            } else {
-                target
-            }
-        }
+    match crate::paths::get_notes_dir() {
+        Ok(root) => resolve_in(&root, name),
         Err(_) => note_name_to_filename(name),
+    }
+}
+
+fn resolve_in(root: &Path, name: &str) -> String {
+    match note_exists_in(root, name) {
+        Ok((_, target)) if !target.is_empty() => target,
+        _ => note_name_to_filename(name),
     }
 }
 
@@ -200,8 +204,11 @@ impl BacklinksIndex {
             state.outbound.clear();
         }
 
+        // Resolved against the root found above: `default_resolver` reads
+        // config.json twice per link.
+        let resolver = move |name: &str| resolve_in(&root, name);
         for (path, content) in files {
-            self.update_note_with(&path, &content, &default_resolver);
+            self.update_note_with(&path, &content, &resolver);
         }
 
         *last_failure = None;
@@ -220,7 +227,6 @@ impl BacklinksIndex {
         let link_names = parse_wiki_links(content);
 
         // Resolve targets and compute contexts (both slug-style and raw-name keys).
-        let mut new_targets: HashSet<String> = HashSet::new();
         let mut new_entries: Vec<(String, Entry)> = Vec::new();
 
         for raw in &link_names {
@@ -235,7 +241,6 @@ impl BacklinksIndex {
             };
 
             if !resolved.is_empty() {
-                new_targets.insert(resolved.clone());
                 new_entries.push((resolved, entry.clone()));
             }
 
@@ -254,13 +259,14 @@ impl BacklinksIndex {
             }
         };
 
-        remove_from_by_target(&mut state.by_target, path);
-        state.outbound.remove(path);
+        remove_source(&mut state, path);
 
+        let mut keys = HashSet::new();
         for (key, entry) in new_entries {
+            keys.insert(key.clone());
             state.by_target.entry(key).or_default().push(entry);
         }
-        state.outbound.insert(path.to_string(), new_targets);
+        state.outbound.insert(path.to_string(), keys);
     }
 
     pub(crate) fn remove_note(&self, path: &str) {
@@ -271,8 +277,7 @@ impl BacklinksIndex {
                 poisoned.into_inner()
             }
         };
-        remove_from_by_target(&mut state.by_target, path);
-        state.outbound.remove(path);
+        remove_source(&mut state, path);
     }
 
     /// `old` and `new` are Forge-relative paths.
@@ -286,6 +291,12 @@ impl BacklinksIndex {
                 }
             };
             if let Some(entries) = state.by_target.remove(leaf(old)) {
+                for entry in &entries {
+                    if let Some(keys) = state.outbound.get_mut(&entry.from_path) {
+                        keys.remove(leaf(old));
+                        keys.insert(leaf(new).to_string());
+                    }
+                }
                 state
                     .by_target
                     .entry(leaf(new).to_string())
@@ -320,10 +331,14 @@ impl BacklinksIndex {
                 }
             }
         }
-        state.outbound = std::mem::take(&mut state.outbound)
-            .into_iter()
-            .map(|(path, targets)| (moved(&path).unwrap_or(path), targets))
-            .collect();
+        let mut outbound: HashMap<String, HashSet<String>> = HashMap::new();
+        for (path, keys) in std::mem::take(&mut state.outbound) {
+            outbound
+                .entry(moved(&path).unwrap_or(path))
+                .or_default()
+                .extend(keys);
+        }
+        state.outbound = outbound;
     }
 
     /// Indexed source paths that start with `dir` (`notes/A/`).
@@ -399,16 +414,17 @@ impl BacklinksIndex {
     }
 }
 
-fn remove_from_by_target(by_target: &mut HashMap<String, Vec<Entry>>, from_path: &str) {
-    let mut empty_keys: Vec<String> = Vec::new();
-    for (k, v) in by_target.iter_mut() {
-        v.retain(|e| e.from_path != from_path);
-        if v.is_empty() {
-            empty_keys.push(k.clone());
+fn remove_source(state: &mut State, from_path: &str) {
+    let Some(keys) = state.outbound.remove(from_path) else {
+        return;
+    };
+    for key in keys {
+        if let Some(entries) = state.by_target.get_mut(&key) {
+            entries.retain(|e| e.from_path != from_path);
+            if entries.is_empty() {
+                state.by_target.remove(&key);
+            }
         }
-    }
-    for k in empty_keys {
-        by_target.remove(&k);
     }
 }
 
@@ -759,6 +775,289 @@ mod tests {
         assert!(!is_indexed_path("templates/plan.md"));
         assert!(!is_indexed_path("notes/plan.md.locked"));
         assert!(!is_indexed_path("plan.md"));
+    }
+
+    /// The index before sources tracked their keys: every update scanned every
+    /// key, and every link resolved through the active Forge's config.
+    #[derive(Default)]
+    struct OldIndex {
+        by_target: HashMap<String, Vec<Entry>>,
+    }
+
+    impl OldIndex {
+        fn remove(&mut self, path: &str) {
+            for entries in self.by_target.values_mut() {
+                entries.retain(|e| e.from_path != path);
+            }
+            self.by_target.retain(|_, entries| !entries.is_empty());
+        }
+
+        fn update(&mut self, path: &str, content: &str, resolver: &Resolver) {
+            let filename = leaf(path);
+            let title = extract_title(content, filename);
+            let mut new_entries = Vec::new();
+            for raw in parse_wiki_links(content) {
+                let resolved = resolver(&raw);
+                let entry = Entry {
+                    from_path: path.to_string(),
+                    from_note: filename.to_string(),
+                    from_title: title.clone(),
+                    context: get_link_context(content, &raw),
+                };
+                if !resolved.is_empty() {
+                    new_entries.push((resolved, entry.clone()));
+                }
+                new_entries.push((format!("__stem__:{raw}"), entry));
+            }
+            self.remove(path);
+            for (key, entry) in new_entries {
+                self.by_target.entry(key).or_default().push(entry);
+            }
+        }
+
+        fn rename(&mut self, old: &str, new: &str, content: &str, resolver: &Resolver) {
+            if let Some(entries) = self.by_target.remove(leaf(old)) {
+                self.by_target
+                    .entry(leaf(new).to_string())
+                    .or_default()
+                    .extend(entries);
+            }
+            self.remove(old);
+            self.update(new, content, resolver);
+        }
+
+        fn move_folder(&mut self, old_prefix: &str, new_prefix: &str) {
+            let old_dir = format!("{old_prefix}/");
+            for entries in self.by_target.values_mut() {
+                for entry in entries.iter_mut() {
+                    if let Some(rest) = entry.from_path.strip_prefix(&old_dir) {
+                        entry.from_path = format!("{new_prefix}/{rest}");
+                    }
+                }
+            }
+        }
+    }
+
+    fn old_resolver(root: &Path, name: &str) -> String {
+        match note_exists_in(root, name) {
+            Ok((_, target)) => {
+                if target.is_empty() {
+                    note_name_to_filename(name)
+                } else {
+                    target
+                }
+            }
+            Err(_) => note_name_to_filename(name),
+        }
+    }
+
+    type Snapshot = Vec<(String, Vec<(String, String, String, String)>)>;
+
+    fn snapshot(by_target: &HashMap<String, Vec<Entry>>) -> Snapshot {
+        let mut keys: Vec<_> = by_target
+            .iter()
+            .map(|(key, entries)| {
+                let entries = entries
+                    .iter()
+                    .map(|e| {
+                        (
+                            e.from_path.clone(),
+                            e.from_note.clone(),
+                            e.from_title.clone(),
+                            e.context.clone(),
+                        )
+                    })
+                    .collect();
+                (key.clone(), entries)
+            })
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    fn index_snapshot(idx: &BacklinksIndex) -> Snapshot {
+        let state = idx.inner.read().unwrap();
+        for (path, keys) in &state.outbound {
+            for key in keys {
+                assert!(
+                    state.by_target[key].iter().any(|e| &e.from_path == path),
+                    "{path} lists {key} but has no entry there"
+                );
+            }
+        }
+        for (key, entries) in &state.by_target {
+            for e in entries {
+                assert!(
+                    state.outbound[&e.from_path].contains(key),
+                    "{} has an entry under {key} it does not list",
+                    e.from_path
+                );
+            }
+        }
+        snapshot(&state.by_target)
+    }
+
+    struct Rng(u64);
+
+    impl Rng {
+        fn below(&mut self, n: usize) -> usize {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((self.0 >> 33) % n as u64) as usize
+        }
+    }
+
+    /// A Forge of `count` notes with links to existing notes by title and by
+    /// slug, aliased links, daily and weekly links, links to a locked note and
+    /// links to notes that do not exist.
+    fn random_forge(rng: &mut Rng, count: usize) -> (PathBuf, Vec<String>) {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-backlinks-random-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        for dir in ["daily", "weekly", "notes/Work/Deep", "notes/Home"] {
+            fs::create_dir_all(root.join(dir)).unwrap();
+        }
+        fs::write(root.join("notes/secret-plan.md.locked"), "ciphertext").unwrap();
+        let folders = ["", "Work/", "Work/Deep/", "Home/"];
+        let titles: Vec<String> = (0..count).map(|i| format!("Note {i}")).collect();
+        let mut paths = Vec::new();
+        for i in 0..count {
+            let path = match rng.below(10) {
+                0 => format!("daily/2026-01-{:02}.md", i % 28 + 1),
+                1 => format!("weekly/2026-W{:02}.md", i % 52 + 1),
+                _ => format!("notes/{}note-{i}.md", folders[rng.below(folders.len())]),
+            };
+            let mut body = format!("# {}\n", titles[i]);
+            for _ in 0..rng.below(6) {
+                let target = &titles[rng.below(count)];
+                let link = match rng.below(9) {
+                    0 => format!("[[{target}]]"),
+                    1 => format!("[[note-{}]]", rng.below(count)),
+                    2 => format!("[[Shown text|note-{}]]", rng.below(count)),
+                    3 => format!("[[2026-01-{:02}]]", rng.below(28) + 1),
+                    4 => format!("[[2026-W{:02}]]", rng.below(52) + 1),
+                    5 => "[[Secret Plan]]".to_string(),
+                    6 => format!("[[Missing {}]]", rng.below(50)),
+                    7 => "[[../outside]]".to_string(),
+                    _ => format!("[[{target}|{target}]]"),
+                };
+                body.push_str(&format!("Some words before {link} and after.\n"));
+            }
+            fs::write(root.join(&path), &body).unwrap();
+            paths.push(path);
+        }
+        (root, paths)
+    }
+
+    #[test]
+    fn rebuild_matches_the_old_algorithm_on_a_random_forge() {
+        for seed in [1, 7, 42] {
+            let mut rng = Rng(seed);
+            let (root, _) = random_forge(&mut rng, 400);
+
+            let idx = BacklinksIndex::new();
+            idx.rebuild_from(|| Ok(root.clone()));
+
+            let mut files = Vec::new();
+            collect_md_files_flat(&root.join("daily"), "daily", &mut files);
+            collect_md_files_flat(&root.join("weekly"), "weekly", &mut files);
+            collect_md_files_recursive(&root.join("notes"), "notes", &mut files);
+            let resolver = {
+                let root = root.clone();
+                move |name: &str| old_resolver(&root, name)
+            };
+            let mut old = OldIndex::default();
+            for (path, content) in &files {
+                old.update(path, content, &resolver);
+            }
+
+            assert!(!old.by_target.is_empty());
+            assert_eq!(
+                index_snapshot(&idx),
+                snapshot(&old.by_target),
+                "seed {seed}"
+            );
+            let _ = fs::remove_dir_all(&root);
+        }
+    }
+
+    #[test]
+    fn incremental_updates_match_the_old_algorithm() {
+        let mut rng = Rng(3);
+        let (root, mut paths) = random_forge(&mut rng, 150);
+        let resolver = {
+            let root = root.clone();
+            move |name: &str| old_resolver(&root, name)
+        };
+        let idx = BacklinksIndex::new();
+        let mut old = OldIndex::default();
+        let content = |rng: &mut Rng, title: &str| {
+            let mut body = format!("# {title}\n");
+            for _ in 0..rng.below(4) {
+                body.push_str(&format!("see [[note-{}]] ", rng.below(150)));
+            }
+            body
+        };
+        for path in &paths {
+            let body = fs::read_to_string(root.join(path)).unwrap();
+            idx.update_note_with(path, &body, &resolver);
+            old.update(path, &body, &resolver);
+        }
+        assert_eq!(index_snapshot(&idx), snapshot(&old.by_target));
+
+        for step in 0..600 {
+            let path = paths[rng.below(paths.len())].clone();
+            match rng.below(5) {
+                0 | 1 => {
+                    let body = content(&mut rng, &format!("Step {step}"));
+                    idx.update_note_with(&path, &body, &resolver);
+                    old.update(&path, &body, &resolver);
+                }
+                2 => {
+                    idx.remove_note(&path);
+                    old.remove(&path);
+                }
+                3 => {
+                    // No links in the renamed body, so the real resolver is
+                    // never consulted; the update after it adds them back.
+                    let renamed = format!("notes/renamed-{step}.md");
+                    idx.rename_note(&path, &renamed, "# Renamed\n");
+                    old.rename(&path, &renamed, "# Renamed\n", &resolver);
+                    let body = content(&mut rng, "Renamed");
+                    idx.update_note_with(&renamed, &body, &resolver);
+                    old.update(&renamed, &body, &resolver);
+                    paths.retain(|p| p != &path);
+                    paths.push(renamed);
+                }
+                _ => {
+                    let (from, to) = if rng.below(2) == 0 {
+                        ("notes/Work", "notes/Home/Work")
+                    } else {
+                        ("notes/Home/Work", "notes/Work")
+                    };
+                    idx.move_folder(from, to);
+                    old.move_folder(from, to);
+                    for p in paths.iter_mut() {
+                        if let Some(rest) = p.strip_prefix(&format!("{from}/")) {
+                            *p = format!("{to}/{rest}");
+                        }
+                    }
+                }
+            }
+            assert_eq!(
+                index_snapshot(&idx),
+                snapshot(&old.by_target),
+                "step {step}"
+            );
+        }
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

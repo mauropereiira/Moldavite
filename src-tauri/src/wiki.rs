@@ -76,7 +76,7 @@ fn note_file_exists(dir: &Path, filename: &str) -> bool {
     crate::persist::name_is_taken(dir, filename)
 }
 
-fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {
+pub(crate) fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), String> {
     // Try as standalone note first
     let filename = note_name_to_filename(note_name);
     if note_file_exists(&notes_dir.join("notes"), &filename) {
