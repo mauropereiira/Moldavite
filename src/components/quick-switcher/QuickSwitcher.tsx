@@ -722,8 +722,7 @@ export function QuickSwitcher() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {/* A phone has no Escape key, and the search covers the whole screen. */}
-          {isMobilePlatform() && <CloseButton onClick={close} label="Close search" />}
+          <CloseButton onClick={close} label="Close search" />
         </div>
 
         <div className="quick-switcher-results">
@@ -782,9 +781,6 @@ export function QuickSwitcher() {
           </span>
           <span>
             <kbd>↵</kbd> open
-          </span>
-          <span>
-            <kbd>esc</kbd> close
           </span>
         </div>
       </DialogSurface>
