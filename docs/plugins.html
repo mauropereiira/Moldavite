@@ -405,7 +405,9 @@
           <code>importScripts</code>, nested workers, <code>caches</code>, <code>indexedDB</code>,
           and <code>WebAssembly</code> among them. Because it is an allowlist, capabilities shipped
           by future browser capabilities begin denied and remain outside the sandbox until they are
-          allowlisted. Network access goes through the permissioned <code>net.fetch</code> method.
+          allowlisted. The worker also runs under the app's Content Security Policy, so
+          <code>import()</code> from another origin, <code>eval</code>, and <code>new Function</code>
+          are refused. Network access goes through the permissioned <code>net.fetch</code> method.
         </p>
         <p>
           The worker proxy rejects undeclared calls early for useful errors, but Moldavite repeats
