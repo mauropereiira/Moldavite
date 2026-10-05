@@ -47,7 +47,9 @@ pub fn run_from_env() -> Result<(), String> {
     let semantic_ready = config.semantic_enabled.unwrap_or(false)
         && crate::semantic::prepare_mcp_search(&forge_root, semantic_model);
     let context = tools::ToolContext::dynamic(forge_resolver, forge_root, semantic_ready);
-    server::serve(std::io::stdin().lock(), std::io::stdout().lock(), context)
+    let served = server::serve(std::io::stdin().lock(), std::io::stdout().lock(), context);
+    crate::semantic::service().flush_persist();
+    served
 }
 
 /// Resolve a Forge by name for callers outside MCP, falling back to the active
