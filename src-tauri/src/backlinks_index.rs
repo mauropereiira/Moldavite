@@ -358,23 +358,6 @@ impl BacklinksIndex {
             .collect()
     }
 
-    /// Indexed source paths that start with `dir` (`notes/A/`).
-    pub(crate) fn sources_under(&self, dir: &str) -> Vec<String> {
-        let state = match self.inner.read() {
-            Ok(g) => g,
-            Err(poisoned) => {
-                log::warn!("backlinks index lock poisoned during read; recovering");
-                poisoned.into_inner()
-            }
-        };
-        state
-            .outbound
-            .keys()
-            .filter(|path| path.starts_with(dir))
-            .cloned()
-            .collect()
-    }
-
     pub(crate) fn remove_all(&self) {
         let mut state = match self.inner.write() {
             Ok(g) => g,
