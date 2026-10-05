@@ -150,14 +150,14 @@ fn clip_document(title: &str, url: &str, markdown: &str, clipped: &str) -> Strin
 }
 
 fn unique_destination(dir: &Path, stem: &str) -> Result<PathBuf, String> {
-    let first = dir.join(format!("{stem}.md"));
-    if !first.exists() {
-        return Ok(first);
+    let first = format!("{stem}.md");
+    if !crate::persist::name_is_taken(dir, &first) {
+        return Ok(dir.join(first));
     }
     for suffix in 2..=MAX_COLLISION_SUFFIX {
-        let candidate = dir.join(format!("{stem} ({suffix}).md"));
-        if !candidate.exists() {
-            return Ok(candidate);
+        let candidate = format!("{stem} ({suffix}).md");
+        if !crate::persist::name_is_taken(dir, &candidate) {
+            return Ok(dir.join(candidate));
         }
     }
     Err("Too many clippings of this page already exist".to_string())
@@ -452,6 +452,18 @@ mod tests {
         // A traversal attempt is a filename, never a path.
         let hostile = clip_stem("../../etc/passwd", "https://example.com/a");
         assert!(!hostile.contains('/'), "unexpected stem: {hostile}");
+    }
+
+    #[test]
+    fn a_clip_does_not_take_the_name_of_a_locked_note() {
+        let dir = temp_dir("collision-locked");
+        std::fs::write(dir.join("Same title.md.locked"), "ciphertext").unwrap();
+        std::fs::write(dir.join("Same title (2).md.locked"), "ciphertext").unwrap();
+
+        let path = unique_destination(&dir, "Same title").unwrap();
+        assert_eq!(path.file_name().unwrap(), "Same title (3).md");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
