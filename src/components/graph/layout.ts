@@ -74,6 +74,10 @@ interface NodeTopology {
 interface LayoutTopology {
   components: ComponentTopology[];
   nodes: NodeTopology[];
+  indexById: Map<string, number>;
+  radii: Float64Array;
+  /** Endpoint indices of the edge list last stepped, reused while it is the same array. */
+  edgePairs: { edges: GraphEdge[]; source: Int32Array; target: Int32Array } | null;
 }
 
 const topologyCache = new WeakMap<LayoutNode[], LayoutTopology>();
@@ -201,7 +205,33 @@ function buildTopology(
     nodeTopology[index] = { componentIndex: null, targetX: target.x, targetY: target.y };
   }
 
-  return { components, nodes: nodeTopology };
+  return {
+    components,
+    nodes: nodeTopology,
+    indexById,
+    radii: Float64Array.from(nodes, (node) => collisionRadius(node)),
+    edgePairs: null,
+  };
+}
+
+/**
+ * Grid cells as one integer, so a step allocates no strings. Layout bounds
+ * stay within a few hundred cells of the origin, far inside the 16-bit range.
+ */
+function cellKey(cellX: number, cellY: number): number {
+  return (cellX + 32_768) * 65_536 + (cellY + 32_768);
+}
+
+function edgePairsFor(topology: LayoutTopology, edges: GraphEdge[]) {
+  if (topology.edgePairs?.edges === edges) return topology.edgePairs;
+  const source = new Int32Array(edges.length);
+  const target = new Int32Array(edges.length);
+  edges.forEach((edge, index) => {
+    source[index] = topology.indexById.get(edge.source) ?? -1;
+    target[index] = topology.indexById.get(edge.target) ?? -1;
+  });
+  topology.edgePairs = { edges, source, target };
+  return topology.edgePairs;
 }
 
 /**
@@ -272,65 +302,69 @@ export function stepLayout(
     topologyCache.set(layoutNodes, topology);
   }
 
-  const forces = layoutNodes.map(() => ({ x: 0, y: 0 }));
-  const byId = new Map<string, number>();
+  const count = layoutNodes.length;
+  const forceX = new Float64Array(count);
+  const forceY = new Float64Array(count);
+  const radii = topology.radii;
   const repulsionRange = opts.optimalDistance * FORCE_CONSTANTS.repulsionRangeMultiplier;
+  const repulsionRangeSquared = repulsionRange * repulsionRange;
   const cellSize = repulsionRange;
-  const grid = new Map<string, number[]>();
+  const grid = new Map<number, number[]>();
 
-  for (let index = 0; index < layoutNodes.length; index++) {
+  for (let index = 0; index < count; index++) {
     const node = layoutNodes[index];
-    byId.set(node.id, index);
-    const key = `${Math.floor(node.x / cellSize)},${Math.floor(node.y / cellSize)}`;
+    const key = cellKey(Math.floor(node.x / cellSize), Math.floor(node.y / cellSize));
     const bucket = grid.get(key);
     if (bucket) bucket.push(index);
     else grid.set(key, [index]);
   }
 
-  for (let index = 0; index < layoutNodes.length; index++) {
+  for (let index = 0; index < count; index++) {
     const node = layoutNodes[index];
     const cellX = Math.floor(node.x / cellSize);
     const cellY = Math.floor(node.y / cellSize);
     for (let offsetX = -1; offsetX <= 1; offsetX++) {
       for (let offsetY = -1; offsetY <= 1; offsetY++) {
-        const bucket = grid.get(`${cellX + offsetX},${cellY + offsetY}`);
+        const bucket = grid.get(cellKey(cellX + offsetX, cellY + offsetY));
         if (!bucket) continue;
         for (const otherIndex of bucket) {
           if (otherIndex <= index) continue;
           const other = layoutNodes[otherIndex];
           let dx = node.x - other.x;
           let dy = node.y - other.y;
-          let distance = Math.hypot(dx, dy);
+          const squared = dx * dx + dy * dy;
+          // Most pairs in the 3x3 cells are out of range; reject them before
+          // the square root, which is where a 5,000-note step spent its time.
+          if (squared > repulsionRangeSquared) continue;
+          let distance = Math.sqrt(squared);
           if (distance < 0.001) {
             const angle = ((index + 1) * 97 + (otherIndex + 1) * 53) % 360;
             dx = Math.cos((angle * Math.PI) / 180);
             dy = Math.sin((angle * Math.PI) / 180);
             distance = 1;
           }
-          if (distance > repulsionRange) continue;
 
-          const minimum = collisionRadius(node) + collisionRadius(other);
+          const minimum = radii[index] + radii[otherIndex];
           const repulsion = FORCE_CONSTANTS.repulsionStrength / Math.max(distance, 12);
           const collision =
             distance < minimum ? (minimum - distance) * FORCE_CONSTANTS.collisionStrength + 0.8 : 0;
           const force = repulsion + collision;
           const fx = (dx / distance) * force;
           const fy = (dy / distance) * force;
-          forces[index].x += fx;
-          forces[index].y += fy;
-          forces[otherIndex].x -= fx;
-          forces[otherIndex].y -= fy;
+          forceX[index] += fx;
+          forceY[index] += fy;
+          forceX[otherIndex] -= fx;
+          forceY[otherIndex] -= fy;
         }
       }
     }
   }
 
-  for (const edge of edges) {
-    const sourceIndex = byId.get(edge.source);
-    const targetIndex = byId.get(edge.target);
-    if (sourceIndex === undefined || targetIndex === undefined || sourceIndex === targetIndex) {
-      continue;
-    }
+  const pairs = edgePairsFor(topology, edges);
+  for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
+    const sourceIndex = pairs.source[edgeIndex];
+    const targetIndex = pairs.target[edgeIndex];
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) continue;
     const source = layoutNodes[sourceIndex];
     const target = layoutNodes[targetIndex];
     const dx = target.x - source.x;
@@ -339,10 +373,10 @@ export function stepLayout(
     const force = (distance - opts.optimalDistance) * FORCE_CONSTANTS.springStrength;
     const fx = (dx / distance) * force;
     const fy = (dy / distance) * force;
-    forces[sourceIndex].x += fx;
-    forces[sourceIndex].y += fy;
-    forces[targetIndex].x -= fx;
-    forces[targetIndex].y -= fy;
+    forceX[sourceIndex] += fx;
+    forceY[sourceIndex] += fy;
+    forceX[targetIndex] -= fx;
+    forceY[targetIndex] -= fy;
   }
 
   for (const component of topology.components) {
@@ -356,10 +390,10 @@ export function stepLayout(
     centerY /= component.indices.length;
     for (const index of component.indices) {
       const node = layoutNodes[index];
-      forces[index].x += (centerX - node.x) * FORCE_CONSTANTS.componentGravity;
-      forces[index].y += (centerY - node.y) * FORCE_CONSTANTS.componentGravity;
-      forces[index].x += (component.anchorX - centerX) * FORCE_CONSTANTS.componentAnchorStrength;
-      forces[index].y += (component.anchorY - centerY) * FORCE_CONSTANTS.componentAnchorStrength;
+      forceX[index] += (centerX - node.x) * FORCE_CONSTANTS.componentGravity;
+      forceY[index] += (centerY - node.y) * FORCE_CONSTANTS.componentGravity;
+      forceX[index] += (component.anchorX - centerX) * FORCE_CONSTANTS.componentAnchorStrength;
+      forceY[index] += (component.anchorY - centerY) * FORCE_CONSTANTS.componentAnchorStrength;
     }
   }
 
@@ -367,8 +401,8 @@ export function stepLayout(
     const nodeTopology = topology.nodes[index];
     if (nodeTopology.componentIndex !== null) continue;
     const node = layoutNodes[index];
-    forces[index].x += (nodeTopology.targetX - node.x) * FORCE_CONSTANTS.orphanAnchorStrength;
-    forces[index].y += (nodeTopology.targetY - node.y) * FORCE_CONSTANTS.orphanAnchorStrength;
+    forceX[index] += (nodeTopology.targetX - node.x) * FORCE_CONSTANTS.orphanAnchorStrength;
+    forceY[index] += (nodeTopology.targetY - node.y) * FORCE_CONSTANTS.orphanAnchorStrength;
   }
 
   const halfWidth = opts.width / 2;
@@ -380,8 +414,8 @@ export function stepLayout(
       node.vy = 0;
       continue;
     }
-    node.vx = (node.vx + forces[index].x) * FORCE_CONSTANTS.velocityDamping;
-    node.vy = (node.vy + forces[index].y) * FORCE_CONSTANTS.velocityDamping;
+    node.vx = (node.vx + forceX[index]) * FORCE_CONSTANTS.velocityDamping;
+    node.vy = (node.vy + forceY[index]) * FORCE_CONSTANTS.velocityDamping;
     const speed = Math.hypot(node.vx, node.vy);
     if (speed > temperature && speed > 0) {
       node.vx = (node.vx / speed) * temperature;
@@ -390,7 +424,7 @@ export function stepLayout(
     node.x += node.vx;
     node.y += node.vy;
 
-    const margin = collisionRadius(node);
+    const margin = radii[index];
     const minX = -halfWidth + margin;
     const maxX = halfWidth - margin;
     const minY = -halfHeight + margin;
