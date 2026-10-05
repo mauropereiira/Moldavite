@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { DialogSurface } from './DialogSurface';
+import { CloseButton } from './CloseButton';
 
 interface ConfirmDialogProps {
   title: string;
@@ -41,13 +42,16 @@ export function ConfirmDialog({
         style={{ borderRadius: 'var(--radius-md)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3
-          id="confirm-dialog-title"
-          className="text-base font-semibold mb-2"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {title}
-        </h3>
+        <div className="dialog-head">
+          <h3
+            id="confirm-dialog-title"
+            className="text-base font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {title}
+          </h3>
+          <CloseButton onClick={onCancel} label="Close" disabled={busy} />
+        </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
           {message}
         </p>

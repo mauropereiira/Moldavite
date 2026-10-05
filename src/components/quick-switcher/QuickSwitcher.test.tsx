@@ -98,8 +98,8 @@ describe('QuickSwitcher close control', () => {
 
     const close = screen.getByRole('button', { name: 'Close search' });
     expect(close.parentElement).toBe(screen.getByRole('textbox').parentElement);
-    expect(close.style.width).toBe('var(--touch-target)');
-    expect(close.style.height).toBe('var(--touch-target)');
+    // The shared ×; mobile.css makes every one a 44pt target.
+    expect(close).toHaveClass('close-button');
 
     fireEvent.click(close);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);

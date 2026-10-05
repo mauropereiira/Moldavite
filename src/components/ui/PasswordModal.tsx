@@ -1,8 +1,9 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
-import { X, Lock, Unlock, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 import { checkPasswordStrength, type PasswordStrength } from '@/lib/validation';
 import { isHoldingKeyboard } from '@/lib/noteTitleFocus';
 import { DialogSurface } from './DialogSurface';
+import { CloseButton } from './CloseButton';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -206,13 +207,7 @@ export function PasswordModal({ isOpen, onClose, onSubmit, mode, noteTitle }: Pa
               {titles[mode]}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="btn btn-ghost p-1 focus-ring mobile:shrink-0"
-            aria-label="Close password dialog"
-          >
-            <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-          </button>
+          <CloseButton onClick={onClose} label="Close password dialog" />
         </div>
 
         <form onSubmit={handleSubmit}>

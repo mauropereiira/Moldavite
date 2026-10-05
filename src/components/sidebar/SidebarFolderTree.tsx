@@ -114,7 +114,11 @@ export function SidebarFolderTree({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No folders yet.</span>{' '}
-              <button onClick={onNewFolder} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onNewFolder}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 New folder
               </button>
             </div>

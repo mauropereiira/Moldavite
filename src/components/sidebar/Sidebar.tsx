@@ -66,6 +66,7 @@ import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { isPrimaryModifier } from '@/lib/shortcuts';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface SidebarProps {
   presentation?: 'panel' | 'index';
@@ -1104,9 +1105,12 @@ export function Sidebar({
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Trash Notes
-            </h3>
+            <div className="dialog-head">
+              <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Trash Notes
+              </h3>
+              <CloseButton onClick={() => setShowBulkTrashConfirm(false)} label="Close" />
+            </div>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Move {useNoteSelectionStore.getState().selectedIds.size} note
               {useNoteSelectionStore.getState().selectedIds.size === 1 ? '' : 's'} to trash? They

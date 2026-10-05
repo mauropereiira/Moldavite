@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 // Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
 // Forge's slot. Resolved per call, never once at module load: the active-Forge
@@ -464,13 +465,16 @@ export function SettingsData() {
               borderRadius: 'var(--radius-md)',
             }}
           >
-            <h3
-              id="settings-data-import-title"
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Import Notes
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="settings-data-import-title"
+                className="text-lg font-semibold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Import Notes
+              </h3>
+              <CloseButton onClick={() => setPendingZipPath(null)} label="Close" />
+            </div>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               How would you like to import the notes?
             </p>
@@ -554,6 +558,15 @@ export function SettingsData() {
                   AES-256 encrypted archive
                 </p>
               </div>
+              <CloseButton
+                onClick={() => {
+                  setShowEncryptedExport(false);
+                  setExportPw('');
+                  setExportPwConfirm('');
+                }}
+                label="Close"
+                className="ml-auto self-start"
+              />
             </div>
             <div className="space-y-3 mb-4">
               <div>
@@ -685,6 +698,15 @@ export function SettingsData() {
                   Enter the password to decrypt
                 </p>
               </div>
+              <CloseButton
+                onClick={() => {
+                  setShowEncryptedImport(false);
+                  setPendingBackupPath(null);
+                  setImportPw('');
+                }}
+                label="Close"
+                className="ml-auto self-start"
+              />
             </div>
             <div className="space-y-3 mb-4">
               <div>

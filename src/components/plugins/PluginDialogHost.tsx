@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { Globe2, Puzzle, X } from 'lucide-react';
+import { Globe2, Puzzle } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   getPluginDialogSnapshot,
@@ -11,6 +11,7 @@ import type { PluginPromptOptions } from '@/lib/plugins/types';
 import { unloadPlugin } from '@/lib/plugins/host';
 import { usePluginStore } from '@/stores/pluginStore';
 import { useToastStore } from '@/stores/toastStore';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 /**
  * Always in reach of the user, because a plugin that reopens its prompt every
@@ -157,19 +158,12 @@ export function PluginDialogHost() {
             <button
               type="button"
               onClick={() => turnOffPlugin(request.pluginId, request.pluginName)}
-              className="text-xs hover:underline focus-ring"
+              className="pad-hover text-xs focus-ring"
               style={{ color: 'var(--text-tertiary)', borderRadius: 'var(--radius-sm)' }}
             >
               Turn off plugin
             </button>
-            <button
-              type="button"
-              onClick={cancel}
-              className="p-1 focus-ring"
-              aria-label="Cancel plugin request"
-            >
-              <X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
-            </button>
+            <CloseButton onClick={cancel} label="Cancel plugin request" />
           </div>
         </div>
 

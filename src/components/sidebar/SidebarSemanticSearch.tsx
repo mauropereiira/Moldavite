@@ -21,7 +21,7 @@ export function SearchModeChips({
         type="button"
         onClick={() => onModeChange(target)}
         aria-pressed={isActive}
-        className="text-[11px] transition-colors focus-ring"
+        className="pad-hover text-[11px] transition-colors focus-ring"
         style={{
           color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
           fontWeight: isActive ? 500 : 400,
@@ -123,7 +123,11 @@ export function SidebarSemanticResults({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No results for “{query}”.</span>{' '}
-              <button onClick={onClear} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onClear}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Clear search
               </button>
             </div>

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import {
   SHORTCUTS,
   CATEGORY_LABELS,
@@ -10,6 +9,7 @@ import {
   type Shortcut,
   type ShortcutCategory,
 } from '@/lib/shortcuts';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface ShortcutHelpModalProps {
   isOpen: boolean;
@@ -94,14 +94,7 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
           >
             Keyboard Shortcuts
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1 transition-colors focus-ring"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            aria-label="Close shortcut help"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose} label="Close shortcut help" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -141,27 +134,6 @@ export function ShortcutHelpModal({ isOpen, onClose }: ShortcutHelpModalProps) {
               </section>
             );
           })}
-        </div>
-
-        <div
-          className="px-6 py-3 text-xs"
-          style={{
-            borderTop: '1px solid var(--border-default)',
-            color: 'var(--text-muted)',
-          }}
-        >
-          Press{' '}
-          <kbd
-            className="px-1.5 py-0.5 font-mono"
-            style={{
-              backgroundColor: 'var(--bg-elevated)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            {formatShortcut('Esc')}
-          </kbd>{' '}
-          to close
         </div>
       </div>
     </div>,

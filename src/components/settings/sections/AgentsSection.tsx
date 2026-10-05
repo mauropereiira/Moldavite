@@ -280,7 +280,7 @@ function McpServerBlock() {
           onClick={() => setPathExpanded((expanded) => !expanded)}
           aria-expanded={pathExpanded}
           aria-controls="mcp-install-path"
-          className="flex items-center gap-1.5 text-xs font-medium focus-ring"
+          className="pad-hover flex items-center gap-1.5 text-xs font-medium focus-ring"
           style={{ color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)' }}
         >
           <ChevronRight
@@ -297,7 +297,7 @@ function McpServerBlock() {
                 type="button"
                 onClick={() => void copy(binaryPath)}
                 disabled={!binaryPath}
-                className="text-xs disabled:opacity-50"
+                className="pad-hover text-xs disabled:opacity-50"
                 style={{ color: 'var(--accent-primary)' }}
                 aria-label="Copy path to your Moldavite install"
               >
@@ -397,7 +397,7 @@ function SetupSnippet({
           type="button"
           onClick={onCopy}
           disabled={disabled}
-          className="flex items-center gap-1 text-xs disabled:opacity-50"
+          className="pad-hover flex items-center gap-1 text-xs disabled:opacity-50"
           style={{ color: 'var(--accent-primary)' }}
           aria-label={`Copy ${label}`}
         >

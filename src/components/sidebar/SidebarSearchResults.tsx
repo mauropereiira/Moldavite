@@ -78,7 +78,11 @@ export function SidebarSearchResults({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No results for “{query}”.</span>{' '}
-              <button onClick={onClear} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onClear}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Clear search
               </button>
             </div>

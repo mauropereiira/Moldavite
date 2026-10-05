@@ -585,7 +585,7 @@ export function PluginsSection() {
                       <button
                         type="button"
                         onClick={() => setSheet({ info, mode: 'view' })}
-                        className="text-xs hover:underline"
+                        className="pad-hover text-xs"
                         style={{ color: 'var(--accent-primary)', background: 'transparent' }}
                       >
                         View permissions
@@ -595,7 +595,7 @@ export function PluginsSection() {
                       type="button"
                       onClick={() => setPendingUninstall(info)}
                       disabled={busy}
-                      className="text-xs flex items-center gap-1 hover:underline"
+                      className="pad-hover text-xs flex items-center gap-1"
                       style={{ color: 'var(--text-tertiary)', background: 'transparent' }}
                     >
                       <Trash2 aria-hidden="true" className="w-3 h-3" />
@@ -728,7 +728,7 @@ export function PluginsSection() {
             <button
               type="button"
               onClick={() => openExternal(RECOVERY_DOC_URL)}
-              className="underline"
+              className="pad-hover-inline underline"
               style={{ color: 'var(--accent-primary)', background: 'transparent' }}
             >
               start it without plugins
@@ -924,7 +924,7 @@ export function PluginsSection() {
                       <button
                         type="button"
                         onClick={() => openExternal(communityPluginSourceUrl(plugin))}
-                        className="text-xs hover:underline"
+                        className="pad-hover text-xs"
                         style={{ color: 'var(--accent-primary)', background: 'transparent' }}
                       >
                         View source
@@ -936,7 +936,7 @@ export function PluginsSection() {
                             `${COMMUNITY_REPORT_URL}&title=${encodeURIComponent(`Report: ${plugin.id}`)}`
                           )
                         }
-                        className="text-xs hover:underline"
+                        className="pad-hover text-xs"
                         style={{ color: 'var(--text-tertiary)', background: 'transparent' }}
                       >
                         Report a problem

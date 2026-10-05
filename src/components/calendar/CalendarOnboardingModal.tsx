@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 export function CalendarOnboardingModal() {
   const { sources, hasSeenOnboarding, setHasSeenOnboarding } = useCalendarStore();
@@ -46,14 +47,7 @@ export function CalendarOnboardingModal() {
         className="max-w-md mx-4 modal-elevated modal-content-enter overflow-hidden"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 focus-ring text-xs transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-          aria-label="Close"
-        >
-          Close
-        </button>
+        <CloseButton onClick={handleClose} label="Close" className="absolute top-3 right-3" />
 
         <div className="p-8 text-center">
           <div

@@ -156,8 +156,7 @@ html[data-platform='mobile']
 
   html[data-platform='mobile']
     :is(
-      .app-overlay-close,
-      .quick-switcher-close,
+      .close-button,
       .timeline-view-close,
       .app-onboarding-scrim button,
       .app-trash-overlay button,
@@ -314,14 +313,12 @@ html[data-platform='mobile'] .app-overlay-hint {
   display: none;
 }
 
-/* The × keeps its 24px glyph inside a 44px hit box. */
-html[data-platform='mobile'] .app-overlay-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
+/* Every close control is a 44pt target. The negative margin keeps its glyph
+   where the 28px desktop box puts it, so no header grows. */
+html[data-platform='mobile'] .close-button {
   width: var(--touch-target);
   height: var(--touch-target);
+  margin: -8px;
 }
 
 /* Index: the row is absolutely positioned inline, so its offsets are
@@ -933,15 +930,6 @@ html[data-platform='mobile'] .modal-elevated .dialog-action {
   min-height: var(--touch-target);
 }
 
-html[data-platform='mobile'] .modal-elevated .dialog-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  margin: -10px -12px -10px 0;
-}
-
 /* Context menus and the trash popover: fixed at the pointer, so they can
    otherwise run off a narrow screen. */
 html[data-platform='mobile'] .impact-surface.fixed {
@@ -972,13 +960,6 @@ html[data-platform='mobile'] .wn-body {
 
 html[data-platform='mobile'] .wn-version {
   font-size: 36px;
-}
-
-html[data-platform='mobile'] .wn-close {
-  top: -6px;
-  right: -6px;
-  width: var(--touch-target);
-  height: var(--touch-target);
 }
 
 html[data-platform='mobile'] .wn-footer {

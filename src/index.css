@@ -181,6 +181,15 @@
   --radius-3xl: 0;
   --radius-4xl: 0;
 
+  /* CONTROL PADDING
+     Room between a control's hover or active fill and its letters. The fill
+     itself is --hover-overlay and --active-overlay, painted on every button
+     by INTERACTION FILLS. A text control takes --control-pad-*; a list row
+     whose fill spans the row takes --row-pad-x at each side. */
+  --control-pad-y: 3px;
+  --control-pad-x: 6px;
+  --row-pad-x: 8px;
+
   /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;
@@ -1510,19 +1519,6 @@ html:not([data-platform='mobile'])
   background: var(--hover-overlay) !important;
 }
 
-.settings-close {
-  min-width: 28px;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
-}
-
-.settings-close:hover {
-  color: var(--text-primary) !important;
-  background: var(--hover-overlay) !important;
-}
-
 .settings-dialog [role='tabpanel'] > div {
   color: var(--text-secondary);
 }
@@ -1992,22 +1988,51 @@ html:not([data-platform='mobile'])
   pointer-events: auto;
 }
 
-.note-corner-button {
+/* The close control everywhere (CloseButton) shares the corner's look: a
+   16px hairline × in a 28px square that takes the hover fill. */
+:is(.note-corner-button, .close-button) {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
+  padding: 0;
   color: var(--text-muted);
   transition:
     color var(--dur-micro) var(--ease-standard),
     background-color var(--dur-micro) var(--ease-standard);
 }
 
-.note-corner-button:hover,
-.note-corner-button:focus-visible {
+:is(.note-corner-button, .close-button):hover {
   color: var(--text-primary);
   background: var(--hover-overlay);
+}
+
+/* Surfaces hand the × focus as they open; the ring alone marks it, so a
+   dialog opened from the keyboard does not show a filled box at rest. */
+:is(.note-corner-button, .close-button):focus-visible {
+  color: var(--text-primary);
+}
+
+.close-button-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* A small dialog's title row: the title, then the × at the top-right, its
+   glyph lined up with the content edge. */
+.dialog-head {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-head > .close-button {
+  margin: -2px -6px 0 0;
 }
 
 .note-corner-button[data-on] {
@@ -2825,16 +2850,6 @@ wiki-link {
   position: absolute;
   top: 0;
   right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 1;
-  background: transparent;
 }
 
 .wn-section {
@@ -2872,8 +2887,9 @@ wiki-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 1rem 0;
+  width: calc(100% + 2 * var(--row-pad-x));
+  margin-inline: calc(-1 * var(--row-pad-x));
+  padding: 1rem var(--row-pad-x);
   text-align: left;
   background: transparent;
 }
@@ -2919,8 +2935,6 @@ button[aria-expanded='true'] .wn-caret {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
   background: transparent;
 }
 
@@ -4294,19 +4308,29 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 }
 
 /* SMALL CHROME CONTROLS
-   Text buttons in the chrome: section titles and actions, the Index's links,
-   the welcome actions, row Options and the calendar arrows. Every button gets
-   the hover fill below; these give it room round the letters, as the footer's
-   controls have, and the negative margins keep each one where it was laid
-   out. */
+   The one padded-hover rule for text controls: section titles and actions,
+   the Index's links, empty-state actions, the welcome actions, the calendar
+   arrows, toast actions and the text buttons in Settings, Graph and plugin
+   dialogs. Every button gets the hover fill; this gives it room round the
+   letters, and the negative margins keep each one where it was laid out.
+   Add `pad-hover` to a new text control rather than another selector here. */
 :is(
+  .pad-hover,
   .section-header button,
   .sidebar-footer-links .text-link,
   .welcome-note-action,
   .calendar-nav-button
 ) {
-  padding: 3px 6px;
-  margin: -3px -6px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin: calc(-1 * var(--control-pad-y)) calc(-1 * var(--control-pad-x));
+}
+
+/* A control inside a sentence ("No folders yet. New folder") keeps its word
+   spaces and pads inside them, so its fill never reaches a neighbouring
+   letter; the sentence makes room rather than the fill overlapping it. */
+.pad-hover-inline {
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin: calc(-1 * var(--control-pad-y)) 0;
 }
 
 /* The Forge switcher: a captioned name with a caret, the same padded fill,
@@ -4393,8 +4417,8 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 
 /* Options sits absolutely at the row's end, so only its own edge moves back. */
 .row-options {
-  padding: 3px 6px;
-  margin-right: -6px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin-right: calc(-1 * var(--control-pad-x));
 }
 
 .editor-footer :is(.toolbar-button, .editor-footer-overflow-toggle)[aria-expanded='true'],
@@ -5613,11 +5637,6 @@ button.editor-index-trigger:not(:disabled):hover {
   max-height: 82vh;
   padding: 1.5rem;
   overflow-y: auto;
-}
-
-.obs-import-close {
-  padding: 0.25rem;
-  color: var(--text-muted);
 }
 
 .obs-import-grid {

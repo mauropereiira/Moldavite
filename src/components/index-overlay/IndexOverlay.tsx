@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { formatShortcut } from '@/lib/shortcuts';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { isMobilePlatform } from '@/lib/platform';
 
 interface IndexOverlayProps {
@@ -42,54 +43,17 @@ export function IndexOverlay({ isOpen, onClose }: IndexOverlayProps) {
       aria-label="Index"
       tabIndex={-1}
     >
-      {/* Hint and close button in one row, anchored top-right.
-          They have been wrong twice: first as two separately positioned
-          elements 32px apart, which read as one crowded object on a narrow
-          window; then with the hint moved to the top-left, where it landed on
-          top of the Forge name in the sidebar's own header. Neither had a
-          reason to be independently positioned. As a flex row they keep their
-          gap whatever the text, and they stay out of the header entirely. */}
+      {/* Anchored top-right, level with the Forge name. The shortcut is in
+          the tooltip, not a hint line, so nothing crowds the Forge name. */}
       <div
         className="app-overlay-controls"
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '24px',
-          zIndex: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-        }}
+        style={{ position: 'absolute', top: '16px', right: '20px', zIndex: 2 }}
       >
-        <span
-          className="app-overlay-hint"
-          style={{
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-display)',
-            fontSize: '10px',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-          }}
-        >
-          {formatShortcut('⌘\\')} · Esc closes
-        </span>
-        <button
-          type="button"
+        <CloseButton
           onClick={onClose}
-          className="focus-ring app-overlay-close"
-          style={{
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-display)',
-            fontSize: '24px',
-            lineHeight: 1,
-          }}
-          aria-label="Close Index"
-          title="Close Index (Esc)"
-        >
-          ×
-        </button>
+          label="Close Index"
+          shortcut={`Esc, ${formatShortcut('⌘\\')}`}
+        />
       </div>
 
       {/* Auto-focus would raise the keyboard over the list on a phone. */}

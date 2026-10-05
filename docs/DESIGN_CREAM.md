@@ -197,6 +197,19 @@ at `strokeWidth={1.25}` in `--text-muted`. Anything heavier reads as a different
 This rule was once written as "zero icons in chrome" and that went too far —
 removing the folder glyph made the Index harder to scan, not cleaner.
 
+**One close control.** Every overlay, page and dialog closes with the same
+thin × the open note has in its corner: `CloseButton`, a 16px `X` at
+`strokeWidth={1.25}` in a 28px square (44pt on a phone) that takes the hover
+fill. Its tooltip carries the shortcut, such as "Close (Esc)"; there is no
+hint line beside it.
+
+**Padded hover.** A hover or pressed fill never touches the letters. Text
+controls take `--control-pad-y` by `--control-pad-x` (3px by 6px) with matching
+negative margins, so nothing moves (`pad-hover`, or `pad-hover-inline` inside a
+sentence); a row whose fill spans the list takes `--row-pad-x` at each side.
+The fill is always `--hover-overlay`, and `--active-overlay` while pressed.
+Chrome controls never underline; underlines belong to links in a note.
+
 **No fills, no boxes.** Selection is a 2px ink left-marker, not a filled card.
 Counts are plain right-aligned numerals, not badge pills. Tags are plain
 `#tag` text. Buttons are type on a hairline. Nothing has a background tint

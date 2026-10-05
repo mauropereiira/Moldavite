@@ -1,4 +1,5 @@
-import { Pin, PinOff, X } from 'lucide-react';
+import { Pin, PinOff } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { formatShortcut } from '@/lib/shortcuts';
 import { isLooseId } from '@/lib/looseId';
 import { useQuickSwitcherStore } from '@/stores';
@@ -39,15 +40,11 @@ export function NoteCloseButton({
           )}
         </button>
       )}
-      <button
-        type="button"
-        className="note-corner-button"
+      <CloseButton
         onClick={onClose}
-        aria-label={`Close ${title} (${formatShortcut('⌘W')})`}
-        title={`Close (${formatShortcut('⌘W')})`}
-      >
-        <X className="w-4 h-4" strokeWidth={1.25} aria-hidden="true" />
-      </button>
+        label={`Close ${title} (${formatShortcut('⌘W')})`}
+        shortcut={formatShortcut('⌘W')}
+      />
     </div>
   );
 }
