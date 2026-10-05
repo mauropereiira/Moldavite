@@ -32,13 +32,13 @@
 //!
 //! Modelled on [`crate::semantic`]. Note commands, the MCP tools and the
 //! filesystem watcher call the cheap [`note_changed`] / [`note_removed`] /
-//! [`note_renamed`] hooks, which hand the work to one background worker thread
-//! so a save is never blocked. Startup, a Forge switch, the rebuild command
-//! and a 24-hour timer run [`reconcile`], which compares every note's
-//! `(mtime, size)` against the table and only hashes the ones that differ. A
-//! missing file, a `schema_version` mismatch or a `forge_root` mismatch drops
-//! the tables, and the index is not trusted again until the next reconcile
-//! stamps `last_reconcile_ms`.
+//! [`note_renamed`] / [`folder_changed_in`] hooks, which hand the work to one
+//! background worker thread so a save is never blocked. Startup, a Forge
+//! switch, the rebuild command and a 24-hour timer run [`reconcile`], which
+//! compares every note's `(mtime, size)` against the table and only hashes the
+//! ones that differ. A missing file, a `schema_version` mismatch or a
+//! `forge_root` mismatch drops the tables, and the index is not trusted again
+//! until the next reconcile stamps `last_reconcile_ms`.
 //!
 //! # Two processes
 //!
@@ -420,6 +420,7 @@ enum Job {
     Changed(PathBuf, String),
     Removed(PathBuf, String),
     Renamed(PathBuf, String, String),
+    Folder(PathBuf, String),
 }
 
 static WORKER: OnceLock<Option<Sender<Job>>> = OnceLock::new();
@@ -452,6 +453,12 @@ fn apply(job: Job) {
         Job::Changed(root, rel) => (root, vec![(rel, true)]),
         Job::Removed(root, rel) => (root, vec![(rel, false)]),
         Job::Renamed(root, old, new) => (root, vec![(old, false), (new, true)]),
+        Job::Folder(root, rel_dir) => {
+            if let Err(error) = reconcile_now(&handle(&root), &root, Some(&rel_dir)) {
+                log::warn!("[search index] folder update failed: {error}");
+            }
+            return;
+        }
     };
     let index = handle(&forge_root);
     let result = index.with_conn(true, |conn| {
@@ -525,6 +532,13 @@ pub(crate) fn note_renamed_in(old_rel: &str, new_rel: &str, forge_root: PathBuf)
         old_rel.to_string(),
         new_rel.to_string(),
     ));
+}
+
+/// A folder (`notes/A`, `daily`) was renamed, moved or removed by another
+/// process, which the watcher sees as one event for the folder and none for
+/// the notes inside. Reconciling just that folder re-keys them.
+pub(crate) fn folder_changed_in(rel_dir: &str, forge_root: PathBuf) {
+    enqueue(Job::Folder(forge_root, rel_dir.to_string()));
 }
 
 /// Every note was deleted (`clear_all_notes`).
@@ -654,7 +668,7 @@ pub(crate) fn reconcile(forge_root: &Path) -> Result<u64, String> {
         return Ok(index.snapshot().1);
     }
     let started = SystemTime::now();
-    let result = reconcile_now(&index, forge_root);
+    let result = reconcile_now(&index, forge_root, None);
     index.building.store(false, Ordering::SeqCst);
     match &result {
         Ok(count) => log::info!(
@@ -724,8 +738,15 @@ impl ReconcileWrite {
 /// Walking and reading the Forge happens without the connection lock, which
 /// is taken only to read the stored stats and then once per write batch, so a
 /// search during the reconcile of a large Forge is not stuck behind the walk.
-fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
-    let existing: HashMap<String, (i64, i64, String)> = index.with_conn(true, |conn| {
+///
+/// `folder` limits the pass to the notes under one folder, and such a partial
+/// pass does not mark the index as reconciled.
+fn reconcile_now(
+    index: &ForgeIndex,
+    forge_root: &Path,
+    folder: Option<&str>,
+) -> Result<u64, String> {
+    let mut existing: HashMap<String, (i64, i64, String)> = index.with_conn(true, |conn| {
         let mut stmt = conn.prepare("SELECT path, mtime_ms, size, hash FROM notes")?;
         let rows = stmt.query_map([], |row| {
             Ok((
@@ -740,7 +761,14 @@ fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
         rows.collect()
     })?;
 
-    let candidates = crate::semantic::scan_note_paths(forge_root);
+    let candidates = match folder {
+        Some(rel_dir) => {
+            let prefix = format!("{rel_dir}/");
+            existing.retain(|path, _| path.starts_with(&prefix));
+            crate::semantic::scan_note_paths_in(forge_root, rel_dir)
+        }
+        None => crate::semantic::scan_note_paths(forge_root),
+    };
     let mut kept: HashSet<String> = HashSet::with_capacity(candidates.len());
     let mut writes = Vec::new();
     for (abs, rel) in &candidates {
@@ -789,9 +817,11 @@ fn reconcile_now(index: &ForgeIndex, forge_root: &Path) -> Result<u64, String> {
             tx.commit()
         })?;
     }
-    index.with_conn(true, |conn| {
-        meta_set(conn, "last_reconcile_ms", &now_ms().to_string())
-    })?;
+    if folder.is_none() {
+        index.with_conn(true, |conn| {
+            meta_set(conn, "last_reconcile_ms", &now_ms().to_string())
+        })?;
+    }
     Ok(kept.len() as u64)
 }
 
@@ -811,7 +841,7 @@ pub(crate) fn rebuild(forge_root: &Path) -> Result<u64, String> {
                  DELETE FROM meta WHERE key = 'last_reconcile_ms';",
             )
         })
-        .and_then(|()| reconcile_now(&index, forge_root));
+        .and_then(|()| reconcile_now(&index, forge_root, None));
     index.building.store(false, Ordering::SeqCst);
     result
 }

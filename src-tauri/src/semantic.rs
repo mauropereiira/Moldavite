@@ -437,35 +437,64 @@ fn push_note_source(abs: &Path, rel_path: String, out: &mut Vec<NoteSource>) {
 /// deciding whether reading it is worth the cost.
 pub(crate) fn scan_note_paths(forge_root: &Path) -> Vec<(PathBuf, String)> {
     let mut out = Vec::new();
-    // Daily and weekly notes live flat at the top level.
     for top in ["daily", "weekly"] {
-        let dir = forge_root.join(top);
-        let Ok(entries) = fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if name.starts_with('.') || !name.ends_with(".md") {
-                continue;
-            }
-            if fs::symlink_metadata(&path)
-                .map(|m| m.file_type().is_symlink())
-                .unwrap_or(true)
-                || !path.is_file()
-            {
-                continue;
-            }
-            let rel = format!("{}/{}", top, name);
-            out.push((path, rel));
-        }
+        scan_flat(forge_root, top, &mut out);
     }
     // Standalone notes may live in nested folders.
     let notes_dir = forge_root.join("notes");
     scan_standalone(&notes_dir, "", &mut out);
     out
+}
+
+/// [`scan_note_paths`] for one folder and everything under it: `daily`,
+/// `weekly`, `notes` or `notes/A/B`. A symlink on the way down to the folder
+/// yields nothing, since the full scan never descends through one.
+pub(crate) fn scan_note_paths_in(forge_root: &Path, rel_dir: &str) -> Vec<(PathBuf, String)> {
+    let mut out = Vec::new();
+    match rel_dir.split_once('/') {
+        None if rel_dir == "daily" || rel_dir == "weekly" => {
+            scan_flat(forge_root, rel_dir, &mut out)
+        }
+        None if rel_dir == "notes" => scan_standalone(&forge_root.join("notes"), "", &mut out),
+        Some(("notes", rest)) => {
+            let mut dir = forge_root.join("notes");
+            for part in rest.split('/') {
+                dir.push(part);
+                if !fs::symlink_metadata(&dir).is_ok_and(|meta| meta.is_dir()) {
+                    return out;
+                }
+            }
+            scan_standalone(&dir, rest, &mut out);
+        }
+        _ => {}
+    }
+    out
+}
+
+/// Daily and weekly notes live flat at the top level.
+fn scan_flat(forge_root: &Path, top: &str, out: &mut Vec<(PathBuf, String)>) {
+    let dir = forge_root.join(top);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.') || !name.ends_with(".md") {
+            continue;
+        }
+        if fs::symlink_metadata(&path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(true)
+            || !path.is_file()
+        {
+            continue;
+        }
+        let rel = format!("{}/{}", top, name);
+        out.push((path, rel));
+    }
 }
 
 /// Collect every unlocked, non-empty markdown note in the Forge, bodies

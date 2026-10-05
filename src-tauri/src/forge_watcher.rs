@@ -10,7 +10,7 @@
 //! short-lived hints, not durable state; paths are normalized relative to the
 //! watched Forge and hidden/internal files never emit events.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -184,6 +184,15 @@ fn is_relevant(rel: &str) -> bool {
     last.ends_with(".md") || last.ends_with(".md.locked") || last.ends_with(".json")
 }
 
+/// A folder that can hold notes, at any depth, or one of the three note roots.
+fn is_note_folder(rel: &str) -> bool {
+    matches!(rel.split('/').next(), Some("daily" | "weekly" | "notes"))
+        && !is_relevant(rel)
+        && rel
+            .split('/')
+            .all(|part| !part.is_empty() && !part.starts_with('.'))
+}
+
 /// Push one debounced, non-self-write filesystem event into the keyword and
 /// backlinks indexes. This is the improvement over the semantic index, which
 /// waits for its next reconcile: an agent, a sync client or another editor
@@ -196,6 +205,10 @@ fn is_relevant(rel: &str) -> bool {
 /// the new one present — and therefore needs no special case. A `.md.locked`
 /// event removes the plaintext path it replaced.
 fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksIndex>) {
+    if is_note_folder(rel) {
+        index_external_folder_change(root, rel, backlinks);
+        return;
+    }
     let rel = match rel.strip_suffix(".locked") {
         Some(plain) => plain,
         None => rel,
@@ -211,6 +224,40 @@ fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksInd
     }
     if let Some(index) = backlinks {
         update_backlinks(index, root, rel, &path);
+    }
+}
+
+/// A folder renamed, moved in or out, or removed by another process reaches
+/// the watcher as one event for the folder and none for the notes inside, on
+/// FSEvents, inotify and ReadDirectoryChangesW alike. Both indexes are brought
+/// in line with whatever is under the folder now.
+///
+/// Windows can also report a folder as modified when a note inside it is
+/// saved, so this must stay cheap: the keyword index compares the stats it
+/// stores, and backlinks compare paths only, since a note's own event carries
+/// its content changes. An unbuilt backlinks index reads the whole Forge when
+/// it is built, so it is left alone.
+fn index_external_folder_change(root: &Path, rel_dir: &str, backlinks: Option<&BacklinksIndex>) {
+    if root.join(rel_dir).is_file() {
+        return;
+    }
+    crate::search_index::folder_changed_in(rel_dir, root.to_path_buf());
+    let Some(index) = backlinks.filter(|index| index.is_ready()) else {
+        return;
+    };
+    let on_disk: HashMap<String, PathBuf> = crate::semantic::scan_note_paths_in(root, rel_dir)
+        .into_iter()
+        .map(|(abs, rel)| (rel, abs))
+        .collect();
+    let indexed: HashSet<String> = index
+        .sources_under(&format!("{rel_dir}/"))
+        .into_iter()
+        .collect();
+    for gone in indexed.iter().filter(|rel| !on_disk.contains_key(*rel)) {
+        index.remove_note(gone);
+    }
+    for (rel, abs) in on_disk.iter().filter(|(rel, _)| !indexed.contains(*rel)) {
+        update_backlinks(index, root, rel, abs);
     }
 }
 
@@ -234,6 +281,28 @@ fn update_backlinks(index: &BacklinksIndex, root: &Path, rel: &str, path: &Path)
         Some(body) => index.update_note(rel, &body),
         None => index.remove_note(rel),
     }
+}
+
+/// Index one debounced event under the Forge. Returns the path the frontend
+/// should hear about, if any.
+fn apply_forge_event(
+    root: &Path,
+    path: &Path,
+    recent: &RecentWrites,
+    backlinks: Option<&BacklinksIndex>,
+) -> Option<String> {
+    let rel = rel_path(root, path)?;
+    let folder = is_note_folder(&rel);
+    if !folder && !is_relevant(&rel) {
+        return None;
+    }
+    if recent.matches_current_content(path) {
+        return None;
+    }
+    index_external_change(root, &rel, backlinks);
+    // Windows can report a note's folder as modified on each save, so emitting
+    // folder events could refresh the note list after every autosave there.
+    (!folder).then_some(rel)
 }
 
 /// Spawn a long-lived background thread that watches active-Forge contents and
@@ -309,19 +378,16 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         if let Err(e) = app_for_thread.emit("forges:changed", payload) {
                             log::warn!("[forge watcher] Forge-list emit failed: {}", e);
                         }
-                    } else if let Some(rel) = rel_path(&root_for_thread, &path) {
-                        if !is_relevant(&rel) {
-                            continue;
-                        }
-                        if recent_for_thread.matches_current_content(&path) {
-                            continue;
-                        }
+                    } else {
                         let backlinks = app_for_thread.try_state::<Arc<BacklinksIndex>>();
-                        index_external_change(
+                        let Some(rel) = apply_forge_event(
                             &root_for_thread,
-                            &rel,
+                            &path,
+                            &recent_for_thread,
                             backlinks.as_deref().map(Arc::as_ref),
-                        );
+                        ) else {
+                            continue;
+                        };
                         let payload = ForgeChange {
                             kind: "modified".into(),
                             rel_path: rel,
@@ -495,6 +561,347 @@ mod tests {
         });
 
         crate::search_index::delete_for(root);
+    }
+
+    fn backlink_sources(backlinks: &BacklinksIndex) -> Vec<String> {
+        let mut paths: Vec<String> = backlinks
+            .get("target.md", "Target")
+            .into_iter()
+            .map(|link| link.from_path)
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    fn search_paths(root: &Path, query: &str) -> Vec<String> {
+        let mut paths: Vec<String> = crate::search_index::query(root, root, query, 1000)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| hit.path)
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    /// A folder renamed or moved by Finder, git or a sync client reaches the
+    /// watcher as one event for the old folder and one for the new, and none
+    /// for the notes inside.
+    #[test]
+    fn a_folder_renamed_outside_the_app_moves_its_notes_in_search_and_backlinks() {
+        let tmp = TempDir::new("folder-rename");
+        let root = tmp.path();
+        fs::create_dir_all(root.join("notes/Projects/Deep")).unwrap();
+        fs::write(root.join("notes/Projects/alpha.md"), "seed [[Target]]").unwrap();
+        fs::write(root.join("notes/Projects/Deep/beta.md"), "seed [[Target]]").unwrap();
+        crate::search_index::reconcile(root).unwrap();
+        let backlinks = BacklinksIndex::new();
+        backlinks.update_note("notes/Projects/alpha.md", "seed [[Target]]");
+        backlinks.update_note("notes/Projects/Deep/beta.md", "seed [[Target]]");
+        backlinks.mark_ready_for_test();
+
+        fs::rename(root.join("notes/Projects"), root.join("notes/Plans")).unwrap();
+        index_external_change(root, "notes/Projects", Some(&backlinks));
+        index_external_change(root, "notes/Plans", Some(&backlinks));
+
+        let moved = ["notes/Plans/Deep/beta.md", "notes/Plans/alpha.md"];
+        assert_eq!(backlink_sources(&backlinks), moved);
+        wait_for(|| search_paths(root, "seed") == moved);
+
+        crate::search_index::delete_for(root);
+    }
+
+    fn write_note(root: &Path, rel: &str, body: &str) {
+        let path = root.join(rel);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, body).unwrap();
+    }
+
+    /// A Forge whose notes all say "seed" and link to Target, with both
+    /// indexes built from it.
+    fn indexed_forge(tag: &str, notes: &[&str]) -> (TempDir, BacklinksIndex) {
+        let tmp = TempDir::new(tag);
+        for rel in notes {
+            write_note(tmp.path(), rel, "seed [[Target]]");
+        }
+        crate::search_index::reconcile(tmp.path()).unwrap();
+        let backlinks = BacklinksIndex::new();
+        for rel in notes {
+            backlinks.update_note(rel, "seed [[Target]]");
+        }
+        backlinks.mark_ready_for_test();
+        (tmp, backlinks)
+    }
+
+    fn assert_indexed(root: &Path, backlinks: &BacklinksIndex, expected: &[&str]) {
+        let mut expected: Vec<String> = expected.iter().map(|rel| rel.to_string()).collect();
+        expected.sort();
+        assert_eq!(backlink_sources(backlinks), expected);
+        wait_for(|| search_paths(root, "seed") == expected);
+    }
+
+    #[test]
+    fn folders_moved_out_of_and_into_the_forge_leave_and_join_both_indexes() {
+        let (tmp, backlinks) = indexed_forge(
+            "folder-out-in",
+            &[
+                "daily/2026-01-01.md",
+                "notes/keep.md",
+                "notes/Out/one.md",
+                "notes/Out/Deep/Deeper/two.md",
+            ],
+        );
+        let root = tmp.path();
+        let outside = TempDir::new("folder-out-in-outside");
+
+        fs::rename(root.join("notes/Out"), outside.path().join("Out")).unwrap();
+        index_external_change(root, "notes/Out", Some(&backlinks));
+        assert_indexed(root, &backlinks, &["daily/2026-01-01.md", "notes/keep.md"]);
+
+        write_note(outside.path(), "In/three.md", "seed [[Target]]");
+        write_note(outside.path(), "In/Nested/four.md", "seed [[Target]]");
+        fs::rename(outside.path().join("In"), root.join("notes/In")).unwrap();
+        index_external_change(root, "notes/In", Some(&backlinks));
+        assert_indexed(
+            root,
+            &backlinks,
+            &[
+                "daily/2026-01-01.md",
+                "notes/In/Nested/four.md",
+                "notes/In/three.md",
+                "notes/keep.md",
+            ],
+        );
+
+        fs::rename(root.join("daily"), outside.path().join("daily")).unwrap();
+        index_external_change(root, "daily", Some(&backlinks));
+        assert_indexed(
+            root,
+            &backlinks,
+            &[
+                "notes/In/Nested/four.md",
+                "notes/In/three.md",
+                "notes/keep.md",
+            ],
+        );
+
+        crate::search_index::delete_for(root);
+    }
+
+    /// Events can arrive for names a folder held only briefly, and in any
+    /// order. Each one reconciles against disk, so the last name wins.
+    #[test]
+    fn rapid_repeated_folder_renames_settle_on_the_last_name() {
+        let (tmp, backlinks) = indexed_forge("folder-rapid", &["notes/A/x.md", "notes/A/Sub/y.md"]);
+        let root = tmp.path();
+        for (from, to) in [("A", "B"), ("B", "C"), ("C", "D")] {
+            fs::rename(root.join("notes").join(from), root.join("notes").join(to)).unwrap();
+        }
+        for rel in [
+            "notes/D", "notes/B", "notes/A", "notes/C", "notes/D", "notes/A",
+        ] {
+            index_external_change(root, rel, Some(&backlinks));
+        }
+        assert_indexed(root, &backlinks, &["notes/D/Sub/y.md", "notes/D/x.md"]);
+        crate::search_index::delete_for(root);
+    }
+
+    #[test]
+    fn stress_a_renamed_folder_of_500_notes_is_rekeyed_in_both_indexes() {
+        let notes: Vec<String> = (0..500)
+            .map(|i| format!("notes/Big/Level{}/note-{i}.md", i % 5))
+            .collect();
+        let refs: Vec<&str> = notes.iter().map(String::as_str).collect();
+        let (tmp, backlinks) = indexed_forge("folder-500", &refs);
+        let root = tmp.path();
+
+        fs::rename(root.join("notes/Big"), root.join("notes/Huge")).unwrap();
+        let started = Instant::now();
+        index_external_change(root, "notes/Big", Some(&backlinks));
+        index_external_change(root, "notes/Huge", Some(&backlinks));
+        let moved: Vec<String> = notes
+            .iter()
+            .map(|rel| rel.replace("/Big/", "/Huge/"))
+            .collect();
+        let moved: Vec<&str> = moved.iter().map(String::as_str).collect();
+        assert_indexed(root, &backlinks, &moved);
+        eprintln!("500-note folder rename re-keyed in {:?}", started.elapsed());
+
+        // A folder event with nothing to move, which Windows sends for every
+        // save inside the folder, leaves both indexes as they are.
+        let started = Instant::now();
+        index_external_change(root, "notes/Huge", Some(&backlinks));
+        index_external_change(root, "notes/Huge/Level3", Some(&backlinks));
+        assert_indexed(root, &backlinks, &moved);
+        eprintln!("no-op folder events took {:?}", started.elapsed());
+
+        crate::search_index::delete_for(root);
+    }
+
+    /// Saves keep landing while a sync client renames their folder. Whatever
+    /// the interleaving, once the watcher has seen both folder names the
+    /// indexes hold exactly what is on disk.
+    #[test]
+    fn a_folder_rename_racing_saves_converges_on_disk() {
+        let (tmp, backlinks) = indexed_forge("folder-race", &["notes/A/first.md"]);
+        let root = tmp.path().to_path_buf();
+        let backlinks = Arc::new(backlinks);
+        let renamed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+        let saver = {
+            let (root, backlinks, renamed) = (root.clone(), backlinks.clone(), renamed.clone());
+            std::thread::spawn(move || {
+                for i in 0..200 {
+                    let folder = if renamed.load(std::sync::atomic::Ordering::SeqCst) {
+                        "B"
+                    } else {
+                        "A"
+                    };
+                    let rel = format!("notes/{folder}/save-{i}.md");
+                    let saved = crate::persist::write_atomic(
+                        &root.join(&rel),
+                        b"seed [[Target]]",
+                        Some(0o600),
+                    );
+                    if saved.is_ok() {
+                        crate::search_index::note_changed_in(&rel, root.clone());
+                        backlinks.update_note(&rel, "seed [[Target]]");
+                    }
+                }
+            })
+        };
+        std::thread::sleep(Duration::from_millis(5));
+        // Windows refuses to rename a folder while a save inside it holds a
+        // file open, so retry the way a sync client would.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while let Err(error) = fs::rename(root.join("notes/A"), root.join("notes/B")) {
+            assert!(Instant::now() < deadline, "rename kept failing: {error}");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        renamed.store(true, std::sync::atomic::Ordering::SeqCst);
+        index_external_change(&root, "notes/A", Some(&backlinks));
+        index_external_change(&root, "notes/B", Some(&backlinks));
+        saver.join().unwrap();
+        index_external_change(&root, "notes/A", Some(&backlinks));
+        index_external_change(&root, "notes/B", Some(&backlinks));
+
+        let on_disk: Vec<String> = crate::semantic::scan_note_paths(&root)
+            .into_iter()
+            .map(|(_, rel)| rel)
+            .collect();
+        assert!(on_disk.iter().all(|rel| rel.starts_with("notes/B/")));
+        let on_disk: Vec<&str> = on_disk.iter().map(String::as_str).collect();
+        assert_indexed(&root, &backlinks, &on_disk);
+        crate::search_index::delete_for(&root);
+    }
+
+    #[test]
+    fn folder_events_leave_an_unbuilt_backlinks_index_to_its_build() {
+        let tmp = TempDir::new("folder-unbuilt");
+        let root = tmp.path();
+        write_note(root, "notes/New/one.md", "seed [[Target]]");
+        let backlinks = BacklinksIndex::new();
+        index_external_change(root, "notes/New", Some(&backlinks));
+        assert!(backlink_sources(&backlinks).is_empty());
+        crate::search_index::delete_for(root);
+    }
+
+    #[test]
+    fn only_folders_that_can_hold_notes_are_reconciled() {
+        assert!(is_note_folder("notes"));
+        assert!(is_note_folder("daily"));
+        assert!(is_note_folder("notes/A/B"));
+        assert!(!is_note_folder("notes/A/note.md"));
+        assert!(!is_note_folder("notes/A/note.md.locked"));
+        assert!(!is_note_folder("notes/.hidden"));
+        assert!(!is_note_folder("notes/../escape"));
+        assert!(!is_note_folder("images/Album"));
+        assert!(!is_note_folder(".trash/Old"));
+        assert!(!is_note_folder(""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn security_regression_a_symlinked_folder_never_reaches_either_index() {
+        let (tmp, backlinks) = indexed_forge("folder-symlink", &["notes/keep.md"]);
+        let root = tmp.path();
+        let outside = TempDir::new("folder-symlink-outside");
+        write_note(outside.path(), "secret.md", "seed [[Target]]");
+        std::os::unix::fs::symlink(outside.path(), root.join("notes/Linked")).unwrap();
+        fs::create_dir_all(root.join("notes/Real")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), root.join("notes/Real/Inner")).unwrap();
+
+        for rel in ["notes/Linked", "notes/Real", "notes/Real/Inner"] {
+            index_external_change(root, rel, Some(&backlinks));
+        }
+
+        assert_indexed(root, &backlinks, &["notes/keep.md"]);
+        crate::search_index::delete_for(root);
+    }
+
+    /// The other tests feed folder events by hand. This one lets the real
+    /// backend (FSEvents, inotify or ReadDirectoryChangesW) report them, so
+    /// each platform proves it delivers a path the watcher acts on.
+    #[test]
+    fn real_folder_events_reach_both_indexes() {
+        let (tmp, backlinks) = indexed_forge(
+            "folder-real",
+            &["notes/keep.md", "notes/Old/one.md", "notes/Old/Deep/two.md"],
+        );
+        // FSEvents reports resolved paths, and the temp dir is behind a
+        // symlink on macOS.
+        let root = if cfg!(target_os = "macos") {
+            tmp.path().canonicalize().unwrap()
+        } else {
+            tmp.path().to_path_buf()
+        };
+        let outside = TempDir::new("folder-real-outside");
+        write_note(outside.path(), "Incoming/three.md", "seed [[Target]]");
+        let recent = RecentWrites::new();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut debouncer = new_debouncer(Duration::from_millis(100), tx).unwrap();
+        debouncer
+            .watcher()
+            .watch(&root, RecursiveMode::Recursive)
+            .unwrap();
+        // Lets the backend finish arming before the moves it must see.
+        std::thread::sleep(Duration::from_millis(500));
+
+        let settle = |expected: &[&str]| {
+            let deadline = Instant::now() + Duration::from_secs(20);
+            let settled = || {
+                backlink_sources(&backlinks) == expected
+                    && search_paths(tmp.path(), "seed") == expected
+            };
+            while !settled() && Instant::now() < deadline {
+                if let Ok(Ok(events)) = rx.recv_timeout(Duration::from_millis(250)) {
+                    for event in events {
+                        apply_forge_event(&root, &event.path, &recent, Some(&backlinks));
+                    }
+                }
+            }
+            assert_eq!(backlink_sources(&backlinks), expected);
+            assert_eq!(search_paths(tmp.path(), "seed"), expected);
+        };
+
+        fs::rename(root.join("notes/Old"), root.join("notes/New")).unwrap();
+        settle(&["notes/New/Deep/two.md", "notes/New/one.md", "notes/keep.md"]);
+
+        fs::rename(outside.path().join("Incoming"), root.join("notes/Incoming")).unwrap();
+        settle(&[
+            "notes/Incoming/three.md",
+            "notes/New/Deep/two.md",
+            "notes/New/one.md",
+            "notes/keep.md",
+        ]);
+
+        fs::rename(root.join("notes/New/Deep"), outside.path().join("Deep")).unwrap();
+        settle(&[
+            "notes/Incoming/three.md",
+            "notes/New/one.md",
+            "notes/keep.md",
+        ]);
+
+        crate::search_index::delete_for(tmp.path());
     }
 
     #[cfg(unix)]
