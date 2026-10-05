@@ -1320,7 +1320,7 @@ html[data-platform='mobile'] .app-onboarding-footer > div:last-child button:last
   border-bottom: 1px solid var(--text-primary);
 }
 
-html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],
+html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true']:not(.mask-art),
 html[data-platform='mobile'] .app-onboarding-scrim .p-3 {
   background: transparent !important;
   color: var(--text-muted) !important;
