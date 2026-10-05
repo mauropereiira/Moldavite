@@ -131,6 +131,12 @@ impl BacklinksIndex {
         self.ready.store(true, Ordering::Release);
     }
 
+    /// Stands in for a build, which would read the active Forge from config.
+    #[cfg(test)]
+    pub(crate) fn mark_ready_for_test(&self) {
+        self.mark_ready();
+    }
+
     /// Walk daily + weekly + standalone trees and populate the index.
     /// Errors are logged, not panicked.
     pub(crate) fn rebuild_from_disk(&self) {
@@ -318,6 +324,23 @@ impl BacklinksIndex {
             .into_iter()
             .map(|(path, targets)| (moved(&path).unwrap_or(path), targets))
             .collect();
+    }
+
+    /// Indexed source paths that start with `dir` (`notes/A/`).
+    pub(crate) fn sources_under(&self, dir: &str) -> Vec<String> {
+        let state = match self.inner.read() {
+            Ok(g) => g,
+            Err(poisoned) => {
+                log::warn!("backlinks index lock poisoned during read; recovering");
+                poisoned.into_inner()
+            }
+        };
+        state
+            .outbound
+            .keys()
+            .filter(|path| path.starts_with(dir))
+            .cloned()
+            .collect()
     }
 
     pub(crate) fn remove_all(&self) {
