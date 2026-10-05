@@ -157,6 +157,14 @@ pub fn check_rate_limit(note_id: &str) -> RateLimitResult {
 
 /// Records a failed unlock attempt for the given note.
 ///
+/// Saturating, so a long run of lockouts stays at the cap: a plain `pow`
+/// wraps to zero in release builds and would end the lockouts.
+fn lockout_secs(lockout_count: u32) -> u64 {
+    BASE_LOCKOUT_SECS
+        .saturating_mul(2u64.saturating_pow(lockout_count))
+        .min(MAX_LOCKOUT_SECS)
+}
+
 /// If the maximum number of attempts is exceeded (per-note or globally),
 /// a lockout is triggered.
 pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
@@ -176,11 +184,10 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
         global.last_attempt = Instant::now();
 
         if global.attempts >= GLOBAL_MAX_ATTEMPTS {
-            let lockout_multiplier = 2u64.pow(global.lockout_count);
-            let lockout_secs = (BASE_LOCKOUT_SECS * lockout_multiplier).min(MAX_LOCKOUT_SECS);
+            let lockout_secs = lockout_secs(global.lockout_count);
 
             global.locked_until = Some(Instant::now() + Duration::from_secs(lockout_secs));
-            global.lockout_count += 1;
+            global.lockout_count = global.lockout_count.saturating_add(1);
 
             return RateLimitResult {
                 allowed: false,
@@ -209,11 +216,10 @@ pub fn record_failed_attempt(note_id: &str) -> RateLimitResult {
     info.last_attempt = Instant::now();
 
     if info.attempts >= MAX_ATTEMPTS {
-        let lockout_multiplier = 2u64.pow(info.lockout_count);
-        let lockout_secs = (BASE_LOCKOUT_SECS * lockout_multiplier).min(MAX_LOCKOUT_SECS);
+        let lockout_secs = lockout_secs(info.lockout_count);
 
         info.locked_until = Some(Instant::now() + Duration::from_secs(lockout_secs));
-        info.lockout_count += 1;
+        info.lockout_count = info.lockout_count.saturating_add(1);
 
         return RateLimitResult {
             allowed: false,
@@ -321,6 +327,16 @@ mod tests {
         // It does stop mattering once it actually expires.
         let after = now + Duration::from_secs(MAX_LOCKOUT_SECS);
         assert!(global_denial(&global, after).is_none());
+    }
+
+    #[test]
+    fn security_regression_lockouts_never_wrap_to_zero() {
+        assert_eq!(lockout_secs(0), BASE_LOCKOUT_SECS);
+        assert_eq!(lockout_secs(1), BASE_LOCKOUT_SECS * 2);
+        // `2u64.pow(64)` wraps to 0 in release, which ended the backoff.
+        for count in [5, 59, 60, 63, 64, 65, 1_000, u32::MAX] {
+            assert_eq!(lockout_secs(count), MAX_LOCKOUT_SECS, "lockout {count}");
+        }
     }
 
     #[test]

@@ -251,7 +251,16 @@ impl ToolContext {
             }
             notes.push(json!({ "path": rel, "isLocked": locked }));
         }
-        notes.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
+        // An interrupted lock or unlock leaves `<name>.md` beside its
+        // `.md.locked` form. List that note once, as locked, which is how
+        // every other tool here treats it.
+        notes.sort_by(|a, b| {
+            a["path"]
+                .as_str()
+                .cmp(&b["path"].as_str())
+                .then(b["isLocked"].as_bool().cmp(&a["isLocked"].as_bool()))
+        });
+        notes.dedup_by(|later, earlier| later["path"] == earlier["path"]);
         Ok(json!({ "notes": notes }))
     }
 

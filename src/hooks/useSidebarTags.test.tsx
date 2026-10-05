@@ -1,7 +1,7 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLastPersistedMarkdown } from '@/lib/fileSystem';
-import { useSettingsStore, useTagStore } from '@/stores';
+import { markNoteTagsStale, useNoteStore, useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
 const invokeMock = vi.fn();
@@ -124,5 +124,67 @@ describe('useSidebarTags selected tag', () => {
 
     await waitFor(() => expect(useTagStore.getState().allTags.size).toBeGreaterThan(0));
     await waitFor(() => expect(useTagStore.getState().selectedTag).toBeNull());
+  });
+});
+
+describe('useSidebarTags after saves and outside edits', () => {
+  let body = '';
+  const note: NoteFile = { ...notes[0], modifiedAt: 100 };
+
+  beforeEach(() => {
+    body = '#v0';
+    invokeMock.mockImplementation(async (command: string) =>
+      command === 'read_note' ? { content: body, color: null, contentHash: body } : undefined
+    );
+    useNoteStore.setState({ notes: [note], openTabs: [], savedContent: new Map() });
+    vi.spyOn(Date, 'now').mockReturnValue(200_000);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const tagsSettleOn = (tag: string) =>
+    waitFor(() => expect([...useTagStore.getState().allTags.keys()]).toEqual([tag]));
+
+  it('counts the latest tags after each of many saves within the same second', async () => {
+    renderHook(() => useSidebarTags(useNoteStore((s) => s.notes)));
+    await tagsSettleOn('v0');
+
+    for (let i = 1; i <= 10; i++) {
+      body = `#v${i}`;
+      act(() => useNoteStore.getState().markNoteSaved(note.path, body));
+      await tagsSettleOn(`v${i}`);
+    }
+    for (let i = 11; i <= 30; i++) {
+      body = `#v${i}`;
+      act(() => useNoteStore.getState().markNoteSaved(note.path, body));
+    }
+
+    await tagsSettleOn('v30');
+    expect(useNoteStore.getState().notes[0].modifiedAt).toBe(200);
+  });
+
+  it('re-reads a note changed outside the app when the list keeps its modification time', async () => {
+    renderHook(() => useSidebarTags(useNoteStore((s) => s.notes)));
+    await tagsSettleOn('v0');
+
+    body = '#outside';
+    act(() => {
+      markNoteTagsStale(note.path);
+      useNoteStore.getState().setNotes([{ ...note }]);
+    });
+
+    await tagsSettleOn('outside');
+  });
+
+  it('reads an unchanged note only once across list refreshes', async () => {
+    renderHook(() => useSidebarTags(useNoteStore((s) => s.notes)));
+    await tagsSettleOn('v0');
+
+    for (let i = 0; i < 5; i++) act(() => useNoteStore.getState().setNotes([{ ...note }]));
+
+    await tagsSettleOn('v0');
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'read_note')).toHaveLength(1);
   });
 });

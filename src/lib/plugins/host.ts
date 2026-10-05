@@ -40,7 +40,10 @@ import {
   type SafeModeStatus,
 } from '@/stores/pluginSafeModeStore';
 import { whenMainThreadSettles } from './settle';
-import PluginWorker from './pluginWorker.ts?worker';
+// Inline, so the worker starts from a blob URL and inherits the page CSP. Tauri
+// sends that header only with HTML, so a worker loaded from its own URL gets no
+// policy and plugin code in it can `import()` from any origin.
+import PluginWorker from './pluginWorker.ts?worker&inline';
 import { cancelPluginDialog } from './dialogs';
 
 interface RawPlugin {

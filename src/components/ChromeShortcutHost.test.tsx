@@ -231,3 +231,31 @@ describe('ChromeShortcutHost on a Mac', () => {
     expect(useOverlayStore.getState().activeOverlay).toBeNull();
   });
 });
+
+describe('ChromeShortcutHost with ⌥ held', () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetToDefaults();
+    useOverlayStore.setState({ activeOverlay: null, isSidebarHidden: false });
+    useQuickSwitcherStore.setState({ isOpen: false });
+    useGraphStore.setState({ isOpen: false });
+  });
+
+  it('does not open Search or Graph for a chord that adds ⌥', () => {
+    render(<ChromeShortcutHost />);
+
+    fireEvent.keyDown(window, { key: 'p', code: 'KeyP', metaKey: true, altKey: true });
+    fireEvent.keyDown(window, {
+      key: 'G',
+      code: 'KeyG',
+      metaKey: true,
+      altKey: true,
+      shiftKey: true,
+    });
+
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+    expect(useGraphStore.getState().isOpen).toBe(false);
+
+    fireEvent.keyDown(window, { key: 'G', code: 'KeyG', metaKey: true, shiftKey: true });
+    expect(useGraphStore.getState().isOpen).toBe(true);
+  });
+});

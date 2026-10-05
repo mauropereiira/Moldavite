@@ -1,3 +1,4 @@
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLastPersistedMarkdown, markdownToHtml, readNoteWithMeta } from '@/lib/fileSystem';
 import {
@@ -7,6 +8,7 @@ import {
 } from '@/lib/autosaveFlush';
 import { useForgeStore } from '@/stores/forgeStore';
 import { useNoteStore } from '@/stores/noteStore';
+import { takeNoteTagsStale } from '@/stores/tagStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note } from '@/types';
 
@@ -16,7 +18,16 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { reconcileExternalNoteChange } from './useForgeWatcher';
+const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: async (name: string, handler: (event: { payload: unknown }) => void) => {
+    eventHandlers.set(name, handler);
+    return () => eventHandlers.delete(name);
+  },
+}));
+
+import { reconcileExternalNoteChange, useForgeWatcher } from './useForgeWatcher';
 
 const dailyTab = (content: string): Note => ({
   id: '2026-07-31.md',
@@ -355,5 +366,20 @@ describe('Forge root switching transaction', () => {
     expect(resolved).toBe('/new/Forges');
     expect(events).toEqual(['flush', 'set_forges_root']);
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useForgeWatcher', () => {
+  it('marks the changed note for a fresh tag read', async () => {
+    const { unmount } = renderHook(() => useForgeWatcher());
+    await waitFor(() => expect(eventHandlers.has('forge:changed')).toBe(true));
+
+    eventHandlers.get('forge:changed')?.({
+      payload: { kind: 'modified', relPath: 'notes/plan.md' },
+    });
+
+    expect(takeNoteTagsStale('notes/plan.md')).toBe(true);
+    expect(takeNoteTagsStale('notes/plan.md')).toBe(false);
+    unmount();
   });
 });
