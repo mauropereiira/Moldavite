@@ -717,25 +717,105 @@ export function markdownToHtml(markdown: string, options?: ConversionOptions): s
   return convertWith(options, () => renderMarkdown(markdown));
 }
 
+/** `[[Note Name]]` or `[[Display Text|Note Name]]`; inside a table the separator is written `\|`. */
+const WIKI_LINK_SOURCE = String.raw`\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]`;
+const WIKI_LINK = new RegExp(WIKI_LINK_SOURCE, 'g');
+const WIKI_LINK_AT = new RegExp(WIKI_LINK_SOURCE, 'y');
+const INLINE_MARK = /\[\[|\\[\\`]|`+/g;
+
+/**
+ * Both halves are kept exactly as written so the link saves back unchanged;
+ * `data-target` is only the resolved filename. A pipe is written as an entity
+ * so it cannot end a table cell before markdown-it sees the row.
+ */
+function wikiLinkHtml(text: string, target: string | undefined): string {
+  const displayText = text.trim();
+  const filename = noteNameToFilename((target || text).trim());
+  const attribute = (value: string) => escapeHtmlAttribute(value).replace(/\|/g, '&#124;');
+  const rawTarget = target === undefined ? '' : ` data-raw-target="${attribute(target)}"`;
+
+  return `<wiki-link data-target="${filename}" data-label="${attribute(text)}"${rawTarget}>${displayText}</wiki-link>`;
+}
+
+function wikiLinksInText(text: string): string {
+  return text.replace(WIKI_LINK, (_match, label: string, target?: string) =>
+    wikiLinkHtml(label, target)
+  );
+}
+
+/** Where a backtick run of `length` closes before `limit`, or -1: CommonMark pairs equal runs only. */
+function codeSpanEnd(text: string, from: number, length: number, limit: number): number {
+  for (let at = text.indexOf('`', from); at !== -1 && at < limit; at = text.indexOf('`', at)) {
+    let end = at;
+    while (text[end] === '`') end++;
+    if (end - at === length) return end;
+    at = end;
+  }
+  return -1;
+}
+
+/**
+ * Wiki links in one inline block, skipping its code spans. A link that starts
+ * before a backtick wins over it, matching the plain rewrite used elsewhere.
+ * GFM splits a table row on its pipes before it pairs backticks.
+ */
+function wikiLinksInInline(text: string, tableRow: boolean): string {
+  let result = '';
+  let copied = 0;
+  INLINE_MARK.lastIndex = 0;
+  for (let mark = INLINE_MARK.exec(text); mark; mark = INLINE_MARK.exec(text)) {
+    const at = mark.index;
+    if (mark[0] === '[[') {
+      WIKI_LINK_AT.lastIndex = at;
+      const link = WIKI_LINK_AT.exec(text);
+      INLINE_MARK.lastIndex = link ? WIKI_LINK_AT.lastIndex : at + 1;
+      if (link) {
+        result += text.slice(copied, at) + wikiLinkHtml(link[1], link[2]);
+        copied = INLINE_MARK.lastIndex;
+      }
+    } else if (mark[0][0] === '`') {
+      const runEnd = at + mark[0].length;
+      const cellEnd = tableRow ? text.slice(runEnd).search(/(?<!\\)\|/) : -1;
+      const limit = cellEnd === -1 ? text.length : runEnd + cellEnd;
+      const end = codeSpanEnd(text, runEnd, mark[0].length, limit);
+      if (end !== -1) INLINE_MARK.lastIndex = end;
+    }
+  }
+  return result + text.slice(copied);
+}
+
+/**
+ * Wiki links become HTML before markdown-it runs, so `[[...]]` in a fence, an
+ * indented block or a code span has to be found the way markdown-it reads the
+ * note: rewriting it there would save a `<wiki-link>` tag into the code.
+ * markdown-it's line map gives the code blocks and the extent of each inline
+ * block, inside which code spans pair; everything else is rewritten whole.
+ */
+function wikiLinksToHtml(markdown: string): string {
+  if (!markdown.includes('[[')) return markdown;
+  const lineStarts = [0];
+  for (const ending of markdown.matchAll(/\r\n?|\n/g)) {
+    lineStarts.push(ending.index + ending[0].length);
+  }
+  const offset = (line: number) => lineStarts[line] ?? markdown.length;
+
+  let result = '';
+  let copied = 0;
+  for (const token of md.parse(markdown, {})) {
+    const code = token.type === 'fence' || token.type === 'code_block';
+    if (!token.map || !(code || token.type === 'inline' || token.type === 'tr_open')) continue;
+    const start = offset(token.map[0]);
+    const end = offset(token.map[1]);
+    const text = markdown.slice(start, end);
+    result += wikiLinksInText(markdown.slice(copied, start));
+    result += code ? text : wikiLinksInInline(text, token.type === 'tr_open');
+    copied = end;
+  }
+  return result + wikiLinksInText(markdown.slice(copied));
+}
+
 function renderMarkdown(markdown: string): string {
-  let processed = markdown;
-
-  // Convert [[Note Name]] or [[Display Text|Note Name]] to wiki-link HTML
-  // Inside a table the separator is written `\|`, or it would end the cell.
-  // Both halves are kept exactly as written so the link saves back unchanged;
-  // `data-target` is only the resolved filename. A pipe is written as an
-  // entity so it cannot end a table cell before markdown-it sees the row.
-  processed = processed.replace(/\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]/g, (_match, text, target) => {
-    const displayText = text.trim();
-    const targetNote = (target || text).trim();
-    const filename = noteNameToFilename(targetNote);
-    const attribute = (value: string) => escapeHtmlAttribute(value).replace(/\|/g, '&#124;');
-    const rawTarget = target === undefined ? '' : ` data-raw-target="${attribute(target)}"`;
-
-    return `<wiki-link data-target="${filename}" data-label="${attribute(text)}"${rawTarget}>${displayText}</wiki-link>`;
-  });
-
-  let html = md.render(padRaggedTables(processed));
+  let html = md.render(padRaggedTables(wikiLinksToHtml(markdown)));
 
   // markdown-it emits `<ul class="contains-task-list">` with a leading checkbox
   // per item; TipTap parses `<ul data-type="taskList">` with the checkbox in a
