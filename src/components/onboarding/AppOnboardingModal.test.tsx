@@ -6,6 +6,7 @@ import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
 import { useLaunchContextStore } from '@/lib/launchContext';
+import { JACK_O_LANTERN_SRC } from '@/lib/seasons';
 
 // The Forge dir picker plugin isn't available in jsdom — stub it.
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -149,7 +150,7 @@ describe('AppOnboardingModal', () => {
     render(<AppOnboardingModal />);
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
     const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
-    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin?.style.maskImage).toBe(`url("${JACK_O_LANTERN_SRC}")`);
     expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
     expect(pumpkin).toHaveClass('w-10', 'h-10');
     expect(screen.queryByRole('heading', { name: /built for ai agents/i })).toBeNull();

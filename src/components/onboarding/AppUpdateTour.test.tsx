@@ -11,6 +11,7 @@ import { useWhatsNewStore } from '@/stores/whatsNewStore';
 import { formatShortcut } from '@/lib/shortcuts';
 import type { DefaultAppStatus } from '@/lib/defaultApp';
 import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
+import { JACK_O_LANTERN_SRC } from '@/lib/seasons';
 
 const mocks = vi.hoisted(() => ({
   mobile: false,
@@ -22,7 +23,8 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: mocks.getVersion }));
 vi.mock('@tauri-apps/plugin-shell', () => ({ open: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => mocks.mobile }));
-vi.mock('@/lib/seasons', () => ({
+vi.mock('@/lib/seasons', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/seasons')>()),
   get ACTIVE_SEASON() {
     return mocks.season;
   },
@@ -60,7 +62,7 @@ describe('release welcome tour', () => {
     );
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
     const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
-    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin?.style.maskImage).toBe(`url("${JACK_O_LANTERN_SRC}")`);
     expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(2);
     await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));

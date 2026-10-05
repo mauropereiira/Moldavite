@@ -78,12 +78,12 @@ import { ImportSection } from './sections/ImportSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
-import { useSeasonalTouches } from '@/lib/seasons';
+import { JACK_O_LANTERN_SMALL_SRC, useSeasonalTouches } from '@/lib/seasons';
 import { MaskArt } from '@/components/ui/MaskArt';
 
 const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins'];
 const AUTUMN_PUMPKIN = (
-  <MaskArt src="/seasonal/pumpkin.webp" className="size-[22px]" label="Happy autumn" />
+  <MaskArt src={JACK_O_LANTERN_SMALL_SRC} className="size-[22px]" label="Happy autumn" />
 );
 
 interface SettingsTabItem {

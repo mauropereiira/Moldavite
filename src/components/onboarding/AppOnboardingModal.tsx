@@ -43,7 +43,7 @@ import {
 } from '@/lib/defaultApp';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboarding';
-import { ACTIVE_SEASON, type Season } from '@/lib/seasons';
+import { ACTIVE_SEASON, JACK_O_LANTERN_SRC, type Season } from '@/lib/seasons';
 import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
 import { useSettingsHydration } from '@/hooks/useSettingsHydration';
 import { MaskArt } from '@/components/ui/MaskArt';
@@ -58,7 +58,7 @@ const SEASON_PAGES: Record<
     title: 'Autumn is here',
     body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Layout › Seasonal touches.',
     preset: 'autumn',
-    icon: <MaskArt src="/seasonal/pumpkin.webp" className="w-10 h-10" />,
+    icon: <MaskArt src={JACK_O_LANTERN_SRC} className="w-10 h-10" />,
   },
 };
 
