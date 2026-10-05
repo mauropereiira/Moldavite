@@ -220,14 +220,29 @@ export function Sidebar({
   const noteOrder = useSidebarOrderStore((s) => s.noteOrder);
   const folderOrder = useSidebarOrderStore((s) => s.folderOrder);
 
-  const sortNotes = (notesToSort: NoteFile[]) => {
-    if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
-    return [...notesToSort].sort(compareNotesBy(sortOption));
-  };
+  const allStandaloneNotes = useMemo(() => {
+    const standalone = notes.filter((n) => !n.isDaily && !n.isWeekly);
+    if (isManualSort) return applyManualOrder(standalone, (n) => n.path, noteOrder);
+    return standalone.sort(compareNotesBy(sortOption));
+  }, [notes, isManualSort, noteOrder, sortOption]);
 
-  const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
+  // Both sorts are stable, so filtering the sorted list gives the order sorting
+  // the subset would.
+  const unfiledNotes = useMemo(
+    () => allStandaloneNotes.filter((n) => !n.folderPath),
+    [allStandaloneNotes]
+  );
 
-  const allStandaloneNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly));
+  const notesByFolder = useMemo(() => {
+    const byFolder = new Map<string, NoteFile[]>();
+    for (const note of allStandaloneNotes) {
+      if (!note.folderPath) continue;
+      const inFolder = byFolder.get(note.folderPath);
+      if (inFolder) inFolder.push(note);
+      else byFolder.set(note.folderPath, [note]);
+    }
+    return byFolder;
+  }, [allStandaloneNotes]);
 
   // The tree with every level put in the user's order. Each level is ranked
   // only against its own siblings, so one array covers the whole tree.
@@ -642,14 +657,12 @@ export function Sidebar({
         if (!expandedFolders.includes(f.path)) continue;
         // Child folders render before child notes (see FolderItem)
         if (f.children.length > 0) walk(f.children);
-        for (const n of allStandaloneNotes) {
-          if (n.folderPath === f.path) ids.push(n.path);
-        }
+        for (const n of notesByFolder.get(f.path) ?? []) ids.push(n.path);
       }
     };
     walk(orderedFolders);
     return ids;
-  }, [displayedNotes, allStandaloneNotes, orderedFolders, expandedFolders]);
+  }, [displayedNotes, notesByFolder, orderedFolders, expandedFolders]);
 
   const handleSelectionClick = (note: NoteFile, e: React.MouseEvent) => {
     const id = note.path;
@@ -998,7 +1011,7 @@ export function Sidebar({
               >
                 <SidebarFolderTree
                   folders={orderedFolders}
-                  notes={allStandaloneNotes}
+                  notesByFolder={notesByFolder}
                   expandedFolders={expandedFolders}
                   isCollapsed={sectionsCollapsed.folders}
                   onToggleSection={() => toggleSection('folders')}
