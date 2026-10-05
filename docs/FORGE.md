@@ -29,7 +29,7 @@ Because it's plain `.md`, you can:
 - Back it up with whatever tool you already trust.
 
 Moldavite watches the Forge and reloads automatically when files change. If
-something seems out of sync, hit **Settings → General → Rescan Forge**.
+something seems out of sync, hit **Settings → General → This Forge → Rescan**.
 
 ## Directory layout
 

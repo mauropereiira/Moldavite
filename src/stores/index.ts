@@ -37,6 +37,7 @@ export {
   applyEditorWidth,
   applyFocusMode,
   applyFontFamily,
+  resolveSettingsTarget,
 } from './settingsStore';
 export type {
   FontSize,
@@ -47,6 +48,7 @@ export type {
   IconRailSide,
   SettingsState,
   SettingsTab,
+  SettingsTarget,
 } from './settingsStore';
 
 export { useCalendarStore } from './calendarStore';

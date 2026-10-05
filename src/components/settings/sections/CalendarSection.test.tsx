@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarSourceStatus } from '@/types';
 import { useCalendarStore } from '@/stores/calendarStore';
+import { useSettingsStore } from '@/stores';
 import { CalendarSection } from './CalendarSection';
 
 const platform = vi.hoisted(() => ({ mobile: false }));
@@ -30,6 +31,7 @@ describe('CalendarSection', () => {
   beforeEach(() => {
     localStorage.clear();
     platform.mobile = false;
+    useSettingsStore.getState().resetToDefaults();
     useCalendarStore.setState({
       isAuthorized: false,
       permissionStatus: 'NotDetermined',
@@ -74,14 +76,12 @@ describe('CalendarSection', () => {
 
     render(<CalendarSection />);
 
-    expect(screen.getByRole('heading', { name: 'Apple Calendar' })).toBeInTheDocument();
+    expect(screen.getByText('Apple Calendar')).toBeInTheDocument();
     expect(
       screen.getByText('Apple Calendar is only available on a Mac, iPhone or iPad.')
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Enable Calendar Access/ })
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Connect Google Account/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow access' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect account' })).toBeInTheDocument();
   });
 
   it('offers both sources on a phone', () => {
@@ -102,8 +102,8 @@ describe('CalendarSection', () => {
 
     render(<CalendarSection />);
 
-    expect(screen.getByRole('button', { name: /Enable Calendar Access/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Connect Google Account/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Allow access' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect account' })).toBeInTheDocument();
   });
 
   it('sends a denied phone to Settings for Full Access', () => {
@@ -138,5 +138,29 @@ describe('CalendarSection', () => {
 
     expect(screen.getByText('Waiting for Google sign-in...')).toBeInTheDocument();
     expect(screen.queryByText('Waiting for your browser...')).not.toBeInTheDocument();
+  });
+
+  // The Agenda switches lived in Features; they belong with the calendars now,
+  // and stay even where no calendar source can connect yet.
+  it('shows the Agenda switches above the sources, even when none can connect', () => {
+    platform.mobile = false;
+    useCalendarStore.setState({ sources: unavailableSources });
+
+    render(<CalendarSection />);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Timeline' }));
+    expect(useSettingsStore.getState().showTimelineWidget).toBe(false);
+    fireEvent.click(screen.getByRole('switch', { name: 'Month calendar' }));
+    expect(useSettingsStore.getState().showCalendarWidget).toBe(false);
+  });
+
+  it('keeps the month calendar on a phone, where it is how daily notes are reached', () => {
+    platform.mobile = true;
+    useCalendarStore.setState({ sources: [googleReady] });
+
+    render(<CalendarSection />);
+
+    expect(screen.queryByRole('switch', { name: 'Month calendar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Timeline' })).toBeInTheDocument();
   });
 });

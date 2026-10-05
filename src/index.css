@@ -1400,47 +1400,9 @@ time,
   border-color: var(--border-default);
 }
 
-/* TOGGLE SWITCH - Modern Pill Style */
-
-.toggle {
-  position: relative;
-  width: 40px;
-  height: 22px;
-  border: 1px solid var(--border-default);
-  background: var(--bg-inset);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-micro) var(--ease-standard),
-    border-color var(--dur-micro) var(--ease-standard);
-}
-
-.toggle:hover {
-  border-color: var(--border-strong);
-}
-
-.toggle[data-state='checked'],
-.toggle.toggle-checked {
-  background: var(--text-primary);
-  border-color: var(--border-strong);
-}
-
-.toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: var(--bg-base);
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-base) var(--ease-standard);
-}
-
-.toggle[data-state='checked'] .toggle-knob,
-.toggle.toggle-checked .toggle-knob {
-  transform: translateX(18px);
-}
-
-/* SETTINGS — Cream / ink */
+/* SETTINGS: Cream / ink. A full page beside the rail on a desktop; rows,
+   groups and folds shared with the phone page (src/mobile.css). The accent is
+   rationed to two things here: a switch that is on and the current tab. */
 
 .settings-scrim {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent);
@@ -1468,26 +1430,16 @@ html:not([data-platform='mobile']) .settings-dialog {
   font-size: var(--text-sm);
 }
 
-html:not([data-platform='mobile']) .settings-dialog .settings-control-label {
-  font-size: var(--text-sm);
-}
-
 html:not([data-platform='mobile'])
   .settings-dialog
   :is(.settings-segmented-option, .text-\[10px\]) {
   font-size: var(--text-xs);
 }
 
-html:not([data-platform='mobile'])
-  .settings-dialog
-  :is(.settings-section-heading, [role='tabpanel'] h3) {
-  font-size: var(--text-xs) !important;
-}
-
 /* The `:not()` arguments are wrapped in `:where()` on purpose: bare `:not(.x)`
    adds a class to the specificity, and at (0,4,0) this blanket reset outranked
    every `.settings-dialog .thing { background: … !important }` exception below
-   it — the import wizard and its scrim rendered with no background at all. */
+   it; the import wizard and its scrim rendered with no background at all. */
 .settings-dialog
   :where(div, section, button, input, select, textarea, span):not(
     :where(.settings-preset-swatch, .settings-update-dot, .settings-calendar-swatch, .mask-art)
@@ -1497,45 +1449,144 @@ html:not([data-platform='mobile'])
   box-shadow: none !important;
 }
 
-.settings-dialog .settings-brand-mark {
-  background-color: var(--text-primary) !important;
+.settings-page {
+  display: flex;
+  height: 100%;
+  margin-left: var(--rail-inset-left);
+  margin-right: var(--rail-inset-right);
+  border: 0;
 }
 
-.settings-dialog [role='tab'] {
-  border-radius: 0;
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 232px;
+  padding: 32px 14px 20px 22px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-default);
 }
 
-.settings-dialog [role='tab']:hover {
-  color: var(--text-primary) !important;
-  background: var(--hover-overlay) !important;
+.settings-nav-title {
+  margin: 0 0 14px 10px;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.settings-search {
+  width: 100%;
+  margin-bottom: 22px;
+  padding: 7px 10px;
+  outline: none !important;
+}
+
+.settings-nav-group {
+  margin-bottom: 18px;
+}
+
+.settings-nav-label {
+  margin: 0 0 4px 10px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: left;
+  border-left: 2px solid transparent;
+}
+
+.settings-nav-link[aria-current='page'] {
+  color: var(--text-primary);
+  border-left-color: var(--accent-primary);
+}
+
+.settings-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.settings-body > div {
+  color: var(--text-secondary);
+}
+
+.settings-column {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 40px 72px;
+}
+
+.settings-page-head {
+  margin-bottom: 30px;
+}
+
+.settings-page-head h1 {
+  color: var(--text-primary);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.settings-page-head p {
+  margin-top: 6px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 900px) {
+  .settings-nav {
+    width: 196px;
+  }
+
+  .settings-column {
+    padding: 32px 24px 56px;
+  }
 }
 
 .settings-close {
   min-width: 28px;
+  padding: 2px 6px;
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 300;
   line-height: 1;
 }
 
-.settings-close:hover {
+.settings-dialog :is(.settings-close, .settings-nav-link, .settings-info):hover,
+.settings-dialog .settings-info[aria-expanded='true'] {
   color: var(--text-primary) !important;
   background: var(--hover-overlay) !important;
 }
 
-.settings-dialog [role='tabpanel'] > div {
-  color: var(--text-secondary);
+.settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 
-.settings-section {
-  padding: 0;
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .settings-section-heading,
-.settings-dialog [role='tabpanel'] h3 {
-  width: 100%;
+.settings-body h3 {
   margin: 0;
-  padding-bottom: 8px;
   color: var(--text-muted) !important;
   font-family: var(--font-display);
   font-size: 10px !important;
@@ -1543,23 +1594,251 @@ html:not([data-platform='mobile'])
   line-height: 1.4;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.settings-section-head + :not(.settings-row) {
+  margin-top: 12px;
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  min-height: 52px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border-muted);
 }
 
-.settings-dialog .flex > .settings-section-heading,
-.settings-dialog .flex > h3 {
-  flex: 1;
+.settings-row:last-child {
+  border-bottom: 0;
 }
 
-.settings-segmented-row {
+.settings-row-stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.settings-row-text {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.settings-row-stack .settings-row-text {
+  flex: none;
+}
+
+.settings-row-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-primary);
+}
+
+.settings-row-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.settings-row-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.settings-row-stack .settings-row-control {
+  justify-content: flex-start;
+}
+
+.settings-row-stack .settings-row-control > :not(button) {
+  flex-basis: 100%;
+}
+
+.settings-row-control .settings-segmented-control {
+  min-width: 220px;
+}
+
+.settings-fold {
+  border-top: 1px solid var(--border-default);
+}
+
+.settings-tab > .settings-fold + .settings-fold {
+  margin-top: -32px;
+}
+
+.settings-fold-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 12px 8px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.settings-fold-caret {
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+.settings-fold-toggle[aria-expanded='true'] .settings-fold-caret {
+  transform: rotate(90deg);
+}
+
+.settings-fold-body {
+  padding-bottom: 8px;
+}
+
+.settings-fold-note {
   padding: 12px 0;
+}
+
+.settings-flash {
+  animation: settings-flash 1.6s var(--ease-standard);
+}
+
+@keyframes settings-flash {
+  from {
+    outline: 1px solid var(--accent-primary);
+    outline-offset: 4px;
+  }
+  to {
+    outline: 1px solid transparent;
+    outline-offset: 4px;
+  }
+}
+
+.settings-info {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 4px;
+  color: var(--text-muted);
+}
+
+.settings-info-pop {
+  position: fixed;
+  z-index: 10001;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  pointer-events: none;
+}
+
+.settings-path-block {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.settings-value {
+  min-width: 52px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+.settings-ok {
+  color: var(--success);
+}
+
+.settings-error {
+  color: var(--error);
+}
+
+.settings-progress {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--border-muted) !important;
+}
+
+.settings-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--text-primary) !important;
+  transition: width var(--dur-base) var(--ease-standard);
+}
+
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid var(--border-default);
+}
+
+.settings-btn:disabled {
+  opacity: 0.5;
+}
+
+.settings-dialog .settings-btn-danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 50%, transparent);
+}
+
+/* A text action inside copy: the hover fill gets its own padding, pulled back
+   by a negative margin so the word still lines up with the text around it. */
+.settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 -6px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+}
+
+.settings-snippet pre {
+  border: 1px solid var(--border-default);
+}
+
+.settings-results ul {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.settings-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 8px;
+  text-align: left;
   border-bottom: 1px solid var(--border-muted);
 }
 
-.settings-control-label {
-  margin-bottom: 12px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+.settings-dialog .settings-result {
+  color: var(--text-primary);
+}
+
+.settings-result-path {
+  color: var(--text-tertiary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .settings-segmented-control {
@@ -1571,14 +1850,21 @@ html:not([data-platform='mobile'])
   min-width: 0;
   padding: 8px 12px;
   overflow-wrap: anywhere;
+  color: var(--text-muted);
   font-family: var(--font-display);
   font-size: 0.75rem;
   line-height: 1.25;
   background: transparent !important;
+  border-bottom: 2px solid transparent;
   border-radius: 0;
   transition:
     color var(--dur-micro) var(--ease-standard),
     background-color var(--dur-micro) var(--ease-standard);
+}
+
+.settings-segmented-option[aria-checked='true'] {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
 .settings-segmented-option:hover {
@@ -1586,19 +1872,52 @@ html:not([data-platform='mobile'])
   background: var(--hover-overlay) !important;
 }
 
+.settings-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
 .settings-preset-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: left;
   background: transparent !important;
+  border: 1px solid var(--border-default);
+  border-left: 2px solid transparent;
   border-radius: 0 !important;
+}
+
+.settings-preset-option[aria-checked='true'] {
+  border-left-color: var(--text-primary);
 }
 
 .settings-preset-option:hover {
   background: var(--hover-overlay) !important;
 }
 
+.settings-preset-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-muted);
+}
+
 .settings-preset-swatch,
 .settings-calendar-swatch,
 .settings-update-dot {
   border-radius: 0 !important;
+}
+
+.settings-update-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  background-color: var(--update-dot);
 }
 
 .settings-toggle {
@@ -1611,39 +1930,58 @@ html:not([data-platform='mobile'])
   background: transparent;
   border: 1px solid var(--border-default);
   border-radius: 0;
-  transition: border-color var(--dur-micro) var(--ease-standard);
+  transition:
+    border-color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
 }
 
-.settings-toggle:hover {
-  border-color: var(--text-primary) !important;
+.settings-toggle[aria-checked='false']:hover {
+  border-color: var(--text-primary);
   background: var(--hover-overlay) !important;
+}
+
+.settings-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .settings-toggle-marker {
   display: block;
   width: 12px;
   height: 12px;
-  background: transparent !important;
   border: 1px solid var(--text-muted);
-  border-radius: 0;
+  transform: translateX(3px);
   transition:
     transform var(--dur-base) var(--ease-standard),
     border-color var(--dur-micro) var(--ease-standard);
 }
 
-.settings-dialog [role='tabpanel'] button:not([role='radio']):not([role='switch']) {
-  color: var(--text-secondary);
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+/* On: a soft wash of the accent in the track and a solid accent marker, so
+   on and off differ in shape as well as colour. */
+.settings-dialog .settings-toggle[aria-checked='true'] {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent) !important;
+  border-color: var(--accent-muted);
 }
 
-.settings-dialog [role='tabpanel'] button:not([role='radio']):not([role='switch']):hover {
+.settings-toggle[aria-checked='true'] .settings-toggle-marker {
+  transform: translateX(21px);
+}
+
+.settings-dialog .settings-toggle[aria-checked='true'] .settings-toggle-marker {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary);
+}
+
+.settings-body :where(button:not([role='radio'], [role='switch'])) {
+  color: var(--text-secondary);
+}
+
+.settings-body :where(button:not([role='radio'], [role='switch'], :disabled)):hover {
   color: var(--text-primary) !important;
   background: var(--hover-overlay) !important;
 }
 
-.settings-dialog :where(input:not([type='range']), select, textarea),
+.settings-dialog :where(input:not([type='range'], [type='checkbox']), select, textarea),
 .settings-input,
 .obs-import-input {
   color: var(--text-primary);
@@ -1655,6 +1993,11 @@ html:not([data-platform='mobile'])
   transition: border-color var(--dur-micro) var(--ease-standard);
 }
 
+.settings-dialog select {
+  max-width: 100%;
+  padding: 6px 0;
+}
+
 .settings-dialog :where(input:not([type='range']), select, textarea):focus,
 .settings-input:focus,
 .obs-import-input:focus {
@@ -1664,7 +2007,10 @@ html:not([data-platform='mobile'])
 
 .settings-range,
 .settings-dialog input[type='range'] {
+  width: 160px;
   height: 16px !important;
+  appearance: none;
+  cursor: pointer;
   background: transparent !important;
   border: 0;
   border-bottom: 1px solid var(--border-default);
@@ -5516,7 +5862,7 @@ button.editor-index-trigger:not(:disabled):hover {
   color: var(--text-secondary);
 }
 
-/* Settings → Import wizard. Theme tokens keep the lazy-loaded UI compact. */
+/* Obsidian import wizard (Settings, Data). Theme tokens keep the lazy-loaded UI compact. */
 .obs-import-title {
   color: var(--text-primary);
 }
@@ -5525,17 +5871,11 @@ button.editor-index-trigger:not(:disabled):hover {
   color: var(--text-tertiary);
 }
 
-.obs-import-card,
 .obs-import-metric {
   background: transparent;
   border: 1px solid var(--border-muted);
 }
 
-.obs-import-card {
-  padding: 1rem;
-}
-
-.obs-import-safe,
 .obs-import-details {
   padding: 0.75rem;
   color: var(--text-secondary);

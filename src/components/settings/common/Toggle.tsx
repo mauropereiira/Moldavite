@@ -1,4 +1,4 @@
-/** Toggle — accessible, fill-free on/off switch used throughout Settings. */
+/** Toggle: accessible on/off switch used throughout Settings. On tints its track with the theme's accent. */
 
 export interface ToggleProps {
   enabled: boolean;
@@ -18,18 +18,8 @@ export function Toggle({ enabled, onChange, ariaLabel, disabled = false }: Toggl
       disabled={disabled}
       onClick={() => onChange(!enabled)}
       className="settings-toggle"
-      style={{
-        borderColor: enabled ? 'var(--text-primary)' : 'var(--border-default)',
-      }}
     >
-      <span
-        aria-hidden="true"
-        className="settings-toggle-marker"
-        style={{
-          borderColor: enabled ? 'var(--text-primary)' : 'var(--text-muted)',
-          transform: enabled ? 'translateX(17px)' : 'translateX(3px)',
-        }}
-      />
+      <span aria-hidden="true" className="settings-toggle-marker" />
     </button>
   );
 }

@@ -1103,30 +1103,52 @@ html[data-platform='mobile'] .graph-view-fit {
    Each section is an inset group with its heading inside, so the eye can tell
    where one ends and the next begins; the desktop's bare hairlines ran
    together on a narrow screen. */
-html[data-platform='mobile'] .settings-dialog .settings-section {
-  padding: 14px 16px 6px;
+html[data-platform='mobile'] .settings-dialog :is(.settings-section, .settings-fold) {
+  padding: 10px 16px 0;
   background: var(--bg-panel);
   border: 1px solid var(--border-muted);
 }
 
-html[data-platform='mobile'] .settings-dialog [role='tabpanel'] .space-y-6 > * + * {
-  margin-top: 12px;
+html[data-platform='mobile'] .settings-dialog .settings-tab {
+  gap: 12px;
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section > .flex.items-center.gap-1 {
-  margin-bottom: 6px;
+html[data-platform='mobile'] .settings-tab > .settings-fold + .settings-fold {
+  margin-top: 0;
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section .flex.items-center.justify-between {
+html[data-platform='mobile'] .settings-section-head {
+  border-bottom: 0;
+}
+
+html[data-platform='mobile'] :is(.settings-row, .settings-fold-toggle) {
   min-height: var(--touch-target);
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section .text-sm {
+html[data-platform='mobile'] .settings-row-label {
   font-size: 15px;
 }
 
-/* Switches at iOS size, 51 by 31, with the knob filled in ink when on: the
-   outlined knob read the same either way. The hit area reaches 44pt without
+html[data-platform='mobile'] .settings-row-control:has(> [type='range'], > [role='radiogroup']) {
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+}
+
+html[data-platform='mobile'] .settings-row-control > :is([type='range'], [role='radiogroup']) {
+  flex: 1;
+}
+
+html[data-platform='mobile'] .settings-phone-search {
+  padding: 12px calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left));
+}
+
+html[data-platform='mobile'] :is(.settings-phone-label, .settings-results) {
+  margin: 0;
+  padding: 18px calc(16px + var(--page-safe-right)) 6px calc(16px + var(--page-safe-left));
+}
+
+/* Switches at iOS size, 51 by 31, with the knob filled in the accent when on:
+   the outlined knob read the same either way. The hit area reaches 44pt without
    moving anything. */
 html[data-platform='mobile'] .settings-toggle {
   width: 51px;
@@ -1145,8 +1167,7 @@ html[data-platform='mobile'] .settings-toggle-marker {
 }
 
 html[data-platform='mobile'] .settings-toggle[aria-checked='true'] .settings-toggle-marker {
-  background: var(--text-primary) !important;
-  transform: translateX(23px) !important;
+  transform: translateX(23px);
 }
 
 html[data-platform='mobile'] .settings-toggle:disabled {
@@ -1169,14 +1190,8 @@ html[data-platform='mobile'] .settings-segmented-option[aria-checked='false'] {
   color: var(--text-secondary) !important;
 }
 
-/* A section's own hairline already closes its last control. */
-html[data-platform='mobile'] .settings-section .settings-segmented-row:last-child {
-  padding-bottom: 4px;
-  border-bottom: 0;
-}
-
 /* Presets are rows in the section, not boxes inside its box; the chosen one
-   keeps its ink bar. The borders are inline. */
+   keeps its ink bar. */
 html[data-platform='mobile'] .settings-preset-option {
   border: 0 !important;
   border-bottom: 1px solid var(--border-muted) !important;
@@ -1199,7 +1214,7 @@ html[data-platform='mobile'] [role='radiogroup']:has(> .settings-preset-option) 
       .settings-segmented-option:not([aria-checked='true']),
       .settings-preset-option:not([aria-checked='true']),
       .settings-toggle,
-      [role='tabpanel'] button:not([aria-checked='true']),
+      .settings-body button:not([aria-checked='true']),
       nav button,
       header button
     ):not(:disabled):hover {

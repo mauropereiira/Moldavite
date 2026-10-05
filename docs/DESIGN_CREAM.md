@@ -80,6 +80,11 @@ impact glass is green. It is **not** a UI accent to sprinkle.
 > marker, or the unsaved dot. Never both. Never a button, never a link, never a
 > heading.
 
+Settings is the one place with a standing exception: a switch that is on
+fills its track with a soft wash of the accent and its marker with the accent,
+and the current Settings tab carries an accent bar. Everything else there,
+chosen options included, stays ink.
+
 Text selection is two-colour: a solid ink block with cream type knocked out.
 Not a tint.
 

@@ -303,7 +303,7 @@
 
         <h2 id="obsidian-import">Import from Obsidian</h2>
         <p>
-          Open <strong>Settings → Import</strong> and choose an Obsidian vault folder. Moldavite
+          Open <strong>Settings → Data → Import from Obsidian</strong> and choose an Obsidian vault folder. Moldavite
           first shows a read-only preview, then copies the vault into a <strong>new Forge</strong>;
           it never edits, moves, or deletes anything in the source vault. You choose the new Forge
           name and can switch to it from the completion summary.
@@ -416,7 +416,7 @@
         <p>
           Inline <code>#tags</code> are aggregated in the sidebar; a tag can be renamed across the
           Forge from its context menu. Templates live under
-          <strong>Settings → Templates</strong> and support these substitutions:
+          <strong>Settings → Writing → Templates</strong> and support these substitutions:
         </p>
         <div class="table-scroll">
           <table>
@@ -485,7 +485,7 @@
             <strong>Settings → Layout → Rail side</strong> puts the icon rail on the left or the
             right. A pinned Index moves with the rail. The home screen has faint constellations with
             a sun or moon, and the seasonal theme adds an autumn field and falling leaves;
-            <strong>Settings → Layout → Seasonal touches</strong> turns them off.
+            <strong>Settings → Appearance → Home screen → Seasonal touches</strong> turns them off.
           </li>
           <li>
             <strong>Tabs</strong>: reorder open tabs, and pin up to five of them so they stay at the
@@ -500,6 +500,19 @@
             current shortcut list.
           </li>
         </ul>
+
+        <h3 id="settings">Find a setting</h3>
+        <p>
+          <strong>Settings</strong> (<kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>,</kbd>) opens as a full page
+          beside the icon rail. Its tabs come in three groups: <strong>Basics</strong> (General,
+          Appearance, Layout, Writing), <strong>Connections</strong> (Calendar, AI &amp; Agents,
+          Plugins) and <strong>Your data</strong> (Data, About). Options you change less often sit
+          in a fold at the bottom of their tab: auto-save and auto-lock in General, the home screen
+          in Appearance, the Index's sections, sort order and column widths in Layout, Templates in
+          Writing, and the Obsidian importer in Data. The search box finds any setting by its name
+          or by what it does and opens it where it lives, and the (i) beside a setting explains it.
+          On iPhone, Settings is a list of the same tabs, with the same search.
+        </p>
 
         <h3>Keyboard shortcuts</h3>
         <p>
@@ -649,7 +662,7 @@
           The per-Forge index updates incrementally on save, delete, rename, trash, and restore.
           Changing models performs a complete re-index with live progress. If results seem stale,
           use
-          <strong>Rebuild index</strong> in Settings to embed the Forge again from scratch. Internal
+          <strong>Rebuild index</strong> in <strong>Settings → AI &amp; Agents</strong> to embed the Forge again from scratch. Internal
           index data lives at <code>&lt;Forge&gt;/.index/</code>.
         </p>
 
@@ -687,7 +700,7 @@
 
         <h3 id="icloud">Start an iCloud Forge on Mac</h3>
         <p>
-          Turn on <strong>Settings → General → Use synced Forge</strong> to create or open your
+          Turn on <strong>Settings → General → Synced Forge (iCloud)</strong> to create or open your
           shared iCloud folder. You can start writing on Mac before installing the iOS app. Your
           existing local Forges stay separate.
         </p>

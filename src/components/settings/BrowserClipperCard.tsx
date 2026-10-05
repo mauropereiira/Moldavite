@@ -1,10 +1,10 @@
 /**
- * Settings → Plugins → Browser clipper: install the extension, pair a browser,
+ * Settings, Plugins, Browser clipper: install the extension, pair a browser,
  * and see which browsers are paired.
  *
  * "Install extension" never navigates on its own. It shows the steps first,
- * because both browsers are about to ask for something unusual — Developer mode
- * in Chrome, a signed file in Firefox — and meeting that for the first time on
+ * because both browsers are about to ask for something unusual (Developer mode
+ * in Chrome, a signed file in Firefox), and meeting that for the first time on
  * chrome://extensions is how people conclude the app is broken.
  */
 
@@ -13,6 +13,7 @@ import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { Download, Globe2, Link2Off } from 'lucide-react';
 import { safeInvoke } from '@/lib/ipc';
 import { DialogSurface } from '@/components/ui';
+import { Row } from './common';
 
 const EXTENSION_URL = 'https://github.com/mauropereiira/Moldavite/tree/main/extension';
 
@@ -63,40 +64,24 @@ export function BrowserClipperCard() {
   };
 
   return (
-    <section className="space-y-3">
-      <div>
-        <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Browser clipper
-        </h4>
-        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          Save the page you are reading as a Markdown note. Links survive, images and styling do
-          not.
-        </p>
-      </div>
-
-      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-        {connected.length > 0
-          ? `Connected: ${connected.join(', ')}`
-          : 'Not connected yet — Chrome needs Developer mode.'}
-      </p>
-
-      {error && (
-        <p role="alert" className="text-xs" style={{ color: 'var(--error)' }}>
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
-          }}
-        >
+    <>
+      <Row
+        id="clipper-card"
+        stack
+        note={
+          <>
+            {connected.length > 0
+              ? `Connected: ${connected.join(', ')}`
+              : 'Not connected yet. Chrome needs Developer mode.'}
+            {error && (
+              <span role="alert" className="settings-error">
+                {error}
+              </span>
+            )}
+          </>
+        }
+      >
+        <button type="button" onClick={() => setSheetOpen(true)} className="settings-btn">
           <Download aria-hidden="true" className="w-4 h-4" />
           Install extension
         </button>
@@ -104,12 +89,7 @@ export function BrowserClipperCard() {
           type="button"
           disabled={busy}
           onClick={() => void run('connect_browser_bridge')}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-secondary)',
-          }}
+          className="settings-btn"
         >
           <Globe2 aria-hidden="true" className="w-4 h-4" />
           Connect browser
@@ -119,18 +99,13 @@ export function BrowserClipperCard() {
             type="button"
             disabled={busy}
             onClick={() => void run('disconnect_browser_bridge')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              color: 'var(--text-secondary)',
-            }}
+            className="settings-btn"
           >
             <Link2Off aria-hidden="true" className="w-4 h-4" />
             Disconnect
           </button>
         )}
-      </div>
+      </Row>
 
       {sheetOpen && (
         <div
@@ -188,7 +163,7 @@ export function BrowserClipperCard() {
                 </ol>
                 <p className="mt-2">
                   Firefox installs only signed add-ons, so this file is signed by Mozilla. It is not
-                  listed in their store — the download stays here.
+                  listed in their store; the download stays here.
                 </p>
               </Disclosure>
             </div>
@@ -229,7 +204,7 @@ export function BrowserClipperCard() {
           </DialogSurface>
         </div>
       )}
-    </section>
+    </>
   );
 }
 

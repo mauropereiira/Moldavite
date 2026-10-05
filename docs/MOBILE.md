@@ -80,7 +80,7 @@ JavaScript shell opener takes a desktop code path and fails on iOS. Both public
 links live in Settings → About.
 
 Mobile Agenda always shows the month calendar for daily/weekly note navigation,
-then the event timeline unless Settings → Features turns it off (the phone
+then the event timeline unless Settings → Calendar → Timeline turns it off (the phone
 shows only that toggle). A saved desktop preference cannot hide the mobile
 note calendar. Event links open through `open_external_link`, since the
 JavaScript shell opener is not permitted there.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
 import { LayoutSection } from './LayoutSection';
@@ -19,10 +19,8 @@ describe('LayoutSection', () => {
     expect(screen.getByRole('radiogroup', { name: 'Rail side' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: /^Index/ })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: /^Agenda/ })).toBeInTheDocument();
-    expect(
-      screen.getByRole('radiogroup', { name: 'Writing column width mode' })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Asteroid cursor' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Writing width' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Focus mode' })).toBeInTheDocument();
     expect(screen.queryByText(/Desktop settings/)).not.toBeInTheDocument();
   });
 
@@ -33,16 +31,15 @@ describe('LayoutSection', () => {
     expect(screen.queryByRole('switch', { name: 'Icon rail' })).not.toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: /^Index/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: /^Agenda/ })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('radiogroup', { name: 'Writing column width mode' })
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Asteroid cursor' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Writing width' })).not.toBeInTheDocument();
+    // Focus mode hides the rail, a phone's only way back to Settings to undo it.
+    expect(screen.queryByRole('switch', { name: 'Focus mode' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Desktop settings/)).not.toBeInTheDocument();
 
     // What still applies on a phone stays.
     expect(screen.getByRole('radiogroup', { name: 'Rail side' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Tab bar' })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Constellations' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Index sections/ })).toBeInTheDocument();
   });
 
   it('moves the rail to the chosen side, and hides the choice while the rail is off', () => {
@@ -56,5 +53,28 @@ describe('LayoutSection', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Icon rail' }));
     expect(screen.queryByRole('radiogroup', { name: 'Rail side' })).not.toBeInTheDocument();
+  });
+
+  // Sidebar's old tab: a width slider only does something for a pinned column.
+  it('folds the Index options and offers a width only for a pinned column', () => {
+    platform.mobile = false;
+    render(<LayoutSection />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Index sections/ }));
+    expect(screen.getByRole('radiogroup', { name: 'Sort notes by' })).toBeInTheDocument();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(screen.getByText(/Pin the Index or the Agenda/)).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: 'Index' })).getByRole('radio', {
+        name: 'Pinned',
+      })
+    );
+    expect(useSettingsStore.getState().indexMode).toBe('pinned');
+    fireEvent.change(screen.getByRole('slider', { name: 'Index width' }), {
+      target: { value: '320' },
+    });
+    expect(useSettingsStore.getState().sidebarWidth).toBe(320);
+    expect(screen.queryByRole('slider', { name: 'Agenda width' })).not.toBeInTheDocument();
   });
 });

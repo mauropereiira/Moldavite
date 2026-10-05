@@ -1,13 +1,5 @@
 import { useState } from 'react';
-import {
-  Download,
-  Upload,
-  Lock,
-  Shield,
-  Eye,
-  EyeOff,
-  Settings as SettingsIcon,
-} from 'lucide-react';
+import { Download, Upload, Lock, Shield, Eye, EyeOff } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { exportDocument } from '@/lib/exportDocument';
@@ -17,6 +9,9 @@ import { useToast } from '@/hooks/useToast';
 import { namespacedKey } from '@/lib/forgeStorage';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { isMobilePlatform } from '@/lib/platform';
+import { Group, Row } from './common';
+import { ImportSection } from './sections/ImportSection';
 
 // Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
 // Forge's slot. Resolved per call, never once at module load: the active-Forge
@@ -42,11 +37,10 @@ interface SettingsExportPayload {
 }
 
 /**
- * Data tab — bulk import / export actions.
- *
- * Plain ZIP export/import, encrypted backup export/import, and JSON
- * settings export/import (frontend-only: serialises the `moldavite-*`
- * localStorage keys without touching the backend).
+ * Data tab: plain ZIP export and import, encrypted backup export and import,
+ * JSON settings export and import (frontend-only: serialises the
+ * `moldavite-*` localStorage keys without touching the backend), and the
+ * Obsidian importer folded below.
  */
 export function SettingsData() {
   const toast = useToast();
@@ -253,7 +247,7 @@ export function SettingsData() {
           applied += 1;
         }
       }
-      toast.success(`Imported ${applied} settings keys — reloading…`);
+      toast.success(`Imported ${applied} settings keys, reloading...`);
       setTimeout(() => window.location.reload(), 400);
     } catch (error) {
       console.error('[SettingsData] import settings failed:', error);
@@ -263,38 +257,11 @@ export function SettingsData() {
     }
   };
 
-  const buttonPrimary =
-    'flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50';
-  const buttonSecondary =
-    'flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50';
-
   return (
-    <div className="space-y-6">
-      {/* Notes: plain ZIP export / import */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Notes
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Export all notes and templates as a ZIP archive, or import from one
-          </p>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={handleExportNotes}
-            disabled={isExportingNotes}
-            className={buttonPrimary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
+    <div className="settings-tab">
+      <Group id="backups">
+        <Row id="notes-zip" stack>
+          <button onClick={handleExportNotes} disabled={isExportingNotes} className="settings-btn">
             {isExportingNotes ? (
               <DotLoader label="Exporting notes" />
             ) : (
@@ -302,17 +269,7 @@ export function SettingsData() {
             )}
             {isExportingNotes ? 'Exporting...' : 'Export all notes (.zip)'}
           </button>
-          <button
-            onClick={handleSelectZip}
-            disabled={isImportingNotes}
-            className={buttonSecondary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
+          <button onClick={handleSelectZip} disabled={isImportingNotes} className="settings-btn">
             {isImportingNotes ? (
               <DotLoader label="Importing notes" />
             ) : (
@@ -320,35 +277,9 @@ export function SettingsData() {
             )}
             {isImportingNotes ? 'Importing...' : 'Import notes from .zip'}
           </button>
-        </div>
-      </div>
+        </Row>
 
-      {/* Encrypted backup */}
-      <div
-        className="p-4 space-y-4"
-        style={{
-          backgroundColor: 'transparent',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-default)',
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'transparent' }}
-          >
-            <Shield className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Encrypted Backup
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Password-protected backup with AES-256 encryption
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <Row id="encrypted-backup" stack>
           <button
             onClick={() => {
               setExportPw('');
@@ -357,12 +288,7 @@ export function SettingsData() {
               setShowEncryptedExport(true);
             }}
             disabled={isExportingBackup}
-            className={buttonPrimary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-            }}
+            className="settings-btn"
           >
             {isExportingBackup ? (
               <DotLoader label="Exporting encrypted backup" />
@@ -374,13 +300,7 @@ export function SettingsData() {
           <button
             onClick={handleSelectBackup}
             disabled={isImportingBackup}
-            className={buttonSecondary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
+            className="settings-btn"
           >
             {isImportingBackup ? (
               <DotLoader label="Importing encrypted backup" />
@@ -389,41 +309,13 @@ export function SettingsData() {
             )}
             {isImportingBackup ? 'Importing...' : 'Import encrypted backup'}
           </button>
-        </div>
-      </div>
+        </Row>
 
-      {/* Settings JSON export / import */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'transparent' }}
-          >
-            <SettingsIcon className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Settings
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Export your preferences, theme, folders and pinned tabs as JSON — useful for syncing
-              across devices. Notes are not included.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
+        <Row id="settings-file" stack>
           <button
             onClick={handleExportSettings}
             disabled={isExportingSettings}
-            className={buttonPrimary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-            }}
+            className="settings-btn"
           >
             {isExportingSettings ? (
               <DotLoader label="Exporting settings" />
@@ -435,13 +327,7 @@ export function SettingsData() {
           <button
             onClick={handleImportSettings}
             disabled={isImportingSettings}
-            className={buttonSecondary}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
+            className="settings-btn"
           >
             {isImportingSettings ? (
               <DotLoader label="Importing settings" />
@@ -450,8 +336,15 @@ export function SettingsData() {
             )}
             {isImportingSettings ? 'Importing...' : 'Import settings (.json)'}
           </button>
-        </div>
-      </div>
+        </Row>
+      </Group>
+
+      {/* A phone has no folder picker for a vault. */}
+      {!isMobilePlatform() && (
+        <Group id="import">
+          <ImportSection />
+        </Group>
+      )}
 
       {/* Merge-vs-replace picker for plain notes import */}
       {pendingZipPath && (

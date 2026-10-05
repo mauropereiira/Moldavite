@@ -124,7 +124,7 @@ use Open With or ⌘O (Ctrl+O) to edit the original.
 
 ### Start syncing on Mac
 
-In Moldavite 2.7.0 or later, open **Settings → General → Use synced Forge** to
+In Moldavite 2.7.0 or later, open **Settings → General → Synced Forge (iCloud)** to
 create a separate iCloud Forge on your Mac. Write notes there or use **Open
 synced folder in Finder** to copy Markdown files into `notes/`. Your local
 Forges stay separate. You can start on Mac before installing the iOS app.
@@ -140,7 +140,7 @@ Settings → Appearance offers seven themes, Cream, Sage, Slate, Clay, Plum,
 Graphite and the seasonal Autumn, each in light and dark, and S–XL text sizes for the editor and
 desktop Settings. Settings → Layout puts the icon rail on the left or the right. The home screen
 has faint constellations with a sun or moon, and the seasonal theme adds an autumn field and falling
-leaves (Settings → Layout → Seasonal touches turns them off).
+leaves (Settings → Appearance → Home screen → Seasonal touches turns them off).
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
 Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on a Mac,

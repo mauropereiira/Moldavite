@@ -29,16 +29,50 @@ export type SettingsTab =
   | 'general'
   | 'appearance'
   | 'layout'
-  | 'editor'
-  | 'features'
-  | 'sidebar'
+  | 'writing'
   | 'calendar'
-  | 'templates'
-  | 'plugins'
   | 'agents'
+  | 'plugins'
   | 'data'
-  | 'import'
   | 'about';
+/** Tabs that were folded into others when Settings was regrouped. */
+export type LegacySettingsTab = 'editor' | 'features' | 'sidebar' | 'templates' | 'import';
+/** A tab, an old tab id, or `tab#anchor` for one group or setting inside a tab. */
+export type SettingsTarget = SettingsTab | LegacySettingsTab | `${SettingsTab}#${string}`;
+
+const SETTINGS_TABS: readonly string[] = [
+  'general',
+  'appearance',
+  'layout',
+  'writing',
+  'calendar',
+  'agents',
+  'plugins',
+  'data',
+  'about',
+];
+
+const LEGACY_TABS: Record<LegacySettingsTab, string> = {
+  editor: 'writing',
+  features: 'writing#linking',
+  sidebar: 'layout#index',
+  templates: 'writing#templates',
+  import: 'data#import',
+};
+
+/**
+ * Where a target lands. Old ids keep working because plugins, deep links and
+ * persisted phone state can still name them; anything unknown opens General.
+ */
+export function resolveSettingsTarget(target: string): {
+  tab: SettingsTab;
+  anchor: string | null;
+} {
+  const [tab, anchor = null] = (LEGACY_TABS[target as LegacySettingsTab] ?? target).split('#');
+  return SETTINGS_TABS.includes(tab)
+    ? { tab: tab as SettingsTab, anchor }
+    : { tab: 'general', anchor: null };
+}
 
 export interface SettingsState {
   notesDirectory: string;
@@ -98,8 +132,10 @@ export interface SettingsState {
 
   isSettingsOpen: boolean;
   activeSettingsTab: SettingsTab;
-  /** The section the phone's Settings page is showing; `null` is its list. */
+  /** The phone's open section; `null` is its list. */
   settingsSection: SettingsTab | null;
+  /** A group or setting to open, scroll to and mark once its tab renders. */
+  settingsAnchor: string | null;
 
   setNotesDirectory: (path: string) => void;
   setAutoSaveDelay: (delay: number) => void;
@@ -129,8 +165,9 @@ export interface SettingsState {
   setHasSeenAppOnboarding: (seen: boolean) => void;
   setLastSeenOnboardingVersion: (version: number) => void;
   setIsSettingsOpen: (open: boolean) => void;
-  setActiveSettingsTab: (tab: SettingsTab) => void;
-  setSettingsSection: (section: SettingsTab | null) => void;
+  setActiveSettingsTab: (target: SettingsTarget) => void;
+  setSettingsSection: (target: SettingsTarget | null) => void;
+  setSettingsAnchor: (anchor: string | null) => void;
   resetToDefaults: () => void;
 }
 
@@ -175,6 +212,7 @@ const defaultSettings = {
   isSettingsOpen: false,
   activeSettingsTab: 'general' as SettingsTab,
   settingsSection: null as SettingsTab | null,
+  settingsAnchor: null as string | null,
 };
 
 const isChromeMode = (value: unknown): value is ChromeMode =>
@@ -275,8 +313,16 @@ export const useSettingsStore = create<SettingsState>()(
       // Closing forgets the phone section, so Settings reopens at its list.
       setIsSettingsOpen: (open) =>
         set(open ? { isSettingsOpen: true } : { isSettingsOpen: false, settingsSection: null }),
-      setActiveSettingsTab: (tab) => set({ activeSettingsTab: tab }),
-      setSettingsSection: (section) => set({ settingsSection: section }),
+      setActiveSettingsTab: (target) => {
+        const { tab, anchor } = resolveSettingsTarget(target);
+        set({ activeSettingsTab: tab, settingsAnchor: anchor });
+      },
+      setSettingsSection: (target) => {
+        if (target === null) return set({ settingsSection: null });
+        const { tab, anchor } = resolveSettingsTarget(target);
+        set({ settingsSection: tab, activeSettingsTab: tab, settingsAnchor: anchor });
+      },
+      setSettingsAnchor: (anchor) => set({ settingsAnchor: anchor }),
       resetToDefaults: () => set(defaultSettings),
     }),
     {

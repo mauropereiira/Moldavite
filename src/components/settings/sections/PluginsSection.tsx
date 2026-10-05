@@ -1,5 +1,5 @@
 /**
- * PluginsSection — manage plugins installed under the active Forge's
+ * PluginsSection: manage plugins installed under the active Forge's
  * `.plugins/` directory: enable/disable (behind a permission sheet), view
  * permissions, uninstall, install from the community directory or from a
  * package on disk, and stop every plugin when one misbehaves. Everything
@@ -8,7 +8,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Puzzle,
   ExternalLink,
   Trash2,
   Download,
@@ -55,7 +54,7 @@ import {
   type PluginInstallDetails,
 } from '@/components/plugins/PluginInstallDialog';
 import { ConfirmDialog } from '@/components/ui';
-import { Toggle } from '../common';
+import { Group, Toggle } from '../common';
 
 const PLUGINS_DOC_URL = 'https://github.com/mauropereiira/Moldavite/blob/main/docs/PLUGINS.md';
 const RECOVERY_DOC_URL = `${PLUGINS_DOC_URL}#if-a-plugin-stops-moldavite-from-working`;
@@ -66,13 +65,6 @@ type PendingInstall =
   | { kind: 'community'; plugin: CommunityPlugin; installed: InstalledAccess | null }
   | { kind: 'file'; candidate: ImportCandidate; installed: InstalledAccess | null }
   | null;
-
-const secondaryButtonStyle = {
-  backgroundColor: 'transparent',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--text-secondary)',
-};
 
 function accessOf(info: PluginInfo | undefined): InstalledAccess | null {
   if (!info) return null;
@@ -155,13 +147,7 @@ function SafeModeNotice({
         Your notes are fine. Turn off or uninstall any plugin you suspect below, then turn plugins
         back on. Nothing runs until you do.
       </p>
-      <button
-        type="button"
-        onClick={onResume}
-        disabled={busy}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium focus-ring"
-        style={secondaryButtonStyle}
-      >
+      <button type="button" onClick={onResume} disabled={busy} className="settings-btn">
         <PlayCircle aria-hidden="true" className="w-4 h-4" />
         Turn plugins back on
       </button>
@@ -461,39 +447,7 @@ export function PluginsSection() {
   const visibleCommunityPlugins = communityPlugins.filter((plugin) => matchesQuery(plugin, query));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3">
-        <div
-          className="flex-shrink-0 p-2"
-          style={{
-            backgroundColor: 'transparent',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--accent-primary)',
-          }}
-        >
-          <Puzzle aria-hidden="true" className="w-5 h-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            Plugins
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Add commands to Moldavite. Plugins live in your Forge under{' '}
-            <code
-              style={{
-                backgroundColor: 'transparent',
-                padding: '1px 4px',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              .plugins/
-            </code>
-            , run only after you approve what they ask for, and can read your notes when you allow
-            it &mdash; only turn on ones you trust.
-          </p>
-        </div>
-      </div>
-
+    <div className="settings-tab">
       {safeMode.active && (
         <SafeModeNotice
           status={safeMode}
@@ -503,130 +457,158 @@ export function PluginsSection() {
         />
       )}
 
-      {/* Installed plugins */}
-      {plugins.length === 0 ? (
-        <div
-          className="p-6 text-center"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px dashed var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-          }}
-        >
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-            No plugins installed yet.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {plugins.map((info) => {
-            const { id, name, version, author, description } = info.manifest;
-            const ok = info.status === 'ok';
-            const enabled = ok && isEnabledAndGranted(id, version, info.contentHash);
-            const status = statusOf(info);
-            // classify() stands in `version: '?'` when the manifest itself is unusable.
-            const readable = version !== '?';
-            return (
-              <div
-                key={id}
-                className="p-4 flex items-start justify-between gap-3"
-                style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {readable ? name : id}
-                    </span>
-                    {readable && (
-                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        v{version}
-                        {author ? ` · ${author}` : ''}
-                      </span>
-                    )}
-                    <span
-                      className="text-[10px] px-1.5 py-0.5"
-                      style={{
-                        backgroundColor: 'transparent',
-                        color: status.error ? 'var(--text-error)' : 'var(--text-tertiary)',
-                        borderRadius: 'var(--radius-sm)',
-                      }}
-                    >
-                      {status.label}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAbout(info)}
-                      className="text-sm leading-none p-0.5 focus-ring"
-                      style={{ color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
-                      aria-label={`About ${ok ? name : id}`}
-                      title={`About ${ok ? name : id}`}
-                    >
-                      <span aria-hidden="true">ⓘ</span>
-                    </button>
-                  </div>
-                  {ok && description && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      {description}
-                    </p>
-                  )}
-                  {status.label === 'Needs review' && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      Its files changed since you approved it, so it&apos;s off. Turn it on to
-                      review what it asks for now.
-                    </p>
-                  )}
-                  {!ok && info.reason && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-error)' }}>
-                      {info.reason}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 mt-2">
+      <Group id="installed">
+        <div data-setting="plugin-list">
+          {plugins.length === 0 ? (
+            <div
+              className="p-6 text-center"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px dashed var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                No plugins installed yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {plugins.map((info) => {
+                const { id, name, version, author, description } = info.manifest;
+                const ok = info.status === 'ok';
+                const enabled = ok && isEnabledAndGranted(id, version, info.contentHash);
+                const status = statusOf(info);
+                // classify() stands in `version: '?'` when the manifest itself is unusable.
+                const readable = version !== '?';
+                return (
+                  <div
+                    key={id}
+                    className="p-4 flex items-start justify-between gap-3"
+                    style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {readable ? name : id}
+                        </span>
+                        {readable && (
+                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            v{version}
+                            {author ? ` · ${author}` : ''}
+                          </span>
+                        )}
+                        <span
+                          className="text-[10px] px-1.5 py-0.5"
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: status.error ? 'var(--text-error)' : 'var(--text-tertiary)',
+                            borderRadius: 'var(--radius-sm)',
+                          }}
+                        >
+                          {status.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAbout(info)}
+                          className="text-sm leading-none p-0.5 focus-ring"
+                          style={{
+                            color: 'var(--accent-primary)',
+                            borderRadius: 'var(--radius-sm)',
+                          }}
+                          aria-label={`About ${ok ? name : id}`}
+                          title={`About ${ok ? name : id}`}
+                        >
+                          <span aria-hidden="true">ⓘ</span>
+                        </button>
+                      </div>
+                      {ok && description && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          {description}
+                        </p>
+                      )}
+                      {status.label === 'Needs review' && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          Its files changed since you approved it, so it&apos;s off. Turn it on to
+                          review what it asks for now.
+                        </p>
+                      )}
+                      {!ok && info.reason && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-error)' }}>
+                          {info.reason}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2">
+                        {ok && (
+                          <button
+                            type="button"
+                            onClick={() => setSheet({ info, mode: 'view' })}
+                            className="settings-link"
+                          >
+                            View permissions
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPendingUninstall(info)}
+                          disabled={busy}
+                          className="settings-link"
+                        >
+                          <Trash2 aria-hidden="true" className="w-3 h-3" />
+                          Uninstall
+                        </button>
+                      </div>
+                    </div>
                     {ok && (
-                      <button
-                        type="button"
-                        onClick={() => setSheet({ info, mode: 'view' })}
-                        className="text-xs hover:underline"
-                        style={{ color: 'var(--accent-primary)', background: 'transparent' }}
-                      >
-                        View permissions
-                      </button>
+                      <Toggle
+                        enabled={enabled}
+                        onChange={(next) => handleToggle(info, next)}
+                        ariaLabel={`Enable ${name}`}
+                      />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setPendingUninstall(info)}
-                      disabled={busy}
-                      className="text-xs flex items-center gap-1 hover:underline"
-                      style={{ color: 'var(--text-tertiary)', background: 'transparent' }}
-                    >
-                      <Trash2 aria-hidden="true" className="w-3 h-3" />
-                      Uninstall
-                    </button>
                   </div>
-                </div>
-                {ok && (
-                  <Toggle
-                    enabled={enabled}
-                    onChange={(next) => handleToggle(info, next)}
-                    ariaLabel={`Enable ${name}`}
-                  />
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+        {!safeMode.active && plugins.length > 0 && (
+          <div className="settings-row-note">
+            <button
+              type="button"
+              onClick={() => void setPaused(true)}
+              disabled={busy}
+              className="settings-btn"
+            >
+              <PauseCircle aria-hidden="true" className="w-4 h-4" />
+              Stop all plugins
+            </button>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Stops every plugin until you turn them back on or restart Moldavite. If a plugin keeps
+              Moldavite from opening,{' '}
+              <button
+                type="button"
+                onClick={() => openExternal(RECOVERY_DOC_URL)}
+                className="settings-link"
+              >
+                start it without plugins
+              </button>
+              .
+            </p>
+          </div>
+        )}
+      </Group>
 
-      <div
-        className="p-4 space-y-3"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex flex-wrap gap-2">
+      <Group id="add-plugins">
+        <div className="flex flex-wrap gap-2 py-3" data-setting="plugin-install">
           <button
             type="button"
             onClick={() => void browseCommunityPlugins()}
             disabled={registryStatus === 'loading' || busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={secondaryButtonStyle}
+            className="settings-btn"
           >
             {registryStatus === 'loading' ? (
               <DotLoader label="Loading community plugins" />
@@ -639,8 +621,7 @@ export function PluginsSection() {
             type="button"
             onClick={() => void importPackage('zip')}
             disabled={busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={secondaryButtonStyle}
+            className="settings-btn"
           >
             <FileArchive aria-hidden="true" className="w-4 h-4" />
             Install from .zip…
@@ -649,8 +630,7 @@ export function PluginsSection() {
             type="button"
             onClick={() => void importPackage('folder')}
             disabled={busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={secondaryButtonStyle}
+            className="settings-btn"
           >
             <FolderOpen aria-hidden="true" className="w-4 h-4" />
             Install from folder…
@@ -666,8 +646,7 @@ export function PluginsSection() {
                 )
               }
               disabled={busy}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-              style={secondaryButtonStyle}
+              className="settings-btn"
             >
               <Download aria-hidden="true" className="w-4 h-4" />
               Install Publish to WordPress
@@ -680,8 +659,7 @@ export function PluginsSection() {
                 void installBundled('install_example_plugin', 'moldavite-example', 'Example Plugin')
               }
               disabled={busy}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-              style={secondaryButtonStyle}
+              className="settings-btn"
             >
               <Download aria-hidden="true" className="w-4 h-4" />
               Install example plugin
@@ -690,265 +668,226 @@ export function PluginsSection() {
           <button
             type="button"
             onClick={() => openExternal(PLUGINS_DOC_URL)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={secondaryButtonStyle}
+            className="settings-btn"
           >
             <FileCode aria-hidden="true" className="w-4 h-4" />
             Build your own
             <ExternalLink aria-hidden="true" className="w-3 h-3" />
           </button>
         </div>
-        {registryStatus === 'idle' && (
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Browse community plugins contacts GitHub only when you click it. Moldavite never checks
-            the directory at startup or in the background.
-          </p>
-        )}
-        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          A plugin package is a folder, or a .zip of one, holding manifest.json and plugin.js. New
-          plugins stay off until you turn them on and approve what they ask for.
-        </p>
-      </div>
 
-      {!safeMode.active && plugins.length > 0 && (
-        <div className="p-4 space-y-2" style={{ borderRadius: 'var(--radius-md)' }}>
-          <button
-            type="button"
-            onClick={() => void setPaused(true)}
-            disabled={busy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-            style={secondaryButtonStyle}
+        {registryStatus === 'error' && (
+          <div
+            role="alert"
+            className="p-4 text-sm"
+            style={{
+              backgroundColor: 'transparent',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-secondary)',
+            }}
           >
-            <PauseCircle aria-hidden="true" className="w-4 h-4" />
-            Stop all plugins
-          </button>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Stops every plugin until you turn them back on or restart Moldavite. If a plugin keeps
-            Moldavite from opening,{' '}
-            <button
-              type="button"
-              onClick={() => openExternal(RECOVERY_DOC_URL)}
-              className="underline"
-              style={{ color: 'var(--accent-primary)', background: 'transparent' }}
-            >
-              start it without plugins
-            </button>
-            .
-          </p>
-        </div>
-      )}
-
-      <BrowserClipperCard />
-
-      {registryStatus === 'error' && (
-        <div
-          role="alert"
-          className="p-4 text-sm"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          {registryError}
-        </div>
-      )}
-
-      {registryStatus === 'ready' && (
-        <section aria-labelledby="community-plugin-heading" className="space-y-3">
-          <div>
-            <h4
-              id="community-plugin-heading"
-              className="text-sm font-semibold"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Community plugins
-            </h4>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Every listed plugin was reviewed by the Moldavite maintainer. Files come only from
-              Moldavite&apos;s pinned community repository, and both hashes are checked before
-              anything is installed.
-            </p>
+            {registryError}
           </div>
+        )}
 
-          {communityPlugins.length > 3 && (
-            <label className="flex items-center gap-2 text-sm">
-              <Search
-                aria-hidden="true"
-                className="w-4 h-4"
-                style={{ color: 'var(--text-tertiary)' }}
-              />
-              <span className="sr-only">Search community plugins</span>
-              <input
-                type="search"
-                className="input"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, author or permission"
-              />
-            </label>
-          )}
-
-          {rejectedEntries > 0 && (
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {rejectedEntries} malformed directory{' '}
-              {rejectedEntries === 1 ? 'entry was' : 'entries were'} skipped.
-            </p>
-          )}
-
-          {visibleCommunityPlugins.length === 0 ? (
-            <div
-              className="p-5 text-center text-sm"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px dashed var(--border-default)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-tertiary)',
-              }}
-            >
-              {communityPlugins.length === 0
-                ? 'No valid community plugins are listed right now.'
-                : 'No plugins match your search.'}
+        {registryStatus === 'ready' && (
+          <section aria-labelledby="community-plugin-heading" className="space-y-3">
+            <div>
+              <h4
+                id="community-plugin-heading"
+                className="text-sm font-semibold"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Community plugins
+              </h4>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Every listed plugin was reviewed by the Moldavite maintainer. Files come only from
+                Moldavite&apos;s pinned community repository, and both hashes are checked before
+                anything is installed.
+              </p>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {visibleCommunityPlugins.map((plugin) => {
-                const installState = communityInstallState(plugin, plugins);
-                const incompatible = communityIncompatibility(plugin, appVersion);
-                const installing = installingId === plugin.id;
-                const installed = plugins.find((info) => info.manifest.id === plugin.id);
-                return (
-                  <article
-                    key={plugin.id}
-                    id={`community-plugin-${plugin.id}`}
-                    className="p-4"
-                    style={{
-                      backgroundColor: 'transparent',
-                      border:
-                        highlightedId === plugin.id
-                          ? '2px solid var(--accent-primary)'
-                          : '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-md)',
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <h5
-                            className="text-sm font-semibold"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            {plugin.name}
-                          </h5>
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                            v{plugin.version} · {plugin.author}
-                          </span>
-                        </div>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                          {plugin.description}
-                        </p>
-                        {incompatible && (
-                          <p className="text-xs mt-1" style={{ color: 'var(--text-error)' }}>
-                            {incompatible}
+
+            {communityPlugins.length > 3 && (
+              <label className="flex items-center gap-2 text-sm">
+                <Search
+                  aria-hidden="true"
+                  className="w-4 h-4"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+                <span className="sr-only">Search community plugins</span>
+                <input
+                  type="search"
+                  className="input"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search by name, author or permission"
+                />
+              </label>
+            )}
+
+            {rejectedEntries > 0 && (
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                {rejectedEntries} malformed directory{' '}
+                {rejectedEntries === 1 ? 'entry was' : 'entries were'} skipped.
+              </p>
+            )}
+
+            {visibleCommunityPlugins.length === 0 ? (
+              <div
+                className="p-5 text-center text-sm"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px dashed var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                {communityPlugins.length === 0
+                  ? 'No valid community plugins are listed right now.'
+                  : 'No plugins match your search.'}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {visibleCommunityPlugins.map((plugin) => {
+                  const installState = communityInstallState(plugin, plugins);
+                  const incompatible = communityIncompatibility(plugin, appVersion);
+                  const installing = installingId === plugin.id;
+                  const installed = plugins.find((info) => info.manifest.id === plugin.id);
+                  return (
+                    <article
+                      key={plugin.id}
+                      id={`community-plugin-${plugin.id}`}
+                      className="p-4"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border:
+                          highlightedId === plugin.id
+                            ? '2px solid var(--accent-primary)'
+                            : '1px solid var(--border-default)',
+                        borderRadius: 'var(--radius-md)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <h5
+                              className="text-sm font-semibold"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {plugin.name}
+                            </h5>
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              v{plugin.version} · {plugin.author}
+                            </span>
+                          </div>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                            {plugin.description}
                           </p>
-                        )}
+                          {incompatible && (
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-error)' }}>
+                              {incompatible}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={busy || installState === 'installed' || !!incompatible}
+                          onClick={() =>
+                            setPendingInstall({
+                              kind: 'community',
+                              plugin,
+                              installed: accessOf(installed),
+                            })
+                          }
+                          className="flex-shrink-0 px-3 py-1.5 text-xs font-medium focus-ring"
+                          style={{
+                            backgroundColor: 'transparent',
+                            borderRadius: 'var(--radius-sm)',
+                            color:
+                              installState === 'installed' || incompatible
+                                ? 'var(--text-tertiary)'
+                                : 'var(--text-primary)',
+                          }}
+                        >
+                          {installing
+                            ? 'Installing…'
+                            : installState === 'installed'
+                              ? 'Installed'
+                              : installState === 'update-available'
+                                ? 'Update'
+                                : 'Install'}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={busy || installState === 'installed' || !!incompatible}
-                        onClick={() =>
-                          setPendingInstall({
-                            kind: 'community',
-                            plugin,
-                            installed: accessOf(installed),
-                          })
-                        }
-                        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium focus-ring"
-                        style={{
-                          backgroundColor: 'transparent',
-                          borderRadius: 'var(--radius-sm)',
-                          color:
-                            installState === 'installed' || incompatible
-                              ? 'var(--text-tertiary)'
-                              : 'var(--text-primary)',
-                        }}
-                      >
-                        {installing
-                          ? 'Installing…'
-                          : installState === 'installed'
-                            ? 'Installed'
-                            : installState === 'update-available'
-                              ? 'Update'
-                              : 'Install'}
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-3" aria-label="Plugin permissions">
-                      {plugin.permissions.length === 0 && (
-                        <span
-                          className="text-[10px] px-2 py-0.5"
-                          style={{
-                            backgroundColor: 'transparent',
-                            color: 'var(--text-tertiary)',
-                          }}
+                      <div className="flex flex-wrap gap-1.5 mt-3" aria-label="Plugin permissions">
+                        {plugin.permissions.length === 0 && (
+                          <span
+                            className="text-[10px] px-2 py-0.5"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: 'var(--text-tertiary)',
+                            }}
+                          >
+                            No extra permissions
+                          </span>
+                        )}
+                        {plugin.permissions.map((permission) => (
+                          <span
+                            key={permission}
+                            className="text-[10px] px-2 py-0.5"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: 'var(--accent-primary)',
+                            }}
+                          >
+                            {permission}
+                          </span>
+                        ))}
+                        {plugin.allowedHosts.map((host) => (
+                          <span
+                            key={host}
+                            className="text-[10px] px-2 py-0.5"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            host: {host}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-3 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => openExternal(communityPluginSourceUrl(plugin))}
+                          className="settings-link"
                         >
-                          No extra permissions
-                        </span>
-                      )}
-                      {plugin.permissions.map((permission) => (
-                        <span
-                          key={permission}
-                          className="text-[10px] px-2 py-0.5"
-                          style={{
-                            backgroundColor: 'transparent',
-                            color: 'var(--accent-primary)',
-                          }}
+                          View source
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openExternal(
+                              `${COMMUNITY_REPORT_URL}&title=${encodeURIComponent(`Report: ${plugin.id}`)}`
+                            )
+                          }
+                          className="settings-link"
                         >
-                          {permission}
-                        </span>
-                      ))}
-                      {plugin.allowedHosts.map((host) => (
-                        <span
-                          key={host}
-                          className="text-[10px] px-2 py-0.5"
-                          style={{
-                            backgroundColor: 'transparent',
-                            color: 'var(--text-secondary)',
-                          }}
-                        >
-                          host: {host}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex gap-3 mt-2">
-                      <button
-                        type="button"
-                        onClick={() => openExternal(communityPluginSourceUrl(plugin))}
-                        className="text-xs hover:underline"
-                        style={{ color: 'var(--accent-primary)', background: 'transparent' }}
-                      >
-                        View source
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openExternal(
-                            `${COMMUNITY_REPORT_URL}&title=${encodeURIComponent(`Report: ${plugin.id}`)}`
-                          )
-                        }
-                        className="text-xs hover:underline"
-                        style={{ color: 'var(--text-tertiary)', background: 'transparent' }}
-                      >
-                        Report a problem
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
+                          Report a problem
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+      </Group>
+
+      <Group id="clipper">
+        <BrowserClipperCard />
+      </Group>
 
       {pendingUninstall && (
         <ConfirmDialog

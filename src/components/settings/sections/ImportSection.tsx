@@ -1,4 +1,4 @@
-/** Settings → Import: one-time, read-only Obsidian vault COPY import wizard. */
+/** Settings, Data, Import from Obsidian: one-time, read-only Obsidian vault COPY import wizard. */
 
 import { useEffect, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -8,6 +8,7 @@ import { useForgeStore } from '@/stores/forgeStore';
 import { useObsidianImportStore } from '@/stores/obsidianImportStore';
 import { getForgeNameError } from '@/lib/obsidianImport';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { Row } from '../common';
 
 export function ImportSection() {
   const stage = useObsidianImportStore((state) => state.stage);
@@ -24,30 +25,17 @@ export function ImportSection() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold obs-import-title">Import</h2>
-        <p className="text-sm mt-1 obs-import-copy">
-          Bring an existing vault into a new Forge without changing the source.
-        </p>
-      </div>
-      <div className="obs-import-card space-y-4">
-        <div>
-          <h3 className="text-sm font-medium obs-import-title">Obsidian vault</h3>
-          <p className="text-xs mt-1 obs-import-copy">
-            Copy notes, supported daily notes, wiki-links, and referenced attachments into a new
-            Forge. Hidden items, Canvas files, trash, and symlinks are skipped.
-          </p>
-        </div>
-        <div className="obs-import-safe text-xs">
-          The source is opened read-only. Moldavite never edits, moves, or deletes its files.
-        </div>
-        <button type="button" onClick={() => void chooseVault()} className="obs-import-primary">
-          <FolderOpen className="w-4 h-4" /> Import Obsidian vault…
+    <>
+      <Row
+        id="obsidian"
+        note="Moldavite only reads the vault. It never edits, moves or deletes its files."
+      >
+        <button type="button" onClick={() => void chooseVault()} className="settings-btn">
+          <FolderOpen className="w-4 h-4" /> Import Obsidian vault...
         </button>
-      </div>
+      </Row>
       {stage !== 'idle' && <Wizard chooseVault={chooseVault} />}
-    </div>
+    </>
   );
 }
 
@@ -233,7 +221,7 @@ function Wizard({ chooseVault }: { chooseVault: () => Promise<void> }) {
                 ))}
                 {store.report.skippedItems.map((item, index) => (
                   <p key={`s-${index}`}>
-                    <code>{item.path}</code> — {item.reason}
+                    <code>{item.path}</code>: {item.reason}
                   </p>
                 ))}
               </div>

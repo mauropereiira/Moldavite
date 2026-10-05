@@ -1,13 +1,11 @@
 /**
- * GeneralSection — Notes directory, auto-lock, auto-save, and the
- * Clear-all-notes danger zone. Backups live in SettingsData.
- *
- * All IPC calls go through the `@/lib` wrapper modules, which internally
- * use `safeInvoke` from `@/lib/ipc` (no direct Tauri `invoke` usage here).
+ * GeneralSection: the Forge, the default .md app, and folded below them
+ * auto-save, auto-lock and the Delete all notes danger zone. Backups live in
+ * SettingsData.
  */
 
 import { useState, useEffect } from 'react';
-import { FolderOpen, Timer, RefreshCw, ExternalLink } from 'lucide-react';
+import { FolderOpen, RefreshCw, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useSettingsStore, useNoteStore } from '@/stores';
@@ -23,7 +21,7 @@ import {
 } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
-import { InfoTooltip, SegmentedControl, Toggle } from '../common';
+import { Group, Row, SegmentedControl, ToggleRow, label } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import SyncedForgeControl from '../SyncedForgeControl';
 import DefaultMarkdownAppControl from '../DefaultMarkdownAppControl';
@@ -97,12 +95,12 @@ export function GeneralSection() {
 
   /**
    * Repoint Moldavite at a different Forges root. It does not move files, and
-   * the copy beside it says so.
+   * the row's (i) says so.
    *
    * This used to call `set_notes_directory`, which promised to move the Forge
    * and instead destroyed part of it: it copied only the immediate files of
-   * `daily/`, `notes/` and `templates/` — skipping `weekly/`, `images/`,
-   * `.trash/`, `.plugins/` and every nested folder — then deleted the
+   * `daily/`, `notes/` and `templates/` (skipping `weekly/`, `images/`,
+   * `.trash/`, `.plugins/` and every nested folder), then deleted the
    * originals, and wrote a config field that `get_notes_dir` no longer reads.
    * The app reopened the same Forge with those notes gone, under a toast
    * reading "Forge moved successfully!".
@@ -148,265 +146,104 @@ export function GeneralSection() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Status Message */}
+    <div className="settings-tab">
       {statusMessage && (
-        <div
-          className="p-3 rounded text-sm border"
-          style={{
-            color: statusMessage.type === 'success' ? 'var(--success)' : 'var(--error)',
-            backgroundColor: 'transparent',
-            borderColor: statusMessage.type === 'success' ? 'var(--success)' : 'var(--error)',
-          }}
+        <p
+          className={statusMessage.type === 'success' ? 'settings-ok' : 'settings-error'}
+          role="status"
         >
           {statusMessage.text}
-        </div>
+        </p>
       )}
 
-      {/* Forge Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex items-center gap-1">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Forge
-          </h3>
-          <InfoTooltip text="Your notes live in your Forge — a folder of plain .md files you can sync, back up, or open in any other tool." />
-        </div>
-
-        <div>
-          {!mobile && (
-            <>
-              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
-                Forges folder
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={forgesRoot}
-                  readOnly
-                  className="flex-1 px-3 py-2 text-sm"
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-tertiary)',
-                  }}
-                />
-                <button
-                  onClick={handleChangeDirectory}
-                  disabled={isChangingDir}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  <FolderOpen aria-hidden="true" className="w-4 h-4" />
-                  {isChangingDir ? 'Switching...' : 'Change'}
-                </button>
-              </div>
-            </>
-          )}
-          {mobile ? (
-            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-              Your notes are plain Markdown files. Local Forges stay on this device.
-            </p>
-          ) : (
-            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-              Plain .md files. Sync, back up, or open in any other tool. This Forge is at{' '}
-              <span
-                className={mobile ? 'font-mono' : 'font-mono break-all'}
-                style={
-                  mobile
-                    ? { color: 'var(--text-tertiary)', overflowWrap: 'anywhere', fontSize: '13px' }
-                    : { color: 'var(--text-tertiary)' }
-                }
-              >
-                {notesDirectory}
+      <Group id="forge">
+        {!mobile && (
+          <Row
+            id="forges-folder"
+            note={
+              <span className="truncate max-w-full font-mono" title={forgesRoot}>
+                {forgesRoot}
               </span>
-              .
-            </p>
-          )}
-          <SyncedForgeControl />
-          {!mobile && (
-            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-              Changing this points Moldavite at a different folder — it does not move your files. To
-              relocate a Forge, quit Moldavite, move the folder yourself, then point it here.
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          {!mobile && (
+            }
+          >
             <button
-              onClick={handleOpenInFinder}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-secondary)',
-              }}
+              onClick={handleChangeDirectory}
+              disabled={isChangingDir}
+              className="settings-btn"
             >
+              <FolderOpen aria-hidden="true" className="w-4 h-4" />
+              {isChangingDir ? 'Switching...' : 'Change'}
+            </button>
+          </Row>
+        )}
+        <Row
+          id="this-forge"
+          detail={
+            !mobile &&
+            notesDirectory && (
+              <span className="settings-path-block">This Forge is at {notesDirectory}</span>
+            )
+          }
+        >
+          {!mobile && (
+            <button onClick={handleOpenInFinder} className="settings-btn">
               <ExternalLink aria-hidden="true" className="w-4 h-4" />
-              {CURRENT_PLATFORM === 'windows' ? 'Show in Explorer' : 'Open Forge in Finder'}
+              {CURRENT_PLATFORM === 'windows' ? 'Show in Explorer' : 'Open in Finder'}
             </button>
           )}
-          <button
-            onClick={handleRescan}
-            disabled={isRescanning}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-          >
+          <button onClick={handleRescan} disabled={isRescanning} className="settings-btn">
             {isRescanning ? (
               <DotLoader label="Rescanning Forge" />
             ) : (
               <RefreshCw aria-hidden="true" className="w-4 h-4" />
             )}
-            {isRescanning ? 'Rescanning...' : 'Rescan Forge'}
+            {isRescanning ? 'Rescanning...' : 'Rescan'}
           </button>
-        </div>
-      </div>
+        </Row>
+        <SyncedForgeControl />
+        <DefaultMarkdownAppControl />
+      </Group>
 
-      <p className="px-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-        Backups, exports and restores are in Data.
-      </p>
-
-      <DefaultMarkdownAppControl />
-
-      {/* Security Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            aria-hidden="true"
-            className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'transparent' }}
-          >
-            <Timer className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div>
-            <div className="flex items-center gap-1">
-              <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                Auto-Lock
-              </h3>
-              <InfoTooltip text="For encrypted notes. Automatically locks unlocked notes after a period of inactivity for security." />
-            </div>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Automatically re-lock notes after inactivity
-            </p>
-          </div>
-        </div>
-        <div>
-          <SegmentedControl
-            label="Lock after"
-            ariaLabel="Lock after"
-            value={settings.autoLockTimeout}
-            onChange={settings.setAutoLockTimeout}
-            options={AUTO_LOCK_OPTIONS}
-          />
-          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            Unlocked notes will be automatically re-locked after the selected period of inactivity
-          </p>
-        </div>
-      </div>
-
-      {/* Auto-save Section */}
-      <div
-        className="p-4 space-y-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <div className="flex items-center gap-1">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Auto-save
-          </h3>
-          <InfoTooltip text="Notes are saved automatically as you type. Adjust the delay to balance between instant saves and reduced disk activity." />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label
-              htmlFor="autosave-delay-range"
-              className="text-xs"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              Save delay
-            </label>
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {settings.autoSaveDelay}ms
-            </span>
-          </div>
+      <Group id="saving">
+        <Row id="autosave-delay">
           <input
-            id="autosave-delay-range"
             type="range"
             min="100"
             max="2000"
             step="100"
             value={settings.autoSaveDelay}
+            aria-label={label('autosave-delay')}
             aria-valuetext={`${settings.autoSaveDelay} milliseconds`}
             onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
-            className="settings-range w-full appearance-none cursor-pointer"
+            className="settings-range"
           />
-          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            <span>Fast</span>
-            <span>Slow</span>
-          </div>
-        </div>
-
-        <div
-          className="flex items-center justify-between pt-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
-        >
-          <div>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Show save indicator
-            </span>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Display &quot;Saving...&quot; when auto-saving
-            </p>
-          </div>
-          <Toggle
-            enabled={settings.showAutoSaveStatus}
-            onChange={settings.setShowAutoSaveStatus}
-            ariaLabel="Show auto-save status"
+          <span className="settings-value">{settings.autoSaveDelay} ms</span>
+        </Row>
+        <ToggleRow
+          id="save-status"
+          value={settings.showAutoSaveStatus}
+          onChange={settings.setShowAutoSaveStatus}
+        />
+        <Row id="auto-lock" stack>
+          <SegmentedControl
+            ariaLabel={label('auto-lock')}
+            value={settings.autoLockTimeout}
+            onChange={settings.setAutoLockTimeout}
+            options={AUTO_LOCK_OPTIONS}
           />
-        </div>
-      </div>
+        </Row>
+      </Group>
 
-      {/* Danger Zone */}
-      <div
-        className="p-4"
-        style={{
-          borderRadius: 'var(--radius-md)',
-          border: '2px solid var(--error)',
-          backgroundColor: 'transparent',
-        }}
-      >
-        <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--error)' }}>
-          Danger Zone
-        </h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--error)', opacity: 0.8 }}>
-          Permanently delete all notes. This cannot be undone.
-        </p>
-        <button
-          onClick={() => setShowClearConfirm(true)}
-          className="px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-        >
-          Clear All Notes
-        </button>
-      </div>
+      <Group id="danger">
+        <Row id="delete-all">
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="settings-btn settings-btn-danger"
+          >
+            Delete all notes...
+          </button>
+        </Row>
+      </Group>
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (

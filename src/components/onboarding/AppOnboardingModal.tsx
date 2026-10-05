@@ -56,7 +56,7 @@ const SEASON_PAGES: Record<
 > = {
   autumn: {
     title: 'Autumn is here',
-    body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Layout › Seasonal touches.',
+    body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Appearance › Seasonal touches.',
     preset: 'autumn',
     icon: <MaskArt src="/seasonal/pumpkin.webp" className="w-10 h-10" />,
   },
