@@ -173,11 +173,12 @@ const BUDGETS = [
 // 200.1 KB gz.
 // 700 / 202: the release welcome pages and shared launch decision.
 // Measured 698.7 KB raw / 201.3 KB gz; no new dependencies.
-// 704 / 203: the October fix round (held saves on close and Forge switch,
+// 710 / 206: the October fix round (held saves on close and Forge switch,
 // code-aware wiki links, kept formatting, locked-pair recovery, the inline
-// plugin worker) adds 3.4 KB raw / 1.0 KB gz with all of it merged.
-// Measured 702.1 KB raw / 202.3 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 704, gzipKb: 203 };
+// plugin worker) and the single top bar with its Open tabs menu and phone
+// sheet add 9.1 KB raw / 3.0 KB gz with all of it merged.
+// Measured 707.8 KB raw / 204.5 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 710, gzipKb: 206 };
 
 async function main() {
   let entries;
