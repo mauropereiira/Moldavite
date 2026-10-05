@@ -81,7 +81,7 @@ export function ChromeShortcutHost() {
         void openFileWithDialog((rel) => routeNoteRequest(rel, loadNote, refresh));
         return;
       }
-      if (key === 'g' && e.shiftKey) {
+      if (key === 'g' && e.shiftKey && !e.altKey) {
         e.preventDefault();
         useGraphStore.getState().toggle();
         return;
