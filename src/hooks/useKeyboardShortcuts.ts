@@ -132,12 +132,15 @@ export function useKeyboardShortcuts({
       // intentionally NOT handled here — they're owned by `ShortcutHelpHost`
       // and `ChromeShortcutHost`, which mount at the app root so they stay
       // reachable when no editor is mounted.
-      if (isMod && key === ',') return 'settings';
-      if (isMod && key === 'n') return 'newNote';
-      if (isMod && e.shiftKey && key === 'l') return 'toggleTheme';
-      if (isMod && key === 'w') return 'closeTab';
-      if (isMod && key === 't') return 'templatePicker';
-      if (isMod && key === 'k') return 'insertLink';
+      // A chord that adds ⌥ is a different shortcut, not this one. Windows
+      // also reports AltGr as Ctrl+Alt, which types characters on many layouts.
+      const isPlainMod = isMod && !e.altKey;
+      if (isPlainMod && key === ',') return 'settings';
+      if (isPlainMod && key === 'n') return 'newNote';
+      if (isPlainMod && e.shiftKey && key === 'l') return 'toggleTheme';
+      if (isPlainMod && key === 'w') return 'closeTab';
+      if (isPlainMod && key === 't') return 'templatePicker';
+      if (isPlainMod && key === 'k') return 'insertLink';
       if (isMod && e.altKey && (key === 'arrowright' || key === 'arrowdown')) return 'nextTab';
       if (isMod && e.altKey && (key === 'arrowleft' || key === 'arrowup')) return 'prevTab';
       // Esc clears any bulk sidebar selection. Only claim the event when a

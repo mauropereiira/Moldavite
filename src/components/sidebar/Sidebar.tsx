@@ -312,7 +312,7 @@ export function Sidebar({
   // Not ⌘K: the editor's Insert link owns it.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPrimaryModifier(e) && e.key === 'f') {
+      if (isPrimaryModifier(e) && !e.altKey && e.key === 'f') {
         e.preventDefault();
         searchInputRef.current?.focus();
       }

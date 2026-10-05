@@ -157,6 +157,8 @@ describe('the search shortcut on a Mac', () => {
     expect(search).not.toHaveFocus();
     fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
     expect(search).not.toHaveFocus();
+    fireEvent.keyDown(window, { key: 'f', metaKey: true, altKey: true });
+    expect(search).not.toHaveFocus();
     fireEvent.keyDown(window, { key: 'f', metaKey: true });
     expect(search).toHaveFocus();
   });
