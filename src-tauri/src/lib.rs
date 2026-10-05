@@ -99,7 +99,11 @@ pub(crate) mod note_file_access;
 ///
 /// Commands that can wait on a whole-Forge scan or index build take the same
 /// route on every platform: run synchronously they hold the main thread, and
-/// the window, for as long as they wait.
+/// the window, for as long as they wait. A rename rewrites links across the
+/// Forge; the graph took 0.3 to 1.3 s at 10,000 notes. `list_notes` stays on
+/// main: its replies must keep their order against `create_note` and the other
+/// synchronous writes, or a list started earlier lands last and drops the note
+/// just created from the sidebar.
 fn dispatch_note_io(
     handler: fn(tauri::ipc::Invoke) -> bool,
 ) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
@@ -107,7 +111,14 @@ fn dispatch_note_io(
         let command = invoke.message.command();
         let waits_on_forge_scan = matches!(
             command,
-            "get_backlinks" | "rescan_forge" | "search_notes_content" | "search_index_status"
+            "get_backlinks"
+                | "rescan_forge"
+                | "search_notes_content"
+                | "search_index_status"
+                | "get_note_graph"
+                | "rename_note"
+                | "rename_folder"
+                | "move_folder"
         );
         let coordinates_note_files = cfg!(any(target_os = "macos", target_os = "ios"))
             && matches!(
@@ -118,13 +129,10 @@ fn dispatch_note_io(
                     | "unlock_note"
                     | "permanently_unlock_note"
                     | "is_note_locked"
-                    | "rename_note"
                     | "icloud_download_note"
                     | "move_note"
                     | "delete_note"
                     | "create_folder"
-                    | "rename_folder"
-                    | "move_folder"
                     | "delete_folder"
                     | "set_note_color"
                     | "read_loose_file"

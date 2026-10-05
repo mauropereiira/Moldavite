@@ -1349,8 +1349,10 @@ mod tests {
                 "correct horse".into(),
                 false,
                 false,
+                &BacklinksIndex::new(),
             )
-            .unwrap(),
+            .unwrap()
+            .content,
             "the secret body"
         );
     }
@@ -1487,7 +1489,9 @@ mod tests {
             "correct horse".into(),
             false,
             false,
+            &BacklinksIndex::new(),
         )
+        .map(|unlocked| unlocked.content)
     }
 
     fn trash_projects(forge: &std::path::Path, id: &str) -> TrashedNoteMetadata {

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
-import { registerAutosaveFlush, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
+import {
+  registerAutosaveFlush,
+  registerAutosavePendingProbe,
+  registerHeldSaves,
+} from '@/lib/autosaveFlush';
 import {
   INITIAL_UPDATE_CHECK_DELAY_MS,
   UPDATE_CHECK_INTERVAL_MS,
@@ -170,6 +174,37 @@ describe('updateStore', () => {
     expect(mockRelaunch).not.toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBe(update.version);
     expect(useUpdateStore.getState().error).not.toBeNull();
+  });
+
+  it('does not relaunch while a save held after a failed leave still fails', async () => {
+    const update = mockUpdate();
+    const saveNow = vi.fn().mockResolvedValue(undefined);
+    const unregisterHeld = registerHeldSaves({ saveNow, isPending: () => true });
+    useUpdateStore.setState({ availableVersion: update.version, update: update as never });
+
+    await useUpdateStore.getState().installUpdate();
+
+    unregisterHeld();
+    expect(saveNow).toHaveBeenCalledTimes(1);
+    expect(mockRelaunch).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState().error).toContain('could not be saved');
+  });
+
+  it('relaunches once the held save goes through', async () => {
+    const update = mockUpdate();
+    let held = true;
+    const unregisterHeld = registerHeldSaves({
+      saveNow: async () => {
+        held = false;
+      },
+      isPending: () => held,
+    });
+    useUpdateStore.setState({ availableVersion: update.version, update: update as never });
+
+    await useUpdateStore.getState().installUpdate();
+
+    unregisterHeld();
+    expect(mockRelaunch).toHaveBeenCalled();
   });
 
   it('reacquires an updater handle before installing persisted pending metadata', async () => {

@@ -9,6 +9,7 @@
  */
 
 import { useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import {
   useNoteColorsStore,
@@ -137,7 +138,15 @@ let latestNavigation = 0;
  * Handles both daily notes and standalone notes with automatic state synchronization.
  */
 export function useNotes() {
-  const { notes, setNotes, currentNote, setCurrentNote, setIsLoading, openTab } = useNoteStore();
+  const notes = useNoteStore((state) => state.notes);
+  const { setNotes, setCurrentNote, setIsLoading, openTab } = useNoteStore(
+    useShallow((state) => ({
+      setNotes: state.setNotes,
+      setCurrentNote: state.setCurrentNote,
+      setIsLoading: state.setIsLoading,
+      openTab: state.openTab,
+    }))
+  );
 
   // Get fresh state to avoid stale closures
   const getState = useNoteStore.getState;
@@ -698,7 +707,6 @@ export function useNotes() {
 
   return {
     notes,
-    currentNote,
     loadNote,
     loadDailyNote,
     loadWeeklyNote,
