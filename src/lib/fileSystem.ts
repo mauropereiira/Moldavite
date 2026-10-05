@@ -1338,24 +1338,38 @@ export async function lockNote(
 }
 
 /**
+ * `conflictCopy` is set when an interrupted lock or unlock had left a plaintext
+ * copy beside the locked file that differed from it: the relative path it was kept at.
+ */
+export interface UnlockedNote {
+  content: string;
+  conflictCopy: string | null;
+}
+
+/**
  * Temporarily unlocks a note to view its content.
  * The note remains encrypted on disk; only returns decrypted content.
  * @param filename - The note filename (e.g., "my-note.md")
  * @param password - The password to decrypt the note
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
- * @returns The decrypted content
+ * @returns The decrypted content, and where a differing plaintext copy was kept
  */
 export async function unlockNote(
   filename: string,
   password: string,
   isDaily: boolean,
   isWeekly: boolean = false
-): Promise<string> {
-  const content = await invoke<string>('unlock_note', { filename, password, isDaily, isWeekly });
+): Promise<UnlockedNote> {
+  const unlocked = await invoke<UnlockedNote>('unlock_note', {
+    filename,
+    password,
+    isDaily,
+    isWeekly,
+  });
   lockedNoteWrites.add(noteHashKey(filename, isDaily, isWeekly));
   forgetNoteBaseHash(filename, isDaily, isWeekly);
-  return content;
+  return unlocked;
 }
 
 /**
@@ -1364,16 +1378,23 @@ export async function unlockNote(
  * @param password - The password to decrypt the note
  * @param isDaily - Whether this is a daily note
  * @param isWeekly - Whether this is a weekly note
+ * @returns Where a differing plaintext copy was kept, or null
  */
 export async function permanentlyUnlockNote(
   filename: string,
   password: string,
   isDaily: boolean,
   isWeekly: boolean = false
-): Promise<void> {
-  await invoke('permanently_unlock_note', { filename, password, isDaily, isWeekly });
+): Promise<string | null> {
+  const conflictCopy = await invoke<string | null>('permanently_unlock_note', {
+    filename,
+    password,
+    isDaily,
+    isWeekly,
+  });
   lockedNoteWrites.delete(noteHashKey(filename, isDaily, isWeekly));
   forgetNoteBaseHash(filename, isDaily, isWeekly);
+  return conflictCopy;
 }
 
 /**

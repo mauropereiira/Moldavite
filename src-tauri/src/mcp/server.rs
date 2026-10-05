@@ -645,6 +645,39 @@ mod tests {
     }
 
     #[test]
+    fn regression_173_an_interrupted_lock_stays_locked_to_agents() {
+        let root = temp_forge("pair");
+        fs::write(root.join("notes/secret.md"), "plaintext twin").unwrap();
+        fs::write(root.join("notes/secret.md.locked"), "ciphertext").unwrap();
+        fs::write(root.join("notes/zeta.md"), "open").unwrap();
+        let context = ToolContext::new(root.clone(), true, false);
+
+        let listed = context.call("list_notes", &json!({"folder": "notes"}));
+        assert_eq!(
+            listed["structuredContent"]["notes"],
+            json!([
+                {"path": "notes/secret.md", "isLocked": true},
+                {"path": "notes/zeta.md", "isLocked": false},
+            ])
+        );
+        for (tool, arguments) in [
+            ("read_note", json!({"path": "notes/secret.md"})),
+            (
+                "write_note",
+                json!({"path": "notes/secret.md", "content": "oops"}),
+            ),
+        ] {
+            let response = context.call(tool, &arguments);
+            assert_eq!(response["isError"], true, "{tool}");
+        }
+        assert_eq!(
+            fs::read_to_string(root.join("notes/secret.md")).unwrap(),
+            "plaintext twin"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn malformed_oversized_unknown_and_recovery_are_bounded() {
         let root = temp_forge("bad-input");
         let mut input = "{definitely not json}\n".to_string();

@@ -9,6 +9,7 @@ import {
   filenameToNote,
   htmlToMarkdown,
   isHtmlContent,
+  listNotes,
   lockNote,
   markdownToHtml,
   noteFileBackendPath,
@@ -17,7 +18,7 @@ import {
   unlockNote,
   writeNote,
 } from '@/lib';
-import { useNoteStore } from '@/stores';
+import { useNoteStore, useToastStore } from '@/stores';
 import { useToast } from './useToast';
 import type { NoteFile } from '@/types';
 
@@ -62,6 +63,19 @@ export function useSidebarLock() {
     setNoteToLock(null);
   };
 
+  const showKeptCopy = (conflictCopy: string | null) => {
+    if (!conflictCopy) return;
+    const name = conflictCopy.split('/').pop() ?? conflictCopy;
+    useToastStore
+      .getState()
+      .addToast('warning', `Kept a different unlocked copy of this note as ${name}`, 8000);
+    listNotes()
+      .then(setNotes)
+      .catch((error) => {
+        console.error('[useSidebarLock] Failed to list the kept copy:', error);
+      });
+  };
+
   /**
    * @param notes Current list from useNotes — passed in so this hook
    *   doesn't duplicate note-list ownership.
@@ -85,7 +99,7 @@ export function useSidebarLock() {
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: true } : n)));
       removeTabByPath(noteToLock.path);
     } else if (mode === 'unlock') {
-      const content = await unlockNote(
+      const { content, conflictCopy } = await unlockNote(
         backendPath,
         password,
         noteToLock.isDaily,
@@ -96,8 +110,9 @@ export function useSidebarLock() {
       setCurrentNote(note);
       trackUnlockedNote(noteToLock.path);
       toast.success('Note unlocked (view only)');
+      showKeptCopy(conflictCopy);
     } else if (mode === 'permanent-unlock') {
-      await permanentlyUnlockNote(
+      const conflictCopy = await permanentlyUnlockNote(
         backendPath,
         password,
         noteToLock.isDaily,
@@ -105,6 +120,7 @@ export function useSidebarLock() {
       );
       toast.success('Note permanently unlocked');
       setNotes(notes.map((n) => (n.path === noteToLock.path ? { ...n, isLocked: false } : n)));
+      showKeptCopy(conflictCopy);
       const { unlockedNotes, openTabs } = useNoteStore.getState();
       if (!unlockedNotes.has(noteToLock.path)) return;
       const remaining = new Set(unlockedNotes);
