@@ -953,7 +953,7 @@ export function PluginsSection() {
       {pendingUninstall && (
         <ConfirmDialog
           title="Uninstall Plugin"
-          message={`Uninstall "${pendingUninstall.manifest.name}"? This deletes its folder from your Forge. Your notes aren't touched.`}
+          message={`Uninstall "${pendingUninstall.manifest.name}"? This deletes its folder from your Forge and the credentials it saved, unless another Forge still has it. Your notes aren't touched.`}
           confirmLabel="Uninstall"
           danger
           onConfirm={confirmUninstall}

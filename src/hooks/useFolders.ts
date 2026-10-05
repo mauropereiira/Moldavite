@@ -154,7 +154,7 @@ export function useFolders() {
     toggleSection,
   } = useFolderStore();
 
-  const { setNotes } = useNoteStore();
+  const setNotes = useNoteStore((state) => state.setNotes);
   const toast = useToast();
 
   /**

@@ -1,6 +1,7 @@
 /**
  * Sidebar tag aggregation and filtering over unlocked note content.
- * Content is cached by note path until its modification time changes, locked
+ * Content is cached by note path until its modification time changes or a save
+ * or watcher event marks it stale (`markNoteTagsStale`), locked
  * notes and notes still in iCloud are never read (a read must not start a
  * download), and selected-tag filtering uses AND semantics while the tag
  * feature is enabled.
@@ -9,7 +10,7 @@
 import { useEffect, useRef } from 'react';
 import { aggregateTags, hasTag, extractTags, readNoteSnapshot, noteFileBackendPath } from '@/lib';
 import { isNotDownloadedError } from '@/lib/cloudNotes';
-import { useSettingsStore, useTagStore } from '@/stores';
+import { markNoteTagsStale, takeNoteTagsStale, useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
 /**
@@ -48,7 +49,9 @@ export function useSidebarTags(notes: NoteFile[]) {
         if (cancelled) return;
         if (note.isLocked || note.notDownloaded) continue;
         const cached = noteContentCacheRef.current.get(note.path);
-        let content = cached?.modifiedAt === note.modifiedAt ? cached?.content : undefined;
+        const stale = takeNoteTagsStale(note.path);
+        let content =
+          !stale && cached?.modifiedAt === note.modifiedAt ? cached?.content : undefined;
         if (content === undefined) {
           try {
             // Snapshot read: tag scanning must not adopt the note's save
@@ -59,6 +62,12 @@ export function useSidebarTags(notes: NoteFile[]) {
               note.isDaily || false,
               note.isWeekly || false
             );
+            // A newer scan owns the cache once this one is cancelled: this
+            // read may predate the write that cancelled it.
+            if (cancelled) {
+              if (stale) markNoteTagsStale(note.path);
+              return;
+            }
             content = snapshot.content;
             noteContentCacheRef.current.set(note.path, {
               modifiedAt: note.modifiedAt,

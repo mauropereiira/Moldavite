@@ -82,3 +82,19 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   setTagSearchQuery: (query) => set({ tagSearchQuery: query }),
 }));
+
+const staleNoteTags = new Set<string>();
+
+/**
+ * Marks a note's cached tags out of date after a save or an outside edit. List
+ * modification times are whole seconds, so a cache keyed on them alone misses
+ * a second write within the same second.
+ */
+export function markNoteTagsStale(path: string): void {
+  staleNoteTags.add(path);
+}
+
+/** Whether `path` was marked stale since the last call. Clears the mark. */
+export function takeNoteTagsStale(path: string): boolean {
+  return staleNoteTags.delete(path);
+}
