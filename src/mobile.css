@@ -499,6 +499,12 @@ html[data-platform='mobile'] .index-overlay-content .section-band {
   min-height: var(--touch-target);
 }
 
+/* Four cards share a phone's height without the page scrolling. */
+html[data-platform='mobile'] .app-index-grid {
+  --index-card-min-height: 132px;
+  gap: 16px;
+}
+
 /* Header controls (toggle, New, sort) grow a hit area without moving. */
 html[data-platform='mobile'] .index-overlay-content .section-header button {
   min-width: var(--touch-target);

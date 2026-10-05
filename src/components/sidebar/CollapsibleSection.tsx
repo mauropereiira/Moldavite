@@ -24,7 +24,7 @@ export function CollapsibleSection({
   // A card in the Index and a band across the pinned column: the header is a
   // filled strip holding the toggle, the count and the section's actions.
   return (
-    <section className="index-section flex flex-col">
+    <section className="index-section flex flex-col" data-collapsed={isCollapsed || undefined}>
       <div className="section-header section-band">
         <button
           onClick={onToggle}
@@ -45,7 +45,7 @@ export function CollapsibleSection({
       </div>
       <div
         hidden={isCollapsed}
-        className={`overflow-hidden ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
+        className={`section-panel overflow-hidden ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
         style={{
           transform: isCollapsed ? 'translateY(-4px)' : 'translateY(0)',
           transition:

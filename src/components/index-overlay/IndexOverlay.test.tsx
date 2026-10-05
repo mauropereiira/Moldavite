@@ -335,6 +335,49 @@ describe('IndexOverlay', () => {
     expect(folders.queryByText('Projects')).not.toBeVisible();
   });
 
+  // The Index is fixed to the window: rows of cards share its height, and a
+  // row of folded cards takes only its bands.
+  it('lays the cards out from the measured width and folds rows to their bands', () => {
+    const observed: Array<() => void> = [];
+    let width = 1500;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private cb: (entries: Array<{ contentRect: { width: number } }>) => void) {}
+        observe() {
+          const fire = () => this.cb([{ contentRect: { width } }]);
+          observed.push(fire);
+          fire();
+        }
+        disconnect() {}
+      }
+    );
+    const vault = buildVault();
+    resetStores(vault.notes, vault.folders);
+    useNoteStore.setState({ currentNote: null });
+    const { container } = render(<IndexOverlay isOpen onClose={vi.fn()} />);
+    const grid = container.querySelector('.app-index-grid') as HTMLElement;
+
+    expect(grid.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
+    expect(grid.style.gridTemplateRows).toBe('minmax(var(--index-card-min-height), 1fr)');
+
+    width = 800;
+    act(() => observed.forEach((fire) => fire()));
+    expect(grid.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
+    act(() => {
+      useFolderStore.setState((state) => ({
+        sectionsCollapsed: { ...state.sectionsCollapsed, tags: true },
+      }));
+    });
+    expect(grid.style.gridTemplateRows).toBe('minmax(var(--index-card-min-height), 1fr) auto');
+
+    width = 360;
+    act(() => observed.forEach((fire) => fire()));
+    expect(grid).toHaveAttribute('data-stacked');
+    expect(grid.style.display).toBe('flex');
+    vi.unstubAllGlobals();
+  });
+
   it('renders with empty stores when Tauri IPC is unavailable', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<IndexOverlay isOpen onClose={vi.fn()} />);

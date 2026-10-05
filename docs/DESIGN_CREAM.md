@@ -220,8 +220,10 @@ except the ground itself, and the Index's section bands and cards below.
 sections are the exception: each opens with a filled band (`--bg-inset`
 between `--border-default` hairlines, 11px uppercase in `--text-primary`)
 holding the toggle, a square count chip and the section's actions. In the
-Index each section is a card on `--bg-elevated`; pinned, the bands run across
-the column.
+Index each section is a card on `--bg-card` (in light themes a warm step from
+the page towards the sidebar's ground, in dark ones `--bg-elevated`); pinned,
+the bands run across the column. The Index is fixed to the window: the
+sections share its height and each list scrolls inside its own card.
 
 **One measure.** `--editor-measure` governs both the note header and the prose
 body. Never hardcode a column width beside it. It is **user-controlled** —

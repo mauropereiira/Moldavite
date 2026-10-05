@@ -807,6 +807,29 @@
   --accent-danger: var(--error);
 }
 
+/* An Index card. Light themes step down from the page towards the sidebar's
+   warmer ground, the way dark themes step up to --bg-elevated, so a card is
+   never near-white on a tinted page. */
+:root,
+:root[data-theme='sage'],
+:root[data-theme='slate'],
+:root[data-theme='clay'],
+:root[data-theme='plum'],
+:root[data-theme='graphite'],
+:root[data-theme='autumn'] {
+  --bg-card: color-mix(in srgb, var(--bg-base) 40%, var(--bg-sidebar));
+}
+
+.dark,
+:root[data-theme='sage'].dark,
+:root[data-theme='slate'].dark,
+:root[data-theme='clay'].dark,
+:root[data-theme='plum'].dark,
+:root[data-theme='graphite'].dark,
+:root[data-theme='autumn'].dark {
+  --bg-card: var(--bg-elevated);
+}
+
 /* BASE STYLES */
 
 body {
@@ -4611,17 +4634,80 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 
 /* INDEX CARDS
    In the Index every section is a square card: the band on top, flush with
-   the card's edges, and the list below. The grid in Sidebar.tsx drops to
-   fewer columns as the window narrows, down to one on a phone. */
-.app-index-grid > .app-overlay-section {
-  min-width: 0;
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+   the card's edges, and its list below. The Index is fixed to the window:
+   Sidebar.tsx measures how many cards fit side by side and gives each row of
+   them a share of the height (a row of folded cards only its bands), and each
+   list scrolls inside its own card. Stacked in one column, on a phone or a
+   narrow window, and in the pinned column, the sections share the height by
+   their length instead: the longest give way first, never below a minimum. */
+.app-index-grid {
+  --index-card-min-height: 200px;
+  gap: 24px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 20px 12px 28px;
 }
 
-/* Backlinks renders nothing without an open note; no empty frame then. */
-.app-index-grid > .app-overlay-section:empty {
+.app-index-grid > .index-card {
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+}
+
+.index-card {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Backlinks draws nothing without an open note; no empty frame then. */
+.index-card:empty {
   display: none;
+}
+
+.app-index-grid > .index-card:has(> .index-section[data-collapsed]) {
+  align-self: start;
+}
+
+.sidebar-sections {
+  --index-card-min-height: 140px;
+  display: flex;
+  height: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+:is(.app-index-grid[data-stacked], .sidebar-sections) > .index-card {
+  flex: 0 1 auto;
+  min-height: var(--index-card-min-height);
+}
+
+:is(.app-index-grid[data-stacked], .sidebar-sections)
+  > .index-card:has(> .index-section[data-collapsed]) {
+  flex: none;
+  min-height: 0;
+}
+
+/* Inside a card the band stays put and the list scrolls. A folded panel keeps
+   its `hidden`. */
+.index-card > .index-section {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.index-card .section-panel:not([hidden]) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.index-card .section-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .app-index-grid .section-band {
@@ -4630,7 +4716,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 }
 
 /* A folded card is only its band; the card's own edge closes it. */
-.app-index-grid .section-band:has(> .section-toggle[aria-expanded='false']) {
+.app-index-grid .index-section[data-collapsed] .section-band {
   border-bottom-color: transparent;
 }
 

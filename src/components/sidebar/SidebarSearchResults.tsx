@@ -2,6 +2,7 @@ import type React from 'react';
 import type { ContentMatch } from '@/stores';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { HighlightedText } from '@/components/ui/HighlightedText';
+import { useSelectedInView } from './useSelectedInView';
 
 function folderDisplayName(folderPath: string | null): string | null {
   if (!folderPath) return null;
@@ -30,6 +31,7 @@ export function SidebarSearchResults({
   onOpen,
   onClear,
 }: SidebarSearchResultsProps) {
+  const listRef = useSelectedInView<HTMLDivElement>(selectedIndex);
   return (
     <div className="px-3 py-2">
       <div className="section-header">
@@ -39,7 +41,7 @@ export function SidebarSearchResults({
             : `${results.length} ${results.length === 1 ? 'result' : 'results'}`}
         </h2>
       </div>
-      <div className="pt-2" role="listbox" aria-label="Search results">
+      <div ref={listRef} className="pt-2" role="listbox" aria-label="Search results">
         {results.map((match, index) => {
           const folder = folderDisplayName(match.folderPath);
           const isActive = index === selectedIndex;

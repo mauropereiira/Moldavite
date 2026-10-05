@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { SearchMode } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { useSelectedInView } from './useSelectedInView';
 
 /**
  * Keyword / Semantic mode chips shown under the sidebar search input.
@@ -76,6 +77,7 @@ export function SidebarSemanticResults({
   onOpen,
   onClear,
 }: SidebarSemanticResultsProps) {
+  const listRef = useSelectedInView<HTMLDivElement>(selectedIndex);
   return (
     <div className="px-3 py-2">
       <div className="section-header">
@@ -85,7 +87,7 @@ export function SidebarSemanticResults({
             : `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} by meaning`}
         </h2>
       </div>
-      <div className="pt-2" role="listbox" aria-label="Semantic search results">
+      <div ref={listRef} className="pt-2" role="listbox" aria-label="Semantic search results">
         {hits.map((hit, index) => {
           const isActive = index === selectedIndex;
           const folder = semanticHitFolder(hit.path);
