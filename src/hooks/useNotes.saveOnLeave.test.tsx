@@ -8,7 +8,11 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
-import { getPendingAutosaveNoteId, registerAutosaveCloseGuard } from '@/lib/autosaveFlush';
+import {
+  flushPendingAutosave,
+  getPendingAutosaveNoteId,
+  registerAutosaveCloseGuard,
+} from '@/lib/autosaveFlush';
 import { discardLeaveSave, hasUnsavedEdits, heldLeaveSaveIds } from '@/lib/leaveSave';
 
 const invokeMock = vi.fn();
@@ -232,6 +236,127 @@ describe('save on leave', () => {
     expect(stuck?.content).toContain('before');
     expect(hasUnsavedEdits('notes/Stuck.md')).toBe(false);
     consoleError.mockRestore();
+  });
+});
+
+describe('undated copies of a daily or weekly note (#170)', () => {
+  const dailyFile = (stem: string, date?: string): NoteFile => ({
+    name: `${stem}.md`,
+    path: `daily/${stem}.md`,
+    isDaily: true,
+    isWeekly: false,
+    isLocked: false,
+    date,
+  });
+  const weeklyFile = (stem: string, week?: string): NoteFile => ({
+    name: `${stem}.md`,
+    path: `weekly/${stem}.md`,
+    isDaily: false,
+    isWeekly: true,
+    isLocked: false,
+    week,
+  });
+  const listedPaths = () => useNoteStore.getState().notes.map((note) => note.path);
+  const deletes = () => invokeMock.mock.calls.filter(([command]) => command === 'delete_note');
+
+  /** Empty `file` and settle it, by leaving it or by the autosave flush. */
+  async function emptyAndSettle(
+    hook: ReturnType<typeof renderNotes>,
+    file: NoteFile,
+    via: 'leave' | 'autosave'
+  ) {
+    await act(() => hook.result.current.loadNote(file));
+    act(() => useNoteStore.getState().updateNoteContent('<p></p>', file.path));
+    if (via === 'leave') {
+      await act(() => hook.result.current.loadNote(standalone('Away.md')));
+    } else {
+      await act(() => flushPendingAutosave());
+    }
+  }
+
+  for (const via of ['leave', 'autosave'] as const) {
+    it(`emptying one of two undated daily copies keeps the other listed (${via})`, async () => {
+      const copy = dailyFile('2026-09-27 (copy)');
+      const conflict = dailyFile('2026-09-27 (conflict)');
+      disk = { '2026-09-27 (copy).md': 'copy', '2026-09-27 (conflict).md': 'conflict' };
+      useNoteStore.setState({ notes: [copy, conflict] });
+      const hook = renderNotes();
+
+      await emptyAndSettle(hook, copy, via);
+
+      expect(deletes()).toHaveLength(1);
+      expect(deletes()[0][1]).toMatchObject({ filename: '2026-09-27 (copy).md', isDaily: true });
+      expect(listedPaths()).toEqual(['daily/2026-09-27 (conflict).md']);
+    });
+
+    it(`emptying the middle of three undated daily copies keeps the dated note and the other two (${via})`, async () => {
+      const dated = dailyFile('2026-09-27', '2026-09-27');
+      const a = dailyFile('2026-09-27 (copy)');
+      const b = dailyFile('2026-09-27 (copy 2)');
+      const c = dailyFile('2026-09-27 (conflict)');
+      disk = {
+        '2026-09-27.md': 'dated',
+        '2026-09-27 (copy).md': 'a',
+        '2026-09-27 (copy 2).md': 'b',
+        '2026-09-27 (conflict).md': 'c',
+      };
+      useNoteStore.setState({ notes: [dated, a, b, c] });
+      const hook = renderNotes();
+
+      await emptyAndSettle(hook, b, via);
+
+      expect(deletes()).toHaveLength(1);
+      expect(deletes()[0][1]).toMatchObject({ filename: '2026-09-27 (copy 2).md' });
+      expect(listedPaths()).toEqual([dated.path, a.path, c.path]);
+    });
+
+    it(`emptying a dated daily note keeps its undated copies listed (${via})`, async () => {
+      const dated = dailyFile('2026-09-27', '2026-09-27');
+      const copy = dailyFile('2026-09-27 (copy)');
+      disk = { '2026-09-27.md': 'dated', '2026-09-27 (copy).md': 'copy' };
+      useNoteStore.setState({ notes: [dated, copy] });
+      const hook = renderNotes();
+
+      await emptyAndSettle(hook, dated, via);
+
+      expect(deletes()).toHaveLength(1);
+      expect(deletes()[0][1]).toMatchObject({ filename: '2026-09-27.md' });
+      expect(listedPaths()).toEqual([copy.path]);
+    });
+
+    it(`emptying one of two undated weekly copies keeps the other listed (${via})`, async () => {
+      const dated = weeklyFile('2026-W39', '2026-W39');
+      const copy = weeklyFile('2026-W39 (copy)');
+      const conflict = weeklyFile('2026-W39 (conflict)');
+      disk = {
+        '2026-W39.md': 'dated',
+        '2026-W39 (copy).md': 'copy',
+        '2026-W39 (conflict).md': 'conflict',
+      };
+      useNoteStore.setState({ notes: [dated, copy, conflict] });
+      const hook = renderNotes();
+
+      await emptyAndSettle(hook, copy, via);
+
+      expect(deletes()).toHaveLength(1);
+      expect(deletes()[0][1]).toMatchObject({ filename: '2026-W39 (copy).md', isWeekly: true });
+      expect(listedPaths()).toEqual([dated.path, conflict.path]);
+    });
+  }
+
+  it('saving an undated copy with text in it neither duplicates nor drops a listed note', async () => {
+    const copy = dailyFile('2026-09-27 (copy)');
+    const conflict = dailyFile('2026-09-27 (conflict)');
+    disk = { '2026-09-27 (copy).md': 'copy', '2026-09-27 (conflict).md': 'conflict' };
+    useNoteStore.setState({ notes: [copy, conflict] });
+    const hook = renderNotes();
+
+    await act(() => hook.result.current.loadNote(conflict));
+    act(() => useNoteStore.getState().updateNoteContent('<p>kept</p>', conflict.path));
+    await act(() => hook.result.current.loadNote(standalone('Away.md')));
+
+    expect(lastWrite()).toMatchObject({ filename: '2026-09-27 (conflict).md', content: 'kept' });
+    expect(listedPaths()).toEqual([copy.path, conflict.path]);
   });
 });
 
