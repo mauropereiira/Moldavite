@@ -2,6 +2,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useNoteStore } from './noteStore';
+import { useQuickSwitcherStore } from './quickSwitcherStore';
 import { rememberActiveForge } from '@/lib/forgeStorage';
 import type { Note } from '@/types';
 
@@ -67,14 +68,16 @@ describe('noteStore with unavailable localStorage', () => {
     expect(useNoteStore.getState().unlockedNotes.has('secret.md')).toBe(false);
   });
 
-  it('reports a failed pin instead of throwing at the caller', () => {
+  it('pins a tab even when the pin cannot be written', () => {
     const { openTab } = useNoteStore.getState();
+    useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
     openTab(makeNote('a'), true);
+    openTab(makeNote('b'), true);
 
     failStorageWrites();
 
-    expect(useNoteStore.getState().pinTab('a')).toEqual({ success: true });
-    expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
+    expect(() => useQuickSwitcherStore.getState().togglePinned('b')).not.toThrow();
+    expect(useNoteStore.getState().openTabs.map((tab) => tab.id)).toEqual(['b', 'a']);
   });
 });
 

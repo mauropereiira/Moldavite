@@ -5,7 +5,6 @@ import { RightPanel } from './RightPanel';
 import { IndexOverlay } from '@/components/index-overlay/IndexOverlay';
 import { AgendaOverlay } from '@/components/agenda-overlay/AgendaOverlay';
 import { EditorNavigation } from './EditorNavigation';
-import { PinnedBar } from './PinnedBar';
 import { IconRail } from './IconRail';
 import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 import { useElementWidth } from '@/hooks/useElementWidth';
@@ -261,15 +260,6 @@ export function Layout() {
         height: isMobile ? 'var(--app-height)' : undefined,
       }}
     >
-      {/* Full width, above everything including the rail and the index, so a
-          pinned note is one click away from wherever you are. It sits outside
-          the content row rather than inside the editor column: the editor is
-          `h-full`, so a sibling above it there pushed its own footer out of
-          view — which is why the footer controls disappeared whenever
-          something was pinned. Overlays and modals mount above this and cover
-          it, which is what you want when one is open. */}
-      <PinnedBar />
-
       {/* Mirrored by DOM order rather than `row-reverse` so Tab still walks
           the chrome in the order it appears on screen. */}
       <div className="flex min-h-0 w-full flex-1 overflow-hidden">

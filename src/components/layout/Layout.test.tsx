@@ -1,13 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
-import {
-  useNoteStore,
-  useOverlayStore,
-  useQuickSwitcherStore,
-  useSettingsStore,
-  useTimelineStore,
-} from '@/stores';
+import { useNoteStore, useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import type { Note } from '@/types';
@@ -143,119 +137,6 @@ describe('Layout navigation surfaces', () => {
     act(() => useOverlayStore.getState().openAgenda(false));
     expect(screen.queryByTestId('index-overlay')).not.toBeInTheDocument();
     expect(screen.getByTestId('agenda-overlay')).toBeInTheDocument();
-  });
-
-  // The pinned bar used to live inside the editor column, as a sibling above an
-  // editor whose root is `h-full`. That made the column taller than its box and
-  // pushed the editor's own footer — Colour, WordPress, Share, Format, More —
-  // out of view, so those controls vanished exactly when a note was pinned.
-  // It belongs above the whole app: full width, outside the content row.
-  it('puts the pinned bar above the content row, not inside the editor column', () => {
-    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/roadmap.md'] });
-    useNoteStore.setState({
-      notes: [
-        {
-          name: 'roadmap.md',
-          path: 'notes/roadmap.md',
-          isDaily: false,
-          isWeekly: false,
-          isLocked: false,
-        },
-      ] as never,
-      currentNote: null,
-    });
-
-    render(<Layout />);
-
-    const bar = screen.getByRole('navigation', { name: 'Pinned notes' });
-    const content = screen.getByTestId('app-content-area');
-    // Not a descendant of the content area, and therefore not of the editor
-    // column inside it.
-    expect(content.contains(bar)).toBe(false);
-    // Ordered before it in the document, so it reads as a bar across the top.
-    expect(bar.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  // The pinned bar is the newest thing in this tree and the one most likely to
-  // be broken by a layout change: it sits outside the content row, so every
-  // combination of rail, pinned columns and overlays has to leave it alone.
-  // It already regressed once by being inside the editor column, where it
-  // pushed the editor's own footer out of view.
-  describe('pinned bar across layout combinations', () => {
-    const pinOne = () => {
-      useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/roadmap.md'] });
-      useNoteStore.setState({
-        notes: [
-          {
-            name: 'roadmap.md',
-            path: 'notes/roadmap.md',
-            isDaily: false,
-            isWeekly: false,
-            isLocked: false,
-          },
-        ] as never,
-        currentNote: null,
-      });
-    };
-
-    const combos: Array<[string, () => void]> = [
-      ['rail off', () => useSettingsStore.setState({ showIconRail: false })],
-      ['index pinned', () => useSettingsStore.setState({ indexMode: 'pinned' })],
-      ['agenda pinned', () => useSettingsStore.setState({ agendaMode: 'pinned' })],
-      [
-        'both columns pinned',
-        () => useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' }),
-      ],
-      [
-        'both pinned and no rail',
-        () =>
-          useSettingsStore.setState({
-            indexMode: 'pinned',
-            agendaMode: 'pinned',
-            showIconRail: false,
-          }),
-      ],
-      ['index overlay open', () => useOverlayStore.setState({ activeOverlay: 'index' })],
-      ['agenda overlay open', () => useOverlayStore.setState({ activeOverlay: 'agenda' })],
-      ['timeline replacing the editor', () => useTimelineStore.getState().open()],
-    ];
-
-    for (const [name, configure] of combos) {
-      it(`stays outside the content row with ${name}`, () => {
-        pinOne();
-        act(configure);
-        render(<Layout />);
-
-        const bar = screen.getByRole('navigation', { name: 'Pinned notes' });
-        const content = screen.getByTestId('app-content-area');
-        expect(content.contains(bar)).toBe(false);
-        expect(
-          bar.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING
-        ).toBeTruthy();
-      });
-    }
-
-    // The bar renders above the rail too, so the rail must not be its parent
-    // and must still be reachable beside the content.
-    it('does not swallow the icon rail', () => {
-      pinOne();
-      render(<Layout />);
-
-      const bar = screen.getByRole('navigation', { name: 'Pinned notes' });
-      expect(bar.contains(screen.getByTestId('icon-rail'))).toBe(false);
-      expect(screen.getByTestId('icon-rail')).toBeInTheDocument();
-    });
-
-    // With nothing pinned there must be no row at all — an empty bar costs a
-    // strip of vertical space in an app whose argument is that the note is the
-    // only thing on screen that earned its place.
-    it('renders nothing when no note is pinned, whatever else is open', () => {
-      useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
-      act(() => useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' }));
-      render(<Layout />);
-
-      expect(screen.queryByRole('navigation', { name: 'Pinned notes' })).not.toBeInTheDocument();
-    });
   });
 
   describe('with the rail on the right', () => {

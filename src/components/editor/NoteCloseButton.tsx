@@ -1,52 +1,53 @@
-import { useState } from 'react';
+import { Pin, PinOff, X } from 'lucide-react';
 import { formatShortcut } from '@/lib/shortcuts';
+import { isLooseId } from '@/lib/looseId';
+import { useQuickSwitcherStore } from '@/stores';
 
 /**
- * "Close" in the top-right of the open note.
+ * Pin and Close in the top-right of the open note, as two quiet icons.
  *
- * The tab bar hides itself when only one tab is open, which left ⌘W as the
- * only way to close a note — invisible unless you already knew it. This is the
- * visible counterpart.
- *
- * Styled inline rather than via a class in `index.css`: that file is a single
- * 3,700-line stylesheet that concurrent work has to serialise on, and inline
- * `style={{}}` reading `var()` is this codebase's dominant pattern anyway.
+ * Close is here because the bar may be turned off, which would leave ⌘W as
+ * the only way to close a note. Pin is here so pinning is one click from the
+ * note you are reading. A file outside the Forge has no address to pin.
  */
-export function NoteCloseButton({ onClose, title }: { onClose: () => void; title: string }) {
-  const [hovered, setHovered] = useState(false);
+export function NoteCloseButton({
+  noteId,
+  onClose,
+  title,
+}: {
+  noteId: string;
+  onClose: () => void;
+  title: string;
+}) {
+  const pinned = useQuickSwitcherStore((state) => state.pinnedNoteIds.includes(noteId));
+  const togglePinned = useQuickSwitcherStore((state) => state.togglePinned);
 
   return (
-    <button
-      type="button"
-      onClick={onClose}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-      aria-label={`Close ${title} (${formatShortcut('⌘W')})`}
-      style={{
-        // Out of flow: the parent rail is zero-height on purpose.
-        position: 'absolute',
-        top: '8px',
-        right: '12px',
-        pointerEvents: 'auto',
-        display: 'inline-flex',
-        alignItems: 'center',
-        lineHeight: 1,
-        padding: '8px 12px',
-        fontSize: '10px',
-        letterSpacing: '0.14em',
-        // Uppercase + positive tracking leaves a trailing gap after the last
-        // letter, which reads as the label sitting left of its own box.
-        textIndent: '0.14em',
-        textTransform: 'uppercase',
-        color: hovered ? 'var(--text-primary)' : 'var(--text-muted)',
-        backgroundColor: hovered ? 'var(--hover-overlay)' : 'transparent',
-        transition:
-          'color var(--dur-micro) var(--ease-standard), background-color var(--dur-micro) var(--ease-standard)',
-      }}
-    >
-      Close
-    </button>
+    <div className="note-corner-actions">
+      {!isLooseId(noteId) && (
+        <button
+          type="button"
+          className="note-corner-button"
+          data-on={pinned || undefined}
+          onClick={() => togglePinned(noteId)}
+          aria-label={pinned ? `Unpin ${title} from the top bar` : `Pin ${title} to the top bar`}
+          title={pinned ? 'Unpin from the top bar' : 'Pin to the top bar'}
+        >
+          <Pin className="w-3.5 h-3.5 tab-glyph-pinned" strokeWidth={1.25} aria-hidden="true" />
+          {pinned && (
+            <PinOff className="w-3.5 h-3.5 tab-glyph-unpin" strokeWidth={1.25} aria-hidden="true" />
+          )}
+        </button>
+      )}
+      <button
+        type="button"
+        className="note-corner-button"
+        onClick={onClose}
+        aria-label={`Close ${title} (${formatShortcut('⌘W')})`}
+        title={`Close (${formatShortcut('⌘W')})`}
+      >
+        <X className="w-4 h-4" strokeWidth={1.25} aria-hidden="true" />
+      </button>
+    </div>
   );
 }

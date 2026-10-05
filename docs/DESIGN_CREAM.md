@@ -181,16 +181,18 @@ use.
 The palette is only half of it. The layout was rebuilt too, and these rules are
 what stop it drifting back into a generic notes app.
 
-**Icons are earned, not default.** The sidebar, calendar, timeline, tab bar and
-editor footer are type-only: an affordance there gains a **visible text label**
+**Icons are earned, not default.** The sidebar, calendar, timeline and editor
+footer are type-only: an affordance there gains a **visible text label**
 rather than a smaller icon, and expand/collapse is a CSS hairline caret.
 
-Icons are used deliberately in three places, and only these: the **icon rail**
+Icons are used deliberately in four places, and only these: the **icon rail**
 (where there is no room for labels and the tooltip carries the name), **folder
 rows** (`Folder`/`FolderOpen` — in a list mixing folders, notes and tags the
-glyph's job is to say which *kind* of row this is, which type cannot), and
-**dialogs**. All of them use `lucide-react` at `strokeWidth={1.25}` in
-`--text-muted`. Anything heavier reads as a different app.
+glyph's job is to say which *kind* of row this is, which type cannot), the
+**top bar's pin and close marks** (on tabs, in the Open tabs menu and in the
+note's corner, where a word on every tab would drown the names; a pinned
+note's mark takes the accent), and **dialogs**. All of them use `lucide-react`
+at `strokeWidth={1.25}` in `--text-muted`. Anything heavier reads as a different app.
 
 This rule was once written as "zero icons in chrome" and that went too far —
 removing the folder glyph made the Index harder to scan, not cleaner.

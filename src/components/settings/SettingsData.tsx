@@ -27,7 +27,6 @@ const settingsLsKeys = (): string[] => [
   'moldavite-settings',
   'moldavite-theme',
   namespacedKey('moldavite-folders'),
-  namespacedKey('moldavite-pinned-tabs'),
   namespacedKey('moldavite-recent-notes'),
 ];
 

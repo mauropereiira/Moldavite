@@ -422,8 +422,7 @@ function MobileSettingsPage({
   };
 
   return (
-    // Spans the rail's column too: the rail paints above it, but a pinned bar
-    // above the rail does not, and it showed through there.
+    // Spans the rail's column too; the rail paints above it.
     <div
       className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter"
       style={{ background: 'var(--bg-base)' }}

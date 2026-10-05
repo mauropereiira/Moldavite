@@ -1707,73 +1707,76 @@ html:not([data-platform='mobile'])
   backdrop-filter: none;
 }
 
-/* TAB BAR - typographic index */
+/* TOP BAR - pinned notes, then open tabs */
 
 .tab-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   min-height: 38px;
-  padding: 0 20px 0 56px;
+  padding: 0 10px 0 16px;
   background: transparent;
   border-bottom: 1px solid var(--border-muted);
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
 }
 
-.tab-bar::-webkit-scrollbar {
-  display: none;
+/* The tabs that fit. Its width is the bar's, never its contents', so folding
+   tabs into the menu cannot change the width that decided to fold them. */
+.tab-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* A copy of every tab at its natural width, for measuring only. */
+.tab-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 8px;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 10px;
   min-width: 0;
-  max-width: 180px;
+  max-width: 200px;
+  flex: 0 1 auto;
   border: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition:
     color var(--dur-micro) var(--ease-standard),
-    background-color var(--dur-micro) var(--ease-standard),
-    transform var(--dur-press) var(--ease-standard);
-  flex-shrink: 0;
-  position: relative;
-  font-family: var(--font-display);
-  font-size: 11px;
+    background-color var(--dur-micro) var(--ease-standard);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
   font-weight: 400;
   letter-spacing: 0;
+}
+
+.tab-measure .tab {
+  flex-shrink: 0;
 }
 
 .tab:hover {
   color: var(--text-primary);
 }
 
-/* Active tab indicator line */
-.tab::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  width: calc(100% - 16px);
-  height: 1px;
-  background: var(--text-primary);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--dur-base) var(--ease-standard);
-}
-
-.tab.active::after {
-  transform: scaleX(1);
-}
-
 .tab.active {
   color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .tab-title {
@@ -1785,194 +1788,230 @@ html:not([data-platform='mobile'])
   font-weight: inherit;
 }
 
+/* Pin and close sit in the tab at full width, hidden until the tab is
+   hovered, focused or current, so revealing them never moves the bar. */
+.tab-pin,
+.tab-close,
+.tab-pin-mark {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    opacity var(--dur-micro) var(--ease-standard);
+}
+
+.tab-pin,
 .tab-close {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0;
+}
+
+.tab:hover :is(.tab-pin, .tab-close),
+.tab:focus-within :is(.tab-pin, .tab-close),
+.tab.active :is(.tab-pin, .tab-close) {
+  opacity: 1;
+}
+
+:is(.tab-pin, .tab-close, .tab-pin-mark):hover,
+:is(.tab-pin, .tab-close, .tab-pin-mark):focus-visible {
+  color: var(--text-primary);
+}
+
+.tab.tab-pinned {
+  padding: 0 10px 0 4px;
+  max-width: 160px;
+  color: var(--text-secondary);
+}
+
+.tab.tab-pinned:hover,
+.tab.tab-pinned.active {
+  color: var(--text-primary);
+}
+
+.tab-pin-mark {
   width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 300;
-  line-height: 1;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
+  color: var(--accent-primary);
 }
 
-.tab:hover .tab-close {
-  opacity: 1;
-}
-
-.tab:focus-within .tab-close {
-  opacity: 1;
-}
-
-.tab-close:hover {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-@keyframes tab-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.tab-pin {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
-}
-
-.tab:hover .tab-pin {
-  opacity: 1;
-}
-
-.tab-pin:hover {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.pinned-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.regular-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.regular-tabs::-webkit-scrollbar {
+/* A pinned mark turns into "unpin" under the pointer or the keyboard. */
+.tab-glyph-unpin {
   display: none;
+}
+
+:is(.tab-pin-mark, .note-corner-button[data-on]):is(:hover, :focus-visible) .tab-glyph-pinned {
+  display: none;
+}
+
+:is(.tab-pin-mark, .note-corner-button[data-on]):is(:hover, :focus-visible) .tab-glyph-unpin {
+  display: block;
 }
 
 .tabs-divider {
   width: 1px;
-  height: 16px;
+  height: 14px;
+  margin: 0 6px;
   background: var(--border-muted);
-  margin: 0 4px;
   flex-shrink: 0;
-}
-
-.tab-actions {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border-muted);
-}
-
-.tab-action {
-  color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tab-action:hover {
-  color: var(--text-primary);
-}
-
-/* Pinned tabs keep their title; pinning changes persistence, not hierarchy. */
-.tab.tab-pinned {
-  width: auto;
-  min-width: 0;
-  max-width: 180px;
-  height: auto;
-  padding: 0 8px;
-  justify-content: flex-start;
-}
-
-.tab.tab-pinned:hover {
-  background: transparent;
-}
-
-.tab.tab-pinned.active {
-  background: transparent;
-}
-
-.tab-unpin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
-  z-index: 1;
-}
-
-.tab.tab-pinned:hover .tab-unpin {
-  opacity: 1;
-}
-
-.tab-unpin:hover {
-  background: transparent;
-  color: var(--text-primary);
 }
 
 .tab-dragging {
   opacity: 0.5;
 }
 
+/* Where a dragged tab will land. A line rather than a moving gap: the row is
+   short and reflowing it on every dragover reads as jitter. */
 .tab-drag-over {
-  background: transparent !important;
-  color: var(--text-primary) !important;
+  box-shadow: inset 2px 0 0 0 var(--text-primary) !important;
 }
 
-.tab-drag-over::after {
-  width: calc(100% - 16px);
-  background: var(--border-strong);
+.tab-overflow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 6px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-standard);
+}
+
+.tab-overflow:hover,
+.tab-overflow:focus-visible,
+.tab-overflow[aria-expanded='true'] {
+  color: var(--text-primary);
+}
+
+.tab-overflow-label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* Open tabs and a tab's context menu. */
+.tabs-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 50;
+  width: 300px;
+  max-width: calc(100% - 16px);
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  box-shadow: var(--shadow-md);
+}
+
+.tabs-context-menu {
+  position: fixed;
+  right: auto;
+  width: max-content;
+  min-width: 200px;
+}
+
+.tabs-menu-list {
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tabs-menu-label {
+  padding: 8px 12px 4px;
+}
+
+.tabs-menu-footer {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.tabs-menu-row {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  box-shadow: inset 2px 0 0 0 transparent;
+}
+
+.tabs-menu-row[data-active] {
+  box-shadow: inset 2px 0 0 0 var(--text-primary);
+}
+
+.tabs-menu-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tabs-menu-pin-mark {
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+.tabs-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+:is(.tabs-menu-open, .tabs-menu-icon):focus-visible {
+  color: var(--text-primary);
+  background: var(--hover-overlay);
+  outline: none;
+}
+
+/* Pin and close in the open note's top-right corner. */
+.note-corner-actions {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  display: flex;
+  gap: 2px;
+  pointer-events: auto;
+}
+
+.note-corner-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+.note-corner-button:hover,
+.note-corner-button:focus-visible {
+  color: var(--text-primary);
+  background: var(--hover-overlay);
+}
+
+.note-corner-button[data-on] {
+  color: var(--accent-primary);
 }
 
 /* EDITOR STYLES */
@@ -3624,116 +3663,6 @@ button[aria-expanded='true'] .wn-caret {
 }
 
 /* EDITOR FOOTER */
-
-/* Pinned notes, above the editor. Same typographic register as the footer —
-   Geist Mono, uppercase, letter-spaced — so it reads as chrome rather than as
-   content competing with the note. The bar only renders when something is
-   pinned, so it costs nothing until it is asked for. */
-.pinned-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 6px 20px;
-  border-bottom: 1px solid var(--border-muted);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  line-height: 1.6;
-  text-transform: uppercase;
-}
-
-.pinned-bar-item {
-  display: inline-flex;
-  align-items: center;
-  /* Never shrink past the label. The footer taught this lesson: these buttons
-     are their text, so a clipped one is unreadable rather than merely small. */
-  flex: 0 0 auto;
-  min-width: max-content;
-  color: var(--text-muted);
-  transition: color var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-item:hover,
-.pinned-bar-item[data-current] {
-  color: var(--text-primary);
-}
-
-.pinned-bar-open,
-.pinned-bar-unpin {
-  padding: 2px 4px;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
-/* Unpin stays quiet until the item is hovered or focused, so the bar reads as
-   a row of names rather than a row of dismiss buttons — but it must appear on
-   keyboard focus too, or it is unreachable without a mouse. */
-.pinned-bar-unpin {
-  opacity: 0;
-  transition: opacity var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-item:hover .pinned-bar-unpin,
-.pinned-bar-unpin:focus-visible {
-  opacity: 0.7;
-}
-
-.pinned-bar-unpin:hover {
-  opacity: 1;
-}
-
-.focus-mode .pinned-bar {
-  display: none;
-}
-
-/* Where a dragged pin will land. A line rather than a moving gap: the row is
-   short and reflowing it on every dragover reads as jitter. */
-.pinned-bar-item[data-drop] {
-  box-shadow: inset 2px 0 0 0 var(--accent);
-}
-
-.pinned-bar-item[draggable='true'] {
-  cursor: grab;
-}
-
-.pinned-bar-item[draggable='true']:active {
-  cursor: grabbing;
-}
-
-/* Divides the pins that fit from the overflow count, so "+8" reads as a
-   continuation rather than another pin. */
-.pinned-bar-sep {
-  width: 1px;
-  height: 12px;
-  margin-left: 8px;
-  background: var(--border-muted);
-}
-
-.pinned-bar-more {
-  padding: 2px 6px;
-  color: var(--text-muted);
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-more:hover {
-  color: var(--text-primary);
-}
-
-/* The bar is chrome, and its menu is not: reset the uppercase letterspacing
-   so note names in the overflow read as names. */
-.pinned-bar [role='menu'] {
-  letter-spacing: normal;
-  line-height: var(--text-sm--line-height);
-  text-transform: none;
-}
 
 .editor-footer {
   display: flex;

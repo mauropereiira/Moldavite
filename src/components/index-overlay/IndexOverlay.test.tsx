@@ -6,6 +6,7 @@ import {
   useFolderStore,
   useNoteStore,
   useOverlayStore,
+  useQuickSwitcherStore,
   useSettingsStore,
   useTagStore,
 } from '@/stores';
@@ -106,6 +107,7 @@ function buildVault(): { notes: NoteFile[]; folders: FolderInfo[] } {
 function resetStores(notes: NoteFile[] = [], folders: FolderInfo[] = [], notesAvailable = true) {
   ipc.notesAvailable = notesAvailable;
   ipc.notes = notes;
+  useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
   ipc.folders = folders;
   const currentFile = notes.find((note) => !note.isDaily && !note.isWeekly);
   const currentNote = currentFile
@@ -419,10 +421,7 @@ describe('IndexOverlay', () => {
       isLocked: false,
     }));
     resetStores(notes, []);
-    useNoteStore.setState((state) => ({
-      openTabs: state.openTabs.map((tab) => ({ ...tab, isPinned: true })),
-      currentNote: state.currentNote ? { ...state.currentNote, isPinned: true } : null,
-    }));
+    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/Pinned.md'] });
 
     render(<IndexOverlay isOpen onClose={vi.fn()} />);
 
