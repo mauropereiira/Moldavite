@@ -1958,16 +1958,13 @@ html:not([data-platform='mobile'])
 
 /* On: a soft wash of the accent in the track and a solid accent marker, so
    on and off differ in shape as well as colour. */
-.settings-dialog .settings-toggle[aria-checked='true'] {
+.settings-toggle[aria-checked='true'] {
   background: color-mix(in srgb, var(--accent-primary) 18%, transparent) !important;
   border-color: var(--accent-muted);
 }
 
 .settings-toggle[aria-checked='true'] .settings-toggle-marker {
   transform: translateX(21px);
-}
-
-.settings-dialog .settings-toggle[aria-checked='true'] .settings-toggle-marker {
   background: var(--accent-primary) !important;
   border-color: var(--accent-primary);
 }
