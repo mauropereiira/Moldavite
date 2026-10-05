@@ -3599,6 +3599,56 @@ button[aria-expanded='true'] .wn-caret {
   margin: 0 4px;
 }
 
+/* The writing toolbar wears the selection toolbar's look, but floats in the
+   note's scroll container above the block being written. */
+.writing-toolbar {
+  position: absolute;
+  z-index: 11;
+  box-shadow: var(--shadow-md);
+  animation: writing-toolbar-in var(--dur-micro) var(--ease-standard);
+}
+
+@keyframes writing-toolbar-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.selection-toolbar .block-type-trigger {
+  gap: 6px;
+  padding: 0 6px 0 8px;
+}
+
+/* A hairline caret, like the rest of the chrome's disclosure marks. */
+.block-type-caret {
+  width: 5px;
+  height: 5px;
+  margin-top: -3px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.writing-plus {
+  position: absolute;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+.writing-plus:hover,
+.writing-plus:focus-visible {
+  color: var(--text-primary);
+}
+
 /* Tippy hosts the wiki-link, tag and slash suggestion lists. Its stock theme,
    a dark rounded box with an arrow, is not imported: the lists draw their own
    ground and hairlines, and the box around them adds nothing. */

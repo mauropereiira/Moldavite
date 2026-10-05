@@ -244,12 +244,14 @@ get trapped underneath Index.
 
 The formatting row appears when editing a note and stays available until Done,
 including with a hardware or floating keyboard. It sits at the bottom of the
-visual-viewport shell above the software keyboard, with Bold, Italic, heading,
-lists, tasks, wiki links, tags, links, images, undo and redo. While the caret is
-in a table the row leads with add and delete row and column and Delete table;
-while an image is selected, with its alignment and Delete image. The controls
-scroll horizontally behind a fade on the side with more to find; Done remains
-visible. The desktop selection popup, image toolbar and footer stay out of the
+visual-viewport shell above the software keyboard. Undo, Redo and Aa lead it
+and never scroll away. The rest of the row shows wiki links, tags, links,
+images and tables; Aa swaps it for the text styles (Bold, Italic, heading,
+lists, tasks) and back. While the caret is in a table either row leads with add
+and delete row and column and Delete table; while an image is selected, with
+its alignment and Delete image. The controls scroll horizontally behind a fade
+on the side with more to find; Done remains visible. The desktop writing
+toolbar is not used on the phone. The desktop selection popup, image toolbar and footer stay out of the
 editing row.
 
 The caret, the selection wash and its handles are ink, not the iOS tint:

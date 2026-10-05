@@ -1434,6 +1434,19 @@ html[data-platform='mobile'] .mobile-keyboard-done {
   border-left: 1px solid var(--border-default);
 }
 
+/* Undo, Redo and Aa hold their place at the start of the row. */
+html[data-platform='mobile'] .mobile-formatting-bar .mobile-formatting-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+html[data-platform='mobile'] .mobile-formatting-styles {
+  border-right: 1px solid var(--border-default);
+  font-weight: 500;
+}
+
 /* Text fields keep a dismissal control after removing the native accessory. */
 html[data-platform='mobile'] .mobile-field-keyboard-bar {
   display: none;

@@ -35,6 +35,7 @@ describe('mobile formatting', () => {
     act(() => {
       editor.commands.setTextSelection({ from: 1, to: 9 });
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Text styles' }));
     const button = screen.getByRole('button', { name: 'Bold' });
     fireEvent.pointerDown(button);
     fireEvent.click(button);
@@ -81,6 +82,7 @@ describe('mobile formatting', () => {
 
   it('creates a task list with the real editor command', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Text styles' }));
     fireEvent.click(screen.getByRole('button', { name: 'Task list' }));
     expect(editor.isActive('taskList')).toBe(true);
     expect(editor.getText().trim()).toBe('Selected words');
@@ -132,14 +134,20 @@ describe('mobile formatting', () => {
     const buttons = screen
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label') ?? button.textContent);
-    expect(buttons.slice(0, 5)).toEqual([
+    expect(buttons.slice(0, 8)).toEqual([
+      'Undo',
+      'Redo',
+      'Text styles',
       'Add row',
       'Add column',
       'Delete row',
       'Delete column',
       'Delete table',
     ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Text styles' }));
     expect(screen.getByRole('button', { name: 'Heading' })).toBeDisabled();
+    // Table actions lead the styles row too.
+    expect(screen.getByRole('button', { name: 'Add row' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add row' }));
     expect(editor.view.dom.querySelectorAll('tr')).toHaveLength(4);
@@ -197,5 +205,42 @@ describe('mobile formatting', () => {
       width.mockRestore();
       client.mockRestore();
     }
+  });
+
+  // Undo and Redo were last in a scrolling row, so reaching them meant scrolling.
+  it('keeps Undo, Redo and Aa first, outside the scrolling row', () => {
+    setup();
+    const bar = screen.getByRole('toolbar');
+    const pinned = Array.from(bar.children)
+      .slice(0, 3)
+      .map((node) => node.getAttribute('aria-label'));
+    expect(pinned).toEqual(['Undo', 'Redo', 'Text styles']);
+    expect(bar.querySelector('.mobile-formatting-scroll [aria-label="Undo"]')).toBeNull();
+
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    act(() => {
+      editor.commands.setTextSelection({ from: 1, to: 9 });
+      editor.commands.toggleBold();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(editor.getHTML()).toBe('<p>Selected words</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
+    expect(editor.getHTML()).toBe('<p><strong>Selected</strong> words</p>');
+  });
+
+  it('swaps the row between inserts and styles with Aa, and resets on Done', () => {
+    setup();
+    const styles = screen.getByRole('button', { name: 'Text styles' });
+    expect(styles).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Link to a note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bold' })).toBeNull();
+
+    fireEvent.click(styles);
+    expect(styles).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link to a note' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss keyboard' }));
+    expect(styles).toHaveAttribute('aria-pressed', 'false');
   });
 });

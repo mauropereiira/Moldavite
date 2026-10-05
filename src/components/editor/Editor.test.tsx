@@ -152,6 +152,9 @@ vi.mock('./NoteHeader', () => ({
   ),
 }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
+vi.mock('./WritingToolbar', () => ({
+  WritingToolbar: () => <div data-testid="writing-toolbar" />,
+}));
 vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => <div data-testid="image-toolbar" /> }));
 const linkModal = vi.hoisted(() => ({
   props: null as null | {
@@ -385,6 +388,33 @@ describe('Editor layout settings', () => {
     });
 
     expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+  });
+});
+
+describe('Editor writing toolbar', () => {
+  it('is on by default on the desktop and follows its setting', async () => {
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+    expect(screen.getByTestId('writing-toolbar')).toBeInTheDocument();
+
+    act(() => useSettingsStore.setState({ showWritingToolbar: false }));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
+  });
+
+  // A phone has the formatting row above the keyboard instead.
+  it('is never on a phone', async () => {
+    platform.mobile = true;
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
+  });
+
+  it('is not offered on a note that is only open for viewing', async () => {
+    const locked = note('notes/locked.md', '<p>Secret</p>');
+    setOpenNotes(locked);
+    useNoteStore.setState({ unlockedNotes: new Set([locked.id]) });
+    render(<Editor />);
+
+    await waitFor(() => expect(tiptapHarness.editor?.isEditable).toBe(false));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
   });
 });
 

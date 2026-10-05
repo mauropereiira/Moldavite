@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEditorState, type Editor } from '@tiptap/react';
+import { Redo2, Undo2 } from 'lucide-react';
 import { insertNoteTable } from './extensions/NoteTables';
 import type { ImageAlignment } from './extensions/ResizableImage';
 
@@ -19,7 +20,12 @@ interface MobileFormattingBarProps {
   onInsertImage: () => void;
 }
 
-/** Sits at the bottom of the resized shell, immediately above the iOS keyboard. */
+/**
+ * Sits at the bottom of the resized shell, immediately above the iOS keyboard.
+ * Undo, Redo and Aa never scroll away. Aa swaps the row between the inserts
+ * (links, tags, images, tables) and the text styles, so neither set crowds the
+ * other.
+ */
 export function MobileFormattingBar({
   editor,
   noteId,
@@ -30,9 +36,11 @@ export function MobileFormattingBar({
   // formatting button. Hiding on :focus would remove the target before click.
   const [editing, setEditing] = useState(editor.isFocused);
   const [editingNoteId, setEditingNoteId] = useState(noteId);
+  const [styling, setStyling] = useState(false);
   if (editingNoteId !== noteId) {
     setEditingNoteId(noteId);
     setEditing(false);
+    setStyling(false);
   }
   useEffect(() => {
     const focus = () => setEditing(true);
@@ -78,7 +86,7 @@ export function MobileFormattingBar({
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollLeft = 0;
     measure();
-  }, [context, editing, measure]);
+  }, [context, editing, styling, measure]);
   useEffect(() => {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
@@ -145,8 +153,7 @@ export function MobileFormattingBar({
         ]
       : [];
 
-  const controls: Control[] = [
-    ...contextControls,
+  const styleControls: Control[] = [
     { label: 'Bold', pressed: active.bold, run: () => editor.chain().focus().toggleBold().run() },
     {
       label: 'Italic',
@@ -174,6 +181,9 @@ export function MobileFormattingBar({
       disabled: active.table,
       run: () => editor.chain().focus().toggleTaskList().run(),
     },
+  ];
+
+  const insertControls: Control[] = [
     {
       label: '[[Note]]',
       name: 'Link to a note',
@@ -183,9 +193,10 @@ export function MobileFormattingBar({
     { label: 'Link', run: onInsertLink },
     { label: 'Image', run: onInsertImage },
     { label: 'Table', disabled: active.table, run: () => insertNoteTable(editor) },
-    { label: 'Undo', disabled: !active.undo, run: () => editor.chain().focus().undo().run() },
-    { label: 'Redo', disabled: !active.redo, run: () => editor.chain().focus().redo().run() },
   ];
+
+  const controls = [...contextControls, ...(styling ? styleControls : insertControls)];
+  const keepFocus = (event: React.PointerEvent) => event.preventDefault();
 
   return (
     <div
@@ -194,6 +205,36 @@ export function MobileFormattingBar({
       role="toolbar"
       aria-label="Note formatting"
     >
+      <button
+        type="button"
+        className="mobile-formatting-icon"
+        aria-label="Undo"
+        disabled={!active.undo}
+        onPointerDown={keepFocus}
+        onClick={() => editor.chain().focus().undo().run()}
+      >
+        <Undo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="mobile-formatting-icon"
+        aria-label="Redo"
+        disabled={!active.redo}
+        onPointerDown={keepFocus}
+        onClick={() => editor.chain().focus().redo().run()}
+      >
+        <Redo2 className="w-5 h-5" strokeWidth={1.25} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="mobile-formatting-styles"
+        aria-label="Text styles"
+        aria-pressed={styling}
+        onPointerDown={keepFocus}
+        onClick={() => setStyling((open) => !open)}
+      >
+        Aa
+      </button>
       <div
         ref={scrollRef}
         className="mobile-formatting-scroll"
@@ -208,7 +249,7 @@ export function MobileFormattingBar({
             aria-label={control.name}
             aria-pressed={control.pressed}
             disabled={control.disabled}
-            onPointerDown={(event) => event.preventDefault()}
+            onPointerDown={keepFocus}
             onClick={control.run}
           >
             {control.label}
@@ -222,6 +263,7 @@ export function MobileFormattingBar({
         onClick={() => {
           editor.commands.blur();
           setEditing(false);
+          setStyling(false);
         }}
       >
         Done
