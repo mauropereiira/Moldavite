@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   filenameToNote,
   htmlToMarkdown,
@@ -31,13 +32,16 @@ type LockModalMode = 'lock' | 'unlock' | 'permanent-unlock' | null;
  * needed to render the PasswordModal.
  */
 export function useSidebarLock() {
-  const {
-    setNotes,
-    setCurrentNote,
-    removeTabByPath,
-    applyExternalContent,
-    unlockNote: trackUnlockedNote,
-  } = useNoteStore();
+  const { setNotes, setCurrentNote, removeTabByPath, applyExternalContent, trackUnlockedNote } =
+    useNoteStore(
+      useShallow((state) => ({
+        setNotes: state.setNotes,
+        setCurrentNote: state.setCurrentNote,
+        removeTabByPath: state.removeTabByPath,
+        applyExternalContent: state.applyExternalContent,
+        trackUnlockedNote: state.unlockNote,
+      }))
+    );
   const toast = useToast();
 
   const [mode, setMode] = useState<LockModalMode>(null);

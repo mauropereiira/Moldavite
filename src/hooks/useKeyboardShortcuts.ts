@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type { Editor } from '@tiptap/react';
 import { safeInvoke as invoke } from '@/lib/ipc';
 import { useSettingsStore, useNoteStore, useNoteSelectionStore } from '@/stores';
@@ -46,7 +47,17 @@ export function useKeyboardShortcuts({
 }: ShortcutOptions) {
   const { setIsSettingsOpen } = useSettingsStore();
   const { setCurrentNote, notes, setNotes, activeTabId, closeTab, openTabs, switchTab } =
-    useNoteStore();
+    useNoteStore(
+      useShallow((state) => ({
+        setCurrentNote: state.setCurrentNote,
+        notes: state.notes,
+        setNotes: state.setNotes,
+        activeTabId: state.activeTabId,
+        closeTab: state.closeTab,
+        openTabs: state.openTabs,
+        switchTab: state.switchTab,
+      }))
+    );
   const toast = useToast();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
