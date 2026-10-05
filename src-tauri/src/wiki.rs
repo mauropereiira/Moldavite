@@ -83,19 +83,21 @@ fn note_exists_in(notes_dir: &Path, note_name: &str) -> Result<(bool, String), S
         return Ok((true, filename));
     }
 
-    // Try as daily note (YYYY-MM-DD format). The raw note name comes straight
-    // from a `[[wiki link]]`, so it must be validated as a bare filename
-    // before it is joined onto the daily dir — otherwise `[[../../../x]]`
+    // Try as daily (YYYY-MM-DD) or weekly (YYYY-Www) note. The raw note name
+    // comes straight from a `[[wiki link]]`, so it must be validated as a bare
+    // filename before it is joined onto either dir, otherwise `[[../../../x]]`
     // could probe for files outside the Forge.
     let daily_filename = if note_name.ends_with(".md") {
         note_name.to_string()
     } else {
         format!("{}.md", note_name)
     };
-    if is_safe_existing_filename(&daily_filename)
-        && note_file_exists(&notes_dir.join("daily"), &daily_filename)
-    {
-        return Ok((true, daily_filename));
+    if is_safe_existing_filename(&daily_filename) {
+        for dir in ["daily", "weekly"] {
+            if note_file_exists(&notes_dir.join(dir), &daily_filename) {
+                return Ok((true, daily_filename));
+            }
+        }
     }
 
     Ok((false, filename))
@@ -443,6 +445,39 @@ mod tests {
         let (exists, filename) = note_exists_in(&base, "2026-01-01").unwrap();
         assert!(exists);
         assert_eq!(filename, "2026-01-01.md");
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn regression_note_exists_in_resolves_weekly_notes() {
+        let base = tmp_forge("note-exists-weekly");
+        std::fs::create_dir_all(base.join("weekly")).unwrap();
+        for week in ["2026-W36", "2025-W01", "2026-W53", "2020-W53"] {
+            std::fs::write(base.join(format!("weekly/{week}.md")), "weekly body").unwrap();
+        }
+        std::fs::write(base.join("weekly/2027-W02.md.locked"), "ciphertext").unwrap();
+
+        for week in ["2026-W36", "2025-W01", "2026-W53", "2020-W53", "2027-W02"] {
+            let (exists, filename) = note_exists_in(&base, week).unwrap();
+            assert!(exists, "[[{week}]] is a weekly note, not a dead link");
+            assert_eq!(filename, format!("{week}.md"));
+        }
+
+        let (exists, _) = note_exists_in(&base, "2026-W37").unwrap();
+        assert!(!exists);
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn security_regression_note_exists_weekly_traversal_never_escapes_forge() {
+        let base = tmp_forge("note-exists-weekly-traversal");
+        std::fs::create_dir_all(base.join("weekly")).unwrap();
+        std::fs::write(base.join("foo.md"), "outside weekly/").unwrap();
+
+        let (exists, _) = note_exists_in(&base, "../foo").unwrap();
+        assert!(!exists);
 
         let _ = std::fs::remove_dir_all(&base);
     }
