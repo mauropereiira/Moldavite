@@ -65,6 +65,11 @@ turndownService.addRule('underline', {
   },
 });
 
+turndownService.addRule('strikethrough', {
+  filter: (node) => node.nodeName === 'S' || node.nodeName === 'DEL' || node.nodeName === 'STRIKE',
+  replacement: (content) => (content.trim() ? `~~${content}~~` : content),
+});
+
 turndownService.addRule('highlight', {
   filter: ['mark'],
   replacement: function (content) {
@@ -161,7 +166,8 @@ turndownService.addRule('taskItem', {
     const cleanContent = content
       .replace(/^\s+/, '')
       .replace(/\s+$/, '')
-      .replace(/\\\[[\sx]?\\\]/g, '') // Remove any escaped checkbox remnants
+      // Only a remnant at the start: the same brackets later are the user's text.
+      .replace(/^\\\[[\sx]?\\\]/, '')
       .trim()
       // A blank line would close the list, so a nested task list has to stay
       // attached to its parent item and indented under the `- [ ] ` marker.

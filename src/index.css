@@ -2243,7 +2243,10 @@ html.icon-rail-right {
 /* Editor headings are always at least 16px, so the display face stays legible. */
 .tiptap h1,
 .tiptap h2,
-.tiptap h3 {
+.tiptap h3,
+.tiptap h4,
+.tiptap h5,
+.tiptap h6 {
   font-family: var(--font-display);
   font-weight: 500;
   line-height: 1.2;
@@ -2268,6 +2271,19 @@ html.icon-rail-right {
   letter-spacing: -0.015em;
   margin: 1.6em 0 0.5em;
   color: var(--syntax-h3);
+}
+
+.tiptap h4,
+.tiptap h5,
+.tiptap h6 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin: 1.4em 0 0.4em;
+  color: var(--text-primary);
+}
+
+.tiptap h6 {
+  color: var(--text-secondary);
 }
 
 .tiptap ul,
