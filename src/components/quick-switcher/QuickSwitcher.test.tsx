@@ -224,7 +224,6 @@ describe('QuickSwitcher text search', () => {
     );
     expect(titles).toContain("Open Today's Note");
     for (const title of [
-      'Toggle Timeline',
       'Toggle Theme',
       'Show Keyboard Shortcuts',
       'Switch Forge…',

@@ -1,13 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
-import {
-  useNoteStore,
-  useOverlayStore,
-  useQuickSwitcherStore,
-  useSettingsStore,
-  useTimelineStore,
-} from '@/stores';
+import { useNoteStore, useOverlayStore, useQuickSwitcherStore, useSettingsStore } from '@/stores';
 import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import type { Note } from '@/types';
@@ -66,7 +60,6 @@ describe('Layout navigation surfaces', () => {
       isSidebarHidden: false,
       isRightPanelHidden: false,
     });
-    useTimelineStore.getState().close();
   });
 
   it('renders the default rail and editor with both surfaces in overlay mode', () => {
@@ -217,7 +210,6 @@ describe('Layout navigation surfaces', () => {
       ],
       ['index overlay open', () => useOverlayStore.setState({ activeOverlay: 'index' })],
       ['agenda overlay open', () => useOverlayStore.setState({ activeOverlay: 'agenda' })],
-      ['timeline replacing the editor', () => useTimelineStore.getState().open()],
     ];
 
     for (const [name, configure] of combos) {
@@ -359,7 +351,6 @@ describe('Layout on a phone', () => {
       isSidebarHidden: false,
       isRightPanelHidden: false,
     });
-    useTimelineStore.getState().close();
     useNoteStore.setState({
       notes: [],
       openTabs: [],

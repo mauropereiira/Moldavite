@@ -10,7 +10,7 @@ How Moldavite is put together. For where to start editing, see
 flowchart TB
     subgraph FE["Frontend · React + TypeScript"]
         ED["TipTap editor<br/>WikiLink · Tag · SlashCommands"]
-        SB["Sidebar · Graph · Timeline · Settings"]
+        SB["Sidebar · Graph · Settings"]
         ST["Zustand stores"]
     end
     subgraph BE["Backend · Rust + Tauri 2"]

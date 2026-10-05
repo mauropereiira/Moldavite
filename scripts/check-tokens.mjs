@@ -42,7 +42,6 @@ const HEX_ALLOWLIST = new Map([
   ['src/components/graph/GraphView.tsx', 'canvas fallbacks read via getComputedStyle'],
   ['src/lib/fileSystem.ts', 'markdown/HTML conversion colours'],
   ['src/stores/calendarStore.test.ts', 'provider-supplied calendar colour fixture'],
-  ['src/components/timeline/TimelineView.test.tsx', 'provider-supplied calendar colour fixture'],
 ]);
 
 /** Files allowed to contain named colours as data or checker fixtures. */

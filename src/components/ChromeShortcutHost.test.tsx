@@ -7,7 +7,6 @@ import {
   useOverlayStore,
   useQuickSwitcherStore,
   useSettingsStore,
-  useTimelineStore,
 } from '@/stores';
 import type { Note } from '@/types';
 import { ChromeShortcutHost } from './ChromeShortcutHost';
@@ -118,7 +117,6 @@ describe('ChromeShortcutHost surfaces', () => {
     { name: 'index', open: () => useOverlayStore.getState().openIndex(false) },
     { name: 'agenda', open: () => useOverlayStore.getState().openAgenda(false) },
     { name: 'graph', open: () => useGraphStore.getState().open() },
-    { name: 'timeline', open: () => useTimelineStore.getState().open() },
     { name: 'search', open: () => useQuickSwitcherStore.getState().open() },
   ];
 
@@ -130,7 +128,6 @@ describe('ChromeShortcutHost surfaces', () => {
 
     expect(useOverlayStore.getState().activeOverlay).toBeNull();
     expect(useGraphStore.getState().isOpen).toBe(false);
-    expect(useTimelineStore.getState().isOpen).toBe(false);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
   });
 

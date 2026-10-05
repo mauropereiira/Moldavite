@@ -164,8 +164,8 @@ get trapped underneath Index.
 - `src/mobile.css` holds every phone style, scoped to
   `html[data-platform='mobile']`, with `--safe-top`, `--safe-bottom` and
   `--touch-target` tokens. `index.html` sets `viewport-fit=cover`.
-- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline,
-  Settings and Trash are full-screen pages, closed with their × or by tapping
+- The icon rail is the navigation. Index, Search, Agenda, Graph, Settings
+  and Trash are full-screen pages, closed with their × or by tapping
   their rail button again. Home (the M) is the welcome screen. Search matches
   titles and note text and raises the keyboard as it opens (the tap focuses a
   stand-in field, as New does). In the graph a tap names a star and a second
@@ -177,8 +177,8 @@ get trapped underneath Index.
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
   back: a section returns to the list, the list closes Settings.
-- The Index footer keeps Today and New; Timeline, Graph, Settings and Trash
-  are the rail's, and the version is in About. The footer hides while the
+- The Index footer keeps Today and New; Graph, Settings and Trash are the
+  rail's, and the version is in About. The footer hides while the
   keyboard is up. Press and hold a note or folder for its Options menu
   (`useLongPress`; WebKit fires no `contextmenu` for it). A tapped `#tag`
   opens the Index filtered to it; iOS sends no click for a tap on editable

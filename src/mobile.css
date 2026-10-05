@@ -113,7 +113,6 @@ html[data-platform='mobile']
     .editor-footer,
     .app-overlay-controls,
     .app-overlay-header,
-    .timeline-view-header,
     .graph-view-header,
     .section-header
   ) {
@@ -132,7 +131,6 @@ html[data-platform='mobile']
     .editor-paper,
     .index-overlay-content .overflow-y-auto,
     .app-agenda-grid,
-    .timeline-view-feed,
     .quick-switcher-results
   ) {
   overscroll-behavior: contain;
@@ -160,7 +158,6 @@ html[data-platform='mobile']
     :is(
       .app-overlay-close,
       .quick-switcher-close,
-      .timeline-view-close,
       .app-onboarding-scrim button,
       .app-trash-overlay button,
       .calendar-nav-button
@@ -344,7 +341,7 @@ html[data-platform='mobile'] .app-sidebar .index-overlay-content {
     var(--page-safe-left) !important;
 }
 
-/* The rail beside the Index has Timeline, Graph, Settings and Trash, and
+/* The rail beside the Index has Graph, Settings and Trash, and
    About has the version: the footer keeps Today and New. It took half of a
    landscape screen with them. */
 html[data-platform='mobile']
@@ -575,33 +572,7 @@ html[data-platform='mobile'][data-large-text='true'] .section-header > button {
   flex-basis: 100%;
 }
 
-/* 5. TIMELINE PAGE */
-
-html[data-platform='mobile'] .timeline-view-header {
-  padding: calc(var(--shell-safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right))
-    12px calc(var(--mobile-page-inset) + var(--page-safe-left));
-}
-
-/* The × keeps its glyph inside a 44px hit box, like the other pages'. */
-html[data-platform='mobile'] .timeline-view-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--touch-target);
-  min-height: var(--touch-target);
-  margin: -12px -12px -12px 0;
-}
-
-html[data-platform='mobile'] .timeline-view-feed {
-  padding: 16px calc(var(--mobile-page-inset) + var(--page-safe-right))
-    calc(var(--safe-bottom) + 24px) calc(var(--mobile-page-inset) + var(--page-safe-left));
-}
-
-html[data-platform='mobile'] .timeline-view-feed li > button {
-  min-height: var(--touch-target);
-}
-
-/* 6. GRAPH PAGE */
+/* 5. GRAPH PAGE */
 
 /* Spans the rail's column, like Search and Settings, so a pinned bar above
    the rail does not show through; the rail paints above it. The offsets are
@@ -629,7 +600,7 @@ html[data-platform='mobile'] .graph-view-fit {
   padding-inline: 8px;
 }
 
-/* 7. QUICK SWITCHER AS A PAGE */
+/* 6. QUICK SWITCHER AS A PAGE */
 
 /* Spans the rail's column too, like Settings: the rail paints above it, and a
    pinned bar above the rail no longer shows through. */
@@ -681,7 +652,7 @@ html[data-platform='mobile'] .quick-switcher-footer {
   display: none;
 }
 
-/* 8. EDITOR */
+/* 7. EDITOR */
 
 /* Bars and the paper paint to the screen edge; only their contents clear the
    inset, so a note colour or a bar's ground never stops short of the edge. */
@@ -834,7 +805,7 @@ html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
   min-height: var(--touch-target);
 }
 
-/* 9. FIXED SURFACES (dialogs, popovers, toasts) */
+/* 8. FIXED SURFACES (dialogs, popovers, toasts) */
 
 /* Every centred dialog sits on one of these two scrims. The rail paints above
    them, so a scrim that starts at the screen edge only hides one side of a
@@ -1060,7 +1031,7 @@ html[data-platform='mobile'][data-large-text='true'] .welcome-reveal-actions {
 }
 
 /* The editor column starts at the top of the screen: keep the note clear of
-   the status bar. Timeline and the welcome screen handle their own top. */
+   the status bar. The welcome screen handles its own top. */
 html[data-platform='mobile'] .editor-root {
   padding-top: var(--shell-safe-top);
 }

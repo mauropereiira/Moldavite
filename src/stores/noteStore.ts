@@ -21,7 +21,6 @@ import { isLooseId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { useToastStore } from './toastStore';
 import { useGraphStore } from './graphStore';
-import { useTimelineStore } from './timelineStore';
 
 interface NoteState {
   notes: NoteFile[];
@@ -212,7 +211,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     // A note becoming active always yields transient exploration views. Keep
     // this at the canonical tab entry point so sidebar, search, quick switcher,
     // locked-note unlocks, graph nodes, and virtual notes cannot diverge.
-    useTimelineStore.getState().close();
     useGraphStore.getState().close();
 
     get().addRecentNote(note.id);

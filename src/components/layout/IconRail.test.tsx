@@ -9,7 +9,6 @@ import {
   useOverlayStore,
   useQuickSwitcherStore,
   useSettingsStore,
-  useTimelineStore,
   useUpdateStore,
 } from '@/stores';
 import { registerAutosaveFlush } from '@/lib/autosaveFlush';
@@ -67,7 +66,6 @@ describe('IconRail', () => {
     });
     useQuickSwitcherStore.getState().close();
     useGraphStore.getState().close();
-    useTimelineStore.getState().close();
     useNoteStore.setState({
       notes: [],
       openTabs: [],
@@ -182,9 +180,6 @@ describe('IconRail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Graph (Command Shift G)' }));
     expect(useGraphStore.getState().isOpen).toBe(true);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
-    expect(useTimelineStore.getState().isOpen).toBe(true);
-
     fireEvent.click(screen.getByRole('button', { name: 'Settings (Command Comma)' }));
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
   });
@@ -219,9 +214,9 @@ describe('IconRail', () => {
     expect(useGraphStore.getState().isOpen).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings (Command Comma)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search (Command P)' }));
     expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
-    expect(useTimelineStore.getState().isOpen).toBe(true);
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(true);
   });
 
   it('toggles pinned columns and ignores a surface whose mode is off', () => {
@@ -259,7 +254,6 @@ describe('IconRail', () => {
       isOpen: () => useOverlayStore.getState().activeOverlay === 'agenda',
     },
     { button: 'Graph (Command Shift G)', isOpen: () => useGraphStore.getState().isOpen },
-    { button: 'Timeline', isOpen: () => useTimelineStore.getState().isOpen },
   ];
 
   it('leaves the graph for any other surface', () => {
@@ -341,7 +335,7 @@ describe('IconRail', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     render(<IconRail />);
 
-    for (const name of ['Index', 'Search', 'Agenda', 'Graph', 'Timeline', 'Settings', 'Trash']) {
+    for (const name of ['Index', 'Search', 'Agenda', 'Graph', 'Settings', 'Trash']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.queryByRole('button', { name: /Command/ })).not.toBeInTheDocument();
@@ -453,7 +447,7 @@ describe('IconRail', () => {
         expect(padded).toContain('padding-left: var(--page-safe-left)');
         expect(padded).toContain('padding-right: var(--page-safe-right)');
       }
-      for (const surface of ['.editor-paper', '.editor-footer', '.timeline-view-header']) {
+      for (const surface of ['.editor-paper', '.editor-footer']) {
         expect(rule(`html[data-platform='mobile'] ${surface}`)).toMatch(
           /var\(--page-safe-left\)[\s\S]*var\(--page-safe-right\)|var\(--page-safe-right\)[\s\S]*var\(--page-safe-left\)/
         );
