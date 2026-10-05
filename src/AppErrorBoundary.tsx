@@ -23,36 +23,41 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
   render(): ReactNode {
     if (this.state.hasError) {
-      return (
-        <main
-          role="alert"
-          className="h-screen w-screen flex items-center justify-center p-6"
-          style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}
-        >
-          <div
-            className="max-w-md w-full p-6 text-center"
-            style={{
-              backgroundColor: 'var(--bg-panel)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-lg)',
-            }}
-          >
-            <h1 className="text-xl font-semibold">Something went wrong</h1>
-            <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Reload Moldavite to recover your workspace.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary mt-5 px-4 py-2 focus-ring"
-              onClick={() => window.location.reload()}
-            >
-              Reload
-            </button>
-          </div>
-        </main>
-      );
+      return <AppErrorFallback />;
     }
 
     return this.props.children;
   }
+}
+
+/** The recovery screen. `main.tsx` also renders it when the app fails to start. */
+export function AppErrorFallback(): ReactNode {
+  return (
+    <main
+      role="alert"
+      className="h-screen w-screen flex items-center justify-center p-6"
+      style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}
+    >
+      <div
+        className="max-w-md w-full p-6 text-center"
+        style={{
+          backgroundColor: 'var(--bg-panel)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-lg)',
+        }}
+      >
+        <h1 className="text-xl font-semibold">Something went wrong</h1>
+        <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Reload Moldavite to recover your workspace.
+        </p>
+        <button
+          type="button"
+          className="btn btn-primary mt-5 px-4 py-2 focus-ring"
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </button>
+      </div>
+    </main>
+  );
 }

@@ -89,13 +89,13 @@ async function writeNoteToDisk(note: Note): Promise<void> {
 
   if (note.isDaily) {
     const dateStr = note.date;
-    const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
+    const existsInList = freshNotes.some((n) => n.path === note.id);
 
     if (isEmpty) {
       if (existsInList) {
         try {
           await deleteNote(filename, true, false, { guarded: true });
-          setNotes(freshNotes.filter((n) => !(n.isDaily && n.date === dateStr)));
+          setNotes(freshNotes.filter((n) => n.path !== note.id));
         } catch (error) {
           console.error('[leaveSave] Delete failed:', error);
           return;
@@ -117,13 +117,13 @@ async function writeNoteToDisk(note: Note): Promise<void> {
     }
   } else if (note.isWeekly) {
     const weekStr = note.week;
-    const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
+    const existsInList = freshNotes.some((n) => n.path === note.id);
 
     if (isEmpty) {
       if (existsInList) {
         try {
           await deleteNote(filename, false, true, { guarded: true });
-          setNotes(freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr)));
+          setNotes(freshNotes.filter((n) => n.path !== note.id));
         } catch (error) {
           console.error('[leaveSave] Delete weekly note failed:', error);
           return;

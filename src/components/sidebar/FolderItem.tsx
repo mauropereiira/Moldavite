@@ -16,6 +16,7 @@ interface FolderItemProps {
   onContextMenu: (e: React.MouseEvent) => void;
   onNoteDrop: (notePath: string) => Promise<void>;
   onFolderDrop: (folderPath: string) => Promise<void> | void;
+  /** The notes directly in this folder, in display order. */
   notes: NoteFile[];
   isNoteActive: (note: NoteFile) => boolean;
   onNoteClick: (note: NoteFile, e: React.MouseEvent) => void;
@@ -62,7 +63,7 @@ export function FolderItem({
   onContextMenu,
   onNoteDrop,
   onFolderDrop,
-  notes,
+  notes: folderNotes,
   isNoteActive,
   onNoteClick,
   onNoteSelectionClick,
@@ -256,8 +257,6 @@ export function FolderItem({
       impactTimeoutRef.current = null;
     }, 400);
   };
-
-  const folderNotes = notes.filter((n) => n.folderPath === folder.path);
 
   return (
     <div

@@ -59,7 +59,7 @@ function forgetTrashedNoteReferences(noteId: string): void {
 
 export function useTrash() {
   const { trashedNotes, setTrashedNotes, setLoading, removeFromTrash } = useTrashStore();
-  const { setNotes } = useNoteStore();
+  const setNotes = useNoteStore((state) => state.setNotes);
   const { setFolders } = useFolderStore();
   const toast = useToast();
 
