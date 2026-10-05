@@ -770,7 +770,13 @@ mod tests {
             })
         };
         std::thread::sleep(Duration::from_millis(5));
-        fs::rename(root.join("notes/A"), root.join("notes/B")).unwrap();
+        // Windows refuses to rename a folder while a save inside it holds a
+        // file open, so retry the way a sync client would.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while let Err(error) = fs::rename(root.join("notes/A"), root.join("notes/B")) {
+            assert!(Instant::now() < deadline, "rename kept failing: {error}");
+            std::thread::sleep(Duration::from_millis(1));
+        }
         renamed.store(true, std::sync::atomic::Ordering::SeqCst);
         index_external_change(&root, "notes/A", Some(&backlinks));
         index_external_change(&root, "notes/B", Some(&backlinks));
