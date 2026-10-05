@@ -194,27 +194,30 @@ fn is_note_folder(rel: &str) -> bool {
 }
 
 /// Push one debounced, non-self-write filesystem event into the keyword and
-/// backlinks indexes. This is the improvement over the semantic index, which
-/// waits for its next reconcile: an agent, a sync client or another editor
-/// touching a file is searchable, and its links count, without the frontend
-/// in the loop.
+/// backlinks indexes: an agent, a sync client or another editor touching a
+/// file is searchable, and its links count, without the frontend in the loop.
+/// Returns the notes whose embeddings may now be stale, which the caller
+/// queues for the semantic index once per batch of events.
 ///
 /// `notify-debouncer-mini` collapses create, modify and remove into a single
 /// "something happened here" event, so presence on disk decides which way the
 /// index moves. A rename arrives as two such events — the old path now absent,
 /// the new one present — and therefore needs no special case. A `.md.locked`
 /// event removes the plaintext path it replaced.
-fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksIndex>) {
+fn index_external_change(
+    root: &Path,
+    rel: &str,
+    backlinks: Option<&BacklinksIndex>,
+) -> Vec<String> {
     if is_note_folder(rel) {
-        index_external_folder_change(root, rel, backlinks);
-        return;
+        return index_external_folder_change(root, rel, backlinks);
     }
     let rel = match rel.strip_suffix(".locked") {
         Some(plain) => plain,
         None => rel,
     };
     if !rel.ends_with(".md") {
-        return;
+        return Vec::new();
     }
     let path = root.join(rel);
     if path.is_file() {
@@ -225,6 +228,7 @@ fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksInd
     if let Some(index) = backlinks {
         update_backlinks(index, root, rel, &path);
     }
+    vec![rel.to_string()]
 }
 
 /// A folder renamed, moved in or out, or removed by another process reaches
@@ -237,13 +241,20 @@ fn index_external_change(root: &Path, rel: &str, backlinks: Option<&BacklinksInd
 /// stores, and backlinks compare paths only, since a note's own event carries
 /// its content changes. An unbuilt backlinks index reads the whole Forge when
 /// it is built, so it is left alone.
-fn index_external_folder_change(root: &Path, rel_dir: &str, backlinks: Option<&BacklinksIndex>) {
+///
+/// The notes that left or joined backlinks are returned for the semantic
+/// index, which tracks the same notes.
+fn index_external_folder_change(
+    root: &Path,
+    rel_dir: &str,
+    backlinks: Option<&BacklinksIndex>,
+) -> Vec<String> {
     if root.join(rel_dir).is_file() {
-        return;
+        return Vec::new();
     }
     crate::search_index::folder_changed_in(rel_dir, root.to_path_buf());
     let Some(index) = backlinks.filter(|index| index.is_ready()) else {
-        return;
+        return Vec::new();
     };
     let on_disk: HashMap<String, PathBuf> = crate::semantic::scan_note_paths_in(root, rel_dir)
         .into_iter()
@@ -253,12 +264,16 @@ fn index_external_folder_change(root: &Path, rel_dir: &str, backlinks: Option<&B
         .sources_under(&format!("{rel_dir}/"))
         .into_iter()
         .collect();
+    let mut stale = Vec::new();
     for gone in indexed.iter().filter(|rel| !on_disk.contains_key(*rel)) {
         index.remove_note(gone);
+        stale.push(gone.clone());
     }
     for (rel, abs) in on_disk.iter().filter(|(rel, _)| !indexed.contains(*rel)) {
         update_backlinks(index, root, rel, abs);
+        stale.push(rel.clone());
     }
+    stale
 }
 
 /// Applies a rebuild's guards, so an external change never indexes a symlinked
@@ -290,6 +305,7 @@ fn apply_forge_event(
     path: &Path,
     recent: &RecentWrites,
     backlinks: Option<&BacklinksIndex>,
+    stale: &mut Vec<String>,
 ) -> Option<String> {
     let rel = rel_path(root, path)?;
     let folder = is_note_folder(&rel);
@@ -299,7 +315,7 @@ fn apply_forge_event(
     if recent.matches_current_content(path) {
         return None;
     }
-    index_external_change(root, &rel, backlinks);
+    stale.extend(index_external_change(root, &rel, backlinks));
     // Windows can report a note's folder as modified on each save, so emitting
     // folder events could refresh the note list after every autosave there.
     (!folder).then_some(rel)
@@ -368,6 +384,7 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         continue;
                     }
                 };
+                let mut stale = Vec::new();
                 for event in events {
                     let path = event.path;
                     if let Some(name) = direct_forge_name(&forges_root_for_thread, &path) {
@@ -385,6 +402,7 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                             &path,
                             &recent_for_thread,
                             backlinks.as_deref().map(Arc::as_ref),
+                            &mut stale,
                         ) else {
                             continue;
                         };
@@ -397,6 +415,7 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         }
                     }
                 }
+                crate::semantic::service().notes_changed_in(stale, root_for_thread.clone());
             }
         })
         .map_err(|e| format!("failed to spawn watcher thread: {}", e))?;
@@ -794,6 +813,92 @@ mod tests {
         crate::search_index::delete_for(&root);
     }
 
+    struct OneHotEmbedder;
+
+    impl crate::semantic::Embedder for OneHotEmbedder {
+        fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+            let mut vector = vec![0.0; crate::semantic::EMBED_DIM as usize];
+            vector[0] = 1.0;
+            Ok(texts.iter().map(|_| vector.clone()).collect())
+        }
+    }
+
+    #[test]
+    fn external_changes_report_the_notes_semantic_search_must_refresh() {
+        let (tmp, backlinks) = indexed_forge("semantic-stale", &["notes/A/one.md"]);
+        let root = tmp.path();
+
+        write_note(root, "notes/agent.md", "seed [[Target]]");
+        assert_eq!(
+            index_external_change(root, "notes/agent.md", Some(&backlinks)),
+            ["notes/agent.md"]
+        );
+        write_note(root, "notes/agent.md.locked", "ciphertext");
+        fs::remove_file(root.join("notes/agent.md")).unwrap();
+        assert_eq!(
+            index_external_change(root, "notes/agent.md.locked", Some(&backlinks)),
+            ["notes/agent.md"]
+        );
+        assert!(index_external_change(root, "notes/template.json", Some(&backlinks)).is_empty());
+
+        fs::rename(root.join("notes/A"), root.join("notes/B")).unwrap();
+        let mut stale = index_external_change(root, "notes/A", Some(&backlinks));
+        stale.extend(index_external_change(root, "notes/B", Some(&backlinks)));
+        assert_eq!(stale, ["notes/A/one.md", "notes/B/one.md"]);
+        assert!(index_external_change(root, "notes/B", Some(&backlinks)).is_empty());
+
+        crate::search_index::delete_for(root);
+    }
+
+    /// The batch the watcher loop hands to semantic search, end to end, on a
+    /// service of its own rather than the process-wide one.
+    #[test]
+    fn an_external_edit_reaches_the_semantic_index() {
+        let tmp = TempDir::new("semantic-e2e");
+        let root = tmp.path();
+        let svc: &'static crate::semantic::SemanticService =
+            Box::leak(Box::new(crate::semantic::SemanticService::new()));
+        svc.set_embedder(Arc::new(OneHotEmbedder));
+        svc.set_phase(crate::semantic::Phase::Ready);
+        let recent = RecentWrites::new();
+        let indexed = || {
+            let mut paths: Vec<String> = svc
+                .search("anything", 100)
+                .unwrap()
+                .into_iter()
+                .map(|hit| hit.path)
+                .collect();
+            paths.sort();
+            paths
+        };
+
+        write_note(root, "notes/agent.md", "written by an agent");
+        let mut stale = Vec::new();
+        apply_forge_event(
+            root,
+            &root.join("notes/agent.md"),
+            &recent,
+            None,
+            &mut stale,
+        );
+        svc.notes_changed_in(stale, root.to_path_buf());
+        wait_for(|| indexed() == ["notes/agent.md"]);
+
+        fs::remove_file(root.join("notes/agent.md")).unwrap();
+        let mut stale = Vec::new();
+        apply_forge_event(
+            root,
+            &root.join("notes/agent.md"),
+            &recent,
+            None,
+            &mut stale,
+        );
+        svc.notes_changed_in(stale, root.to_path_buf());
+        wait_for(|| indexed().is_empty());
+
+        crate::search_index::delete_for(root);
+    }
+
     #[test]
     fn folder_events_leave_an_unbuilt_backlinks_index_to_its_build() {
         let tmp = TempDir::new("folder-unbuilt");
@@ -875,7 +980,13 @@ mod tests {
             while !settled() && Instant::now() < deadline {
                 if let Ok(Ok(events)) = rx.recv_timeout(Duration::from_millis(250)) {
                     for event in events {
-                        apply_forge_event(&root, &event.path, &recent, Some(&backlinks));
+                        apply_forge_event(
+                            &root,
+                            &event.path,
+                            &recent,
+                            Some(&backlinks),
+                            &mut Vec::new(),
+                        );
                     }
                 }
             }
