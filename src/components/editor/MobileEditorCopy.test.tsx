@@ -21,7 +21,7 @@ describe.each([true, false])('editor dialogs and menus with mobile=%s', (mobile)
   it('offers keyboard hints only where there is a keyboard to press them on', () => {
     platform.mobile = mobile;
     render(<LinkModal isOpen onClose={vi.fn()} onInsert={vi.fn()} />);
-    expect(screen.queryByText('Esc') === null).toBe(mobile);
+    expect(screen.queryByText('Enter') === null).toBe(mobile);
   });
 
   it('asks for a URL with the URL keyboard, uncorrected, and focuses it on open', () => {
@@ -43,7 +43,7 @@ describe.each([true, false])('editor dialogs and menus with mobile=%s', (mobile)
     render(<ImageModal isOpen onClose={vi.fn()} onInsert={vi.fn()} />);
     expect(screen.queryByText('Choose a photo') !== null).toBe(mobile);
     expect(screen.queryByText('Click to upload') !== null).toBe(!mobile);
-    expect(screen.queryByText('Esc') === null).toBe(mobile);
+    expect(screen.queryByText('Enter') === null).toBe(mobile);
   });
 
   it('shows Format menu shortcuts only on the desktop', () => {

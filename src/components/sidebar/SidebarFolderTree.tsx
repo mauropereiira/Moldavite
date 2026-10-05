@@ -7,7 +7,7 @@ import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 
 interface SidebarFolderTreeProps {
   folders: FolderInfo[];
-  notes: NoteFile[];
+  notesByFolder: ReadonlyMap<string, NoteFile[]>;
   expandedFolders: string[];
   isCollapsed: boolean;
   onToggleSection: () => void;
@@ -38,7 +38,7 @@ interface SidebarFolderTreeProps {
  */
 export function SidebarFolderTree({
   folders,
-  notes,
+  notesByFolder,
   expandedFolders,
   isCollapsed,
   onToggleSection,
@@ -95,7 +95,7 @@ export function SidebarFolderTree({
         {folders.length > 0 ? (
           <FolderTree
             folders={folders}
-            notes={notes}
+            notesByFolder={notesByFolder}
             expandedFolders={expandedFolders}
             onToggleFolder={onToggleFolder}
             onFolderContextMenu={onFolderContextMenu}
@@ -114,7 +114,11 @@ export function SidebarFolderTree({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No folders yet.</span>{' '}
-              <button onClick={onNewFolder} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onNewFolder}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 New folder
               </button>
             </div>

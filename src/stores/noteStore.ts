@@ -21,6 +21,8 @@ import { isLooseId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { useToastStore } from './toastStore';
 import { useGraphStore } from './graphStore';
+import { markNoteTagsStale } from './tagStore';
+import { useQuickSwitcherStore } from './quickSwitcherStore';
 
 interface NoteState {
   notes: NoteFile[];
@@ -72,9 +74,7 @@ interface NoteState {
   forgetNoteReferences: (noteId: string) => void;
   removeTabByPath: (notePath: string) => void;
   restoreTabAt: (note: Note, index: number, activate: boolean) => void;
-  pinTab: (noteId: string) => { success: boolean; message?: string };
   reorderTabs: (fromIndex: number, toIndex: number) => void;
-  loadPinnedTabs: () => void;
 
   // Security actions for auto-lock
   unlockNote: (noteId: string) => void;
@@ -111,10 +111,19 @@ export function isCurrentNoteViewOnly(state: Pick<NoteState, 'currentNote' | 'un
   );
 }
 
-/** Pins persist per Forge by note path; a loose tab's session id means nothing after this run. */
-function persistedPinnedIds(tabs: Note[]): string[] {
-  return tabs.filter((tab) => tab.isPinned && !isLooseId(tab.id)).map((tab) => tab.id);
+/**
+ * Pinned tabs first, in pin order, then the rest in their own order. Pins are
+ * `quickSwitcherStore.pinnedNoteIds`, the one pin list every surface shows.
+ */
+function orderTabs(tabs: Note[], pinnedIds: string[]): Note[] {
+  const pinned = tabs
+    .filter((tab) => pinnedIds.includes(tab.id))
+    .sort((a, b) => pinnedIds.indexOf(a.id) - pinnedIds.indexOf(b.id));
+  const ordered = [...pinned, ...tabs.filter((tab) => !pinnedIds.includes(tab.id))];
+  return ordered.every((tab, index) => tab === tabs[index]) ? tabs : ordered;
 }
+
+const pinnedIds = () => useQuickSwitcherStore.getState().pinnedNoteIds;
 
 export const useNoteStore = create<NoteState>((set, get) => ({
   notes: [],
@@ -234,9 +243,12 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
+      const pins = pinnedIds();
       const activeIndex = state.openTabs.findIndex((t) => t.id === state.activeTabId);
-      if (inNewTab || activeIndex < 0) {
-        const newTabs = [...state.openTabs, note];
+      // A pinned note keeps its own place in the bar, so it never takes the
+      // preview slot from the note you were reading.
+      if (inNewTab || activeIndex < 0 || pins.includes(note.id)) {
+        const newTabs = orderTabs([...state.openTabs, note], pins);
         return {
           openTabs: newTabs,
           activeTabId: note.id,
@@ -245,7 +257,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         };
       }
 
-      if (!state.openTabs[activeIndex].isPinned) {
+      if (!pins.includes(state.openTabs[activeIndex].id)) {
         // The active unpinned tab is the current preview slot.
         const newTabs = state.openTabs.map((t, i) => (i === activeIndex ? note : t));
         savedContent.delete(state.openTabs[activeIndex].id);
@@ -260,7 +272,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       // A pinned active tab is protected, but it does not require a fresh
       // preview every time it is revisited. Reuse the existing unpinned slot
       // first.
-      const previewIndex = state.openTabs.findIndex((tab) => !tab.isPinned);
+      const previewIndex = state.openTabs.findIndex((tab) => !pins.includes(tab.id));
       if (previewIndex >= 0) {
         const newTabs = state.openTabs.map((tab, index) => (index === previewIndex ? note : tab));
         savedContent.delete(state.openTabs[previewIndex].id);
@@ -297,16 +309,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         externallyChanged.delete(noteId);
         const savedContent = new Map(state.savedContent);
         savedContent.delete(noteId);
-        try {
-          localStorage.setItem(
-            namespacedKey('moldavite-pinned-tabs'),
-            JSON.stringify(persistedPinnedIds(newTabs))
-          );
-        } catch (error) {
-          // Auto-lock closes tabs to drop decrypted content. Unavailable storage
-          // must not abort the update and leave that content in a tab.
-          console.error('[noteStore] Failed to persist pinned tabs:', error);
-        }
 
         let newActiveId: string | null = null;
         let newCurrentNote: Note | null = null;
@@ -410,7 +412,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
-  markNoteSaved: (noteId, content) =>
+  markNoteSaved: (noteId, content) => {
+    markNoteTagsStale(noteId);
     set((state) => {
       const modifiedAt = Math.floor(Date.now() / 1000);
       const notes = state.notes.some((note) => note.path === noteId)
@@ -425,7 +428,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const savedContent = new Map(state.savedContent);
       savedContent.set(noteId, content);
       return { notes, savedContent };
-    }),
+    });
+  },
 
   markNoteUnsaved: (noteId) =>
     set((state) => {
@@ -498,10 +502,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         localStorage.setItem(
           namespacedKey('moldavite-recent-notes'),
           JSON.stringify(recentNoteIds)
-        );
-        localStorage.setItem(
-          namespacedKey('moldavite-pinned-tabs'),
-          JSON.stringify(persistedPinnedIds(openTabs))
         );
       } catch (error) {
         console.error('[noteStore] Failed to persist renamed note references:', error);
@@ -588,71 +588,16 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       if (state.openTabs.some((tab) => tab.id === note.id)) return state;
       const openTabs = [...state.openTabs];
       openTabs.splice(Math.min(Math.max(index, 0), openTabs.length), 0, note);
-      try {
-        localStorage.setItem(
-          namespacedKey('moldavite-pinned-tabs'),
-          JSON.stringify(persistedPinnedIds(openTabs))
-        );
-      } catch (error) {
-        console.error('[noteStore] Failed to restore closed tab:', error);
-      }
       return {
-        openTabs,
+        openTabs: orderTabs(openTabs, pinnedIds()),
         activeTabId: activate ? note.id : state.activeTabId,
         currentNote: activate ? note : state.currentNote,
       };
     }),
 
   /**
-   * Toggles the pinned state of a tab.
-   * Maximum 5 pinned tabs allowed. Persists to localStorage.
-   */
-  pinTab: (noteId) => {
-    const state = get();
-    const tab = state.openTabs.find((t) => t.id === noteId);
-    if (!tab) return { success: false, message: 'Tab not found' };
-
-    const pinnedCount = state.openTabs.filter((t) => t.isPinned).length;
-    const isCurrentlyPinned = tab.isPinned;
-
-    if (!isCurrentlyPinned && pinnedCount >= 5) {
-      return { success: false, message: 'Maximum 5 pinned tabs allowed' };
-    }
-
-    set((state) => {
-      const updatedTabs = state.openTabs.map((t) =>
-        t.id === noteId ? { ...t, isPinned: !t.isPinned } : t
-      );
-
-      const sortedTabs = [
-        ...updatedTabs.filter((t) => t.isPinned),
-        ...updatedTabs.filter((t) => !t.isPinned),
-      ];
-
-      // Persist pinned tab IDs to localStorage. Pinned ids are Forge-relative
-      // note paths, so the slot has to be per Forge like recent notes — a
-      // global key resurrects another Forge's pins on unrelated notes.
-      const pinnedIds = persistedPinnedIds(sortedTabs);
-      try {
-        localStorage.setItem(namespacedKey('moldavite-pinned-tabs'), JSON.stringify(pinnedIds));
-      } catch (error) {
-        console.error('[noteStore] Failed to persist pinned tabs:', error);
-      }
-
-      return {
-        openTabs: sortedTabs,
-        currentNote: state.activeTabId
-          ? sortedTabs.find((t) => t.id === state.activeTabId) || null
-          : null,
-      };
-    });
-
-    return { success: true };
-  },
-
-  /**
    * Reorders tabs by moving a tab from one index to another.
-   * Pinned tabs can only be reordered among pinned tabs.
+   * Pinned tabs can only be reordered among pinned tabs, through the pin list.
    */
   reorderTabs: (fromIndex, toIndex) =>
     set((state) => {
@@ -664,47 +609,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const [movedTab] = tabs.splice(fromIndex, 1);
       tabs.splice(toIndex, 0, movedTab);
 
-      // Ensure pinned tabs stay at the front
-      const sortedTabs = [...tabs.filter((t) => t.isPinned), ...tabs.filter((t) => !t.isPinned)];
-
-      return { openTabs: sortedTabs };
+      return { openTabs: orderTabs(tabs, pinnedIds()) };
     }),
-
-  /**
-   * Loads pinned tab IDs from localStorage and applies pinned state to matching open tabs.
-   */
-  loadPinnedTabs: () => {
-    try {
-      const stored = localStorage.getItem(namespacedKey('moldavite-pinned-tabs'));
-      if (!stored) return;
-
-      const pinnedIds: unknown = JSON.parse(stored);
-      // localStorage is untyped and older/corrupt values can be strings.
-      // String.prototype.includes would otherwise treat a substring as a
-      // pinned id and could mark tabs the user never pinned.
-      if (!Array.isArray(pinnedIds)) return;
-      set((state) => {
-        const updatedTabs = state.openTabs.map((t) => ({
-          ...t,
-          isPinned: pinnedIds.includes(t.id),
-        }));
-
-        const sortedTabs = [
-          ...updatedTabs.filter((t) => t.isPinned),
-          ...updatedTabs.filter((t) => !t.isPinned),
-        ];
-
-        return {
-          openTabs: sortedTabs,
-          currentNote: state.activeTabId
-            ? sortedTabs.find((t) => t.id === state.activeTabId) || null
-            : null,
-        };
-      });
-    } catch (error) {
-      console.error('[noteStore] Failed to load pinned tabs:', error);
-    }
-  },
 
   /**
    * Marks a note as temporarily unlocked (for auto-lock tracking).
@@ -789,4 +695,14 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 // another Forge's note paths.
 onActiveForgeChange(() => {
   useNoteStore.setState({ recentNoteIds: loadRecentNotes() });
+});
+
+// Pinning or unpinning anywhere (the bar, the Index, More, the Quick Switcher)
+// moves an open tab into or out of the pinned group.
+useQuickSwitcherStore.subscribe((state, previous) => {
+  if (state.pinnedNoteIds === previous.pinnedNoteIds) return;
+  useNoteStore.setState((notes) => {
+    const openTabs = orderTabs(notes.openTabs, state.pinnedNoteIds);
+    return openTabs === notes.openTabs ? notes : { openTabs };
+  });
 });

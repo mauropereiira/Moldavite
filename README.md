@@ -164,8 +164,9 @@ Updates are checked quietly in the background, verified against a signing key
 before they install, and a "What's New" window shows that version's notes the
 first time you open it.
 
-Pin the notes you keep coming back to and they sit in a bar across the top,
-reorderable, with the rest a click away. Rename a note by editing its title.
+Pin the notes you keep coming back to and they lead the top bar above the
+note, reorderable, beside your open tabs; what doesn't fit is a click away in
+Open tabs. Rename a note by editing its title.
 Order the sidebar A–Z, Z–A, by date modified or created, or by hand: drag
 notes and folders where you want them and they stay there.
 

@@ -13,7 +13,6 @@ import {
   History,
   Pin,
   Command as CommandIcon,
-  X,
   Cloud,
 } from 'lucide-react';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
@@ -42,6 +41,7 @@ import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const CONTENT_SEARCH_DEBOUNCE_MS = 150;
 const CONTENT_SEARCH_LIMIT = 30;
@@ -704,26 +704,7 @@ export function QuickSwitcher() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {/* A phone has no Escape key, and the search covers the whole screen. */}
-          {isMobilePlatform() && (
-            <button
-              type="button"
-              className="quick-switcher-close"
-              aria-label="Close search"
-              onClick={close}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                width: 'var(--touch-target)',
-                height: 'var(--touch-target)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <X size={20} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-          )}
+          <CloseButton onClick={close} label="Close search" />
         </div>
 
         <div className="quick-switcher-results">
@@ -782,9 +763,6 @@ export function QuickSwitcher() {
           </span>
           <span>
             <kbd>↵</kbd> open
-          </span>
-          <span>
-            <kbd>esc</kbd> close
           </span>
         </div>
       </DialogSurface>

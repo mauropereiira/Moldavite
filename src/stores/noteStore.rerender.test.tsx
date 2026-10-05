@@ -4,7 +4,8 @@
  * `currentNote` — never `notes` — and components that select only note
  * *metadata* (not `currentNote` itself) must not re-render because of it.
  *
- * Probes below mirror the exact selectors Sidebar and PinnedBar use.
+ * Probes below mirror the Sidebar's selectors and a `notes` subscriber like
+ * the top bar's pin lookup.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -43,7 +44,7 @@ function SidebarProbe({ onRender }: { onRender: () => void }) {
   );
 }
 
-// Mirrors src/components/layout/PinnedBar.tsx's noteStore usage.
+// Reads `notes` and the active id, as the top bar's pin lookup does.
 function PinnedBarProbe({ onRender }: { onRender: () => void }) {
   const notes = useNoteStore((state) => state.notes);
   const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);

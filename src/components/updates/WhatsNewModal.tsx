@@ -19,6 +19,7 @@ import { useSettingsHydration } from '@/hooks/useSettingsHydration';
 import { getAppOnboardingSteps } from '@/lib/appOnboarding';
 import { isMobilePlatform } from '@/lib/platform';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const RELEASES_URL = 'https://github.com/mauropereiira/Moldavite/releases';
 
@@ -123,14 +124,7 @@ export function WhatsNewModal() {
                 <span>Released {entry.date}</span>
               </div>
             )}
-            <button
-              type="button"
-              onClick={handleClose}
-              className="wn-close"
-              aria-label="Close what's new"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
+            <CloseButton onClick={handleClose} label="Close what's new" className="wn-close" />
           </header>
 
           {headlineGroups.map((group) => (
@@ -183,7 +177,7 @@ export function WhatsNewModal() {
           <button
             type="button"
             onClick={() => void shellOpen(RELEASES_URL)}
-            className="wn-release-link"
+            className="wn-release-link pad-hover"
           >
             Full release notes
           </button>

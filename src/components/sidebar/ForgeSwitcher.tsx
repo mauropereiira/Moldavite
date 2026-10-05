@@ -95,147 +95,134 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
 
   return (
     <div ref={wrapRef} className="forge-switcher relative px-3 pt-4">
-      <button
-        type="button"
-        // Re-list on open: the Forge list is otherwise only loaded at mount, so
-        // a Forge created outside this window (an agent over MCP, the Obsidian
-        // importer, or anything writing to the Forges root) stayed invisible
-        // until the app was restarted.
-        onClick={(event) => {
-          if (!open) captureImpactOrigin(event.currentTarget);
-          setOpen((v) => {
-            if (!v) void loadForges().catch(() => {});
-            return !v;
-          });
-        }}
-        // Left-aligned, with the caret beside the name rather than pushed to the
-        // far edge. Full width means "far edge" is the width of whatever is
-        // hosting the sidebar — in the Index overlay that is the whole window,
-        // so the caret landed on top of the overlay's close button. Beside the
-        // name it also reads as what it is: press the Forge name to switch
-        // Forge, rather than a lone glyph in the corner belonging to nothing.
-        className="w-full flex items-center gap-2 px-1 pb-3 text-left"
-        style={{
-          color: 'var(--text-primary)',
-          borderBottom: '1px solid var(--border-default)',
-          fontFamily: 'var(--font-display)',
-          fontSize: '20px',
-          fontWeight: 500,
-          letterSpacing: '-0.015em',
-        }}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        title="Switch Forge"
+      <div
+        className="forge-switcher-head relative pb-3"
+        style={{ borderBottom: '1px solid var(--border-default)' }}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">{label}</span>
-          <span
-            aria-hidden="true"
-            className="flex-shrink-0 text-[10px]"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            ↓
-          </span>
-        </span>
-      </button>
-
-      {open && (
-        <div
-          ref={applyImpactOrigin}
-          role="listbox"
-          className="absolute z-30 left-3 right-3 top-full mt-1 border overflow-hidden modal-content-enter impact-surface"
-          style={{
-            background: 'var(--bg-elevated)',
-            borderColor: 'var(--border-default)',
+        <button
+          type="button"
+          // Re-list on open: the Forge list is otherwise only loaded at mount, so
+          // a Forge created outside this window (an agent over MCP, the Obsidian
+          // importer, or anything writing to the Forges root) stayed invisible
+          // until the app was restarted.
+          onClick={(event) => {
+            if (!open) captureImpactOrigin(event.currentTarget);
+            setOpen((v) => {
+              if (!v) void loadForges().catch(() => {});
+              return !v;
+            });
           }}
+          // As wide as the name, not the column: a full-width trigger put its
+          // caret on the Index overlay's close button and its hover fill across
+          // the whole window. The small caption says what the name is, and the
+          // caret that it opens.
+          className="forge-switcher-trigger"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={`Forge: ${label}. Switch Forge`}
+          title="Switch Forge"
         >
-          {forges.length === 0 && (
-            <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-              No Forges found.
-            </div>
-          )}
-          {forges.map((f) => (
-            <button
-              key={f.id ?? f.name}
-              type="button"
-              role="option"
-              aria-selected={f.isActive}
-              onClick={() => handleSwitch(f.id ?? f.name)}
-              className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              <span className="truncate">
-                {f.name}
-                {f.isSynced ? ' · iCloud' : ''}
-              </span>
-              {f.isActive && (
-                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>active</span>
-              )}
-            </button>
-          ))}
+          <span className="forge-switcher-caption" aria-hidden="true">
+            Forge
+          </span>
+          <span className="forge-switcher-name">
+            <span className="truncate">{label}</span>
+            <span aria-hidden="true" className="forge-switcher-caret" />
+          </span>
+        </button>
 
-          <div className="border-t" style={{ borderColor: 'var(--border-default)' }} />
+        {open && (
+          <div
+            ref={applyImpactOrigin}
+            role="listbox"
+            aria-label="Forges"
+            className="forge-switcher-menu flex flex-col modal-content-enter impact-surface"
+          >
+            {forges.length === 0 && (
+              <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                No Forges found.
+              </div>
+            )}
+            {forges.map((f) => (
+              <button
+                key={f.id ?? f.name}
+                type="button"
+                role="option"
+                aria-selected={f.isActive}
+                onClick={() => handleSwitch(f.id ?? f.name)}
+                className="forge-switcher-row flex items-center justify-between gap-6"
+              >
+                <span className="truncate">
+                  {f.name}
+                  {f.isSynced ? ' · iCloud' : ''}
+                </span>
+                {f.isActive && (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>active</span>
+                )}
+              </button>
+            ))}
 
-          {creating ? (
-            <div className="px-3 py-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleCreate();
-                  if (e.key === 'Escape') {
-                    setCreating(false);
-                    setNewName('');
-                  }
-                }}
-                placeholder="Forge name"
-                autoFocus
-                className="flex-1 px-2 py-1 text-sm border bg-transparent"
-                style={{
-                  borderColor: 'var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
-              />
+            <div className="forge-switcher-divider" />
+
+            {creating ? (
+              <div className="px-3 py-2 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleCreate();
+                    if (e.key === 'Escape') {
+                      setCreating(false);
+                      setNewName('');
+                    }
+                  }}
+                  placeholder="Forge name"
+                  autoFocus
+                  className="flex-1 px-2 py-1 text-sm border bg-transparent"
+                  style={{
+                    borderColor: 'var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleCreate()}
+                  className="px-2 py-1 text-xs border"
+                  style={{
+                    background: 'transparent',
+                    borderColor: 'var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Create
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => void handleCreate()}
-                className="px-2 py-1 text-xs border"
-                style={{
-                  background: 'transparent',
-                  borderColor: 'var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
+                onClick={() => setCreating(true)}
+                className="forge-switcher-row"
               >
-                Create
+                New Forge…
               </button>
-            </div>
-          ) : (
+            )}
+
             <button
               type="button"
-              onClick={() => setCreating(true)}
-              className="w-full text-left px-3 py-1.5 text-sm"
-              style={{ color: 'var(--text-primary)' }}
+              onClick={() => {
+                setOpen(false);
+                setCreating(false);
+                setNewName('');
+                onManage();
+              }}
+              className="forge-switcher-row"
             >
-              New Forge
+              Manage Forges…
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setCreating(false);
-              setNewName('');
-              onManage();
-            }}
-            className="w-full text-left px-3 py-1.5 text-sm"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Manage Forges…
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -210,9 +210,10 @@ get trapped underneath Index.
   only after the current tap: WebKit moves focus on mousedown and hit-tests the
   click afterwards, so resizing there moved a dialog's button out from under
   the finger and the first tap only dismissed the keyboard.
-- A pinned bar is the app's first row and clears the status bar itself; the
-  rail, the note and the pages beside it read `--shell-safe-top`, which is
-  zero below it.
+- The top bar is the first row of the note column, under the status bar. On
+  the phone it shows the note you are reading, its pin, and a Tabs button
+  whose list (pinned and open notes, each with pin and close) opens as a
+  sheet across the note column. An iPad lays the bar out like the desktop.
 - Focus traps focus the page container on a phone rather than the first
   button, so no close control wears a focus ring after a tap. The global
   `!important` hover fill in `index.css` sticks after a tap on a touch
@@ -227,8 +228,8 @@ get trapped underneath Index.
   so hairlines and note colours still reach the edge. The rail's active marker
   moves from the outer edge to the hairline there, since the outer edge is
   under the sensor band. At 402pt the rail drops its padding and bottom inset
-  to fit nine 44pt buttons under a pinned bar, and scrolls above the keyboard.
-  While the keyboard is up in landscape the pinned bar and the Index's Forge
+  to fit nine 44pt buttons, and scrolls above the keyboard.
+  While the keyboard is up in landscape the top bar and the Index's Forge
   row hide, and `--safe-bottom` is zero on any phone, since the shell ends at
   the keyboard.
 - Segmented controls with four or more options become a one-per-row list.

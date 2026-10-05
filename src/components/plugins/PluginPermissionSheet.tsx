@@ -9,6 +9,7 @@ import { ShieldAlert, X } from 'lucide-react';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 import { formatShortcut } from '@/lib/shortcuts';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 export interface PluginPermissionSheetProps {
   manifest: {
@@ -70,14 +71,7 @@ export function PluginPermissionSheet({
               {mode === 'grant' ? 'Enable plugin?' : 'Plugin permissions'}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 transition-colors"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">

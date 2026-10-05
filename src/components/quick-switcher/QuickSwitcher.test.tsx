@@ -86,10 +86,22 @@ describe('QuickSwitcher close control', () => {
     vi.mocked(isMobilePlatform).mockReturnValue(false);
   });
 
-  it('has no close button on desktop, where Escape and the rail close it', () => {
+  // Every surface closes with the same ×; the key legend keeps only the keys
+  // the × cannot stand in for.
+  it('closes with the shared × on the desktop, with Esc in its tooltip', () => {
     render(<QuickSwitcher />);
 
-    expect(screen.queryByRole('button', { name: 'Close search' })).not.toBeInTheDocument();
+    const close = screen.getByRole('button', { name: 'Close search' });
+    expect(close).toHaveClass('close-button');
+    expect(close).toHaveAttribute('title', 'Close (Esc)');
+    expect(close.parentElement).toBe(screen.getByRole('textbox').parentElement);
+    const legend = document.querySelector('.quick-switcher-footer');
+    expect(legend).toHaveTextContent('navigate');
+    expect(legend).toHaveTextContent('open');
+    expect(legend).not.toHaveTextContent(/esc|close/i);
+
+    fireEvent.click(close);
+    expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
   });
 
   it('shows a close button beside the input on a phone that closes the search', () => {
@@ -98,8 +110,8 @@ describe('QuickSwitcher close control', () => {
 
     const close = screen.getByRole('button', { name: 'Close search' });
     expect(close.parentElement).toBe(screen.getByRole('textbox').parentElement);
-    expect(close.style.width).toBe('var(--touch-target)');
-    expect(close.style.height).toBe('var(--touch-target)');
+    // The shared ×; mobile.css makes every one a 44pt target.
+    expect(close).toHaveClass('close-button');
 
     fireEvent.click(close);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);

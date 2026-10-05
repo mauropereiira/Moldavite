@@ -31,7 +31,7 @@ import {
   registerAutosavePathChange,
   registerAutosavePendingProbe,
 } from '@/lib/autosaveFlush';
-import { discardLeaveSave } from '@/lib/leaveSave';
+import { discardLeaveSave, saveNoteOnLeave } from '@/lib/leaveSave';
 import { isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { reportLooseSaveFailure, writeLooseNote } from '@/lib/looseFiles';
 import type { Note, NoteFile } from '@/types';
@@ -128,7 +128,7 @@ export function useAutoSave() {
 
         if (currentNote.isDaily) {
           const dateStr = currentNote.date;
-          const existsInList = freshNotes.some((n) => n.isDaily && n.date === dateStr);
+          const existsInList = freshNotes.some((n) => n.path === currentNote.id);
           const { setTaskStatus, removeTaskStatus } = useTaskStatusStore.getState();
 
           if (isEmpty) {
@@ -136,7 +136,7 @@ export function useAutoSave() {
             if (existsInList) {
               try {
                 await deleteNote(filename, true, false, { guarded: true });
-                const updatedNotes = freshNotes.filter((n) => !(n.isDaily && n.date === dateStr));
+                const updatedNotes = freshNotes.filter((n) => n.path !== currentNote.id);
                 setNotes(updatedNotes);
                 if (dateStr) removeTaskStatus(dateStr);
               } catch (deleteError) {
@@ -170,14 +170,14 @@ export function useAutoSave() {
           }
         } else if (currentNote.isWeekly) {
           const weekStr = currentNote.week;
-          const existsInList = freshNotes.some((n) => n.isWeekly && n.week === weekStr);
+          const existsInList = freshNotes.some((n) => n.path === currentNote.id);
 
           if (isEmpty) {
             // Content is empty - delete the file if it exists
             if (existsInList) {
               try {
                 await deleteNote(filename, false, true, { guarded: true });
-                const updatedNotes = freshNotes.filter((n) => !(n.isWeekly && n.week === weekStr));
+                const updatedNotes = freshNotes.filter((n) => n.path !== currentNote.id);
                 setNotes(updatedNotes);
               } catch (deleteError) {
                 console.error('[useAutoSave] Delete weekly note failed:', deleteError);
@@ -376,10 +376,24 @@ export function useAutoSave() {
     };
   }, [discardPending]);
 
+  /**
+   * Settle the write owed to the note just left. Autosave only tries again on
+   * the next edit, which is now in another note and replaces the owed one, so a
+   * failure moves the edit to the leave-save hold, which retries it.
+   */
+  const flushLeftNote = useCallback(() => {
+    const left = pendingRef.current;
+    void flushPending().catch(() => {
+      if (left && pendingRef.current === left && getState().currentNote?.id !== left.id) {
+        void saveNoteOnLeave(left);
+      }
+    });
+  }, [flushPending, getState]);
+
   useEffect(() => {
     if (!currentNote) {
       // Losing the active note must not drop an edit it was still owed.
-      void flushPending().catch(() => {});
+      flushLeftNote();
       lastNoteIdRef.current = null;
       lastContentRef.current = '';
       return;
@@ -396,7 +410,7 @@ export function useAutoSave() {
       // Switching notes (tab click, Cmd+W, tab shortcuts) used to cancel the
       // previous note's debounce outright, losing the edit — and re-seeding the
       // baseline below meant switching back could not recover it either.
-      void flushPending().catch(() => {});
+      flushLeftNote();
       lastNoteIdRef.current = currentNote.id;
       lastContentRef.current = currentNote.content;
       return;
@@ -420,8 +434,14 @@ export function useAutoSave() {
       return;
     }
 
-    // Don't save if content hasn't changed
+    // Undoing back to the saved text leaves nothing owed; a pending write of
+    // the text in between would otherwise be flushed when the note is left.
     if (currentNote.content === lastContentRef.current) {
+      if (pendingRef.current?.id === currentNote.id) {
+        if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+        pendingRef.current = null;
+      }
       return;
     }
 
@@ -432,7 +452,7 @@ export function useAutoSave() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentNote, getState, flushPending, queuePending]);
+  }, [currentNote, getState, flushLeftNote, queuePending]);
 
   // Unmount (app close, Forge switch reload) must also settle what is owed.
   // Kept separate from the effect above, whose cleanup runs on every keystroke.

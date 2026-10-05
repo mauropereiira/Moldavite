@@ -6,6 +6,7 @@ import { useSettingsStore } from '@/stores';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { formatShortcut } from '@/lib/shortcuts';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { isMobilePlatform } from '@/lib/platform';
 
 interface AgendaOverlayProps {
@@ -55,7 +56,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           {
             '--index': 0,
             display: 'flex',
-            alignItems: 'baseline',
+            alignItems: 'center',
             justifyContent: 'space-between',
             gap: '24px',
             paddingBottom: '18px',
@@ -75,34 +76,12 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           >
             Agenda
           </h1>
-          <p
-            className="app-overlay-hint"
-            style={{
-              marginTop: '4px',
-              color: 'var(--text-muted)',
-              fontSize: '10px',
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {formatShortcut('⌘⌥\\')} · Esc closes
-          </p>
         </div>
-        <button
-          type="button"
+        <CloseButton
           onClick={onClose}
-          className="focus-ring app-overlay-close"
-          style={{
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-display)',
-            fontSize: '24px',
-            lineHeight: 1,
-          }}
-          aria-label="Close Agenda"
-          title="Close Agenda (Esc)"
-        >
-          ×
-        </button>
+          label="Close Agenda"
+          shortcut={`Esc, ${formatShortcut('⌘⌥\\')}`}
+        />
       </header>
 
       <div

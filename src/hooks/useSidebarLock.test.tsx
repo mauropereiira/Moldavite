@@ -3,6 +3,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isCurrentNoteViewOnly, useNoteStore } from '@/stores/noteStore';
+import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
 
 const invokeMock = vi.fn();
@@ -46,7 +47,9 @@ beforeEach(() => {
 describe('useSidebarLock unlock', () => {
   it('loads decrypted Markdown into the editor as HTML immediately', async () => {
     invokeMock.mockImplementation(async (command: string) => {
-      if (command === 'unlock_note') return '# Decrypted\n\nVisible immediately';
+      if (command === 'unlock_note') {
+        return { content: '# Decrypted\n\nVisible immediately', conflictCopy: null };
+      }
       return undefined;
     });
 
@@ -59,6 +62,36 @@ describe('useSidebarLock unlock', () => {
     expect(state.currentNote?.content).toContain('<h1>Decrypted</h1>');
     expect(state.currentNote?.content).toContain('<p>Visible immediately</p>');
     expect(state.unlockedNotes.has(lockedNote.path)).toBe(true);
+  });
+
+  it('names the copy kept when an interrupted lock left a different plaintext beside it', async () => {
+    const keptCopy: NoteFile = {
+      ...unlockedNote,
+      name: 'Secret (conflict 2026-10-05 0900).md',
+      path: 'notes/Secret (conflict 2026-10-05 0900).md',
+    };
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'unlock_note') {
+        return { content: 'Locked body', conflictCopy: 'Secret (conflict 2026-10-05 0900).md' };
+      }
+      if (command === 'list_notes') return [lockedNote, keptCopy];
+      return undefined;
+    });
+    useToastStore.setState({ toasts: [] });
+
+    const hook = renderHook(() => useSidebarLock());
+    act(() => hook.result.current.openUnlock(lockedNote));
+    await act(() => hook.result.current.submit('password', [lockedNote]));
+
+    expect(useNoteStore.getState().currentNote?.content).toContain('Locked body');
+    expect(useToastStore.getState().toasts).toContainEqual(
+      expect.objectContaining({
+        type: 'warning',
+        message:
+          'Kept a different unlocked copy of this note as Secret (conflict 2026-10-05 0900).md',
+      })
+    );
+    await vi.waitFor(() => expect(useNoteStore.getState().notes).toEqual([lockedNote, keptCopy]));
   });
 
   it('locks an open note without corrupting the note store', async () => {
@@ -98,6 +131,27 @@ describe('useSidebarLock unlock', () => {
 });
 
 describe('useSidebarLock permanent unlock', () => {
+  it('names the copy kept when the plaintext beside the locked file differed', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'permanently_unlock_note') return 'Secret (conflict 2026-10-05 0900).md';
+      if (command === 'list_notes') return [{ ...lockedNote, isLocked: false }];
+      return undefined;
+    });
+    useToastStore.setState({ toasts: [] });
+
+    const hook = renderHook(() => useSidebarLock());
+    act(() => hook.result.current.openPermanentUnlock(lockedNote));
+    await act(() => hook.result.current.submit('password', [lockedNote]));
+
+    expect(
+      useToastStore
+        .getState()
+        .toasts.map((toast) => toast.type)
+        .sort()
+    ).toEqual(['success', 'warning']);
+    expect(invokeMock.mock.calls.map(([command]) => command)).toContain('list_notes');
+  });
+
   it('makes a note viewed this session editable again, with its disk body', async () => {
     invokeMock.mockImplementation(async (command: string) => {
       if (command === 'read_note') return { content: 'Plain now', contentHash: 'h1' };
