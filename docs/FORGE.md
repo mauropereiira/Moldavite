@@ -68,7 +68,10 @@ The keyword search index is *not* in the Forge either. It is a SQLite database
 at `<app data>/Moldavite/index/<sha256 of the Forge path>/search.sqlite`, next
 to the model cache, because SQLite's WAL sidecar is the documented way to
 corrupt a database inside Dropbox or iCloud. A Forge that moves hashes
-differently and simply rebuilds; deleting a Forge deletes its index.
+differently and simply rebuilds; deleting a Forge deletes its index. The index
+can lag the disk, for example when a note is locked on another synced Mac, so
+every hit is checked first: one whose note is gone or has a `.locked` twin is
+dropped and removed from the index.
 
 ## Frontmatter schema
 
