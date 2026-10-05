@@ -22,6 +22,7 @@ import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { useToastStore } from './toastStore';
 import { useGraphStore } from './graphStore';
 import { useTimelineStore } from './timelineStore';
+import { markNoteTagsStale } from './tagStore';
 
 interface NoteState {
   notes: NoteFile[];
@@ -412,7 +413,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       };
     }),
 
-  markNoteSaved: (noteId, content) =>
+  markNoteSaved: (noteId, content) => {
+    markNoteTagsStale(noteId);
     set((state) => {
       const modifiedAt = Math.floor(Date.now() / 1000);
       const notes = state.notes.some((note) => note.path === noteId)
@@ -427,7 +429,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
       const savedContent = new Map(state.savedContent);
       savedContent.set(noteId, content);
       return { notes, savedContent };
-    }),
+    });
+  },
 
   markNoteUnsaved: (noteId) =>
     set((state) => {
