@@ -821,7 +821,7 @@ html[data-platform='mobile'] .editor-footer-overflow-toggle {
   width: auto;
   min-width: 0;
   height: var(--touch-target);
-  padding-inline: 4px;
+  padding-inline: 8px;
 }
 
 html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar-button {

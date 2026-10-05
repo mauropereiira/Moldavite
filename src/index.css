@@ -3669,7 +3669,8 @@ button[aria-expanded='true'] .wn-caret {
   align-items: center;
   justify-content: space-between;
   min-height: 34px;
-  padding: 0 20px;
+  /* The right edge is 8px short because the last control's padding makes it up. */
+  padding: 0 12px 0 20px;
   border-top: 1px solid var(--border-muted);
   background: transparent;
   color: var(--text-muted);
@@ -4260,10 +4261,10 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   align-items: center;
   /* Never squeezed: these controls are their labels. */
   flex: 0 0 auto;
-  /* Roomier than the 8px these started at. The labels are uppercase and
-     letterspaced, so at 8px the gap between two controls read as narrower than
-     the gap inside one word and the row scanned as a single run of text. */
-  gap: 18px;
+  /* The labels are uppercase and letterspaced, so at 8px apart two controls
+     read as one run of text. They sit 18px apart: each control's 8px padding
+     on either side plus this gap. */
+  gap: 2px;
 }
 
 .editor-footer .toolbar-button,
@@ -4285,8 +4286,8 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   flex: 0 0 auto;
   min-width: max-content;
   white-space: nowrap;
-  height: 32px;
-  padding: 0;
+  height: 24px;
+  padding: 0 8px;
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 500;
@@ -4298,6 +4299,29 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 .editor-footer-overflow-toggle:hover,
 .editor-footer-overflow-toggle[aria-expanded='true'] {
   color: var(--text-primary);
+}
+
+/* Every control along the bottom shares one look: a padded wash on hover and,
+   while its menu is open, the outline the current tab wears. No underlines. */
+.editor-navigation-links button {
+  height: 24px;
+  padding: 0 8px;
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+.editor-navigation-links button::after {
+  display: none;
+}
+
+.editor-footer :is(.toolbar-button, .editor-footer-overflow-toggle)[aria-expanded='true'],
+:is(.editor-footer, .editor-navigation-links)
+  [aria-expanded='true']
+  > :is(.toolbar-button, .editor-footer-overflow-toggle, button) {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .editor-footer-color svg {
