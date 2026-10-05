@@ -1,6 +1,7 @@
 //! OS credential-store access, shared by every feature that holds a secret.
 //!
-//! Accounts are namespaced by the caller (`plugin:<id>:<key>`,
+//! Accounts are namespaced by the caller (`plugin:<id>:<key>`, with the key
+//! list uninstall reads at `plugin-keys:<id>`,
 //! `calendar:google:refresh_token`) so one feature can never read another's
 //! secret by guessing a key. Nothing here ever logs a value.
 

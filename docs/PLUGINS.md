@@ -515,7 +515,9 @@ if (saved) {
 
 Moldavite uses the credential-store service name `Moldavite` and constructs the account as
 `plugin:<plugin-id>:<key>`. The host supplies and validates the plugin id, so a
-worker cannot choose or impersonate another plugin's namespace.
+worker cannot choose or impersonate another plugin's namespace. The keys a
+plugin has stored are listed under `plugin-keys:<plugin-id>` so uninstalling can
+delete them.
 
 Keys are 1–128 characters, begin with a letter or digit, and then use letters,
 digits, `.`, `_`, or `-`. Secret values are never listed or included in Forge,
@@ -652,11 +654,12 @@ client ID, and the reference plugin intentionally does not embed or fake one.
 - Successful community and bundled installs open **About this plugin** with the
   manifest instructions. Installation never enables a plugin; enable state and
   consent remain per Forge.
-- Uninstalling in Settings deletes the plugin folder and forgets its
-  consent/runtime-host grant. It does **not** automatically delete stored
-  secrets because plugin keys are intentionally not enumerable.
-  Provide a reset command that calls `secrets.delete` for every known key when
-  users need credential cleanup before uninstalling.
+- Uninstalling in Settings deletes the plugin folder, forgets its
+  consent/runtime-host grant, and deletes the secrets it stored. Secrets are
+  keyed by plugin id, not by Forge, so they stay while another Forge still has
+  the plugin installed. A secret stored before Moldavite started tracking secret
+  keys is deleted only if the plugin has read it since then; a reset command that calls
+  `secrets.delete` for every known key still covers that case.
 - Test cancellation, missing notes, locked-note rejection, denied and revoked
   hosts, non-2xx responses, timeouts, malformed JSON, and a plugin disable
   during an in-flight command.

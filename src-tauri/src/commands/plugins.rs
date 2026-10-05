@@ -42,12 +42,62 @@ fn secret_account(plugin_id: &str, key: &str) -> Result<String, String> {
     Ok(format!("plugin:{plugin_id}:{key}"))
 }
 
+/// The credential store cannot list a service's accounts, so the keys each
+/// plugin stored are recorded here, one per line, for uninstall to find. Keys
+/// are validated, so none contains a newline.
+fn key_list_account(plugin_id: &str) -> String {
+    format!("plugin-keys:{plugin_id}")
+}
+
+/// Serializes the read-modify-write of a key list across command threads.
+static KEY_LIST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn stored_keys(store: &impl SecretStore, plugin_id: &str) -> Result<Vec<String>, String> {
+    Ok(store
+        .get(&key_list_account(plugin_id))?
+        .unwrap_or_default()
+        .lines()
+        .filter(|key| is_valid_secret_key(key))
+        .map(str::to_string)
+        .collect())
+}
+
+fn update_key_list(
+    store: &impl SecretStore,
+    plugin_id: &str,
+    key: &str,
+    present: bool,
+) -> Result<(), String> {
+    let _guard = KEY_LIST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut keys = stored_keys(store, plugin_id)?;
+    if keys.iter().any(|stored| stored == key) == present {
+        return Ok(());
+    }
+    keys.retain(|stored| stored != key);
+    if present {
+        keys.push(key.to_string());
+    }
+    if keys.is_empty() {
+        store.delete(&key_list_account(plugin_id))
+    } else {
+        store.set(&key_list_account(plugin_id), &keys.join("\n"))
+    }
+}
+
 fn secret_get_with(
     store: &impl SecretStore,
     plugin_id: &str,
     key: &str,
 ) -> Result<Option<String>, String> {
-    store.get(&secret_account(plugin_id, key)?)
+    let value = store.get(&secret_account(plugin_id, key)?)?;
+    // A secret stored before keys were recorded joins the list the first time
+    // its plugin reads it.
+    if value.is_some() {
+        if let Err(error) = update_key_list(store, plugin_id, key, true) {
+            log::warn!("[plugins] could not record a secret key for {plugin_id}: {error}");
+        }
+    }
+    Ok(value)
 }
 
 fn secret_set_with(
@@ -56,11 +106,32 @@ fn secret_set_with(
     key: &str,
     value: &str,
 ) -> Result<(), String> {
-    store.set(&secret_account(plugin_id, key)?, value)
+    let account = secret_account(plugin_id, key)?;
+    update_key_list(store, plugin_id, key, true)?;
+    store.set(&account, value)
 }
 
 fn secret_delete_with(store: &impl SecretStore, plugin_id: &str, key: &str) -> Result<(), String> {
-    store.delete(&secret_account(plugin_id, key)?)
+    store.delete(&secret_account(plugin_id, key)?)?;
+    update_key_list(store, plugin_id, key, false)
+}
+
+/// Every secret the plugin stored, then the list itself.
+fn delete_plugin_secrets_with(store: &impl SecretStore, plugin_id: &str) -> Result<(), String> {
+    for key in stored_keys(store, plugin_id)? {
+        store.delete(&secret_account(plugin_id, &key)?)?;
+    }
+    store.delete(&key_list_account(plugin_id))
+}
+
+/// Secrets are keyed by plugin id alone, so a copy of the plugin in another
+/// Forge reads the same ones and must keep them.
+fn installed_in_another_forge(id: &str, plugins_dir: &Path, forges: &[PathBuf]) -> bool {
+    let here = plugins_dir.canonicalize().ok();
+    forges.iter().any(|forge| {
+        let dir = forge.join(".plugins");
+        !forge.as_os_str().is_empty() && dir.canonicalize().ok() != here && dir.join(id).is_dir()
+    })
 }
 
 #[tauri::command]
@@ -232,6 +303,20 @@ pub(crate) fn uninstall_plugin(id: String) -> Result<(), String> {
         .map_err(|_| "refusing to delete outside the plugins directory".to_string())?;
     if target.is_dir() {
         fs::remove_dir_all(&target).map_err(|e| format!("failed to uninstall: {e}"))?;
+    }
+    // An unreadable Forge list keeps the secrets rather than risk another
+    // Forge's copy of the plugin losing them.
+    let elsewhere = match crate::commands::forges::list_forges() {
+        Ok(forges) => {
+            let paths: Vec<PathBuf> = forges.into_iter().map(|f| PathBuf::from(f.path)).collect();
+            installed_in_another_forge(&id, &base, &paths)
+        }
+        Err(_) => true,
+    };
+    if !elsewhere {
+        if let Err(error) = delete_plugin_secrets_with(&KeychainSecretStore, &id) {
+            log::warn!("[plugins] could not delete the secrets of {id}: {error}");
+        }
     }
     Ok(())
 }
@@ -687,6 +772,103 @@ mod tests {
                 .as_deref(),
             Some("beta")
         );
+    }
+
+    #[test]
+    fn deleting_a_plugins_secrets_removes_every_key_it_stored_and_no_other() {
+        let store = MemorySecretStore::default();
+        secret_set_with(&store, "plugin-a", "token", "alpha").unwrap();
+        secret_set_with(&store, "plugin-a", "config.v2", "{}").unwrap();
+        secret_set_with(&store, "plugin-a", "token", "alpha again").unwrap();
+        secret_set_with(&store, "plugin-b", "token", "beta").unwrap();
+
+        delete_plugin_secrets_with(&store, "plugin-a").unwrap();
+
+        assert_eq!(secret_get_with(&store, "plugin-a", "token").unwrap(), None);
+        assert_eq!(
+            secret_get_with(&store, "plugin-a", "config.v2").unwrap(),
+            None
+        );
+        assert_eq!(
+            secret_get_with(&store, "plugin-b", "token")
+                .unwrap()
+                .as_deref(),
+            Some("beta")
+        );
+        let left: Vec<String> = store.0.borrow().keys().cloned().collect();
+        assert!(
+            left.iter().all(|account| !account.contains("plugin-a")),
+            "{left:?}"
+        );
+    }
+
+    #[test]
+    fn a_secret_stored_before_keys_were_recorded_is_deleted_once_it_has_been_read() {
+        let store = MemorySecretStore::default();
+        store
+            .set("plugin:plugin-a:legacy", "old app password")
+            .unwrap();
+        assert_eq!(
+            secret_get_with(&store, "plugin-a", "legacy")
+                .unwrap()
+                .as_deref(),
+            Some("old app password")
+        );
+        delete_plugin_secrets_with(&store, "plugin-a").unwrap();
+        assert!(store.0.borrow().is_empty());
+    }
+
+    #[test]
+    fn a_deleted_secret_leaves_the_key_list() {
+        let store = MemorySecretStore::default();
+        secret_set_with(&store, "plugin-a", "token", "alpha").unwrap();
+        secret_delete_with(&store, "plugin-a", "token").unwrap();
+        assert!(stored_keys(&store, "plugin-a").unwrap().is_empty());
+    }
+
+    #[test]
+    fn many_keys_across_many_plugins_are_all_tracked() {
+        let store = MemorySecretStore::default();
+        for plugin in 0..20 {
+            for key in 0..50 {
+                secret_set_with(&store, &format!("p{plugin}"), &format!("k{key}"), "v").unwrap();
+            }
+        }
+        for plugin in 0..20 {
+            delete_plugin_secrets_with(&store, &format!("p{plugin}")).unwrap();
+            let left = store.0.borrow().len();
+            assert_eq!(left, (19 - plugin) * 51);
+        }
+    }
+
+    #[test]
+    fn secrets_stay_while_another_forge_has_the_plugin_installed() {
+        let root = std::env::temp_dir().join(format!(
+            "moldavite-plugin-forges-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let here = root.join("Here");
+        let there = root.join("There");
+        fs::create_dir_all(here.join(".plugins/shared")).unwrap();
+        fs::create_dir_all(there.join(".plugins/shared")).unwrap();
+        fs::create_dir_all(here.join(".plugins/only-here")).unwrap();
+        let forges = vec![here.clone(), there.clone(), PathBuf::new()];
+
+        assert!(installed_in_another_forge(
+            "shared",
+            &here.join(".plugins"),
+            &forges
+        ));
+        assert!(!installed_in_another_forge(
+            "only-here",
+            &here.join(".plugins"),
+            &forges
+        ));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -1134,10 +1134,12 @@ api.commands.<span class="f">add</span>({
             requires fresh consent.
           </li>
           <li>
-            Uninstalling in Settings deletes the plugin folder and forgets its consent/runtime-host
-            grant. OS credential-store secrets remain because plugin secret keys are intentionally
-            hidden from enumeration. Provide a reset command that calls <code>secrets.delete</code>
-            for every known key when users need credential cleanup before uninstalling.
+            Uninstalling in Settings deletes the plugin folder, forgets its consent/runtime-host
+            grant, and deletes the secrets it stored. Secrets are keyed by plugin id, not by Forge,
+            so they stay while another Forge still has the plugin installed. A secret stored before
+            Moldavite started tracking secret keys is deleted only if the plugin has read it since then; a
+            reset command that calls <code>secrets.delete</code> for every known key still covers
+            that case.
           </li>
           <li>
             Test cancellation, missing notes, locked-note rejection, denied/revoked hosts, non-2xx
