@@ -272,6 +272,51 @@ describe('release welcome tour', () => {
     expect(screen.getByText('Calendar Events in Your Timeline')).toBeInTheDocument();
   });
 
+  it('keeps both release pages in one stack so the card keeps its size', () => {
+    render(<AppOnboardingModal />);
+    const dialog = screen.getByRole('dialog');
+    const card = [dialog.className, dialog.getAttribute('style')];
+    const pages = () => Array.from(dialog.querySelectorAll('.step-stack > .step-stack-page'));
+    const shown = () => pages().filter((page) => !page.hasAttribute('inert'));
+
+    expect(pages()).toHaveLength(2);
+    expect(shown()[0]).toBe(pages()[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
+    expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
+    expect([dialog.className, dialog.getAttribute('style')]).toEqual(card);
+    expect(pages()).toHaveLength(2);
+    expect(shown()).toEqual([pages()[1]]);
+    expect(pages()[0]).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('keeps both calendar steps in one stack so Next does not move the dots', () => {
+    useCalendarStore.setState({
+      hasSeenOnboarding: false,
+      sources: [
+        {
+          source: 'google',
+          available: true,
+          connected: true,
+          account: null,
+          permission: null,
+          error: null,
+        },
+      ],
+    });
+    const { container } = render(<CalendarOnboardingModal />);
+    const pages = () => Array.from(container.querySelectorAll('.step-stack > .step-stack-page'));
+
+    expect(pages()).toHaveLength(2);
+    expect(screen.getByRole('heading')).toHaveTextContent('Calendar Events in Your Timeline');
+    expect(pages()[1]).toHaveAttribute('inert');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(pages()).toHaveLength(2);
+    expect(screen.getByRole('heading')).toHaveTextContent('Customize Your Calendar');
+    expect(pages()[0]).toHaveAttribute('inert');
+    expect(pages()[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(pages()[1]).not.toHaveAttribute('inert');
+  });
+
   it('records the version when no mobile update pages apply', () => {
     mocks.mobile = true;
     mocks.season = null;

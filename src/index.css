@@ -4326,6 +4326,62 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent);
 }
 
+/* One card size for every step (see .step-stack). A window shorter than the
+   card scrolls the body rather than pushing the card off screen. */
+.app-onboarding-card {
+  display: flex;
+  flex-direction: column;
+  width: min(32rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+}
+
+.app-onboarding-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-onboarding-steps,
+.app-onboarding-footer {
+  flex: none;
+}
+
+/* The last steps' buttons are bordered and Next is not; a transparent border
+   evens them out so the footer is the same height on every step. */
+.app-onboarding-footer button {
+  border: 1px solid transparent;
+}
+
+/* The inset keeps a focused button's outline (offset outside the button)
+   from being cut off by the scroll box. */
+.app-onboarding-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
+/* A stepped flow renders every step into one grid cell and hides all but
+   the current one, so the tallest step sizes the card and the progress
+   indicator, icon and buttons hold still from step to step. Auto margins
+   centre the stack where its container has room to spare (the phone sheet)
+   and fall to zero when it overflows, where `justify-content: center` would
+   push the top out of scroll reach. */
+.step-stack {
+  display: grid;
+  margin-block: auto;
+}
+
+.step-stack-page {
+  grid-area: 1 / 1;
+}
+
+.step-stack-page[inert] {
+  visibility: hidden;
+}
+
 .editor-footer-right {
   display: flex;
   align-items: center;

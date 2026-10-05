@@ -215,9 +215,11 @@ export function AppOnboardingModal() {
         return;
       }
       if (e.key === 'Tab' && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => !el.closest('[inert]'));
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -292,6 +294,42 @@ export function AppOnboardingModal() {
 
   if (!isOpen) return null;
 
+  const renderStep = (key: (typeof steps)[number], titleId: string | undefined) => {
+    switch (key) {
+      case 'welcome':
+        return <WelcomeStep titleId={titleId} mobile={mobile} />;
+      case 'forge':
+        return (
+          <ForgeStep
+            titleId={titleId}
+            mobile={mobile}
+            forgePath={forgePath}
+            isPicking={isPicking}
+            pickError={pickError}
+            onPickFolder={handlePickFolder}
+          />
+        );
+      case 'tour':
+        return <TourStep titleId={titleId} tiles={tourTiles} />;
+      case 'ai-agents':
+        return <AiAgentsStep titleId={titleId} isFeatureUpdate={isFeatureUpdate} />;
+      case 'ai-search':
+        return <AiSearchStep titleId={titleId} />;
+      case 'season':
+        return seasonPage && <SeasonStep titleId={titleId} page={seasonPage} />;
+      case 'open-files':
+        return (
+          <OpenFilesStep
+            titleId={titleId}
+            status={offerDefaultApp ? defaultApp : null}
+            isMakingDefault={isMakingDefault}
+            onMakeDefault={handleMakeDefault}
+            error={makeDefaultError}
+          />
+        );
+    }
+  };
+
   return (
     <div
       className="app-onboarding-scrim fixed inset-0 flex items-center justify-center z-50 modal-backdrop-enter"
@@ -303,15 +341,13 @@ export function AppOnboardingModal() {
         tabIndex={-1}
         aria-modal="true"
         aria-labelledby="app-onboarding-title"
-        className="modal-elevated modal-content-enter overflow-hidden"
+        className="app-onboarding-card modal-elevated modal-content-enter overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-elevated)',
           borderRadius: 'var(--radius-md)',
-          maxWidth: '32rem',
-          width: 'calc(100% - 2rem)',
         }}
       >
-        <div className="p-8">
+        <div className="app-onboarding-frame p-8">
           <div className="app-onboarding-steps flex justify-center gap-2 mb-6" aria-hidden="true">
             {steps.map((key, i) => (
               <div
@@ -327,40 +363,21 @@ export function AppOnboardingModal() {
           </div>
 
           <div className="app-onboarding-body">
-            {step === 'welcome' && <WelcomeStep titleId="app-onboarding-title" mobile={mobile} />}
-
-            {step === 'forge' && (
-              <ForgeStep
-                titleId="app-onboarding-title"
-                mobile={mobile}
-                forgePath={forgePath}
-                isPicking={isPicking}
-                pickError={pickError}
-                onPickFolder={handlePickFolder}
-              />
-            )}
-
-            {step === 'tour' && <TourStep titleId="app-onboarding-title" tiles={tourTiles} />}
-
-            {step === 'ai-agents' && (
-              <AiAgentsStep titleId="app-onboarding-title" isFeatureUpdate={isFeatureUpdate} />
-            )}
-
-            {step === 'ai-search' && <AiSearchStep titleId="app-onboarding-title" />}
-
-            {step === 'season' && seasonPage && (
-              <SeasonStep titleId="app-onboarding-title" page={seasonPage} />
-            )}
-
-            {step === 'open-files' && (
-              <OpenFilesStep
-                titleId="app-onboarding-title"
-                status={offerDefaultApp ? defaultApp : null}
-                isMakingDefault={isMakingDefault}
-                onMakeDefault={handleMakeDefault}
-                error={makeDefaultError}
-              />
-            )}
+            <div className="step-stack">
+              {steps.map((key) => {
+                const current = key === step;
+                return (
+                  <div
+                    key={key}
+                    className="step-stack-page"
+                    aria-hidden={current ? undefined : true}
+                    inert={!current}
+                  >
+                    {renderStep(key, current ? 'app-onboarding-title' : undefined)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="app-onboarding-footer flex items-center justify-between mt-8">
@@ -472,7 +489,7 @@ export function AppOnboardingModal() {
     </div>
   );
 }
-function WelcomeStep({ titleId, mobile }: { titleId: string; mobile: boolean }) {
+function WelcomeStep({ titleId, mobile }: { titleId?: string; mobile: boolean }) {
   return (
     <div className="text-center">
       <div
@@ -497,8 +514,8 @@ function WelcomeStep({ titleId, mobile }: { titleId: string; mobile: boolean }) 
         A local-first Markdown notebook for daily notes, ideas, and links between them.
       </p>
       <p className="text-sm leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-        Your notes live in your Forge — a folder of plain .md files you can sync, back up, or open
-        in any other tool.
+        Your notes live in your Forge: a folder of plain .md files you can sync, back up, or open in
+        any other tool.
       </p>
     </div>
   );
@@ -512,7 +529,7 @@ function ForgeStep({
   pickError,
   onPickFolder,
 }: {
-  titleId: string;
+  titleId?: string;
   forgePath: string;
   mobile: boolean;
   isPicking: boolean;
@@ -602,18 +619,18 @@ function ForgeStep({
       >
         <p style={{ color: 'var(--text-secondary)' }}>What lives in your Forge:</p>
         <p>
-          <span className="font-mono">daily/</span> — daily notes (
+          <span className="font-mono">daily/</span> for daily notes (
           <span className="font-mono">YYYY-MM-DD.md</span>)
         </p>
         <p>
-          <span className="font-mono">weekly/</span> — weekly notes (
+          <span className="font-mono">weekly/</span> for weekly notes (
           <span className="font-mono">YYYY-Www.md</span>)
         </p>
         <p>
-          <span className="font-mono">notes/</span> — standalone notes and folders
+          <span className="font-mono">notes/</span> for standalone notes and folders
         </p>
         <p>
-          <span className="font-mono">templates/</span> — reusable note templates
+          <span className="font-mono">templates/</span> for reusable note templates
         </p>
       </div>
     </div>
@@ -624,7 +641,7 @@ function TourStep({
   titleId,
   tiles,
 }: {
-  titleId: string;
+  titleId?: string;
   tiles: { icon: React.ReactNode; title: string; body: string }[];
 }) {
   return (
@@ -672,7 +689,13 @@ function TourStep({
   );
 }
 
-function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeatureUpdate: boolean }) {
+function AiAgentsStep({
+  titleId,
+  isFeatureUpdate,
+}: {
+  titleId?: string;
+  isFeatureUpdate: boolean;
+}) {
   return (
     <div>
       <div
@@ -693,7 +716,7 @@ function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeature
         className="text-sm leading-relaxed mb-5 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Your notes are plain Markdown on your Mac, so AI tools can work with them directly — nothing
+        Your notes are plain Markdown on your Mac, so AI tools can work with them directly. Nothing
         is uploaded, and you choose what AI can touch.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -747,7 +770,7 @@ function AiAgentsStep({ titleId, isFeatureUpdate }: { titleId: string; isFeature
   );
 }
 
-function SeasonStep({ titleId, page }: { titleId: string; page: (typeof SEASON_PAGES)[Season] }) {
+function SeasonStep({ titleId, page }: { titleId?: string; page: (typeof SEASON_PAGES)[Season] }) {
   const { theme, preset } = useThemeStore();
   const palette = PRESETS.find((p) => p.id === page.preset);
   if (!palette) return null;
@@ -805,7 +828,7 @@ function OpenFilesStep({
   onMakeDefault,
   error,
 }: {
-  titleId: string;
+  titleId?: string;
   status: DefaultAppStatus | null;
   isMakingDefault: boolean;
   onMakeDefault: () => void;
@@ -852,7 +875,7 @@ function OpenFilesStep({
   );
 }
 
-function AiSearchStep({ titleId }: { titleId: string }) {
+function AiSearchStep({ titleId }: { titleId?: string }) {
   return (
     <div>
       <div
@@ -874,7 +897,7 @@ function AiSearchStep({ titleId }: { titleId: string }) {
         style={{ color: 'var(--text-secondary)' }}
       >
         Find notes by meaning, not just keywords. Choose from three local models (with
-        all-MiniLM-L6-v2 as the default), then opt in to download your selection once — after that
+        all-MiniLM-L6-v2 as the default), then opt in to download your selection once. After that
         everything runs offline, and your notes never leave your Mac.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -916,7 +939,7 @@ function AiSearchStep({ titleId }: { titleId: string }) {
         </div>
       </div>
       <p className="text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
-        Everything here is opt-in — find it under Settings → AI &amp; Agents.
+        Everything here is opt-in. Find it under Settings → AI &amp; Agents.
       </p>
     </div>
   );

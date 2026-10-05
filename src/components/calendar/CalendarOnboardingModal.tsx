@@ -56,20 +56,31 @@ export function CalendarOnboardingModal() {
         </button>
 
         <div className="p-8 text-center">
-          <div
-            className="mb-6 text-[10px] uppercase"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
-          >
-            {steps[step].label}
+          <div className="step-stack">
+            {steps.map((page, i) => (
+              <div
+                key={page.label}
+                className="step-stack-page"
+                aria-hidden={i === step ? undefined : true}
+                inert={i !== step}
+              >
+                <div
+                  className="mb-6 text-[10px] uppercase"
+                  style={{ color: 'var(--text-muted)', letterSpacing: '0.14em' }}
+                >
+                  {page.label}
+                </div>
+
+                <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                  {page.title}
+                </h2>
+
+                <p className="mb-8 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {page.description}
+                </p>
+              </div>
+            ))}
           </div>
-
-          <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-            {steps[step].title}
-          </h2>
-
-          <p className="mb-8 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            {steps[step].description}
-          </p>
 
           <div className="flex justify-center gap-2 mb-6">
             {steps.map((_, i) => (
