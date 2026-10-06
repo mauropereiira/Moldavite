@@ -88,6 +88,11 @@ interface GraphScene {
   labelText: string[];
   edgeSource: Int32Array;
   edgeTarget: Int32Array;
+  /** How much of a view move each star takes through its spring: hubs least, so the field has depth. */
+  swayLag: Float32Array;
+  /** Per star, x then y: the ambient drift's angular rate (rad/ms) and phase. */
+  driftRate: Float32Array;
+  driftPhase: Float32Array;
 }
 
 /**
@@ -111,6 +116,10 @@ interface Motion {
   inertia: { vx: number; vy: number } | null;
   /** The user has panned or zoomed, so the automatic fit after settling must not move the view. */
   viewTouched: boolean;
+  /** `performance.now()` of the last pointer, wheel or key input: ambient drift stops a while after it. */
+  lastInput: number;
+  /** How far the dragged star moved since the last frame, in layout units, for its neighbours to follow. */
+  pull: { x: number; y: number };
 }
 
 // Stars. Radius and brightness both rise with a note's link count, mirroring
@@ -130,13 +139,16 @@ const KEYBOARD_RING_GAP = 6;
 // Constellation lines: hairlines, never gradients or glow.
 const EDGE_ALPHA = 0.42;
 const EDGE_ALPHA_DIMMED = 0.12;
-const EDGE_ALPHA_ACTIVE = 0.8;
+const EDGE_ALPHA_ACTIVE = 0.75;
 
 const LABEL_SIZE_PX = 11;
 const LABEL_VISIBILITY_THRESHOLD = 0.62;
 /** Zoom at which the best-linked notes are labelled; others follow as you zoom in. */
 const HUB_LABEL_ZOOM = 0.22;
-const LABEL_DIMMED_ALPHA = 0.3;
+/** The highlighted note's name sits on a pill this far past its text. */
+const PILL_PAD_X = 6;
+const PILL_HEIGHT = 19;
+const LABEL_ENTRY_PAD = 6;
 const LABEL_MAX_CHARS = 32;
 /** Placement stops after this many labels, which bounds text work at any zoom. */
 const MAX_LABELS = 240;
@@ -189,6 +201,32 @@ const KEY_ZOOM_STEP = 1.25;
 const FRAME_MS = 16;
 const MAX_FRAME_STEP_MS = 64;
 
+// Sway. Each star is drawn on a soft spring behind its true position, so
+// moving the view or a star makes the field trail, overshoot a little (about
+// 12%) and settle within a second.
+const SWAY_RATE = 9;
+const SWAY_DAMPING = 0.55;
+const SWAY_MAX_PX = 20;
+/** Zooming moves far stars hundreds of px a frame; only this share of it sways. */
+const SWAY_ZOOM_SHARE = 0.4;
+const SWAY_REST_PX = 0.05;
+/** How much of a dragged star's move its neighbours take, one and two links away. */
+const DRAG_PULL = [0.42, 0.16];
+const DRAG_PULL_MAX_NODES = 400;
+/** Neighbours may trail a dragged star further than the field trails a pan: that is the elastic. */
+const DRAG_SWAY_MAX_PX = 40;
+
+// Ambient drift: each star wanders a couple of px on a slow, unique orbit
+// while the graph sits idle. It paints at 15 fps from a timer rather than
+// every frame (measured in WebKit at 500 notes: about 6% of one core, against
+// 0.1% when still), stops a minute after the last input, while the window is
+// hidden and under reduced motion, and never runs on very large graphs.
+const DRIFT_PX = 2.4;
+const DRIFT_FRAME_MS = 66;
+const DRIFT_RAMP_MS = 1500;
+const DRIFT_IDLE_MS = 60_000;
+const DRIFT_MAX_NODES = 2_000;
+
 const ARROW_DIRECTIONS: Record<string, { x: number; y: number }> = {
   ArrowRight: { x: 1, y: 0 },
   ArrowLeft: { x: -1, y: 0 },
@@ -216,8 +254,16 @@ function readColors() {
     missing: readCssVar('--text-muted', '#9a8268'),
     label: readCssVar('--text-secondary', '#5a4530'),
     halo: readCssVar('--bg-base', '#f4efe2'),
+    pill: readCssVar('--bg-elevated', '#fffdf6'),
+    pillBorder: readCssVar('--border-default', '#d8d0bc'),
     focus: readCssVar('--focus-ring', '#0e0d0a'),
   };
+}
+
+/** A stable pseudo-random 0 to 1 per star, so the motion is the same every time the graph opens. */
+function unitHash(index: number, salt: number): number {
+  const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 function prefersReducedMotion(): boolean {
@@ -333,6 +379,18 @@ function buildScene(graph: NoteGraphResponse): GraphScene {
     ),
     edgeSource: Int32Array.from(edgeSource),
     edgeTarget: Int32Array.from(edgeTarget),
+    swayLag: Float32Array.from(
+      magnitude,
+      (value, index) => (0.35 + 0.65 * unitHash(index, 1)) * (1 - 0.5 * value)
+    ),
+    driftRate: Float32Array.from(
+      { length: magnitude.length * 2 },
+      (_, slot) => (Math.PI * 2) / (7_000 + 6_000 * unitHash(slot, 2))
+    ),
+    driftPhase: Float32Array.from(
+      { length: magnitude.length * 2 },
+      (_, slot) => Math.PI * 2 * unitHash(slot, 3)
+    ),
   };
 }
 
@@ -348,6 +406,8 @@ function newMotion(): Motion {
     zoomTarget: null,
     inertia: null,
     viewTouched: false,
+    lastInput: window.performance.now(),
+    pull: { x: 0, y: 0 },
   };
 }
 
@@ -570,10 +630,26 @@ export function GraphView() {
         : null;
     const reducedMotion = () => motionQuery?.matches ?? false;
     const labelFont = `${LABEL_SIZE_PX}px ${readCssVar('--font-sans', 'ui-sans-serif, system-ui, sans-serif')}`;
+    const boldFont = `600 ${labelFont}`;
+    let hoverWidth = { index: -1, width: 0 };
     let width = 0;
     let height = 0;
     let frameId: number | null = null;
+    let driftTimer: ReturnType<typeof setTimeout> | null = null;
     let lastTime: number | null = null;
+    /** Screen-px offset of each star from where it truly is, and its velocity in px/s. */
+    const swayX = new Float32Array(count);
+    const swayY = new Float32Array(count);
+    const swayVX = new Float32Array(count);
+    const swayVY = new Float32Array(count);
+    let swaying = false;
+    const lastView = { zoom: 0, x: 0, y: 0, known: false };
+    const pullIndex: number[] = [];
+    const pullShare: number[] = [];
+    let pullFor = -1;
+    let driftClock = 0;
+    let driftDue = false;
+    let labelsFading = false;
     // The one automatic fit a session gets, unless the user moves the view first.
     let fitAfterSettling = !sessionView.fitted;
 
@@ -600,11 +676,131 @@ export function GraphView() {
       );
     };
 
+    /** Hold star `index` back by `weight` of a move of (dx, dy) screen px; its spring catches up. */
+    const kick = (
+      index: number,
+      dx: number,
+      dy: number,
+      weight: number,
+      // The cap scales with the weight too, or a fast pan would hold every
+      // star at the same distance and flatten the depth.
+      limit = SWAY_MAX_PX * weight
+    ) => {
+      let x = swayX[index] - dx * weight;
+      let y = swayY[index] - dy * weight;
+      const reach = Math.hypot(x, y);
+      if (reach > limit) {
+        x *= limit / reach;
+        y *= limit / reach;
+      }
+      swayX[index] = x;
+      swayY[index] = y;
+      swaying = true;
+    };
+
+    const stopSway = () => {
+      swayX.fill(0);
+      swayY.fill(0);
+      swayVX.fill(0);
+      swayVY.fill(0);
+      swaying = false;
+    };
+
+    /** The view's move since the last frame sways every star; returns whether any are still moving. */
+    const sway = (elapsed: number, pinned: number): boolean => {
+      const zoom = zoomRef.current;
+      const { x: panX, y: panY } = panRef.current;
+      if (reducedMotion() || entranceRef.current) {
+        if (swaying) stopSway();
+      } else if (lastView.known) {
+        const dz = zoom - lastView.zoom;
+        const dx = panX - lastView.x;
+        const dy = panY - lastView.y;
+        if (dz !== 0 || dx !== 0 || dy !== 0) {
+          const share = dz !== 0 ? SWAY_ZOOM_SHARE : 1;
+          for (let index = 0; index < count; index++) {
+            kick(
+              index,
+              (dx + nodes[index].x * dz) * share,
+              (dy + nodes[index].y * dz) * share,
+              scene.swayLag[index]
+            );
+          }
+        }
+      }
+      lastView.zoom = zoom;
+      lastView.x = panX;
+      lastView.y = panY;
+      lastView.known = true;
+      if (!swaying) return false;
+      if (pinned >= 0) {
+        swayX[pinned] = swayY[pinned] = swayVX[pinned] = swayVY[pinned] = 0;
+      }
+      // Semi-implicit Euler: stable for these constants at the 64 ms frame cap.
+      const dt = elapsed / 1000;
+      const stiffness = SWAY_RATE * SWAY_RATE;
+      const friction = 2 * SWAY_DAMPING * SWAY_RATE;
+      let peak = 0;
+      for (let index = 0; index < count; index++) {
+        const vx = swayVX[index] - (stiffness * swayX[index] + friction * swayVX[index]) * dt;
+        const vy = swayVY[index] - (stiffness * swayY[index] + friction * swayVY[index]) * dt;
+        swayVX[index] = vx;
+        swayVY[index] = vy;
+        swayX[index] += vx * dt;
+        swayY[index] += vy * dt;
+        peak = Math.max(
+          peak,
+          Math.abs(swayX[index]) + Math.abs(swayY[index]) + (Math.abs(vx) + Math.abs(vy)) * 0.1
+        );
+      }
+      if (peak < SWAY_REST_PX) stopSway();
+      return swaying;
+    };
+
+    /** The dragged star's neighbours, and theirs, follow it part of the way, on their springs. */
+    const pullNeighbours = (pinned: number) => {
+      const { pull } = motion;
+      if (pull.x === 0 && pull.y === 0) return;
+      if (pinned >= 0) {
+        if (pullFor !== pinned) {
+          pullFor = pinned;
+          pullIndex.length = 0;
+          pullShare.length = 0;
+          const seen = new Set([pinned]);
+          let frontier = [pinned];
+          for (const share of DRAG_PULL) {
+            const next: number[] = [];
+            for (const from of frontier) {
+              for (const to of scene.neighbors[from]) {
+                if (seen.has(to) || pullIndex.length >= DRAG_PULL_MAX_NODES) continue;
+                seen.add(to);
+                next.push(to);
+                pullIndex.push(to);
+                pullShare.push(share);
+              }
+            }
+            frontier = next;
+          }
+        }
+        const zoom = zoomRef.current;
+        for (let item = 0; item < pullIndex.length; item++) {
+          const index = pullIndex[item];
+          const share = pullShare[item];
+          nodes[index].x += pull.x * share;
+          nodes[index].y += pull.y * share;
+          kick(index, pull.x * share * zoom, pull.y * share * zoom, 1, DRAG_SWAY_MAX_PX);
+        }
+      }
+      pull.x = 0;
+      pull.y = 0;
+    };
+
     const advance = (time: number, elapsed: number): boolean => {
       let active = false;
       const instant = reducedMotion();
       const interaction = interactionRef.current;
       const pinned = interaction?.mode === 'node' ? interaction.node : -1;
+      pullNeighbours(pinned);
 
       if (count > 0 && temperatureRef.current > SETTLED_TEMPERATURE) {
         stepLayout(nodes, graph.edges, temperatureRef.current, layoutOptionsRef.current, {
@@ -695,6 +891,16 @@ export function GraphView() {
       return active;
     };
 
+    /** The highlighted name is drawn whole and in bold, so it is measured on its own. */
+    const hoverLabelWidth = (index: number) => {
+      if (hoverWidth.index !== index) {
+        context.font = boldFont;
+        hoverWidth = { index, width: context.measureText(nodes[index].name).width };
+        context.font = labelFont;
+      }
+      return hoverWidth.width;
+    };
+
     const labelWidthOf = (index: number) => {
       if (labelWidth[index] < 0)
         labelWidth[index] = context.measureText(scene.labelText[index]).width;
@@ -712,9 +918,19 @@ export function GraphView() {
       const zoom = zoomRef.current;
       const centerX = width / 2 + panRef.current.x;
       const centerY = height / 2 + panRef.current.y;
+      const ramp = clamp01(driftClock / DRIFT_RAMP_MS);
+      const drift = reducedMotion() ? 0 : DRIFT_PX * ramp * ramp * (3 - 2 * ramp);
       for (let index = 0; index < count; index++) {
-        screen.x[index] = centerX + (live ? live.x[index] : nodes[index].x) * zoom;
-        screen.y[index] = centerY + (live ? live.y[index] : nodes[index].y) * zoom;
+        let x = centerX + (live ? live.x[index] : nodes[index].x) * zoom + swayX[index];
+        let y = centerY + (live ? live.y[index] : nodes[index].y) * zoom + swayY[index];
+        if (drift > 0) {
+          const slot = index * 2;
+          x += drift * Math.sin(scene.driftRate[slot] * driftClock + scene.driftPhase[slot]);
+          y +=
+            drift * Math.sin(scene.driftRate[slot + 1] * driftClock + scene.driftPhase[slot + 1]);
+        }
+        screen.x[index] = x;
+        screen.y[index] = y;
       }
       screen.painted = true;
 
@@ -741,8 +957,10 @@ export function GraphView() {
         context.lineTo(screen.x[target], screen.y[target]);
       }
       context.stroke();
+      // A lit star's own links are drawn again over the field in the label ink.
+      context.strokeStyle = colors.label;
       for (const [index, level] of motion.focus) {
-        context.globalAlpha = (edgeAlpha + (EDGE_ALPHA_ACTIVE - edgeAlpha) * level) * reveal;
+        context.globalAlpha = EDGE_ALPHA_ACTIVE * level * reveal;
         context.beginPath();
         for (const neighbor of scene.neighbors[index]) {
           context.moveTo(screen.x[index], screen.y[index]);
@@ -768,12 +986,23 @@ export function GraphView() {
         const x = screen.x[index];
         const y = screen.y[index];
         if (x < -240 || x > width || y < -10 || y > height + 10) return;
-        const textWidth =
-          index === motion.hover
-            ? context.measureText(nodes[index].name).width
-            : labelWidthOf(index);
         const left = labelLeft(index);
-        if (placer.place(left - 2, y - LABEL_SIZE_PX * 0.75, textWidth + 4, LABEL_SIZE_PX * 1.5)) {
+        // A hidden label must clear its neighbours by a margin wider than the
+        // drift, or a label at the edge of a collision blinks as stars wander.
+        const pad = labelAlpha[index] > 0.5 ? 0 : LABEL_ENTRY_PAD;
+        const lit = index === motion.hover;
+        const boxWidth = lit
+          ? hoverLabelWidth(index) + PILL_PAD_X * 2 + 2
+          : labelWidthOf(index) + 4;
+        const boxHeight = lit ? PILL_HEIGHT : LABEL_SIZE_PX * 1.5;
+        if (
+          placer.place(
+            left - 2 - pad,
+            y - boxHeight / 2 - pad,
+            boxWidth + pad * 2,
+            boxHeight + pad * 2
+          )
+        ) {
           placed[index] = 1;
           budget--;
           liveLabels.add(index);
@@ -799,33 +1028,54 @@ export function GraphView() {
       labelDraw.length = 0;
       for (const index of liveLabels) {
         const target = placed[index] ? 1 : 0;
-        const level = approach(labelAlpha[index], target, elapsed, labelFade, 0.01);
+        // While a star is lit, only its own name and its neighbours' remain.
+        // A name hidden that way changes without a fade: nobody sees it.
+        const shown = 1 - dim * (1 - (emphasis.get(index) ?? 0));
+        const level =
+          shown < 0.01 ? target : approach(labelAlpha[index], target, elapsed, labelFade, 0.01);
         labelAlpha[index] = level;
         if (level !== target) labelsMoving = true;
         if (level === 0) {
           liveLabels.delete(index);
           continue;
         }
-        const emphasized = emphasis.get(index) ?? 0;
-        const alpha =
-          level *
-          reveal *
-          (1 + (LABEL_DIMMED_ALPHA - 1) * dim * (1 - emphasized)) *
-          (live ? live.t[index] : 1);
+        const alpha = level * reveal * shown * (live ? live.t[index] : 1);
         if (alpha >= 0.01) labelDraw.push(index, alpha);
       }
       const labelText = (index: number) =>
         index === motion.hover ? nodes[index].name : scene.labelText[index];
+      const textLeft = (index: number) =>
+        labelLeft(index) + (PILL_PAD_X - 2) * (motion.focus.get(index) ?? 0);
       // A halo in the page colour, under the stars, keeps text legible where
       // links cross it without cutting the stars beneath it into crescents.
+      // The lit star's name sits on a pill instead.
       context.textBaseline = 'middle';
       context.lineJoin = 'round';
-      context.lineWidth = 3;
-      context.strokeStyle = colors.halo;
       for (let item = 0; item < labelDraw.length; item += 2) {
         const index = labelDraw[item];
+        const pill = motion.focus.get(index) ?? 0;
         context.globalAlpha = labelDraw[item + 1];
-        context.strokeText(labelText(index), labelLeft(index), screen.y[index]);
+        if (pill > 0) {
+          const textWidth = index === motion.hover ? hoverLabelWidth(index) : labelWidthOf(index);
+          context.globalAlpha *= pill;
+          context.lineWidth = 1;
+          context.fillStyle = colors.pill;
+          context.strokeStyle = colors.pillBorder;
+          context.beginPath();
+          context.roundRect(
+            labelLeft(index) - 2,
+            screen.y[index] - PILL_HEIGHT / 2,
+            textWidth + PILL_PAD_X * 2,
+            PILL_HEIGHT,
+            PILL_HEIGHT / 2
+          );
+          context.fill();
+          context.stroke();
+        } else {
+          context.lineWidth = 3;
+          context.strokeStyle = colors.halo;
+          context.strokeText(labelText(index), labelLeft(index), screen.y[index]);
+        }
       }
       context.lineWidth = 1;
 
@@ -918,19 +1168,39 @@ export function GraphView() {
         }
       }
 
+      context.fillStyle = colors.label;
+      let litAlpha = 0;
       for (let item = 0; item < labelDraw.length; item += 2) {
         const index = labelDraw[item];
+        if (index === motion.hover) {
+          litAlpha = labelDraw[item + 1];
+          continue;
+        }
         context.globalAlpha = labelDraw[item + 1];
-        context.fillStyle = index === motion.hover ? colors.star : colors.label;
-        context.fillText(labelText(index), labelLeft(index), screen.y[index]);
+        context.fillText(labelText(index), textLeft(index), screen.y[index]);
+      }
+      if (litAlpha > 0) {
+        context.globalAlpha = litAlpha;
+        context.font = boldFont;
+        context.fillStyle = colors.star;
+        context.fillText(labelText(motion.hover), textLeft(motion.hover), screen.y[motion.hover]);
+        context.font = labelFont;
       }
       context.globalAlpha = 1;
       return labelsMoving;
     };
 
     const schedule = () => {
-      if (frameId === null) frameId = requestAnimationFrame(frame);
+      if (frameId === null && !document.hidden) frameId = requestAnimationFrame(frame);
     };
+
+    const driftFrame = () =>
+      count > 0 &&
+      count <= DRIFT_MAX_NODES &&
+      !document.hidden &&
+      !reducedMotion() &&
+      !entranceRef.current &&
+      window.performance.now() - motion.lastInput < DRIFT_IDLE_MS;
     scheduleDrawRef.current = schedule;
 
     const frame = (time: number) => {
@@ -938,17 +1208,32 @@ export function GraphView() {
       const elapsed = lastTime === null ? FRAME_MS : Math.min(MAX_FRAME_STEP_MS, time - lastTime);
       lastTime = time;
       const advancing = advance(time, elapsed);
-      const labelsMoving = paint(elapsed);
-      if (advancing || labelsMoving || entranceRef.current) {
+      const pinned = interactionRef.current?.mode === 'node' ? interactionRef.current.node : -1;
+      const swayingNow = sway(elapsed, pinned);
+      // Drift only moves on its own timer's frames, and only when nothing else
+      // is moving, so it never adds to an interaction's work.
+      const busy = advancing || swayingNow || labelsFading;
+      if (driftDue && !busy && driftFrame()) driftClock += elapsed;
+      driftDue = false;
+      labelsFading = paint(elapsed);
+      if (busy || labelsFading || entranceRef.current) {
         schedule();
         return;
       }
-      lastTime = null;
       if (fitAfterSettling) {
         fitAfterSettling = false;
         sessionView.fitted = true;
         if (!motion.viewTouched) fitToView();
       }
+      if (frameId === null && driftTimer === null && driftFrame()) {
+        driftTimer = setTimeout(() => {
+          driftTimer = null;
+          driftDue = true;
+          schedule();
+        }, DRIFT_FRAME_MS);
+        return;
+      }
+      if (driftTimer === null) lastTime = null;
     };
 
     resize();
@@ -979,8 +1264,23 @@ export function GraphView() {
       attributeFilter: ['class', 'data-theme'],
     });
 
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        schedule();
+        return;
+      }
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (driftTimer !== null) clearTimeout(driftTimer);
+      frameId = null;
+      driftTimer = null;
+      lastTime = null;
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (frameId !== null) cancelAnimationFrame(frameId);
+      if (driftTimer !== null) clearTimeout(driftTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
       observer?.disconnect();
       themeObserver.disconnect();
       if (!observer) window.removeEventListener('resize', handleResize);
@@ -1044,9 +1344,19 @@ export function GraphView() {
     [notes, close, loadNote]
   );
 
+  /** Input keeps the ambient drift going, and wakes it once it has stopped. */
+  const noteInput = useCallback(() => {
+    const motion = motionRef.current;
+    const now = window.performance.now();
+    const stopped = now - motion.lastInput >= DRIFT_IDLE_MS;
+    motion.lastInput = now;
+    if (stopped) scheduleDrawRef.current();
+  }, []);
+
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) return;
+      noteInput();
       const motion = motionRef.current;
       motion.tween = null;
       motion.inertia = null;
@@ -1110,11 +1420,12 @@ export function GraphView() {
       };
       event.currentTarget.style.cursor = 'grabbing';
     },
-    [pickNode]
+    [pickNode, noteInput]
   );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      noteInput();
       const pointer = pointersRef.current.get(event.pointerId);
       if (pointer) {
         pointer.x = event.clientX;
@@ -1179,15 +1490,25 @@ export function GraphView() {
         const margin = collisionRadius(node);
         const x = (event.clientX - rect.left - rect.width / 2 - panRef.current.x) / zoomRef.current;
         const y = (event.clientY - rect.top - rect.height / 2 - panRef.current.y) / zoomRef.current;
-        node.x = Math.max(-options.width / 2 + margin, Math.min(options.width / 2 - margin, x));
-        node.y = Math.max(-options.height / 2 + margin, Math.min(options.height / 2 - margin, y));
+        const nextX = Math.max(
+          -options.width / 2 + margin,
+          Math.min(options.width / 2 - margin, x)
+        );
+        const nextY = Math.max(
+          -options.height / 2 + margin,
+          Math.min(options.height / 2 - margin, y)
+        );
+        motion.pull.x += nextX - node.x;
+        motion.pull.y += nextY - node.y;
+        node.x = nextX;
+        node.y = nextY;
         temperatureRef.current = Math.max(temperatureRef.current, DRAG_TEMPERATURE);
       }
       interaction.lastX = event.clientX;
       interaction.lastY = event.clientY;
       scheduleDrawRef.current();
     },
-    [pickNode, clampPan, setHover]
+    [pickNode, clampPan, setHover, noteInput]
   );
 
   const finishPointer = useCallback(
@@ -1252,6 +1573,7 @@ export function GraphView() {
   const handleWheel = useCallback(
     (event: React.WheelEvent['nativeEvent']) => {
       event.preventDefault();
+      noteInput();
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
@@ -1288,7 +1610,7 @@ export function GraphView() {
       }
       scheduleDrawRef.current();
     },
-    [clampPan]
+    [clampPan, noteInput]
   );
 
   // React registers wheel listeners as passive, which would ignore preventDefault.
@@ -1331,6 +1653,7 @@ export function GraphView() {
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+      noteInput();
       const screen = screenRef.current;
       const container = containerRef.current;
       if (!screen.painted || screen.x.length === 0 || !container) return;
@@ -1392,7 +1715,7 @@ export function GraphView() {
         fitToView();
       }
     },
-    [focusNode, openGraphNode, fitToView]
+    [focusNode, openGraphNode, fitToView, noteInput]
   );
 
   /** Double-clicking empty sky is the shortcut for Fit view. */

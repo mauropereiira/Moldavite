@@ -52,6 +52,7 @@ interface Star extends Point {
 interface Label extends Point {
   text: string;
   alpha: number;
+  font: string;
 }
 
 let arcs: Star[] = [];
@@ -84,9 +85,10 @@ const context = {
     pathArcs.push(star);
   }),
   fillText: vi.fn((text: string, x: number, y: number) =>
-    labels.push({ text, x, y, alpha: context.globalAlpha })
+    labels.push({ text, x, y, alpha: context.globalAlpha, font: context.font })
   ),
   strokeText: vi.fn(),
+  roundRect: vi.fn(),
   measureText: vi.fn((text: string) => ({ width: text.length * 6 })),
   font: '',
   fillStyle: '',
@@ -187,6 +189,8 @@ function pan(canvas: HTMLCanvasElement, deltaX: number, deltaY: number) {
   fireEvent.pointerDown(canvas, { pointerId: 1, button: 0, clientX: 60, clientY: 60 });
   fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 60 + deltaX, clientY: 60 + deltaY });
   fireEvent.pointerUp(canvas, { pointerId: 1 });
+  // The stars sway behind a pan and settle; measure where they come to rest.
+  runUntilIdle();
 }
 
 const byPosition = (stars: Star[]) =>
@@ -210,6 +214,11 @@ function starsByName(frame: Frame): Map<string, Star> {
     if (candidates.length > 0) result.set(label.text, nearest(candidates, label));
   }
   return result;
+}
+
+/** jsdom queues a 0 ms timer when the close button takes focus; clear it so only the graph's remain. */
+function flushFocusTimer() {
+  act(() => void vi.advanceTimersByTime(1));
 }
 
 function hover(canvas: HTMLCanvasElement, at: Point) {
@@ -383,6 +392,162 @@ describe('GraphView canvas', () => {
     for (const alpha of crossing) expect(alpha).toBeCloseTo(dimmed, 5);
   });
 
+  it('shows only the hovered name and its neighbours, then eases the rest back', async () => {
+    const view = await openGraph();
+    settleAndFit(view);
+    const rest = drawFrame();
+    const names = rest.labels.map((label) => label.text).sort();
+    expect(names).toEqual(['A', 'B', 'C', 'D', 'E', 'Hub']);
+    const a = starsByName(rest).get('A') as Star;
+
+    hover(view.canvas, a);
+    const first = drawFrame();
+    const fading = first.labels.find((label) => label.text === 'C') as Label;
+    // Eased: part-way out on the first frame, not snapped off.
+    expect(fading.alpha).toBeGreaterThan(0.05);
+    expect(fading.alpha).toBeLessThan(0.95);
+
+    runUntilIdle();
+    const focused = drawFrame();
+    // A links only to Hub. Every other name is gone, not merely dimmed.
+    expect(focused.labels.map((label) => label.text).sort()).toEqual(['A', 'Hub']);
+    const own = focused.labels.find((label) => label.text === 'A') as Label;
+    expect(own.font).toMatch(/^600 /);
+    expect(own.alpha).toBe(1);
+    expect(context.roundRect).toHaveBeenCalled();
+    // The hovered star's own links are drawn again, brighter, over the field.
+    expect(focused.points.length).toBeGreaterThan(rest.points.length);
+
+    hover(view.canvas, { x: 2, y: 2 });
+    runUntilIdle();
+    const restored = drawFrame();
+    expect(restored.labels.map((label) => label.text).sort()).toEqual(names);
+    for (const label of restored.labels) expect(label.font).not.toMatch(/^600 /);
+    expect(frames.size).toBe(0);
+  });
+
+  it('sways the stars behind a pan, with depth, and settles exactly', async () => {
+    const view = await openGraph();
+    settleAndFit(view);
+    const before = byPosition(drawFrame().arcs);
+    fireEvent.pointerDown(view.canvas, { pointerId: 1, button: 0, clientX: 60, clientY: 60 });
+    fireEvent.pointerMove(view.canvas, { pointerId: 1, clientX: 260, clientY: 60 });
+    const swaying = byPosition(drawFrame().arcs);
+    const shifts = swaying.map((star, index) => star.x - before[index].x);
+    // Every star trails the pan by a different amount, and none by more than the cap.
+    for (const shift of shifts) {
+      expect(shift).toBeGreaterThan(200 - 21);
+      expect(shift).toBeLessThan(200);
+    }
+    expect(Math.max(...shifts) - Math.min(...shifts)).toBeGreaterThan(2);
+
+    fireEvent.pointerUp(view.canvas, { pointerId: 1 });
+    const ran = runUntilIdle();
+    expect(ran).toBeLessThan(120);
+    expect(frames.size).toBe(0);
+    byPosition(drawFrame().arcs).forEach((star, index) =>
+      expect(star.x - before[index].x).toBeCloseTo(200, 3)
+    );
+  });
+
+  it('pulls a dragged star’s neighbours along on springs, then lets them settle', async () => {
+    const view = await openGraph();
+    settleAndFit(view);
+    const stars = starsByName(drawFrame());
+    const a = stars.get('A') as Star;
+    const hub = stars.get('Hub') as Star;
+    fireEvent.pointerDown(view.canvas, { pointerId: 2, button: 0, clientX: a.x, clientY: a.y });
+    fireEvent.pointerMove(view.canvas, { pointerId: 2, clientX: a.x + 150, clientY: a.y });
+    const first = nearest(drawFrame().arcs, hub);
+    runFrames(12);
+    const later = drawFrame();
+    const followed = later.arcs.reduce((best, star) =>
+      Math.abs(star.y - hub.y) + Math.abs(star.x - hub.x - 60) <
+      Math.abs(best.y - hub.y) + Math.abs(best.x - hub.x - 60)
+        ? star
+        : best
+    );
+    // The dragged star is under the pointer at once; its neighbour lags, then follows.
+    expect(nearest(later.arcs, { x: a.x + 150, y: a.y }).x).toBeCloseTo(a.x + 150, 0);
+    // Carried part of the way on the very first frame (springs alone managed
+    // under 10px here), but held back from the full 42% share on its own spring.
+    expect(first.x - hub.x).toBeGreaterThan(15);
+    expect(first.x - hub.x).toBeLessThan(150 * 0.42);
+    expect(first.x - hub.x).toBeLessThan(followed.x - hub.x);
+    expect(followed.x - hub.x).toBeGreaterThan(30);
+
+    fireEvent.pointerUp(view.canvas, { pointerId: 2, clientX: a.x + 150, clientY: a.y });
+    runUntilIdle();
+    expect(frames.size).toBe(0);
+  });
+
+  it('drifts on a slow timer while idle, never every frame, and stops after a while', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+    try {
+      const view = await openGraph();
+      settleAndFit(view);
+      flushFocusTimer();
+      expect(frames.size).toBe(0);
+      expect(vi.getTimerCount()).toBe(1);
+      const still = byPosition(drawFrame().arcs);
+
+      const drifted: Point[][] = [];
+      for (let tick = 0; tick < 50; tick++) {
+        act(() => void vi.advanceTimersByTime(66));
+        // The timer asks for one frame at a time; nothing else runs in between.
+        expect(frames.size).toBe(1);
+        arcs = [];
+        runFrames(1);
+        drifted.push(byPosition(arcs));
+      }
+      const moved = drifted[drifted.length - 1];
+      const offsets = moved.map((star, index) =>
+        Math.hypot(star.x - still[index].x, star.y - still[index].y)
+      );
+      expect(Math.max(...offsets)).toBeGreaterThan(0.3);
+      expect(Math.max(...offsets)).toBeLessThan(5);
+
+      // An idle minute later it has stopped asking for frames.
+      act(() => void vi.advanceTimersByTime(61_000));
+      runUntilIdle();
+      act(() => void vi.advanceTimersByTime(1_000));
+      expect(vi.getTimerCount()).toBe(0);
+      expect(frames.size).toBe(0);
+      // Any input wakes it again.
+      hover(view.canvas, { x: 3, y: 3 });
+      expect(frames.size + vi.getTimerCount()).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops every frame and timer while the window is hidden', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    try {
+      const view = await openGraph();
+      runFrames(3);
+      flushFocusTimer();
+      expect(frames.size).toBe(1);
+
+      hidden.mockReturnValue(true);
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      expect(frames.size).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      // Hovering or zooming asks for nothing while hidden.
+      hover(view.canvas, { x: 600, y: 400 });
+      fireEvent.wheel(view.canvas, { deltaY: -400, clientX: 600, clientY: 400 });
+      act(() => void vi.advanceTimersByTime(5_000));
+      expect(frames.size).toBe(0);
+
+      hidden.mockReturnValue(false);
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      expect(frames.size).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('names a star on the first tap of a finger and opens it on the second', async () => {
     useNoteStore.setState({
       notes: fixture.small.nodes.map((node) => ({
@@ -404,8 +569,16 @@ describe('GraphView canvas', () => {
 
     tap('touch');
     expect(useGraphStore.getState().isOpen).toBe(true);
+    runUntilIdle();
     const named = drawFrame();
     expect(nearest(named.arcs, star).r).toBeGreaterThan(star.r);
+    // A tap focuses like a hover: only the star's own name and its neighbours' remain.
+    const tapped = named.labels.find((label) => /bold|600/.test(label.font));
+    expect(tapped).toBeDefined();
+    const neighbours = tapped?.text === 'Hub' ? ['A', 'B', 'C', 'D', 'E'] : ['Hub'];
+    expect(named.labels.map((label) => label.text).sort()).toEqual(
+      [tapped?.text, ...neighbours].sort()
+    );
 
     tap('touch');
     expect(useGraphStore.getState().isOpen).toBe(true);
@@ -452,6 +625,7 @@ describe('GraphView canvas', () => {
     fireEvent.pointerDown(view.canvas, finger(2, 700));
     fireEvent.pointerMove(view.canvas, finger(1, 550));
     fireEvent.pointerMove(view.canvas, finger(2, 650));
+    runUntilIdle();
     const pinched = spread(drawFrame());
     fireEvent.pointerUp(view.canvas, finger(1, 550));
     fireEvent.pointerUp(view.canvas, finger(2, 650));
@@ -556,6 +730,29 @@ describe('GraphView canvas', () => {
       // No idle motion: once still, the loop does not run at all.
       runUntilIdle();
       expect(frames.size).toBe(0);
+    });
+
+    it('neither drifts nor sways', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+      try {
+        setReducedMotion(true);
+        const view = await openGraph();
+        settleAndFit(view);
+        flushFocusTimer();
+        expect(vi.getTimerCount()).toBe(0);
+        const still = byPosition(drawFrame().arcs);
+        act(() => void vi.advanceTimersByTime(10_000));
+        expect(frames.size).toBe(0);
+        expect(byPosition(drawFrame().arcs)).toEqual(still);
+
+        fireEvent.pointerDown(view.canvas, { pointerId: 1, button: 0, clientX: 60, clientY: 60 });
+        fireEvent.pointerMove(view.canvas, { pointerId: 1, clientX: 260, clientY: 60 });
+        const panned = byPosition(drawFrame().arcs);
+        panned.forEach((star, index) => expect(star.x - still[index].x).toBeCloseTo(200, 3));
+        fireEvent.pointerUp(view.canvas, { pointerId: 1 });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
