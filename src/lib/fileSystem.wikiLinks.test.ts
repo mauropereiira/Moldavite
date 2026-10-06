@@ -29,35 +29,22 @@ function linkTargets(markdown: string): string[] {
 }
 
 describe('wiki links inside code', () => {
-  // Tilde and indented blocks are saved as backtick fences, and a soft break
-  // in a span as a space, so those are checked by the code they keep.
   it.each([
-    ['a backtick fence', '```bash\nif [[ -f "$file" ]]; then echo ok; fi\n```', null],
-    [
-      'a tilde fence',
-      '~~~\nwhile [[ $i -lt 3 ]]; do :; done\n~~~',
-      'while [[ $i -lt 3 ]]; do :; done',
-    ],
-    ['a long fence holding a short one', '````md\n```\n[[Not a link]]\n```\n````', null],
-    ['an indented block', 'Shell:\n\n    [[ -d dir ]] && echo yes', '[[ -d dir ]] && echo yes'],
-    ['a fence in a list item', '- step\n\n  ```sh\n  [[ -n $x ]]\n  ```', '  [[ -n $x ]]'],
-    ['a fence in a quote', '> ```\n> [[quoted code]]\n> ```', null],
-    ['an inline span', 'Run `[[ -n $x ]]` first', null],
-    ['a double-backtick span holding a backtick', 'Try ``a ` [[b]]`` now', null],
-    ['a span across a soft break', 'Start `[[one\ntwo]]` end', '`[[one two]]`'],
-    ['a span in a heading', '## The `[[x]]` test', null],
-    ['a span in a table cell', '| `[[a]]` | b |\n| --- | --- |\n| 1 | 2 |', null],
-  ])('keeps %s as written', (_name, markdown, code) => {
+    ['a backtick fence', '```bash\nif [[ -f "$file" ]]; then echo ok; fi\n```'],
+    ['a tilde fence', '~~~\nwhile [[ $i -lt 3 ]]; do :; done\n~~~'],
+    ['a long fence holding a short one', '````md\n```\n[[Not a link]]\n```\n````'],
+    ['an indented block', 'Shell:\n\n    [[ -d dir ]] && echo yes'],
+    ['a fence in a list item', '- step\n\n  ```sh\n  [[ -n $x ]]\n  ```'],
+    ['a fence in a quote', '> ```\n> [[quoted code]]\n> ```'],
+    ['an inline span', 'Run `[[ -n $x ]]` first'],
+    ['a double-backtick span holding a backtick', 'Try ``a ` [[b]]`` now'],
+    ['a span across a soft break', 'Start `[[one\ntwo]]` end'],
+    ['a span in a heading', '## The `[[x]]` test'],
+    ['a span in a table cell', '| `[[a]]` | b |\n| --- | --- |\n| 1 | 2 |'],
+  ])('keeps %s as written', (_name, markdown) => {
     expect(linkTargets(markdown)).toEqual([]);
-    const saved = throughEditor(markdown);
-    if (code === null) {
-      expect(htmlToMarkdown(markdownToHtml(markdown))).toBe(markdown);
-      expect(saved).toBe(markdown);
-    } else {
-      expect(saved).toContain(code);
-      expect(saved).not.toContain('wiki-link');
-      expect(throughEditor(saved)).toBe(saved);
-    }
+    expect(htmlToMarkdown(markdownToHtml(markdown))).toBe(markdown);
+    expect(throughEditor(markdown)).toBe(markdown);
   });
 
   it('keeps everything after an unclosed fence as code', () => {

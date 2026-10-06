@@ -3002,6 +3002,12 @@ html.icon-rail-right {
   color: var(--text-secondary);
 }
 
+.tiptap .raw-inline {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--text-secondary);
+}
+
 .tiptap .footnote-ref {
   font-size: 0.75em;
   vertical-align: super;

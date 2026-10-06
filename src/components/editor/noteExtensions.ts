@@ -9,7 +9,13 @@ import { NoteTables } from './extensions/NoteTables';
 import { ResizableImage } from './extensions/ResizableImage';
 import { WikiLink, type WikiLinkOptions } from './extensions/WikiLink';
 import { TagMark, type TagMarkOptions } from './extensions/TagMark';
-import { FootnoteRef, ListItemSpacing, RawMarkdown } from './extensions/MarkdownSource';
+import {
+  FootnoteRef,
+  ListItemSpacing,
+  MarkdownSourceMap,
+  RawInline,
+  RawMarkdown,
+} from './extensions/MarkdownSource';
 
 // The spelling of a bare or `<...>` URL when its text alone cannot give it back.
 const NoteLink = Link.extend({
@@ -63,8 +69,10 @@ export function createNoteExtensions(
     ...NoteTables,
     WikiLink.configure(options.wikiLink),
     RawMarkdown,
+    RawInline,
     FootnoteRef,
     ListItemSpacing,
+    MarkdownSourceMap,
     ...(tagsEnabled ? [TagMark.configure(options.tagMark)] : []),
   ];
 }

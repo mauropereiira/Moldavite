@@ -64,7 +64,9 @@ describe('loading images', () => {
   it('rewrites a legacy absolute URL from another home directory to the relative path', () => {
     const html = markdownToHtml(`<img src="${OTHER_MACHINE}" alt="">`);
     expect(imageSrc(html)).toBe('images/shot_20260101.png');
-    expect(htmlToMarkdown(html)).toBe('<img src="images/shot_20260101.png" alt="">');
+    expect(htmlToMarkdown(html)).toBe(
+      '<img src="images/shot_20260101.png" alt="" data-alignment="center">'
+    );
   });
 
   it("resolves the relative path against this device's Forge", () => {
@@ -108,10 +110,14 @@ describe('note-relative links from the Obsidian importer', () => {
     );
   });
 
-  it('displays the imported Markdown image and saves it Forge-relative', () => {
-    const html = markdownToHtml('![second](<../../images/photo 2.png>)');
+  it('displays the imported Markdown image, keeps it as written and saves an edit Forge-relative', () => {
+    const markdown = '![second](<../../images/photo 2.png>)';
+    const html = markdownToHtml(markdown);
     expect(imageSrc(html)).toBe('images/photo%202.png');
-    expect(htmlToMarkdown(html)).toBe('<img src="images/photo%202.png" alt="second">');
+    expect(htmlToMarkdown(html)).toBe(markdown);
+    expect(htmlToMarkdown(html.replace('alt="second"', 'alt="edited"'))).toBe(
+      '<img src="images/photo%202.png" alt="edited" data-alignment="center">'
+    );
     expect(resolveForgeImageSrc(imageSrc(html) ?? '', '/Users/me/Forge')).toBe(
       `asset://localhost/${encodeURIComponent('/Users/me/Forge/images/photo 2.png')}`
     );

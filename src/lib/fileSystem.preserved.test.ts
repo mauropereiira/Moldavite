@@ -180,8 +180,10 @@ describe('details blocks', () => {
     );
   });
 
-  it('does not stop a <detailsfoo> tag being HTML', () => {
-    expect(markdownToHtml('<detailsx>\ntext')).not.toContain('raw-markdown');
+  it('does not read a <detailsfoo> tag as a details block', () => {
+    const markdown = '<detailsx>\ntext\n</details>\n\nAfter';
+    expect(markdownToHtml(markdown)).toContain('<p data-md-id');
+    expect(save(markdown)).toBe(markdown);
   });
 });
 
