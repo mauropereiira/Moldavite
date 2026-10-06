@@ -150,7 +150,10 @@ export function TimelineView() {
       else next.delete(day.key);
       return next;
     });
-    if (opening && !rows[day.key]) void loadDay(day, DAY_PAGE).catch(() => undefined);
+    // A closed day is not refreshed, so its rows may be from before the last change.
+    if (opening) {
+      void loadDay(day, Math.max(DAY_PAGE, rows[day.key]?.length ?? 0)).catch(() => undefined);
+    }
   };
 
   const showMore = async (day: ActivityDay) => {

@@ -157,6 +157,18 @@ describe('an edit keeps the rest of the note as written', () => {
     );
   });
 
+  it('keeps the blocks of a note written with Windows line endings apart', () => {
+    open('# Title\r\n\r\nLine one\r\nLine two\r\n\r\n- item\r\n');
+    expect(saveOpen()).toBe('# Title\n\nLine one\nLine two\n\n- item');
+    typeAfter('Line two', ' edited');
+    expect(saveOpen()).toBe('# Title\n\nLine one\nLine two edited\n\n- item');
+  });
+
+  it('adds no blank lines to Markdown pasted with Windows line endings', () => {
+    const pasted = markdownToHtml('# Title\r\n\r\nLine one\r\nLine two\r\n\r\n- item\r\n- two');
+    expect(htmlToMarkdown(pasted)).toBe('# Title\n\nLine one\nLine two\n\n- item\n- two');
+  });
+
   it('keeps the markers and spacing of the other items', () => {
     open('*   one [a]\n*   two\n*   three');
     typeAfter('two', ' more');

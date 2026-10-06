@@ -25,8 +25,13 @@ export interface ChangelogEntry {
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const HEADLINE_MAX_LENGTH = 96;
 
-/** Remove markdown emphasis markers so notes render as safe plain text. */
-const stripEmphasis = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
+/** Remove markdown emphasis markers and link syntax so notes render as safe plain text. */
+const stripEmphasis = (s: string) =>
+  s
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1')
+    .trim();
 
 const truncateHeadline = (text: string): string => {
   if (text.length <= HEADLINE_MAX_LENGTH) return text;

@@ -461,6 +461,16 @@ describe('TabBar', () => {
       expect(screen.getByRole('button', { name: 'Open tabs, 2 more' })).toBeInTheDocument();
     });
 
+    it('reaches a single pin from the welcome screen', () => {
+      useNoteStore.setState({ notes: [file('notes/a.md')] });
+      useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/a.md'] });
+      render(<TabBar />);
+      expect(screen.queryAllByRole('tab')).toHaveLength(0);
+      fireEvent.click(screen.getByRole('button', { name: 'Open tabs, 1 more' }));
+      const menu = screen.getByRole('menu', { name: 'Open tabs' });
+      expect(within(menu).getByRole('menuitem', { name: 'Unpin a' })).toBeInTheDocument();
+    });
+
     it('lays an iPad out like a desktop', () => {
       vi.mocked(isTabletPlatform).mockReturnValue(true);
       openNotes('notes/a.md', 'notes/b.md', 'notes/c.md');
