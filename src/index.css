@@ -193,11 +193,16 @@
   /* STACKING
      Overlays cover the editor, surfaces cover the window beside the rail, and
      a dialog covers all of them and the rail. A dialog takes --z-dialog
-     whatever opened it: one at z-50 painted behind the Agenda and Settings. */
+     whatever opened it: one at z-50 painted behind the Agenda and Settings.
+     A notice (the update card) sits above surfaces and below dialogs; a toast
+     sits above everything, since it reports on whatever is open and its
+     container lets clicks through. */
   --z-overlay: 80;
   --z-surface: 9999;
   --z-rail: 10000;
+  --z-notice: 10500;
   --z-dialog: 11000;
+  --z-toast: 12000;
 
   /* MOTION */
   --dur-micro: 120ms;

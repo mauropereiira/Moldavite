@@ -35,7 +35,7 @@ export function UpdateNotification() {
         // where transient toasts live. This one persists until dismissed, so
         // it should not be mistaken for one.
         top: '16px',
-        zIndex: 50,
+        zIndex: 'var(--z-notice)',
         width: 'min(360px, calc(100vw - 32px))',
         backgroundColor: 'var(--bg-base)',
         border: '1px solid var(--border-strong)',
