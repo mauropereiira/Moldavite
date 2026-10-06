@@ -260,6 +260,7 @@ pub(crate) fn refresh_active_forge(
     crate::commands::semantic::on_forge_switched(app.clone());
     // The keyword index is per-Forge and lives outside the vault; reconcile
     // the incoming one off-thread. Search falls back to the scan until it lands.
+    crate::activity_log::spawn_catch_up(target.clone());
     crate::search_index::spawn_reconcile(target);
 }
 
@@ -325,7 +326,9 @@ fn rename_forge_dir(root: &Path, old_name: &str, new_name: &str) -> Result<PathB
     // Filed under the old path's hash, the index would outlive the rename as a
     // full-text copy of the notes that no later delete_forge finds.
     crate::search_index::delete_for(&from);
+    let activity = crate::activity_log::detach(&from);
     fs::rename(&from, &to).map_err(|e| format!("Failed to rename Forge: {}", e))?;
+    crate::activity_log::reattach(activity, &to);
     Ok(to)
 }
 
@@ -345,6 +348,7 @@ pub(crate) fn delete_forge(name: String) -> Result<(), String> {
     // Before the directory goes: the index is filed under the hash of the
     // Forge's canonical path, which stops resolving once it is gone.
     crate::search_index::delete_for(&path);
+    crate::activity_log::delete_for(&path);
     delete_forge_dir(&path)
 }
 

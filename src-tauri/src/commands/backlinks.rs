@@ -54,6 +54,10 @@ pub(crate) fn create_note_from_link(
     let notes_dir = get_notes_dir()?;
     let (filename, initial_content) = create_note_from_link_at(&notes_dir, &note_name)?;
     index.update_note(&format!("notes/{filename}"), &initial_content);
+    crate::activity_log::record(
+        crate::activity_log::Action::Created,
+        &format!("notes/{filename}"),
+    );
     Ok(filename)
 }
 

@@ -81,7 +81,7 @@ export function Calendar({ onNavigate }: CalendarProps = {}) {
     void checkPermission();
   }, [checkPermission]);
 
-  // The day's event list owns a selected-day event range in the shared store. Fetch
+  // The timeline owns a selected-day event range in the shared store. Fetch
   // the visible six-week range locally so month indicators cannot overwrite it.
   // `lastSynced` is unread: it refetches the dots after a Sync or background poll.
   React.useEffect(() => {

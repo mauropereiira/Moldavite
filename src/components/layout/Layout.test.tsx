@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
-import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
+import { useNoteStore, useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
 import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import type { Note } from '@/types';
@@ -60,6 +60,7 @@ describe('Layout navigation surfaces', () => {
       isSidebarHidden: false,
       isRightPanelHidden: false,
     });
+    useTimelineStore.getState().close();
   });
 
   it('renders the default rail and editor with both surfaces in overlay mode', () => {
@@ -239,6 +240,7 @@ describe('Layout on a phone', () => {
       isSidebarHidden: false,
       isRightPanelHidden: false,
     });
+    useTimelineStore.getState().close();
     useNoteStore.setState({
       notes: [],
       openTabs: [],

@@ -68,6 +68,7 @@ export { useTaskStatusStore } from './taskStatusStore';
 export { useSearchStore } from './searchStore';
 export type { ContentMatch, SearchMode } from './searchStore';
 export { useSemanticStore } from './semanticStore';
+export { useTimelineStore } from './timelineStore';
 export { useGraphStore } from './graphStore';
 export { useOverlayStore } from './overlayStore';
 export type { AppOverlay } from './overlayStore';

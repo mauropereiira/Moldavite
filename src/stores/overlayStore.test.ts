@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useOverlayStore, type AppOverlay } from './overlayStore';
 import { useSettingsStore } from './settingsStore';
 import { useGraphStore } from './graphStore';
+import { useTimelineStore } from './timelineStore';
 import { useQuickSwitcherStore } from './quickSwitcherStore';
 
 describe('overlayStore', () => {
@@ -45,6 +46,7 @@ describe('overlayStore', () => {
       { surface: 'index', open: () => useOverlayStore.getState().openIndex(false) },
       { surface: 'agenda', open: () => useOverlayStore.getState().openAgenda(false) },
       { surface: 'graph', open: () => useGraphStore.getState().open() },
+      { surface: 'timeline', open: () => useTimelineStore.getState().open() },
       { surface: 'search', open: () => useQuickSwitcherStore.getState().open() },
     ];
 
@@ -63,8 +65,12 @@ describe('overlayStore', () => {
     useGraphStore.getState().open();
     expect(useGraphStore.getState().isOpen).toBe(true);
 
-    useQuickSwitcherStore.getState().toggle();
+    useTimelineStore.getState().open();
     expect(useGraphStore.getState().isOpen).toBe(false);
+    expect(useTimelineStore.getState().isOpen).toBe(true);
+
+    useQuickSwitcherStore.getState().toggle();
+    expect(useTimelineStore.getState().isOpen).toBe(false);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(true);
 
     useOverlayStore.getState().closeOverlay();
@@ -74,7 +80,7 @@ describe('overlayStore', () => {
   it('closes a surface only from its own store', () => {
     useGraphStore.getState().open();
 
-    useQuickSwitcherStore.getState().close();
+    useTimelineStore.getState().close();
     expect(useGraphStore.getState().isOpen).toBe(true);
 
     useGraphStore.getState().close();

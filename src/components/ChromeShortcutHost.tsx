@@ -46,8 +46,8 @@ function closeActiveNote(event: KeyboardEvent) {
  *
  * The listener lives here rather than in `useKeyboardShortcuts` for the same
  * reason `ShortcutHelpHost` does: that hook is owned by the editor tree, which
- * is not mounted when no note is open, which is exactly the moment you want a
- * way out.
+ * is not mounted when no note is open or when the Timeline has replaced the
+ * editor pane, which are exactly the moments you want a way out.
  *
  * Every surface toggles through `useOverlayStore`, so a shortcut behaves
  * identically to the matching icon-rail button.

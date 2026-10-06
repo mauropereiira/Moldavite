@@ -9,6 +9,7 @@ import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext
 import { useGraphStore } from '@/stores/graphStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from './useNotes';
@@ -83,6 +84,7 @@ export function routePluginInstallRequest(value: unknown): boolean {
 }
 
 export function openPluginSettings(): void {
+  useTimelineStore.getState().close();
   useGraphStore.getState().close();
   const settings = useSettingsStore.getState();
   settings.setActiveSettingsTab('plugins');
@@ -153,6 +155,7 @@ export async function routeNoteRequest(
 
 /** Leave every page and land in today's daily note, creating it if needed. */
 export async function routeTodayRequest(loadDailyNote: LoadDailyNote): Promise<void> {
+  useTimelineStore.getState().close();
   useGraphStore.getState().close();
   useSettingsStore.getState().setIsSettingsOpen(false);
   const today = new Date();

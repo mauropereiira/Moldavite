@@ -297,6 +297,15 @@
             your machine, and it is deleted with its Forge.
           </li>
           <li>
+            <strong>The Timeline</strong> keeps a record of what happened to your notes (created,
+            edited, renamed, moved, trashed, locked, with the time) in an SQLite file in the same
+            application-data folder, outside the Forge:
+            <code>Moldavite/activity/&lt;forge&gt;/activity.sqlite</code>. It holds note names,
+            folders, actions and times, never note text, and a locked note only by its name. Each
+            device keeps its own; it is never synced or uploaded, keeps 180 days, and is deleted
+            with its Forge.
+          </li>
+          <li>
             <strong>Agent write markers</strong> are left in <code>Moldavite/agent-writes/</code> in
             the configuration folder whenever an MCP client writes a note, so the app can tell an
             agent's write from your own and name the agent when it asks you which version to keep. A
@@ -507,8 +516,8 @@
         </ul>
         <p>
           Google calendar data is fetched for the date range you are viewing and held in memory
-          while Moldavite shows them in the Agenda. It stays out of disk storage, search indexes, and
-          exports. Network transport is limited to your device and Google.
+          while Moldavite shows them in the Agenda. It stays out of disk storage, search indexes,
+          and exports. Network transport is limited to your device and Google.
         </p>
         <p>
           You can disconnect at any time from <strong>Settings → Calendar</strong>, which deletes
@@ -575,7 +584,7 @@
           the same release, and the network table above is kept exhaustive. Material changes are
           also noted in the changelog.
         </p>
-        <p><strong>Last updated:</strong> 27 September 2026</p>
+        <p><strong>Last updated:</strong> 6 October 2026</p>
 
         <h2 id="contact">Contact</h2>
         <p>

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { open } from '@tauri-apps/plugin-shell';
 import { safeInvoke } from '@/lib/ipc';
 import type { CalendarEvent } from '@/types';
-import { EventRow } from './EventRow';
+import { AllDayEvent, EventBlock } from './EventBlock';
 
 vi.mock('@tauri-apps/plugin-shell', () => ({
   open: vi.fn(async () => undefined),
@@ -37,7 +37,7 @@ function buildEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   };
 }
 
-describe('EventRow', () => {
+describe('EventBlock', () => {
   afterEach(() => {
     document.documentElement.style.removeProperty('--calendar-google');
     document.documentElement.style.removeProperty('--accent-primary');
@@ -48,7 +48,9 @@ describe('EventRow', () => {
 
   it('opens an event link in the browser on the desktop', async () => {
     const url = 'https://calendar.google.com/event?eid=1';
-    const { container } = render(<EventRow event={buildEvent({ url })} />);
+    const { container } = render(
+      <EventBlock event={buildEvent({ url })} columnIndex={0} totalColumns={1} />
+    );
 
     fireEvent.click(container.firstElementChild as HTMLElement);
 
@@ -59,7 +61,7 @@ describe('EventRow', () => {
   it('opens an event link through the native opener on a phone', async () => {
     platform.mobile = true;
     const url = 'https://calendar.google.com/event?eid=1';
-    render(<EventRow event={buildEvent({ isAllDay: true, url })} />);
+    render(<AllDayEvent event={buildEvent({ isAllDay: true, url })} />);
 
     fireEvent.click(screen.getByText('Calendar event'));
 
@@ -67,29 +69,60 @@ describe('EventRow', () => {
     expect(open).not.toHaveBeenCalled();
   });
 
-  it('shows the time range on the 24-hour clock, with the location', () => {
+  it('shows times on the same 24-hour clock as the timeline axis', () => {
     const { container } = render(
-      <EventRow event={buildEvent({ start: '2025-03-14T13:00:00', end: '2025-03-14T14:30:00' })} />
+      <EventBlock
+        event={buildEvent({ start: '2025-03-14T13:00:00', end: '2025-03-14T14:30:00' })}
+        columnIndex={0}
+        totalColumns={1}
+      />
     );
 
-    expect(container.textContent).toBe('Calendar event13:00 – 14:30 · Meeting room');
+    expect(container.textContent).toContain('13:00');
     expect(container.textContent).not.toMatch(/PM|AM/);
   });
 
-  it('labels an all-day event instead of giving it times', () => {
-    render(<EventRow event={buildEvent({ isAllDay: true, location: '' })} />);
+  it('encodes event duration in the computed block height', () => {
+    const { container } = render(
+      <>
+        <EventBlock
+          event={buildEvent({ id: 'short', title: '15 minute event', end: '2025-03-14T09:15:00' })}
+          columnIndex={0}
+          totalColumns={1}
+        />
+        <EventBlock
+          event={buildEvent({ id: 'long', title: '60 minute event' })}
+          columnIndex={0}
+          totalColumns={1}
+        />
+      </>
+    );
 
-    expect(screen.getByText('All day')).toBeInTheDocument();
+    const [shortEvent, longEvent] = Array.from(container.children) as HTMLElement[];
+    expect(shortEvent.style.height).toBe('20px');
+    expect(longEvent.style.height).toBe('60px');
+    expect(Number.parseFloat(longEvent.style.height)).toBeGreaterThanOrEqual(
+      Number.parseFloat(shortEvent.style.height) * 3
+    );
+    expect(longEvent.style.borderTop).toBe('1px solid var(--border-muted)');
   });
 
   it('ignores malformed timestamps instead of throwing while formatting them', () => {
-    const { container } = render(<EventRow event={buildEvent({ start: 'not-a-timestamp' })} />);
+    const { container } = render(
+      <EventBlock
+        event={buildEvent({ start: 'not-a-timestamp' })}
+        columnIndex={0}
+        totalColumns={1}
+      />
+    );
 
     expect(container).toBeEmptyDOMElement();
   });
 
   it('renders a two-pixel full-height bar in the event source colour', () => {
-    const { container } = render(<EventRow event={buildEvent()} />);
+    const { container } = render(
+      <EventBlock event={buildEvent()} columnIndex={0} totalColumns={1} />
+    );
 
     const block = container.firstElementChild as HTMLElement;
     const sourceBar = block.querySelector('[aria-hidden="true"]') as HTMLElement;
@@ -97,7 +130,6 @@ describe('EventRow', () => {
     expect(sourceBar.style.width).toBe('2px');
     expect(sourceBar.style.top).toBe('0px');
     expect(sourceBar.style.bottom).toBe('0px');
-    expect(block.style.borderTop).toBe('1px solid var(--border-muted)');
   });
 
   it('derives distinguishable washes from different calendar source variables', () => {
@@ -106,11 +138,15 @@ describe('EventRow', () => {
 
     const { container } = render(
       <>
-        <EventRow
+        <EventBlock
           event={buildEvent({ id: 'first-source', calendarColor: 'var(--calendar-google)' })}
+          columnIndex={0}
+          totalColumns={1}
         />
-        <EventRow
+        <EventBlock
           event={buildEvent({ id: 'second-source', calendarColor: 'var(--accent-primary)' })}
+          columnIndex={0}
+          totalColumns={1}
         />
       </>
     );
@@ -122,7 +158,9 @@ describe('EventRow', () => {
   });
 
   it('lifts the wash and title colour on hover', () => {
-    const { container } = render(<EventRow event={buildEvent()} />);
+    const { container } = render(
+      <EventBlock event={buildEvent()} columnIndex={0} totalColumns={1} />
+    );
 
     const block = container.firstElementChild as HTMLElement;
     fireEvent.mouseEnter(block);
@@ -134,7 +172,7 @@ describe('EventRow', () => {
   });
 
   it('uses the same bar and wash treatment for all-day events', () => {
-    const { container } = render(<EventRow event={buildEvent({ isAllDay: true })} />);
+    const { container } = render(<AllDayEvent event={buildEvent({ isAllDay: true })} />);
 
     const block = container.firstElementChild as HTMLElement;
     const sourceBar = block.querySelector('[aria-hidden="true"]') as HTMLElement;

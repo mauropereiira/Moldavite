@@ -290,6 +290,48 @@ mod tests {
     }
 
     #[test]
+    fn agent_writes_are_logged_for_the_timeline_as_an_agents() {
+        let root = temp_forge("activity");
+        let calls = [
+            (
+                "create_note",
+                json!({"path":"notes/new.md","content":"body text"}),
+            ),
+            (
+                "append_to_daily_note",
+                json!({"content":"daily","date":"2026-07-12"}),
+            ),
+            (
+                "write_note",
+                json!({"path":"notes/new.md","content":"replaced"}),
+            ),
+        ];
+        let input: String = calls
+            .into_iter()
+            .enumerate()
+            .map(|(offset, (name, arguments))| {
+                request(
+                    offset as u32 + 1,
+                    "tools/call",
+                    json!({"name": name, "arguments": arguments}),
+                )
+            })
+            .collect();
+        run(input, ToolContext::new(root.clone(), true, false));
+        let entries = crate::activity_log::page(&root, None, None, 50).entries;
+        let logged: Vec<(&str, &str, &str)> = entries
+            .iter()
+            .map(|e| (e.action.as_str(), e.path.as_str(), e.source.as_str()))
+            .collect();
+        assert_eq!(logged.len(), 2, "{logged:?}");
+        assert!(logged.contains(&("created", "notes/new.md", "agent")));
+        assert!(logged.contains(&("created", "daily/2026-07-12.md", "agent")));
+        crate::activity_log::delete_for(&root);
+        crate::search_index::delete_for(&root);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn write_gating_omits_and_refuses_write_tools() {
         let root = temp_forge("gating");
         let input = request(1, "tools/list", json!({}))

@@ -9,6 +9,7 @@ import {
   Plus,
   FileStack,
   Network,
+  Clock,
   Keyboard,
   History,
   Pin,
@@ -19,6 +20,7 @@ import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { useGraphStore } from '@/stores/graphStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from '@/hooks/useNotes';
@@ -215,6 +217,8 @@ function commandIcon(id: string) {
       return <FileStack className="w-4 h-4" />;
     case 'open-graph':
       return <Network className="w-4 h-4" />;
+    case 'toggle-timeline':
+      return <Clock className="w-4 h-4" />;
     case 'toggle-theme':
       return <Sun className="w-4 h-4" />;
     case 'shortcut-help':
@@ -285,6 +289,7 @@ export function QuickSwitcher() {
   const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, refresh } = useNotes();
   const { theme, setTheme } = useThemeStore();
   const { setIsSettingsOpen } = useSettingsStore();
+  const { toggle: toggleTimeline } = useTimelineStore();
   const { open: openGraph } = useGraphStore();
 
   const [query, setQuery] = useState('');
@@ -557,6 +562,9 @@ export function QuickSwitcher() {
           // Not ⌘T: that applies a template to the open note, replacing it.
           setIsTemplatePickerOpen(true);
           return;
+        case 'toggle-timeline':
+          toggleTimeline();
+          return;
         case 'toggle-theme': {
           const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
           setTheme(next);
@@ -577,7 +585,17 @@ export function QuickSwitcher() {
           void usePluginCommandStore.getState().execute(id);
       }
     },
-    [setIsSettingsOpen, loadDailyNote, createNote, theme, setTheme, openGraph, loadNote, refresh]
+    [
+      setIsSettingsOpen,
+      loadDailyNote,
+      createNote,
+      toggleTimeline,
+      theme,
+      setTheme,
+      openGraph,
+      loadNote,
+      refresh,
+    ]
   );
 
   const handleTemplateSelect = async (templateId: string | null) => {

@@ -233,6 +233,10 @@ pub(crate) fn lock_note(
     crate::search_index::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Locked,
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
     Ok(())
 }
 
@@ -461,6 +465,10 @@ pub(crate) fn permanently_unlock_note(
     crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Unlocked,
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
     conflict_copy_changed(conflict_copy.as_deref(), is_daily, is_weekly);
     Ok(conflict_copy)
 }

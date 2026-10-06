@@ -65,6 +65,9 @@ pub(crate) mod forge_watcher;
 /// Best-effort attribution for note writes made through MCP.
 pub(crate) mod agent_writes;
 
+/// What happened to which note and when, per Forge, for the Timeline.
+pub(crate) mod activity_log;
+
 /// Publish a note to WordPress.com over an account the user signs in to.
 pub(crate) mod wordpress;
 
@@ -115,6 +118,8 @@ fn dispatch_note_io(
                 | "rescan_forge"
                 | "search_notes_content"
                 | "search_index_status"
+                | "list_note_activity"
+                | "count_note_activity"
                 | "get_note_graph"
                 | "rename_note"
                 | "rename_folder"
@@ -154,6 +159,7 @@ fn dispatch_note_io(
 use calendar::CalendarPermission;
 use calendar::{CalendarFetchResult, CalendarInfo, CalendarSourceStatus};
 
+use commands::activity::{count_note_activity, list_note_activity};
 use commands::backlinks::{create_note_from_link, get_backlinks, scan_note_links};
 use commands::export_import::{
     export_encrypted_backup, export_notes, export_settings_json, import_encrypted_backup,
@@ -438,6 +444,7 @@ pub fn run() {
             // Bring the keyword index in line with disk, also off-thread.
             // Search is served by the live scan until this finishes.
             if let Ok(root) = paths::get_notes_dir() {
+                activity_log::spawn_catch_up(root.clone());
                 search_index::spawn_reconcile(root);
             }
             search_index::spawn_periodic_reconcile();
@@ -535,6 +542,8 @@ pub fn run() {
             search_notes_content,
             // Persistent keyword (FTS5) index
             search_index_status,
+            list_note_activity,
+            count_note_activity,
             search_index_rebuild,
             // Semantic (vector) search commands
             semantic_status,

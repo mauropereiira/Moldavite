@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { selectHasPendingUpdate, useGraphStore, useUpdateStore } from '@/stores';
+import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
 import { formatShortcut } from '@/lib/shortcuts';
 import { JACK_O_LANTERN_SMALL_SRC, useAutumnArt } from '@/lib/seasons';
 import { MaskArt } from '@/components/ui/MaskArt';
@@ -20,6 +20,7 @@ interface SidebarFooterProps {
 export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: SidebarFooterProps) {
   const [appVersion, setAppVersion] = useState<string>('');
   const trashBtnRef = useRef<HTMLButtonElement>(null);
+  const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
   const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
   const autumnArt = useAutumnArt();
@@ -71,6 +72,30 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
       </div>
 
       <div className="sidebar-footer-links px-3 py-3 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={toggleTimeline}
+          className="text-link transition-colors"
+          style={{
+            ...linkStyle,
+            color: isTimelineOpen ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: isTimelineOpen ? 500 : 400,
+          }}
+          onMouseEnter={(e) => {
+            if (!isTimelineOpen) handleLinkEnter(e);
+          }}
+          onMouseLeave={(e) => {
+            if (!isTimelineOpen) handleLinkLeave(e);
+          }}
+          title="Timeline"
+          aria-pressed={isTimelineOpen}
+          aria-label="Toggle timeline"
+        >
+          Timeline
+        </button>
+        <span aria-hidden="true" style={{ color: 'var(--border-strong)', fontSize: '11px' }}>
+          ·
+        </span>
         <button
           type="button"
           onClick={toggleGraph}

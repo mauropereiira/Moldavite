@@ -351,6 +351,10 @@ pub(crate) fn trash_note(
     crate::search_index::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Trashed,
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
 
     Ok(id)
 }
@@ -481,18 +485,24 @@ pub(crate) fn restore_note(
         );
         for f in &item.contained_files {
             crate::search_index::note_changed(&format!("notes/{relative}/{f}"));
+            crate::activity_log::record(
+                crate::activity_log::Action::Restored,
+                &format!("notes/{relative}/{f}"),
+            );
         }
         format!("notes/{relative}")
     } else if is_locked_item(&item) {
         // Ciphertext is never indexed; the note's id is its plaintext name.
         let relative = relative.strip_suffix(".locked").unwrap_or(&relative);
-        if item.is_weekly {
+        let restored = if item.is_weekly {
             format!("weekly/{relative}")
         } else if item.is_daily {
             format!("daily/{relative}")
         } else {
             format!("notes/{relative}")
-        }
+        };
+        crate::activity_log::record(crate::activity_log::Action::Restored, &restored);
+        restored
     } else {
         let content = fs::read_to_string(&dest_path).unwrap_or_default();
         index.update_note(
@@ -509,6 +519,10 @@ pub(crate) fn restore_note(
             item.is_daily,
             item.is_weekly,
         ));
+        crate::activity_log::record(
+            crate::activity_log::Action::Restored,
+            &crate::semantic::note_rel_path(&relative, item.is_daily, item.is_weekly),
+        );
         if item.is_weekly {
             format!("weekly/{relative}")
         } else if item.is_daily {
@@ -790,6 +804,7 @@ pub(crate) fn trash_folder(
     for path in &semantic_paths {
         index.remove_note(path);
         crate::search_index::note_removed(path);
+        crate::activity_log::record(crate::activity_log::Action::Trashed, path);
     }
     crate::semantic::notes_removed(semantic_paths);
 
@@ -842,6 +857,10 @@ pub(crate) fn restore_note_from_folder(
         crate::semantic::note_changed(&format!("notes/{}", note_filename));
         crate::search_index::note_changed(&format!("notes/{}", note_filename));
     }
+    crate::activity_log::record(
+        crate::activity_log::Action::Restored,
+        &format!("notes/{}", note_filename),
+    );
 
     let item = &mut metadata.items[item_index];
     item.contained_files.retain(|f| f != &note_filename);

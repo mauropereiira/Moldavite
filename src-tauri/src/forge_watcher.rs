@@ -321,6 +321,24 @@ fn apply_forge_event(
     (!folder).then_some(rel)
 }
 
+/// Index one debounced batch under the Forge and log, for the Timeline, what
+/// other programs did to notes in it. Returns the paths the frontend should
+/// hear about and the notes the semantic index must refresh.
+fn apply_forge_batch(
+    root: &Path,
+    paths: &[PathBuf],
+    recent: &RecentWrites,
+    backlinks: Option<&BacklinksIndex>,
+) -> (Vec<String>, Vec<String>) {
+    let mut stale = Vec::new();
+    let changed: Vec<String> = paths
+        .iter()
+        .filter_map(|path| apply_forge_event(root, path, recent, backlinks, &mut stale))
+        .collect();
+    crate::activity_log::outside_changes_in(root, changed.clone());
+    (changed, stale)
+}
+
 /// Spawn a long-lived background thread that watches active-Forge contents and
 /// direct children of the Forges root. Returns a guard whose Drop stops it.
 pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle, String> {
@@ -384,7 +402,7 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                         continue;
                     }
                 };
-                let mut stale = Vec::new();
+                let mut forge_paths = Vec::new();
                 for event in events {
                     let path = event.path;
                     if let Some(name) = direct_forge_name(&forges_root_for_thread, &path) {
@@ -396,23 +414,23 @@ pub fn spawn(app: AppHandle, recent: Arc<RecentWrites>) -> Result<WatcherHandle,
                             log::warn!("[forge watcher] Forge-list emit failed: {}", e);
                         }
                     } else {
-                        let backlinks = app_for_thread.try_state::<Arc<BacklinksIndex>>();
-                        let Some(rel) = apply_forge_event(
-                            &root_for_thread,
-                            &path,
-                            &recent_for_thread,
-                            backlinks.as_deref().map(Arc::as_ref),
-                            &mut stale,
-                        ) else {
-                            continue;
-                        };
-                        let payload = ForgeChange {
-                            kind: "modified".into(),
-                            rel_path: rel,
-                        };
-                        if let Err(e) = app_for_thread.emit("forge:changed", payload) {
-                            log::warn!("[forge watcher] emit failed: {}", e);
-                        }
+                        forge_paths.push(path);
+                    }
+                }
+                let backlinks = app_for_thread.try_state::<Arc<BacklinksIndex>>();
+                let (changed, stale) = apply_forge_batch(
+                    &root_for_thread,
+                    &forge_paths,
+                    &recent_for_thread,
+                    backlinks.as_deref().map(Arc::as_ref),
+                );
+                for rel in changed {
+                    let payload = ForgeChange {
+                        kind: "modified".into(),
+                        rel_path: rel,
+                    };
+                    if let Err(e) = app_for_thread.emit("forge:changed", payload) {
+                        log::warn!("[forge watcher] emit failed: {}", e);
                     }
                 }
                 crate::semantic::service().notes_changed_in(stale, root_for_thread.clone());
@@ -523,6 +541,36 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn a_batch_logs_outside_note_changes_and_skips_the_apps_own_writes() {
+        let tmp = TempDir::new("activity");
+        let root = tmp.path();
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::write(root.join("notes/mine.md"), "saved by the app").unwrap();
+        fs::write(root.join("notes/theirs.md"), "saved by a sync client").unwrap();
+        let recent = RecentWrites::new();
+        recent.record(&root.join("notes/mine.md"), &sha256_hex("saved by the app"));
+
+        let (changed, _) = apply_forge_batch(
+            root,
+            &[root.join("notes/mine.md"), root.join("notes/theirs.md")],
+            &recent,
+            None,
+        );
+        assert_eq!(changed, vec!["notes/theirs.md".to_string()]);
+        let logged: Vec<(String, String)> = crate::activity_log::page(root, None, None, 10)
+            .entries
+            .into_iter()
+            .map(|entry| (entry.path, entry.source))
+            .collect();
+        assert_eq!(
+            logged,
+            vec![("notes/theirs.md".to_string(), "outside".to_string())]
+        );
+        crate::activity_log::delete_for(root);
+        crate::search_index::delete_for(root);
     }
 
     /// The watcher is what makes an agent's or a sync client's edit

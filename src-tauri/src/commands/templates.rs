@@ -366,6 +366,10 @@ pub(crate) fn create_note_from_template(
     let content = replace_template_variables_on(template.content, day);
 
     crate::persist::write_atomic(&path, content.as_bytes(), Some(0o600))?;
+    crate::activity_log::record(
+        crate::activity_log::Action::Created,
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
 
     Ok(filename)
 }

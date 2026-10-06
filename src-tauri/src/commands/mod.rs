@@ -4,6 +4,7 @@
 //! their domain before access, user-data writes go through atomic persistence,
 //! and stateful indexes are updated only after the corresponding disk operation.
 
+pub mod activity;
 pub mod backlinks;
 /// Pairs desktop browsers with the clipper's native-messaging host; a phone
 /// has no browser extension to pair.

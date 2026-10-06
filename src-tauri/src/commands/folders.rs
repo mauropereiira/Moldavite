@@ -466,6 +466,7 @@ fn reindex_moved_folder(
         let old_path = format!("notes/{old_folder}/{relative}");
         let new_path = format!("notes/{new_folder}/{relative}");
         crate::search_index::note_renamed_in(&old_path, &new_path, forge_root.to_path_buf());
+        crate::activity_log::record_move_in(forge_root, &old_path, &new_path);
         crate::semantic::note_changed_in(&new_path, forge_root.to_path_buf());
         old_paths.push(old_path);
     }
@@ -483,6 +484,13 @@ fn unindex_deleted_folder(
     for relative in notes {
         let path = format!("notes/{folder}/{relative}");
         crate::search_index::note_removed_in(&path, forge_root.to_path_buf());
+        crate::activity_log::record_in(
+            forge_root,
+            crate::activity_log::Action::Deleted,
+            &path,
+            None,
+            crate::activity_log::Source::App,
+        );
         index.remove_note(&path);
         paths.push(path);
     }

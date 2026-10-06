@@ -1,5 +1,5 @@
 import { useState, type MouseEvent, type ReactNode } from 'react';
-import { Calendar, Network, PanelLeft, Search, Settings, Trash2 } from 'lucide-react';
+import { Calendar, Clock, Network, PanelLeft, Search, Settings, Trash2 } from 'lucide-react';
 import {
   type IconRailSide,
   useGraphStore,
@@ -7,6 +7,7 @@ import {
   useOverlayStore,
   useQuickSwitcherStore,
   useSettingsStore,
+  useTimelineStore,
   useUpdateStore,
 } from '@/stores';
 import { IconRailTrash } from './IconRailTrash';
@@ -82,6 +83,8 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
   const toggleQuickSwitcher = useQuickSwitcherStore((state) => state.toggle);
   const graphOpen = useGraphStore((state) => state.isOpen);
   const toggleGraph = useGraphStore((state) => state.toggle);
+  const timelineOpen = useTimelineStore((state) => state.isOpen);
+  const toggleTimeline = useTimelineStore((state) => state.toggle);
   const availableVersion = useUpdateStore((state) => state.availableVersion);
   const activeTabId = useNoteStore((state) => state.activeTabId);
   const deactivateNote = useNoteStore((state) => state.deactivateNote);
@@ -207,6 +210,17 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
             }}
           >
             <Network {...iconProps} />
+          </RailButton>
+          <RailButton
+            label="Timeline"
+            tooltip="Timeline"
+            active={!covered && timelineOpen}
+            onClick={() => {
+              leaveSettings();
+              toggleTimeline();
+            }}
+          >
+            <Clock {...iconProps} />
           </RailButton>
         </nav>
       </div>

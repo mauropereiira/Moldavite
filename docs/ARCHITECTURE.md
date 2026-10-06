@@ -10,7 +10,7 @@ How Moldavite is put together. For where to start editing, see
 flowchart TB
     subgraph FE["Frontend · React + TypeScript"]
         ED["TipTap editor<br/>WikiLink · Tag · SlashCommands"]
-        SB["Sidebar · Graph · Settings"]
+        SB["Sidebar · Graph · Timeline · Settings"]
         ST["Zustand stores"]
     end
     subgraph BE["Backend · Rust + Tauri 2"]
@@ -107,14 +107,14 @@ worker loaded from its own URL would run with none. Everything a plugin can do
 crosses an RPC bridge the host enforces, and consent is pinned to a SHA-256 hash
 of the manifest plus code, so changing either re-prompts the user.
 
-| Capability | Requires consent |
-|------------|------------------|
-| Register commands (`commands`) | Yes |
-| Read the active note and insert text (`editor`) | Yes |
-| Toasts and host-rendered prompt forms (`ui`) | Yes |
-| Read unlocked note metadata and Markdown | Yes |
-| HTTPS to named hosts (individually revocable) | Yes |
-| Secrets in the OS credential store | Yes |
+| Capability                                                                | Requires consent    |
+| ------------------------------------------------------------------------- | ------------------- |
+| Register commands (`commands`)                                            | Yes                 |
+| Read the active note and insert text (`editor`)                           | Yes                 |
+| Toasts and host-rendered prompt forms (`ui`)                              | Yes                 |
+| Read unlocked note metadata and Markdown                                  | Yes                 |
+| HTTPS to named hosts (individually revocable)                             | Yes                 |
+| Secrets in the OS credential store                                        | Yes                 |
 | DOM, `fetch`, WebSockets, Tauri IPC, other plugins' secrets, locked notes | **Never available** |
 
 Nothing beyond `api.app` is free. `ui` and `commands` were once ungated, and
@@ -150,6 +150,7 @@ src-tauri/
 ├── src/plugin_net.rs    # the Rust side of plugin `net.fetch`: allowlist, redirects, caps
 ├── src/browser_host.rs  # native-messaging host for the browser clipper
 ├── src/search_index.rs  # per-Forge SQLite FTS5 keyword index, outside the Forge
+├── src/activity_log.rs  # per-Forge note history for the Timeline, outside the Forge
 ├── src/semantic.rs      # local embeddings index and query engine
 ├── src/cloud_forge.rs   # the optional iCloud Forge on macOS and iOS
 ├── src/backlinks_index.rs # wiki-link graph used by backlinks and the graph view

@@ -15,6 +15,7 @@ use chrono::{Local, NaiveDate};
 use serde_json::{json, Value};
 use walkdir::WalkDir;
 
+use crate::activity_log::Action;
 use crate::commands::notes::{save_markdown_with_conflict_using, sha256_hex};
 use crate::commands::search::search_notes_content_in;
 use crate::persist::write_atomic;
@@ -339,7 +340,7 @@ impl ToolContext {
         self.write_agent_note(forge_root, &rel, content, || {
             write_atomic(&path, content.as_bytes(), Some(0o600))
         })?;
-        self.note_changed(forge_root, &rel);
+        self.note_changed(forge_root, &rel, Action::Created);
         Ok(json!({ "path": rel, "created": true }))
     }
 
@@ -375,7 +376,15 @@ impl ToolContext {
         self.write_agent_note(forge_root, &rel, &existing, || {
             write_atomic(&path, existing.as_bytes(), Some(0o600))
         })?;
-        self.note_changed(forge_root, &rel);
+        self.note_changed(
+            forge_root,
+            &rel,
+            if created {
+                Action::Created
+            } else {
+                Action::Edited
+            },
+        );
         Ok(json!({ "path": rel, "created": created }))
     }
 
@@ -394,7 +403,20 @@ impl ToolContext {
             })?
             .conflict
             .map(|(conflict_name, _)| conflict_name);
-        self.note_changed(forge_root, &rel);
+        self.note_changed(forge_root, &rel, Action::Edited);
+        if let Some(conflict_name) = conflict_copy.as_deref() {
+            let copy = match rel.rsplit_once('/') {
+                Some((folder, _)) => format!("{folder}/{conflict_name}"),
+                None => conflict_name.to_string(),
+            };
+            crate::activity_log::record_in(
+                forge_root,
+                Action::Created,
+                &copy,
+                None,
+                crate::activity_log::Source::Agent,
+            );
+        }
         Ok(json!({ "path": rel, "written": true, "conflictCopy": conflict_copy }))
     }
 
@@ -446,9 +468,16 @@ impl ToolContext {
         Ok(path)
     }
 
-    fn note_changed(&self, forge_root: &Path, rel: &str) {
+    fn note_changed(&self, forge_root: &Path, rel: &str, action: Action) {
         crate::semantic::note_changed_in(rel, forge_root.to_path_buf());
         crate::search_index::note_changed_in(rel, forge_root.to_path_buf());
+        crate::activity_log::record_in(
+            forge_root,
+            action,
+            rel,
+            None,
+            crate::activity_log::Source::Agent,
+        );
     }
 }
 

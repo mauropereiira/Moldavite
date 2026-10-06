@@ -6,6 +6,7 @@ import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Note, NoteFile } from '@/types';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
@@ -93,6 +94,7 @@ beforeEach(() => {
   });
   useSettingsStore.setState({ isSettingsOpen: false, activeSettingsTab: 'general' });
   usePluginInstallStore.setState({ pending: null });
+  useTimelineStore.getState().close();
   useGraphStore.getState().close();
   useToastStore.setState({ toasts: [] });
   useNoteStore.setState({
@@ -185,6 +187,7 @@ describe('app deep links', () => {
   });
 
   it('opens Settings with a validated plugin request and yields transient views', () => {
+    useTimelineStore.getState().open();
     useGraphStore.getState().open();
 
     expect(routePluginInstallRequest('publish-wordpress')).toBe(true);
@@ -192,6 +195,7 @@ describe('app deep links', () => {
     expect(usePluginInstallStore.getState().pending?.id).toBe('publish-wordpress');
     expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
     expect(useSettingsStore.getState().activeSettingsTab).toBe('plugins');
+    expect(useTimelineStore.getState().isOpen).toBe(false);
     expect(useGraphStore.getState().isOpen).toBe(false);
   });
 

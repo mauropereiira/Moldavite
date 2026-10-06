@@ -80,9 +80,9 @@ JavaScript shell opener takes a desktop code path and fails on iOS. Both public
 links live in Settings → About.
 
 Mobile Agenda always shows the month calendar for daily/weekly note navigation,
-the selected day's events, then the timeline of notes changed that day; the phone
-has no Agenda switches in Settings. A saved desktop preference cannot hide the
-mobile note calendar. Event links open through `open_external_link`, since the
+then the selected day's events on the hourly timeline while calendar sync is on;
+the phone has no Agenda switches in Settings. A saved desktop preference cannot
+hide the mobile note calendar. Event links open through `open_external_link`, since the
 JavaScript shell opener is not permitted there.
 
 Settings hides on the phone: the Forges folder picker, Open Forge in
@@ -166,12 +166,15 @@ get trapped underneath Index.
 - `src/mobile.css` holds every phone style, scoped to
   `html[data-platform='mobile']`, with `--safe-top`, `--safe-bottom` and
   `--touch-target` tokens. `index.html` sets `viewport-fit=cover`.
-- The icon rail is the navigation. Index, Search, Agenda, Graph, Settings
-  and Trash are full-screen pages, closed with their × or by tapping
+- The icon rail is the navigation. Index, Search, Agenda, Graph, Timeline,
+  Settings and Trash are full-screen pages, closed with their × or by tapping
   their rail button again. Home (the M) is the welcome screen. Search matches
   titles and note text and raises the keyboard as it opens (the tap focuses a
   stand-in field, as New does). In the graph a tap names a star and a second
-  opens it.
+  opens it. The Timeline is the note history: the same activity log as the
+  desktop's, under Application Support in the app's sandbox. iOS has no file
+  watcher, so it records what the app does, and a change that synced in from
+  another device shows up from its file date at the next launch or Forge switch.
   `Layout.tsx` keeps phone Index and Agenda in overlay
   mode. On iPad windows at least 700px wide, a 280px Index sits beside the editor;
   narrower windows return to page navigation without closing the current note.
@@ -179,8 +182,8 @@ get trapped underneath Index.
   section list, then one section with a back control. The section lives in
   `settingsStore.settingsSection` so the rail's Settings button can walk
   back: a section returns to the list, the list closes Settings.
-- The Index footer keeps Today and New; Graph, Settings and Trash are the
-  rail's, and the version is in About. The footer hides while the
+- The Index footer keeps Today and New; Timeline, Graph, Settings and Trash
+  are the rail's, and the version is in About. The footer hides while the
   keyboard is up. Press and hold a note or folder for its Options menu
   (`useLongPress`; WebKit fires no `contextmenu` for it). A tapped `#tag`
   opens the Index filtered to it; iOS sends no click for a tap on editable
@@ -318,7 +321,7 @@ release work explicitly; it is not a claim that this branch is ready to upload.
 Settings ZIP, encrypted backup and JSON exports, individual Markdown/plaintext
 notes, and selected-note ZIP archives use `tauri-plugin-document-export`
 on iOS. Rust creates a complete file in a private cache directory, then the
-[native document picker](https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller/init(forexporting:ascopy:))
+[native document picker](<https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller/init(forexporting:ascopy:)>)
 copies it to the user's selected location. A Rust guard removes the staging
 directory after success, cancellation or failure. No arbitrary file path is
 accepted from JavaScript by this plugin. Desktop still selects a destination

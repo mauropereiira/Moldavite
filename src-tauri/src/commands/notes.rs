@@ -557,7 +557,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     Ok(notes)
 }
 
-fn list_notes_in(forge_root: &Path) -> Vec<NoteFile> {
+pub(crate) fn list_notes_in(forge_root: &Path) -> Vec<NoteFile> {
     let mut notes = Vec::new();
 
     // List daily notes (non-recursive, daily notes are only at root level)
@@ -763,6 +763,7 @@ pub(crate) fn write_note(
     };
 
     let path = note_write_target(&dir, &filename, is_daily, is_weekly)?;
+    let existed = note_name_is_taken(&path);
     // External-edit conflict safety: if the disk copy changed since the
     // frontend last read it (and differs from what we're about to write),
     // preserve the disk version as a sibling conflict copy first so the
@@ -810,11 +811,23 @@ pub(crate) fn write_note(
     crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        if existed {
+            crate::activity_log::Action::Edited
+        } else {
+            crate::activity_log::Action::Created
+        },
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
     if let Some(rel) = conflict_copy.as_deref() {
         crate::semantic::note_changed(&crate::semantic::note_rel_path(rel, is_daily, is_weekly));
         crate::search_index::note_changed(&crate::semantic::note_rel_path(
             rel, is_daily, is_weekly,
         ));
+        crate::activity_log::record(
+            crate::activity_log::Action::Created,
+            &crate::semantic::note_rel_path(rel, is_daily, is_weekly),
+        );
     }
 
     Ok(NoteWriteResult {
@@ -856,6 +869,10 @@ pub(crate) fn delete_note(
     crate::search_index::note_removed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Deleted,
+        &crate::semantic::note_rel_path(&filename, is_daily, is_weekly),
+    );
     Ok(())
 }
 
@@ -909,6 +926,10 @@ pub(crate) fn preserve_buffer_copy(
     crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &relative, is_daily, is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Created,
+        &crate::semantic::note_rel_path(&relative, is_daily, is_weekly),
+    );
     Ok(relative)
 }
 
@@ -921,6 +942,10 @@ pub(crate) fn create_note(
     let base_dir = get_standalone_dir()?;
     let (_, relative_path) = create_note_in(&base_dir, &title, folder_path.as_deref())?;
     index.update_note(&format!("notes/{relative_path}"), "");
+    crate::activity_log::record(
+        crate::activity_log::Action::Created,
+        &format!("notes/{relative_path}"),
+    );
     Ok(relative_path)
 }
 
@@ -980,6 +1005,7 @@ pub(crate) fn create_note_with_content(
     index.update_note(&rel, &frontmatter::parse_note(content).body);
     crate::semantic::note_changed(&rel);
     crate::search_index::note_changed(&rel);
+    crate::activity_log::record(crate::activity_log::Action::Created, &rel);
     Ok(filename)
 }
 
@@ -1043,6 +1069,10 @@ pub(crate) fn duplicate_note(
         is_daily,
         is_weekly,
     ));
+    crate::activity_log::record(
+        crate::activity_log::Action::Created,
+        &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
+    );
 
     Ok(new_filename)
 }
@@ -1182,6 +1212,10 @@ pub(crate) fn rename_note(
         &crate::semantic::note_rel_path(&old_filename, is_daily, is_weekly),
         &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
     );
+    crate::activity_log::record_move(
+        &crate::semantic::note_rel_path(&old_filename, is_daily, is_weekly),
+        &crate::semantic::note_rel_path(&new_filename, is_daily, is_weekly),
+    );
 
     Ok(())
 }
@@ -1265,6 +1299,11 @@ fn rewrite_inbound_links_in_roots(
             };
             let body = crate::frontmatter::parse_note(&rewritten).body;
             if let Some(source) = crate::backlinks_index::source_path_under(root, path) {
+                // The rename's own row covers this; the watcher must not log
+                // every linking note as edited.
+                if let Some(forge_root) = root.parent() {
+                    crate::activity_log::quiet_in(forge_root, &source);
+                }
                 if let Some(resolver) = resolver {
                     index.update_note_with(&source, &body, resolver);
                 } else {
@@ -1383,6 +1422,10 @@ pub(crate) fn move_note(
     crate::semantic::note_removed(&format!("notes/{}", note_path));
     crate::semantic::note_changed(&format!("notes/{}", new_relative_path));
     crate::search_index::note_renamed(
+        &format!("notes/{}", note_path),
+        &format!("notes/{}", new_relative_path),
+    );
+    crate::activity_log::record_move(
         &format!("notes/{}", note_path),
         &format!("notes/{}", new_relative_path),
     );

@@ -303,10 +303,10 @@
 
         <h2 id="obsidian-import">Import from Obsidian</h2>
         <p>
-          Open <strong>Settings → Data → Import from Obsidian</strong> and choose an Obsidian vault folder. Moldavite
-          first shows a read-only preview, then copies the vault into a <strong>new Forge</strong>;
-          it never edits, moves, or deletes anything in the source vault. You choose the new Forge
-          name and can switch to it from the completion summary.
+          Open <strong>Settings → Data → Import from Obsidian</strong> and choose an Obsidian vault
+          folder. Moldavite first shows a read-only preview, then copies the vault into a
+          <strong>new Forge</strong>; it never edits, moves, or deletes anything in the source
+          vault. You choose the new Forge name and can switch to it from the completion summary.
         </p>
         <ul>
           <li>
@@ -371,8 +371,8 @@
           </li>
           <li>
             A writing toolbar above the line you are on: turn it into a heading, list, quote or code
-            block, and set bold, italic, underline, strikethrough or a link. It steps aside while you
-            type and comes back when you move the mouse or the cursor; <kbd>alt</kbd>
+            block, and set bold, italic, underline, strikethrough or a link. It steps aside while
+            you type and comes back when you move the mouse or the cursor; <kbd>alt</kbd>
             <kbd>F10</kbd> moves the focus into it. The <strong>+</strong> beside the line opens the
             <code>/</code> menu, on a new line when the current one has text. Turn it off in
             <strong>Settings → Writing → Writing toolbar</strong>. It is desktop only.
@@ -501,12 +501,12 @@
         <p>
           Each Index section (Notes, Folders, Daily, Tags and Backlinks) opens with a filled header
           band that holds its name, a count and its actions, such as A–Z, New and Today. In the
-          full-window Index every section is a card, laid out in as many columns as the window
-          fits and one on a phone; pinned beside the editor, the bands run across the column.
-          The Index stays the size of the window: the sections share its height and a long list
-          scrolls inside its own card. Click a section's name to fold it to its band and give
-          its room to the others. Folder contents are indented beneath
-          their folder with a subtle guide line that makes the hierarchy clear at a glance.
+          full-window Index every section is a card, laid out in as many columns as the window fits
+          and one on a phone; pinned beside the editor, the bands run across the column. The Index
+          stays the size of the window: the sections share its height and a long list scrolls inside
+          its own card. Click a section's name to fold it to its band and give its room to the
+          others. Folder contents are indented beneath their folder with a subtle guide line that
+          makes the hierarchy clear at a glance.
         </p>
         <ul>
           <li>
@@ -540,6 +540,15 @@
             <strong>Tabs</strong>: the note you open replaces the unpinned tab you were reading;
             <kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click a note to keep both. Close a tab with its ×, a middle
             click, or <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>W</kbd>.
+          </li>
+          <li>
+            <strong>Timeline</strong>: the clock on the rail, or <strong>Timeline</strong> at the
+            foot of the Index, lists what happened to your notes over the past week, a day at a
+            time: created, edited, renamed, moved, moved to Trash, deleted, restored, locked and
+            unlocked, with the folder and the time. Today and yesterday are open; click any other
+            day to open it, <strong>Show more</strong> for the rest of a busy day, and
+            <strong>Previous week</strong> to go further back. Click a row to open the note where it
+            is now. <a href="#timeline">How it is recorded</a>.
           </li>
           <li>
             <strong>Shortcut help</strong>: press <kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>/</kbd> for the
@@ -713,8 +722,8 @@
           The per-Forge index updates incrementally on save, delete, rename, trash, and restore.
           Changing models performs a complete re-index with live progress. If results seem stale,
           use
-          <strong>Rebuild index</strong> in <strong>Settings → AI &amp; Agents</strong> to embed the Forge again from scratch. Internal
-          index data lives at <code>&lt;Forge&gt;/.index/</code>.
+          <strong>Rebuild index</strong> in <strong>Settings → AI &amp; Agents</strong> to embed the
+          Forge again from scratch. Internal index data lives at <code>&lt;Forge&gt;/.index/</code>.
         </p>
 
         <h2 id="safety">Safety, privacy, and external edits</h2>
@@ -791,20 +800,31 @@
           one copy from overwriting another.
         </p>
 
-        <h3>Agenda</h3>
+        <h3 id="timeline">The Timeline's record</h3>
         <p>
-          The Agenda shows a month, the selected day's events, and a timeline of what changed that
-          day: every daily, weekly and standalone note you created or edited, newest first, with its
-          folder, whether it was created or edited, and the time. Click a row to open the note. A
-          locked note is listed by its name only. Today's list updates as you write and as files
-          change on disk.
+          Moldavite keeps the Timeline's record itself, one per Forge, in the app's data folder on
+          each device and never inside the Forge, so it is not synced and a synced Forge has a
+          separate record on every device. It holds note names, folders, actions and times, never
+          what a note says; a locked note is its name only. Nothing in it is uploaded. Deleting a
+          Forge deletes its record.
         </p>
         <p>
-          The times come from the files themselves. A file keeps one modified time, so an earlier
-          day lists only the notes whose latest edit fell on it. On a Mac, iPhone, iPad and Windows
-          a note keeps its creation time across saves; Linux resets it on every save, so there each
-          change is listed as an edit. A note still in iCloud and not yet on the device uses the
-          time iCloud reports for its contents.
+          The app records its own changes, changes another program makes while Moldavite is open,
+          and writes from an MCP client, which are marked "by an agent". Saves to the same note
+          within half an hour count as one edit. The first time the Timeline runs, and each time
+          Moldavite opens, it fills in from the files' dates what happened while it was not
+          watching; those rows say "file date". A file keeps only its last modified time, so a note
+          edited on two days before then shows only the later one. Linux resets a file's creation
+          time on every save, so there those rows are edits. On iPhone and iPad, a change synced
+          from another device appears from its file date at the next launch. The record keeps 180
+          days.
+        </p>
+
+        <h3>Agenda</h3>
+        <p>
+          The Agenda shows a month and, with calendar sync on, the selected day's events on an
+          hourly timeline: all-day events at the top, a line at the current time, and overlapping
+          events side by side. Pick a day in the month to see its events.
         </p>
 
         <h3>Calendars</h3>

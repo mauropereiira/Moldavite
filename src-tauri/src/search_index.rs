@@ -164,7 +164,7 @@ fn index_root() -> PathBuf {
 /// Forge that no longer exists hashes by the path as given, which is exactly
 /// what [`delete_for`] needs when it runs before the directory is removed.
 /// A Windows `\\?\` prefix is stable across calls, so hashing it is fine.
-fn forge_id(forge_root: &Path) -> String {
+pub(crate) fn forge_id(forge_root: &Path) -> String {
     use sha2::{Digest, Sha256};
     let canonical = fs::canonicalize(forge_root).unwrap_or_else(|_| forge_root.to_path_buf());
     let mut hasher = Sha256::new();
