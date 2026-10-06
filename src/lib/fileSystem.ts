@@ -1263,7 +1263,10 @@ function padRaggedTables(markdown: string): string {
  */
 export function markdownToHtml(markdown: string, options?: ConversionOptions): string {
   if (!markdown || markdown.trim() === '') return '';
-  return convertWith(options, () => renderMarkdown(markdown));
+  // A block's source is its lines split on `\n`; a `\r` left on them would
+  // be saved inside the block and between blocks.
+  const normalized = markdown.replace(/\r\n?/g, '\n');
+  return convertWith(options, () => renderMarkdown(normalized));
 }
 
 /** `[[Note Name]]` or `[[Display Text|Note Name]]`; inside a table the separator is written `\|`. */
@@ -1393,10 +1396,9 @@ function renderMarkdown(markdown: string): string {
  */
 function renderToBody(markdown: string, lines?: string[], references?: unknown): HTMLElement {
   const prepared = padRaggedTables(wikiLinksToHtml(markdown));
-  // Block line numbers index the note itself, so a rewrite that moved lines,
-  // or a lone `\r` that markdown-it counts as a line break, turns mapping off.
-  const mappable =
-    lines && prepared.split('\n').length === lines.length && !/\r(?!\n)/.test(markdown);
+  // Block line numbers index the note itself, so a rewrite that moved lines
+  // turns mapping off.
+  const mappable = lines && prepared.split('\n').length === lines.length;
   const env: SourceMapEnv = { listMarkers: true, references };
   if (mappable) env.sourceMap = sourceName(markdown);
   let html = md.render(prepared, env);
