@@ -48,9 +48,9 @@ describe('the phone stylesheet on a landscape phone', () => {
     );
   });
 
-  it('gives the pinned bar and the Index header back to the content while typing', () => {
+  it('gives the top bar and the Index header back to the content while typing', () => {
     expect(
-      rule(landscape, "html[data-platform='mobile'][data-keyboard='open'] .pinned-bar")
+      rule(landscape, "html[data-platform='mobile'][data-keyboard='open'] .tab-bar")
     ).toContain('display: none');
     const header = landscape.slice(landscape.indexOf('.forge-switcher:not(:focus-within)'));
     expect(header).toContain('> .app-overlay-controls');

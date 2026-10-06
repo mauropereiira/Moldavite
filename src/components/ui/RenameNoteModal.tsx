@@ -3,6 +3,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getNoteTitleError, MAX_NOTE_TITLE_LENGTH } from '@/lib/validation';
 import type { NoteFile } from '@/types';
 import { DotLoader } from './DotLoader';
+import { CloseButton } from './CloseButton';
 
 interface RenameNoteModalProps {
   note: NoteFile;
@@ -63,13 +64,16 @@ export function RenameNoteModal({ note, onRename, onClose }: RenameNoteModalProp
         style={{ borderRadius: 'var(--radius-md)' }}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3
-          id="rename-note-title"
-          className="text-base font-semibold mb-2"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Rename note
-        </h3>
+        <div className="dialog-head">
+          <h3
+            id="rename-note-title"
+            className="text-base font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Rename note
+          </h3>
+          <CloseButton onClick={onClose} label="Close" disabled={isRenaming} />
+        </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
           Inbound wiki-links will be updated automatically.
         </p>

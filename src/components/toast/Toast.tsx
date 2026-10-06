@@ -111,7 +111,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onDismiss }) => {
                     setIsExiting(true);
                     action.onClick();
                   }}
-                  className="text-sm font-semibold underline rounded focus-ring"
+                  className="pad-hover text-sm font-semibold focus-ring"
                   style={{ color: accent }}
                 >
                   {action.label}

@@ -31,7 +31,7 @@ export const SidebarSearch = forwardRef<HTMLInputElement, SidebarSearchProps>(
           {query && (
             <button
               onClick={onClear}
-              className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-colors"
+              className="pad-hover absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-colors"
               style={{ color: 'var(--text-muted)' }}
               aria-label="Clear search"
             >

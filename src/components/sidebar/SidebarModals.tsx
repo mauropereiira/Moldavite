@@ -1,6 +1,7 @@
 import { getNoteTitleError } from '@/lib';
 import type { NoteFile, FolderInfo } from '@/types';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 /**
  * Sidebar modal props bundle. These five modals share backdrop styling,
@@ -86,13 +87,16 @@ export function SidebarModals(props: SidebarModalsProps) {
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3
-              id="delete-note-title"
-              className="text-base font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Delete note
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="delete-note-title"
+                className="text-base font-semibold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Delete note
+              </h3>
+              <CloseButton onClick={onDeleteNoteCancel} label="Close" />
+            </div>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete &quot;{deleteNote.name.replace(/\.md$/, '')}&quot;? It will be moved to trash
               for 7 days.
@@ -121,13 +125,16 @@ export function SidebarModals(props: SidebarModalsProps) {
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3
-              id="create-note-title"
-              className="text-base font-semibold mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              New Note
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="create-note-title"
+                className="text-base font-semibold mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                New Note
+              </h3>
+              <CloseButton onClick={onCancelCreateNote} label="Close" />
+            </div>
             <input
               type="text"
               value={newNoteTitle}
@@ -175,13 +182,16 @@ export function SidebarModals(props: SidebarModalsProps) {
             style={{ borderRadius: 'var(--radius-md)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3
-              id="create-folder-title"
-              className="text-base font-semibold mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              New Folder
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="create-folder-title"
+                className="text-base font-semibold mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                New Folder
+              </h3>
+              <CloseButton onClick={onCancelCreateFolder} label="Close" />
+            </div>
             <input
               type="text"
               value={newFolderName}
@@ -222,13 +232,16 @@ export function SidebarModals(props: SidebarModalsProps) {
             style={{ borderRadius: 'var(--radius-md)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3
-              id="rename-folder-title"
-              className="text-base font-semibold mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Rename Folder
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="rename-folder-title"
+                className="text-base font-semibold mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Rename Folder
+              </h3>
+              <CloseButton onClick={onCancelRenameFolder} label="Close" />
+            </div>
             <input
               type="text"
               value={renameFolderName}
@@ -265,13 +278,16 @@ export function SidebarModals(props: SidebarModalsProps) {
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3
-              id="delete-folder-title"
-              className="text-base font-semibold mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Delete Folder
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="delete-folder-title"
+                className="text-base font-semibold mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Delete Folder
+              </h3>
+              <CloseButton onClick={onDeleteFolderCancel} label="Close" />
+            </div>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete &quot;{deleteFolder.name}&quot; and all its contents? They will be moved to
               trash for 7 days.

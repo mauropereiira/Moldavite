@@ -1,6 +1,7 @@
 import { usePdfExportStore } from '@/stores';
 import type { PdfPageSize, PdfMarginPreset } from '@/stores';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface PdfExportOptionsModalProps {
   isOpen: boolean;
@@ -60,13 +61,16 @@ export function PdfExportOptionsModal({
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        <h3
-          id="pdf-export-options-title"
-          className="text-base font-semibold mb-4"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {title}
-        </h3>
+        <div className="dialog-head">
+          <h3
+            id="pdf-export-options-title"
+            className="text-base font-semibold mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {title}
+          </h3>
+          <CloseButton onClick={onClose} label="Close" />
+        </div>
 
         <div className="space-y-3 mb-6">
           <label className="block">

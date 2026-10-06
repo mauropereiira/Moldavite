@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
+import { JACK_O_LANTERN_SMALL_SRC } from '@/lib/seasons';
 import { SettingsModal } from './SettingsModal';
 
 const platform = vi.hoisted(() => ({ mobile: true }));
@@ -50,7 +51,7 @@ describe('Settings seasonal art', () => {
       const pumpkin = screen.getByRole('img', { name: 'Happy autumn' });
       expect(pumpkin).toHaveAttribute('title', 'Happy autumn');
       expect(pumpkin).not.toHaveAttribute('aria-hidden');
-      expect(pumpkin.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+      expect(pumpkin.style.maskImage).toBe(`url("${JACK_O_LANTERN_SMALL_SRC}")`);
       expect(pumpkin.tagName).toBe('SPAN');
       expect(pumpkin.closest(mobile ? 'nav' : '[role="tablist"]')).not.toBeNull();
 

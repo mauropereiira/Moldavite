@@ -8,6 +8,7 @@ import { useForgeStore } from '@/stores/forgeStore';
 import { useObsidianImportStore } from '@/stores/obsidianImportStore';
 import { getForgeNameError } from '@/lib/obsidianImport';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 export function ImportSection() {
   const stage = useObsidianImportStore((state) => state.stage);
@@ -92,16 +93,7 @@ function Wizard({ chooseVault }: { chooseVault: () => Promise<void> }) {
           <h2 id="obsidian-import-title" className="text-lg font-semibold obs-import-title">
             {store.stage === 'summary' ? 'Import complete' : 'Import Obsidian vault'}
           </h2>
-          {!importing && (
-            <button
-              type="button"
-              onClick={close}
-              className="settings-close obs-import-close"
-              aria-label="Close"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          )}
+          {!importing && <CloseButton onClick={close} label="Close" />}
         </div>
 
         {store.stage === 'analyzing' && <Busy label="Analyzing vault…" />}

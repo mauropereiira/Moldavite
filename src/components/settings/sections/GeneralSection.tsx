@@ -27,6 +27,7 @@ import { InfoTooltip, SegmentedControl, Toggle } from '../common';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import SyncedForgeControl from '../SyncedForgeControl';
 import DefaultMarkdownAppControl from '../DefaultMarkdownAppControl';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }> = [
   { value: 5, label: '5 min' },
@@ -424,13 +425,23 @@ export function GeneralSection() {
             className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
             style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
           >
-            <h3
-              id="clear-all-notes-title"
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--error)' }}
-            >
-              Delete All Notes
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="clear-all-notes-title"
+                className="text-lg font-semibold mb-2"
+                style={{ color: 'var(--error)' }}
+              >
+                Delete All Notes
+              </h3>
+              <CloseButton
+                onClick={() => {
+                  setShowClearConfirm(false);
+                  setConfirmText('');
+                }}
+                label="Close"
+                disabled={isClearing}
+              />
+            </div>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               This will permanently delete ALL notes. This cannot be undone.
             </p>

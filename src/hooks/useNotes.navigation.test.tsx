@@ -4,7 +4,6 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
-import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
 
@@ -17,8 +16,8 @@ vi.mock('@/lib/ipc', () => ({
 import { useNotes } from './useNotes';
 
 const noteFile: NoteFile = {
-  name: 'After timeline.md',
-  path: 'notes/After timeline.md',
+  name: 'After graph.md',
+  path: 'notes/After graph.md',
   isDaily: false,
   isWeekly: false,
   isLocked: false,
@@ -43,7 +42,6 @@ beforeEach(() => {
     isLoading: false,
     isSaving: false,
   });
-  useTimelineStore.getState().close();
   useGraphStore.getState().close();
 });
 
@@ -77,18 +75,6 @@ describe('useNotes navigation', () => {
       ).toBe(true);
     }
   );
-
-  it('opens a sidebar note after the timeline and yields the editor pane', async () => {
-    const hook = renderHook(() => useNotes());
-
-    act(() => useTimelineStore.getState().open());
-    expect(useTimelineStore.getState().isOpen).toBe(true);
-
-    await act(() => hook.result.current.loadNote(noteFile));
-
-    expect(useNoteStore.getState().currentNote?.id).toBe(noteFile.path);
-    expect(useTimelineStore.getState().isOpen).toBe(false);
-  });
 
   it('also closes the graph overlay when navigation comes from outside the graph', async () => {
     const hook = renderHook(() => useNotes());

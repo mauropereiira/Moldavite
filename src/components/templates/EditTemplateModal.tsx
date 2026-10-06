@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import type { Template } from '@/types/template';
 import { TemplateIcon, availableIcons } from './TemplateIcon';
 import { useToast } from '@/hooks/useToast';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface EditTemplateModalProps {
   isOpen: boolean;
@@ -132,13 +133,7 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
             >
               Edit Template
             </h2>
-            <button
-              onClick={handleClose}
-              className="btn btn-ghost p-1 focus-ring"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <CloseButton onClick={handleClose} label="Close modal" />
           </div>
           <div className="p-6 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--warning)' }} />
@@ -180,14 +175,7 @@ export function EditTemplateModal({ isOpen, onClose, template, onSave }: EditTem
           >
             Edit Template
           </h2>
-          <button
-            onClick={handleClose}
-            disabled={isSaving}
-            className="btn btn-ghost p-1 focus-ring disabled:opacity-50"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={handleClose} disabled={isSaving} label="Close modal" />
         </div>
 
         {/* Form - scrollable */}

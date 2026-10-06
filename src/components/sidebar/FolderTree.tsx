@@ -3,9 +3,12 @@ import type { FolderInfo, NoteFile } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { FolderItem } from './FolderItem';
 
+const NO_NOTES: NoteFile[] = [];
+
 interface FolderTreeProps {
   folders: FolderInfo[];
-  notes: NoteFile[];
+  /** Each folder's notes, keyed by folder path, in display order. */
+  notesByFolder: ReadonlyMap<string, NoteFile[]>;
   expandedFolders: string[];
   onToggleFolder: (path: string) => void;
   onFolderContextMenu: (e: React.MouseEvent, folder: FolderInfo) => void;
@@ -25,7 +28,7 @@ interface FolderTreeProps {
 
 export function FolderTree({
   folders,
-  notes,
+  notesByFolder,
   expandedFolders,
   onToggleFolder,
   onFolderContextMenu,
@@ -57,7 +60,7 @@ export function FolderTree({
           onContextMenu={(e) => onFolderContextMenu(e, folder)}
           onNoteDrop={(notePath) => onNoteDrop(notePath, folder.path)}
           onFolderDrop={(folderPath) => onFolderDrop(folderPath, folder.path)}
-          notes={notes}
+          notes={notesByFolder.get(folder.path) ?? NO_NOTES}
           isNoteActive={isNoteActive}
           onNoteClick={onNoteClick}
           onNoteSelectionClick={onNoteSelectionClick}
@@ -71,7 +74,7 @@ export function FolderTree({
             folder.children.length > 0 && (
               <FolderTree
                 folders={folder.children}
-                notes={notes}
+                notesByFolder={notesByFolder}
                 expandedFolders={expandedFolders}
                 onToggleFolder={onToggleFolder}
                 onFolderContextMenu={onFolderContextMenu}

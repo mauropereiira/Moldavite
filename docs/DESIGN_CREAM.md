@@ -181,29 +181,51 @@ use.
 The palette is only half of it. The layout was rebuilt too, and these rules are
 what stop it drifting back into a generic notes app.
 
-**Icons are earned, not default.** The sidebar, calendar, timeline, tab bar and
-editor footer are type-only: an affordance there gains a **visible text label**
+**Icons are earned, not default.** The sidebar, calendar, timeline and editor
+footer are type-only: an affordance there gains a **visible text label**
 rather than a smaller icon, and expand/collapse is a CSS hairline caret.
 
 Icons are used deliberately in four places, and only these: the **icon rail**
 (where there is no room for labels and the tooltip carries the name), **folder
 rows** (`Folder`/`FolderOpen` — in a list mixing folders, notes and tags the
 glyph's job is to say which *kind* of row this is, which type cannot), the
-**writing controls** (the writing toolbar's + and the phone formatting row's
+**top bar's pin and close marks** (on tabs, in the Open tabs menu and in the
+note's corner, where a word on every tab would drown the names; a pinned
+note's mark takes the accent), **writing controls** (the writing toolbar's + and the phone formatting row's
 Undo and Redo, which are known by their shapes; Format and Insert beside them
-are words), and **dialogs**. All of them use `lucide-react` at `strokeWidth={1.25}` in
-`--text-muted`. Anything heavier reads as a different app.
+are words), and **dialogs**. All of them use `lucide-react`
+at `strokeWidth={1.25}` in `--text-muted`. Anything heavier reads as a different app.
 
 This rule was once written as "zero icons in chrome" and that went too far —
 removing the folder glyph made the Index harder to scan, not cleaner.
 
+**One close control.** Every overlay, page and dialog closes with the same
+thin × the open note has in its corner: `CloseButton`, a 16px `X` at
+`strokeWidth={1.25}` in a 28px square (44pt on a phone) that takes the hover
+fill. Its tooltip carries the shortcut, such as "Close (Esc)"; there is no
+hint line beside it.
+
+**Padded hover.** A hover or pressed fill never touches the letters. Text
+controls take `--control-pad-y` by `--control-pad-x` (3px by 6px) with matching
+negative margins, so nothing moves (`pad-hover`, or `pad-hover-inline` inside a
+sentence); a row whose fill spans the list takes `--row-pad-x` at each side.
+The fill is always `--hover-overlay`, and `--active-overlay` while pressed.
+Chrome controls never underline; underlines belong to links in a note.
+
 **No fills, no boxes.** Selection is a 2px ink left-marker, not a filled card.
 Counts are plain right-aligned numerals, not badge pills. Tags are plain
 `#tag` text. Buttons are type on a hairline. Nothing has a background tint
-except the ground itself.
+except the ground itself, and the Index's section bands and cards below.
 
 **Section labels are editorial.** `10px`, `letter-spacing: 0.14em`, uppercase,
-`--text-muted`, on a `1px solid var(--border-muted)` hairline.
+`--text-muted`, on a `1px solid var(--border-muted)` hairline. The Index's own
+sections are the exception: each opens with a filled band (`--bg-inset`
+between `--border-default` hairlines, 11px uppercase in `--text-primary`)
+holding the toggle, a square count chip and the section's actions. In the
+Index each section is a card on `--bg-card` (in light themes a warm step from
+the page towards the sidebar's ground, in dark ones `--bg-elevated`); pinned,
+the bands run across the column. The Index is fixed to the window: the
+sections share its height and each list scrolls inside its own card.
 
 **One measure.** `--editor-measure` governs both the note header and the prose
 body. Never hardcode a column width beside it. It is **user-controlled** —
