@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { SearchMode } from '@/stores';
 import type { SemanticHit } from '@/lib/semantic';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { useSelectedInView } from './useSelectedInView';
 
 /**
  * Keyword / Semantic mode chips shown under the sidebar search input.
@@ -21,7 +22,7 @@ export function SearchModeChips({
         type="button"
         onClick={() => onModeChange(target)}
         aria-pressed={isActive}
-        className="text-[11px] transition-colors focus-ring"
+        className="pad-hover text-[11px] transition-colors focus-ring"
         style={{
           color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
           fontWeight: isActive ? 500 : 400,
@@ -76,6 +77,7 @@ export function SidebarSemanticResults({
   onOpen,
   onClear,
 }: SidebarSemanticResultsProps) {
+  const listRef = useSelectedInView<HTMLDivElement>(selectedIndex);
   return (
     <div className="px-3 py-2">
       <div className="section-header">
@@ -85,7 +87,7 @@ export function SidebarSemanticResults({
             : `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} by meaning`}
         </h2>
       </div>
-      <div className="pt-2" role="listbox" aria-label="Semantic search results">
+      <div ref={listRef} className="pt-2" role="listbox" aria-label="Semantic search results">
         {hits.map((hit, index) => {
           const isActive = index === selectedIndex;
           const folder = semanticHitFolder(hit.path);
@@ -123,7 +125,11 @@ export function SidebarSemanticResults({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No results for “{query}”.</span>{' '}
-              <button onClick={onClear} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onClear}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Clear search
               </button>
             </div>

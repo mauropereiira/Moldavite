@@ -67,13 +67,6 @@ export const QUICK_SWITCHER_COMMANDS: readonly QuickSwitcherCommand[] = [
     keywords: ['graph', 'connections', 'view'],
   },
   {
-    id: 'toggle-timeline',
-    title: 'Toggle Timeline',
-    category: 'view',
-    keywords: ['timeline', 'history', 'right panel'],
-    desktopOnly: true,
-  },
-  {
     id: 'toggle-theme',
     title: 'Toggle Theme',
     category: 'preferences',

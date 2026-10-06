@@ -263,7 +263,7 @@ fn rename_folder_from(
         .strip_prefix(standalone_dir)
         .map_err(|_| "Failed to compute new path".to_string())?
         .to_string_lossy()
-        .to_string();
+        .replace('\\', "/");
 
     Ok(new_relative_path)
 }
@@ -446,8 +446,8 @@ fn notes_under(dir: &Path) -> Vec<String> {
         .collect()
 }
 
-/// A folder moves in one rename, which the watcher sees only as a directory
-/// event and ignores, so every note inside is re-keyed here.
+/// A folder moves in one rename. The watcher reconciles the folder too, but
+/// only after its debounce, so every note inside is re-keyed here at once.
 fn reindex_moved_folder(
     forge_root: &Path,
     old_folder: &str,
@@ -553,6 +553,19 @@ mod tests {
         let moved = move_folder_from(&notes, "Projects/Active", Some("Archive")).unwrap();
         assert_eq!(moved, "Archive/Active");
         assert!(notes.join("Archive/Active").is_dir());
+    }
+
+    #[test]
+    fn rename_nested_folder_returns_a_forward_slash_address() {
+        let tmp = TempDir::new("rename-nested");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Projects/Old")).unwrap();
+        fs::write(notes.join("Projects/Old/note.md"), "x").unwrap();
+
+        let renamed = rename_folder_from(&notes, "Projects/Old", "New").unwrap();
+
+        assert_eq!(renamed, "Projects/New");
+        assert!(notes.join("Projects/New/note.md").is_file());
     }
 
     #[test]

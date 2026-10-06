@@ -1,5 +1,5 @@
 /**
- * ShortcutRow — renders a single keyboard-shortcut entry (description + kbd chips).
+ * ShortcutRow: renders a single keyboard-shortcut entry (description + kbd chips).
  */
 
 export interface ShortcutRowProps {

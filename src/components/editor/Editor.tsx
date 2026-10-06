@@ -68,6 +68,7 @@ import {
   useThemeStore,
   useNoteColorsStore,
   useTagStore,
+  useQuickSwitcherStore,
 } from '@/stores';
 import { isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { editorHandle } from '@/stores/editorHandleStore';
@@ -90,6 +91,7 @@ import { checkLooseNoteOnDisk } from '@/lib/looseFiles';
 import { CloudNotePlaceholder } from './CloudNotePlaceholder';
 import { NoteHeader } from './NoteHeader';
 import { NoteCloseButton } from './NoteCloseButton';
+import { WritingToolbar } from './WritingToolbar';
 
 const MobileFormattingBar = React.lazy(() =>
   import('./MobileFormattingBar').then((module) => ({ default: module.MobileFormattingBar }))
@@ -119,7 +121,7 @@ export function Editor() {
   // keystroke — it reads and displays `currentNote.content` directly. Narrowed
   // to just the fields this component uses (via useShallow) so unrelated store
   // changes (recent notes, unlocked notes, ...) don't also trigger a re-render.
-  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, openTabs, closeTab } =
+  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, closeTab } =
     useNoteStore(
       useShallow((state) => ({
         currentNote: state.currentNote,
@@ -127,7 +129,6 @@ export function Editor() {
         isSaving: state.isSaving,
         setSelectedDate: state.setSelectedDate,
         notes: state.notes,
-        openTabs: state.openTabs,
         closeTab: state.closeTab,
       }))
     );
@@ -145,8 +146,10 @@ export function Editor() {
     showTabBar,
     showEditorFooter,
     showBacklinksPanel,
+    showWritingToolbar,
   } = useSettingsStore();
   const isViewOnly = useNoteStore(isCurrentNoteViewOnly);
+  const hasPins = useQuickSwitcherStore((state) => state.pinnedNoteIds.length > 0);
   const { theme, setTheme } = useThemeStore();
   const { loadDailyNote, createNote, loadNote, renameNote, refresh: refreshNotes } = useNotes();
   const { trashNote } = useTrash();
@@ -1106,10 +1109,16 @@ export function Editor() {
     onInsertLink: handleInsertLink,
   });
 
+  // Pins stay reachable with the tab bar off, and from the welcome screen.
+  const tabBar = (showTabBar || hasPins) && <TabBar />;
+
   if (!currentNote) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <WelcomeEmptyState onCreateToday={handleCreateToday} onCreateNote={handleCreateNote} />
+      <div className="editor-welcome flex flex-col h-full">
+        {tabBar}
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <WelcomeEmptyState onCreateToday={handleCreateToday} onCreateNote={handleCreateNote} />
+        </div>
       </div>
     );
   }
@@ -1146,8 +1155,7 @@ export function Editor() {
         />
       )}
 
-      {/* A single preview needs no chrome; multiple tabs must always be manageable. */}
-      {showTabBar && openTabs.length > 1 && <TabBar />}
+      {tabBar}
 
       <ExternalChangeBanner />
       <LooseFileBanner />
@@ -1160,21 +1168,19 @@ export function Editor() {
         style={{ backgroundColor: noteBackgroundColor || 'var(--bg-editor)' }}
         data-template-prompt={showTemplatePrompt ? '' : undefined}
       >
-        {/* Close the open note. A zero-height sticky row so it stays pinned
-            while the note scrolls, costs no layout space, and sits naturally
-            below the tab bar when that is showing. Needed because the tab bar
-            hides itself for a single tab, which otherwise leaves ⌘W as the
-            only way to close a note. */}
-        {/* Sticky rail of zero height so it costs no layout space, with the
-            button absolutely positioned inside it. The button must be out of
-            flow: a flex child of a zero-height row collapses to its padding
-            box and the label overflows below it, which misaligns the hover
-            wash from the text. */}
+        {/* Pin and close the open note. A zero-height sticky row so they stay
+            in the corner while the note scrolls and cost no layout space,
+            with the buttons absolutely positioned inside it: a flex child of
+            a zero-height row collapses to its padding box. */}
         <div
           className="editor-paper-close-rail"
           style={{ position: 'sticky', top: 0, height: 0, zIndex: 12, pointerEvents: 'none' }}
         >
-          <NoteCloseButton onClose={() => closeTab(currentNote.id)} title={currentNote.title} />
+          <NoteCloseButton
+            noteId={currentNote.id}
+            onClose={() => closeTab(currentNote.id)}
+            title={currentNote.title}
+          />
         </div>
 
         <EditorErrorBoundary resetKey={currentNote?.id}>
@@ -1246,6 +1252,14 @@ export function Editor() {
             editor &&
             !editor.isDestroyed && (
               <SelectionToolbar editor={editor} onInsertLink={handleInsertLink} />
+            )}
+          {!isCloudPlaceholder &&
+            !isViewOnly &&
+            showWritingToolbar &&
+            !isMobilePlatform() &&
+            editor &&
+            !editor.isDestroyed && (
+              <WritingToolbar editor={editor} onInsertLink={handleInsertLink} />
             )}
           {/* On a phone the formatting row carries the image actions instead. */}
           {!isCloudPlaceholder &&

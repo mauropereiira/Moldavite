@@ -1,8 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { AboutSection } from './sections/AboutSection';
-import { EditorSection } from './sections/EditorSection';
 import { Toggle } from './common';
 
 const platform = vi.hoisted(() => ({ mobile: false }));
@@ -26,32 +25,24 @@ describe('Settings on a phone', () => {
     platform.mobile = false;
   });
 
-  it('does not offer focus mode on a phone', () => {
-    platform.mobile = true;
-    renderAppearance();
-    expect(screen.queryByRole('switch', { name: 'Enable focus mode' })).not.toBeInTheDocument();
-  });
-
-  it('keeps the focus mode shortcut on the desktop', () => {
-    renderAppearance();
-    expect(screen.getByText(/leave just the note\. .+/)).toBeInTheDocument();
-  });
-
   it('spells colour one way', () => {
     renderAppearance();
     expect(screen.getByRole('radiogroup', { name: 'Colour preset' })).toBeInTheDocument();
   });
 
+  it('offers no asteroid cursor on a phone, which has no pointer for it', () => {
+    platform.mobile = true;
+    renderAppearance();
+    fireEvent.click(screen.getByRole('button', { name: 'Home screen' }));
+    expect(screen.getByRole('switch', { name: 'Seasonal touches' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Asteroid cursor' })).not.toBeInTheDocument();
+  });
+
   it('lists no keyboard shortcuts in About on a phone', () => {
     platform.mobile = true;
     render(<AboutSection />);
-    expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
-  });
-
-  // Features has the same switch.
-  it('does not repeat the Tags switch in Editor', () => {
-    render(<EditorSection />);
-    expect(screen.queryByRole('switch', { name: 'Enable tags' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Keyboard shortcuts')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Privacy policy' })).toBeInTheDocument();
   });
 
   it('can disable a switch', () => {

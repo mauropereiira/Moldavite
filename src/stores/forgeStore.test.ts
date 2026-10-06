@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerAutosaveFlush, registerAutosavePendingProbe } from '@/lib/autosaveFlush';
+import {
+  registerAutosaveFlush,
+  registerAutosavePendingProbe,
+  registerHeldSaves,
+} from '@/lib/autosaveFlush';
 import { getActiveForgeName, rememberActiveForge } from '@/lib/forgeStorage';
 import { useForgeStore } from './forgeStore';
 
@@ -69,6 +73,43 @@ describe('synced Forge selection', () => {
     } finally {
       releaseFlush();
       releaseProbe();
+    }
+  });
+});
+
+describe('switching with a save held after a failed leave', () => {
+  it('retries the held save and refuses to switch while it still fails', async () => {
+    const saveNow = vi.fn().mockResolvedValue(undefined);
+    const releaseHeld = registerHeldSaves({ saveNow, isPending: () => true });
+    try {
+      await expect(useForgeStore.getState().switchTo('Other')).rejects.toThrow(
+        'Forge change cancelled because a note could not be saved'
+      );
+      expect(saveNow).toHaveBeenCalledTimes(1);
+      expect(invoke).not.toHaveBeenCalled();
+    } finally {
+      releaseHeld();
+    }
+  });
+
+  it('switches once the held save goes through', async () => {
+    const reload = vi.fn();
+    vi.stubGlobal('window', { location: { reload } });
+    let held = true;
+    const releaseHeld = registerHeldSaves({
+      saveNow: async () => {
+        held = false;
+      },
+      isPending: () => held,
+    });
+    invoke.mockResolvedValue('Other');
+    try {
+      await useForgeStore.getState().switchTo('Other');
+      expect(invoke).toHaveBeenCalledWith('set_active_forge', { name: 'Other' });
+      expect(reload).toHaveBeenCalledOnce();
+    } finally {
+      releaseHeld();
+      vi.unstubAllGlobals();
     }
   });
 });

@@ -37,6 +37,7 @@ export {
   applyEditorWidth,
   applyFocusMode,
   applyFontFamily,
+  resolveSettingsTarget,
 } from './settingsStore';
 export type {
   FontSize,
@@ -47,6 +48,7 @@ export type {
   IconRailSide,
   SettingsState,
   SettingsTab,
+  SettingsTarget,
 } from './settingsStore';
 
 export { useCalendarStore } from './calendarStore';
@@ -61,12 +63,11 @@ export type { PluginInstallRequest } from './pluginInstallStore';
 export { editorHandle } from './editorHandleStore';
 export { useFolderStore } from './folderStore';
 export { useTrashStore } from './trashStore';
-export { useTagStore } from './tagStore';
+export { useTagStore, markNoteTagsStale, takeNoteTagsStale } from './tagStore';
 export { useTaskStatusStore } from './taskStatusStore';
 export { useSearchStore } from './searchStore';
 export type { ContentMatch, SearchMode } from './searchStore';
 export { useSemanticStore } from './semanticStore';
-export { useTimelineStore } from './timelineStore';
 export { useGraphStore } from './graphStore';
 export { useOverlayStore } from './overlayStore';
 export type { AppOverlay } from './overlayStore';

@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
 
@@ -35,12 +35,29 @@ describe('GeneralSection', () => {
     await renderSection();
 
     expect(screen.getByText('Forges folder')).toBeInTheDocument();
+    expect(screen.getByText('/Users/someone/Documents/Moldavite')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Open Forge in Finder|Show in Explorer/ })
+      screen.getByRole('button', { name: /Open in Finder|Show in Explorer/ })
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rescan Forge' })).toBeInTheDocument();
-    expect(screen.getByText(FORGE)).toHaveClass('break-all');
+    expect(screen.getByRole('button', { name: 'Rescan' })).toBeInTheDocument();
+  });
+
+  // The long paragraphs moved behind (i): the Forge path and the note that
+  // changing the folder moves nothing are one hover away, not on the page.
+  it('keeps the Forge path and the move warning behind (i)', async () => {
+    platform.mobile = false;
+    await renderSection();
+
+    expect(screen.queryByText(/This Forge is at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/doesn't move any files/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'About This Forge' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent(`This Forge is at ${FORGE}`);
+    const next = screen.getByRole('button', { name: 'About Forges folder' });
+    fireEvent.pointerDown(next);
+    fireEvent.click(next);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/doesn't move any files/);
   });
 
   it('hides the folder picker and Finder button on a phone and the internal container path', async () => {
@@ -50,28 +67,38 @@ describe('GeneralSection', () => {
     expect(screen.queryByText('Forges folder')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /Open Forge in Finder|Show in Explorer/ })
+      screen.queryByRole('button', { name: /Open in Finder|Show in Explorer/ })
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/does not move your files/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rescan Forge' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rescan' })).toBeInTheDocument();
 
-    expect(screen.queryByText(FORGE)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'About This Forge' }));
+    expect(screen.getByRole('tooltip')).not.toHaveTextContent(FORGE);
   });
 
   // Data has the same actions; General repeated them.
-  it('points to Data for backups instead of repeating its controls', async () => {
+  it('does not repeat the backup controls that live in Data', async () => {
     await renderSection();
 
-    expect(screen.getByText('Backups, exports and restores are in Data.')).toBeInTheDocument();
-    expect(screen.queryByText('Encrypted Backup')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Encrypted backup/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Export|Import/ })).not.toBeInTheDocument();
   });
 
-  it('names the save delay slider', async () => {
+  it('folds auto-save, auto-lock and Delete all notes, one click away', async () => {
     await renderSection();
-    expect(screen.getByRole('slider', { name: 'Save delay' })).toHaveAttribute(
+
+    expect(screen.queryByRole('slider', { name: 'Auto-save delay' })).not.toBeInTheDocument();
+    const fold = screen.getByRole('button', { name: 'Saving and auto-lock' });
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(fold);
+
+    expect(screen.getByRole('slider', { name: 'Auto-save delay' })).toHaveAttribute(
       'aria-valuetext',
       '300 milliseconds'
     );
+    fireEvent.click(screen.getByRole('radio', { name: '30 min' }));
+    expect(useSettingsStore.getState().autoLockTimeout).toBe(30);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Danger zone' }));
+    expect(screen.getByRole('button', { name: 'Delete all notes...' })).toBeInTheDocument();
   });
 });

@@ -1,33 +1,36 @@
 /**
- * InfoTooltip — small (i) info icon that shows an explanatory popover on
- * hover/focus. The popover is rendered through a portal to document.body and
- * positioned with `position: fixed` from the trigger's bounding rect, so it is
- * never clipped by the Settings scroll container. It flips above the icon when
- * there isn't room below, and clamps horizontally to stay inside the viewport.
+ * InfoTooltip: the (i) beside a Settings label. A mouse shows the text on
+ * hover, the keyboard on focus, and a tap or click keeps it open until the
+ * next click elsewhere or Escape. Escape closes only the popover, never
+ * Settings behind it.
+ *
+ * The popover is portaled to document.body and placed with `position: fixed`
+ * from the trigger's rect, so the Settings scroll container never clips it. It
+ * flips above the icon when there isn't room below and clamps to the viewport.
  */
 
-import { useLayoutEffect, useId, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
 export interface InfoTooltipProps {
-  text: string;
+  text: ReactNode;
+  /** The setting this explains; names the button "About <label>". */
+  label?: string;
 }
 
-const TOOLTIP_WIDTH = 260;
+const TOOLTIP_WIDTH = 280;
 const GAP = 8;
 const EDGE = 8;
 /** Approx popover height used to decide whether to flip above. */
 const FLIP_THRESHOLD = 140;
 
-export function InfoTooltip({ text }: InfoTooltipProps) {
-  const [isVisible, setIsVisible] = useState(false);
+export function InfoTooltip({ text, label }: InfoTooltipProps) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const isVisible = hovered || pinned;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' }>({
-    top: 0,
-    left: 0,
-    placement: 'bottom',
-  });
+  const [pos, setPos] = useState({ top: 0, left: 0, above: false });
   const tooltipId = useId();
 
   useLayoutEffect(() => {
@@ -37,15 +40,10 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
       const el = triggerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
       let left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
-      left = Math.max(EDGE, Math.min(left, vw - TOOLTIP_WIDTH - EDGE));
-      const spaceBelow = vh - rect.bottom;
-      const placement: 'top' | 'bottom' =
-        spaceBelow < FLIP_THRESHOLD && rect.top > FLIP_THRESHOLD ? 'top' : 'bottom';
-      const top = placement === 'bottom' ? rect.bottom + GAP : rect.top - GAP;
-      setPos({ top, left, placement });
+      left = Math.max(EDGE, Math.min(left, window.innerWidth - TOOLTIP_WIDTH - EDGE));
+      const above = window.innerHeight - rect.bottom < FLIP_THRESHOLD && rect.top > FLIP_THRESHOLD;
+      setPos({ top: above ? rect.top - GAP : rect.bottom + GAP, left, above });
     };
 
     compute();
@@ -57,28 +55,39 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
     };
   }, [isVisible]);
 
+  // WebKit does not focus a clicked button, so blur cannot unpin it.
+  useEffect(() => {
+    if (!pinned) return;
+    const unpin = (event: Event) => {
+      if (!triggerRef.current?.contains(event.target as Node)) setPinned(false);
+    };
+    document.addEventListener('pointerdown', unpin);
+    return () => document.removeEventListener('pointerdown', unpin);
+  }, [pinned]);
+
+  const hide = () => {
+    setHovered(false);
+    setPinned(false);
+  };
+
   return (
-    <span className="inline-flex items-center ml-1.5">
+    <>
       <button
         ref={triggerRef}
         type="button"
-        className="p-0.5 transition-all duration-200"
-        style={{ color: 'var(--text-muted)', backgroundColor: 'transparent' }}
-        onMouseEnter={(e) => {
-          setIsVisible(true);
-          e.currentTarget.style.color = 'var(--accent-primary)';
-          e.currentTarget.style.backgroundColor = 'var(--accent-subtle)';
-          e.currentTarget.style.transform = 'scale(1.1)';
+        className="settings-info"
+        onPointerEnter={(e) => e.pointerType === 'mouse' && setHovered(true)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={hide}
+        onClick={() => setPinned(!pinned)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape' || !isVisible) return;
+          e.stopPropagation();
+          hide();
         }}
-        onMouseLeave={(e) => {
-          setIsVisible(false);
-          e.currentTarget.style.color = 'var(--text-muted)';
-          e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onFocus={() => setIsVisible(true)}
-        onBlur={() => setIsVisible(false)}
-        aria-label="More information"
+        aria-label={label ? `About ${label}` : 'More information'}
+        aria-expanded={isVisible}
         aria-describedby={isVisible ? tooltipId : undefined}
       >
         <Info aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.25} />
@@ -88,26 +97,18 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
           <div
             id={tooltipId}
             role="tooltip"
-            className="px-3 py-2 text-xs"
+            className="settings-info-pop"
             style={{
-              position: 'fixed',
               top: pos.top,
               left: pos.left,
               width: TOOLTIP_WIDTH,
-              transform: pos.placement === 'top' ? 'translateY(-100%)' : undefined,
-              // Floats over content, so it has to be opaque to stay readable.
-              backgroundColor: 'var(--bg-elevated)',
-              border: '1px solid var(--border-default)',
-              color: 'var(--text-secondary)',
-              zIndex: 10000,
-              whiteSpace: 'normal',
-              pointerEvents: 'none',
+              transform: pos.above ? 'translateY(-100%)' : undefined,
             }}
           >
             {text}
           </div>,
           document.body
         )}
-    </span>
+    </>
   );
 }

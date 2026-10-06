@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -21,6 +21,31 @@ describe('CollapsibleSection', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Hidden action' })).toBeInTheDocument();
+  });
+
+  it('heads the section with a band: toggle, count chip, then the actions', () => {
+    const onToggle = vi.fn();
+    const { container } = render(
+      <CollapsibleSection
+        title="Notes"
+        count={6}
+        isCollapsed={false}
+        onToggle={onToggle}
+        rightAction={<button>New</button>}
+      >
+        <span />
+      </CollapsibleSection>
+    );
+
+    const band = container.querySelector('.section-band');
+    const toggle = screen.getByRole('button', { name: 'Notes' });
+    expect(band?.children[0]).toBe(toggle);
+    expect(band?.children[1]).toHaveClass('section-count');
+    expect(band?.children[1]).toHaveTextContent('6');
+    expect(band?.children[2]).toContainElement(screen.getByRole('button', { name: 'New' }));
+
+    fireEvent.click(toggle);
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
   afterEach(() => {

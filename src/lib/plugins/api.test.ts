@@ -38,10 +38,13 @@ vi.mock('@/lib/fileSystem', () => ({
   readNote: (...args: unknown[]) => readNote(...args),
 }));
 const forgeNote = { id: 'notes/N.md', title: 'N', content: '<p>hi there</p>' };
-const activeNote = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const activeNote = vi.hoisted(() => ({
+  current: null as Record<string, unknown> | null,
+  unlocked: new Set<string>(),
+}));
 vi.mock('@/stores/noteStore', () => ({
   useNoteStore: {
-    getState: () => ({ currentNote: activeNote.current }),
+    getState: () => ({ currentNote: activeNote.current, unlockedNotes: activeNote.unlocked }),
   },
 }));
 const insertTextAtCursor = vi.fn((_t: string) => true);
@@ -61,6 +64,7 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
     usePluginStore.setState({ grants: {} });
     if (getPluginDialogSnapshot()) resolvePluginDialog(null);
     activeNote.current = forgeNote;
+    activeNote.unlocked = new Set();
   });
 
   const ALL = ['editor', 'ui', 'notes.read', 'net.fetch', 'secrets'];
@@ -83,6 +87,19 @@ describe('dispatchPluginCall (host-side RPC handler)', () => {
       'The active note is not in the Forge'
     );
     expect(insertTextAtCursor).not.toHaveBeenCalled();
+  });
+
+  it('editor.getActiveNote does not return a locked note opened for viewing', async () => {
+    activeNote.current = { id: 'notes/Secret.md', title: 'Secret', content: '<p>decrypted</p>' };
+    activeNote.unlocked = new Set(['notes/Secret.md']);
+    expect(await dispatchPluginCall('demo', ALL, 'editor.getActiveNote', [])).toBeNull();
+
+    activeNote.current = forgeNote;
+    expect(await dispatchPluginCall('demo', ALL, 'editor.getActiveNote', [])).toEqual({
+      path: 'notes/N.md',
+      title: 'N',
+      content: '<p>hi there</p>',
+    });
   });
 
   it('editor.insertText routes to the editor handle when editor is permitted', async () => {

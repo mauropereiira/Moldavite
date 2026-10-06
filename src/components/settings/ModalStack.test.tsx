@@ -26,13 +26,10 @@ vi.mock('./sections/AboutSection', () => ({ AboutSection: () => null }));
 vi.mock('./sections/AgentsSection', () => ({ AgentsSection: () => null }));
 vi.mock('./sections/AppearanceSection', () => ({ AppearanceSection: () => null }));
 vi.mock('./sections/CalendarSection', () => ({ CalendarSection: () => null }));
-vi.mock('./sections/EditorSection', () => ({ EditorSection: () => null }));
-vi.mock('./sections/FeaturesSection', () => ({ FeaturesSection: () => null }));
 vi.mock('./sections/GeneralSection', () => ({ GeneralSection: () => null }));
-vi.mock('./sections/ImportSection', () => ({ ImportSection: () => null }));
 vi.mock('./sections/LayoutSection', () => ({ LayoutSection: () => null }));
 vi.mock('./sections/PluginsSection', () => ({ PluginsSection: () => null }));
-vi.mock('./sections/SidebarSection', () => ({ SidebarSection: () => null }));
+vi.mock('./sections/WritingSection', () => ({ WritingSection: () => null }));
 
 describe('nested modal Escape handling', () => {
   beforeEach(() => {

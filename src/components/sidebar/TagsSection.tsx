@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/useToast';
 import { applyImpactOrigin } from '@/lib/impactOrigin';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface TagsSectionProps {
   allTags: Map<string, number>;
@@ -143,7 +144,7 @@ export function TagsSection({
                 e.stopPropagation();
                 onClearFilter();
               }}
-              className="text-[10px] font-medium transition-colors"
+              className="pad-hover text-[10px] font-medium transition-colors"
               style={{
                 color: 'var(--text-muted)',
               }}
@@ -173,7 +174,7 @@ export function TagsSection({
               <button
                 onClick={() => onSearchChange('')}
                 aria-label="Clear tag search"
-                className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-colors"
+                className="pad-hover absolute right-0 top-1/2 -translate-y-1/2 text-[10px] transition-colors"
                 style={{ color: 'var(--text-muted)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -264,13 +265,16 @@ export function TagsSection({
               borderRadius: 'var(--radius-lg)',
             }}
           >
-            <h3
-              id="rename-tag-title"
-              className="text-base font-semibold mb-3"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Rename tag #{renamingTag}
-            </h3>
+            <div className="dialog-head">
+              <h3
+                id="rename-tag-title"
+                className="text-base font-semibold mb-3"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Rename tag #{renamingTag}
+              </h3>
+              <CloseButton onClick={handleRenameCancel} label="Close" disabled={isRenaming} />
+            </div>
             <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
               This will update the tag in all notes that use it.
             </p>

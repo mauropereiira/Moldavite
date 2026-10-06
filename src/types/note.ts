@@ -8,7 +8,6 @@ export interface Note {
   isWeekly: boolean;
   date?: string; // YYYY-MM-DD format for daily notes
   week?: string; // YYYY-Www format for weekly notes (e.g., "2024-W52")
-  isPinned?: boolean; // Whether the tab is pinned
   externalRev?: number; // Bumped when disk content replaces an open buffer
   readdressedFrom?: string; // Transient old path used to preserve editor state across a move/rename
   /**

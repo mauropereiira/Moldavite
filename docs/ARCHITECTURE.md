@@ -10,7 +10,7 @@ How Moldavite is put together. For where to start editing, see
 flowchart TB
     subgraph FE["Frontend · React + TypeScript"]
         ED["TipTap editor<br/>WikiLink · Tag · SlashCommands"]
-        SB["Sidebar · Graph · Timeline · Settings"]
+        SB["Sidebar · Graph · Settings"]
         ST["Zustand stores"]
     end
     subgraph BE["Backend · Rust + Tauri 2"]
@@ -101,9 +101,11 @@ flowchart LR
 ```
 
 Plugins run in a per-plugin Web Worker with no DOM, no network globals, and no
-Tauri IPC. Everything a plugin can do crosses an RPC bridge the host enforces,
-and consent is pinned to a SHA-256 hash of the manifest plus code, so changing
-either re-prompts the user.
+Tauri IPC. The worker is built inline and started from a blob URL so it inherits
+the page's Content Security Policy: Tauri sends that header only with HTML, so a
+worker loaded from its own URL would run with none. Everything a plugin can do
+crosses an RPC bridge the host enforces, and consent is pinned to a SHA-256 hash
+of the manifest plus code, so changing either re-prompts the user.
 
 | Capability | Requires consent |
 |------------|------------------|

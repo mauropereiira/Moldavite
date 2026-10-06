@@ -9,19 +9,16 @@ import {
   Plus,
   FileStack,
   Network,
-  Clock,
   Keyboard,
   History,
   Pin,
   Command as CommandIcon,
-  X,
   Cloud,
 } from 'lucide-react';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useTimelineStore } from '@/stores/timelineStore';
 import { useGraphStore } from '@/stores/graphStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from '@/hooks/useNotes';
@@ -44,6 +41,7 @@ import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const CONTENT_SEARCH_DEBOUNCE_MS = 150;
 const CONTENT_SEARCH_LIMIT = 30;
@@ -217,8 +215,6 @@ function commandIcon(id: string) {
       return <FileStack className="w-4 h-4" />;
     case 'open-graph':
       return <Network className="w-4 h-4" />;
-    case 'toggle-timeline':
-      return <Clock className="w-4 h-4" />;
     case 'toggle-theme':
       return <Sun className="w-4 h-4" />;
     case 'shortcut-help':
@@ -289,7 +285,6 @@ export function QuickSwitcher() {
   const { notes, loadNote, loadDailyNote, createNote, createFromTemplate, refresh } = useNotes();
   const { theme, setTheme } = useThemeStore();
   const { setIsSettingsOpen } = useSettingsStore();
-  const { toggle: toggleTimeline } = useTimelineStore();
   const { open: openGraph } = useGraphStore();
 
   const [query, setQuery] = useState('');
@@ -562,9 +557,6 @@ export function QuickSwitcher() {
           // Not ⌘T: that applies a template to the open note, replacing it.
           setIsTemplatePickerOpen(true);
           return;
-        case 'toggle-timeline':
-          toggleTimeline();
-          return;
         case 'toggle-theme': {
           const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
           setTheme(next);
@@ -585,17 +577,7 @@ export function QuickSwitcher() {
           void usePluginCommandStore.getState().execute(id);
       }
     },
-    [
-      setIsSettingsOpen,
-      loadDailyNote,
-      createNote,
-      toggleTimeline,
-      theme,
-      setTheme,
-      openGraph,
-      loadNote,
-      refresh,
-    ]
+    [setIsSettingsOpen, loadDailyNote, createNote, theme, setTheme, openGraph, loadNote, refresh]
   );
 
   const handleTemplateSelect = async (templateId: string | null) => {
@@ -722,26 +704,7 @@ export function QuickSwitcher() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {/* A phone has no Escape key, and the search covers the whole screen. */}
-          {isMobilePlatform() && (
-            <button
-              type="button"
-              className="quick-switcher-close"
-              aria-label="Close search"
-              onClick={close}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                width: 'var(--touch-target)',
-                height: 'var(--touch-target)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <X size={20} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-          )}
+          <CloseButton onClick={close} label="Close search" />
         </div>
 
         <div className="quick-switcher-results">
@@ -800,9 +763,6 @@ export function QuickSwitcher() {
           </span>
           <span>
             <kbd>↵</kbd> open
-          </span>
-          <span>
-            <kbd>esc</kbd> close
           </span>
         </div>
       </DialogSurface>

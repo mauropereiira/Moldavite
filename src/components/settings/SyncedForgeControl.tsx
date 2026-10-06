@@ -2,8 +2,16 @@ import { useEffect, useState } from 'react';
 import { useForgeStore } from '@/stores';
 import { openForgeInFinder } from '@/lib/fileSystem';
 import { isMobilePlatform } from '@/lib/platform';
-import { Toggle } from './common';
+import { InfoTooltip } from './common/InfoTooltip';
+import { Toggle } from './common/Toggle';
 
+const LABEL = 'Synced Forge (iCloud)';
+
+/**
+ * The iCloud Forge switch, in General and in Manage Forges. It draws its own
+ * Settings row rather than using `Row`, which would pull every Settings label
+ * into the main bundle with it; settingsMap.test checks the label matches.
+ */
 export default function SyncedForgeControl() {
   const { forges, loadForges, setSyncedForge } = useForgeStore();
   const [busy, setBusy] = useState(false);
@@ -14,73 +22,63 @@ export default function SyncedForgeControl() {
   const synced = forges.find((forge) => forge.isSynced);
   if (!synced) return null;
 
-  const change = async () => {
+  const connect = (on: boolean) => {
     setBusy(true);
     setError(null);
-    try {
-      await setSyncedForge(!synced.isActive);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
+    void setSyncedForge(on)
+      .catch((error) => setError(error instanceof Error ? error.message : String(error)))
+      .finally(() => setBusy(false));
   };
 
-  return (
-    <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-default)' }}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm">Synced Forge (iCloud Drive)</span>
-        <span className="flex shrink-0 items-center gap-2">
-          {busy && (
-            <span className="text-xs" role="status" style={{ color: 'var(--text-muted)' }}>
-              Connecting…
-            </span>
-          )}
-          <Toggle
-            enabled={synced.isActive}
-            onChange={() => void change()}
-            ariaLabel="Use synced Forge"
-            disabled={busy}
-          />
-        </span>
-      </div>
-      {error && (
-        <p className="text-xs mt-2" role="alert" style={{ color: 'var(--text-primary)' }}>
-          {error}
-        </p>
-      )}
+  const note = (busy || error || (synced.isActive && !synced.path)) && (
+    <div className="settings-row-note">
+      {busy && <span role="status">Connecting...</span>}
+      {error && <span role="alert">{error}</span>}
       {synced.isActive && !synced.path && (
-        <div className="mt-2 text-xs" role="status" style={{ color: 'var(--text-muted)' }}>
-          iCloud is unavailable. Your local Forges can still be opened from Index.
+        <span role="status">
+          iCloud is unavailable. Your local Forges can still be opened from Index.{' '}
           <button
             type="button"
-            className="btn min-h-11 mt-2"
+            className="settings-link pad-hover-inline"
             disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void setSyncedForge(true)
-                .catch((error) => setError(String(error)))
-                .finally(() => setBusy(false));
-            }}
+            onClick={() => connect(true)}
           >
             Reconnect iCloud
           </button>
+        </span>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="settings-row" data-setting="synced-forge">
+      <div className="settings-row-text">
+        <div className="settings-row-label">
+          <span>{LABEL}</span>
+          <InfoTooltip
+            label={LABEL}
+            text="One Forge shared through iCloud Drive with your other Apple devices. Turn it on there too. Your local Forges stay separate."
+          />
         </div>
-      )}
-      <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-        Turn on to create or open your iCloud Forge on this device. Notes added here will also be
-        available on your other Apple devices when you turn it on there. Your local Forges stay
-        separate.
-      </p>
-      {!isMobilePlatform() && synced.isActive && synced.path && (
-        <button
-          type="button"
-          className="btn min-h-11 mt-2 text-xs"
-          onClick={() => void openForgeInFinder().catch((error) => setError(String(error)))}
-        >
-          Open synced folder in Finder
-        </button>
-      )}
+        {note}
+      </div>
+      <div className="settings-row-control">
+        {!isMobilePlatform() && synced.isActive && synced.path && (
+          <button
+            type="button"
+            className="settings-btn"
+            onClick={() => void openForgeInFinder().catch((error) => setError(String(error)))}
+          >
+            Open synced folder in Finder
+          </button>
+        )}
+        <Toggle
+          enabled={synced.isActive}
+          onChange={() => connect(!synced.isActive)}
+          ariaLabel="Use synced Forge"
+          disabled={busy}
+        />
+      </div>
     </div>
   );
 }

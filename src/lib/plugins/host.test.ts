@@ -1,6 +1,8 @@
 import { isMobilePlatform } from '@/lib/platform';
 /** Worker-host lifecycle and untrusted-message routing regression coverage. */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import process from 'node:process';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { safeInvoke } from '@/lib/ipc';
@@ -38,7 +40,7 @@ const workerHarness = vi.hoisted(() => {
   return { MockWorker };
 });
 
-vi.mock('./pluginWorker.ts?worker', () => ({ default: workerHarness.MockWorker }));
+vi.mock('./pluginWorker.ts?worker&inline', () => ({ default: workerHarness.MockWorker }));
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('1.6.0') }));
 
 import {
@@ -141,6 +143,19 @@ describe('plugin source loading', () => {
       expect.objectContaining({ kind: 'init', code: 'hashed plugin code' })
     );
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  // Tauri sends the CSP header only with HTML responses, and a worker loaded
+  // from its own URL takes its policy from that response, so it gets none and
+  // plugin code can `import()` from any origin. A blob worker inherits the page's.
+  it('builds every worker inline so it runs under the page CSP', () => {
+    const files = Object.keys(import.meta.glob(['/src/**/*.{ts,tsx}', '!**/*.test.{ts,tsx}']));
+    const specifiers = files.flatMap(
+      (file) =>
+        readFileSync(join(process.cwd(), file), 'utf8').match(/['"][^'"]*\?worker[^'"]*['"]/g) ?? []
+    );
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const specifier of specifiers) expect(specifier).toMatch(/[?&]inline\b/);
   });
 });
 

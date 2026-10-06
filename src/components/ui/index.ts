@@ -24,3 +24,4 @@ export type { DialogSurfaceProps } from './DialogSurface';
 export { NoteColorPicker, NOTE_COLORS, getNoteBackgroundColor } from './NoteColorPicker';
 export type { NoteColorId } from './NoteColorPicker';
 export { SignatureEmptyState, SignatureMark } from './SignatureMark';
+export { CloseButton } from './CloseButton';

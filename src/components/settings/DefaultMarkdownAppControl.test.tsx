@@ -38,7 +38,7 @@ describe('DefaultMarkdownAppControl', () => {
     answer({ mode: 'set', isDefault: false }, { mode: 'set', isDefault: true });
     await renderControl();
 
-    expect(screen.getByText('Default app for Markdown files')).toBeInTheDocument();
+    expect(screen.getByText('Default app for .md files')).toBeInTheDocument();
     expect(screen.getByText('Another app opens .md files')).toBeInTheDocument();
 
     await act(async () => {
@@ -55,7 +55,9 @@ describe('DefaultMarkdownAppControl', () => {
     await renderControl();
 
     expect(screen.getByText('Moldavite opens .md files')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^(Make default|Open Default Apps)/ })
+    ).not.toBeInTheDocument();
   });
 
   it('opens Default Apps settings on Windows, where the status is unknown', async () => {
@@ -85,14 +87,14 @@ describe('DefaultMarkdownAppControl', () => {
   it('renders nothing where the default cannot be changed', async () => {
     answer({ mode: 'unsupported', isDefault: null });
     await renderControl();
-    expect(screen.queryByText('Default app for Markdown files')).not.toBeInTheDocument();
+    expect(screen.queryByText('Default app for .md files')).not.toBeInTheDocument();
   });
 
   it('renders nothing on a phone and does not ask', async () => {
     platform.mobile = true;
     answer({ mode: 'set', isDefault: false });
     await renderControl();
-    expect(screen.queryByText('Default app for Markdown files')).not.toBeInTheDocument();
+    expect(screen.queryByText('Default app for .md files')).not.toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalled();
   });
 });

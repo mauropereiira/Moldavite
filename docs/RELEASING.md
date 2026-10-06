@@ -93,7 +93,7 @@ instead.
   this list, so a release that went public passed it; check anyway if something
   looks off.
 - Open an older install → it should detect the update after about 15s (or via
-  Settings → About → Check for Updates), download, install, and relaunch.
+  Settings → About → Check for updates), download, install, and relaunch.
 - On relaunch, the "What's New" popup shows this version's notes.
 - Confirm the tap commit landed, then
   `brew update && brew info --cask mauropereiira/moldavite/moldavite` reports the
@@ -273,7 +273,7 @@ waiting on a keychain prompt that never comes in a headless runner
 That is what hung the aarch64 build of v1.6.0.
 
 The app initializes the same native container as iOS when a user enables
-Settings → General → Use synced Forge. No iPhone installation is required.
+Settings → General → Synced Forge (iCloud). No iPhone installation is required.
 Local Forges are not moved. Once connected, “Open synced folder in Finder” opens
 its Documents directory; Markdown files belong in `notes/`. Enable the synced
 Forge on other Apple devices signed into the same iCloud account to open it there.

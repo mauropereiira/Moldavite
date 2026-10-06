@@ -26,7 +26,7 @@ function mockStatus(status: SearchIndexStatus) {
   );
 }
 
-describe('AgentsSection — Search index', () => {
+describe('AgentsSection: Search index', () => {
   beforeEach(() => {
     invoke.mockReset();
     useToastStore.setState({ toasts: [] });
@@ -42,10 +42,10 @@ describe('AgentsSection — Search index', () => {
     expect(await screen.findByText('Not built yet')).toBeInTheDocument();
   });
 
-  it('shows "Indexing…" while a build is running', async () => {
+  it('shows "Indexing..." while a build is running', async () => {
     mockStatus(statusFixture({ building: true }));
     render(<AgentsSection />);
-    expect(await screen.findByText('Indexing…')).toBeInTheDocument();
+    expect(await screen.findByText('Indexing...')).toBeInTheDocument();
   });
 
   it('shows the note count and a relative rebuild time once ready', async () => {
@@ -57,7 +57,7 @@ describe('AgentsSection — Search index', () => {
 
     render(<AgentsSection />);
 
-    expect(await screen.findByText('42 notes indexed — rebuilt 3 minutes ago')).toBeInTheDocument();
+    expect(await screen.findByText('42 notes indexed, rebuilt 3 minutes ago')).toBeInTheDocument();
   });
 
   it('rebuilds the index on click and disables the button while building', async () => {
@@ -70,7 +70,7 @@ describe('AgentsSection — Search index', () => {
 
     expect(invoke).toHaveBeenCalledWith('search_index_rebuild');
     expect(button).toBeDisabled();
-    expect(screen.getByText('Building…')).toBeInTheDocument();
+    expect(screen.getByText('Building...')).toBeInTheDocument();
   });
 
   it('toasts on rebuild failure', async () => {
@@ -122,7 +122,7 @@ describe('AgentsSection — Search index', () => {
     });
 
     render(<AgentsSection />);
-    await screen.findByText('Indexing…');
+    await screen.findByText('Indexing...');
     expect(calls).toBe(1);
     // The interval starts in an effect, which can land after the text renders.
     await waitFor(() => expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000));
@@ -138,7 +138,7 @@ describe('AgentsSection — Search index', () => {
     poll();
     expect(calls).toBe(3);
 
-    // Building cleared on the 3rd fetch — the polling effect tears down its interval.
+    // Building cleared on the 3rd fetch; the polling effect tears down its interval.
     await screen.findByText(/notes indexed/);
     expect(clearIntervalSpy).toHaveBeenCalled();
 

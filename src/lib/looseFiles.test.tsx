@@ -456,6 +456,7 @@ describe('pins and closing', () => {
         if (control === 'NoteCloseButton') {
           render(
             <NoteCloseButton
+              noteId={NOTE_ID}
               title={admission.name}
               onClose={() => useNoteStore.getState().closeTab(NOTE_ID)}
             />
@@ -540,8 +541,9 @@ describe('pins and closing', () => {
     expect(activeNote().id).toBe('notes/Elsewhere.md');
     render(<TabBar />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Open tabs' }));
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Close all' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Close all tabs' }));
     });
 
     expect(useNoteStore.getState().openTabs).toHaveLength(1);
@@ -550,16 +552,15 @@ describe('pins and closing', () => {
     expect(calls('close_loose_file')).toHaveLength(0);
   });
 
-  it('keeps loose tabs out of persisted pins and the quick switcher', async () => {
+  it('keeps loose tabs out of pins: no pin control, and the pin list refuses them', async () => {
     await act(() => openLooseFile(admission));
+    render(<TabBar />);
+    render(<NoteCloseButton noteId={NOTE_ID} title={admission.name} onClose={() => {}} />);
 
-    act(() => {
-      useNoteStore.getState().pinTab(NOTE_ID);
-      useQuickSwitcherStore.getState().togglePinned(NOTE_ID);
-    });
+    act(() => useQuickSwitcherStore.getState().togglePinned(NOTE_ID));
 
-    expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
-    expect(localStorage.getItem(namespacedKey('moldavite-pinned-tabs'))).toBe('[]');
+    expect(screen.queryByRole('button', { name: /^Pin / })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Close Read me/ })).toHaveLength(2);
     expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([]);
   });
 

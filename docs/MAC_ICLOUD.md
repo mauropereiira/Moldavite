@@ -7,8 +7,8 @@ Moldavite on an iPhone or iPad, available on the
 
 ## Create or open the folder
 
-1. Update Moldavite from **Settings → About → Check for Updates**.
-2. Open **Settings → General** and turn on **Use synced Forge**.
+1. Update Moldavite from **Settings → About → Check for updates**.
+2. Open **Settings → General** and turn on **Synced Forge (iCloud)**.
 3. Wait for the switch to turn on. Moldavite creates or opens the shared
    iCloud Forge and makes it the active Forge.
 4. Write notes normally, or click **Open synced folder in Finder** to add files.

@@ -2,6 +2,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useNoteStore } from './noteStore';
+import { useQuickSwitcherStore } from './quickSwitcherStore';
 import { rememberActiveForge } from '@/lib/forgeStorage';
 import type { Note } from '@/types';
 
@@ -17,8 +18,12 @@ const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
 });
 
 describe('noteStore - pinned tabs', () => {
+  const pin = (id: string) => useQuickSwitcherStore.getState().togglePinned(id);
+  const ids = () => useNoteStore.getState().openTabs.map((tab) => tab.id);
+
   beforeEach(() => {
     localStorage.clear();
+    useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
     useNoteStore.setState({
       notes: [],
       openTabs: [],
@@ -30,42 +35,30 @@ describe('noteStore - pinned tabs', () => {
   });
 
   it('opens sidebar note in a new tab when active tab is pinned (does not replace pinned tab)', () => {
-    const { openTab, pinTab, setCurrentNote } = useNoteStore.getState();
+    const { openTab, setCurrentNote } = useNoteStore.getState();
 
-    // Open first note as preview tab
-    const a = makeNote('a');
-    openTab(a, false);
+    openTab(makeNote('a'), false);
     expect(useNoteStore.getState().openTabs).toHaveLength(1);
-
-    // Pin the active tab
-    const result = pinTab('a');
-    expect(result.success).toBe(true);
-    expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
+    pin('a');
 
     // Click another sidebar note (uses setCurrentNote -> openTab(note, false))
-    const b = makeNote('b');
-    setCurrentNote(b);
+    setCurrentNote(makeNote('b'));
 
     const state = useNoteStore.getState();
-    expect(state.openTabs).toHaveLength(2);
-    expect(state.openTabs.map((t) => t.id).sort()).toEqual(['a', 'b']);
-    expect(state.openTabs.find((t) => t.id === 'a')?.isPinned).toBe(true);
+    expect(ids()).toEqual(['a', 'b']);
     expect(state.activeTabId).toBe('b');
   });
 
   it('reuses the unpinned preview after opening away from a pinned active tab', () => {
-    const { openTab, pinTab } = useNoteStore.getState();
+    const { openTab } = useNoteStore.getState();
 
     openTab(makeNote('pinned'), false);
-    pinTab('pinned');
+    pin('pinned');
     openTab(makeNote('preview-one'), false);
     openTab(makeNote('preview-two'), false);
 
-    const state = useNoteStore.getState();
-    expect(state.openTabs.map((tab) => tab.id)).toEqual(['pinned', 'preview-two']);
-    expect(state.openTabs[0].isPinned).toBe(true);
-    expect(state.openTabs[1].isPinned).not.toBe(true);
-    expect(state.activeTabId).toBe('preview-two');
+    expect(ids()).toEqual(['pinned', 'preview-two']);
+    expect(useNoteStore.getState().activeTabId).toBe('preview-two');
   });
 
   it('replaces active tab when it is unpinned (preview-mode behavior)', () => {
@@ -78,6 +71,18 @@ describe('noteStore - pinned tabs', () => {
     expect(state.openTabs).toHaveLength(1);
     expect(state.openTabs[0].id).toBe('b');
     expect(state.activeTabId).toBe('b');
+  });
+
+  // Clicking a pin in the bar must not cost you the note you were reading.
+  it('opens a pinned note beside the preview instead of replacing it', () => {
+    const { openTab } = useNoteStore.getState();
+    pin('pinned');
+
+    openTab(makeNote('reading'), false);
+    openTab(makeNote('pinned'), false);
+
+    expect(ids()).toEqual(['pinned', 'reading']);
+    expect(useNoteStore.getState().activeTabId).toBe('pinned');
   });
 
   it.each([null, 'closed-tab'])(
@@ -104,40 +109,31 @@ describe('noteStore - pinned tabs', () => {
   );
 
   it('preserves multiple pinned tabs across sidebar navigation', () => {
-    const { openTab, pinTab } = useNoteStore.getState();
+    const { openTab } = useNoteStore.getState();
 
     openTab(makeNote('a'), true);
-    pinTab('a');
+    pin('a');
     openTab(makeNote('b'), true);
-    pinTab('b');
+    pin('b');
 
-    expect(useNoteStore.getState().openTabs.filter((t) => t.isPinned)).toHaveLength(2);
-
-    // Simulate sidebar click on a third note
     openTab(makeNote('c'), false);
 
-    const state = useNoteStore.getState();
-    expect(state.openTabs).toHaveLength(3);
-    expect(state.openTabs.find((t) => t.id === 'a')?.isPinned).toBe(true);
-    expect(state.openTabs.find((t) => t.id === 'b')?.isPinned).toBe(true);
-    expect(state.activeTabId).toBe('c');
+    expect(ids()).toEqual(['a', 'b', 'c']);
+    expect(useNoteStore.getState().activeTabId).toBe('c');
 
     // Another sidebar click should replace 'c' (unpinned active) — pinned tabs survive
     openTab(makeNote('d'), false);
-    const state2 = useNoteStore.getState();
-    expect(state2.openTabs).toHaveLength(3);
-    expect(state2.openTabs.map((t) => t.id).sort()).toEqual(['a', 'b', 'd']);
+    expect(ids()).toEqual(['a', 'b', 'd']);
   });
 
   it('switches to existing tab when re-opening an already open pinned note', () => {
-    const { openTab, pinTab } = useNoteStore.getState();
+    const { openTab } = useNoteStore.getState();
 
     openTab(makeNote('a'), false);
-    pinTab('a');
+    pin('a');
     openTab(makeNote('b'), true);
     expect(useNoteStore.getState().activeTabId).toBe('b');
 
-    // Click pinned note in sidebar
     openTab(makeNote('a'), false);
 
     const state = useNoteStore.getState();
@@ -145,18 +141,63 @@ describe('noteStore - pinned tabs', () => {
     expect(state.activeTabId).toBe('a');
   });
 
+  it('moves a tab into the pinned group when pinned anywhere, and back out when unpinned', () => {
+    const { openTab } = useNoteStore.getState();
+    openTab(makeNote('a'), true);
+    openTab(makeNote('b'), true);
+    openTab(makeNote('c'), true);
+    const current = useNoteStore.getState().currentNote;
+
+    pin('c');
+    expect(ids()).toEqual(['c', 'a', 'b']);
+    pin('b');
+    expect(ids()).toEqual(['c', 'b', 'a']);
+    // Reordering pins reorders their tabs.
+    useQuickSwitcherStore.getState().movePinnedNote(0, 1);
+    expect(ids()).toEqual(['b', 'c', 'a']);
+
+    // Unpinning keeps the tab open, as the first ordinary tab.
+    pin('c');
+    expect(ids()).toEqual(['b', 'c', 'a']);
+    pin('b');
+    expect(ids()).toEqual(['b', 'c', 'a']);
+    // Moving tabs never replaces the tab objects the editor is holding.
+    expect(useNoteStore.getState().currentNote).toBe(current);
+  });
+
+  it('keeps pinned tabs ahead of the rest when reordering', () => {
+    const { openTab, reorderTabs } = useNoteStore.getState();
+    openTab(makeNote('a'), true);
+    openTab(makeNote('b'), true);
+    openTab(makeNote('c'), true);
+    pin('a');
+
+    reorderTabs(2, 0);
+    expect(ids()).toEqual(['a', 'c', 'b']);
+    reorderTabs(1, 2);
+    expect(ids()).toEqual(['a', 'b', 'c']);
+  });
+
   it('keeps tab identity and active/current invariants through rapid churn', () => {
     const store = useNoteStore.getState();
     for (let i = 0; i < 200; i += 1) store.openTab(makeNote(`note-${i}`), true);
     for (let i = 199; i >= 0; i -= 1) {
       if (i % 3 === 0) store.switchTab(`note-${i}`);
+      if (i % 5 === 0) pin(`note-${i}`);
       if (i % 2 === 0) store.closeTab(`note-${i}`);
       const state = useNoteStore.getState();
       expect(new Set(state.openTabs.map((tab) => tab.id)).size).toBe(state.openTabs.length);
       expect(state.currentNote?.id ?? null).toBe(state.activeTabId);
       if (state.activeTabId) {
         expect(state.openTabs.some((tab) => tab.id === state.activeTabId)).toBe(true);
+        expect(state.currentNote).toBe(state.openTabs.find((tab) => tab.id === state.activeTabId));
       }
+      const pins = useQuickSwitcherStore.getState().pinnedNoteIds;
+      const firstUnpinned = state.openTabs.findIndex((tab) => !pins.includes(tab.id));
+      expect(
+        state.openTabs.slice(Math.max(firstUnpinned, 0)).every((tab) => !pins.includes(tab.id)) ||
+          firstUnpinned < 0
+      ).toBe(true);
     }
     for (const tab of [...useNoteStore.getState().openTabs]) store.closeTab(tab.id);
     expect(useNoteStore.getState()).toMatchObject({
@@ -167,67 +208,29 @@ describe('noteStore - pinned tabs', () => {
   });
 });
 
-describe('noteStore - pinned tabs are per Forge', () => {
+describe('noteStore - the old tab pins', () => {
   beforeEach(() => {
     localStorage.clear();
-    useNoteStore.setState({
-      notes: [],
-      openTabs: [],
-      activeTabId: null,
-      currentNote: null,
-      isLoading: false,
-      isSaving: false,
-    });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
+    useNoteStore.setState({ openTabs: [], activeTabId: null, currentNote: null });
   });
 
-  it('persists pins under the active Forge key', () => {
-    rememberActiveForge('Alpha');
-    const { openTab, pinTab } = useNoteStore.getState();
-    openTab(makeNote('notes/alpha.md'), false);
-    pinTab('notes/alpha.md');
-
-    expect(JSON.parse(localStorage.getItem('moldavite-pinned-tabs:Alpha') ?? '[]')).toEqual([
-      'notes/alpha.md',
-    ]);
-    // Pinned ids are Forge-relative paths — nothing may land on a global key.
-    expect(localStorage.getItem('moldavite-pinned-tabs')).toBeNull();
-  });
-
-  it('does not resurrect another Forge’s pins', () => {
-    localStorage.setItem('moldavite-pinned-tabs:Alpha', JSON.stringify(['notes/shared.md']));
-    rememberActiveForge('Beta');
-
-    const { openTab, loadPinnedTabs } = useNoteStore.getState();
-    openTab(makeNote('notes/shared.md'), false);
-    loadPinnedTabs();
-
-    expect(useNoteStore.getState().openTabs.filter((t) => t.isPinned)).toEqual([]);
-  });
-
-  it('restores the active Forge’s pins', () => {
+  // `moldavite-pinned-tabs` held "keep this tab" pins that were never restored
+  // at launch. They are not merged into the top-bar pins; nothing reads or
+  // writes the key any more.
+  it('neither reads nor writes the old per-Forge tab pin key', () => {
     rememberActiveForge('Alpha');
     localStorage.setItem('moldavite-pinned-tabs:Alpha', JSON.stringify(['notes/shared.md']));
+    const { openTab, closeTab } = useNoteStore.getState();
 
-    const { openTab, loadPinnedTabs } = useNoteStore.getState();
-    openTab(makeNote('notes/shared.md'), false);
-    loadPinnedTabs();
+    openTab(makeNote('notes/shared.md'), true);
+    openTab(makeNote('notes/other.md'), true);
+    useQuickSwitcherStore.getState().togglePinned('notes/other.md');
+    closeTab('notes/other.md');
 
-    expect(useNoteStore.getState().openTabs[0].isPinned).toBe(true);
-  });
-
-  it('does not treat a malformed persisted string as a list of pinned tab ids', () => {
-    rememberActiveForge('Alpha');
-    localStorage.setItem(
-      'moldavite-pinned-tabs:Alpha',
-      JSON.stringify('notes/alpha.md notes/beta.md')
-    );
-
-    const { openTab, loadPinnedTabs } = useNoteStore.getState();
-    openTab(makeNote('notes/alpha.md'), true);
-    openTab(makeNote('notes/beta.md'), true);
-    loadPinnedTabs();
-
-    expect(useNoteStore.getState().openTabs.every((tab) => !tab.isPinned)).toBe(true);
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['notes/other.md']);
+    expect(localStorage.getItem('moldavite-pinned-tabs:Alpha')).toBe('["notes/shared.md"]');
+    expect(useNoteStore.getState().openTabs.map((tab) => tab.id)).toEqual(['notes/shared.md']);
   });
 });
 

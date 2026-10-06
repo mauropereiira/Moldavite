@@ -1,7 +1,4 @@
-import { isMobilePlatform } from '@/lib/platform';
-/**
- * AboutSection — App info, software updates, and keyboard shortcuts.
- */
+/** AboutSection: version and what's new, software updates, and help. */
 
 import { useState, useEffect } from 'react';
 import { Download, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
@@ -10,13 +7,25 @@ import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
 import { getReleaseNotes } from '@/lib/releaseNotes';
 import { formatShortcut } from '@/lib/shortcuts';
-import { ShortcutRow, Toggle } from '../common';
+import { isMobilePlatform } from '@/lib/platform';
+import { Group, Row, ShortcutRow, ToggleRow } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useToast } from '@/hooks/useToast';
 import { safeInvoke } from '@/lib/ipc';
 import { useSeasonalTouches } from '@/lib/seasons';
 
-function SoftwareUpdatesSection() {
+const SHORTCUTS: ReadonlyArray<[string, string]> = [
+  ['⌘,', 'Settings'],
+  ['⌘T', 'Template'],
+  ['⌘B', 'Bold'],
+  ['⌘I', 'Italic'],
+  ['⌘U', 'Underline'],
+  ['⌘K', 'Link'],
+  ['⌘Z', 'Undo'],
+  ['⌘⇧Z', 'Redo'],
+];
+
+function SoftwareUpdates() {
   const {
     availableVersion,
     isChecking,
@@ -31,173 +40,66 @@ function SoftwareUpdatesSection() {
   } = useUpdateStore();
 
   return (
-    <div
-      className="p-4"
-      style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-    >
-      <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
-        Software Updates
-      </h4>
-
-      <div className="space-y-3">
-        {/* Update status */}
+    <Group id="updates">
+      <Row
+        id="update-check"
+        note={
+          <>
+            {availableVersion ? (
+              <span className="settings-ok">Update available: v{availableVersion}</span>
+            ) : isChecking ? (
+              'Checking for updates...'
+            ) : (
+              <>
+                You&apos;re up to date
+                {lastCheckedAt && `. Last checked ${new Date(lastCheckedAt).toLocaleString()}`}
+              </>
+            )}
+            {error && <span className="settings-error">{error}</span>}
+            {downloading && (
+              <span className="settings-progress" aria-label={`${progress}% downloaded`}>
+                <span style={{ width: `${progress}%` }} />
+              </span>
+            )}
+            <button
+              type="button"
+              className="settings-link pad-hover"
+              onClick={() => shellOpen('https://github.com/mauropereiira/Moldavite/releases')}
+            >
+              <ExternalLink aria-hidden="true" className="w-3 h-3" />
+              View releases on GitHub
+            </button>
+          </>
+        }
+      >
         {availableVersion ? (
-          <div
-            className="flex items-center gap-2 p-3"
-            style={{
-              backgroundColor: 'transparent',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--accent-primary)',
-            }}
-          >
-            <Download
-              aria-hidden="true"
-              className="w-5 h-5 flex-shrink-0"
-              style={{ color: 'var(--accent-primary)' }}
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                Update available: v{availableVersion}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                A new version is ready to install
-              </p>
-            </div>
-          </div>
+          <button onClick={installUpdate} disabled={downloading} className="settings-btn">
+            <Download aria-hidden="true" className="w-4 h-4" />
+            {downloading ? 'Installing...' : 'Install update'}
+          </button>
         ) : (
-          <div
-            className="flex items-center gap-2 p-3"
-            style={{
-              backgroundColor: 'transparent',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-default)',
-            }}
-          >
-            <Download
-              aria-hidden="true"
-              className="w-5 h-5 flex-shrink-0"
-              style={{ color: 'var(--text-tertiary)' }}
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                {isChecking ? 'Checking for updates...' : "You're up to date"}
-              </p>
-              {lastCheckedAt && (
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Last checked: {new Date(lastCheckedAt).toLocaleString()}
-                </p>
-              )}
-            </div>
-          </div>
+          <button onClick={checkForUpdate} disabled={isChecking} className="settings-btn">
+            {isChecking ? (
+              <DotLoader label="Checking for updates" />
+            ) : (
+              <RefreshCw aria-hidden="true" className="w-4 h-4" />
+            )}
+            {isChecking ? 'Checking...' : 'Check for updates'}
+          </button>
         )}
-
-        {error && (
-          <p className="text-xs px-3" style={{ color: 'var(--text-error)' }}>
-            {error}
-          </p>
-        )}
-
-        {/* Progress bar when downloading */}
-        {downloading && (
-          <div className="px-3">
-            <div
-              className="h-1.5 rounded overflow-hidden"
-              style={{ backgroundColor: 'transparent' }}
-            >
-              <div
-                className="h-full transition-all duration-300"
-                style={{
-                  width: `${progress}%`,
-                  backgroundColor: 'transparent',
-                  borderBottom: '2px solid var(--text-primary)',
-                }}
-              />
-            </div>
-            <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-tertiary)' }}>
-              {progress}%
-            </p>
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          {availableVersion ? (
-            <button
-              onClick={installUpdate}
-              disabled={downloading}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                opacity: downloading ? 0.7 : 1,
-              }}
-            >
-              <Download aria-hidden="true" className="w-4 h-4" />
-              {downloading ? 'Installing...' : 'Install Update'}
-            </button>
-          ) : (
-            <button
-              onClick={checkForUpdate}
-              disabled={isChecking}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-secondary)',
-                opacity: isChecking ? 0.7 : 1,
-              }}
-            >
-              {isChecking ? (
-                <DotLoader label="Checking for updates" />
-              ) : (
-                <RefreshCw aria-hidden="true" className="w-4 h-4" />
-              )}
-              {isChecking ? 'Checking...' : 'Check for Updates'}
-            </button>
-          )}
-        </div>
-
-        {/* Automatic checks */}
-        <div
-          className="flex items-center justify-between pt-2"
-          style={{ borderTop: '1px solid var(--border-muted)' }}
-        >
-          <div>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Check for updates automatically
-            </span>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              On launch, every 24 hours, and when you switch back to Moldavite
-            </p>
-          </div>
-          <Toggle
-            enabled={autoCheck}
-            onChange={setAutoCheck}
-            ariaLabel="Check for updates automatically"
-          />
-        </div>
-
-        {/* GitHub link */}
-        <button
-          onClick={() => shellOpen('https://github.com/mauropereiira/Moldavite/releases')}
-          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs transition-colors"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
-          <ExternalLink aria-hidden="true" className="w-3 h-3" />
-          View releases on GitHub
-        </button>
-      </div>
-    </div>
+      </Row>
+      <ToggleRow id="auto-update" value={autoCheck} onChange={setAutoCheck} />
+    </Group>
   );
 }
 
 export function AboutSection() {
   const toast = useToast();
+  const mobile = isMobilePlatform();
   const [appVersion, setAppVersion] = useState<string>('');
   const season = useSeasonalTouches();
   const setHasSeenAppOnboarding = useSettingsStore((s) => s.setHasSeenAppOnboarding);
   const setIsSettingsOpen = useSettingsStore((s) => s.setIsSettingsOpen);
-
   const openWhatsNew = useWhatsNewStore((s) => s.open);
 
   useEffect(() => {
@@ -221,126 +123,64 @@ export function AboutSection() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* App Info + Update Section */}
-      <div
-        className="flex items-start gap-4 p-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        {/* Monogram, masked so it takes the active theme's ink colour */}
-        <div
-          role="img"
-          aria-label="Moldavite"
-          className="settings-brand-mark h-16 w-16 flex-shrink-0"
-          style={{
-            backgroundColor: 'var(--text-primary)',
-            WebkitMaskImage: 'url(/monogram.svg)',
-            maskImage: 'url(/monogram.svg)',
-            WebkitMaskRepeat: 'no-repeat',
-            maskRepeat: 'no-repeat',
-            WebkitMaskSize: 'contain',
-            maskSize: 'contain',
-          }}
-        />
-
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            Moldavite
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-            Version {appVersion || '...'}
-            {season === 'autumn' && ' · Autumn edition'}
-          </p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-            Moldavite is a tektite — natural glass formed by a meteorite impact, found in Bohemia.
-          </p>
-          {!isMobilePlatform() && (
-            <button
-              type="button"
-              onClick={handleShowWhatsNew}
-              className="mt-1 text-xs underline-offset-2 hover:underline transition-colors"
-              style={{ color: 'var(--accent-primary)', background: 'transparent' }}
-            >
-              What&apos;s new in this version
+    <div className="settings-tab">
+      <Group id="app">
+        <Row
+          id="version"
+          note={
+            appVersion ? `${appVersion}${season === 'autumn' ? ', Autumn edition' : ''}` : '...'
+          }
+          detail="Moldavite is a tektite: natural glass formed by a meteorite impact, found in Bohemia."
+        >
+          {!mobile && (
+            <button type="button" onClick={handleShowWhatsNew} className="settings-btn">
+              What&apos;s new
             </button>
           )}
-        </div>
-      </div>
+        </Row>
+      </Group>
 
-      {/* Update Status */}
-      {!isMobilePlatform() && <SoftwareUpdatesSection />}
+      {!mobile && <SoftwareUpdates />}
 
-      {isMobilePlatform() && (
-        <div className="p-4 flex flex-wrap gap-x-6 gap-y-2">
-          {[
-            ['Privacy policy', 'privacy'],
-            ['Support', 'support'],
-          ].map(([label, page]) => (
-            <button
-              key={page}
-              type="button"
-              className="text-sm underline underline-offset-4 focus-ring"
-              style={{ minHeight: 44, color: 'var(--text-secondary)' }}
-              onClick={() =>
-                void safeInvoke('open_support_page', { page }).catch(() =>
-                  toast.error(`Could not open ${label.toLowerCase()}.`)
-                )
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Onboarding Replay */}
-      <div
-        className="p-4"
-        style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-      >
-        <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-          Onboarding
-        </h4>
-        <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-          Re-watch the welcome flow and quick tour.
-        </p>
-        <button
-          type="button"
-          onClick={handleReplayOnboarding}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <Sparkles aria-hidden="true" className="w-4 h-4" />
-          Show onboarding again
-        </button>
-      </div>
-
-      {/* A phone has no keyboard shortcuts to list. */}
-      {!isMobilePlatform() && (
-        <div
-          className="p-4"
-          style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-        >
-          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
-            Keyboard Shortcuts
-          </h4>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <ShortcutRow keys={[formatShortcut('⌘,')]} description="Settings" />
-            <ShortcutRow keys={[formatShortcut('⌘T')]} description="Template" />
-            <ShortcutRow keys={[formatShortcut('⌘B')]} description="Bold" />
-            <ShortcutRow keys={[formatShortcut('⌘I')]} description="Italic" />
-            <ShortcutRow keys={[formatShortcut('⌘U')]} description="Underline" />
-            <ShortcutRow keys={[formatShortcut('⌘K')]} description="Link" />
-            <ShortcutRow keys={[formatShortcut('⌘Z')]} description="Undo" />
-            <ShortcutRow keys={[formatShortcut('⌘⇧Z')]} description="Redo" />
-          </div>
-        </div>
-      )}
+      <Group id="help">
+        <Row id="onboarding">
+          <button type="button" onClick={handleReplayOnboarding} className="settings-btn">
+            <Sparkles aria-hidden="true" className="w-4 h-4" />
+            Show onboarding again
+          </button>
+        </Row>
+        {/* A phone has no keyboard shortcuts to list. */}
+        {!mobile && (
+          <Row id="shortcuts" stack>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              {SHORTCUTS.map(([keys, description]) => (
+                <ShortcutRow key={keys} keys={[formatShortcut(keys)]} description={description} />
+              ))}
+            </div>
+          </Row>
+        )}
+        {mobile && (
+          <Row id="links">
+            {[
+              ['Privacy policy', 'privacy'],
+              ['Support', 'support'],
+            ].map(([text, page]) => (
+              <button
+                key={page}
+                type="button"
+                className="settings-btn"
+                onClick={() =>
+                  void safeInvoke('open_support_page', { page }).catch(() =>
+                    toast.error(`Could not open ${text.toLowerCase()}.`)
+                  )
+                }
+              >
+                {text}
+              </button>
+            ))}
+          </Row>
+        )}
+      </Group>
     </div>
   );
 }

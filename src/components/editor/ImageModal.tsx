@@ -3,6 +3,7 @@ import { processAndSaveImage, fileToBase64 } from '@/lib';
 import { forgeImageSrcForSavedPath } from '@/lib/forgeImages';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import { isMobilePlatform } from '@/lib/platform';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -227,14 +228,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               Insert Image
             </h2>
           </div>
-          <button
-            onClick={handleClose}
-            className="dialog-close p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close image modal"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+          <CloseButton onClick={handleClose} label="Close image modal" />
         </div>
 
         <div className="flex-none flex border-b" style={{ borderColor: 'var(--border-default)' }}>
@@ -472,14 +466,7 @@ export function ImageModal({ isOpen, onClose, onInsert }: ImageModalProps) {
               >
                 Enter
               </kbd>{' '}
-              to insert or{' '}
-              <kbd
-                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-                style={keyboardHintStyle}
-              >
-                Esc
-              </kbd>{' '}
-              to cancel
+              to insert
             </p>
           </div>
         )}

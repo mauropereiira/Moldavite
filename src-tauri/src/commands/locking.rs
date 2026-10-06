@@ -2,7 +2,8 @@
 //!
 //! Locking atomically replaces plaintext with an authenticated `.md.locked`
 //! payload and never keeps both forms as the steady state. Temporary unlocks
-//! return plaintext without changing disk; permanent unlock restores the
+//! return plaintext without changing disk, except to settle a plaintext copy an
+//! interrupted lock or unlock left behind; permanent unlock restores the
 //! Markdown file. Password failures pass through per-note and global rate limits,
 //! and every note address is validated before choosing a tree.
 
@@ -81,6 +82,69 @@ where
         return Err(format!("Failed to publish {label} note: {error}"));
     }
     Ok(())
+}
+
+/// What an unlock found beside the locked file.
+#[derive(Debug, PartialEq)]
+enum Twin {
+    None,
+    Removed,
+    /// Folder-relative address of the conflict copy, and its body.
+    Kept(String, String),
+}
+
+/// A crash between the two steps of `publish_replacement` leaves `<name>.md`
+/// beside `<name>.md.locked`. Only the decrypted text can say whether the two
+/// match, so this runs after the password is verified: a byte-identical
+/// plaintext copy is removed, and a differing one is first kept as a conflict
+/// copy. Either way only the locked form remains.
+fn settle_twin(original: &Path, filename: &str, decrypted: &str) -> Result<Twin, String> {
+    if !original.is_file() {
+        return Ok(Twin::None);
+    }
+    let bytes = fs::read(original).map_err(|e| format!("Failed to read unlocked copy: {e}"))?;
+    let twin = if bytes == decrypted.as_bytes() {
+        Twin::Removed
+    } else {
+        let name = crate::commands::notes::preserve_conflict_bytes(original, &bytes)?;
+        let rel = match filename.rsplit_once('/') {
+            Some((folder, _)) => format!("{folder}/{name}"),
+            None => name,
+        };
+        let body = crate::frontmatter::parse_note(&String::from_utf8_lossy(&bytes)).body;
+        Twin::Kept(rel, body)
+    };
+    fs::remove_file(original).map_err(|e| format!("Failed to remove unlocked copy: {e}"))?;
+    Ok(twin)
+}
+
+fn index_kept_twin(twin: &Twin, is_daily: bool, is_weekly: bool, index: &BacklinksIndex) {
+    if let Twin::Kept(rel, body) = twin {
+        index.update_note(
+            &crate::semantic::note_rel_path(rel, is_daily, is_weekly),
+            body,
+        );
+    }
+}
+
+fn conflict_copy_changed(conflict_copy: Option<&str>, is_daily: bool, is_weekly: bool) {
+    if let Some(rel) = conflict_copy {
+        crate::semantic::note_changed(&crate::semantic::note_rel_path(rel, is_daily, is_weekly));
+        crate::search_index::note_changed(&crate::semantic::note_rel_path(
+            rel, is_daily, is_weekly,
+        ));
+    }
+}
+
+/// A temporary unlock's plaintext, plus where a differing plaintext copy found
+/// beside the locked file was kept.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UnlockedNote {
+    pub(crate) content: String,
+    pub(crate) conflict_copy: Option<String>,
+    #[serde(skip)]
+    pub(crate) settled_twin: bool,
 }
 
 pub(crate) fn lock_note_in(
@@ -178,80 +242,8 @@ pub(crate) fn unlock_note_in(
     password: String,
     is_daily: bool,
     is_weekly: bool,
-) -> Result<String, String> {
-    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
-        return Err("Invalid filename".to_string());
-    }
-    let password = Zeroizing::new(password);
-    let note_id = note_id(&filename, is_daily, is_weekly);
-
-    let rate_check = security::check_rate_limit(&note_id);
-    if !rate_check.allowed {
-        let secs = rate_check.retry_after_secs.unwrap_or(30);
-        return Err(format!(
-            "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
-        ));
-    }
-
-    let dir = note_dir(forge_root, is_daily, is_weekly);
-    let locked_path = locked_path(&dir, &filename);
-    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    note_file_access::transaction(&[Access::read(&locked_path)], || {
-        if !locked_path.exists() {
-            return Err("Locked note not found".to_string());
-        }
-        validate_path_within_base(&locked_path, &dir)
-            .map_err(|_| "Invalid note path".to_string())?;
-        let encrypted = fs::read_to_string(&locked_path)
-            .map_err(|e| format!("Failed to read locked note: {e}"))?;
-
-        match encryption::decrypt_note_content(&encrypted, &password, &note_id) {
-            Ok(content) => {
-                security::record_successful_attempt(&note_id);
-                Ok(content)
-            }
-            Err(_) => {
-                let result = security::record_failed_attempt(&note_id);
-                if !result.allowed {
-                    let secs = result.retry_after_secs.unwrap_or(30);
-                    Err(format!(
-                    "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
-                ))
-                } else {
-                    let remaining = result.remaining_attempts.unwrap_or(0);
-                    Err(format!(
-                    "WRONG_PASSWORD:{remaining}:Incorrect password. {remaining} attempts remaining."
-                ))
-                }
-            }
-        }
-    })
-}
-
-/// Return authenticated plaintext without modifying the encrypted file.
-/// Includes brute-force protection with rate limiting.
-#[tauri::command]
-pub(crate) fn unlock_note(
-    filename: String,
-    password: String,
-    is_daily: bool,
-    is_weekly: bool,
-) -> Result<String, String> {
-    unlock_note_in(&get_notes_dir()?, filename, password, is_daily, is_weekly)
-}
-
-/// `resolver` mirrors `BacklinksIndex::update_note_with`: the default resolver
-/// touches the real Forge on disk, so tests inject their own rather than
-/// depending on a Documents directory existing on the machine.
-fn permanently_unlock_note_in(
-    forge_root: &Path,
-    filename: String,
-    password: String,
-    is_daily: bool,
-    is_weekly: bool,
     index: &BacklinksIndex,
-    resolver: Option<&crate::backlinks_index::Resolver>,
-) -> Result<(), String> {
+) -> Result<UnlockedNote, String> {
     if !is_valid_note_ref(&filename, is_daily, is_weekly) {
         return Err("Invalid filename".to_string());
     }
@@ -271,7 +263,116 @@ fn permanently_unlock_note_in(
     let original_path = dir.join(&filename);
     validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
     validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
-    let decrypted = note_file_access::transaction(
+    let access = [Access::read(&locked_path), Access::deleting(&original_path)];
+    let (content, twin) = note_file_access::transaction(&access, || {
+        if !locked_path.exists() {
+            return Err("Locked note not found".to_string());
+        }
+        validate_path_within_base(&locked_path, &dir)
+            .map_err(|_| "Invalid note path".to_string())?;
+        let encrypted = fs::read_to_string(&locked_path)
+            .map_err(|e| format!("Failed to read locked note: {e}"))?;
+
+        match encryption::decrypt_note_content(&encrypted, &password, &note_id) {
+            Ok(content) => {
+                security::record_successful_attempt(&note_id);
+                validate_path_within_base(&original_path, &dir)
+                    .map_err(|_| "Invalid note path".to_string())?;
+                let twin = settle_twin(&original_path, &filename, &content)?;
+                Ok((content, twin))
+            }
+            Err(_) => {
+                let result = security::record_failed_attempt(&note_id);
+                if !result.allowed {
+                    let secs = result.retry_after_secs.unwrap_or(30);
+                    Err(format!(
+                    "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
+                ))
+                } else {
+                    let remaining = result.remaining_attempts.unwrap_or(0);
+                    Err(format!(
+                    "WRONG_PASSWORD:{remaining}:Incorrect password. {remaining} attempts remaining."
+                ))
+                }
+            }
+        }
+    })?;
+    let settled_twin = twin != Twin::None;
+    if settled_twin {
+        index.remove_note(&crate::semantic::note_rel_path(
+            &filename, is_daily, is_weekly,
+        ));
+    }
+    index_kept_twin(&twin, is_daily, is_weekly, index);
+    Ok(UnlockedNote {
+        content,
+        conflict_copy: match twin {
+            Twin::Kept(rel, _) => Some(rel),
+            _ => None,
+        },
+        settled_twin,
+    })
+}
+
+/// Return authenticated plaintext without modifying the encrypted file.
+/// Includes brute-force protection with rate limiting.
+#[tauri::command]
+pub(crate) fn unlock_note(
+    filename: String,
+    password: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: State<'_, Arc<BacklinksIndex>>,
+) -> Result<UnlockedNote, String> {
+    let unlocked = unlock_note_in(
+        &get_notes_dir()?,
+        filename.clone(),
+        password,
+        is_daily,
+        is_weekly,
+        &index,
+    )?;
+    if unlocked.settled_twin {
+        let source = crate::semantic::note_rel_path(&filename, is_daily, is_weekly);
+        crate::semantic::note_removed(&source);
+        crate::search_index::note_removed(&source);
+    }
+    conflict_copy_changed(unlocked.conflict_copy.as_deref(), is_daily, is_weekly);
+    Ok(unlocked)
+}
+
+/// `resolver` mirrors `BacklinksIndex::update_note_with`: the default resolver
+/// touches the real Forge on disk, so tests inject their own rather than
+/// depending on a Documents directory existing on the machine.
+fn permanently_unlock_note_in(
+    forge_root: &Path,
+    filename: String,
+    password: String,
+    is_daily: bool,
+    is_weekly: bool,
+    index: &BacklinksIndex,
+    resolver: Option<&crate::backlinks_index::Resolver>,
+) -> Result<Option<String>, String> {
+    if !is_valid_note_ref(&filename, is_daily, is_weekly) {
+        return Err("Invalid filename".to_string());
+    }
+    let password = Zeroizing::new(password);
+    let note_id = note_id(&filename, is_daily, is_weekly);
+
+    let rate_check = security::check_rate_limit(&note_id);
+    if !rate_check.allowed {
+        let secs = rate_check.retry_after_secs.unwrap_or(30);
+        return Err(format!(
+            "RATE_LIMITED:{secs}:Too many failed attempts. Please wait {secs} seconds before trying again."
+        ));
+    }
+
+    let dir = note_dir(forge_root, is_daily, is_weekly);
+    let locked_path = locked_path(&dir, &filename);
+    let original_path = dir.join(&filename);
+    validate_path_within_base(&locked_path, &dir).map_err(|_| "Invalid note path".to_string())?;
+    validate_path_within_base(&original_path, &dir).map_err(|_| "Invalid note path".to_string())?;
+    let (decrypted, twin) = note_file_access::transaction(
         &[
             Access::moving(&locked_path, 1),
             Access::write(&original_path),
@@ -279,9 +380,6 @@ fn permanently_unlock_note_in(
         || {
             if !locked_path.exists() {
                 return Err("Locked note not found".to_string());
-            }
-            if original_path.exists() {
-                return Err("Note is already unlocked".to_string());
             }
             validate_path_within_base(&locked_path, &dir)
                 .map_err(|_| "Invalid note path".to_string())?;
@@ -312,6 +410,7 @@ fn permanently_unlock_note_in(
                 .map_err(|_| "Invalid note path".to_string())?;
             validate_path_within_base(&original_path, &dir)
                 .map_err(|_| "Invalid note path".to_string())?;
+            let twin = settle_twin(&original_path, &filename, &decrypted)?;
             publish_replacement(
                 &locked_path,
                 &original_path,
@@ -320,9 +419,10 @@ fn permanently_unlock_note_in(
                 |locked, _| fs::remove_file(locked),
             )?;
 
-            Ok(decrypted)
+            Ok((decrypted, twin))
         },
     )?;
+    index_kept_twin(&twin, is_daily, is_weekly, index);
 
     let body = crate::frontmatter::parse_note(&decrypted).body;
     let source = crate::semantic::note_rel_path(&filename, is_daily, is_weekly);
@@ -330,7 +430,10 @@ fn permanently_unlock_note_in(
         Some(resolve) => index.update_note_with(&source, &body, resolve),
         None => index.update_note(&source, &body),
     }
-    Ok(())
+    Ok(match twin {
+        Twin::Kept(rel, _) => Some(rel),
+        _ => None,
+    })
 }
 
 /// Atomically replace an encrypted note with authenticated plaintext Markdown.
@@ -342,8 +445,8 @@ pub(crate) fn permanently_unlock_note(
     is_daily: bool,
     is_weekly: bool,
     index: State<'_, Arc<BacklinksIndex>>,
-) -> Result<(), String> {
-    permanently_unlock_note_in(
+) -> Result<Option<String>, String> {
+    let conflict_copy = permanently_unlock_note_in(
         &get_notes_dir()?,
         filename.clone(),
         password,
@@ -358,7 +461,8 @@ pub(crate) fn permanently_unlock_note(
     crate::search_index::note_changed(&crate::semantic::note_rel_path(
         &filename, is_daily, is_weekly,
     ));
-    Ok(())
+    conflict_copy_changed(conflict_copy.as_deref(), is_daily, is_weekly);
+    Ok(conflict_copy)
 }
 
 #[tauri::command]
@@ -433,8 +537,10 @@ mod tests {
                 "correct horse".into(),
                 false,
                 false,
+                &index,
             )
-            .unwrap(),
+            .unwrap()
+            .content,
             nested_content
         );
 
@@ -680,8 +786,10 @@ mod tests {
                 "portable password".into(),
                 false,
                 false,
+                &index,
             )
-            .unwrap(),
+            .unwrap()
+            .content,
             plaintext
         );
 
@@ -714,7 +822,16 @@ mod tests {
         let index = BacklinksIndex::new();
 
         assert_eq!(
-            unlock_note_in(&root, filename.into(), "old password".into(), false, false,).unwrap(),
+            unlock_note_in(
+                &root,
+                filename.into(),
+                "old password".into(),
+                false,
+                false,
+                &index,
+            )
+            .unwrap()
+            .content,
             plaintext
         );
         permanently_unlock_note_in(
@@ -735,6 +852,298 @@ mod tests {
         assert!(!root.join("notes/legacy-v1.md.locked").exists());
         fs::remove_dir_all(root).unwrap();
     }
+    const PAIR_PASSWORD: &str = "pair password";
+
+    /// Every tree a note can live in: daily, weekly, standalone, and a folder.
+    const PAIR_NOTES: [(&str, bool, bool); 4] = [
+        ("2026-10-05.md", true, false),
+        ("2026-W40.md", false, true),
+        ("Plan.md", false, false),
+        ("Projects/Plan.md", false, false),
+    ];
+
+    /// The state a crash between the two steps of `publish_replacement` leaves:
+    /// `filename` locked over `locked_body`, with `plain` beside it.
+    fn interrupted_pair(
+        root: &Path,
+        filename: &str,
+        is_daily: bool,
+        is_weekly: bool,
+        locked_body: &str,
+        plain: &[u8],
+    ) -> (PathBuf, PathBuf) {
+        let dir = note_dir(root, is_daily, is_weekly);
+        let original = dir.join(filename);
+        fs::write(&original, locked_body).unwrap();
+        lock_note_in(
+            root,
+            filename.into(),
+            PAIR_PASSWORD.into(),
+            is_daily,
+            is_weekly,
+            &BacklinksIndex::new(),
+        )
+        .unwrap();
+        fs::write(&original, plain).unwrap();
+        (original, locked_path(&dir, filename))
+    }
+
+    /// Every file under `root`, by Forge-relative path, with its bytes.
+    fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
+        walkdir::WalkDir::new(root)
+            .into_iter()
+            .flatten()
+            .filter(|entry| entry.file_type().is_file())
+            .map(|entry| {
+                let rel = entry.path().strip_prefix(root).unwrap();
+                (
+                    rel.to_string_lossy().replace('\\', "/"),
+                    fs::read(entry.path()).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn unlock_pair(root: &Path, filename: &str, is_daily: bool, is_weekly: bool) -> UnlockedNote {
+        unlock_note_in(
+            root,
+            filename.into(),
+            PAIR_PASSWORD.into(),
+            is_daily,
+            is_weekly,
+            &BacklinksIndex::new(),
+        )
+        .unwrap()
+    }
+
+    fn permanently_unlock_pair(
+        root: &Path,
+        filename: &str,
+        is_daily: bool,
+        is_weekly: bool,
+    ) -> Result<Option<String>, String> {
+        permanently_unlock_note_in(
+            root,
+            filename.into(),
+            PAIR_PASSWORD.into(),
+            is_daily,
+            is_weekly,
+            &BacklinksIndex::new(),
+            Some(&resolver),
+        )
+    }
+
+    #[test]
+    fn regression_173_temporary_unlock_finishes_an_interrupted_lock_in_every_tree() {
+        let root = temp_forge("pair-same-temporary");
+        for (filename, is_daily, is_weekly) in PAIR_NOTES {
+            let body = format!("# {filename}\n\nsame body");
+            let (original, locked) =
+                interrupted_pair(&root, filename, is_daily, is_weekly, &body, body.as_bytes());
+            let ciphertext = fs::read(&locked).unwrap();
+            let before = snapshot(&root);
+
+            let unlocked = unlock_pair(&root, filename, is_daily, is_weekly);
+
+            assert_eq!(unlocked.content, body, "{filename}");
+            assert_eq!(unlocked.conflict_copy, None, "{filename}");
+            assert!(unlocked.settled_twin, "{filename}");
+            assert!(!original.exists(), "{filename}: plaintext twin kept");
+            assert_eq!(fs::read(&locked).unwrap(), ciphertext, "{filename}");
+            assert_eq!(snapshot(&root).len(), before.len() - 1, "{filename}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_permanent_unlock_of_an_interrupted_pair_is_not_already_unlocked() {
+        let root = temp_forge("pair-same-permanent");
+        for (filename, is_daily, is_weekly) in PAIR_NOTES {
+            let body = format!("# {filename}\n\nsame body");
+            let (original, locked) =
+                interrupted_pair(&root, filename, is_daily, is_weekly, &body, body.as_bytes());
+            let before = snapshot(&root);
+
+            let copy = permanently_unlock_pair(&root, filename, is_daily, is_weekly).unwrap();
+
+            assert_eq!(copy, None, "{filename}");
+            assert_eq!(fs::read_to_string(&original).unwrap(), body, "{filename}");
+            assert!(!locked.exists(), "{filename}: ciphertext kept");
+            assert_eq!(snapshot(&root).len(), before.len() - 1, "{filename}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn assert_conflict_copy_holds(root: &Path, kind: (bool, bool), copy: &str, plain: &[u8]) {
+        let dir = note_dir(root, kind.0, kind.1);
+        assert!(copy.contains(" (conflict "), "{copy}");
+        assert_eq!(fs::read(dir.join(copy)).unwrap(), plain, "{copy}");
+    }
+
+    #[test]
+    fn regression_173_temporary_unlock_keeps_a_differing_plaintext_as_a_conflict_copy() {
+        let root = temp_forge("pair-differ-temporary");
+        for (filename, is_daily, is_weekly) in PAIR_NOTES {
+            let plain = format!("---\ncolor: blue\n---\n# {filename}\n\nedited after the crash");
+            let (original, locked) = interrupted_pair(
+                &root,
+                filename,
+                is_daily,
+                is_weekly,
+                "locked body",
+                plain.as_bytes(),
+            );
+            let ciphertext = fs::read(&locked).unwrap();
+            let before = snapshot(&root);
+
+            let unlocked = unlock_pair(&root, filename, is_daily, is_weekly);
+
+            assert_eq!(unlocked.content, "locked body", "{filename}");
+            let copy = unlocked.conflict_copy.expect("a conflict copy");
+            if let Some((folder, _)) = filename.rsplit_once('/') {
+                assert!(copy.starts_with(&format!("{folder}/")), "{copy}");
+            }
+            assert_conflict_copy_holds(&root, (is_daily, is_weekly), &copy, plain.as_bytes());
+            assert!(!original.exists(), "{filename}: plaintext twin kept");
+            assert_eq!(fs::read(&locked).unwrap(), ciphertext, "{filename}");
+            assert_eq!(snapshot(&root).len(), before.len(), "{filename}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_permanent_unlock_keeps_a_differing_plaintext_as_a_conflict_copy() {
+        let root = temp_forge("pair-differ-permanent");
+        for (filename, is_daily, is_weekly) in PAIR_NOTES {
+            let plain = format!("# {filename}\n\nedited after the crash");
+            let (original, locked) = interrupted_pair(
+                &root,
+                filename,
+                is_daily,
+                is_weekly,
+                "locked body",
+                plain.as_bytes(),
+            );
+            let before = snapshot(&root);
+
+            let copy = permanently_unlock_pair(&root, filename, is_daily, is_weekly)
+                .unwrap()
+                .expect("a conflict copy");
+
+            assert_conflict_copy_holds(&root, (is_daily, is_weekly), &copy, plain.as_bytes());
+            assert_eq!(
+                fs::read_to_string(&original).unwrap(),
+                "locked body",
+                "{filename}"
+            );
+            assert!(!locked.exists(), "{filename}: ciphertext kept");
+            assert_eq!(snapshot(&root).len(), before.len(), "{filename}");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_an_empty_plaintext_twin_is_kept_unless_the_note_is_empty_too() {
+        let root = temp_forge("pair-empty");
+        let (original, _) = interrupted_pair(&root, "Empty.md", false, false, "body", b"");
+        let unlocked = unlock_pair(&root, "Empty.md", false, false);
+        assert_eq!(unlocked.content, "body");
+        assert_conflict_copy_holds(&root, (false, false), &unlocked.conflict_copy.unwrap(), b"");
+        assert!(!original.exists());
+
+        let (original, locked) = interrupted_pair(&root, "Blank.md", false, false, "", b"");
+        let unlocked = unlock_pair(&root, "Blank.md", false, false);
+        assert_eq!(unlocked.content, "");
+        assert_eq!(unlocked.conflict_copy, None);
+        assert!(!original.exists());
+        assert!(locked.is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_a_wrong_password_leaves_the_pair_untouched() {
+        let root = temp_forge("pair-wrong-password");
+        interrupted_pair(&root, "Pair.md", false, false, "locked", b"plain");
+        let before = snapshot(&root);
+        let index = BacklinksIndex::new();
+
+        let temporary = unlock_note_in(
+            &root,
+            "Pair.md".into(),
+            "wrong".into(),
+            false,
+            false,
+            &index,
+        );
+        assert!(temporary.unwrap_err().contains("password"));
+        assert_eq!(snapshot(&root), before);
+
+        let permanent = permanently_unlock_note_in(
+            &root,
+            "Pair.md".into(),
+            "wrong".into(),
+            false,
+            false,
+            &index,
+            Some(&resolver),
+        );
+        assert!(permanent.unwrap_err().contains("password"));
+        assert_eq!(snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_a_corrupt_or_truncated_locked_twin_never_costs_the_plaintext() {
+        let root = temp_forge("pair-corrupt");
+        let (_, locked) = interrupted_pair(&root, "Cut.md", false, false, "locked", b"plain");
+        let ciphertext = fs::read(&locked).unwrap();
+        fs::write(&locked, &ciphertext[..ciphertext.len() / 2]).unwrap();
+        let (_, garbled) = interrupted_pair(&root, "Garbled.md", true, false, "x", b"plain");
+        fs::write(&garbled, "v3$not a ciphertext").unwrap();
+        let before = snapshot(&root);
+
+        assert!(unlock_note_in(
+            &root,
+            "Garbled.md".into(),
+            PAIR_PASSWORD.into(),
+            true,
+            false,
+            &BacklinksIndex::new(),
+        )
+        .is_err());
+        assert!(permanently_unlock_pair(&root, "Cut.md", false, false).is_err());
+        assert_eq!(snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn regression_173_a_settled_note_locks_and_unlocks_again() {
+        let root = temp_forge("pair-relock");
+        let (original, locked) =
+            interrupted_pair(&root, "Projects/Again.md", false, false, "body", b"body");
+        assert!(unlock_pair(&root, "Projects/Again.md", false, false).settled_twin);
+        assert_eq!(
+            permanently_unlock_pair(&root, "Projects/Again.md", false, false),
+            Ok(None)
+        );
+        assert_eq!(fs::read_to_string(&original).unwrap(), "body");
+        lock_note_in(
+            &root,
+            "Projects/Again.md".into(),
+            PAIR_PASSWORD.into(),
+            false,
+            false,
+            &BacklinksIndex::new(),
+        )
+        .unwrap();
+        assert!(!original.exists());
+        let unlocked = unlock_pair(&root, "Projects/Again.md", false, false);
+        assert_eq!(unlocked.content, "body");
+        assert!(!unlocked.settled_twin);
+        assert!(locked.is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     #[test]
     fn pending_lock_source_is_never_treated_as_missing_plaintext() {

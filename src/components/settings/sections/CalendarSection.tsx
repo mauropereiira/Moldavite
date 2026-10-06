@@ -1,19 +1,21 @@
 /**
- * CalendarSection — one block per calendar source (Apple EventKit, Google),
- * then display options and a per-calendar selection spanning both.
+ * CalendarSection: what the Agenda shows, one row per calendar source (Apple
+ * EventKit, Google), then event options and a per-calendar selection spanning
+ * both.
  *
  * Sources differ in kind, not just in wording: Apple is an OS permission the
  * user grants in System Settings (Settings on iPhone and iPad), Google is an
- * account connection the app can make and break itself. Each block is rendered
+ * account connection the app can make and break itself. Each row is rendered
  * from `sources`, so a source this platform or build lacks says why in its
- * block instead of offering a button that cannot work.
+ * row instead of offering a button that cannot work.
  */
 
 import { useEffect } from 'react';
-import { Calendar, Check, Link2, Lock, Unlink } from 'lucide-react';
+import { Calendar, Link2, Unlink } from 'lucide-react';
 import { hasNoConnectableCalendarSource, useCalendarStore } from '@/stores/calendarStore';
 import type { CalendarInfo, CalendarSource } from '@/types';
-import { Toggle } from '../common';
+import { useSettingsStore } from '@/stores';
+import { Group, Row, ToggleRow, label } from '../common';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { CalendarSyncComingSoon } from '@/components/calendar/CalendarSyncComingSoon';
 import { isMobilePlatform } from '@/lib/platform';
@@ -56,315 +58,157 @@ export function CalendarSection() {
     setRefreshIntervalMinutes,
     checkPermission,
   } = useCalendarStore();
+  const settings = useSettingsStore();
 
   useEffect(() => {
     checkPermission();
   }, [checkPermission]);
 
-  if (hasNoConnectableCalendarSource(sources)) {
-    return <CalendarSyncComingSoon />;
-  }
-
   const mobile = isMobilePlatform();
   const apple = sources.find((s) => s.source === 'apple');
   const google = sources.find((s) => s.source === 'google');
   const anyConnected = sources.some((s) => s.available && s.connected);
-  const grouped = groupBySource(calendars);
-
-  const panel = {
-    backgroundColor: 'transparent',
-    borderRadius: 'var(--radius-md)',
-  };
+  const denied = permissionStatus === 'Denied' || permissionStatus === 'Restricted';
 
   return (
-    <div className="space-y-6">
-      {/* Apple Calendar: OS permission, macOS and iOS only */}
-      {apple && !apple.available && (
-        <div className="p-4 space-y-1" style={panel}>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Apple Calendar
-          </h3>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {apple.error ?? 'Apple Calendar is not available here.'}
-          </p>
-        </div>
-      )}
-      {apple?.available && (
-        <div className="p-4 space-y-4" style={panel}>
-          <div>
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Apple Calendar
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Display events from the Calendar app in your timeline
-            </p>
-          </div>
-
-          {isAuthorized ? (
-            <div
-              className="flex items-center gap-3 p-3"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--success)',
-              }}
-            >
-              <div
-                aria-hidden="true"
-                className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>
-                  Calendar Access Enabled
-                </p>
-                <p className="text-xs" style={{ color: 'var(--success)', opacity: 0.8 }}>
-                  Connected to the Calendar app
-                </p>
-              </div>
-            </div>
-          ) : permissionStatus === 'Denied' || permissionStatus === 'Restricted' ? (
-            <div
-              className="p-3"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--error)',
-              }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Lock aria-hidden="true" className="w-4 h-4" style={{ color: 'var(--error)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--error)' }}>
-                  Access Denied
-                </p>
-              </div>
-              <p className="text-xs mb-2" style={{ color: 'var(--error)', opacity: 0.9 }}>
-                Calendar access was denied. To enable:
-              </p>
-              <ol
-                className="text-xs list-decimal list-inside space-y-1"
-                style={{ color: 'var(--error)', opacity: 0.9 }}
-              >
-                <li>Open {mobile ? 'Settings' : 'System Settings'}</li>
-                <li>Go to Privacy &amp; Security → Calendars</li>
-                <li>
-                  {mobile ? 'Choose Full Access for Moldavite' : 'Enable access for Moldavite'}
-                </li>
-              </ol>
-            </div>
-          ) : (
-            <button
-              onClick={() => requestPermission()}
-              disabled={isRequestingPermission}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-            >
-              {isRequestingPermission ? (
-                <>
-                  <DotLoader label="Requesting calendar permission" />
-                  Requesting...
-                </>
-              ) : (
-                <>
-                  <Calendar aria-hidden="true" className="w-4 h-4" />
-                  Enable Calendar Access
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Google Calendar — account connection the app owns */}
-      <div className="p-4 space-y-4" style={panel}>
-        <div>
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Google Calendar
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Read-only access to your Google events. Moldavite never creates or changes them.
-          </p>
-        </div>
-
-        {!google?.available ? (
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {google?.error ?? 'Google Calendar is not available in this build.'}
-          </p>
-        ) : google.connected ? (
-          <>
-            <div
-              className="flex items-center gap-3 p-3"
-              style={{
-                backgroundColor: 'transparent',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--success)',
-              }}
-            >
-              <div
-                aria-hidden="true"
-                className="w-8 h-8 flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>
-                  Connected
-                </p>
-                <p className="text-xs truncate" style={{ color: 'var(--success)', opacity: 0.8 }}>
-                  {google.account ?? 'Google account'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => disconnectGoogle()}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <Unlink aria-hidden="true" className="w-4 h-4" />
-              Disconnect
-            </button>
-          </>
-        ) : (
-          <>
-            {(connectError || google.error) && (
-              <p className="text-xs" style={{ color: 'var(--error)' }}>
-                {connectError ?? google.error}
-              </p>
-            )}
-            <button
-              onClick={() => connectGoogle()}
-              disabled={isConnectingGoogle}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-            >
-              {isConnectingGoogle ? (
-                <>
-                  <DotLoader label="Connecting Google Calendar" />
-                  {mobile ? 'Waiting for Google sign-in...' : 'Waiting for your browser...'}
-                </>
-              ) : (
-                <>
-                  <Link2 aria-hidden="true" className="w-4 h-4" />
-                  Connect Google Account
-                </>
-              )}
-            </button>
-          </>
+    <div className="settings-tab">
+      <Group id="agenda">
+        {/* A phone always shows the month calendar: it is how daily and weekly notes are reached. */}
+        {!mobile && (
+          <ToggleRow
+            id="month-calendar"
+            value={settings.showCalendarWidget}
+            onChange={settings.setShowCalendarWidget}
+          />
         )}
-      </div>
+        <ToggleRow
+          id="timeline"
+          value={settings.showTimelineWidget}
+          onChange={settings.setShowTimelineWidget}
+        />
+      </Group>
+
+      {hasNoConnectableCalendarSource(sources) ? (
+        <CalendarSyncComingSoon />
+      ) : (
+        <Group id="accounts">
+          {apple && (
+            <Row
+              id="apple-calendar"
+              note={
+                !apple.available ? (
+                  (apple.error ?? 'Apple Calendar is not available here.')
+                ) : isAuthorized ? (
+                  <span className="settings-ok">Connected to the Calendar app</span>
+                ) : denied ? (
+                  <>
+                    Access was denied. To allow it:
+                    <ol className="list-decimal list-inside">
+                      <li>Open {mobile ? 'Settings' : 'System Settings'}</li>
+                      <li>Go to Privacy &amp; Security, then Calendars</li>
+                      <li>
+                        {mobile
+                          ? 'Choose Full Access for Moldavite'
+                          : 'Enable access for Moldavite'}
+                      </li>
+                    </ol>
+                  </>
+                ) : null
+              }
+            >
+              {apple.available && !isAuthorized && !denied && (
+                <button
+                  onClick={() => requestPermission()}
+                  disabled={isRequestingPermission}
+                  className="settings-btn"
+                >
+                  {isRequestingPermission ? (
+                    <DotLoader label="Requesting calendar permission" />
+                  ) : (
+                    <Calendar aria-hidden="true" className="w-4 h-4" />
+                  )}
+                  {isRequestingPermission ? 'Requesting...' : 'Allow access'}
+                </button>
+              )}
+            </Row>
+          )}
+          <Row
+            id="google-calendar"
+            note={
+              !google?.available ? (
+                (google?.error ?? 'Google Calendar is not available in this build.')
+              ) : google.connected ? (
+                <span className="settings-ok">
+                  Connected as {google.account ?? 'Google account'}
+                </span>
+              ) : (
+                (connectError ?? google.error) && (
+                  <span className="settings-error">{connectError ?? google.error}</span>
+                )
+              )
+            }
+          >
+            {google?.available &&
+              (google.connected ? (
+                <button onClick={() => disconnectGoogle()} className="settings-btn">
+                  <Unlink aria-hidden="true" className="w-4 h-4" />
+                  Disconnect
+                </button>
+              ) : (
+                <button
+                  onClick={() => connectGoogle()}
+                  disabled={isConnectingGoogle}
+                  className="settings-btn"
+                >
+                  {isConnectingGoogle ? (
+                    <DotLoader label="Connecting Google Calendar" />
+                  ) : (
+                    <Link2 aria-hidden="true" className="w-4 h-4" />
+                  )}
+                  {isConnectingGoogle
+                    ? mobile
+                      ? 'Waiting for Google sign-in...'
+                      : 'Waiting for your browser...'
+                    : 'Connect account'}
+                </button>
+              ))}
+          </Row>
+        </Group>
+      )}
 
       {anyConnected && (
-        <>
-          {/* Display Options */}
-          <div className="p-4 space-y-1" style={panel}>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
-              Display Options
-            </h3>
-
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Show Calendar Events
-                </span>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Display events in the timeline
-                </p>
-              </div>
-              <Toggle
-                enabled={calendarEnabled}
-                onChange={setCalendarEnabled}
-                ariaLabel="Enable calendar events"
-              />
-            </div>
-
-            <div
-              className="flex items-center justify-between py-2"
-              style={{ borderTop: '1px solid var(--border-muted)' }}
+        <Group id="events">
+          <ToggleRow id="show-events" value={calendarEnabled} onChange={setCalendarEnabled} />
+          <ToggleRow id="all-day" value={showAllDayEvents} onChange={setShowAllDayEvents} />
+          <Row id="refresh">
+            <select
+              value={refreshIntervalMinutes}
+              onChange={(e) => setRefreshIntervalMinutes(Number(e.target.value))}
+              aria-label={label('refresh')}
+              className="settings-input"
             >
-              <div>
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Show All-Day Events
-                </span>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Include events without specific times
-                </p>
-              </div>
-              <Toggle
-                enabled={showAllDayEvents}
-                onChange={setShowAllDayEvents}
-                ariaLabel="Show all-day events"
-              />
-            </div>
-
-            <div
-              className="flex items-center justify-between py-2"
-              style={{ borderTop: '1px solid var(--border-muted)' }}
-            >
-              <div>
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Refresh Every
-                </span>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  How often connected accounts are checked for changes
-                </p>
-              </div>
-              <select
-                value={refreshIntervalMinutes}
-                onChange={(e) => setRefreshIntervalMinutes(Number(e.target.value))}
-                aria-label="Refresh interval"
-                className="px-2 py-1 text-sm focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                {REFRESH_INTERVALS.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {minutes} min
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Calendar selection across both sources */}
+              {REFRESH_INTERVALS.map((minutes) => (
+                <option key={minutes} value={minutes}>
+                  {minutes} min
+                </option>
+              ))}
+            </select>
+          </Row>
           {calendars.length > 0 && (
-            <div className="p-4 space-y-4" style={panel}>
-              <div>
-                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  Calendars
-                </h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {selectedCalendarIds.length === 0
-                    ? 'All calendars are shown. Tick any to narrow it down.'
-                    : `${selectedCalendarIds.length} selected`}
-                </p>
-              </div>
-
-              {grouped.map(([source, list]) => (
-                <div key={source} className="space-y-1">
-                  <p
-                    className="text-xs font-medium uppercase tracking-wide"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  >
-                    {SOURCE_LABEL[source]}
-                  </p>
+            <Row
+              id="calendar-list"
+              stack
+              note={
+                selectedCalendarIds.length === 0
+                  ? 'All calendars are shown. Tick any to narrow it down.'
+                  : `${selectedCalendarIds.length} selected`
+              }
+            >
+              {groupBySource(calendars).map(([source, list]) => (
+                <div key={source} className="settings-calendar-group">
+                  <p className="settings-row-note">{SOURCE_LABEL[source]}</p>
                   {list.map((cal) => (
-                    <label
-                      key={cal.id}
-                      className="flex items-center gap-2 py-1 cursor-pointer text-sm"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
+                    <label key={cal.id} className="flex items-center gap-2 py-1 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={selectedCalendarIds.includes(cal.id)}
@@ -380,9 +224,9 @@ export function CalendarSection() {
                   ))}
                 </div>
               ))}
-            </div>
+            </Row>
           )}
-        </>
+        </Group>
       )}
     </div>
   );

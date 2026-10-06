@@ -13,8 +13,7 @@ html[data-platform='mobile'] {
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   /* The top inset for the surfaces in the app's own column: the rail, the
-     note and the pages beside it. A pinned bar clears the status bar for
-     them, so it is zero below one. */
+     note and the pages beside it. */
   --shell-safe-top: var(--safe-top);
   /* Apple's minimum comfortable touch target. */
   --touch-target: 44px;
@@ -95,6 +94,10 @@ html[data-platform='mobile'] .tiptap h3 {
   font-size: calc(17px * var(--mobile-text-scale));
 }
 
+html[data-platform='mobile'] .tiptap :is(h4, h5, h6) {
+  font-size: calc(16px * var(--mobile-text-scale));
+}
+
 /* A phone-width column squeezes every cell down to a word. Keep cells readable
    and let the table's wrapper scroll sideways instead. The minimum sits on the
    cell's paragraph because min-width on a table cell is undefined in CSS and
@@ -109,11 +112,9 @@ html[data-platform='mobile']
   :is(
     .icon-rail,
     .tab-bar,
-    .pinned-bar,
     .editor-footer,
     .app-overlay-controls,
     .app-overlay-header,
-    .timeline-view-header,
     .graph-view-header,
     .section-header
   ) {
@@ -132,7 +133,6 @@ html[data-platform='mobile']
     .editor-paper,
     .index-overlay-content .overflow-y-auto,
     .app-agenda-grid,
-    .timeline-view-feed,
     .quick-switcher-results
   ) {
   overscroll-behavior: contain;
@@ -158,12 +158,12 @@ html[data-platform='mobile']
 
   html[data-platform='mobile']
     :is(
-      .app-overlay-close,
-      .quick-switcher-close,
-      .timeline-view-close,
+      .close-button,
       .app-onboarding-scrim button,
       .app-trash-overlay button,
-      .calendar-nav-button
+      .calendar-nav-button,
+      .tab-bar :is(.tab, button),
+      .tabs-menu button
     ):not(:disabled):hover {
     background-color: transparent !important;
   }
@@ -181,10 +181,6 @@ html[data-platform='mobile']
     ):hover {
     /* index.css paints hover with !important; these selectors out-rank it. */
     background: transparent !important;
-  }
-
-  html[data-platform='mobile'] :is(.text-link, .welcome-note-action):hover::after {
-    transform: scaleX(0);
   }
 }
 
@@ -318,14 +314,12 @@ html[data-platform='mobile'] .app-overlay-hint {
   display: none;
 }
 
-/* The × keeps its 24px glyph inside a 44px hit box. */
-html[data-platform='mobile'] .app-overlay-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
+/* Every close control is a 44pt target. The negative margin keeps its glyph
+   where the 28px desktop box puts it, so no header grows. */
+html[data-platform='mobile'] .close-button {
   width: var(--touch-target);
   height: var(--touch-target);
+  margin: -8px;
 }
 
 /* Index: the row is absolutely positioned inline, so its offsets are
@@ -344,7 +338,7 @@ html[data-platform='mobile'] .app-sidebar .index-overlay-content {
     var(--page-safe-left) !important;
 }
 
-/* The rail beside the Index has Timeline, Graph, Settings and Trash, and
+/* The rail beside the Index has Graph, Settings and Trash, and
    About has the version: the footer keeps Today and New. It took half of a
    landscape screen with them. */
 html[data-platform='mobile']
@@ -386,10 +380,6 @@ html[data-platform='mobile'] .index-overlay-content > .sidebar-footer {
 
 html[data-platform='mobile'] .index-overlay-content :is(.forge-switcher, .sidebar-search) {
   padding-inline: var(--mobile-page-inset);
-}
-
-html[data-platform='mobile'] .forge-switcher > button {
-  padding-inline: 0;
 }
 
 html[data-platform='mobile'] .forge-switcher :is(button, input) {
@@ -505,9 +495,15 @@ html[data-platform='mobile'] .index-overlay-content .search-input + button {
   height: var(--touch-target);
 }
 
-html[data-platform='mobile'] .index-overlay-content .section-header {
-  margin-top: 12px;
-  padding-bottom: 12px;
+/* A card's band is one touch target tall; its controls fill that height. */
+html[data-platform='mobile'] .index-overlay-content .section-band {
+  min-height: var(--touch-target);
+}
+
+/* Four cards share a phone's height without the page scrolling. */
+html[data-platform='mobile'] .app-index-grid {
+  --index-card-min-height: 132px;
+  gap: 16px;
 }
 
 /* Header controls (toggle, New, sort) grow a hit area without moving. */
@@ -575,37 +571,10 @@ html[data-platform='mobile'][data-large-text='true'] .section-header > button {
   flex-basis: 100%;
 }
 
-/* 5. TIMELINE PAGE */
+/* 5. GRAPH PAGE */
 
-html[data-platform='mobile'] .timeline-view-header {
-  padding: calc(var(--shell-safe-top) + 8px) calc(var(--mobile-page-inset) + var(--page-safe-right))
-    12px calc(var(--mobile-page-inset) + var(--page-safe-left));
-}
-
-/* The × keeps its glyph inside a 44px hit box, like the other pages'. */
-html[data-platform='mobile'] .timeline-view-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--touch-target);
-  min-height: var(--touch-target);
-  margin: -12px -12px -12px 0;
-}
-
-html[data-platform='mobile'] .timeline-view-feed {
-  padding: 16px calc(var(--mobile-page-inset) + var(--page-safe-right))
-    calc(var(--safe-bottom) + 24px) calc(var(--mobile-page-inset) + var(--page-safe-left));
-}
-
-html[data-platform='mobile'] .timeline-view-feed li > button {
-  min-height: var(--touch-target);
-}
-
-/* 6. GRAPH PAGE */
-
-/* Spans the rail's column, like Search and Settings, so a pinned bar above
-   the rail does not show through; the rail paints above it. The offsets are
-   inline in the component. */
+/* Spans the rail's column, like Search and Settings; the rail paints above
+   it. The offsets are inline in the component. */
 html[data-platform='mobile'] .graph-view {
   left: 0 !important;
   right: 0 !important;
@@ -629,10 +598,9 @@ html[data-platform='mobile'] .graph-view-fit {
   padding-inline: 8px;
 }
 
-/* 7. QUICK SWITCHER AS A PAGE */
+/* 6. QUICK SWITCHER AS A PAGE */
 
-/* Spans the rail's column too, like Settings: the rail paints above it, and a
-   pinned bar above the rail no longer shows through. */
+/* Spans the rail's column too, like Settings: the rail paints above it. */
 html[data-platform='mobile'] .quick-switcher-backdrop {
   align-items: stretch;
   padding: 0 var(--rail-inset-right) 0 var(--rail-inset-left);
@@ -643,6 +611,7 @@ html[data-platform='mobile'] .quick-switcher-backdrop {
 html[data-platform='mobile'] .quick-switcher-container {
   width: 100%;
   height: 100%;
+  max-width: none;
   max-height: none;
   border: 0;
   border-radius: 0;
@@ -681,7 +650,7 @@ html[data-platform='mobile'] .quick-switcher-footer {
   display: none;
 }
 
-/* 8. EDITOR */
+/* 7. EDITOR */
 
 /* Bars and the paper paint to the screen edge; only their contents clear the
    inset, so a note colour or a bar's ground never stops short of the edge. */
@@ -703,20 +672,72 @@ html[data-platform='mobile'] .editor-paper-close-rail button {
   min-height: var(--touch-target);
 }
 
-/* The 56px left gutter clears macOS window controls; a phone has none. */
 html[data-platform='mobile'] .tab-bar {
   min-height: var(--touch-target);
-  padding: 0 calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left));
+  padding: 0 calc(4px + var(--page-safe-right)) 0 calc(8px + var(--page-safe-left));
 }
 
-html[data-platform='mobile'] .tab {
-  min-height: var(--touch-target);
+html[data-platform='mobile'] :is(.tab, .tab-overflow) {
+  height: 36px;
 }
 
-html[data-platform='mobile'] :is(.tab-close, .tab-pin) {
-  width: 32px;
-  height: 32px;
+/* Touch has no hover, so pin and close are always there. Each is a full
+   touch target, drawn over the tab's own height. */
+html[data-platform='mobile'] :is(.tab-close, .tab-pin, .tab-pin-mark) {
+  width: 36px;
+  height: 36px;
   opacity: 1;
+}
+
+/* The phone shows the note you are reading and an Open tabs button. The
+   rest of the bar is in that button's sheet. */
+html[data-platform='mobile'] .tab-bar[data-compact] .tab {
+  flex: 1 1 auto;
+  max-width: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 15px;
+}
+
+/* Close on the phone lives in the sheet; see .editor-paper-close-rail. */
+html[data-platform='mobile'] .tab-bar[data-compact] .tab-close {
+  display: none;
+}
+
+html[data-platform='mobile'] .tab-bar[data-compact] .tab-overflow {
+  height: var(--touch-target);
+  padding-inline: 10px;
+}
+
+/* The Open tabs list becomes a sheet across the note column. */
+html[data-platform='mobile'] .tab-bar[data-compact] .tabs-menu:not(.tabs-context-menu) {
+  top: 100%;
+  left: 0;
+  right: 0;
+  width: auto;
+  max-width: none;
+  border-width: 0 0 1px;
+}
+
+html[data-platform='mobile'] .tabs-menu-row {
+  padding-left: var(--page-safe-left);
+  padding-right: calc(4px + var(--page-safe-right));
+}
+
+html[data-platform='mobile'] .tabs-menu-open {
+  min-height: var(--touch-target);
+  font-size: 16px;
+}
+
+html[data-platform='mobile'] .tabs-menu-icon {
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+/* The welcome screen keeps its own top, so a bar above it clears the status
+   bar itself. */
+html[data-platform='mobile'] .editor-welcome > .tab-bar {
+  padding-top: var(--shell-safe-top);
 }
 
 /* Icon-only toolbar buttons (selection and image toolbars). */
@@ -771,7 +792,7 @@ html[data-platform='mobile'] .editor-footer-overflow-toggle {
   width: auto;
   min-width: 0;
   height: var(--touch-target);
-  padding-inline: 4px;
+  padding-inline: 8px;
 }
 
 html[data-platform='mobile'] .editor-footer .editor-footer-actions-menu .toolbar-button {
@@ -791,50 +812,19 @@ html[data-platform='mobile'] .editor-footer [role='menu'] [role='menu'] {
   overscroll-behavior: contain;
 }
 
-/* Spans the rail as well, so it clears both insets. It is the app's first
-   row, so it also clears the status bar, and the shell below it no longer
-   has to. */
-html[data-platform='mobile'] .pinned-bar {
-  gap: 0;
-  padding: var(--safe-top) calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
-}
-
-html[data-platform='mobile']:not(.focus-mode):has(.pinned-bar) {
-  --shell-safe-top: 0px;
-}
-
-/* A landscape keyboard leaves the app about 190pt, and the bar took 46 of
+/* A landscape keyboard leaves the app about 190pt, and the bar took 44 of
    them from the note, the Index results and any dialog. */
 @media (orientation: landscape) and (max-height: 500px) {
-  html[data-platform='mobile'][data-keyboard='open'] .pinned-bar {
+  html[data-platform='mobile'][data-keyboard='open'] .tab-bar {
     display: none;
   }
-}
-
-html[data-platform='mobile'] .pinned-bar-item {
-  min-height: var(--touch-target);
-}
-
-html[data-platform='mobile'] :is(.pinned-bar-open, .pinned-bar-more) {
-  min-height: var(--touch-target);
-  padding-inline: 8px;
-}
-
-/* Unpin is hover-revealed on desktop. */
-html[data-platform='mobile'] .pinned-bar-unpin {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target);
-  min-height: var(--touch-target);
-  opacity: 0.7;
 }
 
 html[data-platform='mobile'] [role='menu'] [role='menuitem'] {
   min-height: var(--touch-target);
 }
 
-/* 9. FIXED SURFACES (dialogs, popovers, toasts) */
+/* 8. FIXED SURFACES (dialogs, popovers, toasts) */
 
 /* Every centred dialog sits on one of these two scrims. The rail paints above
    them, so a scrim that starts at the screen edge only hides one side of a
@@ -846,8 +836,7 @@ html[data-platform='mobile'] :is(.modal-backdrop-dark, .wn-scrim) {
 }
 
 /* A page's ground runs to the edge; its content takes the inset instead. It
-   spans the rail's column as well (the rail paints above it), so a pinned bar
-   over the rail cannot show through there. */
+   spans the rail's column as well (the rail paints above it). */
 html[data-platform='mobile'] .modal-backdrop-dark:has(> .template-picker-modal) {
   left: 0;
   right: 0;
@@ -907,9 +896,9 @@ html[data-platform='mobile'] .modal-elevated {
   overflow-wrap: anywhere;
 }
 
-/* A page's scrim starts below a pinned bar, which the shell height above
-   leaves out: on a landscape phone Lock note ran under the bar and onto the
-   home indicator. The scrim's own box is the room there. */
+/* The scrim's own box is the room a dialog has on a page: sized from the
+   shell height instead, Lock note once ran onto the home indicator on a
+   landscape phone. */
 html[data-platform='mobile'] .app-overlay .modal-backdrop-dark > .modal-elevated {
   max-height: calc(100% - 32px);
 }
@@ -921,15 +910,6 @@ html[data-platform='mobile'] .modal-elevated .btn {
 
 html[data-platform='mobile'] .modal-elevated .dialog-action {
   min-height: var(--touch-target);
-}
-
-html[data-platform='mobile'] .modal-elevated .dialog-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  margin: -10px -12px -10px 0;
 }
 
 /* Context menus and the trash popover: fixed at the pointer, so they can
@@ -962,13 +942,6 @@ html[data-platform='mobile'] .wn-body {
 
 html[data-platform='mobile'] .wn-version {
   font-size: 36px;
-}
-
-html[data-platform='mobile'] .wn-close {
-  top: -6px;
-  right: -6px;
-  width: var(--touch-target);
-  height: var(--touch-target);
 }
 
 html[data-platform='mobile'] .wn-footer {
@@ -1060,7 +1033,7 @@ html[data-platform='mobile'][data-large-text='true'] .welcome-reveal-actions {
 }
 
 /* The editor column starts at the top of the screen: keep the note clear of
-   the status bar. Timeline and the welcome screen handle their own top. */
+   the status bar. The welcome screen handles its own top. */
 html[data-platform='mobile'] .editor-root {
   padding-top: var(--shell-safe-top);
 }
@@ -1103,30 +1076,52 @@ html[data-platform='mobile'] .graph-view-fit {
    Each section is an inset group with its heading inside, so the eye can tell
    where one ends and the next begins; the desktop's bare hairlines ran
    together on a narrow screen. */
-html[data-platform='mobile'] .settings-dialog .settings-section {
-  padding: 14px 16px 6px;
+html[data-platform='mobile'] .settings-dialog :is(.settings-section, .settings-fold) {
+  padding: 10px 16px 0;
   background: var(--bg-panel);
   border: 1px solid var(--border-muted);
 }
 
-html[data-platform='mobile'] .settings-dialog [role='tabpanel'] .space-y-6 > * + * {
-  margin-top: 12px;
+html[data-platform='mobile'] .settings-dialog .settings-tab {
+  gap: 12px;
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section > .flex.items-center.gap-1 {
-  margin-bottom: 6px;
+html[data-platform='mobile'] .settings-tab > .settings-fold + .settings-fold {
+  margin-top: 0;
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section .flex.items-center.justify-between {
+html[data-platform='mobile'] .settings-section-head {
+  border-bottom: 0;
+}
+
+html[data-platform='mobile'] :is(.settings-row, .settings-fold-toggle) {
   min-height: var(--touch-target);
 }
 
-html[data-platform='mobile'] .settings-dialog .settings-section .text-sm {
+html[data-platform='mobile'] .settings-row-label {
   font-size: 15px;
 }
 
-/* Switches at iOS size, 51 by 31, with the knob filled in ink when on: the
-   outlined knob read the same either way. The hit area reaches 44pt without
+html[data-platform='mobile'] .settings-row-control:has(> [type='range'], > [role='radiogroup']) {
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+}
+
+html[data-platform='mobile'] .settings-row-control > :is([type='range'], [role='radiogroup']) {
+  flex: 1;
+}
+
+html[data-platform='mobile'] .settings-phone-search {
+  padding: 12px calc(16px + var(--page-safe-right)) 0 calc(16px + var(--page-safe-left));
+}
+
+html[data-platform='mobile'] :is(.settings-phone-label, .settings-results) {
+  margin: 0;
+  padding: 18px calc(16px + var(--page-safe-right)) 6px calc(16px + var(--page-safe-left));
+}
+
+/* Switches at iOS size, 51 by 31, with the knob filled in the accent when on:
+   the outlined knob read the same either way. The hit area reaches 44pt without
    moving anything. */
 html[data-platform='mobile'] .settings-toggle {
   width: 51px;
@@ -1145,8 +1140,7 @@ html[data-platform='mobile'] .settings-toggle-marker {
 }
 
 html[data-platform='mobile'] .settings-toggle[aria-checked='true'] .settings-toggle-marker {
-  background: var(--text-primary) !important;
-  transform: translateX(23px) !important;
+  transform: translateX(23px);
 }
 
 html[data-platform='mobile'] .settings-toggle:disabled {
@@ -1169,14 +1163,8 @@ html[data-platform='mobile'] .settings-segmented-option[aria-checked='false'] {
   color: var(--text-secondary) !important;
 }
 
-/* A section's own hairline already closes its last control. */
-html[data-platform='mobile'] .settings-section .settings-segmented-row:last-child {
-  padding-bottom: 4px;
-  border-bottom: 0;
-}
-
 /* Presets are rows in the section, not boxes inside its box; the chosen one
-   keeps its ink bar. The borders are inline. */
+   keeps its ink bar. */
 html[data-platform='mobile'] .settings-preset-option {
   border: 0 !important;
   border-bottom: 1px solid var(--border-muted) !important;
@@ -1199,7 +1187,7 @@ html[data-platform='mobile'] [role='radiogroup']:has(> .settings-preset-option) 
       .settings-segmented-option:not([aria-checked='true']),
       .settings-preset-option:not([aria-checked='true']),
       .settings-toggle,
-      [role='tabpanel'] button:not([aria-checked='true']),
+      .settings-body button:not([aria-checked='true']),
       nav button,
       header button
     ):not(:disabled):hover {
@@ -1269,6 +1257,8 @@ html[data-platform='mobile'] .app-onboarding-scrim {
 html[data-platform='mobile'] .app-onboarding-scrim .modal-elevated {
   width: 100% !important;
   height: 100%;
+  max-width: none;
+  max-height: none;
   background: var(--bg-base) !important;
   border: 0;
 }
@@ -1277,7 +1267,8 @@ html[data-platform='mobile'] .app-onboarding-scrim .modal-elevated {
    between steps. Steps differ a lot in height (the tour is a four-tile grid,
    the welcome is a paragraph), and an auto-height sheet centred in the scrim
    re-centres on every step, sliding both. A full-height column with the body
-   taking the slack keeps them put. */
+   taking the slack keeps them put, and the shared step stack (index.css)
+   keeps the icon put inside it. */
 html[data-platform='mobile'] .app-onboarding-scrim .p-8 {
   display: flex;
   flex-direction: column;
@@ -1292,11 +1283,6 @@ html[data-platform='mobile'] .app-onboarding-steps {
 
 html[data-platform='mobile'] .app-onboarding-body {
   flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1320,7 +1306,7 @@ html[data-platform='mobile'] .app-onboarding-footer > div:last-child button:last
   border-bottom: 1px solid var(--text-primary);
 }
 
-html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true'],
+html[data-platform='mobile'] .app-onboarding-scrim [aria-hidden='true']:not(.mask-art),
 html[data-platform='mobile'] .app-onboarding-scrim .p-3 {
   background: transparent !important;
   color: var(--text-muted) !important;
@@ -1340,6 +1326,7 @@ html[data-platform='mobile'] .mobile-formatting-bar {
   padding-right: var(--page-safe-right);
   display: none;
   flex: 0 0 auto;
+  flex-direction: column;
   align-items: stretch;
   background: var(--bg-base);
   border-top: 1px solid var(--border-default);
@@ -1357,12 +1344,18 @@ html[data-platform='mobile']:has(.mobile-formatting-bar[data-editing='true'])
   display: none !important;
 }
 
+/* Format's or Insert's controls, in a strip above the row that opened them. */
 html[data-platform='mobile'] .mobile-formatting-scroll {
   display: flex;
   min-width: 0;
-  flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+html[data-platform='mobile'] .mobile-formatting-main {
+  display: flex;
+  align-items: stretch;
 }
 
 html[data-platform='mobile'] .mobile-formatting-bar button {
@@ -1376,7 +1369,9 @@ html[data-platform='mobile'] .mobile-formatting-bar button {
   font-size: 13px;
 }
 
-html[data-platform='mobile'] .mobile-formatting-bar button[aria-pressed='true'] {
+html[data-platform='mobile']
+  .mobile-formatting-bar
+  :is(button[aria-pressed='true'], button[aria-expanded='true']) {
   color: var(--text-primary);
   box-shadow: inset 0 -2px var(--text-primary);
 }
@@ -1397,7 +1392,7 @@ html[data-platform='mobile'] .mobile-formatting-bar button:disabled {
 
   html[data-platform='mobile']
     .mobile-formatting-bar
-    button[aria-pressed='true']:not(:disabled):hover {
+    :is(button[aria-pressed='true'], button[aria-expanded='true']):not(:disabled):hover {
     color: var(--text-primary) !important;
   }
 }
@@ -1431,7 +1426,15 @@ html[data-platform='mobile']
 }
 
 html[data-platform='mobile'] .mobile-keyboard-done {
+  margin-left: auto;
   border-left: 1px solid var(--border-default);
+}
+
+html[data-platform='mobile'] .mobile-formatting-bar .mobile-formatting-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 /* Text fields keep a dismissal control after removing the native accessory. */

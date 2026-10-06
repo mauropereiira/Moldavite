@@ -6,6 +6,7 @@ import { DialogSurface } from '@/components/ui/DialogSurface';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { isMobilePlatform } from '@/lib/platform';
 import SyncedForgeControl from '@/components/settings/SyncedForgeControl';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface ManageForgesModalProps {
   isOpen: boolean;
@@ -92,14 +93,7 @@ export function ManageForgesModal({ isOpen, onClose }: ManageForgesModalProps) {
             <h2 id="manage-forges-title" className="text-base font-semibold">
               Manage Forges
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-2 py-1 text-sm rounded hover:bg-[var(--bg-hover)]"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <CloseButton onClick={onClose} label="Close Manage Forges" />
           </div>
 
           <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>

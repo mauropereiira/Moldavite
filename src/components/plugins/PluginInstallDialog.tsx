@@ -6,10 +6,11 @@
 
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, ExternalLink, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Download, ExternalLink, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { isNewerVersion } from '@/lib/changelog';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 export interface PluginInstallDetails {
   id: string;
@@ -141,15 +142,7 @@ export function PluginInstallDialog({
               {title}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 focus-ring"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            aria-label="Cancel plugin install"
-          >
-            <X aria-hidden="true" className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose} label="Cancel plugin install" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -171,7 +164,7 @@ export function PluginInstallDialog({
               <button
                 type="button"
                 onClick={onViewSource}
-                className="mt-2 text-xs inline-flex items-center gap-1 hover:underline focus-ring"
+                className="pad-hover mt-2 text-xs inline-flex items-center gap-1 focus-ring"
                 style={{ color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
               >
                 View its source code

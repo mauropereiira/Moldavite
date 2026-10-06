@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
 import { TemplateIcon, availableIcons } from './TemplateIcon';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/useToast';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface SaveTemplateModalProps {
   isOpen: boolean;
@@ -135,15 +135,7 @@ export function SaveTemplateModal({
           >
             Save as Template
           </h2>
-          <button
-            onClick={handleClose}
-            disabled={isSaving}
-            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)] disabled:opacity-50"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={handleClose} disabled={isSaving} label="Close modal" />
         </div>
 
         {/* Form */}

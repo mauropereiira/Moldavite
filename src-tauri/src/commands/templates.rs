@@ -12,7 +12,8 @@ use crate::paths::{
     ensure_templates_dir, get_daily_dir, get_standalone_dir, get_templates_dir, get_weekly_dir,
 };
 use crate::templates_data::{
-    generate_template_id, get_default_templates, replace_template_variables,
+    dated_note_day, generate_template_id, get_default_templates, replace_template_variables,
+    replace_template_variables_on,
 };
 use crate::types::{SaveTemplateInput, Template};
 use crate::validation::{
@@ -361,7 +362,8 @@ pub(crate) fn create_note_from_template(
     let path = template_note_destination(&dir, &filename)?;
 
     let template = get_template(template_id)?;
-    let content = replace_template_variables(template.content);
+    let day = dated_note_day(&filename, is_daily, is_weekly);
+    let content = replace_template_variables_on(template.content, day);
 
     crate::persist::write_atomic(&path, content.as_bytes(), Some(0o600))?;
 
