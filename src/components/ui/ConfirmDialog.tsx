@@ -32,7 +32,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return createPortal(
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[var(--z-dialog)] modal-backdrop-enter"
       onClick={() => !busy && onCancel()}
     >
       <DialogSurface

@@ -250,7 +250,7 @@ function DesktopSettingsPage() {
   };
 
   return (
-    <div className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter">
+    <div className="settings-scrim fixed inset-0 z-[var(--z-surface)] modal-backdrop-enter">
       <DialogSurface
         onEscape={close}
         className="settings-dialog settings-page modal-content-enter"
@@ -365,7 +365,7 @@ function MobileSettingsPage() {
   return (
     // Spans the rail's column too; the rail paints above it.
     <div
-      className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter"
+      className="settings-scrim fixed inset-0 z-[var(--z-surface)] modal-backdrop-enter"
       style={{ background: 'var(--bg-base)' }}
     >
       {/* iOS zooms into any field under 16px on focus, and a phone needs a
