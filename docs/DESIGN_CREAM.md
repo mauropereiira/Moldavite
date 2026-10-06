@@ -150,10 +150,10 @@ Regenerate it rather than hand-editing paths.
 Two masters, and everything else is derived from them. **Never hand-edit a
 derived file** — regenerate it.
 
-| Master | Derives |
-| ------ | ------- |
+| Master                            | Derives                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src-tauri/icons/icon-master.svg` | the entire icon set: `.icns`, `.ico`, Windows Store tiles, iOS, Android, `icon.png`, plus `public/favicon.*` and `docs/{favicon,icon}.png` |
-| `docs/og-image.svg` | `docs/og-image.png` |
+| `docs/og-image.svg`               | `docs/og-image.png`                                                                                                                        |
 
 The app icon is **cream on ink**, not ink on cream. At 16px — favicon, menu bar,
 taskbar — the ink tile keeps its silhouette against any background while a cream
@@ -171,7 +171,7 @@ The remaining PNGs are rendered from the same SVGs at 1200×630 (OG), 256, 64 an
 "N + book + fountain pen" clipart — a placeholder that survived because macOS
 never reads `.ico` and nobody on the team ran Windows. It was six weeks older
 than every sibling file. If you touch one brand asset, regenerate all of them
-from the master and *look at the output*, including on the platform you don't
+from the master and _look at the output_, including on the platform you don't
 use.
 
 ---
@@ -188,7 +188,7 @@ rather than a smaller icon, and expand/collapse is a CSS hairline caret.
 Icons are used deliberately in four places, and only these: the **icon rail**
 (where there is no room for labels and the tooltip carries the name), **folder
 rows** (`Folder`/`FolderOpen` — in a list mixing folders, notes and tags the
-glyph's job is to say which *kind* of row this is, which type cannot), the
+glyph's job is to say which _kind_ of row this is, which type cannot), the
 **top bar's pin and close marks** (on tabs, in the Open tabs menu and in the
 note's corner, where a word on every tab would drown the names; a pinned
 note's mark takes the accent), **writing controls** (the writing toolbar's + and the phone formatting row's
