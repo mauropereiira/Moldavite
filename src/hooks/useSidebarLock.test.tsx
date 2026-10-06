@@ -59,8 +59,8 @@ describe('useSidebarLock unlock', () => {
 
     const state = useNoteStore.getState();
     expect(state.activeTabId).toBe(lockedNote.path);
-    expect(state.currentNote?.content).toContain('<h1>Decrypted</h1>');
-    expect(state.currentNote?.content).toContain('<p>Visible immediately</p>');
+    expect(state.currentNote?.content).toMatch(/<h1[^>]*>Decrypted<\/h1>/);
+    expect(state.currentNote?.content).toMatch(/<p[^>]*>Visible immediately<\/p>/);
     expect(state.unlockedNotes.has(lockedNote.path)).toBe(true);
   });
 

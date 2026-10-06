@@ -17,7 +17,8 @@ import { hasTag, renameTagInContent } from './tags';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
-import { markdownSourcePlugin } from './markdownSource';
+import { isBlank, markdownSourcePlugin, type SourceMapEnv } from './markdownSource';
+import { replayCharacters, replayLines } from './markdownMerge';
 import DOMPurify from 'dompurify';
 import {
   getForgeRoot,
@@ -36,6 +37,8 @@ let forgeImagesEnabled = true;
 
 export interface ConversionOptions {
   forgeImages?: boolean;
+  /** False writes every block as the editor would, ignoring the Markdown it was loaded from. */
+  sources?: boolean;
 }
 
 function convertWith<T>(options: ConversionOptions | undefined, convert: () => T): T {
@@ -154,6 +157,24 @@ turndownService.addRule('taskItemDiv', {
   },
 });
 
+/**
+ * The marker for an item of `item`'s list, spelled as the note spelled the
+ * list's first item (`*   `, `1)`), so an edited or added item matches the
+ * items around it. A list made in the editor uses `fallback` and one space.
+ */
+function listItemMarker(item: Element, fallback: string): string {
+  const list = item.parentElement;
+  const ordered = list?.nodeName === 'OL';
+  const written = /^([-*+.)])([1-4])$/.exec(list?.getAttribute('data-md-marker') ?? '');
+  const fits = written !== null && ordered === /[.)]/.test(written[1]);
+  const marker = fits ? written[1] : null;
+  const spaces = ' '.repeat(fits ? Number(written[2]) : 1);
+  if (!ordered) return `${marker ?? fallback}${spaces}`;
+  const start = Number(list.getAttribute('start') ?? 1);
+  const index = Array.prototype.indexOf.call(list.children, item);
+  return `${start + index}${marker ?? '.'}${spaces}`;
+}
+
 turndownService.addRule('taskItem', {
   filter: function (node) {
     return (
@@ -164,18 +185,19 @@ turndownService.addRule('taskItem', {
     const element = node as HTMLElement;
     const isChecked = element.getAttribute('data-checked') === 'true';
     const checkbox = isChecked ? '[x]' : '[ ]';
+    const marker = listItemMarker(element, '-');
     const cleanContent = content
       .replace(/^\s+/, '')
       .replace(/\s+$/, '')
       // Only a remnant at the start: the same brackets later are the user's text.
-      .replace(/^\\\[[\sx]?\\\]/, '')
+      .replace(ESCAPED_CHECKBOX, '')
       .trim()
       // A blank line would close the list, so a nested task list has to stay
       // attached to its parent item and indented under the `- [ ] ` marker.
       .replace(/\n{2,}/g, '\n')
-      .replace(/\n/g, '\n  ');
+      .replace(/\n/g, `\n${' '.repeat(marker.length)}`);
     const gap = node.nextSibling && element.getAttribute('data-gap-after') === 'true' ? '\n' : '';
-    return `- ${checkbox} ${cleanContent}\n${gap}`;
+    return `${marker}${checkbox} ${cleanContent}\n${gap}`;
   },
 });
 
@@ -258,13 +280,7 @@ turndownService.addRule('tightListParagraph', {
 turndownService.addRule('listItem', {
   filter: (node) => node.nodeName === 'LI' && node.getAttribute('data-type') !== 'taskItem',
   replacement: function (content, node, options) {
-    const parent = node.parentNode as HTMLElement | null;
-    let prefix = `${options.bulletListMarker} `;
-    if (parent?.nodeName === 'OL') {
-      const start = Number(parent.getAttribute('start') ?? 1);
-      const index = Array.prototype.indexOf.call(parent.children, node);
-      prefix = `${start + index}. `;
-    }
+    const prefix = listItemMarker(node, options.bulletListMarker ?? '-');
     const indent = ' '.repeat(prefix.length);
     const body = content
       .replace(/^\n+/, '')
@@ -303,6 +319,11 @@ turndownService.addRule('fencedCodeBlock', {
 turndownService.addRule('rawMarkdown', {
   filter: (node) => node.nodeName === 'PRE' && node.getAttribute('data-type') === 'raw-markdown',
   replacement: (_content, node) => blockMarkdown(node, node.textContent ?? ''),
+});
+
+turndownService.addRule('rawInline', {
+  filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'raw-inline',
+  replacement: (_content, node) => node.textContent ?? '',
 });
 
 turndownService.addRule('footnoteRef', {
@@ -490,12 +511,50 @@ turndownService.addRule('table', {
   replacement: (_content, node) => `\n\n${tableMarkdown(node as HTMLElement)}\n\n`,
 });
 
+/**
+ * Turndown escapes every character that could be Markdown anywhere it appears,
+ * so `[note]` was saved as `\[note\]` and `snake_case` as `snake\_case`. The
+ * text is escaped the same way here, but each escape is written as this mark,
+ * and `resolveEscapes` keeps only those without which the block would read
+ * back differently. A note that contains the mark itself is escaped in full.
+ */
+const OPTIONAL_ESCAPE = '\uFDD0';
+
+// Turndown's own escapes, plus three it misses: `~~` that would strike text
+// through, `&name;` that would become a character, and a `1)` list marker.
 // markdown-it renders with `html: true`, so a literal `<` that opens a tag-like
 // token is re-parsed as HTML on the way back in and DOMPurify drops the unknown
 // element: text such as `<Name>` vanished from the note on its next load.
-// CommonMark's backslash escape keeps it as text for every Markdown reader.
-const escapeMarkdown = turndownService.escape.bind(turndownService);
-turndownService.escape = (text: string) => escapeMarkdown(text).replace(/<(?=[A-Za-z!/?])/g, '\\<');
+function escapeRules(mark: string): Array<[RegExp, string]> {
+  return [
+    [/\\/g, `${mark}\\`],
+    [/\*/g, `${mark}*`],
+    [/^-/, `${mark}-`],
+    [/^\+ /, `${mark}+ `],
+    [/^=/, `${mark}=`],
+    [/^(#{1,6}) /, `${mark}$1 `],
+    [/`/g, `${mark}\``],
+    [/~/g, `${mark}~`],
+    [/\[/g, `${mark}[`],
+    [/\]/g, `${mark}]`],
+    [/^>/, `${mark}>`],
+    [/_/g, `${mark}_`],
+    [/^(\d+)([.)]) /, `$1${mark}$2 `],
+    [/&(?=#?[A-Za-z0-9]+;)/g, `${mark}&`],
+    [/<(?=[A-Za-z!/?])/g, `${mark}<`],
+  ];
+}
+
+const OPTIONAL_ESCAPES = escapeRules(OPTIONAL_ESCAPE);
+const FULL_ESCAPES = escapeRules('\\');
+let escapes = OPTIONAL_ESCAPES;
+turndownService.escape = (text: string) =>
+  escapes.reduce((escaped, [pattern, replacement]) => escaped.replace(pattern, replacement), text);
+
+/** A task marker left at the start of an item's text, escaped as plain text. */
+const ESCAPED_CHECKBOX = new RegExp(
+  `^[\\\\${OPTIONAL_ESCAPE}]\\[[\\sx]?[\\\\${OPTIONAL_ESCAPE}]\\]`
+);
 
 const md = new MarkdownIt({
   html: true, // Allow HTML tags for unsupported features
@@ -510,6 +569,64 @@ md.use(markdownItTaskLists, {
   label: false,
 });
 md.use(markdownSourcePlugin);
+
+// TipTap drops a text node that is only a line break, taking it for the
+// indentation between tags, so a soft break between two marks or links (as in
+// `**a**\n*b*`) joined their words. A space before it keeps the node.
+md.renderer.rules.softbreak = () => ' \n';
+
+/** How Markdown renders, which tells apart two spellings that differ only in escapes or spacing. */
+function rendered(markdown: string): string {
+  return md.render(wikiLinksToHtml(markdown));
+}
+
+/**
+ * A bounded memo. Autosave converts every block of a note on each save while
+ * the user changes one, and parsing each block again was most of a save.
+ */
+function memo(limit: number): (key: string, compute: () => string) => string {
+  const values = new Map<string, string>();
+  return (key, compute) => {
+    let value = values.get(key);
+    if (value === undefined) {
+      value = compute();
+      values.set(key, value);
+      const oldest = values.keys().next().value;
+      if (values.size > limit && oldest !== undefined) values.delete(oldest);
+    }
+    return value;
+  };
+}
+
+const resolvedEscapes = memo(2000);
+
+function resolveEscapes(markdown: string): string {
+  if (!markdown.includes(OPTIONAL_ESCAPE)) return markdown;
+  return resolvedEscapes(markdown, () => resolveEscapesNow(markdown));
+}
+
+/**
+ * `markdown` with each optional escape kept only where dropping it would
+ * change how the block reads back. Halving the escapes tried at a time finds
+ * the few that matter without parsing the block once per escape.
+ */
+function resolveEscapesNow(markdown: string): string {
+  const parts = markdown.split(OPTIONAL_ESCAPE);
+  const keep = parts.slice(1).map(() => true);
+  const write = () => parts.reduce((out, part, i) => out + (keep[i - 1] ? '\\' : '') + part);
+  const target = rendered(write());
+  const settle = (from: number, to: number) => {
+    keep.fill(false, from, to);
+    if (rendered(write()) === target) return;
+    keep.fill(true, from, to);
+    if (to - from === 1) return;
+    const middle = (from + to) >> 1;
+    settle(from, middle);
+    settle(middle, to);
+  };
+  settle(0, keep.length);
+  return write();
+}
 
 /** Compare Markdown structure while preserving code and joining soft-wrapped prose. */
 export function markdownForComparison(markdown: string): string {
@@ -627,6 +744,12 @@ const DOMPURIFY_CONFIG = {
     'data-gap-after',
     'data-gap-inside',
     'data-source',
+    'data-md-id',
+    'data-md-source',
+    'data-md-fresh',
+    'data-md-gap',
+    'data-md-marker',
+    'start',
     'data-wiki-link',
     'data-text-align',
     'data-indent',
@@ -715,7 +838,246 @@ export function noteNameToFilename(noteName: string): string {
  */
 export function htmlToMarkdown(html: string, options?: ConversionOptions): string {
   if (!html || html.trim() === '') return '';
-  return convertWith(options, () => turndownService.turndown(html));
+  return convertWith(options, () =>
+    withEscapes(html, () => {
+      const doc = new DOMParser().parseFromString(
+        `<x-turndown id="turndown-root">${html}</x-turndown>`,
+        'text/html'
+      );
+      const root = doc.getElementById('turndown-root');
+      if (root && options?.sources === false) {
+        for (const element of Array.from(root.querySelectorAll('[data-md-source]'))) {
+          element.removeAttribute('data-md-source');
+        }
+      }
+      return root ? blocksToMarkdown(root) : '';
+    })
+  );
+}
+
+/**
+ * `html` without the Markdown sources the editor keeps on its blocks, for HTML
+ * that leaves the note: pasted into another, or published.
+ */
+export function withoutMarkdownSources(html: string): string {
+  if (!html.includes('data-md-')) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  for (const element of Array.from(doc.body.querySelectorAll('*'))) {
+    for (const name of element.getAttributeNames()) {
+      if (name.startsWith('data-md-')) element.removeAttribute(name);
+    }
+  }
+  return doc.body.innerHTML;
+}
+
+function withEscapes<T>(text: string, convert: () => T): T {
+  const previous = escapes;
+  escapes = text.includes(OPTIONAL_ESCAPE) ? FULL_ESCAPES : OPTIONAL_ESCAPES;
+  try {
+    return convert();
+  } finally {
+    escapes = previous;
+  }
+}
+
+/**
+ * One top-level block of the document: the elements one block of the note's
+ * Markdown became (a list the editor split where bullets meet tasks is
+ * several), or a run of loose inline content.
+ */
+interface SourceUnit {
+  nodes: Node[];
+  first: Element | null;
+  id: string | null;
+}
+
+const BLOCK_ELEMENT =
+  /^(?:ADDRESS|ARTICLE|ASIDE|BLOCKQUOTE|CENTER|DETAILS|DIV|DL|FIELDSET|FIGURE|FOOTER|FORM|H[1-6]|HEADER|HR|LI|MAIN|NAV|OL|P|PRE|SECTION|TABLE|UL)$/;
+
+function sourceUnits(root: Element): SourceUnit[] {
+  const units: SourceUnit[] = [];
+  let inline: SourceUnit | null = null;
+  for (const node of Array.from(root.childNodes)) {
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : null;
+    const id = element?.getAttribute('data-md-id') ?? null;
+    if (id) {
+      inline = null;
+      const last = units[units.length - 1];
+      if (last?.id === id) last.nodes.push(node);
+      else units.push({ nodes: [node], first: element, id });
+    } else if (element && BLOCK_ELEMENT.test(element.nodeName)) {
+      inline = null;
+      units.push({ nodes: [node], first: element, id: null });
+    } else if (inline) {
+      inline.nodes.push(node);
+    } else if (element || node.textContent?.trim()) {
+      inline = { nodes: [node], first: element, id: null };
+      units.push(inline);
+    }
+  }
+  return units;
+}
+
+const MARK_ELEMENT = /^(?:A|B|CODE|DEL|EM|I|MARK|S|STRIKE|STRONG|U)$/;
+const MARK_SELECTOR = 'a, b, code, del, em, i, mark, s, strike, strong, u';
+const MARK_ORDER = ['A', 'STRONG', 'B', 'EM', 'I', 'S', 'DEL', 'STRIKE', 'U', 'MARK', 'CODE'];
+
+interface InlineRun {
+  node: Node;
+  marks: Element[];
+}
+
+function markKey(mark: Element): string {
+  const attributes = Array.from(mark.attributes, (a) => `${a.name}=${a.value}`).sort();
+  return `${mark.nodeName}|${attributes.join('|')}`;
+}
+
+/** The text and atoms of an inline run, each with the marks around it; null if a mark holds a block. */
+function inlineRuns(nodes: Node[], marks: Element[], runs: InlineRun[]): InlineRun[] | null {
+  for (const node of nodes) {
+    if (node.nodeType === Node.ELEMENT_NODE && MARK_ELEMENT.test(node.nodeName)) {
+      const mark = (node as Element).cloneNode(false) as Element;
+      if (!inlineRuns(Array.from(node.childNodes), [...marks, mark], runs)) return null;
+    } else if (node.nodeType === Node.ELEMENT_NODE && BLOCK_ELEMENT.test(node.nodeName)) {
+      return null;
+    } else {
+      // The editor's code mark excludes every other mark, so a link or bold
+      // around code never reaches it.
+      const code = marks.find((mark) => mark.nodeName === 'CODE');
+      runs.push({ node: node.cloneNode(true), marks: code ? [code] : marks });
+    }
+  }
+  return runs;
+}
+
+/**
+ * Rebuilds inline content with its marks nested one way: the mark that runs
+ * longest outermost, code innermost. The editor nests a link outside bold
+ * whatever the note did, which wrote `**[a](u) b**` back as `[**a**](u) **b**`,
+ * and an untouched block has to write the same Markdown before and after it
+ * passed through the editor.
+ */
+function nestMarks(container: Element, nodes: Node[]): void {
+  const runs = inlineRuns(nodes, [], []);
+  if (!runs) return;
+  const keys = runs.map((run) => run.marks.map(markKey));
+  const reach = (key: string, from: number) => {
+    let end = from;
+    while (end < runs.length && keys[end].includes(key)) end++;
+    return end;
+  };
+  const anchor = nodes[nodes.length - 1].nextSibling;
+  for (const node of nodes) node.parentNode?.removeChild(node);
+  const fragment = container.ownerDocument.createDocumentFragment();
+  const open: Array<{ key: string; element: Element }> = [];
+  runs.forEach((run, i) => {
+    let kept = 0;
+    while (kept < open.length && keys[i].includes(open[kept].key)) kept++;
+    open.length = kept;
+    const opening = run.marks
+      .map((mark, m) => ({ mark, key: keys[i][m] }))
+      .filter(({ key }) => !open.some((o) => o.key === key))
+      .sort(
+        (a, b) =>
+          Number(a.mark.nodeName === 'CODE') - Number(b.mark.nodeName === 'CODE') ||
+          reach(b.key, i) - reach(a.key, i) ||
+          MARK_ORDER.indexOf(a.mark.nodeName) - MARK_ORDER.indexOf(b.mark.nodeName)
+      );
+    for (const { mark, key } of opening) {
+      const element = mark.cloneNode(false) as Element;
+      (open[open.length - 1]?.element ?? fragment).appendChild(element);
+      open.push({ key, element });
+    }
+    (open[open.length - 1]?.element ?? fragment).appendChild(run.node);
+  });
+  container.insertBefore(fragment, anchor);
+}
+
+function nestAllMarks(root: Element): void {
+  for (const element of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    if (!root.contains(element) || MARK_ELEMENT.test(element.nodeName)) continue;
+    if (element.closest('pre') || element.parentElement?.closest(MARK_SELECTOR)) continue;
+    let run: Node[] = [];
+    const flush = () => {
+      if (run.some((node) => node.nodeType === Node.ELEMENT_NODE)) nestMarks(element, run);
+      run = [];
+    };
+    for (const child of Array.from(element.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE && BLOCK_ELEMENT.test(child.nodeName)) flush();
+      else run.push(child);
+    }
+    flush();
+  }
+}
+
+function freshMarkdown(nodes: Node[]): string {
+  const box = (nodes[0].ownerDocument ?? document).createElement('div');
+  for (const node of nodes) box.appendChild(node.cloneNode(true));
+  nestAllMarks(box);
+  return resolveEscapes(turndownService.turndown(box));
+}
+
+const savedUnits = memo(2000);
+
+function unitMarkdown(unit: SourceUnit): string {
+  const html = unit.nodes.map((node) =>
+    node.nodeType === Node.ELEMENT_NODE ? (node as Element).outerHTML : `#${node.textContent}`
+  );
+  const mode = `${forgeImagesEnabled}${escapes === FULL_ESCAPES}`;
+  return savedUnits(`${mode}\0${html.join('\0')}`, () => unitMarkdownNow(unit));
+}
+
+/**
+ * A block as the note spelled it when the editor would still write it as it
+ * did on load. Else the edit replayed onto that spelling, kept only if opening
+ * it would have the editor write exactly what it writes now, which keeps what
+ * the editor cannot show (a link on code, bold around it) wherever the edit
+ * did not reach. Else the editor's own Markdown.
+ */
+function unitMarkdownNow(unit: SourceUnit): string {
+  const fresh = freshMarkdown(unit.nodes);
+  const source = unit.first?.getAttribute('data-md-source');
+  if (source === null || source === undefined) return fresh;
+  const loaded = unit.first?.getAttribute('data-md-fresh') ?? source;
+  if (fresh === loaded) return source;
+  for (const replay of [replayCharacters, replayLines]) {
+    const merged = replay(source, loaded, fresh);
+    if (merged !== null && blocksToMarkdown(renderToBody(merged)) === fresh) return merged;
+  }
+  return fresh;
+}
+
+/** The lines between two blocks as the note had them, if they were neighbours there. */
+function sourceGap(previous: SourceUnit, current: SourceUnit): string | null {
+  const [load, index] = (current.id ?? '').split('.');
+  const [previousLoad, previousIndex] = (previous.id ?? '').split('.');
+  if (!load || load !== previousLoad || Number(index) !== Number(previousIndex) + 1) return null;
+  return current.first?.getAttribute('data-md-gap') ?? '\n\n';
+}
+
+function blocksToMarkdown(root: Element): string {
+  let out = '';
+  let previous: { unit: SourceUnit; markdown: string } | null = null;
+  for (const unit of sourceUnits(root)) {
+    const markdown = unitMarkdown(unit);
+    if (!markdown.trim()) continue;
+    if (previous) {
+      const fallback = joinsPreviousList(unit.first) ? '\n' : '\n\n';
+      const gap = sourceGap(previous.unit, unit);
+      const unchanged = (block: { unit: SourceUnit; markdown: string }) =>
+        block.markdown === block.unit.first?.getAttribute('data-md-source');
+      const keepsGap =
+        gap !== null &&
+        (/\n[ \t]*\n/.test(gap) ||
+          (unchanged(previous) && unchanged({ unit, markdown })) ||
+          rendered(previous.markdown + gap + markdown) ===
+            rendered(previous.markdown + fallback + markdown));
+      out += keepsGap ? gap : fallback;
+    }
+    out += markdown;
+    previous = { unit, markdown };
+  }
+  return out.replace(/^[\t\r\n]+/, '').replace(/[ \t\r\n]+$/, '');
 }
 
 /**
@@ -908,7 +1270,7 @@ export function markdownToHtml(markdown: string, options?: ConversionOptions): s
 const WIKI_LINK_SOURCE = String.raw`\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]`;
 const WIKI_LINK = new RegExp(WIKI_LINK_SOURCE, 'g');
 const WIKI_LINK_AT = new RegExp(WIKI_LINK_SOURCE, 'y');
-const INLINE_MARK = /\[\[|\\[\\`]|`+/g;
+const INLINE_MARK = /\[\[|\\[\\`]|`+|<!--/g;
 
 /**
  * Both halves are kept exactly as written so the link saves back unchanged;
@@ -942,8 +1304,9 @@ function codeSpanEnd(text: string, from: number, length: number, limit: number):
 }
 
 /**
- * Wiki links in one inline block, skipping its code spans. A link that starts
- * before a backtick wins over it, matching the plain rewrite used elsewhere.
+ * Wiki links in one inline block, skipping its code spans and HTML comments,
+ * which are saved as written. A link that starts before a backtick wins over
+ * it, matching the plain rewrite used elsewhere.
  * GFM splits a table row on its pipes before it pairs backticks.
  */
 function wikiLinksInInline(text: string, tableRow: boolean): string {
@@ -960,6 +1323,9 @@ function wikiLinksInInline(text: string, tableRow: boolean): string {
         result += text.slice(copied, at) + wikiLinkHtml(link[1], link[2]);
         copied = INLINE_MARK.lastIndex;
       }
+    } else if (mark[0] === '<!--') {
+      const end = text.indexOf('-->', at + 4);
+      if (end !== -1) INLINE_MARK.lastIndex = end + 3;
     } else if (mark[0][0] === '`') {
       const runEnd = at + mark[0].length;
       const cellEnd = tableRow ? text.slice(runEnd).search(/(?<!\\)\|/) : -1;
@@ -1001,8 +1367,39 @@ function wikiLinksToHtml(markdown: string): string {
   return result + wikiLinksInText(markdown.slice(copied));
 }
 
+/**
+ * Names one load of a note's Markdown, so blocks are only treated as
+ * neighbours in the source when they came from the same text. It is derived
+ * from the text, so loading the same note twice renders the same HTML.
+ */
+function sourceName(markdown: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < markdown.length; i++) {
+    hash = Math.imul(hash ^ markdown.charCodeAt(i), 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function renderMarkdown(markdown: string): string {
-  let html = md.render(padRaggedTables(wikiLinksToHtml(markdown)));
+  const lines = markdown.split('\n');
+  const body = renderToBody(markdown, lines);
+  return body.innerHTML;
+}
+
+/**
+ * The sanitized editor HTML for `markdown`, with block sources attached when
+ * `lines` are given. `references` are the link reference definitions of the
+ * note a block came from, for rendering that block on its own.
+ */
+function renderToBody(markdown: string, lines?: string[], references?: unknown): HTMLElement {
+  const prepared = padRaggedTables(wikiLinksToHtml(markdown));
+  // Block line numbers index the note itself, so a rewrite that moved lines,
+  // or a lone `\r` that markdown-it counts as a line break, turns mapping off.
+  const mappable =
+    lines && prepared.split('\n').length === lines.length && !/\r(?!\n)/.test(markdown);
+  const env: SourceMapEnv = { listMarkers: true, references };
+  if (mappable) env.sourceMap = sourceName(markdown);
+  let html = md.render(prepared, env);
 
   // markdown-it emits `<ul class="contains-task-list">` with a leading checkbox
   // per item; TipTap parses `<ul data-type="taskList">` with the checkbox in a
@@ -1010,7 +1407,91 @@ function renderMarkdown(markdown: string): string {
   html = taskListsToTipTapHtml(html);
 
   // Sanitize HTML to prevent XSS attacks
-  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG);
+  const body = DOMPurify.sanitize(html, { ...DOMPURIFY_CONFIG, RETURN_DOM: true }) as HTMLElement;
+  // The editor centres an image that names no alignment; saying so here makes
+  // the image save the same before and after it passes through the editor.
+  for (const image of Array.from(body.querySelectorAll('img:not([data-alignment])'))) {
+    image.setAttribute('data-alignment', 'center');
+  }
+  const blocks = env.sourceBlocks;
+  if (lines && blocks)
+    withEscapes(markdown, () => attachSources(body, lines, blocks, env.references));
+  return body;
+}
+
+const LEGACY_ASSET_URL = /(?:asset:\/\/|https?:\/\/asset\.localhost\/)/;
+
+/**
+ * markdown-it puts a fence's attributes on its `<code>`, and an image alone in
+ * a paragraph leaves that paragraph in the editor, so both ids move to the
+ * element the editor keeps.
+ */
+function liftSourceIds(root: Element): void {
+  for (const element of Array.from(root.children)) {
+    const code = element.firstElementChild;
+    const codeId = code?.nodeName === 'CODE' ? code.getAttribute('data-md-id') : null;
+    if (element.nodeName === 'PRE' && code && codeId) {
+      element.setAttribute('data-md-id', codeId);
+      code.removeAttribute('data-md-id');
+    }
+    const id = element.getAttribute('data-md-id');
+    const images = Array.from(element.children);
+    if (
+      element.nodeName === 'P' &&
+      id &&
+      images.length > 0 &&
+      images.every((child) => child.nodeName === 'IMG') &&
+      !element.textContent?.trim()
+    ) {
+      for (const image of images) image.setAttribute('data-md-id', id);
+      element.replaceWith(...images);
+    }
+  }
+}
+
+/**
+ * Gives each top-level block the Markdown it came from, how the editor would
+ * write it now, and the lines that separated it from the block before, so a
+ * save can write an untouched block back exactly as it was.
+ *
+ * A source is only attached when it opens, on its own, as exactly what the
+ * block shows. Lines that rendered outside the block (text an `<img>` line
+ * carries on with) would otherwise be saved twice: once in the source and
+ * once from the element the editor made of them.
+ */
+function attachSources(
+  root: Element,
+  lines: string[],
+  blocks: Array<[number, number]>,
+  references: unknown
+): void {
+  liftSourceIds(root);
+  const stops = blocks.map(([start, end]) => {
+    let stop = end;
+    while (stop > start && isBlank(lines[stop - 1])) stop--;
+    return stop;
+  });
+  for (const unit of sourceUnits(root)) {
+    const index = Number(unit.id?.split('.')[1]);
+    if (!unit.first || !blocks[index]) continue;
+    const start = blocks[index][0];
+    const source = lines.slice(start, stops[index]).join('\n');
+    // Older builds wrote images as asset URLs naming one machine's home
+    // directory. Such a block is left to save as the editor writes it, which
+    // is the Forge-relative path every device can resolve.
+    if (forgeImagesEnabled && LEGACY_ASSET_URL.test(source)) continue;
+    const fresh = freshMarkdown(unit.nodes);
+    if (fresh !== source) {
+      if (blocksToMarkdown(renderToBody(source, undefined, references)) !== fresh) continue;
+      unit.first.setAttribute('data-md-fresh', fresh);
+    }
+    unit.first.setAttribute('data-md-source', source);
+    if (index > 0) {
+      const between = lines.slice(stops[index - 1], start).map((line) => `${line}\n`);
+      const gap = `\n${between.join('')}`;
+      if (gap !== '\n\n') unit.first.setAttribute('data-md-gap', gap);
+    }
+  }
 }
 
 /**

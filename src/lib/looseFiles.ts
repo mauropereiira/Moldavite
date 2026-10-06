@@ -106,7 +106,9 @@ export function isFaithfulRoundTrip(
 ): boolean {
   const extensions = createNoteExtensions(useSettingsStore.getState().tagsEnabled);
   const editorHtml = generateHTML(generateJSON(html, extensions), extensions);
-  const back = htmlToMarkdown(editorHtml, LOOSE_CONVERSION);
+  // An untouched file always saves as it was; what matters here is whether
+  // an edit would rewrite what the editor cannot model.
+  const back = htmlToMarkdown(editorHtml, { ...LOOSE_CONVERSION, sources: false });
   return markdownForComparison(back) === markdownForComparison(body);
 }
 

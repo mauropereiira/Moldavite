@@ -185,7 +185,12 @@ const BUDGETS = [
 // 697 / 211: notes keep footnotes, details blocks, HTML comments, bare URLs
 // and tight lists through a save (raw Markdown blocks, footnote markers, list
 // item spacing). Measured 693.1 KB / 209.2 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 697, gzipKb: 211 };
+// 709 / 216: an untouched block saves as the note spelled it, and an edit is
+// replayed onto that spelling (block sources, escapes kept only where needed,
+// one mark nesting, raw HTML blocks and inline HTML) for 11.9 KB raw / 4.4 KB
+// gz. Measured 703.4 KB / 213.1 KB gz locally and 706.6 KB / 214.1 KB gz on
+// Linux CI; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 709, gzipKb: 216 };
 
 async function main() {
   let entries;

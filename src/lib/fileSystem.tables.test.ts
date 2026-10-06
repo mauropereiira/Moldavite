@@ -64,7 +64,9 @@ const SIMPLE = '| a | b |\n| --- | --- |\n| 1 | 2 |';
 
 describe('GFM tables', () => {
   it('survives a round trip instead of flattening into paragraphs', () => {
-    expect(htmlToMarkdown(markdownToHtml('| a | b |\n|---|---|\n| 1 | 2 |\n'))).toBe(SIMPLE);
+    const compact = '| a | b |\n|---|---|\n| 1 | 2 |';
+    expect(htmlToMarkdown(markdownToHtml(compact))).toBe(compact);
+    expect(htmlToMarkdown(markdownToHtml(compact), { sources: false })).toBe(SIMPLE);
   });
 
   it('survives the editor, which keeps its header row inside tbody', () => {
@@ -143,7 +145,7 @@ describe('GFM tables', () => {
   it('is not mistaken for legacy HTML when an aligned paragraph opens the note', () => {
     const markdown = `<p style="text-align: center">Budget</p>\n\n${SIMPLE}`;
     expect(isHtmlContent(markdown)).toBe(false);
-    expect(noteContentToEditorHtml(markdown)).toContain('<table>');
+    expect(noteContentToEditorHtml(markdown)).toMatch(/<table[\s>]/);
     expect(throughEditor(markdown)).toBe(markdown);
   });
 

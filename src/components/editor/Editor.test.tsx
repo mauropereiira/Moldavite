@@ -497,7 +497,7 @@ describe('Editor empty-note template prompt', () => {
   it('applies a template and dismisses the prompt', async () => {
     const { editor } = await renderEditor(note('notes/empty.md', '<p></p>'));
     fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
-    await waitFor(() => expect(editor.getHTML()).toContain('<h1>Template content</h1>'));
+    await waitFor(() => expect(editor.getHTML()).toMatch(/<h1[^>]*>Template content<\/h1>/));
     expect(getTemplateContent).toHaveBeenCalledWith('example');
     expect(screen.queryByTestId('empty-note-prompt')).not.toBeInTheDocument();
   });
@@ -1168,9 +1168,7 @@ describe('Editor note content', () => {
         'asset:///Users/me/Forge/images/a.png'
       )
     );
-    expect(htmlToMarkdown(editor.getHTML())).toBe(
-      '<img src="images/a.png" alt="" data-alignment="center">'
-    );
+    expect(htmlToMarkdown(editor.getHTML())).toBe('<img src="images/a.png" alt="">');
   });
 });
 

@@ -68,7 +68,7 @@ describe('isHtmlContent', () => {
 describe('markdownToHtml on image-first notes', () => {
   it('renders the Markdown below a leading image instead of leaking it as text', () => {
     const html = markdownToHtml('<img src="asset://img/a.png" alt="">\n\n# Heading\n\n- one');
-    expect(html).toContain('<h1>Heading</h1>');
+    expect(html).toMatch(/<h1[^>]*>Heading<\/h1>/);
     expect(html).toContain('<li>one</li>');
     expect(html).toContain('img');
   });

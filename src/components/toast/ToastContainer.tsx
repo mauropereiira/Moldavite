@@ -11,7 +11,7 @@ export const ToastContainer: React.FC = () => {
 
   return (
     <div
-      className="toast-container fixed z-50 flex flex-col-reverse gap-3 pointer-events-none"
+      className="toast-container fixed z-[var(--z-toast)] flex flex-col-reverse gap-3 pointer-events-none"
       aria-live="polite"
       aria-label="Notifications"
     >

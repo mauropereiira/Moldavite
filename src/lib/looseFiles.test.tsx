@@ -247,8 +247,8 @@ describe('the fidelity check', () => {
     );
   });
 
-  it('detects when adjacent lists become one', () => {
-    expect(isFaithfulRoundTrip('* a\n\n- b')).toBe(false);
+  it('keeps adjacent lists apart by their own markers', () => {
+    expect(isFaithfulRoundTrip('* a\n\n- b')).toBe(true);
   });
 
   it('trips on a table', () => {

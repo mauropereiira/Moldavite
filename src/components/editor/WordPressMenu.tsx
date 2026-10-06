@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/Dropdown';
 import { useNoteStore } from '@/stores';
 import { useWordPressStore } from '@/stores/wordpressStore';
-import { htmlToMarkdown } from '@/lib';
+import { htmlToMarkdown, withoutMarkdownSources } from '@/lib';
 import {
   WORDPRESS_AUTH_EVENT,
   type WordPressAuthResult,
@@ -120,7 +120,7 @@ export function WordPressMenu({
         // WordPress stores HTML; the editor already holds HTML, so a note that
         // round-tripped through Markdown is converted back rather than posted
         // as escaped source.
-        content: currentNote.content,
+        content: withoutMarkdownSources(currentNote.content),
       });
       onShowToast?.(post.updated ? 'Updated the WordPress draft' : 'Created a WordPress draft');
     } catch (error) {

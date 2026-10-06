@@ -1,10 +1,17 @@
 /**
  * markdown-it rules for Markdown the editor has no model for but must save back
- * unchanged. Footnote definitions, `<details>` blocks and HTML comments become
- * `raw_block` tokens holding their exact source, which the editor keeps as an
- * editable plain-text block; a footnote reference becomes an inline atom. Links
- * and list items also carry how the note spelled them, so Turndown can write a
- * bare URL bare and keep a list's blank lines where they were.
+ * unchanged. Footnote definitions, HTML blocks the editor did not write, and
+ * any lines markdown-it consumes without a token (link reference definitions)
+ * become `raw_block` tokens holding their exact source, which the editor keeps
+ * as an editable plain-text block; a footnote reference, an inline HTML comment
+ * and an inline tag the editor cannot show become inline atoms. Links and lists
+ * also carry how the note spelled them, so Turndown can write a bare URL bare,
+ * keep a list's markers and keep its blank lines where they were.
+ *
+ * With `env.sourceMap` set, every top-level block is numbered and its line
+ * range recorded in `env.sourceBlocks`, so the caller can attach each block's
+ * original Markdown to the HTML it rendered. With `env.listMarkers` set, each
+ * list records the marker its first item was written with.
  */
 
 import type MarkdownIt from 'markdown-it';
@@ -13,6 +20,13 @@ type BlockRule = Parameters<MarkdownIt['block']['ruler']['before']>[2];
 type StateBlock = Parameters<BlockRule>[0];
 type InlineRule = Parameters<MarkdownIt['inline']['ruler']['after']>[2];
 type Token = ReturnType<StateBlock['push']>;
+
+export interface SourceMapEnv {
+  references?: unknown;
+  listMarkers?: boolean;
+  sourceMap?: string;
+  sourceBlocks?: Array<[number, number]>;
+}
 
 const FOOTNOTE_DEFINITION = /^\[\^[^\s\]]+\]:/;
 const DETAILS_OPEN = /^<details(?=[\s>]|$)/i;
@@ -109,6 +123,75 @@ const footnoteReference: InlineRule = (state, silent) => {
 };
 
 /**
+ * HTML the editor writes itself: its images and aligned paragraphs. Any other
+ * HTML block (a `<div align>` wrapper, a `<table>`, an unknown tag) lost its
+ * tags on the way through the editor, or vanished entirely.
+ */
+const EDITOR_HTML_BLOCK = /^(?:<img\s|<p style="text-align:)/i;
+
+/** Inline tags the editor has a mark or node for; any other inline HTML is kept as written. */
+const EDITOR_INLINE_TAG =
+  /^<\/?(?:a|b|br|code|del|em|i|img|input|label|mark|s|strong|u|wiki-link)(?=[\s/>])/i;
+
+/** Blank as markdown-it reads a line: spaces and tabs only, not other whitespace. */
+export function isBlank(line: string | undefined): boolean {
+  return /^[ \t]*$/.test(line ?? '');
+}
+
+/** Source lines no top-level token covers, such as link reference definitions, as raw blocks. */
+function keepUncoveredLines(tokens: Token[], src: string, makeToken: () => Token): Token[] {
+  const lines = src.split('\n');
+  const out: Token[] = [];
+  let covered = 0;
+  const keep = (end: number) => {
+    let start = covered;
+    while (start < end && isBlank(lines[start])) start++;
+    let stop = end;
+    while (stop > start && isBlank(lines[stop - 1])) stop--;
+    if (stop > start) {
+      const token = makeToken();
+      token.map = [start, stop];
+      token.content = lines.slice(start, stop).join('\n');
+      out.push(token);
+    }
+  };
+  for (const token of tokens) {
+    if (token.level === 0 && token.nesting !== -1 && token.map) {
+      if (token.map[0] > covered) keep(token.map[0]);
+      covered = Math.max(covered, token.map[1]);
+    }
+    out.push(token);
+  }
+  keep(lines.length);
+  return out;
+}
+
+/**
+ * The marker a list's first item was written with and the spaces after it, as
+ * `*3` for `*   `: DOMPurify trims attribute values, which would lose them.
+ */
+function listMarker(list: Token, lines: string[]): string {
+  const line = (lines[list.map?.[0] ?? -1] ?? '').replace(/^(?:[ \t]*>)*/, '');
+  const spaces = /^[ \t]*(?:[-*+]|\d{1,9}[.)])( *)/.exec(line)?.[1].length ?? 1;
+  return `${list.markup}${spaces >= 1 && spaces <= 4 ? spaces : 1}`;
+}
+
+function mapSources(tokens: Token[], src: string, env: SourceMapEnv): void {
+  const lines = src.split('\n');
+  const blocks: Array<[number, number]> = [];
+  for (const token of tokens) {
+    if (env.listMarkers && /^(?:bullet|ordered)_list_open$/.test(token.type)) {
+      token.attrSet('data-md-marker', listMarker(token, lines));
+    }
+    if (env.sourceMap && token.level === 0 && token.nesting !== -1 && token.map) {
+      token.attrSet('data-md-id', `${env.sourceMap}.${blocks.length}`);
+      blocks.push([token.map[0], token.map[1]]);
+    }
+  }
+  env.sourceBlocks = blocks;
+}
+
+/**
  * The text each bare or `<...>` link was written as. markdown-it shows a link's
  * text decoded and its href encoded, so `caf%C3%A9` and `café` render alike and
  * only the source says which one the note used.
@@ -167,13 +250,31 @@ export function markdownSourcePlugin(md: MarkdownIt): void {
   });
   md.inline.ruler.after('image', 'footnote_reference', footnoteReference);
 
-  md.core.ruler.after('block', 'raw_html_comments', (state) => {
+  md.core.ruler.after('block', 'raw_html_blocks', (state) => {
     for (const token of state.tokens) {
-      if (token.type === 'html_block' && token.content.startsWith('<!--')) {
+      if (token.type === 'html_block' && !EDITOR_HTML_BLOCK.test(token.content)) {
         token.type = 'raw_block';
         token.content = token.content.replace(/\n$/, '');
       }
     }
+    state.tokens = keepUncoveredLines(state.tokens, state.src, () => {
+      const token = new state.Token('raw_block', 'pre', 0);
+      token.block = true;
+      return token;
+    });
+  });
+  md.core.ruler.push('raw_inline_html', (state) => {
+    for (const token of state.tokens) {
+      for (const child of token.children ?? []) {
+        if (child.type === 'html_inline' && !EDITOR_INLINE_TAG.test(child.content)) {
+          child.type = 'raw_inline';
+        }
+      }
+    }
+  });
+  md.core.ruler.push('source_map', (state) => {
+    const env = state.env as SourceMapEnv;
+    if (env.sourceMap || env.listMarkers) mapSources(state.tokens, state.src, env);
   });
 
   md.core.ruler.after('block', 'list_spacing', (state) =>
@@ -184,8 +285,15 @@ export function markdownSourcePlugin(md: MarkdownIt): void {
   });
 
   const escape = md.utils.escapeHtml;
-  md.renderer.rules.raw_block = (tokens, idx) =>
-    `<pre data-type="raw-markdown">${escape(tokens[idx].content)}</pre>\n`;
+  md.renderer.rules.raw_block = (tokens, idx, _options, _env, self) =>
+    `<pre data-type="raw-markdown"${self.renderAttrs(tokens[idx])}>${escape(tokens[idx].content)}</pre>\n`;
+  md.renderer.rules.raw_inline = (tokens, idx) =>
+    `<span data-type="raw-inline">${escape(tokens[idx].content)}</span>`;
+  md.renderer.rules.html_block = (tokens, idx) => {
+    const id = tokens[idx].attrGet('data-md-id');
+    const html = tokens[idx].content;
+    return id ? html.replace(/^<(img|p)\b/gim, `<$1 data-md-id="${escape(id)}"`) : html;
+  };
   md.renderer.rules.footnote_ref = (tokens, idx) => {
     const label = escape(tokens[idx].meta.label);
     return `<span data-type="footnote-ref" data-label="${label}">${label}</span>`;
