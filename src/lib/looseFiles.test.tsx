@@ -266,8 +266,13 @@ describe('the fidelity check', () => {
     expect(isFaithfulRoundTrip(readme)).toBe(true);
   });
 
-  it('still trips when two paragraphs would become one', () => {
-    expect(isFaithfulRoundTrip('one\n\n\n<!-- note -->\n\ntwo')).toBe(false);
+  it('passes footnotes, details, HTML comments and bare URLs, which the editor now keeps', () => {
+    expect(isFaithfulRoundTrip('one\n\n\n<!-- note -->\n\ntwo')).toBe(true);
+    expect(isFaithfulRoundTrip('Text[^1]\n\n[^1]: The note.')).toBe(true);
+    expect(isFaithfulRoundTrip('<details>\n<summary>More</summary>\n\nHidden\n\n</details>')).toBe(
+      true
+    );
+    expect(isFaithfulRoundTrip('See https://example.com and <https://example.org>.')).toBe(true);
   });
 
   it('passes Markdown the editor writes the same way, ignoring trailing whitespace', () => {

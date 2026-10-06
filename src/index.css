@@ -3017,6 +3017,21 @@ html.icon-rail-right {
   font-size: 0.875rem;
 }
 
+/* Markdown the editor keeps as source: footnote definitions, <details>, comments. */
+.tiptap pre.raw-markdown {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+
+.tiptap .footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--syntax-link);
+}
+
 /* Links are ink, distinguished by their underline rather than colour. */
 /* Links inside a note carry the one hue reserved for them. `--syntax-link` was
    defined in all eight themes and consumed by nothing, so a link in prose was
