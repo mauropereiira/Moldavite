@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEvent, FolderInfo, NoteFile } from '@/types';
@@ -160,27 +160,70 @@ describe('AgendaOverlay', () => {
     resetStores([], [], false);
   });
 
-  it('shows the phone its note calendar and its event timeline', async () => {
+  it('shows the phone its note calendar, its events and what changed', async () => {
     platform.mobile = true;
     resetStores();
-    // A desktop preference must not leave the phone's Agenda empty.
-    useSettingsStore.setState({ showCalendarWidget: false, showTimelineWidget: true });
+    // A desktop preference must not leave the phone's Agenda without its calendar.
+    useSettingsStore.setState({ showCalendarWidget: false });
     render(<AgendaOverlay isOpen onClose={vi.fn()} />);
     await act(async () => {});
-    expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Event timeline' })).toBeInTheDocument();
-    expect(screen.getByText('Events')).toBeInTheDocument();
+    const calendar = screen.getByRole('region', { name: 'Calendar' });
+    expect(within(calendar).getByText('Events')).toBeInTheDocument();
+    expect(within(calendar).getByRole('button', { name: 'Previous month' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Changed on this day' })).toBeInTheDocument();
     expect(useCalendarStore.getState().checkPermission).toHaveBeenCalled();
   });
 
-  it('leaves the timeline off a phone whose timeline is switched off', async () => {
-    platform.mobile = true;
+  it('keeps events and changes on a desktop whose month calendar is off', async () => {
     resetStores();
-    useSettingsStore.setState({ showCalendarWidget: false, showTimelineWidget: false });
+    useSettingsStore.setState({ showCalendarWidget: false });
+    useCalendarStore.setState({
+      sources: [
+        {
+          source: 'google',
+          available: true,
+          connected: true,
+          account: null,
+          permission: null,
+          error: null,
+        },
+      ],
+      events: buildAllDayEvents(1),
+      fetchEvents: vi.fn(async () => {}),
+    });
     render(<AgendaOverlay isOpen onClose={vi.fn()} />);
     await act(async () => {});
-    expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Event timeline' })).not.toBeInTheDocument();
+    const calendar = screen.getByRole('region', { name: 'Calendar' });
+    expect(
+      within(calendar).queryByRole('button', { name: 'Previous month' })
+    ).not.toBeInTheDocument();
+    expect(within(calendar).getByText('All-day event 1')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Changed on this day' })).toBeInTheDocument();
+  });
+
+  it('lists what changed on the selected day and closes when a note is opened', async () => {
+    const changed: NoteFile = {
+      name: 'Launch plan.md',
+      path: 'notes/Launch plan.md',
+      isDaily: false,
+      isWeekly: false,
+      isLocked: false,
+      createdAt: Date.parse('2025-03-01T10:00:00Z') / 1000,
+      modifiedAt: new Date(2025, 2, 14, 15, 20).getTime() / 1000,
+    };
+    resetStores([changed]);
+    useNoteStore.setState({ selectedDate: new Date(2025, 2, 14, 12) });
+    const onClose = vi.fn();
+    render(<AgendaOverlay isOpen onClose={onClose} />);
+    await act(async () => {});
+
+    const changes = screen.getByRole('region', { name: 'Changed on this day' });
+    const row = within(changes).getByRole('button', { name: /Launch plan/ });
+    expect(row).toHaveTextContent('15:20');
+    await act(async () => {
+      row.click();
+    });
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('renders a realistic vault without throwing', async () => {
@@ -196,8 +239,8 @@ describe('AgendaOverlay', () => {
     await act(async () => {});
 
     expect(screen.getByRole('heading', { name: 'Agenda' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Month calendar' })).toHaveStyle({ minHeight: '0' });
-    expect(screen.getByRole('region', { name: 'Event timeline' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Calendar' })).toHaveStyle({ minHeight: '0' });
+    expect(screen.getByRole('region', { name: 'Changed on this day' })).toBeInTheDocument();
     expect(useNoteStore.getState().notes).toHaveLength(164);
     expect(useFolderStore.getState().folders).toHaveLength(3);
     expect(useTagStore.getState().allTags.size).toBeGreaterThan(0);
@@ -210,45 +253,10 @@ describe('AgendaOverlay', () => {
     await act(async () => {});
 
     expect(screen.getByRole('heading', { name: 'Agenda' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Month calendar' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Event timeline' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Calendar' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Changed on this day' })).toBeInTheDocument();
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
-  });
-
-  it('bounds a long all-day list without starving the hourly timeline', () => {
-    resetStores();
-    useSettingsStore.setState({ showCalendarWidget: false, showTimelineWidget: true });
-    useCalendarStore.setState({
-      sources: [
-        {
-          source: 'google',
-          available: true,
-          connected: true,
-          account: null,
-          permission: null,
-          error: null,
-        },
-      ],
-      events: buildAllDayEvents(12),
-      fetchEvents: vi.fn(async () => {}),
-      checkPermission: vi.fn(async () => {}),
-    });
-
-    render(<AgendaOverlay isOpen onClose={vi.fn()} />);
-
-    const allDayRegion = screen.getByRole('region', { name: 'All-day events' });
-    expect(screen.getByRole('region', { name: 'Agenda' })).toHaveStyle({ position: 'absolute' });
-    expect(allDayRegion.style.maxHeight).toBe('35%');
-    expect(allDayRegion.style.overflowY).toBe('auto');
-    expect(allDayRegion.getAttribute('style')).toContain(
-      'border-bottom: 1px solid var(--border-strong)'
-    );
-    expect(screen.getAllByText(/^All-day event \d+$/)).toHaveLength(12);
-
-    const hourlyTimeline = screen.getByRole('region', { name: 'Hourly timeline' });
-    expect(hourlyTimeline).toBeInTheDocument();
-    expect(hourlyTimeline).toHaveStyle({ minHeight: '50%' });
   });
 
   it('opens and closes repeatedly without throwing', async () => {

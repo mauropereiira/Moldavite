@@ -140,16 +140,15 @@ describe('CalendarSection', () => {
     expect(screen.queryByText('Waiting for your browser...')).not.toBeInTheDocument();
   });
 
-  // The Agenda switches lived in Features; they belong with the calendars now,
-  // and stay even where no calendar source can connect yet.
-  it('shows the Agenda switches above the sources, even when none can connect', () => {
+  // The Agenda switch lived in Features; it belongs with the calendars now,
+  // and stays even where no calendar source can connect yet.
+  it('shows the Agenda switch above the sources, even when none can connect', () => {
     platform.mobile = false;
     useCalendarStore.setState({ sources: unavailableSources });
 
     render(<CalendarSection />);
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Timeline' }));
-    expect(useSettingsStore.getState().showTimelineWidget).toBe(false);
+    expect(screen.queryByRole('switch', { name: 'Timeline' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: 'Month calendar' }));
     expect(useSettingsStore.getState().showCalendarWidget).toBe(false);
   });
@@ -161,6 +160,7 @@ describe('CalendarSection', () => {
     render(<CalendarSection />);
 
     expect(screen.queryByRole('switch', { name: 'Month calendar' })).not.toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Timeline' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agenda' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Timeline' })).not.toBeInTheDocument();
   });
 });

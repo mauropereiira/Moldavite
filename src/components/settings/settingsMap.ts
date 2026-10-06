@@ -366,19 +366,13 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
       {
         id: 'agenda',
         label: 'Agenda',
+        only: 'desktop',
         rows: [
           {
             id: 'month-calendar',
             label: 'Month calendar',
             info: 'A month view for jumping to daily and weekly notes.',
             keys: 'widget daily weekly',
-            only: 'desktop',
-          },
-          {
-            id: 'timeline',
-            label: 'Timeline',
-            info: "Today's calendar events, hour by hour.",
-            keys: 'hourly events schedule day widget',
           },
         ],
       },

@@ -419,10 +419,11 @@ html[data-platform='mobile'] .app-overlay-title {
   font-size: 24px !important;
 }
 
-/* One column that scrolls as a page: the calendar, then the timeline. The
+/* One column that scrolls as a page: the calendar and events, then the timeline. The
    two-column dividers between them become a hairline across. */
 html[data-platform='mobile'] .app-agenda-grid {
   grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-rows: max-content;
   gap: 24px !important;
   padding: 16px 0 24px !important;
   overflow-y: auto;

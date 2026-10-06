@@ -5,7 +5,7 @@
  * Events can come from EventKit (macOS and iOS) and from Google, and the backend merges
  * them behind one call. Two consequences shape this store: a fetch reports
  * per-source failures instead of failing as a whole, so one dead source never
- * blanks the timeline; and calendar ids are namespaced by source, so the
+ * blanks the Agenda's events; and calendar ids are namespaced by source, so the
  * selection is a plain list of opaque ids rather than anything Apple-shaped.
  *
  * `permissionStatus` / `isAuthorized` remain Apple-only — EventKit is the only
@@ -58,7 +58,7 @@ interface CalendarState {
 
   sources: CalendarSourceStatus[];
   isConnectingGoogle: boolean;
-  /** Failure from the connect flow itself. Shown in Settings, never over the timeline. */
+  /** Failure from the connect flow itself. Shown in Settings, never over the Agenda's events. */
   connectError: string | null;
 
   events: CalendarEvent[];
@@ -316,7 +316,7 @@ export const useCalendarStore = create<CalendarState>()(
         } catch (error) {
           console.error('Google Calendar connection failed:', error);
           // Deliberately not `eventsError`: that field replaces the whole
-          // timeline pane, so cancelling a Google consent used to hide every
+          // event list, so cancelling a Google consent used to hide every
           // Apple event behind a red error panel. A connection problem belongs
           // next to the connect button, in Settings.
           set({

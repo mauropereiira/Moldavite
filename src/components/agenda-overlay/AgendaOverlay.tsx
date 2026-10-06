@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { Calendar } from '@/components/calendar/Calendar';
-import { Timeline } from '@/components/calendar/Timeline';
+import { DayChanges } from '@/components/calendar/DayChanges';
+import { DayEvents } from '@/components/calendar/DayEvents';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useSettingsStore } from '@/stores';
 import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
@@ -16,10 +17,8 @@ interface AgendaOverlayProps {
 
 export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const { showCalendarWidget, showTimelineWidget } = useSettingsStore();
-  const mobile = isMobilePlatform();
-  const calendarVisible = mobile || showCalendarWidget;
-  const timelineVisible = showTimelineWidget;
+  const showCalendarWidget = useSettingsStore((state) => state.showCalendarWidget);
+  const calendarVisible = isMobilePlatform() || showCalendarWidget;
   const { isRendered, isClosing } = useOverlayPresence(isOpen);
 
   useLayoutEffect(() => {
@@ -95,59 +94,44 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
           paddingTop: '24px',
         }}
       >
-        {calendarVisible && (
-          <section
-            className="app-overlay-section app-agenda-calendar"
-            style={
-              {
-                '--index': 1,
-                minWidth: 0,
-                minHeight: 0,
-                overflowY: 'auto',
-                padding: '0 12px',
-              } as CSSProperties
-            }
-            aria-label="Month calendar"
-          >
-            <Calendar onNavigate={onClose} />
-          </section>
-        )}
+        <section
+          className="app-overlay-section app-agenda-calendar"
+          style={
+            {
+              '--index': 1,
+              minWidth: 0,
+              minHeight: 0,
+              overflowY: 'auto',
+              padding: '0 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '28px',
+            } as CSSProperties
+          }
+          aria-label="Calendar"
+        >
+          {calendarVisible && <Calendar onNavigate={onClose} />}
+          <DayEvents />
+        </section>
 
-        {timelineVisible && (
-          <section
-            className="app-overlay-section app-agenda-timeline"
-            style={
-              {
-                '--index': 2,
-                minWidth: 0,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                borderLeft: showCalendarWidget ? '1px solid var(--border-default)' : undefined,
-                paddingLeft: showCalendarWidget ? '32px' : undefined,
-              } as CSSProperties
-            }
-            aria-label="Event timeline"
-          >
-            <Timeline />
-          </section>
-        )}
-
-        {!calendarVisible && !timelineVisible && (
-          <p
-            className="app-overlay-section"
-            style={
-              {
-                '--index': 1,
-                color: 'var(--text-muted)',
-                fontSize: '13px',
-              } as CSSProperties
-            }
-          >
-            Turn on the month calendar or the timeline in Settings → Calendar.
-          </p>
-        )}
+        <section
+          className="app-overlay-section app-agenda-timeline"
+          style={
+            {
+              '--index': 2,
+              minWidth: 0,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              borderLeft: '1px solid var(--border-default)',
+              paddingLeft: '32px',
+            } as CSSProperties
+          }
+          aria-label="Changed on this day"
+        >
+          <DayChanges onNavigate={onClose} />
+        </section>
       </div>
     </div>
   );
