@@ -190,7 +190,10 @@ const BUDGETS = [
 // one mark nesting, raw HTML blocks and inline HTML) for 11.9 KB raw / 4.4 KB
 // gz. Measured 703.4 KB / 213.1 KB gz locally and 706.6 KB / 214.1 KB gz on
 // Linux CI; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 709, gzipKb: 216 };
+// 720 / 219: the Agenda's hourly events column comes back and the rail
+// Timeline returns as a day-by-day history of note changes (collapsed days,
+// paging, week by week). Measured 717.6 KB / 217.9 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 720, gzipKb: 219 };
 
 async function main() {
   let entries;
