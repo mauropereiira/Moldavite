@@ -3,6 +3,7 @@
  */
 
 import { useSettingsStore } from '@/stores';
+import { isMobilePlatform } from '@/lib/platform';
 import { SectionHeading, SegmentedControl, Toggle } from '../common';
 
 const LINE_HEIGHT_OPTIONS = [
@@ -30,7 +31,28 @@ export function EditorSection() {
       <section className="settings-section space-y-1">
         <SectionHeading>Writing Assistance</SectionHeading>
 
-        <div className="flex items-center justify-between py-2">
+        {!isMobilePlatform() && (
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Writing toolbar
+              </span>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Styles and a + above the line you are writing
+              </p>
+            </div>
+            <Toggle
+              enabled={settings.showWritingToolbar}
+              onChange={settings.setShowWritingToolbar}
+              ariaLabel="Show the writing toolbar"
+            />
+          </div>
+        )}
+
+        <div
+          className="flex items-center justify-between py-2"
+          style={{ borderTop: isMobilePlatform() ? undefined : '1px solid var(--border-muted)' }}
+        >
           <div>
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Spell Check

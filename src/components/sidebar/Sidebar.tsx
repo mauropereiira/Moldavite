@@ -66,6 +66,9 @@ import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { isPrimaryModifier } from '@/lib/shortcuts';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
+import { CloseButton } from '@/components/ui/CloseButton';
+import { useElementWidth } from '@/hooks/useElementWidth';
+import { INDEX_CARD_MIN_WIDTH, indexColumns, indexRows } from './indexGrid';
 
 interface SidebarProps {
   presentation?: 'panel' | 'index';
@@ -92,6 +95,8 @@ export function Sidebar({
   // Only the active note's id is read here (see isNoteActive below), so a
   // content-only edit in the editor does not re-render the whole sidebar.
   const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
+  const [indexGridNode, setIndexGridNode] = useState<HTMLDivElement | null>(null);
+  const indexGridWidth = useElementWidth(indexGridNode);
   const setSelectedDate = useNoteStore((state) => state.setSelectedDate);
   const lock = useSidebarLock();
   const {
@@ -220,14 +225,29 @@ export function Sidebar({
   const noteOrder = useSidebarOrderStore((s) => s.noteOrder);
   const folderOrder = useSidebarOrderStore((s) => s.folderOrder);
 
-  const sortNotes = (notesToSort: NoteFile[]) => {
-    if (isManualSort) return applyManualOrder(notesToSort, (n) => n.path, noteOrder);
-    return [...notesToSort].sort(compareNotesBy(sortOption));
-  };
+  const allStandaloneNotes = useMemo(() => {
+    const standalone = notes.filter((n) => !n.isDaily && !n.isWeekly);
+    if (isManualSort) return applyManualOrder(standalone, (n) => n.path, noteOrder);
+    return standalone.sort(compareNotesBy(sortOption));
+  }, [notes, isManualSort, noteOrder, sortOption]);
 
-  const unfiledNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly && !n.folderPath));
+  // Both sorts are stable, so filtering the sorted list gives the order sorting
+  // the subset would.
+  const unfiledNotes = useMemo(
+    () => allStandaloneNotes.filter((n) => !n.folderPath),
+    [allStandaloneNotes]
+  );
 
-  const allStandaloneNotes = sortNotes(notes.filter((n) => !n.isDaily && !n.isWeekly));
+  const notesByFolder = useMemo(() => {
+    const byFolder = new Map<string, NoteFile[]>();
+    for (const note of allStandaloneNotes) {
+      if (!note.folderPath) continue;
+      const inFolder = byFolder.get(note.folderPath);
+      if (inFolder) inFolder.push(note);
+      else byFolder.set(note.folderPath, [note]);
+    }
+    return byFolder;
+  }, [allStandaloneNotes]);
 
   // The tree with every level put in the user's order. Each level is ranked
   // only against its own siblings, so one array covers the whole tree.
@@ -312,7 +332,7 @@ export function Sidebar({
   // Not ⌘K: the editor's Insert link owns it.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPrimaryModifier(e) && e.key === 'f') {
+      if (isPrimaryModifier(e) && !e.altKey && e.key === 'f') {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -642,14 +662,12 @@ export function Sidebar({
         if (!expandedFolders.includes(f.path)) continue;
         // Child folders render before child notes (see FolderItem)
         if (f.children.length > 0) walk(f.children);
-        for (const n of allStandaloneNotes) {
-          if (n.folderPath === f.path) ids.push(n.path);
-        }
+        for (const n of notesByFolder.get(f.path) ?? []) ids.push(n.path);
       }
     };
     walk(orderedFolders);
     return ids;
-  }, [displayedNotes, allStandaloneNotes, orderedFolders, expandedFolders]);
+  }, [displayedNotes, notesByFolder, orderedFolders, expandedFolders]);
 
   const handleSelectionClick = (note: NoteFile, e: React.MouseEvent) => {
     const id = note.path;
@@ -757,6 +775,36 @@ export function Sidebar({
       selectionClear();
     };
   }, [selectionClear]);
+
+  // The Index's cards in order, each with whether it is folded. Backlinks has
+  // a card only while a note is open, as BacklinksSection draws nothing else.
+  const indexCards = [
+    sectionsCollapsed.notes,
+    ...(showFoldersSection ? [sectionsCollapsed.folders] : []),
+    sectionsCollapsed.daily,
+    ...(tagsEnabled ? [sectionsCollapsed.tags] : []),
+    ...(backlinksEnabled && showBacklinksSection && currentNoteId
+      ? [sectionsCollapsed.backlinks]
+      : []),
+  ];
+  const indexColumnCount =
+    indexGridWidth === null ? null : indexColumns(indexGridWidth, indexCards.length);
+  // One column stacks the cards down the page and sizes them like the pinned
+  // column does; side by side, the rows split the window's height.
+  const indexGridStyle: React.CSSProperties =
+    indexColumnCount === null
+      ? {
+          display: 'grid',
+          gridTemplateColumns: `repeat(auto-fit, minmax(${INDEX_CARD_MIN_WIDTH}px, 1fr))`,
+          alignItems: 'start',
+        }
+      : indexColumnCount === 1
+        ? { display: 'flex', flexDirection: 'column' }
+        : {
+            display: 'grid',
+            gridTemplateColumns: `repeat(${indexColumnCount}, minmax(0, 1fr))`,
+            gridTemplateRows: indexRows(indexCards, indexColumnCount),
+          };
 
   return (
     <div
@@ -931,21 +979,13 @@ export function Sidebar({
           )
         ) : (
           <div
-            className={isIndex ? 'app-index-grid' : 'py-2'}
-            style={
-              isIndex
-                ? {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                    alignItems: 'start',
-                    gap: '28px',
-                    padding: '20px 12px 28px',
-                  }
-                : undefined
-            }
+            ref={isIndex ? setIndexGridNode : undefined}
+            className={isIndex ? 'app-index-grid' : 'sidebar-sections py-2'}
+            data-stacked={indexColumnCount === 1 || undefined}
+            style={isIndex ? indexGridStyle : undefined}
           >
             <div
-              className={isIndex ? 'app-overlay-section' : undefined}
+              className={isIndex ? 'index-card app-overlay-section' : 'index-card'}
               style={isIndex ? ({ '--index': 0 } as React.CSSProperties) : undefined}
             >
               <SidebarNotesList
@@ -972,33 +1012,16 @@ export function Sidebar({
                 showFilteredEmptyState={displayedNotes.length === 0 && selectedTags.length > 0}
                 filteredEmptyTagCount={selectedTags.length}
               />
-              {isIndex && backlinksEnabled && showBacklinksSection && (
-                <div style={{ marginTop: '24px' }}>
-                  <BacklinksSection
-                    notes={notes}
-                    isCollapsed={sectionsCollapsed.backlinks}
-                    onToggle={() => toggleSection('backlinks')}
-                    onNoteClick={(note) => {
-                      if (note.isLocked) {
-                        handleUnlockNote(note);
-                      } else {
-                        loadNote(note);
-                        onNavigate?.();
-                      }
-                    }}
-                  />
-                </div>
-              )}
             </div>
 
             {showFoldersSection && (
               <div
-                className={isIndex ? 'app-overlay-section' : undefined}
+                className={isIndex ? 'index-card app-overlay-section' : 'index-card'}
                 style={isIndex ? ({ '--index': 1 } as React.CSSProperties) : undefined}
               >
                 <SidebarFolderTree
                   folders={orderedFolders}
-                  notes={allStandaloneNotes}
+                  notesByFolder={notesByFolder}
                   expandedFolders={expandedFolders}
                   isCollapsed={sectionsCollapsed.folders}
                   onToggleSection={() => toggleSection('folders')}
@@ -1025,7 +1048,7 @@ export function Sidebar({
             )}
 
             <div
-              className={isIndex ? 'app-overlay-section' : undefined}
+              className={isIndex ? 'index-card app-overlay-section' : 'index-card'}
               style={isIndex ? ({ '--index': 2 } as React.CSSProperties) : undefined}
             >
               <SidebarDailyList
@@ -1041,7 +1064,7 @@ export function Sidebar({
 
             {tagsEnabled && (
               <div
-                className={isIndex ? 'app-overlay-section' : undefined}
+                className={isIndex ? 'index-card app-overlay-section' : 'index-card'}
                 style={isIndex ? ({ '--index': 3 } as React.CSSProperties) : undefined}
               >
                 <SidebarTagList
@@ -1060,20 +1083,43 @@ export function Sidebar({
               </div>
             )}
 
+            {isIndex && backlinksEnabled && showBacklinksSection && (
+              <div
+                className="index-card app-overlay-section"
+                style={{ '--index': 4 } as React.CSSProperties}
+              >
+                <BacklinksSection
+                  notes={notes}
+                  isCollapsed={sectionsCollapsed.backlinks}
+                  onToggle={() => toggleSection('backlinks')}
+                  onNoteClick={(note) => {
+                    if (note.isLocked) {
+                      handleUnlockNote(note);
+                    } else {
+                      loadNote(note);
+                      onNavigate?.();
+                    }
+                  }}
+                />
+              </div>
+            )}
+
             {!isIndex && backlinksEnabled && showBacklinksSection && (
-              <BacklinksSection
-                notes={notes}
-                isCollapsed={sectionsCollapsed.backlinks}
-                onToggle={() => toggleSection('backlinks')}
-                onNoteClick={(note) => {
-                  if (note.isLocked) {
-                    handleUnlockNote(note);
-                  } else {
-                    loadNote(note);
-                    onNavigate?.();
-                  }
-                }}
-              />
+              <div className="index-card">
+                <BacklinksSection
+                  notes={notes}
+                  isCollapsed={sectionsCollapsed.backlinks}
+                  onToggle={() => toggleSection('backlinks')}
+                  onNoteClick={(note) => {
+                    if (note.isLocked) {
+                      handleUnlockNote(note);
+                    } else {
+                      loadNote(note);
+                      onNavigate?.();
+                    }
+                  }}
+                />
+              </div>
             )}
           </div>
         )}
@@ -1104,9 +1150,12 @@ export function Sidebar({
             className="modal-elevated modal-content-enter p-6 max-w-sm mx-4"
             style={{ borderRadius: 'var(--radius-md)' }}
           >
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-              Trash Notes
-            </h3>
+            <div className="dialog-head">
+              <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Trash Notes
+              </h3>
+              <CloseButton onClick={() => setShowBulkTrashConfirm(false)} label="Close" />
+            </div>
             <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Move {useNoteSelectionStore.getState().selectedIds.size} note
               {useNoteSelectionStore.getState().selectedIds.size === 1 ? '' : 's'} to trash? They

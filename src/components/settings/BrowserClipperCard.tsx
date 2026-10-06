@@ -13,6 +13,7 @@ import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { Download, Globe2, Link2Off } from 'lucide-react';
 import { safeInvoke } from '@/lib/ipc';
 import { DialogSurface } from '@/components/ui';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const EXTENSION_URL = 'https://github.com/mauropereiira/Moldavite/tree/main/extension';
 
@@ -143,13 +144,16 @@ export function BrowserClipperCard() {
             className="settings-dialog modal-content-enter p-6"
             style={{ width: 'min(30rem, calc(100% - 2rem))' }}
           >
-            <h2
-              id="clipper-install-title"
-              className="text-lg font-semibold"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Install the clipper
-            </h2>
+            <div className="dialog-head">
+              <h2
+                id="clipper-install-title"
+                className="text-lg font-semibold"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Install the clipper
+              </h2>
+              <CloseButton onClick={closeSheet} label="Close" />
+            </div>
 
             <div className="mt-4 space-y-2">
               <Disclosure

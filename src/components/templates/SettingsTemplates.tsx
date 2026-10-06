@@ -7,6 +7,7 @@ import { EditTemplateModal } from './EditTemplateModal';
 import { TemplateEditorModal } from '@/components/settings/TemplateEditorModal';
 import { useToast } from '@/hooks/useToast';
 import { DotLoader } from '@/components/ui/DotLoader';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface SettingsTemplatesProps {
   onDeleteTemplate: (id: string) => Promise<void>;
@@ -330,6 +331,12 @@ export function SettingsTemplates({ onDeleteTemplate, onUpdateTemplate }: Settin
               >
                 Delete Template
               </h3>
+              <CloseButton
+                onClick={() => setDeletingTemplate(null)}
+                disabled={isDeleting}
+                label="Close"
+                className="ml-auto self-start"
+              />
             </div>
             <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
               Delete &quot;{deletingTemplate.name}&quot;? This cannot be undone.

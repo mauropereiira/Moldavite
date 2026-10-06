@@ -6,6 +6,7 @@ import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import type { TrashedNote } from '@/types';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface TrashPreviewModalProps {
   note: TrashedNote | null;
@@ -118,16 +119,7 @@ export function TrashPreviewModal({
             >
               <span>Delete</span>
             </button>
-            <button
-              onClick={onClose}
-              className="dialog-close px-1.5 text-xs transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-              aria-label="Close"
-            >
-              Close
-            </button>
+            <CloseButton onClick={onClose} label="Close preview" />
           </div>
         </div>
 

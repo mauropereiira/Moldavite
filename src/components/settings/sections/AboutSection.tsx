@@ -258,7 +258,7 @@ export function AboutSection() {
             <button
               type="button"
               onClick={handleShowWhatsNew}
-              className="mt-1 text-xs underline-offset-2 hover:underline transition-colors"
+              className="pad-hover mt-1 text-xs transition-colors"
               style={{ color: 'var(--accent-primary)', background: 'transparent' }}
             >
               What&apos;s new in this version
@@ -279,7 +279,7 @@ export function AboutSection() {
             <button
               key={page}
               type="button"
-              className="text-sm underline underline-offset-4 focus-ring"
+              className="pad-hover text-sm focus-ring"
               style={{ minHeight: 44, color: 'var(--text-secondary)' }}
               onClick={() =>
                 void safeInvoke('open_support_page', { page }).catch(() =>

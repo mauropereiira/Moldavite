@@ -4,11 +4,12 @@
  */
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Puzzle, X } from 'lucide-react';
+import { Puzzle } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { pluginPermissionLabel } from '@/lib/plugins/permissionLabels';
 import type { PluginManifest, PluginManifestCommand } from '@/lib/plugins/types';
 import { formatShortcut } from '@/lib/shortcuts';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 export interface PluginAboutDialogProps {
   manifest: PluginManifest;
@@ -94,15 +95,7 @@ export function PluginAboutDialog({
           >
             About this plugin
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 focus-ring"
-            style={{ color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)' }}
-            aria-label="Close plugin information"
-          >
-            <X aria-hidden="true" className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose} label="Close plugin information" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">

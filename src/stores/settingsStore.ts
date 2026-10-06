@@ -53,6 +53,8 @@ export interface SettingsState {
 
   spellCheck: boolean;
   autoCapitalize: boolean;
+  /** Desktop: the toolbar and + above the block being written in. */
+  showWritingToolbar: boolean;
   showWordCount: boolean;
   lineHeight: LineHeight;
   editorWidth: EditorWidth;
@@ -111,6 +113,7 @@ export interface SettingsState {
   setCompactMode: (compact: boolean) => void;
   setSpellCheck: (enabled: boolean) => void;
   setAutoCapitalize: (enabled: boolean) => void;
+  setShowWritingToolbar: (show: boolean) => void;
   setShowWordCount: (show: boolean) => void;
   setLineHeight: (height: LineHeight) => void;
   setEditorWidth: (width: EditorWidth) => void;
@@ -145,6 +148,7 @@ const defaultSettings = {
   compactMode: false,
   spellCheck: true,
   autoCapitalize: true,
+  showWritingToolbar: true,
   showWordCount: false,
   lineHeight: 'comfortable' as LineHeight,
   editorWidth: 'wide' as EditorWidth,
@@ -241,6 +245,7 @@ export const useSettingsStore = create<SettingsState>()(
       setCompactMode: (compact) => set({ compactMode: compact }),
       setSpellCheck: (enabled) => set({ spellCheck: enabled }),
       setAutoCapitalize: (enabled) => set({ autoCapitalize: enabled }),
+      setShowWritingToolbar: (show) => set({ showWritingToolbar: show }),
       setShowWordCount: (show) => set({ showWordCount: show }),
       setLineHeight: (height) => set({ lineHeight: height }),
       setEditorWidth: (width) => set({ editorWidth: width }),
@@ -301,6 +306,7 @@ export const useSettingsStore = create<SettingsState>()(
         compactMode: state.compactMode,
         spellCheck: state.spellCheck,
         autoCapitalize: state.autoCapitalize,
+        showWritingToolbar: state.showWritingToolbar,
         showWordCount: state.showWordCount,
         lineHeight: state.lineHeight,
         editorWidth: state.editorWidth,

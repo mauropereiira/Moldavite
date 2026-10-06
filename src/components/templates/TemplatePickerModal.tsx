@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { isMobilePlatform } from '@/lib/platform';
-import { X, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useTemplates } from '@/hooks/useTemplates';
 import { TemplateCard } from './TemplateCard';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface TemplatePickerModalProps {
   isOpen: boolean;
@@ -90,14 +91,7 @@ export function TemplatePickerModal({
           >
             {title}
           </h2>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close template picker"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={handleClose} label="Close template picker" />
         </div>
 
         <div className="px-6 py-3 border-b" style={{ borderColor: 'var(--border-default)' }}>

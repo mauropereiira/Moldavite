@@ -15,6 +15,7 @@ import {
   type LayoutNode,
   type LayoutOptions,
 } from './layout';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { approach, clamp01, easeOutCubic, viewAt, type View, type ViewTween } from './motion';
 
 interface NoteGraphResponse {
@@ -1424,7 +1425,7 @@ export function GraphView() {
       aria-labelledby="graph-view-title"
     >
       <div
-        className="graph-view-header flex items-baseline justify-between gap-6 px-5 py-3"
+        className="graph-view-header flex items-center justify-between gap-6 px-5 py-3"
         style={{ borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="flex items-baseline gap-4">
@@ -1451,7 +1452,7 @@ export function GraphView() {
             <span style={{ ...editorialLabel, color: 'var(--accent-danger)' }}>{error}</span>
           )}
         </div>
-        <div className="flex items-baseline gap-5">
+        <div className="flex items-center gap-5">
           <span className="app-overlay-hint" style={editorialLabel}>
             Drag to pan · Scroll to zoom · Double-click to fit
           </span>
@@ -1459,7 +1460,7 @@ export function GraphView() {
             <button
               type="button"
               onClick={fitToView}
-              className="focus-ring graph-view-fit"
+              className="pad-hover focus-ring graph-view-fit"
               style={{
                 color: 'var(--text-secondary)',
                 fontFamily: 'var(--font-display)',
@@ -1477,22 +1478,7 @@ export function GraphView() {
               Fit view
             </button>
           )}
-          <button
-            ref={closeBtnRef}
-            type="button"
-            onClick={close}
-            className="focus-ring app-overlay-close"
-            style={{
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-display)',
-              fontSize: '20px',
-              lineHeight: 1,
-            }}
-            aria-label="Close graph view"
-            title="Close (Esc)"
-          >
-            ×
-          </button>
+          <CloseButton ref={closeBtnRef} onClick={close} label="Close graph view" />
         </div>
       </div>
 

@@ -27,7 +27,13 @@ import {
 } from '@/lib';
 import { getPendingAutosaveNoteId, resetAutosaveBaseline } from '@/lib/autosaveFlush';
 import { type CloudChangePayload, applyCloudChange, loadDownloadedNote } from '@/lib/cloudNotes';
-import { useFolderStore, useForgeStore, useNoteStore, useToastStore } from '@/stores';
+import {
+  markNoteTagsStale,
+  useFolderStore,
+  useForgeStore,
+  useNoteStore,
+  useToastStore,
+} from '@/stores';
 import type { Note } from '@/types';
 
 /**
@@ -253,6 +259,7 @@ export function useForgeWatcher(): void {
     const subscribe = async () => {
       try {
         const off = await listen<ForgeChangePayload>('forge:changed', (event) => {
+          markNoteTagsStale(event.payload.relPath);
           void reconcileExternalNoteChange(event.payload.relPath).catch((err) => {
             console.error('[useForgeWatcher] note reconciliation failed:', err);
           });

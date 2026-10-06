@@ -5,16 +5,12 @@ import { RightPanel } from './RightPanel';
 import { IndexOverlay } from '@/components/index-overlay/IndexOverlay';
 import { AgendaOverlay } from '@/components/agenda-overlay/AgendaOverlay';
 import { EditorNavigation } from './EditorNavigation';
-import { PinnedBar } from './PinnedBar';
 import { IconRail } from './IconRail';
-import { useOverlayStore, useSettingsStore, useTimelineStore } from '@/stores';
+import { useOverlayStore, useSettingsStore } from '@/stores';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight';
 import { isMobilePlatform, isTabletPlatform } from '@/lib/platform';
 
-// TimelineView pulls in calendar/event aggregation + its own render
-// pipeline — only load it when the user actually toggles the timeline on.
-const TimelineView = lazy(() => import('../timeline').then((m) => ({ default: m.TimelineView })));
 const TrashPage = lazy(() =>
   import('../sidebar/TrashPage').then((m) => ({ default: m.TrashPage }))
 );
@@ -47,7 +43,6 @@ export function Layout() {
     setSidebarWidth,
     setRightPanelWidth,
   } = useSettingsStore();
-  const isTimelineOpen = useTimelineStore((s) => s.isOpen);
   const { activeOverlay, isSidebarHidden, isRightPanelHidden, closeOverlay } = useOverlayStore();
 
   // On a phone the shell follows the visual viewport, so the software
@@ -261,15 +256,6 @@ export function Layout() {
         height: isMobile ? 'var(--app-height)' : undefined,
       }}
     >
-      {/* Full width, above everything including the rail and the index, so a
-          pinned note is one click away from wherever you are. It sits outside
-          the content row rather than inside the editor column: the editor is
-          `h-full`, so a sibling above it there pushed its own footer out of
-          view — which is why the footer controls disappeared whenever
-          something was pinned. Overlays and modals mount above this and cover
-          it, which is what you want when one is open. */}
-      <PinnedBar />
-
       {/* Mirrored by DOM order rather than `row-reverse` so Tab still walks
           the chrome in the order it appears on screen. */}
       <div className="flex min-h-0 w-full flex-1 overflow-hidden">
@@ -281,22 +267,14 @@ export function Layout() {
         >
           {railOnRight ? rightPanelColumn : sidebarColumn}
 
-          {/* Center pane — Editor by default, Timeline when toggled on */}
+          {/* Center pane: the editor */}
           <div
             className="relative flex-1 flex flex-col min-w-0"
             style={{ backgroundColor: 'var(--bg-editor)' }}
           >
-            {isTimelineOpen ? (
-              <Suspense fallback={null}>
-                <TimelineView />
-              </Suspense>
-            ) : (
-              <>
-                <Editor />
-                {/* The phone always shows the rail, whose buttons are these. */}
-                {!isMobile && <EditorNavigation />}
-              </>
-            )}
+            <Editor />
+            {/* The phone always shows the rail, whose buttons are these. */}
+            {!isMobile && <EditorNavigation />}
           </div>
 
           {railOnRight ? sidebarColumn : rightPanelColumn}

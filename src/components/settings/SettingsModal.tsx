@@ -78,12 +78,13 @@ import { ImportSection } from './sections/ImportSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { SettingsTemplates } from '@/components/templates/SettingsTemplates';
 import { useTemplates } from '@/hooks/useTemplates';
-import { useSeasonalTouches } from '@/lib/seasons';
+import { JACK_O_LANTERN_SMALL_SRC, useSeasonalTouches } from '@/lib/seasons';
 import { MaskArt } from '@/components/ui/MaskArt';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const PHONE_HIDDEN_TABS: SettingsTab[] = ['agents', 'import', 'plugins'];
 const AUTUMN_PUMPKIN = (
-  <MaskArt src="/seasonal/pumpkin.webp" className="size-[22px]" label="Happy autumn" />
+  <MaskArt src={JACK_O_LANTERN_SMALL_SRC} className="size-[22px]" label="Happy autumn" />
 );
 
 interface SettingsTabItem {
@@ -289,16 +290,10 @@ export function SettingsModal() {
           >
             Settings
           </h2>
-          <button
+          <CloseButton
             onClick={() => settingsStore.setIsSettingsOpen(false)}
-            className="settings-close p-1 transition-colors"
-            style={{ color: 'var(--text-muted)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-            aria-label="Close settings"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+            label="Close settings"
+          />
         </div>
 
         {/* Body: tab sidebar + content */}
@@ -422,8 +417,7 @@ function MobileSettingsPage({
   };
 
   return (
-    // Spans the rail's column too: the rail paints above it, but a pinned bar
-    // above the rail does not, and it showed through there.
+    // Spans the rail's column too; the rail paints above it.
     <div
       className="settings-scrim fixed inset-0 z-[9999] modal-backdrop-enter"
       style={{ background: 'var(--bg-base)' }}
@@ -476,15 +470,7 @@ function MobileSettingsPage({
           >
             {section ? section.label : 'Settings'}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="settings-close flex items-center justify-center flex-shrink-0"
-            style={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, color: 'var(--text-muted)' }}
-            aria-label="Close settings"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+          <CloseButton onClick={onClose} label="Close settings" />
         </header>
 
         {section ? (

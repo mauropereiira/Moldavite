@@ -140,7 +140,11 @@ export function SidebarNotesList({
           <SignatureEmptyState className="px-3 py-2 text-xs">
             <div>
               <span>No notes yet.</span>{' '}
-              <button onClick={onNewNote} style={{ color: 'var(--text-secondary)' }}>
+              <button
+                onClick={onNewNote}
+                className="pad-hover-inline"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Create note
               </button>
             </div>

@@ -405,7 +405,9 @@
           <code>importScripts</code>, nested workers, <code>caches</code>, <code>indexedDB</code>,
           and <code>WebAssembly</code> among them. Because it is an allowlist, capabilities shipped
           by future browser capabilities begin denied and remain outside the sandbox until they are
-          allowlisted. Network access goes through the permissioned <code>net.fetch</code> method.
+          allowlisted. The worker also runs under the app's Content Security Policy, so
+          <code>import()</code> from another origin, <code>eval</code>, and <code>new Function</code>
+          are refused. Network access goes through the permissioned <code>net.fetch</code> method.
         </p>
         <p>
           The worker proxy rejects undeclared calls early for useful errors, but Moldavite repeats
@@ -721,7 +723,8 @@ api.commands.<span class="f">add</span>({
               Returns the active note's Forge-relative path, display title, and live editor HTML, or
               <code>null</code> when no note is open. A Markdown file opened from outside the Forge
               is never visible to plugins: while one is the active tab this returns
-              <code>null</code>.
+              <code>null</code>. The same holds for a locked note opened to view: its decrypted text
+              never reaches a plugin.
             </p>
           </div>
           <div class="method-card">
@@ -1131,10 +1134,12 @@ api.commands.<span class="f">add</span>({
             requires fresh consent.
           </li>
           <li>
-            Uninstalling in Settings deletes the plugin folder and forgets its consent/runtime-host
-            grant. OS credential-store secrets remain because plugin secret keys are intentionally
-            hidden from enumeration. Provide a reset command that calls <code>secrets.delete</code>
-            for every known key when users need credential cleanup before uninstalling.
+            Uninstalling in Settings deletes the plugin folder, forgets its consent/runtime-host
+            grant, and deletes the secrets it stored. Secrets are keyed by plugin id, not by Forge,
+            so they stay while another Forge still has the plugin installed. A secret stored before
+            Moldavite started tracking secret keys is deleted only if the plugin has read it since then; a
+            reset command that calls <code>secrets.delete</code> for every known key still covers
+            that case.
           </li>
           <li>
             Test cancellation, missing notes, locked-note rejection, denied/revoked hosts, non-2xx

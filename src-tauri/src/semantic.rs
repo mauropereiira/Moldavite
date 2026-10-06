@@ -29,8 +29,10 @@
 //! hooks [`note_changed`] / [`note_removed`] / [`notes_changed`] /
 //! [`notes_removed`], which no-op unless the feature is enabled and the
 //! index is ready. Changed notes are re-embedded on a debounced background
-//! thread so saves are never blocked. Content hashes make full reconciles
-//! cheap: unchanged notes are never re-embedded.
+//! thread so saves are never blocked. The file watcher queues notes another
+//! process changed through [`SemanticService::notes_changed_in`], once per
+//! batch of events. Content hashes make full reconciles cheap: unchanged notes
+//! are never re-embedded.
 
 // Without `semantic_runtime` (Intel macOS, iOS) the embedder never runs, so
 // its helpers are dead there by design.
@@ -62,6 +64,12 @@ pub(crate) const INDEX_FILE: &str = "embeddings.v1.bin";
 const CHUNK_WORDS: usize = 350;
 /// Debounce window for re-embedding after a note save.
 const DEBOUNCE_MS: u64 = 600;
+/// How long a change to the in-memory index waits before the index file is
+/// rewritten. At 10,000 notes the file is 16.9 MB, and rewriting and fsyncing
+/// it on every autosave was most of a save's cost. A crash loses at most this
+/// window, and the next build re-embeds whatever the file is missing, since it
+/// reconciles by content hash.
+const PERSIST_DELAY: Duration = Duration::from_secs(30);
 /// Error string used to signal a user-initiated cancellation (disable
 /// mid-build). Not surfaced to the UI as an error.
 pub(crate) const CANCELLED: &str = "__semantic_cancelled__";
@@ -437,35 +445,64 @@ fn push_note_source(abs: &Path, rel_path: String, out: &mut Vec<NoteSource>) {
 /// deciding whether reading it is worth the cost.
 pub(crate) fn scan_note_paths(forge_root: &Path) -> Vec<(PathBuf, String)> {
     let mut out = Vec::new();
-    // Daily and weekly notes live flat at the top level.
     for top in ["daily", "weekly"] {
-        let dir = forge_root.join(top);
-        let Ok(entries) = fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if name.starts_with('.') || !name.ends_with(".md") {
-                continue;
-            }
-            if fs::symlink_metadata(&path)
-                .map(|m| m.file_type().is_symlink())
-                .unwrap_or(true)
-                || !path.is_file()
-            {
-                continue;
-            }
-            let rel = format!("{}/{}", top, name);
-            out.push((path, rel));
-        }
+        scan_flat(forge_root, top, &mut out);
     }
     // Standalone notes may live in nested folders.
     let notes_dir = forge_root.join("notes");
     scan_standalone(&notes_dir, "", &mut out);
     out
+}
+
+/// [`scan_note_paths`] for one folder and everything under it: `daily`,
+/// `weekly`, `notes` or `notes/A/B`. A symlink on the way down to the folder
+/// yields nothing, since the full scan never descends through one.
+pub(crate) fn scan_note_paths_in(forge_root: &Path, rel_dir: &str) -> Vec<(PathBuf, String)> {
+    let mut out = Vec::new();
+    match rel_dir.split_once('/') {
+        None if rel_dir == "daily" || rel_dir == "weekly" => {
+            scan_flat(forge_root, rel_dir, &mut out)
+        }
+        None if rel_dir == "notes" => scan_standalone(&forge_root.join("notes"), "", &mut out),
+        Some(("notes", rest)) => {
+            let mut dir = forge_root.join("notes");
+            for part in rest.split('/') {
+                dir.push(part);
+                if !fs::symlink_metadata(&dir).is_ok_and(|meta| meta.is_dir()) {
+                    return out;
+                }
+            }
+            scan_standalone(&dir, rest, &mut out);
+        }
+        _ => {}
+    }
+    out
+}
+
+/// Daily and weekly notes live flat at the top level.
+fn scan_flat(forge_root: &Path, top: &str, out: &mut Vec<(PathBuf, String)>) {
+    let dir = forge_root.join(top);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.') || !name.ends_with(".md") {
+            continue;
+        }
+        if fs::symlink_metadata(&path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(true)
+            || !path.is_file()
+        {
+            continue;
+        }
+        let rel = format!("{}/{}", top, name);
+        out.push((path, rel));
+    }
 }
 
 /// Collect every unlocked, non-empty markdown note in the Forge, bodies
@@ -667,23 +704,32 @@ pub(crate) struct SemanticService {
     building: AtomicBool,
     /// Serializes index-file writes.
     save_lock: Mutex<()>,
+    /// The Forge and model of a write waiting out [`PERSIST_DELAY`]. The model
+    /// is taken when the change is made, so a write that lands after a model
+    /// switch cannot label the old vectors with the new model.
+    pending_persist: Mutex<Option<(PathBuf, String)>>,
 }
 
 static SERVICE: OnceLock<SemanticService> = OnceLock::new();
 
 pub(crate) fn service() -> &'static SemanticService {
-    SERVICE.get_or_init(|| SemanticService {
-        entries: RwLock::new(Vec::new()),
-        phase: RwLock::new(Phase::Disabled),
-        embedder: RwLock::new(None),
-        pending: Mutex::new(HashMap::new()),
-        pending_gen: AtomicU64::new(0),
-        building: AtomicBool::new(false),
-        save_lock: Mutex::new(()),
-    })
+    SERVICE.get_or_init(SemanticService::new)
 }
 
 impl SemanticService {
+    pub(crate) fn new() -> Self {
+        Self {
+            entries: RwLock::new(Vec::new()),
+            phase: RwLock::new(Phase::Disabled),
+            embedder: RwLock::new(None),
+            pending: Mutex::new(HashMap::new()),
+            pending_gen: AtomicU64::new(0),
+            building: AtomicBool::new(false),
+            save_lock: Mutex::new(()),
+            pending_persist: Mutex::new(None),
+        }
+    }
+
     pub(crate) fn phase(&self) -> Phase {
         self.phase
             .read()
@@ -724,6 +770,7 @@ impl SemanticService {
     /// Feature switched off: forget everything (the on-disk index is kept so
     /// a re-enable only re-embeds notes that changed in the meantime).
     pub(crate) fn disable(&self) {
+        self.flush_persist();
         self.set_phase(Phase::Disabled);
         self.replace_entries(Vec::new());
         if let Ok(mut e) = self.embedder.write() {
@@ -736,6 +783,7 @@ impl SemanticService {
 
     /// The active Forge changed: in-memory entries belong to the old vault.
     pub(crate) fn reset_for_forge_switch(&self) {
+        self.flush_persist();
         self.replace_entries(Vec::new());
         if let Ok(mut p) = self.pending.lock() {
             p.clear();
@@ -778,14 +826,45 @@ impl SemanticService {
         }
     }
 
-    /// Snapshot the in-memory entries and persist them for the given Forge.
-    fn persist_entries(&self, forge_root: &Path) {
+    /// Persist the in-memory entries for the given Forge within [`PERSIST_DELAY`].
+    fn persist_entries(&'static self, forge_root: &Path) {
+        let target = (forge_root.to_path_buf(), configured_model_id());
+        let previous = match self.pending_persist.lock() {
+            Ok(mut pending) => pending.replace(target.clone()),
+            Err(_) => return,
+        };
+        match previous {
+            None => {
+                std::thread::spawn(move || {
+                    std::thread::sleep(PERSIST_DELAY);
+                    self.flush_persist();
+                });
+            }
+            Some(previous) if previous != target => self.write_index(&previous.0, &previous.1),
+            Some(_) => {}
+        }
+    }
+
+    /// Write a persist that is still waiting out [`PERSIST_DELAY`] now. Runs on
+    /// quit, at the end of an MCP session, and before a Forge switch or disable
+    /// drops the entries it would write.
+    pub(crate) fn flush_persist(&self) {
+        let pending = match self.pending_persist.lock() {
+            Ok(mut pending) => pending.take(),
+            Err(_) => return,
+        };
+        if let Some((forge_root, model_id)) = pending {
+            self.write_index(&forge_root, &model_id);
+        }
+    }
+
+    fn write_index(&self, forge_root: &Path, model_id: &str) {
+        let _guard = self.save_lock.lock();
         let snapshot = match self.entries.read() {
             Ok(e) => e.clone(),
             Err(_) => return,
         };
-        let _guard = self.save_lock.lock();
-        if let Err(e) = save_index(forge_root, &snapshot, &configured_model_id()) {
+        if let Err(e) = save_index(forge_root, &snapshot, model_id) {
             log::warn!("[semantic] failed to persist index: {}", e);
         }
     }
@@ -850,34 +929,53 @@ pub(crate) fn note_changed(rel_path: &str) {
 /// The MCP process has no GUI Forge switcher, so it must not resolve the
 /// active Forge again inside the background task.
 pub(crate) fn note_changed_in(rel_path: &str, forge_root: PathBuf) {
-    let svc = service();
-    if !svc.is_ready() || !is_valid_note_index_path(rel_path) {
-        return;
-    }
-    let gen = svc.begin_pending(rel_path);
-    let rel = rel_path.to_string();
-    std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(DEBOUNCE_MS));
-        let svc = service();
-        if !svc.take_pending_if_current(&rel, gen) || !svc.is_ready() {
+    service().notes_changed_in(vec![rel_path.to_string()], forge_root);
+}
+
+impl SemanticService {
+    /// [`note_changed_in`] for many notes on one thread with one index write,
+    /// so a `git checkout` touching thousands of notes neither starts a thread
+    /// per note nor rewrites the index once per note. A note queued again
+    /// within the debounce is left to the later call.
+    pub(crate) fn notes_changed_in(&'static self, rel_paths: Vec<String>, forge_root: PathBuf) {
+        if !self.is_ready() {
             return;
         }
-        let Some(embedder) = svc.embedder() else {
-            return;
-        };
-        let changed = {
-            let Ok(mut entries) = svc.entries.write() else {
-                return;
-            };
-            refresh_entry(&forge_root, embedder.as_ref(), &mut entries, &rel).unwrap_or_else(|e| {
-                log::warn!("[semantic] re-embed of {} failed: {}", rel, e);
-                false
+        let queued: Vec<(String, u64)> = rel_paths
+            .into_iter()
+            .filter(|rel| is_valid_note_index_path(rel))
+            .map(|rel| {
+                let gen = self.begin_pending(&rel);
+                (rel, gen)
             })
-        };
-        if changed {
-            svc.persist_entries(&forge_root);
+            .collect();
+        if queued.is_empty() {
+            return;
         }
-    });
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(DEBOUNCE_MS));
+            let mut changed = false;
+            for (rel, gen) in &queued {
+                if !self.take_pending_if_current(rel, *gen) || !self.is_ready() {
+                    continue;
+                }
+                let Some(embedder) = self.embedder() else {
+                    break;
+                };
+                let Ok(mut entries) = self.entries.write() else {
+                    break;
+                };
+                changed |= refresh_entry(&forge_root, embedder.as_ref(), &mut entries, rel)
+                    .unwrap_or_else(|e| {
+                        log::warn!("[semantic] re-embed of {} failed: {}", rel, e);
+                        false
+                    });
+            }
+            if changed {
+                self.persist_entries(&forge_root);
+            }
+        });
+    }
 }
 
 /// Load an already-built semantic index for MCP mode without rebuilding it.
@@ -1482,6 +1580,176 @@ mod tests {
         fs::write(forge.path().join("notes/rust.md"), "  \n").unwrap();
         assert!(refresh_entry(forge.path(), &fake, &mut entries, "notes/rust.md").unwrap());
         assert!(!entries.iter().any(|e| e.path == "notes/rust.md"));
+    }
+
+    /// A service of its own, so these tests never flip the process-wide one
+    /// to ready: its hooks resolve the real active Forge from config.
+    fn ready_service() -> (&'static SemanticService, Arc<FakeEmbedder>) {
+        let svc: &'static SemanticService = Box::leak(Box::new(SemanticService::new()));
+        let fake = Arc::new(FakeEmbedder::new());
+        svc.set_embedder(fake.clone());
+        svc.set_phase(Phase::Ready);
+        (svc, fake)
+    }
+
+    fn indexed_paths(svc: &SemanticService) -> Vec<String> {
+        let mut paths: Vec<String> = svc
+            .entries
+            .read()
+            .unwrap()
+            .iter()
+            .map(|e| e.path.clone())
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    fn wait_until(mut check: impl FnMut() -> bool) {
+        for _ in 0..400 {
+            if check() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        panic!("the semantic index never reached the expected state (waited 10s)");
+    }
+
+    #[test]
+    fn a_queued_batch_is_embedded_persisted_and_follows_deletions() {
+        let forge = TempForge::new("batch");
+        let (svc, _) = ready_service();
+        fs::write(forge.path().join("notes/a.md"), "apples and pears").unwrap();
+        fs::write(forge.path().join("notes/Projects/b.md"), "bread and butter").unwrap();
+
+        svc.notes_changed_in(
+            vec![
+                "notes/a.md".into(),
+                "notes/Projects/b.md".into(),
+                "notes/../escape.md".into(),
+            ],
+            forge.path().to_path_buf(),
+        );
+        wait_until(|| indexed_paths(svc) == ["notes/Projects/b.md", "notes/a.md"]);
+        wait_until(|| svc.pending_persist.lock().unwrap().is_some());
+        svc.flush_persist();
+        let saved = load_index(forge.path(), &configured_model_id()).unwrap();
+        assert_eq!(saved.len(), 2);
+
+        fs::remove_file(forge.path().join("notes/Projects/b.md")).unwrap();
+        svc.notes_changed_in(
+            vec!["notes/Projects/b.md".into()],
+            forge.path().to_path_buf(),
+        );
+        wait_until(|| indexed_paths(svc) == ["notes/a.md"]);
+    }
+
+    fn saved_paths(forge: &TempForge) -> Option<Vec<String>> {
+        let saved = load_index(forge.path(), &configured_model_id())?;
+        Some(saved.into_iter().map(|e| e.path).collect())
+    }
+
+    #[test]
+    fn a_burst_of_changes_waits_and_is_written_once_with_the_latest_entries() {
+        let forge = TempForge::new("persist-burst");
+        let (svc, _) = ready_service();
+        for i in 0..50 {
+            svc.replace_entries(
+                (0..=i)
+                    .map(|n| entry(&format!("notes/n{n}.md"), vec![0.5; EMBED_DIM as usize]))
+                    .collect(),
+            );
+            svc.persist_entries(forge.path());
+        }
+        assert!(!index_path(forge.path()).exists());
+
+        svc.flush_persist();
+        assert_eq!(saved_paths(&forge).unwrap().len(), 50);
+        fs::remove_file(index_path(forge.path())).unwrap();
+        svc.flush_persist();
+        assert!(!index_path(forge.path()).exists());
+    }
+
+    #[test]
+    fn a_forge_switch_or_disable_writes_the_waiting_entries_first() {
+        let switched = TempForge::new("persist-switch");
+        let (svc, _) = ready_service();
+        svc.replace_entries(vec![entry("notes/kept.md", vec![0.5; EMBED_DIM as usize])]);
+        svc.persist_entries(switched.path());
+        svc.reset_for_forge_switch();
+        assert_eq!(saved_paths(&switched).unwrap(), ["notes/kept.md"]);
+        assert_eq!(svc.indexed_count(), 0);
+
+        let disabled = TempForge::new("persist-disable");
+        svc.replace_entries(vec![entry(
+            "notes/also-kept.md",
+            vec![0.5; EMBED_DIM as usize],
+        )]);
+        svc.persist_entries(disabled.path());
+        svc.disable();
+        assert_eq!(saved_paths(&disabled).unwrap(), ["notes/also-kept.md"]);
+    }
+
+    #[test]
+    fn a_change_for_another_forge_writes_the_one_waiting() {
+        let first = TempForge::new("persist-first");
+        let second = TempForge::new("persist-second");
+        let (svc, _) = ready_service();
+        svc.replace_entries(vec![entry("notes/a.md", vec![0.5; EMBED_DIM as usize])]);
+        svc.persist_entries(first.path());
+        svc.persist_entries(second.path());
+        assert_eq!(saved_paths(&first).unwrap(), ["notes/a.md"]);
+        assert!(!index_path(second.path()).exists());
+        svc.flush_persist();
+        assert_eq!(saved_paths(&second).unwrap(), ["notes/a.md"]);
+    }
+
+    /// A `git checkout` touching 500 notes is one batch: one thread, each note
+    /// embedded once.
+    #[test]
+    fn stress_a_500_note_batch_embeds_each_note_once() {
+        let forge = TempForge::new("batch-500");
+        let (svc, fake) = ready_service();
+        let paths: Vec<String> = (0..500)
+            .map(|i| format!("notes/Projects/n{i}.md"))
+            .collect();
+        for (i, rel) in paths.iter().enumerate() {
+            fs::write(forge.path().join(rel), format!("note number {i}")).unwrap();
+        }
+        svc.notes_changed_in(paths.clone(), forge.path().to_path_buf());
+        wait_until(|| svc.indexed_count() == 500);
+        assert_eq!(fake.embed_calls(), 500);
+    }
+
+    /// An agent saving the same note over and over within the debounce costs
+    /// one embedding, whichever batch it arrived in.
+    #[test]
+    fn a_note_queued_again_within_the_debounce_is_embedded_once() {
+        let forge = TempForge::new("supersede");
+        let (svc, fake) = ready_service();
+        fs::write(forge.path().join("notes/a.md"), "apples and pears").unwrap();
+        for _ in 0..5 {
+            svc.notes_changed_in(vec!["notes/a.md".into()], forge.path().to_path_buf());
+        }
+        wait_until(|| indexed_paths(svc) == ["notes/a.md"]);
+        std::thread::sleep(Duration::from_millis(DEBOUNCE_MS + 300));
+        assert_eq!(fake.embed_calls(), 1);
+    }
+
+    #[test]
+    fn nothing_is_queued_while_disabled_or_after_a_forge_switch() {
+        let forge = TempForge::new("not-ready");
+        fs::write(forge.path().join("notes/a.md"), "apples and pears").unwrap();
+
+        let disabled: &'static SemanticService = Box::leak(Box::new(SemanticService::new()));
+        disabled.notes_changed_in(vec!["notes/a.md".into()], forge.path().to_path_buf());
+        assert!(disabled.pending.lock().unwrap().is_empty());
+
+        let (svc, fake) = ready_service();
+        svc.notes_changed_in(vec!["notes/a.md".into()], forge.path().to_path_buf());
+        svc.reset_for_forge_switch();
+        std::thread::sleep(Duration::from_millis(DEBOUNCE_MS + 300));
+        assert!(indexed_paths(svc).is_empty());
+        assert_eq!(fake.embed_calls(), 0);
     }
 
     #[test]

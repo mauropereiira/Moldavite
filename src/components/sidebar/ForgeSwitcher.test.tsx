@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForgeSwitcher } from './ForgeSwitcher';
 import { useForgeStore } from '@/stores';
@@ -24,10 +24,32 @@ describe('ForgeSwitcher', () => {
     expect(trigger.className).not.toContain('justify-between');
 
     const label = screen.getByText('Default');
-    const caret = screen.getByText('↓');
+    const caret = trigger.querySelector('.forge-switcher-caret');
     // Siblings under the same span, so no amount of available width can
     // separate them.
-    expect(caret.parentElement).toBe(label.parentElement);
+    expect(caret?.parentElement).toBe(label.parentElement);
+  });
+
+  // The name alone did not say what it was or that it opens a list.
+  it('labels the name as the Forge and lists the Forges when pressed', () => {
+    useForgeStore.setState({
+      forges: [
+        { id: 'Default', name: 'Default', path: '/f/Default', isActive: true, isSynced: false },
+        { id: 'Work', name: 'Work', path: '/f/Work', isActive: false, isSynced: false },
+      ],
+    } as never);
+    render(<ForgeSwitcher onManage={() => {}} />);
+
+    const trigger = screen.getByRole('button', { name: 'Forge: Default. Switch Forge' });
+    expect(trigger).toHaveTextContent('Forge');
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const list = screen.getByRole('listbox', { name: 'Forges' });
+    expect(within(list).getByRole('option', { name: /Default/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(within(list).getByRole('option', { name: /Work/ })).toBeInTheDocument();
   });
 
   it('still announces itself as the Forge picker', () => {

@@ -35,6 +35,7 @@ describe('mobile formatting', () => {
     act(() => {
       editor.commands.setTextSelection({ from: 1, to: 9 });
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }));
     const button = screen.getByRole('button', { name: 'Bold' });
     fireEvent.pointerDown(button);
     fireEvent.click(button);
@@ -81,6 +82,7 @@ describe('mobile formatting', () => {
 
   it('creates a task list with the real editor command', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }));
     fireEvent.click(screen.getByRole('button', { name: 'Task list' }));
     expect(editor.isActive('taskList')).toBe(true);
     expect(editor.getText().trim()).toBe('Selected words');
@@ -88,6 +90,7 @@ describe('mobile formatting', () => {
 
   it('inserts a table with a header row', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     fireEvent.click(screen.getByRole('button', { name: 'Table' }));
     expect(editor.isActive('table')).toBe(true);
     expect(editor.getHTML()).toContain('<th');
@@ -95,6 +98,7 @@ describe('mobile formatting', () => {
 
   it('disables Table while the caret is in a table, so repeated taps add one table', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     const table = screen.getByRole('button', { name: 'Table' });
     expect(table).not.toBeDisabled();
 
@@ -107,6 +111,7 @@ describe('mobile formatting', () => {
 
   it('opens the existing link and photo dialogs and dismisses editing', async () => {
     const callbacks = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     fireEvent.click(screen.getByRole('button', { name: 'Link' }));
     fireEvent.click(screen.getByRole('button', { name: 'Image' }));
     expect(callbacks.onInsertLink).toHaveBeenCalledOnce();
@@ -118,6 +123,7 @@ describe('mobile formatting', () => {
 
   it('names the wiki link and tag inserts by what they do', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     expect(screen.getByRole('button', { name: 'Link to a note' })).toHaveTextContent('[[Note]]');
     expect(screen.getByRole('button', { name: 'Tag' })).toHaveTextContent('#Tag');
     fireEvent.click(screen.getByRole('button', { name: 'Link to a note' }));
@@ -126,6 +132,7 @@ describe('mobile formatting', () => {
 
   it('leads with table actions while the caret is in a table', () => {
     setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     expect(screen.queryByRole('button', { name: 'Add row' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
@@ -139,7 +146,10 @@ describe('mobile formatting', () => {
       'Delete column',
       'Delete table',
     ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }));
     expect(screen.getByRole('button', { name: 'Heading' })).toBeDisabled();
+    // Table actions lead the styles row too.
+    expect(screen.getByRole('button', { name: 'Add row' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add row' }));
     expect(editor.view.dom.querySelectorAll('tr')).toHaveLength(4);
@@ -184,6 +194,7 @@ describe('mobile formatting', () => {
     const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300);
     try {
       setup();
+      fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
       const row = screen.getByRole('toolbar').querySelector('.mobile-formatting-scroll');
       if (!(row instanceof HTMLElement)) throw new Error('No scrolling row');
       expect(row).toHaveAttribute('data-more-after', 'true');
@@ -197,5 +208,53 @@ describe('mobile formatting', () => {
       width.mockRestore();
       client.mockRestore();
     }
+  });
+
+  // Undo and Redo were last in a scrolling row, and Aa said nothing to anyone
+  // who had not used Apple Notes. The row is now short enough never to scroll.
+  it('keeps Undo, Redo, Format, Insert and Done in one row that never scrolls', () => {
+    setup();
+    const main = screen.getByRole('toolbar').querySelector('.mobile-formatting-main');
+    expect(
+      Array.from(main?.querySelectorAll('button') ?? []).map(
+        (button) => button.getAttribute('aria-label') ?? button.textContent
+      )
+    ).toEqual(['Undo', 'Redo', 'Format', 'Insert', 'Dismiss keyboard']);
+    expect(screen.getByRole('toolbar').querySelector('.mobile-formatting-scroll')).toBeNull();
+
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    act(() => {
+      editor.commands.setTextSelection({ from: 1, to: 9 });
+      editor.commands.toggleBold();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(editor.getHTML()).toBe('<p>Selected words</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
+    expect(editor.getHTML()).toBe('<p><strong>Selected</strong> words</p>');
+  });
+
+  it('opens Format or Insert in a strip, one at a time, and closes it on Done', () => {
+    setup();
+    const format = screen.getByRole('button', { name: 'Format' });
+    const insert = screen.getByRole('button', { name: 'Insert' });
+
+    fireEvent.click(format);
+    expect(format).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('group', { name: 'Format' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link to a note' })).toBeNull();
+
+    fireEvent.click(insert);
+    expect(format).toHaveAttribute('aria-expanded', 'false');
+    expect(insert).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Link to a note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bold' })).toBeNull();
+
+    fireEvent.click(insert);
+    expect(screen.queryByRole('group', { name: 'Insert' })).toBeNull();
+
+    fireEvent.click(format);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss keyboard' }));
+    expect(format).toHaveAttribute('aria-expanded', 'false');
   });
 });
