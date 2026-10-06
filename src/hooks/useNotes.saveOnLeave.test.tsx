@@ -13,7 +13,14 @@ import {
   getPendingAutosaveNoteId,
   registerAutosaveCloseGuard,
 } from '@/lib/autosaveFlush';
-import { discardLeaveSave, hasUnsavedEdits, heldLeaveSaveIds } from '@/lib/leaveSave';
+import {
+  discardLeaveSave,
+  hasUnsavedEdits,
+  heldLeaveSaveIds,
+  retryFailedSave,
+  saveFailedNoteAsCopy,
+} from '@/lib/leaveSave';
+import { useSaveFailureStore } from '@/stores/saveFailureStore';
 import { htmlToMarkdown, markdownToHtml } from '@/lib/fileSystem';
 
 const invokeMock = vi.fn();
@@ -23,7 +30,7 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { initializeNotes, useNotes } from './useNotes';
-import { useAutoSave } from './useAutoSave';
+import { autoSaveTiming, useAutoSave } from './useAutoSave';
 import { useFolders } from './useFolders';
 import { useTrash } from './useTrash';
 
@@ -73,7 +80,8 @@ beforeEach(() => {
     return undefined;
   });
   useTemplateStore.setState({ defaultDailyTemplate: null });
-  useSettingsStore.setState({ autoSaveDelay: 60_000, indexMode: 'overlay' });
+  autoSaveTiming.delayMs = 60_000;
+  useSettingsStore.setState({ indexMode: 'overlay' });
   useOverlayStore.setState({ activeOverlay: null });
   useNoteStore.setState({
     notes: [],
@@ -89,6 +97,7 @@ beforeEach(() => {
     isSaving: false,
   });
   useToastStore.setState({ toasts: [] });
+  useSaveFailureStore.setState({ failures: {} });
 });
 
 afterEach(() => {
@@ -479,7 +488,7 @@ describe('undoing back to the saved text', () => {
   const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
 
   it('writes nothing more when the user leaves after undoing to what autosave wrote', async () => {
-    useSettingsStore.setState({ autoSaveDelay: 10 });
+    autoSaveTiming.delayMs = 10;
     disk = { 'Edited.md': 'start', 'Other.md': 'other' };
     const hook = renderNotes();
     await act(() => hook.result.current.loadNote(standalone('Edited.md')));
@@ -511,7 +520,7 @@ describe('undoing back to the saved text', () => {
   });
 
   it('leaves the last text on disk through rapid typing, undoing and switching', async () => {
-    useSettingsStore.setState({ autoSaveDelay: 5 });
+    autoSaveTiming.delayMs = 5;
     disk = { 'A.md': 'a', 'B.md': 'b' };
     invokeMock.mockImplementation(
       async (command: string, payload?: { filename?: string; content?: string }) => {
@@ -783,5 +792,94 @@ describe('note-list initialization', () => {
     expect(
       invokeMock.mock.calls.filter(([command]) => command === 'ensure_directories')
     ).toHaveLength(1);
+  });
+});
+
+describe('the warning on a note whose save failed', () => {
+  const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
+  const failure = (id: string) => useSaveFailureStore.getState().failures[id];
+
+  it('appears when autosave fails, with no toast, and goes when Try again saves', async () => {
+    autoSaveTiming.delayMs = 10;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Open.md': 'before' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Open.md')));
+    writeError = new Error('disk full');
+    act(() => useNoteStore.getState().updateNoteContent('<p>typed</p>', 'notes/Open.md'));
+    await settle();
+
+    expect(failure('notes/Open.md')).toBe('disk full');
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+
+    writeError = null;
+    await act(() => retryFailedSave('notes/Open.md'));
+    expect(failure('notes/Open.md')).toBeUndefined();
+    expect(lastWrite()).toMatchObject({ filename: 'Open.md', content: 'typed' });
+    expect(hasUnsavedEdits('notes/Open.md')).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it('goes by itself when the next autosave works', async () => {
+    autoSaveTiming.delayMs = 10;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Open.md': 'before' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Open.md')));
+    writeError = new Error('disk full');
+    act(() => useNoteStore.getState().updateNoteContent('<p>one</p>', 'notes/Open.md'));
+    await settle();
+    expect(failure('notes/Open.md')).toBe('disk full');
+
+    writeError = null;
+    act(() => useNoteStore.getState().updateNoteContent('<p>one two</p>', 'notes/Open.md'));
+    await settle();
+    expect(failure('notes/Open.md')).toBeUndefined();
+    consoleError.mockRestore();
+  });
+
+  it('keeps a held note on screen to its warning, without the toast it gets out of sight', async () => {
+    vi.useFakeTimers();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Stuck.md': 'before', 'Fine.md': 'fine' };
+    const hook = renderNotes();
+    await holdSave(hook, 'Stuck.md', '<p>keep me</p>');
+    expect(failure('notes/Stuck.md')).toBe('disk full');
+
+    act(() => useNoteStore.getState().switchTab('notes/Stuck.md'));
+    await act(() => vi.advanceTimersByTimeAsync(7000));
+    expect(writes().length).toBeGreaterThan(1);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+    expect(failure('notes/Stuck.md')).toBe('disk full');
+    consoleError.mockRestore();
+  });
+
+  it('saves the text as a copy from the warning when the note itself will not save', async () => {
+    autoSaveTiming.delayMs = 10;
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    disk = { 'Open.md': 'before' };
+    const hook = renderNotes();
+    await act(() => hook.result.current.loadNote(standalone('Open.md')));
+    writeError = new Error('disk full');
+    act(() => useNoteStore.getState().updateNoteContent('<p>keep me</p>', 'notes/Open.md'));
+    await settle();
+    expect(failure('notes/Open.md')).toBe('disk full');
+
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'preserve_buffer_copy') return 'Open 2026-10-06 0900.md';
+      if (command === 'read_note') return { content: 'before', color: null, contentHash: 'b' };
+      if (command === 'list_notes') return [];
+      return undefined;
+    });
+    await act(() => saveFailedNoteAsCopy('notes/Open.md'));
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      'preserve_buffer_copy',
+      expect.objectContaining({ filename: 'Open.md', content: 'keep me' })
+    );
+    expect(failure('notes/Open.md')).toBeUndefined();
+    expect(heldLeaveSaveIds()).not.toContain('notes/Open.md');
+    expect(useNoteStore.getState().currentNote?.content).toContain('before');
+    consoleError.mockRestore();
   });
 });

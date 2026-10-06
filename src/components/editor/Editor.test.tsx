@@ -129,18 +129,8 @@ vi.mock('@/hooks/useToast', () => ({
 // tests can reach Editor's own `handleDeleteConfirm` without rendering the
 // full (unrelated) footer.
 vi.mock('./EditorFooter', () => ({
-  EditorFooter: (props: {
-    onDelete: () => void;
-    readOnly?: boolean;
-    isSaving: boolean;
-    showSaveSuccess: boolean;
-  }) => (
-    <footer
-      data-testid="editor-footer"
-      data-read-only={String(!!props.readOnly)}
-      data-saving={String(props.isSaving)}
-      data-save-success={String(props.showSaveSuccess)}
-    >
+  EditorFooter: (props: { onDelete: () => void; readOnly?: boolean }) => (
+    <footer data-testid="editor-footer" data-read-only={String(!!props.readOnly)}>
       <button onClick={props.onDelete}>Delete note</button>
     </footer>
   ),
@@ -200,6 +190,7 @@ import {
   useToastStore,
 } from '@/stores';
 import { usePluginCommandStore } from '@/stores/pluginCommandStore';
+import { useSaveFailureStore } from '@/stores/saveFailureStore';
 import { registerAutosaveFlush } from '@/lib/autosaveFlush';
 import { insertNoteTable } from './extensions/NoteTables';
 import { refreshForgeRoot } from '@/lib/forgeImages';
@@ -451,49 +442,29 @@ describe('Editor writing toolbar', () => {
   });
 });
 
-describe('Editor save feedback', () => {
-  it('shows saved for two seconds after completion without extending it on unrelated renders', async () => {
-    await renderEditor(note('notes/save.md', '<p>Content</p>'));
-    const footer = screen.getByTestId('editor-footer');
-    expect(footer).toHaveAttribute('data-save-success', 'false');
-    vi.useFakeTimers();
-    try {
-      act(() => useNoteStore.setState({ isSaving: true }));
-      expect(footer).toHaveAttribute('data-saving', 'true');
-      expect(footer).toHaveAttribute('data-save-success', 'false');
-      act(() => useNoteStore.setState({ isSaving: false }));
-      expect(footer).toHaveAttribute('data-saving', 'false');
-      expect(footer).toHaveAttribute('data-save-success', 'true');
-      act(() => vi.advanceTimersByTime(1000));
-      act(() => useSettingsStore.setState({ showNoteHeader: false }));
-      act(() => vi.advanceTimersByTime(999));
-      expect(footer).toHaveAttribute('data-save-success', 'true');
-      act(() => vi.advanceTimersByTime(1));
-      expect(footer).toHaveAttribute('data-save-success', 'false');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+describe('Editor save warning', () => {
+  const WARNING = /Couldn't save this note: disk full\. Your changes are kept here/;
 
-  it('restarts saved feedback after another save completes', async () => {
-    await renderEditor(note('notes/save.md', '<p>Content</p>'));
-    const footer = screen.getByTestId('editor-footer');
-    vi.useFakeTimers();
-    try {
-      act(() => useNoteStore.setState({ isSaving: true }));
-      act(() => useNoteStore.setState({ isSaving: false }));
-      act(() => vi.advanceTimersByTime(1000));
-      act(() => useNoteStore.setState({ isSaving: true }));
-      act(() => vi.advanceTimersByTime(5000));
-      expect(footer).toHaveAttribute('data-saving', 'true');
-      act(() => useNoteStore.setState({ isSaving: false }));
-      act(() => vi.advanceTimersByTime(1999));
-      expect(footer).toHaveAttribute('data-save-success', 'true');
-      act(() => vi.advanceTimersByTime(1));
-      expect(footer).toHaveAttribute('data-save-success', 'false');
-    } finally {
-      vi.useRealTimers();
-    }
+  it('warns on the note only while its save fails, and never shows a saving indicator', async () => {
+    const other = note('notes/other.md', '<p>Other</p>');
+    await renderEditor(note('notes/save.md', '<p>Content</p>'), [other]);
+    act(() => useNoteStore.setState({ isSaving: true }));
+    expect(screen.queryByText(/Saving|Saved/)).not.toBeInTheDocument();
+    act(() => useNoteStore.setState({ isSaving: false }));
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
+
+    act(() => useSaveFailureStore.getState().markSaveFailed('notes/save.md', 'disk full'));
+    expect(screen.getByText(WARNING)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save as a copy' })).toBeInTheDocument();
+
+    act(() => useNoteStore.getState().switchTab(other.id));
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
+    act(() => useNoteStore.getState().switchTab('notes/save.md'));
+    expect(screen.getByText(WARNING)).toBeInTheDocument();
+
+    act(() => useNoteStore.getState().markNoteSaved('notes/save.md', '<p>Content</p>'));
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
   });
 });
 

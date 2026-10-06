@@ -13,6 +13,7 @@ import { CloseButton } from '@/components/ui/CloseButton';
 import { isMobilePlatform } from '@/lib/platform';
 import { Group, Row } from './common';
 import { ImportSection } from './sections/ImportSection';
+import { DangerZone } from './sections/DangerZone';
 
 // Per-Forge keys are namespaced (`<key>:<forge>`) and address the active
 // Forge's slot. Resolved per call, never once at module load: the active-Forge
@@ -39,8 +40,8 @@ interface SettingsExportPayload {
 /**
  * Data tab: plain ZIP export and import, encrypted backup export and import,
  * JSON settings export and import (frontend-only: serialises the
- * `moldavite-*` localStorage keys without touching the backend), and the
- * Obsidian importer folded below.
+ * `moldavite-*` localStorage keys without touching the backend), then the
+ * Obsidian importer and the Delete all notes danger zone folded below.
  */
 export function SettingsData() {
   const toast = useToast();
@@ -345,6 +346,8 @@ export function SettingsData() {
           <ImportSection />
         </Group>
       )}
+
+      <DangerZone />
 
       {/* Merge-vs-replace picker for plain notes import */}
       {pendingZipPath && (

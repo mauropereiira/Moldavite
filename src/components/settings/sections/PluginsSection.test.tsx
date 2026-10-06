@@ -87,6 +87,15 @@ describe('PluginsSection', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  // The example plugin is for plugin authors: the build docs point to it in the directory.
+  it('offers installs for users, not the example plugin', async () => {
+    render(<PluginsSection />);
+    await screen.findByText('Word Count');
+
+    expect(screen.getByRole('button', { name: /Build your own/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /example plugin/i })).not.toBeInTheDocument();
+  });
+
   it('keeps installed plugins manageable when the directory is unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Load failed')));
     render(<PluginsSection />);

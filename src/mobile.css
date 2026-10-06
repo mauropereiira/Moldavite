@@ -1102,12 +1102,12 @@ html[data-platform='mobile'] .settings-row-label {
   font-size: 15px;
 }
 
-html[data-platform='mobile'] .settings-row-control:has(> [type='range'], > [role='radiogroup']) {
+html[data-platform='mobile'] .settings-row-control:has(> [role='radiogroup']) {
   flex: 1 1 100%;
   flex-wrap: nowrap;
 }
 
-html[data-platform='mobile'] .settings-row-control > :is([type='range'], [role='radiogroup']) {
+html[data-platform='mobile'] .settings-row-control > [role='radiogroup'] {
   flex: 1;
 }
 
@@ -1145,16 +1145,6 @@ html[data-platform='mobile'] .settings-toggle[aria-checked='true'] .settings-tog
 
 html[data-platform='mobile'] .settings-toggle:disabled {
   opacity: 0.5;
-}
-
-/* Sliders: a finger-sized track and thumb. */
-html[data-platform='mobile'] .settings-dialog input[type='range'] {
-  height: var(--touch-target) !important;
-}
-
-html[data-platform='mobile'] .settings-dialog input[type='range']::-webkit-slider-thumb {
-  width: 28px;
-  height: 28px;
 }
 
 /* Unselected options were --text-muted, near-illegible on the dark grounds.

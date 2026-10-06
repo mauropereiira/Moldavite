@@ -86,6 +86,7 @@ import { TemplatePickerModal } from '@/components/templates/TemplatePickerModal'
 import { BacklinksPanel } from '@/components/backlinks';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
 import { DroppedFileBanner, LooseFileBanner } from './LooseFileBanner';
+import { SaveFailedBanner } from './SaveFailedBanner';
 import { isLooseNote } from '@/lib/looseId';
 import { checkLooseNoteOnDisk } from '@/lib/looseFiles';
 import { CloudNotePlaceholder } from './CloudNotePlaceholder';
@@ -121,17 +122,15 @@ export function Editor() {
   // keystroke — it reads and displays `currentNote.content` directly. Narrowed
   // to just the fields this component uses (via useShallow) so unrelated store
   // changes (recent notes, unlocked notes, ...) don't also trigger a re-render.
-  const { currentNote, updateNoteContent, isSaving, setSelectedDate, notes, closeTab } =
-    useNoteStore(
-      useShallow((state) => ({
-        currentNote: state.currentNote,
-        updateNoteContent: state.updateNoteContent,
-        isSaving: state.isSaving,
-        setSelectedDate: state.setSelectedDate,
-        notes: state.notes,
-        closeTab: state.closeTab,
-      }))
-    );
+  const { currentNote, updateNoteContent, setSelectedDate, notes, closeTab } = useNoteStore(
+    useShallow((state) => ({
+      currentNote: state.currentNote,
+      updateNoteContent: state.updateNoteContent,
+      setSelectedDate: state.setSelectedDate,
+      notes: state.notes,
+      closeTab: state.closeTab,
+    }))
+  );
   const currentNoteId = currentNote?.id;
   const currentNoteContent = currentNote?.content;
   // A file outside the Forge: nothing that reads or writes the Forge by this
@@ -141,7 +140,6 @@ export function Editor() {
     spellCheck,
     autoCapitalize,
     tagsEnabled,
-    backlinksEnabled,
     showNoteHeader,
     showTabBar,
     showEditorFooter,
@@ -185,12 +183,6 @@ export function Editor() {
     noteName: string;
     isDailyNote: boolean;
   } | null>(null);
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [previousIsSaving, setPreviousIsSaving] = useState(isSaving);
-  if (previousIsSaving !== isSaving) {
-    setPreviousIsSaving(isSaving);
-    if (!isSaving) setShowSaveSuccess(true);
-  }
   const [templatePickerDismissal, setTemplatePickerDismissal] = useState<{
     noteId?: string;
     content?: string;
@@ -313,12 +305,6 @@ export function Editor() {
   const handleCreateNote = async () => {
     await createNote('Untitled', null, { discardIfLeftEmpty: true });
   };
-
-  useEffect(() => {
-    if (isSaving || !showSaveSuccess) return;
-    const timer = setTimeout(() => setShowSaveSuccess(false), 2000);
-    return () => clearTimeout(timer);
-  }, [isSaving, showSaveSuccess]);
 
   const handleTemplateSelect = async (templateId: string) => {
     if (
@@ -1160,6 +1146,7 @@ export function Editor() {
       <ExternalChangeBanner />
       <LooseFileBanner />
       <DroppedFileBanner />
+      <SaveFailedBanner />
 
       {/* Editor */}
       <div
@@ -1300,20 +1287,15 @@ export function Editor() {
         )}
       </div>
 
-      {/* Backlinks panel sits below the editor scroll area, above the footer.
-          Gated on backlinksEnabled: the setting previously governed only the
-          sidebar section, so turning backlinks "off" still left this panel
-          costing 32-64px of every note. */}
-      {backlinksEnabled && showBacklinksPanel && <BacklinksPanel />}
+      {/* Backlinks panel sits below the editor scroll area, above the footer. */}
+      {showBacklinksPanel && <BacklinksPanel />}
 
-      {/* Footer with save status, toolbar, and word count */}
+      {/* Footer with the note's actions and word count */}
       {showEditorFooter && !isCloudPlaceholder && (
         <EditorFooter
           editor={editor}
           onDelete={handleDeleteClick}
           readOnly={isViewOnly}
-          isSaving={isSaving}
-          showSaveSuccess={showSaveSuccess}
           onRenameNote={renameNote}
         />
       )}

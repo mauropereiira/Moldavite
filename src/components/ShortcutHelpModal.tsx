@@ -43,6 +43,11 @@ export function ShortcutHelpHost() {
   return <ShortcutHelpModal isOpen={isOpen} onClose={() => setIsOpen(false)} />;
 }
 
+/** Open the sheet from a button: the host owns its state and answers ⌘/. */
+export function openShortcutHelp() {
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', metaKey: true, ctrlKey: true }));
+}
+
 /**
  * Displays every shortcut registered in `src/lib/shortcuts.ts`, grouped by
  * category. Triggered by the `shortcutHelp` shortcut (Cmd+/ or Cmd+?).

@@ -106,7 +106,6 @@ export function Sidebar({
     setSortOption,
     showFoldersSection,
     showBacklinksSection,
-    backlinksEnabled,
   } = useSettingsStore();
   const searchStore = useSearchStore();
   const searchQuery = searchStore.query;
@@ -783,9 +782,7 @@ export function Sidebar({
     ...(showFoldersSection ? [sectionsCollapsed.folders] : []),
     sectionsCollapsed.daily,
     ...(tagsEnabled ? [sectionsCollapsed.tags] : []),
-    ...(backlinksEnabled && showBacklinksSection && currentNoteId
-      ? [sectionsCollapsed.backlinks]
-      : []),
+    ...(showBacklinksSection && currentNoteId ? [sectionsCollapsed.backlinks] : []),
   ];
   const indexColumnCount =
     indexGridWidth === null ? null : indexColumns(indexGridWidth, indexCards.length);
@@ -1083,7 +1080,7 @@ export function Sidebar({
               </div>
             )}
 
-            {isIndex && backlinksEnabled && showBacklinksSection && (
+            {isIndex && showBacklinksSection && (
               <div
                 className="index-card app-overlay-section"
                 style={{ '--index': 4 } as React.CSSProperties}
@@ -1104,7 +1101,7 @@ export function Sidebar({
               </div>
             )}
 
-            {!isIndex && backlinksEnabled && showBacklinksSection && (
+            {!isIndex && showBacklinksSection && (
               <div className="index-card">
                 <BacklinksSection
                   notes={notes}

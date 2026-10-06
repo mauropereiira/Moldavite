@@ -33,8 +33,6 @@ interface EditorFooterProps {
   onDelete: () => void;
   /** A locked note opened for viewing: nothing that edits, copies or exports it is offered. */
   readOnly?: boolean;
-  isSaving: boolean;
-  showSaveSuccess: boolean;
   onRenameNote: (note: NoteFile, title: string) => Promise<void>;
 }
 
@@ -42,8 +40,6 @@ export function EditorFooter({
   editor,
   onDelete,
   readOnly = false,
-  isSaving,
-  showSaveSuccess,
   onRenameNote,
 }: EditorFooterProps) {
   // Only the id is read (note-color key + the "no note" gate), so a
@@ -52,7 +48,7 @@ export function EditorFooter({
   const isLoose = isLooseId(currentNoteId);
   const { theme } = useThemeStore();
   const { getColor, setColor } = useNoteColorsStore();
-  const { showWordCount, showAutoSaveStatus } = useSettingsStore();
+  const showWordCount = useSettingsStore((state) => state.showWordCount);
   const toast = useToast();
   const [footerNode, setFooterNode] = useState<HTMLDivElement | null>(null);
   const footerWidth = useElementWidth(footerNode);
@@ -136,15 +132,10 @@ export function EditorFooter({
 
   return (
     <div className="editor-footer" ref={setFooterNode}>
-      {/* Left: Word count and save status */}
+      {/* Left: Word count */}
       <div className="editor-footer-left">
         {isLoose && <span style={{ marginRight: 16 }}>Not in Forge</span>}
         {showWordCount && editor && <span>{wordCount} words</span>}
-        {showAutoSaveStatus && (isSaving || showSaveSuccess) && (
-          <div className="flex items-center ml-4">
-            {isSaving ? <span>Saving…</span> : showSaveSuccess ? <span>Saved</span> : null}
-          </div>
-        )}
       </div>
 
       {/* Right: the controls themselves, or the one menu they fold into */}

@@ -83,22 +83,13 @@ describe('GeneralSection', () => {
     expect(screen.queryByRole('button', { name: /Export|Import/ })).not.toBeInTheDocument();
   });
 
-  it('folds auto-save, auto-lock and Delete all notes, one click away', async () => {
+  // Auto-save is fixed at 300 ms with no setting, and Delete all notes moved to Data.
+  it('keeps only auto-lock below the Forge', async () => {
     await renderSection();
 
-    expect(screen.queryByRole('slider', { name: 'Auto-save delay' })).not.toBeInTheDocument();
-    const fold = screen.getByRole('button', { name: 'Saving and auto-lock' });
-    expect(fold).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(fold);
-
-    expect(screen.getByRole('slider', { name: 'Auto-save delay' })).toHaveAttribute(
-      'aria-valuetext',
-      '300 milliseconds'
-    );
+    expect(screen.queryByText(/Auto-save|save status/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Danger zone|Delete all notes/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: '30 min' }));
     expect(useSettingsStore.getState().autoLockTimeout).toBe(30);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Danger zone' }));
-    expect(screen.getByRole('button', { name: 'Delete all notes...' })).toBeInTheDocument();
   });
 });

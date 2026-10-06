@@ -1756,6 +1756,15 @@ html:not([data-platform='mobile'])
   margin-top: -32px;
 }
 
+/* Delete all notes sits apart from the folds above it, never run together with them. */
+.settings-tab > .settings-fold[data-setting='danger'] {
+  margin-top: 16px;
+}
+
+.settings-fold[data-setting='danger'] .settings-fold-toggle {
+  color: var(--error);
+}
+
 .settings-fold-toggle {
   display: flex;
   align-items: center;
@@ -1777,10 +1786,6 @@ html:not([data-platform='mobile'])
 
 .settings-fold-body {
   padding-bottom: 8px;
-}
-
-.settings-fold-note {
-  padding: 12px 0;
 }
 
 .settings-flash {
@@ -1826,14 +1831,6 @@ html:not([data-platform='mobile'])
   font-family: var(--font-mono);
   font-size: 11px;
   overflow-wrap: anywhere;
-}
-
-.settings-value {
-  min-width: 52px;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-align: right;
 }
 
 .settings-ok {
@@ -2084,35 +2081,6 @@ html:not([data-platform='mobile'])
 .obs-import-input:focus {
   border-bottom-color: var(--text-primary) !important;
   outline: none;
-}
-
-.settings-range,
-.settings-dialog input[type='range'] {
-  width: 160px;
-  height: 16px !important;
-  appearance: none;
-  cursor: pointer;
-  background: transparent !important;
-  border: 0;
-  border-bottom: 1px solid var(--border-default);
-  border-radius: 0 !important;
-  accent-color: var(--text-primary);
-}
-
-.settings-range:focus,
-.settings-dialog input[type='range']:focus {
-  border-bottom-color: var(--text-primary);
-  outline: none;
-}
-
-.settings-range::-webkit-slider-thumb,
-.settings-dialog input[type='range']::-webkit-slider-thumb {
-  width: 10px;
-  height: 10px;
-  appearance: none;
-  background: var(--bg-base);
-  border: 1px solid var(--text-primary);
-  border-radius: 0;
 }
 
 .settings-dialog svg {

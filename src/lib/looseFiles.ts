@@ -34,6 +34,7 @@ import {
 import { useNoteStore } from '@/stores/noteStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useSaveFailureStore } from '@/stores/saveFailureStore';
 import type { LooseNoteInfo, LooseViewOnlyReason, Note } from '@/types';
 
 export const LOOSE_CONVERSION: ConversionOptions = { forgeImages: false };
@@ -88,7 +89,6 @@ export class LooseConflictError extends Error {
 
 const baseHashes = new Map<string, string>();
 const writeTails = new Map<string, Promise<void>>();
-const lastFailure = new Map<string, string>();
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -224,7 +224,6 @@ export function writeLooseNote(note: Note): Promise<void> {
         baseHash,
       });
       baseHashes.set(looseId, hash);
-      lastFailure.delete(looseId);
     } catch (error) {
       const message = errorMessage(error);
       if (message.startsWith(CONFLICT_PREFIX)) {
@@ -251,17 +250,12 @@ export function writeLooseNote(note: Note): Promise<void> {
 }
 
 /**
- * Tell the user a loose save failed, once per distinct reason. Autosave retries
- * on every pause in typing, and the same toast each time would bury the editor.
- * A conflict says nothing here: the banner already does.
+ * Put a failed loose save on the note's warning. A conflict says nothing here:
+ * `LooseFileBanner` already does.
  */
 export function reportLooseSaveFailure(note: Note, error: unknown): void {
   if (error instanceof LooseConflictError) return;
-  const looseId = looseIdOf(note);
-  const message = errorMessage(error);
-  if (lastFailure.get(looseId) === message) return;
-  lastFailure.set(looseId, message);
-  useToastStore.getState().addToast('error', `Couldn't save ${note.title}: ${message}`);
+  useSaveFailureStore.getState().markSaveFailed(note.id, errorMessage(error));
 }
 
 /** Compare the file with what this window last read or wrote, and raise the banner if it moved on. */
@@ -346,7 +340,6 @@ async function releaseLooseFile(noteId: string): Promise<void> {
   await (writeTails.get(looseId) ?? Promise.resolve());
   if (useNoteStore.getState().openTabs.some((tab) => tab.id === noteId)) return;
   baseHashes.delete(looseId);
-  lastFailure.delete(looseId);
   useLooseStatusStore.getState().setStatus(noteId, null);
   try {
     await invoke('close_loose_file', { id: looseId });

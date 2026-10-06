@@ -672,8 +672,7 @@ export function WelcomeEmptyState({
   const season = useSeasonalTouches();
   const autumnArt = useAutumnArt();
   const coarsePointer = useMediaQuery('(pointer: coarse)');
-  const { showWelcomeDots, showWelcomeStats, showWelcomeDate, showAsteroidCursor, isSettingsOpen } =
-    useSettingsStore();
+  const { quietHomeScreen, isSettingsOpen } = useSettingsStore();
   const activeOverlay = useOverlayStore((state) => state.activeOverlay);
   const notes = useNoteStore((state) => state.notes);
   // Everything here comes from `noteStore`, which is loaded at startup.
@@ -707,12 +706,12 @@ export function WelcomeEmptyState({
         WebkitUserSelect: 'none',
       }}
     >
-      {showAsteroidCursor &&
+      {!quietHomeScreen &&
         !reducedMotion &&
         !coarsePointer &&
         activeOverlay === null &&
         !isSettingsOpen && <AsteroidCursor />}
-      {showWelcomeDots && (
+      {!quietHomeScreen && (
         <>
           <ConstellationField reducedMotion={reducedMotion} />
           {['sun', 'moon'].map((art) => (
@@ -722,7 +721,7 @@ export function WelcomeEmptyState({
           {autumnArt && <div aria-hidden="true" className="mask-art autumn-field" />}
         </>
       )}
-      {showWelcomeDate && (
+      {!quietHomeScreen && (
         <p
           className="welcome-reveal welcome-reveal-date"
           style={{
@@ -765,7 +764,7 @@ export function WelcomeEmptyState({
         </button>
       </div>
 
-      {showWelcomeStats && (
+      {!quietHomeScreen && (
         <p
           className="welcome-reveal welcome-reveal-stats"
           aria-label={`${targetCounts.notes} notes, ${targetCounts.daily} daily, ${targetCounts.weekly} weekly`}

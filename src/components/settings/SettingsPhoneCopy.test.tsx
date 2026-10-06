@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { AboutSection } from './sections/AboutSection';
 import { Toggle } from './common';
+import { ShortcutHelpHost } from '@/components/ShortcutHelpModal';
+import { useSettingsStore } from '@/stores';
 
 const platform = vi.hoisted(() => ({ mobile: false }));
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
@@ -30,12 +32,12 @@ describe('Settings on a phone', () => {
     expect(screen.getByRole('radiogroup', { name: 'Colour preset' })).toBeInTheDocument();
   });
 
-  it('offers no asteroid cursor on a phone, which has no pointer for it', () => {
+  it('offers the quiet home screen and seasonal touches on a phone', () => {
     platform.mobile = true;
     renderAppearance();
     fireEvent.click(screen.getByRole('button', { name: 'Home screen' }));
+    expect(screen.getByRole('switch', { name: 'Quiet home screen' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Seasonal touches' })).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Asteroid cursor' })).not.toBeInTheDocument();
   });
 
   it('lists no keyboard shortcuts in About on a phone', () => {
@@ -43,6 +45,20 @@ describe('Settings on a phone', () => {
     render(<AboutSection />);
     expect(screen.queryByText('Keyboard shortcuts')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Privacy policy' })).toBeInTheDocument();
+  });
+
+  it('opens the full shortcut sheet from About on the desktop', () => {
+    useSettingsStore.setState({ isSettingsOpen: true });
+    render(
+      <>
+        <AboutSection />
+        <ShortcutHelpHost />
+      </>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show all shortcuts' }));
+
+    expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
+    expect(screen.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeInTheDocument();
   });
 
   it('can disable a switch', () => {

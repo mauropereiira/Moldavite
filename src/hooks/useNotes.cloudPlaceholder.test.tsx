@@ -3,7 +3,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore } from '@/stores/noteStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { NoteFile } from '@/types';
@@ -15,7 +14,7 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { useNotes } from './useNotes';
-import { useAutoSave } from './useAutoSave';
+import { autoSaveTiming, useAutoSave } from './useAutoSave';
 import { reconcileExternalNoteChange } from './useForgeWatcher';
 import {
   NOT_DOWNLOADED_MESSAGE,
@@ -110,7 +109,7 @@ beforeEach(() => {
     return undefined;
   });
   useTemplateStore.setState({ defaultDailyTemplate: null });
-  useSettingsStore.setState({ autoSaveDelay: 60_000 });
+  autoSaveTiming.delayMs = 60_000;
   useNoteStore.setState({
     notes: [remote, remoteDaily, localNote],
     openTabs: [],

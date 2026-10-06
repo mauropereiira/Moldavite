@@ -86,7 +86,16 @@ Copying a folder into `<Forge>/.plugins/` by hand still works for development: r
 
 ## Quick start
 
-Make a folder named after your plugin id:
+To start from working code, install the **Example Plugin** (`moldavite-example`: a timestamp
+command and a word count). It is in the community directory, so **Settings → Plugins → Browse
+community plugins** or its **Install in Moldavite** link in the
+[website directory](https://moldavite.dev/plugins#directory) installs it, and its source is in this
+repository under
+[`src-tauri/example-plugin/moldavite-example/`](../src-tauri/example-plugin/moldavite-example/).
+Copy that folder, rename it and change the manifest `id` to make it your own. It declares API v1,
+which still runs; set `apiVersion` to 2 before you use the v2 calls below.
+
+Or make a folder named after your plugin id:
 
 ```text
 my-plugin/

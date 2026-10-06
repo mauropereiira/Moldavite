@@ -36,14 +36,12 @@ export interface SettingsTabSpec {
 
 const MODE_INFO =
   'Overlay opens it over the note, Pinned keeps it as a column beside the note, Off hides it.';
-const NEEDS_BACKLINKS = 'Needs Backlinks turned on in Writing.';
-const WIDTH_INFO = 'Shown while it is pinned. You can also drag its edge.';
 
 export const SETTINGS_TABS: SettingsTabSpec[] = [
   {
     id: 'general',
     label: 'General',
-    blurb: 'Where your notes live and how they are saved.',
+    blurb: 'Where your notes live and how they are kept safe.',
     nav: 'Basics',
     groups: [
       {
@@ -80,40 +78,14 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
         ],
       },
       {
-        id: 'saving',
-        label: 'Saving and auto-lock',
-        fold: true,
+        id: 'lock',
+        label: 'Locked notes',
         rows: [
-          {
-            id: 'autosave-delay',
-            label: 'Auto-save delay',
-            info: 'How long Moldavite waits after you stop typing before it saves.',
-            keys: 'save speed milliseconds',
-          },
-          {
-            id: 'save-status',
-            label: 'Show save status',
-            info: 'Shows "Saving..." in the editor footer while a note saves.',
-            keys: 'indicator',
-          },
           {
             id: 'auto-lock',
             label: 'Auto-lock',
             info: 'Locks your encrypted notes again after this long without activity.',
             keys: 'lock password security timeout encrypted',
-          },
-        ],
-      },
-      {
-        id: 'danger',
-        label: 'Danger zone',
-        fold: true,
-        rows: [
-          {
-            id: 'delete-all',
-            label: 'Delete all notes',
-            info: "Permanently deletes all your notes. This can't be undone.",
-            keys: 'clear reset erase',
           },
         ],
       },
@@ -163,20 +135,11 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
         label: 'Home screen',
         fold: true,
         rows: [
-          { id: 'constellations', label: 'Constellations', keys: 'stars dots welcome sky' },
           {
-            id: 'live-counts',
-            label: 'Live counts',
-            info: 'Your note and word counts on the home screen.',
-            keys: 'stats welcome',
-          },
-          { id: 'welcome-date', label: 'Date', keys: 'welcome today' },
-          {
-            id: 'asteroid-cursor',
-            label: 'Asteroid cursor',
-            info: 'A small meteor that follows the pointer on the home screen.',
-            keys: 'pointer mouse welcome',
-            only: 'desktop',
+            id: 'quiet-home',
+            label: 'Quiet home screen',
+            info: 'Hides the sky, the date, the note counts and the asteroid cursor.',
+            keys: 'welcome constellations stars sky dots live counts stats date asteroid cursor pointer calm minimal',
           },
           {
             id: 'seasonal',
@@ -249,46 +212,33 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
           {
             id: 'editor-footer',
             label: 'Editor footer',
-            info: 'The bar under the note. Word count and save status show here.',
+            info: "The bar under the note, with the note's actions and the word count.",
           },
           {
             id: 'backlinks-panel',
             label: 'Backlinks panel',
-            info: `Notes that link here, listed under the note. ${NEEDS_BACKLINKS}`,
+            info: 'Notes that link here, listed under the note.',
+            keys: 'links references',
           },
         ],
       },
       {
         id: 'index',
-        label: 'Index sections, sorting and widths',
+        label: 'Index sections and sorting',
         fold: true,
         rows: [
           { id: 'folders-section', label: 'Folders section', keys: 'sidebar' },
           {
             id: 'backlinks-section',
             label: 'Backlinks section',
-            info: NEEDS_BACKLINKS,
-            keys: 'sidebar',
+            info: 'Notes that link to the open one, listed in the Index.',
+            keys: 'sidebar links references',
           },
           {
             id: 'sort',
             label: 'Sort notes by',
             info: 'Manual lets you drag notes and folders into your own order. Daily notes always stay in date order.',
             keys: 'order name modified created manual',
-          },
-          {
-            id: 'index-width',
-            label: 'Index width',
-            info: WIDTH_INFO,
-            keys: 'sidebar size',
-            only: 'desktop',
-          },
-          {
-            id: 'agenda-width',
-            label: 'Agenda width',
-            info: WIDTH_INFO,
-            keys: 'right panel size',
-            only: 'desktop',
           },
         ],
       },
@@ -334,12 +284,6 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
             label: 'Tags',
             info: 'Type #tag to tag a note. You can filter by tag in the Index.',
             keys: 'hashtags',
-          },
-          {
-            id: 'backlinks',
-            label: 'Backlinks',
-            info: 'Shows which notes link to the one you are reading.',
-            keys: 'links references',
           },
         ],
       },
@@ -532,7 +476,7 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
   {
     id: 'data',
     label: 'Data',
-    blurb: 'Export, back up, restore and import.',
+    blurb: 'Export, back up, restore, import and delete.',
     nav: 'Your data',
     groups: [
       {
@@ -573,6 +517,19 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
           },
         ],
       },
+      {
+        id: 'danger',
+        label: 'Danger zone',
+        fold: true,
+        rows: [
+          {
+            id: 'delete-all',
+            label: 'Delete all notes',
+            info: "Permanently deletes all your notes. This can't be undone.",
+            keys: 'clear reset erase',
+          },
+        ],
+      },
     ],
   },
   {
@@ -608,7 +565,13 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
         label: 'Help',
         rows: [
           { id: 'onboarding', label: 'Onboarding', keys: 'tour welcome replay' },
-          { id: 'shortcuts', label: 'Keyboard shortcuts', keys: 'keys', only: 'desktop' },
+          {
+            id: 'shortcuts',
+            label: 'Keyboard shortcuts',
+            info: 'Every shortcut, grouped by what it does.',
+            keys: 'keys hotkeys',
+            only: 'desktop',
+          },
           { id: 'links', label: 'Privacy and support', keys: 'policy help', only: 'phone' },
         ],
       },

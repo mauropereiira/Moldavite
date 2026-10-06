@@ -41,7 +41,7 @@ describe('WelcomeScreen layout settings', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the full sky and independently hides the welcome details', () => {
+  it('renders the full sky and hides it with the details on a quiet home screen', () => {
     const { container } = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
     );
@@ -60,11 +60,7 @@ describe('WelcomeScreen layout settings', () => {
     expect(container.querySelector('.welcome-reveal-stats')).toBeInTheDocument();
 
     act(() => {
-      useSettingsStore.setState({
-        showWelcomeDate: false,
-        showWelcomeDots: false,
-        showWelcomeStats: false,
-      });
+      useSettingsStore.setState({ quietHomeScreen: true });
     });
 
     expect(container.querySelector('.welcome-reveal-date')).not.toBeInTheDocument();
@@ -120,7 +116,7 @@ describe('WelcomeScreen layout settings', () => {
     useThemeStore.setState({ preset: settings.preset });
     useSettingsStore.setState({
       showSeasonalTouches: settings.touches,
-      showWelcomeDots: settings.sky,
+      quietHomeScreen: !settings.sky,
     });
     const { container } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
@@ -235,14 +231,14 @@ describe('WelcomeScreen layout settings', () => {
     view.unmount();
 
     setPointerPreferences();
-    useSettingsStore.setState({ showAsteroidCursor: false });
+    useSettingsStore.setState({ quietHomeScreen: true });
     view = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
     );
     expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
     view.unmount();
 
-    useSettingsStore.setState({ showAsteroidCursor: true });
+    useSettingsStore.setState({ quietHomeScreen: false });
     useOverlayStore.getState().openIndex(false);
     view = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores';
 import { LayoutSection } from './LayoutSection';
@@ -55,26 +55,15 @@ describe('LayoutSection', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Rail side' })).not.toBeInTheDocument();
   });
 
-  // Sidebar's old tab: a width slider only does something for a pinned column.
-  it('folds the Index options and offers a width only for a pinned column', () => {
+  // A pinned column's width is set by dragging its edge, never by a slider here.
+  it('folds the Index sections and sort order, with no width sliders', () => {
     platform.mobile = false;
+    useSettingsStore.setState({ indexMode: 'pinned', agendaMode: 'pinned' });
     render(<LayoutSection />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Index sections/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Index sections and sorting' }));
     expect(screen.getByRole('radiogroup', { name: 'Sort notes by' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Backlinks section' })).toBeInTheDocument();
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
-    expect(screen.getByText(/Pin the Index or the Agenda/)).toBeInTheDocument();
-
-    fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: 'Index' })).getByRole('radio', {
-        name: 'Pinned',
-      })
-    );
-    expect(useSettingsStore.getState().indexMode).toBe('pinned');
-    fireEvent.change(screen.getByRole('slider', { name: 'Index width' }), {
-      target: { value: '320' },
-    });
-    expect(useSettingsStore.getState().sidebarWidth).toBe(320);
-    expect(screen.queryByRole('slider', { name: 'Agenda width' })).not.toBeInTheDocument();
   });
 });
