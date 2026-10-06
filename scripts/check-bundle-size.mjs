@@ -35,7 +35,9 @@ const BUDGETS = [
   // catch something genuinely wrong — a binary or a dependency landing in this
   // chunk — not to ration release notes. Measured 65.5 KB raw / 25.1 KB gz.
   { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
-  { pattern: /^index-.*\.css$/, rawKb: 130, gzipKb: 25 },
+  // 137 / 26: the shared close button and padded hover rule, the Index cards,
+  // the top bar and the Settings page. Measured 135.2 KB / 24.8 KB gz.
+  { pattern: /^index-.*\.css$/, rawKb: 137, gzipKb: 26 },
   // Mobile CSS loads only on mobile, before the first render.
   // 22: pinning the onboarding step indicator and footer needs a real flex
   // column rather than an auto-height centred sheet, which is ~0.4 KB raw.
@@ -176,7 +178,11 @@ const BUDGETS = [
 // 711 / 207: the graph's frame loop rewrite (eased hover, Fit view and wheel
 // zoom, pan glide, pinch, arrow-key navigation, label placement) adds 10.5 KB
 // raw / 4.2 KB gz. Measured 709.4 KB / 205.7 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 711, gzipKb: 207 };
+// 694 / 209: the October round with everything merged (the fixes, the top bar,
+// the shared close button, Index cards, the writing toolbar, the graph rewrite
+// and the Settings page) less the removed Timeline view. Raw shrank with the
+// Timeline gone; gzip grew. Measured 690.2 KB / 207.5 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 694, gzipKb: 209 };
 
 async function main() {
   let entries;
