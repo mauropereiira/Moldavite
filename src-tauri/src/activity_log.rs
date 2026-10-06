@@ -388,13 +388,15 @@ fn insert(conn: &Connection, event: &Event, first_ms: i64) -> rusqlite::Result<(
 }
 
 /// Point the rows of the note at `from` to its new place. Rows from before
-/// the last time something at `from` was trashed or deleted belong to a
-/// different note and keep their path.
+/// the last time something at `from` was deleted, or trashed and not restored,
+/// belong to a different note and keep their path.
 fn follow_note(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE events SET note_path = ?2 WHERE note_path = ?1 AND id > \
-         (SELECT COALESCE(MAX(id), 0) FROM events WHERE note_path = ?1 \
-          AND action IN ('trashed', 'deleted'))",
+         (SELECT COALESCE(MAX(id), 0) FROM events AS gone WHERE note_path = ?1 \
+          AND (action = 'deleted' OR (action = 'trashed' AND NOT EXISTS \
+           (SELECT 1 FROM events WHERE note_path = ?1 AND action = 'restored' \
+            AND id > gone.id))))",
         params![from, to],
     )?;
     Ok(())
@@ -1900,5 +1902,27 @@ mod tests {
                 Some("notes/b.md".into())
             )]
         );
+    }
+
+    #[test]
+    fn a_note_restored_from_the_trash_keeps_its_history_when_renamed() {
+        let forge = TempForge::new("restore-rename");
+        let t = noon();
+        for (action, at) in [
+            (Action::Edited, t - 300 * MIN),
+            (Action::Trashed, t - 200 * MIN),
+            (Action::Restored, t - 100 * MIN),
+        ] {
+            event_at(&forge, action, "notes/a.md", None, Source::App, at);
+        }
+        event_at(
+            &forge,
+            Action::Renamed,
+            "notes/b.md",
+            Some("notes/a.md"),
+            Source::App,
+            t,
+        );
+        assert!(rows(&forge).iter().all(|row| row.note_path == "notes/b.md"));
     }
 }
