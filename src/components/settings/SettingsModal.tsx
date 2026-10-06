@@ -117,24 +117,42 @@ function TabContent({ tab }: { tab: SettingsTab }) {
 /**
  * Opens the fold holding the setting a search result or an old tab id points
  * at (see `Group`), then scrolls to it, marks it briefly and focuses its
- * control.
+ * control. A row that draws once the backend answers, like the default .md
+ * app, is waited for briefly.
  */
 function useScrollToAnchor(bodyRef: RefObject<HTMLElement | null>, tab: SettingsTab | null) {
   const anchor = useSettingsStore((state) => state.settingsAnchor);
   useEffect(() => {
     if (!anchor) return;
-    const frame = requestAnimationFrame(() => {
+    const body = bodyRef.current;
+    const find = () => body?.querySelector<HTMLElement>(`[data-setting="${anchor}"]`);
+    const jump = (target: HTMLElement) => {
       useSettingsStore.getState().setSettingsAnchor(null);
-      const target = bodyRef.current?.querySelector<HTMLElement>(`[data-setting="${anchor}"]`);
-      if (!target) return;
       target.scrollIntoView?.({ block: 'center' });
       target.classList.add('settings-flash');
       window.setTimeout(() => target.classList.remove('settings-flash'), 1600);
       target
         .querySelector<HTMLElement>('.settings-row-control :is(button, input, select)')
         ?.focus({ preventScroll: true });
+    };
+    const observer = new MutationObserver(() => {
+      const target = find();
+      if (target) jump(target);
     });
-    return () => cancelAnimationFrame(frame);
+    const frame = requestAnimationFrame(() => {
+      const target = find();
+      if (target) jump(target);
+      else if (body) observer.observe(body, { childList: true, subtree: true });
+    });
+    const giveUp = window.setTimeout(
+      () => useSettingsStore.getState().setSettingsAnchor(null),
+      2000
+    );
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.clearTimeout(giveUp);
+    };
   }, [anchor, tab, bodyRef]);
 }
 

@@ -355,6 +355,30 @@ describe('jumping to a folded setting', () => {
     expect(useSettingsStore.getState().settingsAnchor).toBeNull();
   });
 
+  it('marks a row that draws once the backend answers', async () => {
+    let answer: (status: unknown) => void = () => {};
+    vi.mocked(invoke).mockImplementation(async (cmd: string) =>
+      cmd === 'default_markdown_app_status'
+        ? new Promise((resolve) => (answer = resolve))
+        : BACKEND[cmd]
+    );
+    useSettingsStore.setState({ isSettingsOpen: true, activeSettingsTab: 'about' });
+    render(<SettingsModal />);
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search settings' }), {
+      target: { value: 'default app' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Default app for \.md files/ }));
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    await act(async () => answer(BACKEND.default_markdown_app_status));
+
+    const control = screen.getByRole('button', { name: 'Make default' });
+    expect(control.closest('.settings-row')).toHaveClass('settings-flash');
+    expect(document.activeElement).toBe(control);
+    expect(useSettingsStore.getState().settingsAnchor).toBeNull();
+  });
+
   it.each([false, true])(
     'opens the Danger zone in Data for its old place in General (phone: %s)',
     async (mobile) => {
