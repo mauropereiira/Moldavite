@@ -270,14 +270,28 @@ impl ForgeLog {
                 let _ = fs::set_permissions(dir, fs::Permissions::from_mode(0o700));
             }
         }
-        let conn = Connection::open(&self.file).map_err(|e| e.to_string())?;
-        conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
-        let _: String = conn
-            .query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch("PRAGMA synchronous=NORMAL; PRAGMA secure_delete=ON;")
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
+        match self.open_file() {
+            // A damaged log would stay unreadable forever. It holds no note
+            // content and cannot be repaired, so start a new one.
+            Err(error) if is_damaged(&error) => {
+                log::warn!("[activity] starting a new log over a damaged one: {error}");
+                for suffix in ["", "-wal", "-shm"] {
+                    let mut name = self.file.clone().into_os_string();
+                    name.push(suffix);
+                    let _ = fs::remove_file(PathBuf::from(name));
+                }
+                self.open_file().map_err(|e| e.to_string())
+            }
+            result => result.map_err(|e| e.to_string()),
+        }
+    }
+
+    fn open_file(&self) -> rusqlite::Result<Connection> {
+        let conn = Connection::open(&self.file)?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
+        let _: String = conn.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
+        conn.execute_batch("PRAGMA synchronous=NORMAL; PRAGMA secure_delete=ON;")?;
+        conn.execute_batch(SCHEMA_SQL)?;
         Ok(conn)
     }
 
@@ -300,6 +314,13 @@ impl ForgeLog {
             .ok_or_else(|| "activity log connection missing".to_string())?;
         f(conn).map_err(|e| e.to_string())
     }
+}
+
+fn is_damaged(error: &rusqlite::Error) -> bool {
+    matches!(
+        error.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt)
+    )
 }
 
 fn meta_get(conn: &Connection, key: &str) -> Option<String> {
@@ -1924,5 +1945,24 @@ mod tests {
             t,
         );
         assert!(rows(&forge).iter().all(|row| row.note_path == "notes/b.md"));
+    }
+
+    #[test]
+    fn a_damaged_log_is_replaced_and_keeps_recording() {
+        let forge = TempForge::new("damaged");
+        let file = log_dir(forge.path()).join(LOG_FILE);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, vec![7u8; 8192]).unwrap();
+        record_in(
+            forge.path(),
+            Action::Created,
+            "notes/a.md",
+            None,
+            Source::App,
+        );
+        assert_eq!(
+            summary(&forge),
+            vec![("created".into(), "notes/a.md".into(), None)]
+        );
     }
 }
