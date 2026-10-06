@@ -54,6 +54,22 @@ describe('parseChangelog', () => {
     expect(entry.groups[0].items[3].headline.length).toBeLessThanOrEqual(96);
   });
 
+  it('shows a Markdown link as its text, not its syntax', () => {
+    const entry = parseChangelog(
+      `## [2.0.0] - 2026-10-06
+
+### Changed
+
+- The website moved to [moldavite.dev](https://moldavite.dev). Code keeps [[...]] and arr[x].
+`,
+      '2.0.0'
+    );
+    expect(entry?.groups[0].items[0]).toEqual({
+      headline: 'The website moved to moldavite.dev.',
+      fullText: 'The website moved to moldavite.dev. Code keeps [[...]] and arr[x].',
+    });
+  });
+
   it('does not bleed into the next version section', () => {
     const entry = parseChangelog(SAMPLE, '1.4.0');
     expect(entry).not.toBeNull();
