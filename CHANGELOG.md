@@ -4,15 +4,37 @@ All notable changes to Moldavite are documented here.
 
 ## [2.10.2] - Unreleased
 
+### Added
+
+- **One top bar for your notes.** The note you open appears in the bar at the top, ready to pin or unpin right on its tab or from the note's corner. Pinned notes sit first, and tabs that don't fit fold into an Open tabs menu where you can open, pin, unpin and close each one. On the phone, a Tabs button opens the same list.
+- **A writing toolbar** above the line you are on, with block type, bold, italic, underline, strikethrough and link, plus a + in the margin that opens the / menu. Turn it off in Settings → Writing. On the phone, the formatting row is Undo, Redo, Format and Insert.
+- **The Timeline is a history of your notes.** It lists what you created, edited, renamed, moved, deleted and locked, day by day, newest first. Days start folded with a count, today and yesterday open, and each day shows 10 changes with Show more. Previous week goes further back. The history stays on your device and is never uploaded.
+
 ### Changed
 
+- **Settings is a full page** with grouped sections and a search box. Long explanations moved into (i) notes, rarely used options fold under More, and Import and the danger zone live in Data. On iPhone and iPad, Settings shows only what works there.
+- Auto-save always waits 300 ms and no longer shows Saving in the footer. If a save fails, the note itself says so, with Try again and Save as a copy.
+- Simpler settings: one Quiet home screen switch replaces four home screen switches, the backlinks panel and section have their own switches without a master switch, and the width sliders are gone (drag the column edge).
+- **The Index is a set of cards** that fit the window, each list scrolling inside its own card, warmer in light themes.
+- One close button everywhere, every highlighted control gets the same padding, and on/off switches take a soft tint of your theme.
+- The Agenda shows your calendar events hour by hour, with all-day events at the top.
+- The graph moves with you: stars trail a little as you pan, zoom or drag and settle into place, and a dragged note pulls its neighbours. Hovering a note shows its name in bold and only its neighbours' names, and the graph no longer flickers.
+- Onboarding keeps one card size, so the progress bar and buttons hold still, and the text always fits the card.
+- A carved jack-o'-lantern for the Autumn touches.
+- The home screen pauses its animations while something covers it or the window is hidden.
 - The Moldavite website moved to [moldavite.dev](https://moldavite.dev), and the app's Privacy link now opens the policy there. Agent Skills have a page on it too, at [moldavite.dev/skills](https://moldavite.dev/skills).
 - Typing in a large Forge is faster: the sidebar no longer redraws on every keystroke, and the backlinks index rebuilds in a fraction of the time.
 - Opening the Graph and renaming or moving notes and folders no longer freeze the window on Windows and Linux.
 - With semantic search on, the search index is written at most every 30 seconds instead of on every save.
 
+### Removed
+
+- The asteroid cursor on the home screen.
+
 ### Fixed
 
+- Saving a note you did not edit leaves it exactly as it was: footnotes, `<details>` blocks, HTML comments, Obsidian callouts, bare links, list markers and spacing, line breaks and your own backslashes all stay as written, and an edit changes only the lines you touched.
+- The calendar walkthrough, confirmations, the template picker and the link dialog open above the Agenda, the Index, the graph and Settings, and toasts and the update notice no longer hide behind them.
 - Code samples keep `[[...]]` as written when a note is saved; it is no longer turned into a link inside code.
 - Strikethrough, brackets inside to-do text like `arr[x]`, and headings 4 to 6 survive saving.
 - Undoing back to the saved text and then leaving the note no longer saves the undone text.
