@@ -24,7 +24,7 @@ describe('LayoutSection', () => {
     expect(screen.queryByText(/Desktop settings/)).not.toBeInTheDocument();
   });
 
-  it('hides the rail, chrome modes, column width and asteroid cursor on a phone', () => {
+  it('hides the rail, chrome modes and column width on a phone', () => {
     platform.mobile = true;
     render(<LayoutSection />);
 

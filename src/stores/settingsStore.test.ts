@@ -195,7 +195,7 @@ describe('version 2 removals', () => {
     });
   });
 
-  it.each(['showWelcomeDots', 'showWelcomeStats', 'showWelcomeDate', 'showAsteroidCursor'])(
+  it.each(['showWelcomeDots', 'showWelcomeStats', 'showWelcomeDate'])(
     'gives a quiet home screen to someone who turned %s off',
     async (key) => {
       storedV1({ [key]: false });
@@ -206,6 +206,14 @@ describe('version 2 removals', () => {
       expect(persistedState()).not.toHaveProperty(key);
     }
   );
+
+  it('drops the removed asteroid cursor without quieting the home screen', async () => {
+    storedV1({ showAsteroidCursor: false });
+    await useSettingsStore.persist.rehydrate();
+
+    expect(useSettingsStore.getState().quietHomeScreen).toBe(false);
+    expect(persistedState()).not.toHaveProperty('showAsteroidCursor');
+  });
 
   it('keeps the full home screen when every decoration was on', async () => {
     storedV1({ showSeasonalTouches: false });

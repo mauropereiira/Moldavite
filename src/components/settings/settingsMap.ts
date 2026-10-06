@@ -138,8 +138,8 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
           {
             id: 'quiet-home',
             label: 'Quiet home screen',
-            info: 'Hides the sky, the date, the note counts and the asteroid cursor.',
-            keys: 'welcome constellations stars sky dots live counts stats date asteroid cursor pointer calm minimal',
+            info: 'Hides the sky, the date and the note counts.',
+            keys: 'welcome constellations stars sky dots live counts stats date calm minimal',
           },
           {
             id: 'seasonal',

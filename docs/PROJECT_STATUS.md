@@ -39,7 +39,6 @@
 
 - The icon rail sits on the left or the right edge (Settings → Layout → Rail side, persisted as `iconRailSide`, desktop and iOS). A pinned Index travels with it and a pinned Agenda takes the opposite edge; tooltips, the Trash popover, resize handles, full-window surfaces and the iPhone landscape safe-area inset all follow the side
 - The icon-rail monogram is Home: pending edits flush before it closes the active Index / Agenda / Search / Graph surface and clears the active note, while every open tab remains available to resume
-- The welcome night sky offers a persisted, default-on asteroid cursor that follows the pointer immediately, with a three-dot trail, interactive-control feedback, and a single click impact ring. Settings → Appearance → Home screen → Quiet home screen turns it off with the sky, date and note counts; reduced-motion and coarse-pointer media preferences prevent it from mounting or hiding the native cursor
 - Desktop Settings text follows the S–XL font-size preference in Appearance, including section headings, descriptions, tabs, and controls. The default labels and descriptions are larger.
 
 ### Storage & Data Safety

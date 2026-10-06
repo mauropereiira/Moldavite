@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFolderStore, useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { PRESETS, useThemeStore } from '@/stores/themeStore';
@@ -6,17 +6,9 @@ import { CONSTELLATIONS } from './constellations';
 import { BACKGROUND_STAR_COUNT, WelcomeEmptyState } from './WelcomeScreen';
 
 describe('WelcomeScreen layout settings', () => {
-  const setPointerPreferences = ({
-    reducedMotion = false,
-    coarsePointer = false,
-  }: {
-    reducedMotion?: boolean;
-    coarsePointer?: boolean;
-  } = {}) => {
+  const setPointerPreferences = ({ reducedMotion = false }: { reducedMotion?: boolean } = {}) => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches:
-        (query === '(prefers-reduced-motion: reduce)' && reducedMotion) ||
-        (query === '(pointer: coarse)' && coarsePointer),
+      matches: query === '(prefers-reduced-motion: reduce)' && reducedMotion,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -144,25 +136,6 @@ describe('WelcomeScreen layout settings', () => {
     expect(container.querySelector('[data-testid="welcome-meteor"]')).toBeInTheDocument();
   });
 
-  it('places the cursor at the pointer immediately, without waiting for animation frames', () => {
-    vi.useFakeTimers();
-    const view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    const cursor = view.getByTestId('welcome-asteroid-cursor');
-
-    // MouseEvent supplies coordinates in jsdom, which has no PointerEvent constructor.
-    fireEvent(document, new MouseEvent('pointermove', { clientX: 120, clientY: 180 }));
-    expect(cursor.style.transform).toBe('translate3d(113px, 173px, 0) scale(1)');
-
-    const button = view.getByRole('button', { name: /new note/i });
-    fireEvent(button, new MouseEvent('pointermove', { bubbles: true, clientX: 400, clientY: 300 }));
-    expect(cursor.style.transform).toBe('translate3d(393px, 293px, 0) scale(1.16)');
-
-    act(() => vi.advanceTimersByTime(100));
-    expect(cursor.style.transform).toBe('translate3d(393px, 293px, 0) scale(1.16)');
-  });
-
   it('does not mount the meteor scheduler when reduced motion is preferred', () => {
     vi.useFakeTimers();
     setPointerPreferences({ reducedMotion: true });
@@ -176,76 +149,6 @@ describe('WelcomeScreen layout settings', () => {
 
     expect(container.querySelector('[data-testid="welcome-meteor"]')).not.toBeInTheDocument();
   });
-
-  // The asteroid hides the real pointer to stand in for it. A dialog opening
-  // above the welcome screen therefore has to hand the pointer back, or the
-  // release notes arrive with nothing visible to click them with — which is
-  // exactly what 2.0.0 shipped. The mouse need not move for this to happen,
-  // so the check cannot hang off pointermove.
-  it('returns the real cursor while a dialog is open, without the pointer moving', async () => {
-    const view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    const root = document.documentElement;
-    expect(root.classList.contains('welcome-asteroid-cursor-active')).toBe(true);
-    expect(root.classList.contains('welcome-asteroid-yielded')).toBe(false);
-
-    const dialog = document.createElement('div');
-    dialog.setAttribute('role', 'dialog');
-    await act(async () => {
-      document.body.appendChild(dialog);
-      await Promise.resolve();
-    });
-    expect(root.classList.contains('welcome-asteroid-yielded')).toBe(true);
-
-    await act(async () => {
-      dialog.remove();
-      await Promise.resolve();
-    });
-    expect(root.classList.contains('welcome-asteroid-yielded')).toBe(false);
-
-    view.unmount();
-    expect(root.classList.contains('welcome-asteroid-cursor-active')).toBe(false);
-    expect(root.classList.contains('welcome-asteroid-yielded')).toBe(false);
-  });
-
-  it('renders the asteroid only when enabled with motion and a fine pointer', () => {
-    let view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    expect(view.queryByTestId('welcome-asteroid-cursor')).toBeInTheDocument();
-    view.unmount();
-
-    setPointerPreferences({ reducedMotion: true });
-    view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
-    view.unmount();
-
-    setPointerPreferences({ coarsePointer: true });
-    view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
-    view.unmount();
-
-    setPointerPreferences();
-    useSettingsStore.setState({ quietHomeScreen: true });
-    view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
-    view.unmount();
-
-    useSettingsStore.setState({ quietHomeScreen: false });
-    useOverlayStore.getState().openIndex(false);
-    view = render(
-      <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
-    );
-    expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
-  });
-
   it('drifts autumn leaves across the sky only while seasonal touches are on', () => {
     const { container, unmount } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />

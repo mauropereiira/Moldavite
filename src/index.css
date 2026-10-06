@@ -4576,42 +4576,6 @@ button[aria-expanded='true'] .wn-caret {
   }
 }
 
-@keyframes welcome-asteroid-tumble {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes welcome-asteroid-impact {
-  from {
-    opacity: 0.38;
-    transform: scale(0.22);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.2);
-  }
-}
-
-/* The asteroid replaces the pointer, so the real one is hidden — but only
-   while the pointer is over the welcome screen itself. `welcome-asteroid-yielded`
-   is set the moment it moves onto anything rendered above (release notes, a
-   dialog, Settings), because the asteroid is painted underneath those and
-   hiding the cursor there leaves nothing visible to point with. */
-html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded),
-html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
-  cursor: none !important;
-}
-
-.welcome-asteroid-rock {
-  transform-origin: center;
-  animation: welcome-asteroid-tumble 7s linear infinite;
-  will-change: transform;
-}
-
 .welcome-wordmark-glyph {
   animation: welcome-glyph-in var(--dur-slow) var(--ease-standard) both;
 }

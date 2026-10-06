@@ -177,9 +177,14 @@ describe('settingsMap', () => {
     });
     expect(searchSettings('obsidian', false)[0].tab.id).toBe('data');
     expect(searchSettings('constellations', false)[0].item.id).toBe('quiet-home');
-    expect(searchSettings('asteroid', false)[0].item.id).toBe('quiet-home');
     expect(searchSettings('shortcuts', false)[0].item.id).toBe('shortcuts');
-    for (const removed of ['auto-save delay', 'save status', 'index width', 'agenda width']) {
+    for (const removed of [
+      'auto-save delay',
+      'save status',
+      'index width',
+      'agenda width',
+      'asteroid',
+    ]) {
       expect(searchSettings(removed, false)).toEqual([]);
     }
     expect(searchSettings('backlinks', false).map((hit) => hit.item.id)).toEqual([

@@ -111,7 +111,7 @@ export interface SettingsState {
   showTabBar: boolean;
   showEditorFooter: boolean;
   showBacklinksPanel: boolean;
-  /** The home screen without its sky, date, counts and asteroid cursor. */
+  /** The home screen without its sky, date and counts. */
   quietHomeScreen: boolean;
   showSeasonalTouches: boolean;
 
@@ -206,13 +206,15 @@ const defaultSettings = {
   settingsAnchor: null as string | null,
 };
 
-const HOME_DECORATIONS = [
-  'showWelcomeDots',
-  'showWelcomeStats',
-  'showWelcomeDate',
+const HOME_DECORATIONS = ['showWelcomeDots', 'showWelcomeStats', 'showWelcomeDate'];
+// The asteroid cursor is gone, so turning it off says nothing about the rest of the home screen.
+const REMOVED_KEYS = [
+  'backlinksEnabled',
+  'autoSaveDelay',
+  'showAutoSaveStatus',
+  'notesDirectory',
   'showAsteroidCursor',
 ];
-const REMOVED_KEYS = ['backlinksEnabled', 'autoSaveDelay', 'showAutoSaveStatus', 'notesDirectory'];
 
 const isChromeMode = (value: unknown): value is ChromeMode =>
   value === 'overlay' || value === 'pinned' || value === 'off';

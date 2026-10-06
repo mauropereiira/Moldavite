@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { formatShortcut } from '@/lib/shortcuts';
-import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
+import { useNoteStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
 import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
@@ -13,12 +13,6 @@ const CONSTELLATION_FIELD = { width: 1200, height: 800 };
 export const BACKGROUND_STAR_COUNT = 180;
 const METEOR_CADENCE_MS = { min: 14_000, max: 22_000 };
 const METEOR_DURATION_MS = { min: 900, max: 1_200 };
-const ASTEROID_SIZE = 14;
-const ASTEROID_TRAIL = [
-  { size: 4, lerp: 0.12, opacity: 0.24 },
-  { size: 3, lerp: 0.09, opacity: 0.15 },
-  { size: 2, lerp: 0.07, opacity: 0.08 },
-] as const;
 const CONSTELLATION_LAYOUT: Record<
   string,
   { x: number; y: number; width: number; height: number; rotation: number }
@@ -167,172 +161,6 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
-}
-
-function AsteroidCursor() {
-  const asteroidRef = useRef<HTMLDivElement>(null);
-  const trailRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const impactRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const asteroid = asteroidRef.current;
-    const impact = impactRef.current;
-    if (!asteroid || !impact) return;
-
-    const target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    const trail = ASTEROID_TRAIL.map(() => ({ ...target }));
-    let frame = 0;
-    let visible = false;
-
-    document.documentElement.classList.add('welcome-asteroid-cursor-active');
-
-    const reveal = () => {
-      if (visible) return;
-      visible = true;
-      asteroid.style.opacity = '0.62';
-      trailRefs.current.forEach((dot, index) => {
-        if (dot) dot.style.opacity = String(ASTEROID_TRAIL[index].opacity);
-      });
-    };
-
-    /**
-     * The asteroid is a flourish for the welcome screen; a dialog is a task.
-     * While one is open — release notes, a confirmation, Settings — the real
-     * pointer comes back and the asteroid stands down. Without this the
-     * cursor is hidden by CSS while an arrow is what the dialog's buttons
-     * actually need, which reads as the pointer having vanished.
-     *
-     * Driven by a MutationObserver rather than the animation loop: a dialog
-     * can open under a stationary mouse, so waiting for the next pointermove
-     * would leave the cursor hidden until you happened to move it. The
-     * observer also keeps this off the per-frame path, where a repeated
-     * document-wide query would be pure waste, and it still fires when the
-     * window is backgrounded and rAF is throttled.
-     */
-    let yielded = false;
-    const syncYield = () => {
-      const modalOpen = document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
-      if (modalOpen === yielded) return;
-      yielded = modalOpen;
-      document.documentElement.classList.toggle('welcome-asteroid-yielded', modalOpen);
-      const visibility = modalOpen ? 'hidden' : 'visible';
-      asteroid.style.visibility = visibility;
-      trailRefs.current.forEach((dot) => {
-        if (dot) dot.style.visibility = visibility;
-      });
-    };
-    const overlayObserver = new MutationObserver(syncYield);
-    overlayObserver.observe(document.body, { childList: true, subtree: true });
-    syncYield();
-
-    const handlePointerMove = (event: globalThis.PointerEvent) => {
-      target.x = event.clientX;
-      target.y = event.clientY;
-      const overInteractive =
-        event.target instanceof Element &&
-        event.target.closest('button, a, [role="button"], [role="link"]') !== null;
-      // Keep the pointer on the click target; only the decorative trail eases behind it.
-      asteroid.style.transform = `translate3d(${target.x - ASTEROID_SIZE / 2}px, ${target.y - ASTEROID_SIZE / 2}px, 0) scale(${overInteractive ? 1.16 : 1})`;
-      reveal();
-    };
-
-    const handleClick = (event: MouseEvent) => {
-      impact.style.left = `${event.clientX - 20}px`;
-      impact.style.top = `${event.clientY - 20}px`;
-      impact.style.animation = 'none';
-      void impact.offsetWidth;
-      impact.style.animation = 'welcome-asteroid-impact 500ms var(--ease-standard) both';
-    };
-
-    const tick = () => {
-      trail.forEach((dot, index) => {
-        const leader = index === 0 ? target : trail[index - 1];
-        const spec = ASTEROID_TRAIL[index];
-        dot.x += (leader.x - dot.x) * spec.lerp;
-        dot.y += (leader.y - dot.y) * spec.lerp;
-        const element = trailRefs.current[index];
-        if (element) {
-          element.style.transform = `translate3d(${dot.x - spec.size / 2}px, ${dot.y - spec.size / 2}px, 0)`;
-        }
-      });
-
-      frame = requestAnimationFrame(tick);
-    };
-
-    document.addEventListener('pointermove', handlePointerMove, { passive: true });
-    document.addEventListener('click', handleClick, true);
-    frame = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      overlayObserver.disconnect();
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('click', handleClick, true);
-      document.documentElement.classList.remove('welcome-asteroid-cursor-active');
-      document.documentElement.classList.remove('welcome-asteroid-yielded');
-    };
-  }, []);
-
-  const fixedLayerStyle = {
-    color: 'var(--text-primary)',
-    left: 0,
-    opacity: 0,
-    pointerEvents: 'none',
-    position: 'fixed',
-    top: 0,
-    willChange: 'transform',
-    zIndex: 30_000,
-  } as const;
-
-  return (
-    <>
-      {ASTEROID_TRAIL.map((dot, index) => (
-        <div
-          key={dot.size}
-          ref={(element) => {
-            trailRefs.current[index] = element;
-          }}
-          style={{ ...fixedLayerStyle, width: dot.size, height: dot.size }}
-        >
-          <svg aria-hidden="true" viewBox="0 0 4 4" style={{ display: 'block' }}>
-            <circle cx="2" cy="2" r="2" fill="currentColor" />
-          </svg>
-        </div>
-      ))}
-      <div
-        ref={asteroidRef}
-        data-testid="welcome-asteroid-cursor"
-        style={{ ...fixedLayerStyle, width: ASTEROID_SIZE, height: ASTEROID_SIZE }}
-      >
-        <svg
-          aria-hidden="true"
-          className="welcome-asteroid-rock"
-          viewBox="0 0 16 16"
-          style={{ display: 'block', width: '100%', height: '100%' }}
-        >
-          <path
-            d="M1.4 6.2 5.8 1.3 12.1 2.5 15 7.7 12.4 13.8 6.1 14.7 1 10.4Z"
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-      <div
-        ref={impactRef}
-        data-testid="welcome-asteroid-impact"
-        style={{
-          ...fixedLayerStyle,
-          width: 40,
-          height: 40,
-          transformOrigin: 'center',
-          willChange: 'opacity, transform',
-        }}
-      >
-        <svg aria-hidden="true" viewBox="0 0 40 40" style={{ display: 'block' }}>
-          <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" strokeWidth="0.75" />
-        </svg>
-      </div>
-    </>
-  );
 }
 
 function readMotionMilliseconds(token: string, fallback: number): number {
@@ -671,9 +499,7 @@ export function WelcomeEmptyState({
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const season = useSeasonalTouches();
   const autumnArt = useAutumnArt();
-  const coarsePointer = useMediaQuery('(pointer: coarse)');
-  const { quietHomeScreen, isSettingsOpen } = useSettingsStore();
-  const activeOverlay = useOverlayStore((state) => state.activeOverlay);
+  const { quietHomeScreen } = useSettingsStore();
   const notes = useNoteStore((state) => state.notes);
   // Everything here comes from `noteStore`, which is loaded at startup.
   // Tag and folder counts deliberately are NOT used: both stores are populated
@@ -706,11 +532,6 @@ export function WelcomeEmptyState({
         WebkitUserSelect: 'none',
       }}
     >
-      {!quietHomeScreen &&
-        !reducedMotion &&
-        !coarsePointer &&
-        activeOverlay === null &&
-        !isSettingsOpen && <AsteroidCursor />}
       {!quietHomeScreen && (
         <>
           <ConstellationField reducedMotion={reducedMotion} />
