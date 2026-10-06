@@ -329,10 +329,10 @@ function TimelineDay({
           onClick={onToggle}
           aria-expanded={isOpen}
           aria-controls={listId}
-          className="pad-hover focus-ring flex w-full items-baseline gap-2 text-left"
+          className="pad-hover focus-ring flex w-full items-center gap-2 text-left"
         >
           <ChevronRight
-            className="h-3 w-3 flex-shrink-0 self-center"
+            className="h-3 w-3 flex-shrink-0"
             style={{ ...MUTED, transform: isOpen ? 'rotate(90deg)' : undefined }}
             aria-hidden="true"
           />

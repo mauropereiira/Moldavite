@@ -67,6 +67,8 @@ const FRESH_FILE_MS: i64 = 2 * 60 * 1000;
 const CATCH_UP_SLACK_MS: i64 = 60 * 1000;
 /// A save in the same minute as the create is part of making the note.
 const SAME_MINUTE_MS: i64 = 60 * 1000;
+/// How far a file's time may trail the row the app wrote for the same change.
+const ECHO_SLACK_MS: i64 = 2 * 1000;
 
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
@@ -547,6 +549,14 @@ fn file_times(forge_root: &Path, rel: &str) -> Option<(Option<i64>, i64)> {
     Some((birth, meta.modified().ok().and_then(ms)?))
 }
 
+fn covered(conn: &Connection, note_path: &str, since_ms: i64) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM events WHERE note_path = ?1 AND at_ms >= ?2)",
+        params![note_path, since_ms],
+        |row| row.get(0),
+    )
+}
+
 fn has_rows(conn: &Connection, note_path: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM events WHERE note_path = ?1)",
@@ -610,6 +620,11 @@ fn apply_outside(
             modified.map(|modified| (Action::Edited, modified)),
         ];
         for (action, at_ms) in events.into_iter().flatten() {
+            // A row already as new as the file is this process's own write,
+            // seen after its quiet window, or a second look at the same change.
+            if covered(conn, &rel, at_ms - ECHO_SLACK_MS)? {
+                continue;
+            }
             let event = Event {
                 action,
                 path: rel.clone(),
@@ -1735,6 +1750,31 @@ mod tests {
         let all = rows(&forge);
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].at_ms, saved);
+    }
+
+    #[test]
+    fn a_late_echo_of_the_apps_own_lock_is_not_logged_again() {
+        let forge = TempForge::new("late-echo");
+        forge.write("notes/vault.md.locked", "ciphertext");
+        let (_, modified) = file_times(forge.path(), "notes/vault.md").unwrap();
+        let at = modified + 30 * 1000;
+        event_at(
+            &forge,
+            Action::Locked,
+            "notes/vault.md",
+            None,
+            Source::App,
+            modified + 5,
+        );
+        handle(forge.path())
+            .with_conn(true, |conn| {
+                apply_outside(conn, forge.path(), &["notes/vault.md".to_string()], at)
+            })
+            .unwrap();
+        assert_eq!(
+            summary(&forge),
+            vec![("locked".into(), "notes/vault.md".into(), None)]
+        );
     }
 
     #[test]
