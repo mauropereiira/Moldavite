@@ -114,4 +114,27 @@ describe('migrateSettingsState', () => {
     await useSettingsStore.persist.rehydrate();
     expect(useSettingsStore.getState().iconRailSide).toBe('left');
   });
+
+  it('drops the removed Timeline widget switch from a saved payload, whatever it held', async () => {
+    expect(migrateSettingsState({ showTimelineWidget: false, fontSize: 'large' }, 1)).toEqual({
+      indexMode: 'overlay',
+      agendaMode: 'overlay',
+      fontSize: 'large',
+    });
+
+    localStorage.setItem(
+      'moldavite-settings',
+      JSON.stringify({
+        state: { showTimelineWidget: false, showCalendarWidget: false },
+        version: 1,
+      })
+    );
+    await useSettingsStore.persist.rehydrate();
+    expect(useSettingsStore.getState()).not.toHaveProperty('showTimelineWidget');
+    expect(useSettingsStore.getState().showCalendarWidget).toBe(false);
+
+    useSettingsStore.getState().setFontSize('small');
+    const saved = JSON.parse(localStorage.getItem('moldavite-settings') ?? '{}');
+    expect(saved.state).not.toHaveProperty('showTimelineWidget');
+  });
 });

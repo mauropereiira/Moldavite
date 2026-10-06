@@ -124,7 +124,13 @@ describe('settingsMap', () => {
     expect(searchSettings('obsidian', true)).toEqual([]);
     expect(searchSettings('mcp', true)).toEqual([]);
     expect(searchSettings('focus mode', true)).toEqual([]);
-    expect(searchSettings('timeline', true)[0].item.id).toBe('timeline');
+    expect(searchSettings('month calendar', true)).toEqual([]);
+    expect(searchSettings('apple calendar', true)[0].item.id).toBe('apple-calendar');
+  });
+
+  it('no longer lists the removed Timeline switch', () => {
+    expect(settingsEntry('timeline')).toBeUndefined();
+    for (const mobile of [false, true]) expect(searchSettings('timeline', mobile)).toEqual([]);
   });
 });
 
@@ -210,7 +216,6 @@ const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<Setti
   tagsEnabled: ['writing', { switch: 'Tags' }, false],
   backlinksEnabled: ['writing', { switch: 'Backlinks' }, false],
   showCalendarWidget: ['calendar', { switch: 'Month calendar' }, false],
-  showTimelineWidget: ['calendar', { switch: 'Timeline' }, false],
   hasSeenAppOnboarding: [
     'about',
     { button: 'Show onboarding again' },

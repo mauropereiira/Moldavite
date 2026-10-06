@@ -120,7 +120,6 @@ export interface SettingsState {
   backlinksEnabled: boolean;
 
   showCalendarWidget: boolean;
-  showTimelineWidget: boolean;
 
   autoLockTimeout: AutoLockTimeout;
 
@@ -163,7 +162,6 @@ export interface SettingsState {
   setShowBacklinksSection: (show: boolean) => void;
   setBacklinksEnabled: (enabled: boolean) => void;
   setShowCalendarWidget: (show: boolean) => void;
-  setShowTimelineWidget: (show: boolean) => void;
   setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
   setHasSeenAppOnboarding: (seen: boolean) => void;
   setLastSeenOnboardingVersion: (version: number) => void;
@@ -209,7 +207,6 @@ const defaultSettings = {
   showBacklinksSection: true,
   backlinksEnabled: true,
   showCalendarWidget: true,
-  showTimelineWidget: true,
   autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
   hasSeenAppOnboarding: false,
   lastSeenOnboardingVersion: 0,
@@ -264,6 +261,7 @@ export function migrateSettingsState(
 
   delete state.showSidebar;
   delete state.showRightPanel;
+  delete state.showTimelineWidget;
   if (predatesChromeModes) delete state.editorWidth;
   return state;
 }
@@ -311,7 +309,6 @@ export const useSettingsStore = create<SettingsState>()(
       setShowBacklinksSection: (show) => set({ showBacklinksSection: show }),
       setBacklinksEnabled: (enabled) => set({ backlinksEnabled: enabled }),
       setShowCalendarWidget: (show) => set({ showCalendarWidget: show }),
-      setShowTimelineWidget: (show) => set({ showTimelineWidget: show }),
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
       setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
       setLastSeenOnboardingVersion: (version) => set({ lastSeenOnboardingVersion: version }),
@@ -376,7 +373,6 @@ export const useSettingsStore = create<SettingsState>()(
         showBacklinksSection: state.showBacklinksSection,
         backlinksEnabled: state.backlinksEnabled,
         showCalendarWidget: state.showCalendarWidget,
-        showTimelineWidget: state.showTimelineWidget,
         autoLockTimeout: state.autoLockTimeout,
         hasSeenAppOnboarding: state.hasSeenAppOnboarding,
         lastSeenOnboardingVersion: state.lastSeenOnboardingVersion,

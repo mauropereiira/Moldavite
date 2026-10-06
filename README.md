@@ -143,8 +143,8 @@ has faint constellations with a sun or moon, and the seasonal theme adds an autu
 leaves (Settings → Appearance → Home screen → Seasonal touches turns them off).
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
-Markdown tables you edit in place, daily and weekly notes, Apple and Google Calendar on a timeline (Apple on a Mac,
-iPhone and iPad; Google everywhere), note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
+Markdown tables you edit in place, daily and weekly notes, an Agenda with Apple and Google Calendar events (Apple on a Mac,
+iPhone and iPad; Google everywhere) and a timeline of the notes you changed each day, note locking with AES-256-GCM, export to Markdown, PDF, a ZIP archive or
 an encrypted archive, a one-time Obsidian importer that copies rather than
 moves, and sandboxed plugins that run in a Worker with no network unless you
 grant it. Plugins come from a community directory the maintainer reviews, or
