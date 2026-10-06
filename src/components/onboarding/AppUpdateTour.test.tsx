@@ -265,13 +265,13 @@ describe('release welcome tour', () => {
     });
     markLaunchedWithFile();
     const first = render(<CalendarOnboardingModal />);
-    expect(screen.queryByText('Calendar Events in Your Timeline')).toBeNull();
+    expect(screen.queryByText('Calendar Events in Your Agenda')).toBeNull();
     expect(useCalendarStore.getState().hasSeenOnboarding).toBe(false);
 
     first.unmount();
     useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     render(<CalendarOnboardingModal />);
-    expect(screen.getByText('Calendar Events in Your Timeline')).toBeInTheDocument();
+    expect(screen.getByText('Calendar Events in Your Agenda')).toBeInTheDocument();
   });
 
   it('keeps both release pages in one stack so the card keeps its size', () => {
@@ -309,7 +309,7 @@ describe('release welcome tour', () => {
     const pages = () => Array.from(container.querySelectorAll('.step-stack > .step-stack-page'));
 
     expect(pages()).toHaveLength(2);
-    expect(screen.getByRole('heading')).toHaveTextContent('Calendar Events in Your Timeline');
+    expect(screen.getByRole('heading')).toHaveTextContent('Calendar Events in Your Agenda');
     expect(pages()[1]).toHaveAttribute('inert');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(pages()).toHaveLength(2);

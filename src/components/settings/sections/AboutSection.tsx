@@ -1,29 +1,19 @@
 /** AboutSection: version and what's new, software updates, and help. */
 
 import { useState, useEffect } from 'react';
-import { Download, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import { Download, ExternalLink, Keyboard, RefreshCw, Sparkles } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore, useWhatsNewStore } from '@/stores';
 import { getReleaseNotes } from '@/lib/releaseNotes';
 import { formatShortcut } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
-import { Group, Row, ShortcutRow, ToggleRow } from '../common';
+import { Group, Row, ToggleRow } from '../common';
+import { openShortcutHelp } from '@/components/ShortcutHelpModal';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useToast } from '@/hooks/useToast';
 import { safeInvoke } from '@/lib/ipc';
 import { useSeasonalTouches } from '@/lib/seasons';
-
-const SHORTCUTS: ReadonlyArray<[string, string]> = [
-  ['⌘,', 'Settings'],
-  ['⌘T', 'Template'],
-  ['⌘B', 'Bold'],
-  ['⌘I', 'Italic'],
-  ['⌘U', 'Underline'],
-  ['⌘K', 'Link'],
-  ['⌘Z', 'Undo'],
-  ['⌘⇧Z', 'Redo'],
-];
 
 function SoftwareUpdates() {
   const {
@@ -149,14 +139,23 @@ export function AboutSection() {
             Show onboarding again
           </button>
         </Row>
-        {/* A phone has no keyboard shortcuts to list. */}
+        {/* A phone has no keyboard; an iPad with one still opens the sheet with ⌘/. */}
         {!mobile && (
-          <Row id="shortcuts" stack>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-              {SHORTCUTS.map(([keys, description]) => (
-                <ShortcutRow key={keys} keys={[formatShortcut(keys)]} description={description} />
-              ))}
-            </div>
+          <Row
+            id="shortcuts"
+            detail={<span className="settings-path-block">Shortcut: {formatShortcut('⌘/')}</span>}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setIsSettingsOpen(false);
+                openShortcutHelp();
+              }}
+              className="settings-btn"
+            >
+              <Keyboard aria-hidden="true" className="w-4 h-4" />
+              Show all shortcuts
+            </button>
           </Row>
         )}
         {mobile && (

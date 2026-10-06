@@ -6,6 +6,7 @@ import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
 import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
 import { MaskArt } from './MaskArt';
+import { isMobilePlatform } from '@/lib/platform';
 
 const COUNTER_DURATION_FALLBACK_MS = 700;
 const COUNTER_DELAY_FALLBACK_MS = 640;
@@ -167,6 +168,18 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
+}
+
+function useDocumentHidden(): boolean {
+  const [hidden, setHidden] = useState(() => document.hidden);
+
+  useEffect(() => {
+    const update = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
+
+  return hidden;
 }
 
 function AsteroidCursor() {
@@ -464,7 +477,13 @@ function MeteorLayer() {
 /** A four-point sparkle on a unit radius, scaled per star. */
 const SPARKLE_PATH = 'M0-1C.1-.1.1-.1 1 0C.1.1.1.1 0 1C-.1.1-.1.1-1 0C-.1-.1-.1-.1 0-1Z';
 
-function ConstellationField({ reducedMotion }: { reducedMotion: boolean }) {
+function ConstellationField({
+  reducedMotion,
+  paused,
+}: {
+  reducedMotion: boolean;
+  paused: boolean;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -576,7 +595,7 @@ function ConstellationField({ reducedMotion }: { reducedMotion: boolean }) {
           </g>
         );
       })}
-      {!reducedMotion && <MeteorLayer />}
+      {!reducedMotion && !paused && <MeteorLayer />}
     </svg>
   );
 }
@@ -672,9 +691,15 @@ export function WelcomeEmptyState({
   const season = useSeasonalTouches();
   const autumnArt = useAutumnArt();
   const coarsePointer = useMediaQuery('(pointer: coarse)');
-  const { showWelcomeDots, showWelcomeStats, showWelcomeDate, showAsteroidCursor, isSettingsOpen } =
-    useSettingsStore();
+  const { quietHomeScreen, isSettingsOpen } = useSettingsStore();
   const activeOverlay = useOverlayStore((state) => state.activeOverlay);
+  const documentHidden = useDocumentHidden();
+  // Every surface but the desktop's see-through quick switcher hides this
+  // screen completely; so does a hidden or minimised window.
+  const covered =
+    isSettingsOpen ||
+    (activeOverlay !== null && (activeOverlay !== 'search' || isMobilePlatform()));
+  const paused = covered || documentHidden;
   const notes = useNoteStore((state) => state.notes);
   // Everything here comes from `noteStore`, which is loaded at startup.
   // Tag and folder counts deliberately are NOT used: both stores are populated
@@ -696,7 +721,7 @@ export function WelcomeEmptyState({
 
   return (
     <div
-      className="flex flex-col items-center justify-center h-full w-full px-8"
+      className={`flex flex-col items-center justify-center h-full w-full px-8${paused ? ' welcome-paused' : ''}`}
       style={{
         isolation: 'isolate',
         overflow: 'hidden',
@@ -707,14 +732,14 @@ export function WelcomeEmptyState({
         WebkitUserSelect: 'none',
       }}
     >
-      {showAsteroidCursor &&
+      {!quietHomeScreen &&
         !reducedMotion &&
         !coarsePointer &&
         activeOverlay === null &&
         !isSettingsOpen && <AsteroidCursor />}
-      {showWelcomeDots && (
+      {!quietHomeScreen && (
         <>
-          <ConstellationField reducedMotion={reducedMotion} />
+          <ConstellationField reducedMotion={reducedMotion} paused={paused} />
           {['sun', 'moon'].map((art) => (
             <MaskArt key={art} src={`/sky/${art}.webp`} className={`welcome-${art}`} />
           ))}
@@ -722,7 +747,7 @@ export function WelcomeEmptyState({
           {autumnArt && <div aria-hidden="true" className="mask-art autumn-field" />}
         </>
       )}
-      {showWelcomeDate && (
+      {!quietHomeScreen && (
         <p
           className="welcome-reveal welcome-reveal-date"
           style={{
@@ -765,7 +790,7 @@ export function WelcomeEmptyState({
         </button>
       </div>
 
-      {showWelcomeStats && (
+      {!quietHomeScreen && (
         <p
           className="welcome-reveal welcome-reveal-stats"
           aria-label={`${targetCounts.notes} notes, ${targetCounts.daily} daily, ${targetCounts.weekly} weekly`}

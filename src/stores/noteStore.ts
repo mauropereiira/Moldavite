@@ -20,6 +20,7 @@ import { namespacedKey, onActiveForgeChange } from '@/lib/forgeStorage';
 import { isLooseId, isLooseNote, isLooseViewOnly } from '@/lib/looseId';
 import { flushPendingAutosave } from '@/lib/autosaveFlush';
 import { useToastStore } from './toastStore';
+import { useSaveFailureStore } from './saveFailureStore';
 import { useGraphStore } from './graphStore';
 import { markNoteTagsStale } from './tagStore';
 import { useQuickSwitcherStore } from './quickSwitcherStore';
@@ -414,6 +415,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   markNoteSaved: (noteId, content) => {
     markNoteTagsStale(noteId);
+    useSaveFailureStore.getState().clearSaveFailure(noteId);
     set((state) => {
       const modifiedAt = Math.floor(Date.now() / 1000);
       const notes = state.notes.some((note) => note.path === noteId)
@@ -468,7 +470,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     }),
 
   /** Moves every persisted/in-memory reference from a note's old path to its new path. */
-  renameNoteReferences: (oldPath, newPath, newTitle) =>
+  renameNoteReferences: (oldPath, newPath, newTitle) => {
+    useSaveFailureStore.getState().moveSaveFailure(oldPath, newPath);
     set((state) => {
       const newName = newPath.split('/').pop() || `${newTitle}.md`;
       const openTabs = state.openTabs.map((tab) =>
@@ -526,7 +529,8 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         externallyChanged,
         savedContent,
       };
-    }),
+    });
+  },
 
   acknowledgeNoteReaddress: (noteId) =>
     set((state) => {
@@ -549,6 +553,7 @@ export const useNoteStore = create<NoteState>((set, get) => ({
 
   forgetNoteReferences: (noteId) => {
     get().closeTab(noteId);
+    useSaveFailureStore.getState().clearSaveFailure(noteId);
     set((state) => {
       const recentNoteIds = state.recentNoteIds.filter((id) => id !== noteId);
       const unlockedNotes = new Set(state.unlockedNotes);

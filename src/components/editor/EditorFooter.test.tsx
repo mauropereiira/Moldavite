@@ -56,8 +56,6 @@ function renderFooter({ readOnly = false } = {}) {
       editor={null}
       readOnly={readOnly}
       onDelete={vi.fn()}
-      isSaving={false}
-      showSaveSuccess={false}
       onRenameNote={vi.fn().mockResolvedValue(undefined)}
     />
   );
@@ -337,8 +335,6 @@ describe('EditorFooter word count', () => {
       <EditorFooter
         editor={editor}
         onDelete={vi.fn()}
-        isSaving={false}
-        showSaveSuccess={false}
         onRenameNote={vi.fn().mockResolvedValue(undefined)}
       />
     );
@@ -358,8 +354,6 @@ describe('EditorFooter word count', () => {
     useSettingsStore.setState({ showWordCount: true });
     const props = {
       onDelete: vi.fn(),
-      isSaving: false,
-      showSaveSuccess: false,
       onRenameNote: vi.fn().mockResolvedValue(undefined),
     };
     const first = new Editor({ extensions: [StarterKit], content: '<p>one two</p>' });

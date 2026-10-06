@@ -5,7 +5,6 @@
 
 import { useSettingsStore, applyFontFamily, PRESETS } from '@/stores';
 import type { BaseMode, FontFamily, FontSize, LineHeight, ThemePreset } from '@/stores';
-import { isMobilePlatform } from '@/lib/platform';
 import { Group, Row, SegmentedControl, ToggleRow, label } from '../common';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: BaseMode; label: string }> = [
@@ -26,21 +25,6 @@ const LINE_HEIGHT_OPTIONS: ReadonlyArray<{ value: LineHeight; label: string }> =
   { value: 'compact', label: 'Compact' },
 ];
 
-type HomeSetting =
-  | 'showWelcomeDots'
-  | 'showWelcomeStats'
-  | 'showWelcomeDate'
-  | 'showAsteroidCursor'
-  | 'showSeasonalTouches';
-
-const HOME_CONTROLS: ReadonlyArray<[string, HomeSetting]> = [
-  ['constellations', 'showWelcomeDots'],
-  ['live-counts', 'showWelcomeStats'],
-  ['welcome-date', 'showWelcomeDate'],
-  ['asteroid-cursor', 'showAsteroidCursor'],
-  ['seasonal', 'showSeasonalTouches'],
-];
-
 export interface AppearanceSectionProps {
   theme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
@@ -55,9 +39,6 @@ export function AppearanceSection({
   onPresetChange,
 }: AppearanceSectionProps) {
   const settings = useSettingsStore();
-  // A phone has no pointer for the asteroid cursor; `WelcomeScreen` skips it on
-  // coarse pointers anyway.
-  const mobile = isMobilePlatform();
   const isDark =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -146,14 +127,16 @@ export function AppearanceSection({
       </Group>
 
       <Group id="home">
-        {HOME_CONTROLS.filter(([id]) => !mobile || id !== 'asteroid-cursor').map(([id, key]) => (
-          <ToggleRow
-            key={id}
-            id={id}
-            value={settings[key]}
-            onChange={(value) => useSettingsStore.setState({ [key]: value })}
-          />
-        ))}
+        <ToggleRow
+          id="quiet-home"
+          value={settings.quietHomeScreen}
+          onChange={settings.setQuietHomeScreen}
+        />
+        <ToggleRow
+          id="seasonal"
+          value={settings.showSeasonalTouches}
+          onChange={(value) => useSettingsStore.setState({ showSeasonalTouches: value })}
+        />
       </Group>
     </div>
   );

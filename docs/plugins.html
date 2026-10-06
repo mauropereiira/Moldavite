@@ -425,7 +425,19 @@
         </div>
 
         <h2 id="quick-start">Quick start</h2>
-        <p>Create a folder under the active Forge with exactly this shape:</p>
+        <p>
+          To start from working code, install the <strong>Example Plugin</strong> from the
+          <a href="#directory">directory</a> above, or from
+          <strong>Settings → Plugins → Browse community plugins</strong>. It adds a timestamp
+          command and a word count, and its source is in
+          <a
+            href="https://github.com/mauropereiira/Moldavite/tree/main/src-tauri/example-plugin/moldavite-example"
+            ><code>src-tauri/example-plugin/moldavite-example</code></a
+          >. Copy that folder, rename it and change the manifest <code>id</code> to make it your
+          own. It declares API v1, which still runs; set <code>apiVersion</code> to 2 before you use
+          the v2 calls below.
+        </p>
+        <p>Or create a folder under the active Forge with exactly this shape:</p>
         <pre><code>my-plugin/
 ├── manifest.json
 ├── plugin.js

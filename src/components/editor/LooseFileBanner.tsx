@@ -1,4 +1,4 @@
-import { BannerAction } from './BannerAction';
+import { BannerAction, bannerStyle } from './BannerAction';
 import { useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useNotes } from '@/hooks/useNotes';
@@ -11,17 +11,6 @@ import {
   useLooseStatusStore,
 } from '@/lib/looseFiles';
 import { useNoteStore } from '@/stores/noteStore';
-
-const bannerStyle: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'baseline',
-  gap: '6px 16px',
-  padding: '8px 20px',
-  borderBottom: '1px solid var(--border-default)',
-  fontSize: 13,
-  color: 'var(--text-secondary)',
-};
 
 export function DroppedFileBanner() {
   const currentNote = useNoteStore((state) => state.currentNote);

@@ -1,7 +1,7 @@
 /**
  * LayoutSection: the rail, Index, Agenda and focus mode, the chrome around the
- * note, and folded below them the Index's sections, sort order and the pinned
- * column widths.
+ * note, and folded below them the Index's sections and sort order. A pinned
+ * column's width is set by dragging its edge.
  */
 
 import { useSettingsStore, type ChromeMode, type SettingsState } from '@/stores';
@@ -58,43 +58,11 @@ const shortcut = (keys: string) => (
   <span className="settings-path-block">Shortcut: {formatShortcut(keys)}</span>
 );
 
-function WidthRow({
-  id,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  id: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <Row id={id}>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step="10"
-        value={value}
-        aria-label={label(id)}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="settings-range"
-      />
-      <span className="settings-value">{value} px</span>
-    </Row>
-  );
-}
-
 export function LayoutSection() {
   const settings = useSettingsStore();
   // A phone forces the rail and overlay mode, has no writing column wider
   // than the screen and no panels for focus mode to hide.
   const mobile = isMobilePlatform();
-  const indexPinned = settings.indexMode === 'pinned';
-  const agendaPinned = settings.agendaMode === 'pinned';
 
   return (
     <div className="settings-tab">
@@ -179,31 +147,6 @@ export function LayoutSection() {
             options={SORT_OPTIONS}
           />
         </Row>
-        {/* A width only means something for a pinned column; as an overlay the
-            Index fills the window, so an ungated slider would do nothing. */}
-        {!mobile && indexPinned && (
-          <WidthRow
-            id="index-width"
-            value={settings.sidebarWidth}
-            min={200}
-            max={400}
-            onChange={settings.setSidebarWidth}
-          />
-        )}
-        {!mobile && agendaPinned && (
-          <WidthRow
-            id="agenda-width"
-            value={settings.rightPanelWidth}
-            min={250}
-            max={500}
-            onChange={settings.setRightPanelWidth}
-          />
-        )}
-        {!mobile && !indexPinned && !agendaPinned && (
-          <p className="settings-row-note settings-fold-note">
-            Pin the Index or the Agenda above to set its width.
-          </p>
-        )}
       </Group>
     </div>
   );

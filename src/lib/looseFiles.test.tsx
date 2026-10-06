@@ -8,7 +8,6 @@ import { TabBar } from '@/components/editor/TabBar';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore, isCurrentNoteViewOnly } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useToastStore } from '@/stores/toastStore';
 import { flushPendingAutosave } from './autosaveFlush';
 import { namespacedKey } from './forgeStorage';
@@ -23,7 +22,7 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { useAutoSave } from '@/hooks/useAutoSave';
+import { autoSaveTiming, useAutoSave } from '@/hooks/useAutoSave';
 import { useNotes } from '@/hooks/useNotes';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import {
@@ -92,7 +91,7 @@ beforeEach(async () => {
         return undefined;
     }
   });
-  useSettingsStore.setState({ autoSaveDelay: 60_000 });
+  autoSaveTiming.delayMs = 60_000;
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -266,8 +265,13 @@ describe('the fidelity check', () => {
     expect(isFaithfulRoundTrip(readme)).toBe(true);
   });
 
-  it('still trips when two paragraphs would become one', () => {
-    expect(isFaithfulRoundTrip('one\n\n\n<!-- note -->\n\ntwo')).toBe(false);
+  it('passes footnotes, details, HTML comments and bare URLs, which the editor now keeps', () => {
+    expect(isFaithfulRoundTrip('one\n\n\n<!-- note -->\n\ntwo')).toBe(true);
+    expect(isFaithfulRoundTrip('Text[^1]\n\n[^1]: The note.')).toBe(true);
+    expect(isFaithfulRoundTrip('<details>\n<summary>More</summary>\n\nHidden\n\n</details>')).toBe(
+      true
+    );
+    expect(isFaithfulRoundTrip('See https://example.com and <https://example.org>.')).toBe(true);
   });
 
   it('passes Markdown the editor writes the same way, ignoring trailing whitespace', () => {

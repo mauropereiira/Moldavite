@@ -190,6 +190,15 @@
   --control-pad-x: 6px;
   --row-pad-x: 8px;
 
+  /* STACKING
+     Overlays cover the editor, surfaces cover the window beside the rail, and
+     a dialog covers all of them and the rail. A dialog takes --z-dialog
+     whatever opened it: one at z-50 painted behind the Agenda and Settings. */
+  --z-overlay: 80;
+  --z-surface: 9999;
+  --z-rail: 10000;
+  --z-dialog: 11000;
+
   /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;
@@ -1756,6 +1765,15 @@ html:not([data-platform='mobile'])
   margin-top: -32px;
 }
 
+/* Delete all notes sits apart from the folds above it, never run together with them. */
+.settings-tab > .settings-fold[data-setting='danger'] {
+  margin-top: 16px;
+}
+
+.settings-fold[data-setting='danger'] .settings-fold-toggle {
+  color: var(--error);
+}
+
 .settings-fold-toggle {
   display: flex;
   align-items: center;
@@ -1777,10 +1795,6 @@ html:not([data-platform='mobile'])
 
 .settings-fold-body {
   padding-bottom: 8px;
-}
-
-.settings-fold-note {
-  padding: 12px 0;
 }
 
 .settings-flash {
@@ -1826,14 +1840,6 @@ html:not([data-platform='mobile'])
   font-family: var(--font-mono);
   font-size: 11px;
   overflow-wrap: anywhere;
-}
-
-.settings-value {
-  min-width: 52px;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-align: right;
 }
 
 .settings-ok {
@@ -2084,35 +2090,6 @@ html:not([data-platform='mobile'])
 .obs-import-input:focus {
   border-bottom-color: var(--text-primary) !important;
   outline: none;
-}
-
-.settings-range,
-.settings-dialog input[type='range'] {
-  width: 160px;
-  height: 16px !important;
-  appearance: none;
-  cursor: pointer;
-  background: transparent !important;
-  border: 0;
-  border-bottom: 1px solid var(--border-default);
-  border-radius: 0 !important;
-  accent-color: var(--text-primary);
-}
-
-.settings-range:focus,
-.settings-dialog input[type='range']:focus {
-  border-bottom-color: var(--text-primary);
-  outline: none;
-}
-
-.settings-range::-webkit-slider-thumb,
-.settings-dialog input[type='range']::-webkit-slider-thumb {
-  width: 10px;
-  height: 10px;
-  appearance: none;
-  background: var(--bg-base);
-  border: 1px solid var(--text-primary);
-  border-radius: 0;
 }
 
 .settings-dialog svg {
@@ -3015,6 +2992,21 @@ html.icon-rail-right {
   border: none;
   color: var(--text-primary);
   font-size: 0.875rem;
+}
+
+/* Markdown the editor keeps as source: footnote definitions, <details>, comments. */
+.tiptap pre.raw-markdown {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+
+.tiptap .footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--syntax-link);
 }
 
 /* Links are ink, distinguished by their underline rather than colour. */
@@ -4718,6 +4710,16 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   animation-fill-mode: both;
 }
 
+/* About 270 animations ran on under the Graph, Settings and the overlays,
+   repainting a screen nobody could see. Paused, each holds its frame and
+   picks up from there, so nothing jumps when the screen shows again.
+   Important because every animation shorthand above resets the play state. */
+.welcome-paused *,
+.welcome-paused *::before,
+.welcome-paused *::after {
+  animation-play-state: paused !important;
+}
+
 @keyframes calendar-month-crossfade {
   from {
     opacity: 0;
@@ -4781,6 +4783,7 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 4px;
   margin: -4px;
@@ -4791,14 +4794,21 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
    indicator, icon and buttons hold still from step to step. Auto margins
    centre the stack where its container has room to spare (the phone sheet)
    and fall to zero when it overflows, where `justify-content: center` would
-   push the top out of scroll reach. */
+   push the top out of scroll reach. The one column is capped at the
+   container's width: an `auto` column grows to the widest page's content
+   (the Forge path does not wrap), which pushed every step past the card.
+   A shorter step sits in the middle of the shared height, so its spare room
+   splits above and below instead of pooling over the buttons. */
 .step-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin-block: auto;
 }
 
 .step-stack-page {
   grid-area: 1 / 1;
+  min-width: 0;
+  align-self: center;
 }
 
 .step-stack-page[inert] {

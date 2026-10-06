@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEvent, CalendarSourceStatus } from '@/types';
 import { useCalendarStore, useNoteStore } from '@/stores';
-import { Timeline } from './Timeline';
+import { DayEvents } from './DayEvents';
 
 const platform = vi.hoisted(() => ({ mobile: false }));
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => platform.mobile }));
@@ -54,7 +54,7 @@ function buildEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
   return { ...event, ...overrides };
 }
 
-describe('Timeline calendar source states', () => {
+describe('DayEvents', () => {
   beforeEach(() => {
     localStorage.clear();
     useNoteStore.setState({ selectedDate: new Date(2025, 2, 14, 12) });
@@ -93,7 +93,7 @@ describe('Timeline calendar source states', () => {
   it('points a denied Mac at System Settings with a button', () => {
     useCalendarStore.setState({ permissionStatus: 'Denied', sources: [deniedApple] });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByText('Calendar Access Denied')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Settings' })).toBeInTheDocument();
@@ -103,7 +103,7 @@ describe('Timeline calendar source states', () => {
     platform.mobile = true;
     useCalendarStore.setState({ permissionStatus: 'Denied', sources: [deniedApple] });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByText('Calendar Access Denied')).toBeInTheDocument();
     expect(
@@ -119,7 +119,7 @@ describe('Timeline calendar source states', () => {
       isConnectingGoogle: true,
     });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByRole('button', { name: 'Connect Apple Calendar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Waiting for Google sign-in…' })).toBeInTheDocument();
@@ -128,7 +128,7 @@ describe('Timeline calendar source states', () => {
   it('shows a coming-soon state when every reported source is unavailable', () => {
     useCalendarStore.setState({ sources: unavailableSources });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByText("Calendar sync isn't available here yet.")).toBeInTheDocument();
     expect(screen.getByText('Events will appear here when it arrives.')).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe('Timeline calendar source states', () => {
   it('keeps the connect-calendar prompt when a source is available but disconnected', () => {
     useCalendarStore.setState({ sources: [availableGoogle] });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByText('Connect Your Calendar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect Google Calendar' })).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe('Timeline calendar source states', () => {
       events: [event],
     });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
     expect(screen.getByText('Product review')).toBeInTheDocument();
     expect(screen.queryByText('Connect Your Calendar')).not.toBeInTheDocument();
@@ -162,15 +162,77 @@ describe('Timeline calendar source states', () => {
   });
 
   it.each([
-    [new Date(2025, 2, 14, 12), 'No events'],
-    [new Date(), 'No events today'],
-  ])('names the empty day it shows: %s', (selectedDate, heading) => {
+    [new Date(2025, 2, 14, 12), 'No events on this day.'],
+    [new Date(), 'No events today.'],
+  ])('names the empty day it shows: %s', (selectedDate, line) => {
     useNoteStore.setState({ selectedDate });
     useCalendarStore.setState({ sources: [{ ...availableGoogle, connected: true }] });
 
-    render(<Timeline />);
+    render(<DayEvents />);
 
-    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(screen.getByText(line)).toBeInTheDocument();
+  });
+
+  it('lists all-day events first, then timed ones with their times', () => {
+    useCalendarStore.setState({
+      sources: [{ ...availableGoogle, connected: true }],
+      events: [
+        buildEvent({
+          id: 'google:late',
+          title: 'Late',
+          start: '2025-03-14T16:00:00',
+          end: '2025-03-14T17:30:00',
+        }),
+        buildEvent({
+          id: 'google:holiday',
+          title: 'Holiday',
+          start: '2025-03-14T00:00:00',
+          end: '2025-03-15T00:00:00',
+          isAllDay: true,
+        }),
+        event,
+      ],
+    });
+
+    render(<DayEvents />);
+
+    const items = within(screen.getByRole('list', { name: 'Events' })).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'HolidayAll day',
+      'Product review09:00 – 10:00',
+      'Late16:00 – 17:30',
+    ]);
+  });
+
+  it('keeps the sync control and a failing source beside the events that loaded', () => {
+    const fetchEvents = vi.fn(async () => {});
+    useCalendarStore.setState({
+      sources: [{ ...availableGoogle, connected: true }],
+      events: [event],
+      sourceErrors: [{ source: 'apple', message: 'Access was revoked' }],
+      fetchEvents,
+    });
+
+    render(<DayEvents />);
+
+    expect(screen.getByText('Apple Calendar: Access was revoked')).toBeInTheDocument();
+    expect(screen.getByText('Product review')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sync calendar events' }));
+    expect(fetchEvents).toHaveBeenLastCalledWith(expect.any(Date), undefined, { force: true });
+  });
+
+  it('says when calendar sync is off instead of showing a stale list', () => {
+    useCalendarStore.setState({
+      sources: [{ ...availableGoogle, connected: true }],
+      events: [event],
+      calendarEnabled: false,
+    });
+
+    render(<DayEvents />);
+
+    expect(screen.getByText('Calendar sync is disabled.')).toBeInTheDocument();
+    expect(screen.queryByText('Product review')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sync calendar events' })).not.toBeInTheDocument();
   });
 
   it('orders provider timestamps by instant rather than serialized text', () => {
@@ -195,35 +257,37 @@ describe('Timeline calendar source states', () => {
       ],
     });
 
-    const { container } = render(<Timeline />);
+    const { container } = render(<DayEvents />);
 
     expect(
       Array.from(container.querySelectorAll('.event-title')).map((node) => node.textContent)
     ).toEqual(['Earlier instant', 'Later instant']);
   });
 
-  it('clips an event crossing midnight to the selected Lisbon day', () => {
+  it('lists an event crossing midnight on both Lisbon days it touches', () => {
     vi.stubEnv('TZ', 'Europe/Lisbon');
-    useNoteStore.setState({ selectedDate: new Date(2026, 7, 15, 12) });
+    const overnight = buildEvent({
+      id: 'google:overnight',
+      title: 'Overnight event',
+      start: '2026-08-14T23:30:00+01:00',
+      end: '2026-08-15T01:00:00+01:00',
+    });
     useCalendarStore.setState({
       sources: [{ ...availableGoogle, connected: true }],
-      events: [
-        buildEvent({
-          id: 'google:overnight',
-          title: 'Overnight event',
-          start: '2026-08-14T23:30:00+01:00',
-          end: '2026-08-15T01:00:00+01:00',
-        }),
-      ],
+      events: [overnight],
     });
 
-    render(<Timeline />);
+    useNoteStore.setState({ selectedDate: new Date(2026, 7, 15, 12) });
+    const { unmount } = render(<DayEvents />);
+    expect(screen.getByText('23:30 – 01:00')).toBeInTheDocument();
+    unmount();
 
-    const block = screen.getByText('Overnight event').closest('.event-item-enter');
-    expect(block).toHaveStyle({ top: '0px', height: '60px' });
+    useNoteStore.setState({ selectedDate: new Date(2026, 7, 16, 12) });
+    render(<DayEvents />);
+    expect(screen.queryByText('Overnight event')).not.toBeInTheDocument();
   });
 
-  it('uses elapsed hours on the 25-hour New York fall-back day', () => {
+  it('orders the two 01:30s of the New York fall-back day by instant', () => {
     vi.stubEnv('TZ', 'America/New_York');
     const selectedDate = new Date(2026, 10, 1, 12);
     expect(selectedDate.getTimezoneOffset()).toBe(300);
@@ -232,27 +296,24 @@ describe('Timeline calendar source states', () => {
       sources: [{ ...availableGoogle, connected: true }],
       events: [
         buildEvent({
-          id: 'google:first-fold',
-          title: 'First 01:30',
-          start: '2026-11-01T01:30:00-04:00',
-          end: '2026-11-01T01:30:00-05:00',
-        }),
-        buildEvent({
           id: 'google:second-fold',
           title: 'Second 01:30',
           start: '2026-11-01T01:30:00-05:00',
           end: '2026-11-01T02:00:00-05:00',
         }),
+        buildEvent({
+          id: 'google:first-fold',
+          title: 'First 01:30',
+          start: '2026-11-01T01:30:00-04:00',
+          end: '2026-11-01T01:30:00-05:00',
+        }),
       ],
     });
 
-    render(<Timeline />);
+    const { container } = render(<DayEvents />);
 
-    const grid = screen.getByRole('region', { name: 'Hourly timeline' }).firstElementChild;
-    const first = screen.getByText('First 01:30').closest('.event-item-enter');
-    const second = screen.getByText('Second 01:30').closest('.event-item-enter');
-    expect(grid).toHaveStyle({ height: '1500px' });
-    expect(first).toHaveStyle({ top: '90px', height: '60px' });
-    expect(second).toHaveStyle({ top: '150px' });
+    expect(
+      Array.from(container.querySelectorAll('.event-title')).map((node) => node.textContent)
+    ).toEqual(['First 01:30', 'Second 01:30']);
   });
 });

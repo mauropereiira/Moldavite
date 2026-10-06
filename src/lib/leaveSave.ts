@@ -4,8 +4,9 @@
  * A note is written only when it has unsaved edits: its tab body differs from the
  * store's `savedContent` for it, autosave still owes it a write, or an earlier
  * leave-save for it failed. A failed save never blocks navigation. The buffer is held here and
- * retried with backoff; when the retries run out, one sticky toast per note offers
- * Retry and Save as a copy. Closing the window or hiding the page attempts every
+ * retried with backoff. While it fails the note carries a warning with Try again and Save as
+ * a copy (`SaveFailedBanner`); when the retries run out for a note that is not on screen,
+ * one sticky toast offers the same two. Closing the window or hiding the page attempts every
  * held save, and every open tab with unsaved edits, at once (see `registerHeldSaves`).
  * A held note reopens from its held text, never from disk, and a retry is dropped only
  * once that text is what the tab holds as saved. Nothing here discards a buffer that
@@ -44,6 +45,7 @@ import {
 // Concrete store modules, not the '@/stores' index, to avoid a module cycle.
 import { useNoteStore } from '@/stores/noteStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useSaveFailureStore } from '@/stores/saveFailureStore';
 import type { Note, NoteFile } from '@/types';
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
@@ -183,6 +185,7 @@ export function readdressLeaveSave(oldId: string, newId: string, newTitle?: stri
   pendingLeaveSaves.delete(oldId);
   entry.note = { ...entry.note, id: newId, title: newTitle ?? entry.note.title };
   pendingLeaveSaves.set(newId, entry);
+  useSaveFailureStore.getState().moveSaveFailure(oldId, newId);
 }
 
 /** Stop retrying a note, for example because it was deleted or trashed on purpose. */
@@ -192,6 +195,7 @@ export function discardLeaveSave(noteId: string): void {
   if (entry.timer !== null) clearTimeout(entry.timer);
   dismissFailureToast(entry);
   pendingLeaveSaves.delete(noteId);
+  useSaveFailureStore.getState().clearSaveFailure(noteId);
 }
 
 /**
@@ -203,10 +207,17 @@ function liveBuffer(entry: PendingLeaveSave): Note {
   return tab && hasUnsavedEditsInTab(tab.id) ? tab : entry.note;
 }
 
+function recordFailure(entry: PendingLeaveSave, error: unknown): void {
+  entry.lastError = error;
+  useSaveFailureStore.getState().markSaveFailed(entry.note.id, errorMessage(error));
+}
+
 function showFailureToast(entry: PendingLeaveSave, error: unknown): void {
   const toasts = useToastStore.getState();
   if (entry.toastId && toasts.toasts.some((toast) => toast.id === entry.toastId)) return;
   const noteId = entry.note.id;
+  // The note on screen already shows the warning, with the same two actions.
+  if (useNoteStore.getState().currentNote?.id === noteId) return;
   entry.toastId = toasts.addToast(
     'error',
     `Couldn't save "${entry.note.title}": ${errorMessage(error)}. Your changes are kept here until it saves.`,
@@ -283,7 +294,7 @@ async function retryLeaveSave(noteId: string): Promise<void> {
       return;
     }
     console.error('[leaveSave] Retry failed:', error);
-    entry.lastError = error;
+    recordFailure(entry, error);
     scheduleRetry(entry, error);
   }
 }
@@ -322,8 +333,32 @@ async function saveLeaveSaveAsCopy(noteId: string): Promise<void> {
       .addToast('success', `Saved your changes as ${copy.split('/').pop() ?? copy}`);
   } catch (error) {
     console.error('[leaveSave] Save as a copy failed:', error);
+    recordFailure(entry, error);
     showFailureToast(entry, error);
   }
+}
+
+/** Try a failed save again now: the held retry, or a fresh write of the open tab. */
+export async function retryFailedSave(noteId: string): Promise<void> {
+  if (pendingLeaveSaves.has(noteId)) return retryLeaveSave(noteId);
+  const tab = useNoteStore.getState().openTabs.find((candidate) => candidate.id === noteId);
+  if (tab) await saveNoteOnLeave(tab);
+}
+
+/** Keep the text of a note that will not save as a copy beside it, then show the note as on disk. */
+export async function saveFailedNoteAsCopy(noteId: string): Promise<void> {
+  if (!pendingLeaveSaves.has(noteId)) {
+    const tab = useNoteStore.getState().openTabs.find((candidate) => candidate.id === noteId);
+    if (!tab) return;
+    pendingLeaveSaves.set(noteId, {
+      note: tab,
+      attempt: RETRY_DELAYS_MS.length,
+      timer: null,
+      toastId: null,
+      lastError: null,
+    });
+  }
+  await saveLeaveSaveAsCopy(noteId);
 }
 
 /** Show the file's own text in an open tab whose edits went to a copy instead. */
@@ -381,8 +416,8 @@ export async function saveNoteOnLeave(note: Note): Promise<boolean> {
       lastError: error,
     };
     entry.note = latest;
-    entry.lastError = error;
     pendingLeaveSaves.set(note.id, entry);
+    recordFailure(entry, error);
     scheduleRetry(entry, error);
     return false;
   }

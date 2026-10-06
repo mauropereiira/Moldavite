@@ -8,7 +8,7 @@ import manageForgesModal from '../sidebar/ManageForgesModal.tsx?raw';
 import pdfExportOptionsModal from '../editor/PdfExportOptionsModal.tsx?raw';
 import tagsSection from '../sidebar/TagsSection.tsx?raw';
 import settingsData from '../settings/SettingsData.tsx?raw';
-import generalSection from '../settings/sections/GeneralSection.tsx?raw';
+import dangerZone from '../settings/sections/DangerZone.tsx?raw';
 import quickSwitcher from '../quick-switcher/QuickSwitcher.tsx?raw';
 import linkModal from '../editor/LinkModal.tsx?raw';
 import imageModal from '../editor/ImageModal.tsx?raw';
@@ -23,7 +23,7 @@ const dialogFiles: Array<[string, string, number]> = [
   ['PdfExportOptionsModal', pdfExportOptionsModal, 1],
   ['TagsSection', tagsSection, 1],
   ['SettingsData', settingsData, 3],
-  ['GeneralSection', generalSection, 1],
+  ['DangerZone', dangerZone, 1],
   ['QuickSwitcher', quickSwitcher, 1],
   ['LinkModal', linkModal, 1],
   ['ImageModal', imageModal, 1],

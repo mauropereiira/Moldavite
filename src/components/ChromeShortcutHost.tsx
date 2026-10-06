@@ -12,6 +12,7 @@ import {
   useQuickSwitcherStore,
   useSettingsStore,
 } from '@/stores';
+import { hasOpenDialog } from '@/components/ui/DialogSurface';
 
 /**
  * Esc leaves the open note, landing back on the wordmark screen when it was the
@@ -59,6 +60,9 @@ export function ChromeShortcutHost() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // The dialog on top takes Esc; closing the surface under it as well
+        // dismissed two layers with one key.
+        if (hasOpenDialog()) return;
         if (useOverlayStore.getState().activeOverlay) {
           e.preventDefault();
           useOverlayStore.getState().closeOverlay();

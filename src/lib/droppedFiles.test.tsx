@@ -3,7 +3,6 @@
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNoteStore, isCurrentNoteViewOnly } from '@/stores/noteStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useToastStore } from '@/stores/toastStore';
 import { flushPendingAutosave } from './autosaveFlush';
 import type { Note, NoteFile } from '@/types';
@@ -17,7 +16,7 @@ vi.mock('@/lib/ipc', () => ({
   safeInvoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { useAutoSave } from '@/hooks/useAutoSave';
+import { autoSaveTiming, useAutoSave } from '@/hooks/useAutoSave';
 import { useNotes } from '@/hooks/useNotes';
 import { installWindowDropGuard, setWindowFileDropHandler } from './dropGuard';
 import { addDroppedToForge, openDroppedFiles } from './droppedFiles';
@@ -125,7 +124,7 @@ beforeEach(() => {
         return undefined;
     }
   });
-  useSettingsStore.setState({ autoSaveDelay: 60_000 });
+  autoSaveTiming.delayMs = 60_000;
   useNoteStore.setState({
     notes: [],
     openTabs: [],

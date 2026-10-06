@@ -15,7 +15,7 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { useNotes } from './useNotes';
-import { useAutoSave } from './useAutoSave';
+import { autoSaveTiming, useAutoSave } from './useAutoSave';
 
 const other: NoteFile = {
   name: 'Other.md',
@@ -93,7 +93,8 @@ beforeEach(() => {
         return undefined;
     }
   });
-  useSettingsStore.setState({ autoSaveDelay: 60_000, indexMode: 'overlay' });
+  autoSaveTiming.delayMs = 60_000;
+  useSettingsStore.setState({ indexMode: 'overlay' });
   useNoteStore.setState({
     notes: [other],
     openTabs: [],

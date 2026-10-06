@@ -80,18 +80,20 @@ JavaScript shell opener takes a desktop code path and fails on iOS. Both public
 links live in Settings → About.
 
 Mobile Agenda always shows the month calendar for daily/weekly note navigation,
-then the event timeline unless Settings → Calendar → Timeline turns it off (the phone
-shows only that toggle). A saved desktop preference cannot hide the mobile
-note calendar. Event links open through `open_external_link`, since the
+the selected day's events, then the timeline of notes changed that day; the phone
+has no Agenda switches in Settings. A saved desktop preference cannot hide the
+mobile note calendar. Event links open through `open_external_link`, since the
 JavaScript shell opener is not permitted there.
 
-Settings hides on the phone: the Forges folder picker and Open Forge in
-Finder (General), focus mode (Appearance; it hides the rail, so a value
-saved earlier is ignored), the icon rail toggle, Index and Agenda modes,
-writing column width and the asteroid cursor (Layout), and the AI & Agents,
-Import and Plugins sections entirely. About omits the
-desktop updater and the keyboard shortcuts, and the editor omits WordPress
-publishing and PDF export. The Sidebar section is called Index there.
+Settings hides on the phone: the Forges folder picker, Open Forge in
+Finder and the default .md app (General), the icon rail toggle, Index and
+Agenda modes, focus mode (it hides the rail, so a value saved earlier is
+ignored) and writing column width (Layout), the writing toolbar (Writing),
+the month calendar switch (Calendar; the phone always shows it), the
+Obsidian importer (Data), and the AI & Agents and Plugins tabs entirely.
+About omits What's new, the desktop updater and Show all shortcuts, and the
+editor omits WordPress publishing and PDF export. `settingsMap.test.tsx`
+pins this list. The Sidebar section is called Index there.
 Switches are 51 by 31 with a 44pt hit area and an ink-filled knob when on.
 
 ## Calendar on iOS
@@ -183,7 +185,7 @@ get trapped underneath Index.
   (`useLongPress`; WebKit fires no `contextmenu` for it). A tapped `#tag`
   opens the Index filtered to it; iOS sends no click for a tap on editable
   text, so `TagMark` reads the tap from pointer events.
-- The editor footer has the save status on the left and Actions on the right;
+- The editor footer has the word count on the left and Actions on the right;
   the desktop's Index · Agenda · Settings links are not rendered, since the
   rail carries them. The note runs the full width of the paper with 16px
   gutters; the note header sits on the rail's rhythm. An empty note offers

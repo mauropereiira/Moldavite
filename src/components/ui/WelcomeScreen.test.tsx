@@ -41,7 +41,7 @@ describe('WelcomeScreen layout settings', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the full sky and independently hides the welcome details', () => {
+  it('renders the full sky and hides it with the details on a quiet home screen', () => {
     const { container } = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
     );
@@ -60,11 +60,7 @@ describe('WelcomeScreen layout settings', () => {
     expect(container.querySelector('.welcome-reveal-stats')).toBeInTheDocument();
 
     act(() => {
-      useSettingsStore.setState({
-        showWelcomeDate: false,
-        showWelcomeDots: false,
-        showWelcomeStats: false,
-      });
+      useSettingsStore.setState({ quietHomeScreen: true });
     });
 
     expect(container.querySelector('.welcome-reveal-date')).not.toBeInTheDocument();
@@ -120,7 +116,7 @@ describe('WelcomeScreen layout settings', () => {
     useThemeStore.setState({ preset: settings.preset });
     useSettingsStore.setState({
       showSeasonalTouches: settings.touches,
-      showWelcomeDots: settings.sky,
+      quietHomeScreen: !settings.sky,
     });
     const { container } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
@@ -235,14 +231,14 @@ describe('WelcomeScreen layout settings', () => {
     view.unmount();
 
     setPointerPreferences();
-    useSettingsStore.setState({ showAsteroidCursor: false });
+    useSettingsStore.setState({ quietHomeScreen: true });
     view = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
     );
     expect(view.queryByTestId('welcome-asteroid-cursor')).not.toBeInTheDocument();
     view.unmount();
 
-    useSettingsStore.setState({ showAsteroidCursor: true });
+    useSettingsStore.setState({ quietHomeScreen: false });
     useOverlayStore.getState().openIndex(false);
     view = render(
       <WelcomeEmptyState onCreateToday={() => undefined} onCreateNote={() => undefined} />
@@ -283,5 +279,65 @@ describe('WelcomeScreen layout settings', () => {
       expect(leaf.style.top).toBe(`${15 + index * 16}%`);
     });
     expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
+  });
+
+  const welcome = () =>
+    render(<WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />).container
+      .firstElementChild as HTMLElement;
+
+  it.each([
+    ['the Graph', () => useOverlayStore.getState().openSurface('graph')],
+    ['the Index', () => useOverlayStore.getState().openSurface('index')],
+    ['the Agenda', () => useOverlayStore.getState().openSurface('agenda')],
+    ['Settings', () => useSettingsStore.getState().setIsSettingsOpen(true)],
+  ])('pauses its animations while %s covers it, and resumes after', (_, cover) => {
+    const root = welcome();
+    expect(root).not.toHaveClass('welcome-paused');
+
+    act(cover);
+    expect(root).toHaveClass('welcome-paused');
+
+    act(() => {
+      useOverlayStore.getState().closeOverlay();
+      useSettingsStore.getState().setIsSettingsOpen(false);
+    });
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('keeps moving under the see-through quick switcher', () => {
+    const root = welcome();
+    act(() => useOverlayStore.getState().openSurface('search'));
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('pauses while the window is hidden', () => {
+    let hidden = false;
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+    const root = welcome();
+
+    hidden = true;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(root).toHaveClass('welcome-paused');
+
+    hidden = false;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('schedules no meteor while covered', () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const root = welcome();
+    act(() => useOverlayStore.getState().openSurface('graph'));
+
+    act(() => {
+      vi.advanceTimersByTime(14_000);
+    });
+
+    expect(root.querySelector('[data-testid="welcome-meteor"]')).not.toBeInTheDocument();
   });
 });

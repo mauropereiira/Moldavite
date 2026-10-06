@@ -419,10 +419,11 @@ html[data-platform='mobile'] .app-overlay-title {
   font-size: 24px !important;
 }
 
-/* One column that scrolls as a page: the calendar, then the timeline. The
+/* One column that scrolls as a page: the calendar and events, then the timeline. The
    two-column dividers between them become a hairline across. */
 html[data-platform='mobile'] .app-agenda-grid {
   grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-rows: max-content;
   gap: 24px !important;
   padding: 16px 0 24px !important;
   overflow-y: auto;
@@ -1102,12 +1103,12 @@ html[data-platform='mobile'] .settings-row-label {
   font-size: 15px;
 }
 
-html[data-platform='mobile'] .settings-row-control:has(> [type='range'], > [role='radiogroup']) {
+html[data-platform='mobile'] .settings-row-control:has(> [role='radiogroup']) {
   flex: 1 1 100%;
   flex-wrap: nowrap;
 }
 
-html[data-platform='mobile'] .settings-row-control > :is([type='range'], [role='radiogroup']) {
+html[data-platform='mobile'] .settings-row-control > [role='radiogroup'] {
   flex: 1;
 }
 
@@ -1145,16 +1146,6 @@ html[data-platform='mobile'] .settings-toggle[aria-checked='true'] .settings-tog
 
 html[data-platform='mobile'] .settings-toggle:disabled {
   opacity: 0.5;
-}
-
-/* Sliders: a finger-sized track and thumb. */
-html[data-platform='mobile'] .settings-dialog input[type='range'] {
-  height: var(--touch-target) !important;
-}
-
-html[data-platform='mobile'] .settings-dialog input[type='range']::-webkit-slider-thumb {
-  width: 28px;
-  height: 28px;
 }
 
 /* Unselected options were --text-muted, near-illegible on the dark grounds.
@@ -1245,9 +1236,7 @@ html[data-platform='mobile'] .note-view-only {
   max-width: none !important;
 }
 
-/* Onboarding must cover an already-open Index and the rail when replayed. */
 html[data-platform='mobile'] .app-onboarding-scrim {
-  z-index: 11000;
   background: var(--bg-base);
   padding: calc(var(--safe-top) + 16px) calc(16px + var(--safe-right))
     calc(var(--safe-bottom) + 16px) calc(16px + var(--safe-left));

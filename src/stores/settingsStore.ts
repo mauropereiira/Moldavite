@@ -60,6 +60,12 @@ const LEGACY_TABS: Record<LegacySettingsTab, string> = {
   import: 'data#import',
 };
 
+/** Groups and settings that moved to another tab; `general#danger` still finds the Danger zone. */
+const MOVED_ANCHORS: Record<string, SettingsTab> = {
+  danger: 'data',
+  'delete-all': 'data',
+};
+
 /**
  * Where a target lands. Old ids keep working because plugins, deep links and
  * persisted phone state can still name them; anything unknown opens General.
@@ -68,17 +74,14 @@ export function resolveSettingsTarget(target: string): {
   tab: SettingsTab;
   anchor: string | null;
 } {
-  const [tab, anchor = null] = (LEGACY_TABS[target as LegacySettingsTab] ?? target).split('#');
+  const [named, anchor = null] = (LEGACY_TABS[target as LegacySettingsTab] ?? target).split('#');
+  const tab = (anchor && MOVED_ANCHORS[anchor]) || named;
   return SETTINGS_TABS.includes(tab)
     ? { tab: tab as SettingsTab, anchor }
     : { tab: 'general', anchor: null };
 }
 
 export interface SettingsState {
-  notesDirectory: string;
-  autoSaveDelay: number;
-  showAutoSaveStatus: boolean;
-
   fontSize: FontSize;
   fontFamily: FontFamily;
   sidebarWidth: number;
@@ -108,19 +111,15 @@ export interface SettingsState {
   showTabBar: boolean;
   showEditorFooter: boolean;
   showBacklinksPanel: boolean;
-  showWelcomeDots: boolean;
-  showWelcomeStats: boolean;
-  showWelcomeDate: boolean;
-  showAsteroidCursor: boolean;
+  /** The home screen without its sky, date, counts and asteroid cursor. */
+  quietHomeScreen: boolean;
   showSeasonalTouches: boolean;
 
   sortOption: SortOption;
   showFoldersSection: boolean;
   showBacklinksSection: boolean;
-  backlinksEnabled: boolean;
 
   showCalendarWidget: boolean;
-  showTimelineWidget: boolean;
 
   autoLockTimeout: AutoLockTimeout;
 
@@ -139,9 +138,6 @@ export interface SettingsState {
   /** A group or setting to open, scroll to and mark once its tab renders. */
   settingsAnchor: string | null;
 
-  setNotesDirectory: (path: string) => void;
-  setAutoSaveDelay: (delay: number) => void;
-  setShowAutoSaveStatus: (show: boolean) => void;
   setFontSize: (size: FontSize) => void;
   setFontFamily: (family: FontFamily) => void;
   setSidebarWidth: (width: number) => void;
@@ -161,9 +157,8 @@ export interface SettingsState {
   setSortOption: (option: SortOption) => void;
   setShowFoldersSection: (show: boolean) => void;
   setShowBacklinksSection: (show: boolean) => void;
-  setBacklinksEnabled: (enabled: boolean) => void;
+  setQuietHomeScreen: (quiet: boolean) => void;
   setShowCalendarWidget: (show: boolean) => void;
-  setShowTimelineWidget: (show: boolean) => void;
   setAutoLockTimeout: (timeout: AutoLockTimeout) => void;
   setHasSeenAppOnboarding: (seen: boolean) => void;
   setLastSeenOnboardingVersion: (version: number) => void;
@@ -175,9 +170,6 @@ export interface SettingsState {
 }
 
 const defaultSettings = {
-  notesDirectory: '~/Documents/Moldavite/',
-  autoSaveDelay: 300,
-  showAutoSaveStatus: true,
   fontSize: 'medium' as FontSize,
   fontFamily: 'system-sans' as FontFamily,
   sidebarWidth: 280,
@@ -199,17 +191,12 @@ const defaultSettings = {
   showTabBar: true,
   showEditorFooter: true,
   showBacklinksPanel: true,
-  showWelcomeDots: true,
-  showWelcomeStats: true,
-  showWelcomeDate: true,
-  showAsteroidCursor: true,
+  quietHomeScreen: false,
   showSeasonalTouches: true,
   sortOption: 'name-asc' as SortOption,
   showFoldersSection: true,
   showBacklinksSection: true,
-  backlinksEnabled: true,
   showCalendarWidget: true,
-  showTimelineWidget: true,
   autoLockTimeout: 15 as AutoLockTimeout, // 15 minutes default
   hasSeenAppOnboarding: false,
   lastSeenOnboardingVersion: 0,
@@ -218,6 +205,14 @@ const defaultSettings = {
   settingsSection: null as SettingsTab | null,
   settingsAnchor: null as string | null,
 };
+
+const HOME_DECORATIONS = [
+  'showWelcomeDots',
+  'showWelcomeStats',
+  'showWelcomeDate',
+  'showAsteroidCursor',
+];
+const REMOVED_KEYS = ['backlinksEnabled', 'autoSaveDelay', 'showAutoSaveStatus', 'notesDirectory'];
 
 const isChromeMode = (value: unknown): value is ChromeMode =>
   value === 'overlay' || value === 'pinned' || value === 'off';
@@ -245,6 +240,11 @@ const isIconRailSide = (value: unknown): value is IconRailSide =>
  *
  * A mode already in the payload is a real 2.0 choice and is always preserved.
  *
+ * Version 2 removed settings. A switch someone had turned off folds into what
+ * replaced it, so nothing they see changes: Backlinks off turns off both places
+ * backlinks show, and any home screen decoration off turns on the quiet home
+ * screen. The old keys are deleted, which keeps this idempotent too.
+ *
  * Exported for tests because silently changing the app's whole frame on upgrade
  * is exactly the regression worth pinning down.
  */
@@ -264,7 +264,15 @@ export function migrateSettingsState(
 
   delete state.showSidebar;
   delete state.showRightPanel;
+  delete state.showTimelineWidget;
   if (predatesChromeModes) delete state.editorWidth;
+
+  if (state.backlinksEnabled === false) {
+    state.showBacklinksPanel = false;
+    state.showBacklinksSection = false;
+  }
+  if (HOME_DECORATIONS.some((key) => state[key] === false)) state.quietHomeScreen = true;
+  for (const key of [...HOME_DECORATIONS, ...REMOVED_KEYS]) delete state[key];
   return state;
 }
 
@@ -273,9 +281,6 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       ...defaultSettings,
 
-      setNotesDirectory: (path) => set({ notesDirectory: path }),
-      setAutoSaveDelay: (delay) => set({ autoSaveDelay: delay }),
-      setShowAutoSaveStatus: (show) => set({ showAutoSaveStatus: show }),
       setFontSize: (size) => set({ fontSize: size }),
       setFontFamily: (family) => set({ fontFamily: family }),
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
@@ -309,9 +314,8 @@ export const useSettingsStore = create<SettingsState>()(
       setSortOption: (option) => set({ sortOption: option }),
       setShowFoldersSection: (show) => set({ showFoldersSection: show }),
       setShowBacklinksSection: (show) => set({ showBacklinksSection: show }),
-      setBacklinksEnabled: (enabled) => set({ backlinksEnabled: enabled }),
+      setQuietHomeScreen: (quiet) => set({ quietHomeScreen: quiet }),
       setShowCalendarWidget: (show) => set({ showCalendarWidget: show }),
-      setShowTimelineWidget: (show) => set({ showTimelineWidget: show }),
       setAutoLockTimeout: (timeout) => set({ autoLockTimeout: timeout }),
       setHasSeenAppOnboarding: (seen) => set({ hasSeenAppOnboarding: seen }),
       setLastSeenOnboardingVersion: (version) => set({ lastSeenOnboardingVersion: version }),
@@ -332,7 +336,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'moldavite-settings',
-      version: 1,
+      version: 2,
       migrate: migrateSettingsState,
       // Legacy payloads without a version can skip Zustand's migrate hook.
       // Normalize in merge as well, while preserving current actions/defaults.
@@ -342,9 +346,6 @@ export const useSettingsStore = create<SettingsState>()(
       }),
       partialize: (state) => ({
         // Only persist actual settings, not UI state
-        notesDirectory: state.notesDirectory,
-        autoSaveDelay: state.autoSaveDelay,
-        showAutoSaveStatus: state.showAutoSaveStatus,
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
         sidebarWidth: state.sidebarWidth,
@@ -366,17 +367,12 @@ export const useSettingsStore = create<SettingsState>()(
         showTabBar: state.showTabBar,
         showEditorFooter: state.showEditorFooter,
         showBacklinksPanel: state.showBacklinksPanel,
-        showWelcomeDots: state.showWelcomeDots,
-        showWelcomeStats: state.showWelcomeStats,
-        showWelcomeDate: state.showWelcomeDate,
-        showAsteroidCursor: state.showAsteroidCursor,
+        quietHomeScreen: state.quietHomeScreen,
         showSeasonalTouches: state.showSeasonalTouches,
         sortOption: state.sortOption,
         showFoldersSection: state.showFoldersSection,
         showBacklinksSection: state.showBacklinksSection,
-        backlinksEnabled: state.backlinksEnabled,
         showCalendarWidget: state.showCalendarWidget,
-        showTimelineWidget: state.showTimelineWidget,
         autoLockTimeout: state.autoLockTimeout,
         hasSeenAppOnboarding: state.hasSeenAppOnboarding,
         lastSeenOnboardingVersion: state.lastSeenOnboardingVersion,

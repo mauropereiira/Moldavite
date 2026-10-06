@@ -9,6 +9,14 @@ import { NoteTables } from './extensions/NoteTables';
 import { ResizableImage } from './extensions/ResizableImage';
 import { WikiLink, type WikiLinkOptions } from './extensions/WikiLink';
 import { TagMark, type TagMarkOptions } from './extensions/TagMark';
+import { FootnoteRef, ListItemSpacing, RawMarkdown } from './extensions/MarkdownSource';
+
+// The spelling of a bare or `<...>` URL when its text alone cannot give it back.
+const NoteLink = Link.extend({
+  addAttributes() {
+    return { ...this.parent?.(), 'data-source': { default: null } };
+  },
+});
 
 const NoteHighlight = Highlight.extend({
   addKeyboardShortcuts() {
@@ -32,7 +40,7 @@ export function createNoteExtensions(
       inline: false,
       allowBase64: true,
     }),
-    Link.configure({
+    NoteLink.configure({
       // Tauri WebViews hand link clicks to the system browser in Editor.
       openOnClick: false,
       autolink: true,
@@ -54,6 +62,9 @@ export function createNoteExtensions(
     }),
     ...NoteTables,
     WikiLink.configure(options.wikiLink),
+    RawMarkdown,
+    FootnoteRef,
+    ListItemSpacing,
     ...(tagsEnabled ? [TagMark.configure(options.tagMark)] : []),
   ];
 }

@@ -1,7 +1,6 @@
 /**
- * GeneralSection: the Forge, the default .md app, and folded below them
- * auto-save, auto-lock and the Delete all notes danger zone. Backups live in
- * SettingsData.
+ * GeneralSection: the Forge, the default .md app and auto-lock. Backups and the
+ * Delete all notes danger zone live in SettingsData.
  */
 
 import { useState, useEffect } from 'react';
@@ -11,7 +10,6 @@ import { DotLoader } from '@/components/ui/DotLoader';
 import { useSettingsStore, useNoteStore } from '@/stores';
 import type { AutoLockTimeout } from '@/stores';
 import {
-  clearAllNotes,
   getNotesDirectory,
   getForgesRoot,
   setForgesRoot,
@@ -21,11 +19,9 @@ import {
 } from '@/lib';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
 import { isMobilePlatform } from '@/lib/platform';
-import { Group, Row, SegmentedControl, ToggleRow, label } from '../common';
-import { DialogSurface } from '@/components/ui/DialogSurface';
+import { Group, Row, SegmentedControl, label } from '../common';
 import SyncedForgeControl from '../SyncedForgeControl';
 import DefaultMarkdownAppControl from '../DefaultMarkdownAppControl';
-import { CloseButton } from '@/components/ui/CloseButton';
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<{ value: AutoLockTimeout; label: string }> = [
   { value: 5, label: '5 min' },
@@ -40,13 +36,6 @@ export function GeneralSection() {
   // A phone cannot pick a folder (the dialog plugin has no directory picker
   // on iOS) or open Finder, so those controls stay desktop-only.
   const mobile = isMobilePlatform();
-  // Actions are stable references, so selecting them individually (rather
-  // than the whole store) means this section never re-renders on typing.
-  const setNotes = useNoteStore((state) => state.setNotes);
-  const setCurrentNote = useNoteStore((state) => state.setCurrentNote);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
-  const [isClearing, setIsClearing] = useState(false);
   const [notesDirectory, setNotesDirectoryState] = useState('');
   const [forgesRoot, setForgesRootState] = useState('');
   const [isChangingDir, setIsChangingDir] = useState(false);
@@ -128,24 +117,6 @@ export function GeneralSection() {
     }
   };
 
-  const handleClearAllNotes = async () => {
-    if (confirmText !== 'DELETE') return;
-
-    try {
-      setIsClearing(true);
-      await clearAllNotes();
-      setNotes([]);
-      setCurrentNote(null);
-      setShowClearConfirm(false);
-      setConfirmText('');
-      settings.setIsSettingsOpen(false);
-    } catch (error) {
-      console.error('[Settings] Failed to clear notes:', error);
-    } finally {
-      setIsClearing(false);
-    }
-  };
-
   return (
     <div className="settings-tab">
       {statusMessage && (
@@ -205,26 +176,7 @@ export function GeneralSection() {
         <DefaultMarkdownAppControl />
       </Group>
 
-      <Group id="saving">
-        <Row id="autosave-delay">
-          <input
-            type="range"
-            min="100"
-            max="2000"
-            step="100"
-            value={settings.autoSaveDelay}
-            aria-label={label('autosave-delay')}
-            aria-valuetext={`${settings.autoSaveDelay} milliseconds`}
-            onChange={(e) => settings.setAutoSaveDelay(Number(e.target.value))}
-            className="settings-range"
-          />
-          <span className="settings-value">{settings.autoSaveDelay} ms</span>
-        </Row>
-        <ToggleRow
-          id="save-status"
-          value={settings.showAutoSaveStatus}
-          onChange={settings.setShowAutoSaveStatus}
-        />
+      <Group id="lock">
         <Row id="auto-lock" stack>
           <SegmentedControl
             ariaLabel={label('auto-lock')}
@@ -234,104 +186,6 @@ export function GeneralSection() {
           />
         </Row>
       </Group>
-
-      <Group id="danger">
-        <Row id="delete-all">
-          <button
-            onClick={() => setShowClearConfirm(true)}
-            className="settings-btn settings-btn-danger"
-          >
-            Delete all notes...
-          </button>
-        </Row>
-      </Group>
-
-      {/* Clear Confirmation Modal */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[60] modal-backdrop-enter">
-          <DialogSurface
-            onEscape={
-              isClearing
-                ? undefined
-                : () => {
-                    setShowClearConfirm(false);
-                    setConfirmText('');
-                  }
-            }
-            aria-labelledby="clear-all-notes-title"
-            className="p-6 max-w-sm mx-4 modal-elevated modal-content-enter"
-            style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-md)' }}
-          >
-            <div className="dialog-head">
-              <h3
-                id="clear-all-notes-title"
-                className="text-lg font-semibold mb-2"
-                style={{ color: 'var(--error)' }}
-              >
-                Delete All Notes
-              </h3>
-              <CloseButton
-                onClick={() => {
-                  setShowClearConfirm(false);
-                  setConfirmText('');
-                }}
-                label="Close"
-                disabled={isClearing}
-              />
-            </div>
-            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-              This will permanently delete ALL notes. This cannot be undone.
-            </p>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>
-              Type{' '}
-              <span className="font-mono font-bold" style={{ color: 'var(--error)' }}>
-                DELETE
-              </span>{' '}
-              to confirm:
-            </p>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Type DELETE"
-              className="w-full px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-primary)',
-              }}
-              autoFocus
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowClearConfirm(false);
-                  setConfirmText('');
-                }}
-                className="px-3 py-1.5 text-sm font-medium transition-colors focus-ring"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleClearAllNotes}
-                disabled={confirmText !== 'DELETE' || isClearing}
-                className={`px-3 py-1.5 text-sm font-medium focus-ring ${
-                  confirmText !== 'DELETE' || isClearing ? 'btn-disabled' : 'btn-elevated'
-                }`}
-                style={{ backgroundColor: 'transparent', borderRadius: 'var(--radius-sm)' }}
-              >
-                {isClearing ? 'Deleting...' : 'Delete All'}
-              </button>
-            </div>
-          </DialogSurface>
-        </div>
-      )}
     </div>
   );
 }

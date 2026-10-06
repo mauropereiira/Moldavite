@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { migrateSettingsState, useSettingsStore } from './settingsStore';
+import { migrateSettingsState, resolveSettingsTarget, useSettingsStore } from './settingsStore';
 
 describe('migrateSettingsState', () => {
   beforeEach(() => {
@@ -78,13 +78,13 @@ describe('migrateSettingsState', () => {
     ).toEqual({ indexMode: 'off', agendaMode: 'pinned' });
   });
 
-  it('persists the asteroid cursor preference through the settings allow-list', () => {
-    useSettingsStore.setState({ showAsteroidCursor: false });
+  it('persists the quiet home screen through the settings allow-list', () => {
+    useSettingsStore.getState().setQuietHomeScreen(true);
 
     const persisted = JSON.parse(localStorage.getItem('moldavite-settings') ?? '{}') as {
       state?: Record<string, unknown>;
     };
-    expect(persisted.state).toHaveProperty('showAsteroidCursor', false);
+    expect(persisted.state).toHaveProperty('quietHomeScreen', true);
   });
 
   it('persists the rail side through the settings allow-list', () => {
@@ -113,5 +113,151 @@ describe('migrateSettingsState', () => {
     );
     await useSettingsStore.persist.rehydrate();
     expect(useSettingsStore.getState().iconRailSide).toBe('left');
+  });
+
+  it('drops the removed Timeline widget switch from a saved payload, whatever it held', async () => {
+    expect(migrateSettingsState({ showTimelineWidget: false, fontSize: 'large' }, 1)).toEqual({
+      indexMode: 'overlay',
+      agendaMode: 'overlay',
+      fontSize: 'large',
+    });
+
+    localStorage.setItem(
+      'moldavite-settings',
+      JSON.stringify({
+        state: { showTimelineWidget: false, showCalendarWidget: false },
+        version: 1,
+      })
+    );
+    await useSettingsStore.persist.rehydrate();
+    expect(useSettingsStore.getState()).not.toHaveProperty('showTimelineWidget');
+    expect(useSettingsStore.getState().showCalendarWidget).toBe(false);
+
+    useSettingsStore.getState().setFontSize('small');
+    const saved = JSON.parse(localStorage.getItem('moldavite-settings') ?? '{}');
+    expect(saved.state).not.toHaveProperty('showTimelineWidget');
+  });
+});
+
+/** What a 2.10 install left in localStorage, before version 2 removed settings. */
+function storedV1(state: Record<string, unknown>) {
+  localStorage.setItem(
+    'moldavite-settings',
+    JSON.stringify({
+      state: {
+        notesDirectory: '~/Documents/Moldavite/',
+        autoSaveDelay: 300,
+        showAutoSaveStatus: true,
+        backlinksEnabled: true,
+        showBacklinksPanel: true,
+        showBacklinksSection: true,
+        showWelcomeDots: true,
+        showWelcomeStats: true,
+        showWelcomeDate: true,
+        showAsteroidCursor: true,
+        showSeasonalTouches: true,
+        indexMode: 'overlay',
+        agendaMode: 'overlay',
+        ...state,
+      },
+      version: 1,
+    })
+  );
+}
+
+const persistedState = () =>
+  (JSON.parse(localStorage.getItem('moldavite-settings') ?? '{}') as { state: object }).state;
+
+describe('version 2 removals', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSettingsStore.getState().resetToDefaults();
+  });
+
+  it('turns both backlinks places off for someone who had Backlinks off', async () => {
+    storedV1({ backlinksEnabled: false });
+    await useSettingsStore.persist.rehydrate();
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      showBacklinksPanel: false,
+      showBacklinksSection: false,
+    });
+    expect(persistedState()).not.toHaveProperty('backlinksEnabled');
+  });
+
+  it('leaves the backlinks places as they were when Backlinks was on', async () => {
+    storedV1({ showBacklinksPanel: false });
+    await useSettingsStore.persist.rehydrate();
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      showBacklinksPanel: false,
+      showBacklinksSection: true,
+    });
+  });
+
+  it.each(['showWelcomeDots', 'showWelcomeStats', 'showWelcomeDate', 'showAsteroidCursor'])(
+    'gives a quiet home screen to someone who turned %s off',
+    async (key) => {
+      storedV1({ [key]: false });
+      await useSettingsStore.persist.rehydrate();
+
+      expect(useSettingsStore.getState().quietHomeScreen).toBe(true);
+      expect(useSettingsStore.getState().showSeasonalTouches).toBe(true);
+      expect(persistedState()).not.toHaveProperty(key);
+    }
+  );
+
+  it('keeps the full home screen when every decoration was on', async () => {
+    storedV1({ showSeasonalTouches: false });
+    await useSettingsStore.persist.rehydrate();
+
+    expect(useSettingsStore.getState().quietHomeScreen).toBe(false);
+    expect(useSettingsStore.getState().showSeasonalTouches).toBe(false);
+  });
+
+  it('drops the auto-save and Forge folder keys, keeping everything else', async () => {
+    storedV1({ autoSaveDelay: 1500, showAutoSaveStatus: false, fontSize: 'large' });
+    await useSettingsStore.persist.rehydrate();
+
+    const state = persistedState();
+    for (const key of ['autoSaveDelay', 'showAutoSaveStatus', 'notesDirectory']) {
+      expect(state).not.toHaveProperty(key);
+      expect(useSettingsStore.getState()).not.toHaveProperty(key);
+    }
+    expect(useSettingsStore.getState().fontSize).toBe('large');
+  });
+
+  // An exported settings file is written back to localStorage as-is and the app
+  // reloads, so an old file takes this same path, with or without a version.
+  it('imports an old settings file without a version the same way', async () => {
+    localStorage.setItem(
+      'moldavite-settings',
+      JSON.stringify({ state: { notesDirectory: '/old', backlinksEnabled: false } })
+    );
+    await useSettingsStore.persist.rehydrate();
+
+    expect(useSettingsStore.getState()).not.toHaveProperty('notesDirectory');
+    expect(useSettingsStore.getState().showBacklinksPanel).toBe(false);
+  });
+
+  it('is a no-op on a payload it already migrated', () => {
+    const once = migrateSettingsState({ backlinksEnabled: false, showWelcomeDate: false }, 1);
+    expect(migrateSettingsState(once, 2)).toEqual(once);
+    expect(once).toMatchObject({
+      quietHomeScreen: true,
+      showBacklinksPanel: false,
+      showBacklinksSection: false,
+    });
+  });
+});
+
+describe('resolveSettingsTarget', () => {
+  it('sends the Danger zone and Import to Data from their old places', () => {
+    expect(resolveSettingsTarget('general#danger')).toEqual({ tab: 'data', anchor: 'danger' });
+    expect(resolveSettingsTarget('general#delete-all')).toEqual({
+      tab: 'data',
+      anchor: 'delete-all',
+    });
+    expect(resolveSettingsTarget('import')).toEqual({ tab: 'data', anchor: 'import' });
   });
 });

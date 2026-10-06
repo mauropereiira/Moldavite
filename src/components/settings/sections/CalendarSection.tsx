@@ -72,21 +72,16 @@ export function CalendarSection() {
 
   return (
     <div className="settings-tab">
-      <Group id="agenda">
-        {/* A phone always shows the month calendar: it is how daily and weekly notes are reached. */}
-        {!mobile && (
+      {/* A phone always shows the month calendar: it is how daily and weekly notes are reached. */}
+      {!mobile && (
+        <Group id="agenda">
           <ToggleRow
             id="month-calendar"
             value={settings.showCalendarWidget}
             onChange={settings.setShowCalendarWidget}
           />
-        )}
-        <ToggleRow
-          id="timeline"
-          value={settings.showTimelineWidget}
-          onChange={settings.setShowTimelineWidget}
-        />
-      </Group>
+        </Group>
+      )}
 
       {hasNoConnectableCalendarSource(sources) ? (
         <CalendarSyncComingSoon />

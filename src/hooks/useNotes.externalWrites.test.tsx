@@ -12,7 +12,6 @@ import { useNoteColorsStore } from '@/stores/noteColorsStore';
 import { useNoteSelectionStore } from '@/stores/noteSelectionStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useSidebarOrderStore } from '@/stores/sidebarOrderStore';
 import { useTemplateStore } from '@/stores/templateStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -26,7 +25,7 @@ vi.mock('@/lib/ipc', () => ({
 }));
 
 import { initializeNotes, useNotes } from './useNotes';
-import { discardPendingAutosaveForNote, useAutoSave } from './useAutoSave';
+import { autoSaveTiming, discardPendingAutosaveForNote, useAutoSave } from './useAutoSave';
 import { useTrash } from './useTrash';
 
 beforeEach(() => {
@@ -43,7 +42,7 @@ beforeEach(() => {
     return undefined;
   });
   useTemplateStore.setState({ defaultDailyTemplate: null });
-  useSettingsStore.setState({ autoSaveDelay: 60_000 });
+  autoSaveTiming.delayMs = 60_000;
   useForgeStore.setState({ active: 'Old Forge' });
   useNoteStore.setState({
     notes: [],

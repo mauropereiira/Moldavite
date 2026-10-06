@@ -652,19 +652,6 @@ export function PluginsSection() {
               Install Publish to WordPress
             </button>
           )}
-          {!isInstalled('moldavite-example') && (
-            <button
-              type="button"
-              onClick={() =>
-                void installBundled('install_example_plugin', 'moldavite-example', 'Example Plugin')
-              }
-              disabled={busy}
-              className="settings-btn"
-            >
-              <Download aria-hidden="true" className="w-4 h-4" />
-              Install example plugin
-            </button>
-          )}
           <button
             type="button"
             onClick={() => openExternal(PLUGINS_DOC_URL)}

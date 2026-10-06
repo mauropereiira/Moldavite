@@ -1,4 +1,4 @@
-/** WritingSection: typing aids, tags and backlinks, and the templates folded below. */
+/** WritingSection: typing aids, tags, and the templates folded below. */
 
 import { useSettingsStore } from '@/stores';
 import { isMobilePlatform } from '@/lib/platform';
@@ -36,11 +36,6 @@ export function WritingSection() {
 
       <Group id="linking">
         <ToggleRow id="tags" value={settings.tagsEnabled} onChange={settings.setTagsEnabled} />
-        <ToggleRow
-          id="backlinks"
-          value={settings.backlinksEnabled}
-          onChange={settings.setBacklinksEnabled}
-        />
       </Group>
 
       <Group id="templates">

@@ -13,9 +13,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useNoteStore } from '@/stores/noteStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useTaskStatusStore } from '@/stores/taskStatusStore';
-import { useToastStore } from '@/stores/toastStore';
+import { useSaveFailureStore } from '@/stores/saveFailureStore';
 import {
   writeNote,
   deleteNote,
@@ -44,14 +43,16 @@ export function discardPendingAutosaveForNote(noteId: string, content: string): 
   pendingAutosaveDiscard?.(noteId, content);
 }
 
+/** How long after the last edit a note is written. Mutable only so tests can stretch it. */
+export const autoSaveTiming = { delayMs: 300 };
+
 /**
- * Automatically saves note changes after a configurable delay.
+ * Automatically saves note changes after a short delay.
  * Handles daily note creation/deletion based on content and converts HTML to Markdown.
  * Debounces saves to prevent excessive disk writes while typing.
  */
 export function useAutoSave() {
   const { currentNote, setIsSaving, setNotes } = useNoteStore();
-  const { autoSaveDelay } = useSettingsStore();
   const getState = useNoteStore.getState;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastContentRef = useRef<string>('');
@@ -215,7 +216,7 @@ export function useAutoSave() {
         }
         console.error('[useAutoSave] Auto-save failed:', error);
         const msg = error instanceof Error ? error.message : String(error);
-        useToastStore.getState().addToast('error', `Auto-save failed: ${msg}`);
+        useSaveFailureStore.getState().markSaveFailed(note.id, msg);
         throw error;
       } finally {
         setIsSaving(false);
@@ -260,9 +261,9 @@ export function useAutoSave() {
       timeoutRef.current = setTimeout(() => {
         timeoutRef.current = null;
         void persistNote(note).catch(() => {});
-      }, autoSaveDelay);
+      }, autoSaveTiming.delayMs);
     },
-    [autoSaveDelay, persistNote]
+    [persistNote]
   );
 
   const beginPathChange = useCallback((noteId: string) => {

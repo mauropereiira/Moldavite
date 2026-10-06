@@ -124,7 +124,68 @@ describe('settingsMap', () => {
     expect(searchSettings('obsidian', true)).toEqual([]);
     expect(searchSettings('mcp', true)).toEqual([]);
     expect(searchSettings('focus mode', true)).toEqual([]);
-    expect(searchSettings('timeline', true)[0].item.id).toBe('timeline');
+    for (const desktopOnly of ['forges folder', 'default app', 'plugins', 'clipper', 'shortcuts']) {
+      expect(searchSettings(desktopOnly, true)).toEqual([]);
+    }
+    expect(searchSettings('delete all', true)[0].tab.id).toBe('data');
+    expect(searchSettings('month calendar', true)).toEqual([]);
+    expect(searchSettings('apple calendar', true)[0].item.id).toBe('apple-calendar');
+  });
+
+  it('no longer lists the removed Timeline switch', () => {
+    expect(settingsEntry('timeline')).toBeUndefined();
+    for (const mobile of [false, true]) expect(searchSettings('timeline', mobile)).toEqual([]);
+  });
+
+  // Each was checked against the code that runs on iOS: no folder picker, Finder or
+  // default-app handler; the rail, columns, writing width, focus mode and month
+  // calendar are fixed on a phone, which has its own formatting row; the MCP server,
+  // semantic search, plugins, the browser clipper, the Obsidian importer's folder
+  // picker and the updater are desktop-only; a phone has no keyboard for the sheet.
+  it('hides only what does not run on iOS', () => {
+    const hidden = SETTINGS_TABS.flatMap((tab) =>
+      tab.only === 'desktop'
+        ? [tab.id]
+        : tab.groups.flatMap((group) =>
+            group.only === 'desktop'
+              ? [group.id]
+              : group.rows.filter((row) => row.only === 'desktop').map((row) => row.id)
+          )
+    );
+    expect(hidden).toEqual([
+      'forges-folder',
+      'default-app',
+      'icon-rail',
+      'index-mode',
+      'agenda-mode',
+      'focus-mode',
+      'writing-width',
+      'writing-toolbar',
+      'agenda',
+      'agents',
+      'plugins',
+      'import',
+      'updates',
+      'shortcuts',
+    ]);
+  });
+
+  it('finds moved settings in their new place and removed ones nowhere', () => {
+    expect(searchSettings('delete all', false)[0]).toMatchObject({
+      tab: { id: 'data' },
+      group: { id: 'danger' },
+    });
+    expect(searchSettings('obsidian', false)[0].tab.id).toBe('data');
+    expect(searchSettings('constellations', false)[0].item.id).toBe('quiet-home');
+    expect(searchSettings('asteroid', false)[0].item.id).toBe('quiet-home');
+    expect(searchSettings('shortcuts', false)[0].item.id).toBe('shortcuts');
+    for (const removed of ['auto-save delay', 'save status', 'index width', 'agenda width']) {
+      expect(searchSettings(removed, false)).toEqual([]);
+    }
+    expect(searchSettings('backlinks', false).map((hit) => hit.item.id)).toEqual([
+      'backlinks-panel',
+      'backlinks-section',
+    ]);
   });
 });
 
@@ -171,22 +232,16 @@ describe.each([false, true])(
 type Interaction =
   | { switch: string }
   | { radio: string; group: string }
-  | { slider: string; value: number }
   | { select: string; value: string }
   | { button: string };
 
 const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<SettingsState>?]> = {
-  autoSaveDelay: ['general', { slider: 'Auto-save delay', value: 500 }, 500],
-  showAutoSaveStatus: ['general', { switch: 'Show save status' }, false],
   autoLockTimeout: ['general', { group: 'Auto-lock', radio: '1 hour' }, 60],
   fontSize: ['appearance', { group: 'Font Size', radio: 'XL' }, 'extra-large'],
   fontFamily: ['appearance', { select: 'Font', value: 'inter' }, 'inter'],
   lineHeight: ['appearance', { group: 'Line height', radio: 'Compact' }, 'compact'],
   compactMode: ['appearance', { switch: 'Compact mode' }, true],
-  showWelcomeDots: ['appearance', { switch: 'Constellations' }, false],
-  showWelcomeStats: ['appearance', { switch: 'Live counts' }, false],
-  showWelcomeDate: ['appearance', { switch: 'Date' }, false],
-  showAsteroidCursor: ['appearance', { switch: 'Asteroid cursor' }, false],
+  quietHomeScreen: ['appearance', { switch: 'Quiet home screen' }, true],
   showSeasonalTouches: ['appearance', { switch: 'Seasonal touches' }, false],
   showIconRail: ['layout', { switch: 'Icon rail' }, false],
   iconRailSide: ['layout', { group: 'Rail side', radio: 'Right' }, 'right'],
@@ -201,16 +256,12 @@ const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<Setti
   showFoldersSection: ['layout', { switch: 'Folders section' }, false],
   showBacklinksSection: ['layout', { switch: 'Backlinks section' }, false],
   sortOption: ['layout', { group: 'Sort notes by', radio: 'Manual' }, 'manual'],
-  sidebarWidth: ['layout', { slider: 'Index width', value: 300 }, 300, PINNED],
-  rightPanelWidth: ['layout', { slider: 'Agenda width', value: 400 }, 400, PINNED],
   showWritingToolbar: ['writing', { switch: 'Writing toolbar' }, false],
   spellCheck: ['writing', { switch: 'Spell check' }, false],
   autoCapitalize: ['writing', { switch: 'Auto-capitalize' }, false],
   showWordCount: ['writing', { switch: 'Word count' }, true],
   tagsEnabled: ['writing', { switch: 'Tags' }, false],
-  backlinksEnabled: ['writing', { switch: 'Backlinks' }, false],
   showCalendarWidget: ['calendar', { switch: 'Month calendar' }, false],
-  showTimelineWidget: ['calendar', { switch: 'Timeline' }, false],
   hasSeenAppOnboarding: [
     'about',
     { button: 'Show onboarding again' },
@@ -221,7 +272,8 @@ const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<Setti
 
 /** Stored, but not a choice anyone makes in Settings. */
 const NOT_SETTINGS: Record<string, string> = {
-  notesDirectory: 'nothing reads it; the Forges folder lives in the backend config',
+  sidebarWidth: "set by dragging the pinned Index's edge",
+  rightPanelWidth: "set by dragging the pinned Agenda's edge",
   lastSeenOnboardingVersion: 'onboarding bookkeeping',
   isSettingsOpen: 'Settings UI state',
   activeSettingsTab: 'Settings UI state',
@@ -258,11 +310,6 @@ describe('every stored setting has a control that writes it', () => {
     if ('radio' in how) {
       const group = screen.getByRole('radiogroup', { name: how.group });
       fireEvent.click(within(group).getByRole('radio', { name: how.radio }));
-    }
-    if ('slider' in how) {
-      fireEvent.change(screen.getByRole('slider', { name: how.slider }), {
-        target: { value: String(how.value) },
-      });
     }
     if ('select' in how) {
       fireEvent.change(screen.getByRole('combobox', { name: how.select }), {
@@ -302,6 +349,24 @@ describe('jumping to a folded setting', () => {
     expect(document.activeElement).toBe(control);
     expect(useSettingsStore.getState().settingsAnchor).toBeNull();
   });
+
+  it.each([false, true])(
+    'opens the Danger zone in Data for its old place in General (phone: %s)',
+    async (mobile) => {
+      platform.mobile = mobile;
+      useSettingsStore.setState({ isSettingsOpen: true });
+      if (mobile) useSettingsStore.getState().setSettingsSection('general#danger');
+      else useSettingsStore.getState().setActiveSettingsTab('general#danger');
+      render(<SettingsModal />);
+      await act(async () => {});
+
+      expect(screen.getByRole('heading', { name: 'Data' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Danger zone' })).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
+    }
+  );
 
   it('opens Templates in Writing for the old Templates tab id', async () => {
     useSettingsStore.setState({ isSettingsOpen: true });
