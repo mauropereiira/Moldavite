@@ -26,7 +26,7 @@ export function RightPanel() {
       {!showCalendarWidget && !calendarEnabled && (
         <div className="flex-1 flex items-center justify-center p-4">
           <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-            Turn on the month calendar or calendar sync in Settings
+            Turn on Month calendar or Show events in Settings → Calendar
           </p>
         </div>
       )}

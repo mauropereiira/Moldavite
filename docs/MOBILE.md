@@ -80,7 +80,7 @@ JavaScript shell opener takes a desktop code path and fails on iOS. Both public
 links live in Settings → About.
 
 Mobile Agenda always shows the month calendar for daily/weekly note navigation,
-then the selected day's events on the hourly timeline while calendar sync is on;
+then the selected day's events on the hourly timeline unless Show events is off;
 the phone has no Agenda switches in Settings. A saved desktop preference cannot
 hide the mobile note calendar. Event links open through `open_external_link`, since the
 JavaScript shell opener is not permitted there.

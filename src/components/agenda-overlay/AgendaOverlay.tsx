@@ -144,7 +144,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
               } as CSSProperties
             }
           >
-            Turn on the month calendar or calendar sync in Settings → Calendar.
+            Turn on Month calendar or Show events in Settings → Calendar.
           </p>
         )}
       </div>

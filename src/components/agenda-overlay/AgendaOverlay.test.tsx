@@ -173,7 +173,7 @@ describe('AgendaOverlay', () => {
     expect(useCalendarStore.getState().checkPermission).toHaveBeenCalled();
   });
 
-  it('leaves the event timeline out while calendar sync is off', async () => {
+  it('leaves the event timeline out while Show events is off', async () => {
     resetStores();
     useCalendarStore.setState({ calendarEnabled: false });
     render(<AgendaOverlay isOpen onClose={vi.fn()} />);
