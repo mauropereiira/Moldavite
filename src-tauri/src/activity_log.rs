@@ -270,14 +270,28 @@ impl ForgeLog {
                 let _ = fs::set_permissions(dir, fs::Permissions::from_mode(0o700));
             }
         }
-        let conn = Connection::open(&self.file).map_err(|e| e.to_string())?;
-        conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
-        let _: String = conn
-            .query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch("PRAGMA synchronous=NORMAL; PRAGMA secure_delete=ON;")
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())?;
+        match self.open_file() {
+            // A damaged log would stay unreadable forever. It holds no note
+            // content and cannot be repaired, so start a new one.
+            Err(error) if is_damaged(&error) => {
+                log::warn!("[activity] starting a new log over a damaged one: {error}");
+                for suffix in ["", "-wal", "-shm"] {
+                    let mut name = self.file.clone().into_os_string();
+                    name.push(suffix);
+                    let _ = fs::remove_file(PathBuf::from(name));
+                }
+                self.open_file().map_err(|e| e.to_string())
+            }
+            result => result.map_err(|e| e.to_string()),
+        }
+    }
+
+    fn open_file(&self) -> rusqlite::Result<Connection> {
+        let conn = Connection::open(&self.file)?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
+        let _: String = conn.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
+        conn.execute_batch("PRAGMA synchronous=NORMAL; PRAGMA secure_delete=ON;")?;
+        conn.execute_batch(SCHEMA_SQL)?;
         Ok(conn)
     }
 
@@ -300,6 +314,13 @@ impl ForgeLog {
             .ok_or_else(|| "activity log connection missing".to_string())?;
         f(conn).map_err(|e| e.to_string())
     }
+}
+
+fn is_damaged(error: &rusqlite::Error) -> bool {
+    matches!(
+        error.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt)
+    )
 }
 
 fn meta_get(conn: &Connection, key: &str) -> Option<String> {
@@ -388,13 +409,15 @@ fn insert(conn: &Connection, event: &Event, first_ms: i64) -> rusqlite::Result<(
 }
 
 /// Point the rows of the note at `from` to its new place. Rows from before
-/// the last time something at `from` was trashed or deleted belong to a
-/// different note and keep their path.
+/// the last time something at `from` was deleted, or trashed and not restored,
+/// belong to a different note and keep their path.
 fn follow_note(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE events SET note_path = ?2 WHERE note_path = ?1 AND id > \
-         (SELECT COALESCE(MAX(id), 0) FROM events WHERE note_path = ?1 \
-          AND action IN ('trashed', 'deleted'))",
+         (SELECT COALESCE(MAX(id), 0) FROM events AS gone WHERE note_path = ?1 \
+          AND (action = 'deleted' OR (action = 'trashed' AND NOT EXISTS \
+           (SELECT 1 FROM events WHERE note_path = ?1 AND action = 'restored' \
+            AND id > gone.id))))",
         params![from, to],
     )?;
     Ok(())
@@ -565,6 +588,12 @@ fn has_rows(conn: &Connection, note_path: &str) -> rusqlite::Result<bool> {
     )
 }
 
+/// Whether the note's latest row says it is still there.
+fn is_live(conn: &Connection, note_path: &str) -> rusqlite::Result<bool> {
+    Ok(latest_for(conn, note_path)?
+        .is_some_and(|latest| !matches!(latest.action, Some(Action::Deleted | Action::Trashed))))
+}
+
 /// The watcher's batch. Debouncing collapses create, modify and remove into
 /// "something happened here", so presence on disk decides. A batch that is
 /// exactly one note gone and one unfamiliar note appeared is another program
@@ -585,12 +614,20 @@ fn apply_outside(
         // A permission, attribute or download event leaves the modified time
         // alone, and is not an edit.
         let (birth, modified) = file_times(forge_root, rel).unwrap_or((None, 0));
-        let born = birth.filter(|born| at - born < FRESH_FILE_MS);
+        // Sync clients, git and some editors save by renaming a new file over
+        // the note, which gives it a new birth time. A note the log already
+        // knows was replaced, not created.
+        let born = match birth.filter(|born| at - born < FRESH_FILE_MS) {
+            Some(_) if is_live(conn, rel)? => None,
+            born => born,
+        };
         let touched = at - modified < FRESH_FILE_MS;
         present.push((rel.clone(), born, touched.then_some(modified)));
     }
-    if let ([gone], [(appeared, None, _)]) = (missing.as_slice(), present.as_slice()) {
-        if has_rows(conn, gone)? && !has_rows(conn, appeared)? {
+    if let ([gone], [(appeared, None, modified)]) = (missing.as_slice(), present.as_slice()) {
+        // A rename keeps the modified time, so an untouched note appearing as
+        // another goes was renamed, even one the log has no row for yet.
+        if (has_rows(conn, gone)? || modified.is_none()) && !has_rows(conn, appeared)? {
             let event = Event {
                 action: move_kind(gone, appeared),
                 path: appeared.clone(),
@@ -1836,5 +1873,96 @@ mod tests {
         let all = rows(&forge);
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].source, "agent");
+    }
+
+    #[test]
+    fn an_outside_save_that_replaces_the_file_is_an_edit() {
+        let forge = TempForge::new("watcher-replace");
+        forge.write("notes/synced.md", "v1");
+        event_at(
+            &forge,
+            Action::Edited,
+            "notes/synced.md",
+            None,
+            Source::App,
+            noon() - 2 * 24 * 60 * MIN,
+        );
+        // A new file renamed over the note, as Dropbox, git or vim save it.
+        fs::remove_file(forge.path().join("notes/synced.md")).unwrap();
+        forge.write("notes/synced.md", "v2");
+        outside_changes_in(forge.path(), vec!["notes/synced.md".into()]);
+        assert_eq!(
+            summary(&forge),
+            vec![
+                ("edited".into(), "notes/synced.md".into(), None),
+                ("edited".into(), "notes/synced.md".into(), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_watcher_pairs_a_rename_of_a_note_older_than_its_history() {
+        let forge = TempForge::new("watcher-old-rename");
+        forge.write("notes/Archive/b.md", "renamed by Finder");
+        let at = now_ms() + 10 * FRESH_FILE_MS;
+        handle(forge.path())
+            .with_conn(true, |conn| {
+                apply_outside(
+                    conn,
+                    forge.path(),
+                    &["notes/b.md".to_string(), "notes/Archive/b.md".to_string()],
+                    at,
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            summary(&forge),
+            vec![(
+                "moved".into(),
+                "notes/Archive/b.md".into(),
+                Some("notes/b.md".into())
+            )]
+        );
+    }
+
+    #[test]
+    fn a_note_restored_from_the_trash_keeps_its_history_when_renamed() {
+        let forge = TempForge::new("restore-rename");
+        let t = noon();
+        for (action, at) in [
+            (Action::Edited, t - 300 * MIN),
+            (Action::Trashed, t - 200 * MIN),
+            (Action::Restored, t - 100 * MIN),
+        ] {
+            event_at(&forge, action, "notes/a.md", None, Source::App, at);
+        }
+        event_at(
+            &forge,
+            Action::Renamed,
+            "notes/b.md",
+            Some("notes/a.md"),
+            Source::App,
+            t,
+        );
+        assert!(rows(&forge).iter().all(|row| row.note_path == "notes/b.md"));
+    }
+
+    #[test]
+    fn a_damaged_log_is_replaced_and_keeps_recording() {
+        let forge = TempForge::new("damaged");
+        let file = log_dir(forge.path()).join(LOG_FILE);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, vec![7u8; 8192]).unwrap();
+        record_in(
+            forge.path(),
+            Action::Created,
+            "notes/a.md",
+            None,
+            Source::App,
+        );
+        assert_eq!(
+            summary(&forge),
+            vec![("created".into(), "notes/a.md".into(), None)]
+        );
     }
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NoteFile, TrashedNote } from '@/types';
 import type { NoteActivityEntry } from '@/lib/noteActivity';
@@ -269,6 +269,22 @@ describe('TimelineView', () => {
     await screen.findByText('In Trash');
     fireEvent.click(screen.getByRole('button', { name: /Draft/ }));
     expect(useOverlayStore.getState().activeOverlay).toBe('trash');
+  });
+
+  it('shows what changed while a day was closed when it is opened again', async () => {
+    api.log = [entry({ path: 'notes/First.md', atMs: at(6, 9) })];
+    render(<TimelineView />);
+    await screen.findByText('First');
+    const today = screen.getByRole('button', { name: /Today/ });
+    fireEvent.click(today);
+
+    api.log = [...api.log, entry({ path: 'notes/Second.md', atMs: at(6, 10) })];
+    act(() => useNoteStore.setState({ notes: [] }));
+    await waitFor(() => expect(today).toHaveTextContent('2 changes'), { timeout: 4000 });
+    fireEvent.click(today);
+
+    expect(await screen.findByText('Second')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /more/ })).not.toBeInTheDocument();
   });
 
   it('marks rows read from file dates', async () => {
