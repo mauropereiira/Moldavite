@@ -4701,6 +4701,16 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   animation-fill-mode: both;
 }
 
+/* About 270 animations ran on under the Graph, Settings and the overlays,
+   repainting a screen nobody could see. Paused, each holds its frame and
+   picks up from there, so nothing jumps when the screen shows again.
+   Important because every animation shorthand above resets the play state. */
+.welcome-paused *,
+.welcome-paused *::before,
+.welcome-paused *::after {
+  animation-play-state: paused !important;
+}
+
 @keyframes calendar-month-crossfade {
   from {
     opacity: 0;

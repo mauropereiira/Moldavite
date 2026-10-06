@@ -280,4 +280,64 @@ describe('WelcomeScreen layout settings', () => {
     });
     expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
   });
+
+  const welcome = () =>
+    render(<WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />).container
+      .firstElementChild as HTMLElement;
+
+  it.each([
+    ['the Graph', () => useOverlayStore.getState().openSurface('graph')],
+    ['the Index', () => useOverlayStore.getState().openSurface('index')],
+    ['the Agenda', () => useOverlayStore.getState().openSurface('agenda')],
+    ['Settings', () => useSettingsStore.getState().setIsSettingsOpen(true)],
+  ])('pauses its animations while %s covers it, and resumes after', (_, cover) => {
+    const root = welcome();
+    expect(root).not.toHaveClass('welcome-paused');
+
+    act(cover);
+    expect(root).toHaveClass('welcome-paused');
+
+    act(() => {
+      useOverlayStore.getState().closeOverlay();
+      useSettingsStore.getState().setIsSettingsOpen(false);
+    });
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('keeps moving under the see-through quick switcher', () => {
+    const root = welcome();
+    act(() => useOverlayStore.getState().openSurface('search'));
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('pauses while the window is hidden', () => {
+    let hidden = false;
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+    const root = welcome();
+
+    hidden = true;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(root).toHaveClass('welcome-paused');
+
+    hidden = false;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(root).not.toHaveClass('welcome-paused');
+  });
+
+  it('schedules no meteor while covered', () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const root = welcome();
+    act(() => useOverlayStore.getState().openSurface('graph'));
+
+    act(() => {
+      vi.advanceTimersByTime(14_000);
+    });
+
+    expect(root.querySelector('[data-testid="welcome-meteor"]')).not.toBeInTheDocument();
+  });
 });
