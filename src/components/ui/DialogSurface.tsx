@@ -17,6 +17,11 @@ function handleModalKeyDown(event: KeyboardEvent) {
   modalStack[modalStack.length - 1].escape();
 }
 
+/** Whether a dialog is open, so a global Esc handler can leave the key to it. */
+export function hasOpenDialog(): boolean {
+  return modalStack.length > 0;
+}
+
 function pushModal(entry: ModalEntry) {
   if (modalStack.length === 0) {
     window.addEventListener('keydown', handleModalKeyDown);

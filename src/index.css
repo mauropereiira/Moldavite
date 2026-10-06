@@ -190,6 +190,15 @@
   --control-pad-x: 6px;
   --row-pad-x: 8px;
 
+  /* STACKING
+     Overlays cover the editor, surfaces cover the window beside the rail, and
+     a dialog covers all of them and the rail. A dialog takes --z-dialog
+     whatever opened it: one at z-50 painted behind the Agenda and Settings. */
+  --z-overlay: 80;
+  --z-surface: 9999;
+  --z-rail: 10000;
+  --z-dialog: 11000;
+
   /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;

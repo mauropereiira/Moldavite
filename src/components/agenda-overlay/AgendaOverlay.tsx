@@ -36,7 +36,7 @@ export function AgendaOverlay({ isOpen, onClose }: AgendaOverlayProps) {
       style={{
         position: 'absolute',
         inset: 0,
-        zIndex: 80,
+        zIndex: 'var(--z-overlay)',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,

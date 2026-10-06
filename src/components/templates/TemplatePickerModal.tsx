@@ -69,7 +69,7 @@ export function TemplatePickerModal({
 
   return (
     <div
-      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter"
+      className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[var(--z-dialog)] modal-backdrop-enter"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
       onKeyDown={handleKeyDown}
       role="dialog"

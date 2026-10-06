@@ -10,6 +10,7 @@ import {
 } from '@/stores';
 import type { Note } from '@/types';
 import { ChromeShortcutHost } from './ChromeShortcutHost';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 
 beforeEach(() => {
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
@@ -129,6 +130,20 @@ describe('ChromeShortcutHost surfaces', () => {
     expect(useOverlayStore.getState().activeOverlay).toBeNull();
     expect(useGraphStore.getState().isOpen).toBe(false);
     expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+  });
+
+  it('leaves Escape to a dialog open over the active surface', () => {
+    render(<ChromeShortcutHost />);
+    useOverlayStore.getState().openAgenda(false);
+    const onCancel = vi.fn();
+    render(
+      <ConfirmDialog title="Confirm" message="Sure?" onConfirm={vi.fn()} onCancel={onCancel} />
+    );
+
+    escape();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(useOverlayStore.getState().activeOverlay).toBe('agenda');
   });
 
   it('closes the open note on Escape, not the note under an active surface', () => {
