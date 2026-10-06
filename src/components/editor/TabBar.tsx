@@ -419,7 +419,8 @@ const TopBar = memo(function TopBar({
         )}
       </div>
 
-      {items.length > 1 && (
+      {/* A phone with no note open folds even a single pin into the menu. */}
+      {(items.length > 1 || foldedCount > 0) && (
         <button
           ref={triggerRef}
           type="button"
