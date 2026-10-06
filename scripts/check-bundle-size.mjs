@@ -182,7 +182,10 @@ const BUDGETS = [
 // the shared close button, Index cards, the writing toolbar, the graph rewrite
 // and the Settings page) less the removed Timeline view. Raw shrank with the
 // Timeline gone; gzip grew. Measured 690.2 KB / 207.5 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 694, gzipKb: 209 };
+// 697 / 211: notes keep footnotes, details blocks, HTML comments, bare URLs
+// and tight lists through a save (raw Markdown blocks, footnote markers, list
+// item spacing). Measured 693.1 KB / 209.2 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 697, gzipKb: 211 };
 
 async function main() {
   let entries;
