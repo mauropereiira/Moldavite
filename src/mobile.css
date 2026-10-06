@@ -1236,9 +1236,7 @@ html[data-platform='mobile'] .note-view-only {
   max-width: none !important;
 }
 
-/* Onboarding must cover an already-open Index and the rail when replayed. */
 html[data-platform='mobile'] .app-onboarding-scrim {
-  z-index: 11000;
   background: var(--bg-base);
   padding: calc(var(--safe-top) + 16px) calc(16px + var(--safe-right))
     calc(var(--safe-bottom) + 16px) calc(16px + var(--safe-left));

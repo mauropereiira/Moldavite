@@ -332,7 +332,7 @@ export function AppOnboardingModal() {
 
   return (
     <div
-      className="app-onboarding-scrim fixed inset-0 flex items-center justify-center z-50 modal-backdrop-enter"
+      className="app-onboarding-scrim fixed inset-0 flex items-center justify-center z-[var(--z-dialog)] modal-backdrop-enter"
       data-testid="app-onboarding-backdrop"
     >
       <div

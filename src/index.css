@@ -190,6 +190,15 @@
   --control-pad-x: 6px;
   --row-pad-x: 8px;
 
+  /* STACKING
+     Overlays cover the editor, surfaces cover the window beside the rail, and
+     a dialog covers all of them and the rail. A dialog takes --z-dialog
+     whatever opened it: one at z-50 painted behind the Agenda and Settings. */
+  --z-overlay: 80;
+  --z-surface: 9999;
+  --z-rail: 10000;
+  --z-dialog: 11000;
+
   /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;
@@ -4663,6 +4672,16 @@ button[aria-expanded='true'] .wn-caret {
   animation-name: welcome-meteor-flight;
   animation-timing-function: var(--ease-standard);
   animation-fill-mode: both;
+}
+
+/* About 270 animations ran on under the Graph, Settings and the overlays,
+   repainting a screen nobody could see. Paused, each holds its frame and
+   picks up from there, so nothing jumps when the screen shows again.
+   Important because every animation shorthand above resets the play state. */
+.welcome-paused *,
+.welcome-paused *::before,
+.welcome-paused *::after {
+  animation-play-state: paused !important;
 }
 
 @keyframes calendar-month-crossfade {

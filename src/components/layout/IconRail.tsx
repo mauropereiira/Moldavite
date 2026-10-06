@@ -148,7 +148,7 @@ export function IconRail({ side = 'left' }: { side?: IconRailSide }) {
       data-side={side}
       style={{
         position: 'relative',
-        zIndex: 10000,
+        zIndex: 'var(--z-rail)',
         width: '48px',
         userSelect: 'none',
         WebkitUserSelect: 'none',

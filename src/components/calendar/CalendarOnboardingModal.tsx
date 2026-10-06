@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCalendarStore } from '@/stores/calendarStore';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { CloseButton } from '@/components/ui/CloseButton';
+import { DialogSurface } from '@/components/ui/DialogSurface';
 
 export function CalendarOnboardingModal() {
   const { sources, hasSeenOnboarding, setHasSeenOnboarding } = useCalendarStore();
@@ -42,8 +43,10 @@ export function CalendarOnboardingModal() {
   };
 
   return (
-    <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-50 modal-backdrop-enter">
-      <div
+    <div className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[var(--z-dialog)] modal-backdrop-enter">
+      <DialogSurface
+        onEscape={handleClose}
+        aria-labelledby={`calendar-onboarding-title-${step}`}
         className="max-w-md mx-4 modal-elevated modal-content-enter overflow-hidden"
         style={{ backgroundColor: 'var(--bg-elevated)' }}
       >
@@ -65,7 +68,11 @@ export function CalendarOnboardingModal() {
                   {page.label}
                 </div>
 
-                <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                <h2
+                  id={`calendar-onboarding-title-${i}`}
+                  className="text-xl font-semibold mb-3"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {page.title}
                 </h2>
 
@@ -109,7 +116,7 @@ export function CalendarOnboardingModal() {
             </button>
           </div>
         </div>
-      </div>
+      </DialogSurface>
     </div>
   );
 }
