@@ -17,6 +17,7 @@ import { hasTag, renameTagInContent } from './tags';
 import TurndownService from 'turndown';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
+import { markdownSourcePlugin } from './markdownSource';
 import DOMPurify from 'dompurify';
 import {
   getForgeRoot,
@@ -173,9 +174,29 @@ turndownService.addRule('taskItem', {
       // attached to its parent item and indented under the `- [ ] ` marker.
       .replace(/\n{2,}/g, '\n')
       .replace(/\n/g, '\n  ');
-    return `- ${checkbox} ${cleanContent}\n`;
+    const gap = node.nextSibling && element.getAttribute('data-gap-after') === 'true' ? '\n' : '';
+    return `- ${checkbox} ${cleanContent}\n${gap}`;
   },
 });
+
+/**
+ * The editor splits a list where bullets meet tasks, but in Markdown the two
+ * runs are one list, so they meet with a blank line only if the note had one.
+ */
+function joinsPreviousList(list: Element | null): boolean {
+  const previous = list?.previousElementSibling;
+  return (
+    list?.nodeName === 'UL' &&
+    previous?.nodeName === 'UL' &&
+    previous.lastElementChild?.getAttribute('data-gap-after') !== 'true'
+  );
+}
+
+function listMarkdown(list: Element, content: string): string {
+  const before = joinsPreviousList(list) ? '\n' : '\n\n';
+  const after = joinsPreviousList(list.nextElementSibling) ? '\n' : '\n\n';
+  return before + content.replace(/^\n+|\n+$/g, '') + after;
+}
 
 turndownService.addRule('taskList', {
   filter: function (node) {
@@ -183,14 +204,57 @@ turndownService.addRule('taskList', {
       node.nodeName === 'UL' && node.getAttribute && node.getAttribute('data-type') === 'taskList'
     );
   },
-  replacement: function (content) {
-    return '\n' + content + '\n';
+  replacement: function (content, node) {
+    const parent = node.parentNode as Element | null;
+    return parent?.nodeName === 'LI' ? '\n' + content + '\n' : listMarkdown(node, content);
+  },
+});
+
+turndownService.addRule('list', {
+  filter: (node) =>
+    (node.nodeName === 'UL' || node.nodeName === 'OL') &&
+    node.getAttribute('data-type') !== 'taskList',
+  replacement: (content, node) => {
+    const parent = node.parentNode as Element | null;
+    if (parent?.nodeName === 'LI' && parent.lastElementChild === node) return '\n' + content;
+    return listMarkdown(node, content);
+  },
+});
+
+/** Whether `node` sits directly in a list item with no blank line between its blocks. */
+function inTightListItem(node: Node): boolean {
+  const item = node.parentNode as Element | null;
+  return item?.nodeName === 'LI' && item.getAttribute('data-gap-inside') !== 'true';
+}
+
+/**
+ * A block inside a tight list item follows the line above it directly: a blank
+ * line between the blocks of an item would make the whole list loose.
+ */
+function blockMarkdown(node: Node, markdown: string): string {
+  const element = node as Element;
+  const tight = inTightListItem(node);
+  const before = tight && node.previousSibling ? '\n' : '\n\n';
+  const after = tight && /^[UO]L$/.test(element.nextElementSibling?.nodeName ?? '') ? '\n' : '\n\n';
+  return before + markdown + after;
+}
+
+// TipTap wraps every list item's text in a paragraph, so without this rule a
+// tight list saved with a blank line between its items and before each
+// nested list. Two paragraphs in one item still need the blank line.
+turndownService.addRule('tightListParagraph', {
+  filter: (node) => node.nodeName === 'P' && !node.style.textAlign && inTightListItem(node),
+  replacement: (content, node) => {
+    const element = node as Element;
+    const before = element.previousElementSibling?.nodeName === 'P' ? '\n\n' : '\n';
+    const after = element.nextElementSibling?.nodeName === 'P' ? '\n\n' : '\n';
+    return before + content + after;
   },
 });
 
 // Turndown's default writes "-   item" and "1.  item"; other editors and
 // CommonMark examples use one space after the marker, so outside files keep
-// their lists when saved.
+// their lists when saved. Blank lines stay empty rather than indented.
 turndownService.addRule('listItem', {
   filter: (node) => node.nodeName === 'LI' && node.getAttribute('data-type') !== 'taskItem',
   replacement: function (content, node, options) {
@@ -202,10 +266,123 @@ turndownService.addRule('listItem', {
       prefix = `${start + index}. `;
     }
     const indent = ' '.repeat(prefix.length);
-    const body = content.replace(/^\n+/, '').replace(/\n+$/, '\n').replace(/\n/gm, `\n${indent}`);
-    const trailer = node.nextSibling && !/\n$/.test(body) ? '\n' : '';
+    const body = content
+      .replace(/^\n+/, '')
+      .replace(/\n+$/, '')
+      .replace(/\n(?=[^\n])/g, `\n${indent}`);
+    const gap = node.getAttribute('data-gap-after') === 'true';
+    const trailer = node.nextSibling ? (gap ? '\n\n' : '\n') : '';
     return prefix + body + trailer;
   },
+});
+
+turndownService.addRule('blockquote', {
+  filter: 'blockquote',
+  replacement: (content, node) =>
+    blockMarkdown(
+      node,
+      content
+        .replace(/^\n+|\n+$/g, '')
+        .replace(/^/gm, '> ')
+        .replace(/^> $/gm, '>')
+    ),
+});
+
+const fencedCodeBlock = (turndownService.options as { rules: Record<string, TurndownService.Rule> })
+  .rules.fencedCodeBlock;
+
+turndownService.addRule('fencedCodeBlock', {
+  filter: fencedCodeBlock.filter,
+  replacement: (content, node, options) =>
+    blockMarkdown(
+      node,
+      (fencedCodeBlock.replacement?.(content, node, options) ?? '').replace(/^\n+|\n+$/g, '')
+    ),
+});
+
+turndownService.addRule('rawMarkdown', {
+  filter: (node) => node.nodeName === 'PRE' && node.getAttribute('data-type') === 'raw-markdown',
+  replacement: (_content, node) => blockMarkdown(node, node.textContent ?? ''),
+});
+
+turndownService.addRule('footnoteRef', {
+  filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'footnote-ref',
+  replacement: (_content, node) => `[^${(node as Element).getAttribute('data-label') ?? ''}]`,
+});
+
+const INLINE_TAG = /^(?:STRONG|B|EM|I|U|S|DEL|STRIKE|MARK|CODE|SPAN)$/;
+
+/** The text beside `node` in its block, reached through the marks around it. */
+function adjacentText(node: Node, forward: boolean): string {
+  for (let at: Node | null = node; at; at = at.parentNode) {
+    const sibling = forward ? at.nextSibling : at.previousSibling;
+    if (sibling) return sibling.textContent ?? '';
+    if (!INLINE_TAG.test(at.parentNode?.nodeName ?? '')) break;
+  }
+  return '';
+}
+
+/** Whether markdown-it reads `source` as exactly `before`, one link to `href` showing `text`, then `after`. */
+function readsAsLink(source: string, before: string, after: string, link: Element): boolean {
+  const shape = (md.parseInline(source, {})[0]?.children ?? []).map((token) =>
+    token.type === 'link_open' ? `link ${token.attrGet('href')}` : `${token.type} ${token.content}`
+  );
+  const expected = [
+    ...(before ? [`text ${before}`] : []),
+    `link ${link.getAttribute('href')}`,
+    `text ${link.textContent}`,
+    'link_close ',
+    ...(after ? [`text ${after}`] : []),
+  ];
+  return shape.join('\n') === expected.join('\n');
+}
+
+/**
+ * A URL the note wrote bare stays bare, and `<url>` keeps its brackets. The
+ * URL is written as the note spelled it, else as its text or href, and only
+ * if markdown-it would read it back as the same link beside the text now
+ * around it. Text typed against a bare URL would extend or break it, so that
+ * falls back to `<url>`, and a link whose text or target changed to `[text](url)`.
+ */
+function sourceLink(link: Element): string | null {
+  const bare = link.classList.contains('md-linkify');
+  if (!bare && !link.classList.contains('md-autolink')) return null;
+  let inner: Node = link;
+  while (inner.childNodes.length === 1 && INLINE_TAG.test(inner.firstChild?.nodeName ?? '')) {
+    inner = inner.childNodes[0];
+  }
+  if (inner.childNodes.length !== 1 || inner.firstChild?.nodeType !== Node.TEXT_NODE) return null;
+  const candidates = [
+    ...new Set(
+      [link.getAttribute('data-source'), link.textContent, link.getAttribute('href')].filter(
+        (url): url is string => !!url
+      )
+    ),
+  ];
+  if (bare) {
+    const before = adjacentText(link, false).slice(-1);
+    const after = /^\S*/.exec(adjacentText(link, true))?.[0] ?? '';
+    const found = candidates.find((url) => readsAsLink(before + url + after, before, after, link));
+    if (found) return found;
+  }
+  const angled = candidates.find((url) => readsAsLink(`<${url}>`, '', '', link));
+  return angled ? `<${angled}>` : null;
+}
+
+const sourceLinks = new WeakMap<Node, string | null>();
+
+turndownService.addRule('sourceLink', {
+  filter: (node) => {
+    if (node.nodeName !== 'A') return false;
+    if (!sourceLinks.has(node)) sourceLinks.set(node, sourceLink(node));
+    return sourceLinks.get(node) !== null;
+  },
+  // A mark inside the link, such as bold, keeps its delimiters around the URL.
+  replacement: (content, node) =>
+    content.replace(
+      turndownService.escape(node.textContent ?? ''),
+      () => sourceLinks.get(node) ?? ''
+    ),
 });
 
 /**
@@ -332,6 +509,7 @@ md.use(markdownItTaskLists, {
   enabled: true,
   label: false,
 });
+md.use(markdownSourcePlugin);
 
 /** Compare Markdown structure while preserving code and joining soft-wrapped prose. */
 export function markdownForComparison(markdown: string): string {
@@ -446,6 +624,9 @@ const DOMPURIFY_CONFIG = {
     'data-target',
     'data-label',
     'data-raw-target',
+    'data-gap-after',
+    'data-gap-inside',
+    'data-source',
     'data-wiki-link',
     'data-text-align',
     'data-indent',
@@ -808,7 +989,7 @@ function wikiLinksToHtml(markdown: string): string {
   let result = '';
   let copied = 0;
   for (const token of md.parse(markdown, {})) {
-    const code = token.type === 'fence' || token.type === 'code_block';
+    const code = ['fence', 'code_block', 'raw_block'].includes(token.type);
     if (!token.map || !(code || token.type === 'inline' || token.type === 'tr_open')) continue;
     const start = offset(token.map[0]);
     const end = offset(token.map[1]);
