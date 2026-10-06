@@ -558,7 +558,7 @@ function ForgeStep({
       >
         {mobile
           ? 'Your Default Forge lives on this device, ready to use. Notes stay local as plain Markdown files.'
-          : 'This folder becomes the location of your Forges, with a Default Forge created inside it. Every note stays a plain .md file.'}
+          : 'Your Forges live in this folder. Every note is a plain .md file.'}
       </p>
 
       {!mobile && (
@@ -566,25 +566,24 @@ function ForgeStep({
           <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
             Forge location
           </label>
-          <div
-            className="px-3 py-2 text-sm mb-3 truncate"
-            style={{
-              backgroundColor: 'var(--bg-panel)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-secondary)',
-            }}
-            title={forgePath}
-          >
-            {forgePath || 'Loading…'}
-          </div>
-
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-3">
+            <div
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm truncate"
+              style={{
+                backgroundColor: 'var(--bg-panel)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-secondary)',
+              }}
+              title={forgePath}
+            >
+              {forgePath || 'Loading…'}
+            </div>
             <button
               type="button"
               onClick={onPickFolder}
               disabled={isPicking}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
+              className="flex-none flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 focus-ring"
               style={{
                 backgroundColor: 'var(--bg-panel)',
                 border: '1px solid var(--border-default)',
@@ -597,7 +596,7 @@ function ForgeStep({
               ) : (
                 <FolderOpen className="w-4 h-4" aria-hidden="true" />
               )}
-              {isPicking ? 'Moving…' : 'Choose another folder…'}
+              {isPicking ? 'Moving…' : 'Change folder…'}
             </button>
           </div>
         </>
@@ -610,28 +609,30 @@ function ForgeStep({
       )}
 
       <div
-        className="p-3 text-xs space-y-1"
+        className="p-3 text-xs"
         style={{
           backgroundColor: 'var(--bg-panel)',
           borderRadius: 'var(--radius-sm)',
           color: 'var(--text-tertiary)',
         }}
       >
-        <p style={{ color: 'var(--text-secondary)' }}>What lives in your Forge:</p>
-        <p>
-          <span className="font-mono">daily/</span> for daily notes (
-          <span className="font-mono">YYYY-MM-DD.md</span>)
+        <p className="mb-1" style={{ color: 'var(--text-secondary)' }}>
+          What lives in your Forge:
         </p>
-        <p>
-          <span className="font-mono">weekly/</span> for weekly notes (
-          <span className="font-mono">YYYY-Www.md</span>)
-        </p>
-        <p>
-          <span className="font-mono">notes/</span> for standalone notes and folders
-        </p>
-        <p>
-          <span className="font-mono">templates/</span> for reusable note templates
-        </p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          <p>
+            <span className="font-mono">daily/</span> daily notes
+          </p>
+          <p>
+            <span className="font-mono">weekly/</span> weekly notes
+          </p>
+          <p>
+            <span className="font-mono">notes/</span> notes and folders
+          </p>
+          <p>
+            <span className="font-mono">templates/</span> note templates
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -717,7 +718,7 @@ function AiAgentsStep({
         style={{ color: 'var(--text-secondary)' }}
       >
         Your notes are plain Markdown on your Mac, so AI tools can work with them directly. Nothing
-        is uploaded, and you choose what AI can touch.
+        is uploaded.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div
@@ -735,8 +736,7 @@ function AiAgentsStep({
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            One click writes an AGENTS.md (plus a .gitignore) so AI tools like Claude Code
-            understand your vault.
+            One click adds an AGENTS.md so AI tools understand your Forge.
           </p>
         </div>
         <div
@@ -754,8 +754,8 @@ function AiAgentsStep({
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Run Moldavite with <span className="font-mono">--mcp</span> to give AI tools like Claude
-            Code structured tools to search and read your notes.
+            Run Moldavite with <span className="font-mono">--mcp</span> so AI tools can read your
+            notes.
           </p>
         </div>
       </div>
@@ -896,9 +896,8 @@ function AiSearchStep({ titleId }: { titleId?: string }) {
         className="text-sm leading-relaxed mb-5 text-center"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Find notes by meaning, not just keywords. Choose from three local models (with
-        all-MiniLM-L6-v2 as the default), then opt in to download your selection once. After that
-        everything runs offline, and your notes never leave your Mac.
+        Find notes by meaning, not just keywords. Download a local model once and search runs
+        offline. Your notes never leave your Mac.
       </p>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div
@@ -916,7 +915,7 @@ function AiSearchStep({ titleId }: { titleId?: string }) {
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            A new chip in sidebar search switches between keyword and by-meaning results.
+            A chip in search switches between keywords and meaning.
           </p>
         </div>
         <div
@@ -934,12 +933,12 @@ function AiSearchStep({ titleId }: { titleId?: string }) {
             </span>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            The backlinks panel gains a Related section with the notes closest in meaning.
+            The backlinks panel lists the notes closest in meaning.
           </p>
         </div>
       </div>
       <p className="text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
-        Everything here is opt-in. Find it under Settings → AI &amp; Agents.
+        It is all opt-in, under Settings → AI &amp; Agents.
       </p>
     </div>
   );

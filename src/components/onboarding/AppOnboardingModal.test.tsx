@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { AppOnboardingModal, APP_ONBOARDING_VERSION } from './AppOnboardingModal';
@@ -14,6 +17,8 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }));
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
+
+const indexCss = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
 
 describe('AppOnboardingModal', () => {
   beforeEach(() => {
@@ -171,6 +176,35 @@ describe('AppOnboardingModal', () => {
     }
 
     expect(new Set(headings).size).toBe(stepCount);
+  });
+
+  /// jsdom does no layout, so the width rules are pinned by their text. An
+  /// `auto` column grew to the unwrapped Forge path and pushed every step past
+  /// the card's right edge, with a sideways scrollbar.
+  it('keeps every step inside the card width and centres shorter steps', () => {
+    const rule = (selector: string) => {
+      const at = indexCss.indexOf(`\n${selector} {`);
+      expect(at, selector).toBeGreaterThan(-1);
+      return indexCss.slice(at, indexCss.indexOf('}', at));
+    };
+    expect(rule('.step-stack')).toContain('grid-template-columns: minmax(0, 1fr)');
+    expect(rule('.step-stack-page')).toContain('min-width: 0');
+    expect(rule('.step-stack-page')).toContain('align-self: center');
+    expect(rule('.app-onboarding-body')).toContain('overflow-x: hidden');
+  });
+
+  it('truncates a long Forge path inside the card', async () => {
+    const path = `/Users/someone/${'very-long-folder-name/'.repeat(8)}Documents/Moldavite/Default`;
+    vi.mocked(invoke).mockImplementation(async (command) =>
+      command === 'get_notes_directory' ? path : undefined
+    );
+    render(<AppOnboardingModal />);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+
+    const field = await screen.findByTitle(path);
+    expect(field).toHaveClass('truncate', 'min-w-0', 'flex-1');
+    expect(field.parentElement).toHaveClass('flex');
+    expect(screen.getByRole('button', { name: /change folder/i })).toHaveClass('flex-none');
   });
 
   it("draws the Agenda tile with the rail's calendar icon, not the graph's", () => {
