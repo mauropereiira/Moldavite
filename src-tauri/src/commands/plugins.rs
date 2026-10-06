@@ -538,15 +538,6 @@ fn install_bundled_plugin(
 }
 
 #[tauri::command]
-pub(crate) fn install_example_plugin(app: tauri::AppHandle) -> Result<(), String> {
-    install_bundled_plugin(
-        &app,
-        "example-plugin/moldavite-example",
-        "moldavite-example",
-    )
-}
-
-#[tauri::command]
 pub(crate) fn install_wordpress_plugin(app: tauri::AppHandle) -> Result<(), String> {
     install_bundled_plugin(
         &app,

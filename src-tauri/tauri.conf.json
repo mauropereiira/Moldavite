@@ -93,7 +93,6 @@
       }
     ],
     "resources": [
-      "example-plugin/moldavite-example/**/*",
       "example-plugin/moldavite-wordpress/**/*"
     ],
     "icon": [

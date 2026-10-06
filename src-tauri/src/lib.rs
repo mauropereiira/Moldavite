@@ -187,8 +187,8 @@ use commands::notes::{
 use commands::plugin_package::read_plugin_package;
 #[cfg(desktop)]
 use commands::plugins::{
-    install_example_plugin, install_plugin_from_data, install_wordpress_plugin, list_plugins,
-    plugin_secret_delete, plugin_secret_get, plugin_secret_set, uninstall_plugin,
+    install_plugin_from_data, install_wordpress_plugin, list_plugins, plugin_secret_delete,
+    plugin_secret_get, plugin_secret_set, uninstall_plugin,
 };
 use commands::root_files::{read_forge_root_file, write_forge_root_file};
 use commands::search::{search_index_rebuild, search_index_status, search_notes_content};
@@ -568,7 +568,6 @@ pub fn run() {
             #[cfg(desktop)]
             uninstall_plugin,
             #[cfg(desktop)]
-            install_example_plugin,
             #[cfg(desktop)]
             install_wordpress_plugin,
             #[cfg(desktop)]
