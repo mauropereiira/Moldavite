@@ -601,8 +601,10 @@ fn apply_outside(
         let touched = at - modified < FRESH_FILE_MS;
         present.push((rel.clone(), born, touched.then_some(modified)));
     }
-    if let ([gone], [(appeared, None, _)]) = (missing.as_slice(), present.as_slice()) {
-        if has_rows(conn, gone)? && !has_rows(conn, appeared)? {
+    if let ([gone], [(appeared, None, modified)]) = (missing.as_slice(), present.as_slice()) {
+        // A rename keeps the modified time, so an untouched note appearing as
+        // another goes was renamed, even one the log has no row for yet.
+        if (has_rows(conn, gone)? || modified.is_none()) && !has_rows(conn, appeared)? {
             let event = Event {
                 action: move_kind(gone, appeared),
                 path: appeared.clone(),
@@ -1872,6 +1874,31 @@ mod tests {
                 ("edited".into(), "notes/synced.md".into(), None),
                 ("edited".into(), "notes/synced.md".into(), None),
             ]
+        );
+    }
+
+    #[test]
+    fn the_watcher_pairs_a_rename_of_a_note_older_than_its_history() {
+        let forge = TempForge::new("watcher-old-rename");
+        forge.write("notes/Archive/b.md", "renamed by Finder");
+        let at = now_ms() + 10 * FRESH_FILE_MS;
+        handle(forge.path())
+            .with_conn(true, |conn| {
+                apply_outside(
+                    conn,
+                    forge.path(),
+                    &["notes/b.md".to_string(), "notes/Archive/b.md".to_string()],
+                    at,
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            summary(&forge),
+            vec![(
+                "moved".into(),
+                "notes/Archive/b.md".into(),
+                Some("notes/b.md".into())
+            )]
         );
     }
 }
