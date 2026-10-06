@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { formatShortcut } from '@/lib/shortcuts';
-import { useNoteStore, useSettingsStore } from '@/stores';
+import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
 import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
