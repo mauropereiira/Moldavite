@@ -565,6 +565,12 @@ fn has_rows(conn: &Connection, note_path: &str) -> rusqlite::Result<bool> {
     )
 }
 
+/// Whether the note's latest row says it is still there.
+fn is_live(conn: &Connection, note_path: &str) -> rusqlite::Result<bool> {
+    Ok(latest_for(conn, note_path)?
+        .is_some_and(|latest| !matches!(latest.action, Some(Action::Deleted | Action::Trashed))))
+}
+
 /// The watcher's batch. Debouncing collapses create, modify and remove into
 /// "something happened here", so presence on disk decides. A batch that is
 /// exactly one note gone and one unfamiliar note appeared is another program
@@ -585,7 +591,13 @@ fn apply_outside(
         // A permission, attribute or download event leaves the modified time
         // alone, and is not an edit.
         let (birth, modified) = file_times(forge_root, rel).unwrap_or((None, 0));
-        let born = birth.filter(|born| at - born < FRESH_FILE_MS);
+        // Sync clients, git and some editors save by renaming a new file over
+        // the note, which gives it a new birth time. A note the log already
+        // knows was replaced, not created.
+        let born = match birth.filter(|born| at - born < FRESH_FILE_MS) {
+            Some(_) if is_live(conn, rel)? => None,
+            born => born,
+        };
         let touched = at - modified < FRESH_FILE_MS;
         present.push((rel.clone(), born, touched.then_some(modified)));
     }
@@ -1836,5 +1848,30 @@ mod tests {
         let all = rows(&forge);
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].source, "agent");
+    }
+
+    #[test]
+    fn an_outside_save_that_replaces_the_file_is_an_edit() {
+        let forge = TempForge::new("watcher-replace");
+        forge.write("notes/synced.md", "v1");
+        event_at(
+            &forge,
+            Action::Edited,
+            "notes/synced.md",
+            None,
+            Source::App,
+            noon() - 2 * 24 * 60 * MIN,
+        );
+        // A new file renamed over the note, as Dropbox, git or vim save it.
+        fs::remove_file(forge.path().join("notes/synced.md")).unwrap();
+        forge.write("notes/synced.md", "v2");
+        outside_changes_in(forge.path(), vec!["notes/synced.md".into()]);
+        assert_eq!(
+            summary(&forge),
+            vec![
+                ("edited".into(), "notes/synced.md".into(), None),
+                ("edited".into(), "notes/synced.md".into(), None),
+            ]
+        );
     }
 }
