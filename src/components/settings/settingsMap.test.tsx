@@ -127,8 +127,14 @@ describe('settingsMap', () => {
     for (const desktopOnly of ['forges folder', 'default app', 'plugins', 'clipper', 'shortcuts']) {
       expect(searchSettings(desktopOnly, true)).toEqual([]);
     }
-    expect(searchSettings('timeline', true)[0].item.id).toBe('timeline');
     expect(searchSettings('delete all', true)[0].tab.id).toBe('data');
+    expect(searchSettings('month calendar', true)).toEqual([]);
+    expect(searchSettings('apple calendar', true)[0].item.id).toBe('apple-calendar');
+  });
+
+  it('no longer lists the removed Timeline switch', () => {
+    expect(settingsEntry('timeline')).toBeUndefined();
+    for (const mobile of [false, true]) expect(searchSettings('timeline', mobile)).toEqual([]);
   });
 
   // Each was checked against the code that runs on iOS: no folder picker, Finder or
@@ -155,7 +161,7 @@ describe('settingsMap', () => {
       'focus-mode',
       'writing-width',
       'writing-toolbar',
-      'month-calendar',
+      'agenda',
       'agents',
       'plugins',
       'import',
@@ -256,7 +262,6 @@ const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<Setti
   showWordCount: ['writing', { switch: 'Word count' }, true],
   tagsEnabled: ['writing', { switch: 'Tags' }, false],
   showCalendarWidget: ['calendar', { switch: 'Month calendar' }, false],
-  showTimelineWidget: ['calendar', { switch: 'Timeline' }, false],
   hasSeenAppOnboarding: [
     'about',
     { button: 'Show onboarding again' },

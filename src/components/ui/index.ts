@@ -3,7 +3,6 @@ export {
   EmptyState,
   WelcomeEmptyState,
   NoSearchResultsEmptyState,
-  NoEventsEmptyState,
   ConnectCalendarEmptyState,
   NoNotesEmptyState,
   NoBacklinksEmptyState,

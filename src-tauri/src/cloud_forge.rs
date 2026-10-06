@@ -627,6 +627,10 @@ pub(crate) fn merge_notes(notes: &mut Vec<crate::types::NoteFile>) -> Result<(),
     Ok(())
 }
 
+/// Seconds from the Unix epoch to 2001-01-01, where Foundation counts from:
+/// a Swift `Date` crosses the bridge as `timeIntervalSinceReferenceDate`.
+const APPLE_REFERENCE_UNIX_SECONDS: f64 = 978_307_200.0;
+
 fn merge_note_items(
     notes: &mut Vec<crate::types::NoteFile>,
     items: Vec<CloudItem>,
@@ -679,7 +683,11 @@ fn merge_note_items(
             } else {
                 None
             },
-            modified_at: None,
+            // A placeholder holds no file to stat, so the time iCloud reports
+            // for the contents stands in.
+            modified_at: item
+                .modified
+                .map(|seconds| (seconds + APPLE_REFERENCE_UNIX_SECONDS).floor() as i64),
             created_at: None,
             not_downloaded,
         });
@@ -830,6 +838,26 @@ mod tests {
         assert!(!flag("notes/Local.md"));
         assert!(flag("notes/Remote/Plan.md"));
         assert!(!flag("daily/2026-09-20.md"));
+    }
+
+    #[test]
+    fn a_remote_note_carries_the_time_icloud_reports_for_its_contents() {
+        let mut notes = Vec::new();
+        merge_note_items(
+            &mut notes,
+            vec![
+                CloudItem {
+                    modified: Some(781_430_400.5),
+                    ..item("notes/Remote.md", false)
+                },
+                item("notes/Unknown.md", false),
+            ],
+            |_| false,
+        );
+        // 2025-10-06T08:00:00Z, counted from 2001-01-01 as Foundation does.
+        assert_eq!(notes[0].modified_at, Some(1_759_737_600));
+        assert_eq!(notes[0].created_at, None);
+        assert_eq!(notes[1].modified_at, None);
     }
 
     fn at(path: &str, state: DownloadState) -> CloudItem {

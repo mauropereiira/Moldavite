@@ -17,9 +17,9 @@ export function CalendarOnboardingModal() {
   const steps = [
     {
       label: 'Calendar',
-      title: 'Calendar Events in Your Timeline',
+      title: 'Calendar Events in Your Agenda',
       description:
-        'Your calendar events now appear in the right panel alongside your daily notes. Stay on top of your schedule while you write.',
+        'Your calendar events now appear in the Agenda alongside your daily notes. Stay on top of your schedule while you write.',
     },
     {
       label: 'Settings',
