@@ -637,6 +637,17 @@ describe('GraphView canvas', () => {
   });
 
   it('glides to Fit view and stops once it lands', async () => {
+    // A pan's flick speed comes from the wall clock; frozen, the pan below never
+    // turns into a glide, whatever the gap between the synthetic pointer events.
+    vi.useFakeTimers({ toFake: ['performance'] });
+    try {
+      await fitGlide();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  async function fitGlide() {
     const view = await openGraph();
     settleAndFit(view);
     const fitted = byPosition(drawFrame().arcs);
@@ -653,7 +664,7 @@ describe('GraphView canvas', () => {
     expect(frames.size).toBe(0);
     const landed = byPosition(drawFrame().arcs);
     landed.forEach((star, index) => expect(star.x).toBeCloseTo(fitted[index].x, 3));
-  });
+  }
 
   it('moves between notes with the arrow keys and opens one with Enter', async () => {
     useNoteStore.setState({
