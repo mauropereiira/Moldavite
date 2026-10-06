@@ -6,6 +6,7 @@ import { open as openDirDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { invoke } from '@tauri-apps/api/core';
 import { useLaunchContextStore } from '@/lib/launchContext';
+import { JACK_O_LANTERN_SRC } from '@/lib/seasons';
 
 // The Forge dir picker plugin isn't available in jsdom — stub it.
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -132,6 +133,46 @@ describe('AppOnboardingModal', () => {
     }
   });
 
+  /// The card keeps one size because every step renders into the same grid
+  /// cell and only the current one shows. jsdom does no layout, so this pins
+  /// that structure: the card's size rules never change, every step is in the
+  /// stack on every step, and only the current one is reachable and titled.
+  it('renders every step into one stack so the card keeps its size', () => {
+    render(<AppOnboardingModal />);
+    const dialog = screen.getByRole('dialog');
+    const cardClass = dialog.className;
+    const cardStyle = dialog.getAttribute('style');
+    const stepCount = dialog.querySelectorAll('.app-onboarding-steps > div').length;
+    const headings: string[] = [];
+
+    expect(cardClass).toContain('app-onboarding-card');
+    for (let i = 0; i < stepCount; i++) {
+      expect(dialog.className).toBe(cardClass);
+      expect(dialog.getAttribute('style')).toBe(cardStyle);
+
+      const pages = Array.from(dialog.querySelectorAll('.app-onboarding-body .step-stack > *'));
+      expect(pages).toHaveLength(stepCount);
+      pages.forEach((page) => expect(page.className).toBe('step-stack-page'));
+
+      const current = pages.filter((page) => !page.hasAttribute('inert'));
+      expect(current).toHaveLength(1);
+      expect(current[0]).not.toHaveAttribute('aria-hidden');
+      expect(dialog.querySelectorAll('#app-onboarding-title')).toHaveLength(1);
+      expect(current[0].querySelector('#app-onboarding-title')).not.toBeNull();
+      pages
+        .filter((page) => page !== current[0])
+        .forEach((page) => expect(page).toHaveAttribute('aria-hidden', 'true'));
+      headings.push(screen.getByRole('heading').textContent ?? '');
+
+      const next =
+        screen.queryByRole('button', { name: /next/i }) ??
+        screen.queryByRole('button', { name: 'Continue' });
+      if (next) fireEvent.click(next);
+    }
+
+    expect(new Set(headings).size).toBe(stepCount);
+  });
+
   it("draws the Agenda tile with the rail's calendar icon, not the graph's", () => {
     vi.mocked(isMobilePlatform).mockReturnValue(true);
     render(<AppOnboardingModal />);
@@ -149,7 +190,7 @@ describe('AppOnboardingModal', () => {
     render(<AppOnboardingModal />);
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
     const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
-    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin?.style.maskImage).toBe(`url("${JACK_O_LANTERN_SRC}")`);
     expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
     expect(pumpkin).toHaveClass('w-10', 'h-10');
     expect(screen.queryByRole('heading', { name: /built for ai agents/i })).toBeNull();

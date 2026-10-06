@@ -173,7 +173,10 @@ const BUDGETS = [
 // 200.1 KB gz.
 // 700 / 202: the release welcome pages and shared launch decision.
 // Measured 698.7 KB raw / 201.3 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 700, gzipKb: 202 };
+// 711 / 207: the graph's frame loop rewrite (eased hover, Fit view and wheel
+// zoom, pan glide, pinch, arrow-key navigation, label placement) adds 10.5 KB
+// raw / 4.2 KB gz. Measured 709.4 KB / 205.7 KB gz; no new dependencies.
+const APP_JS_BUDGET = { rawKb: 711, gzipKb: 207 };
 
 async function main() {
   let entries;

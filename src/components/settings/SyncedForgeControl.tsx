@@ -39,7 +39,7 @@ export default function SyncedForgeControl() {
           iCloud is unavailable. Your local Forges can still be opened from Index.{' '}
           <button
             type="button"
-            className="settings-link"
+            className="settings-link pad-hover-inline"
             disabled={busy}
             onClick={() => connect(true)}
           >

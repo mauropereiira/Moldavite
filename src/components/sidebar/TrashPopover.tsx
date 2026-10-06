@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TrashedNote } from '@/types';
 import { applyImpactOrigin, impactPointFromElement } from '@/lib/impactOrigin';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const POPOVER_WIDTH = 380;
 const POPOVER_MAX_HEIGHT = 520;
@@ -179,16 +180,7 @@ export function TrashPopover({
           <h3 className="text-sm font-semibold">Trash</h3>
           <span className="count-badge">{trashedNotes.length}</span>
         </div>
-        <button
-          onClick={onClose}
-          className="text-xs transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-          aria-label="Close trash popover"
-        >
-          Close
-        </button>
+        <CloseButton onClick={onClose} label="Close Trash" className="-my-1.5 -mr-2" />
       </div>
 
       <div className="flex-1 overflow-y-auto">

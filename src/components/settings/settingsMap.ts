@@ -304,6 +304,13 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
         id: 'typing',
         label: 'Typing',
         rows: [
+          {
+            id: 'writing-toolbar',
+            label: 'Writing toolbar',
+            info: 'Styles and a + above the line you are writing.',
+            keys: 'format formatting bar plus block insert',
+            only: 'desktop',
+          },
           { id: 'spell-check', label: 'Spell check', keys: 'spelling' },
           {
             id: 'auto-capitalize',
@@ -547,7 +554,7 @@ export const SETTINGS_TABS: SettingsTabSpec[] = [
           {
             id: 'settings-file',
             label: 'Settings file',
-            info: "Your preferences, theme, folders and pinned tabs as JSON, to carry them to another device. Notes aren't included.",
+            info: "Your preferences, theme and folders as JSON, to carry them to another device. Notes aren't included.",
             keys: 'export import json preferences',
           },
         ],

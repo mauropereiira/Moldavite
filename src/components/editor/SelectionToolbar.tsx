@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { BubbleMenuPlugin } from '@tiptap/extension-bubble-menu';
 import { formatShortcut } from '@/lib/shortcuts';
+import { BlockTypeMenu } from './BlockTypeMenu';
 
 interface SelectionToolbarProps {
   editor: Editor;
@@ -88,6 +89,10 @@ export function SelectionToolbar({ editor, onInsertLink }: SelectionToolbarProps
       className={`selection-toolbar ${isVisible ? 'selection-toolbar-visible' : ''}`}
       style={{ visibility: isVisible ? 'visible' : 'hidden' }}
     >
+      <BlockTypeMenu editor={editor} />
+
+      <div className="toolbar-divider" />
+
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`toolbar-button ${editor.isActive('bold') ? 'toolbar-button-active' : ''}`}

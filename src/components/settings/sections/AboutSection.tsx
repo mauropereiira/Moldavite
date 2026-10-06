@@ -63,7 +63,7 @@ function SoftwareUpdates() {
             )}
             <button
               type="button"
-              className="settings-link"
+              className="settings-link pad-hover"
               onClick={() => shellOpen('https://github.com/mauropereiira/Moldavite/releases')}
             >
               <ExternalLink aria-hidden="true" className="w-3 h-3" />

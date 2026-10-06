@@ -152,6 +152,9 @@ vi.mock('./NoteHeader', () => ({
   ),
 }));
 vi.mock('./SelectionToolbar', () => ({ SelectionToolbar: () => null }));
+vi.mock('./WritingToolbar', () => ({
+  WritingToolbar: () => <div data-testid="writing-toolbar" />,
+}));
 vi.mock('./ImageToolbar', () => ({ ImageToolbar: () => <div data-testid="image-toolbar" /> }));
 const linkModal = vi.hoisted(() => ({
   props: null as null | {
@@ -190,6 +193,7 @@ import {
   useNoteColorsStore,
   useNoteStore,
   useOverlayStore,
+  useQuickSwitcherStore,
   useSettingsStore,
   useTagStore,
   useThemeStore,
@@ -325,6 +329,7 @@ beforeEach(() => {
     externallyChanged: new Map(),
   });
   useSettingsStore.getState().resetToDefaults();
+  useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
   useThemeStore.setState({ theme: 'light', baseMode: 'light' });
   useNoteColorsStore.setState({ colors: {}, isLoading: false });
   useTagStore.setState({ allTags: new Map(), selectedTags: [], selectedTag: null });
@@ -374,17 +379,75 @@ describe('Editor layout settings', () => {
     expect(shortcutSpies.createNote).toHaveBeenCalled();
   });
 
-  it('shows the tab bar only when more than one tab needs managing', async () => {
-    const currentNote = note('notes/first.md', '<p>First note body</p>');
-    await renderEditor(currentNote);
-
-    expect(screen.queryByTestId('tab-bar')).not.toBeInTheDocument();
-
-    act(() => {
-      useNoteStore.getState().openTab(note('notes/second.md', '<p>Second note body</p>'), true);
-    });
+  // The note you open is in the bar, ready to pin, even when it is the only one.
+  it('shows the top bar for a single open note', async () => {
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
 
     expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+  });
+
+  // Inside the editor column the bar is a row of the column's own flex layout,
+  // beside the paper and the footer. As a sibling above an `h-full` editor it
+  // once pushed the footer out of view.
+  it('keeps the top bar and the footer in the same column', async () => {
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+
+    const root = screen.getByTestId('tab-bar').parentElement;
+    expect(root).toHaveClass('editor-root');
+    expect(screen.getByTestId('editor-footer').parentElement).toBe(root);
+  });
+
+  it('with the tab bar off, shows the bar only while something is pinned', async () => {
+    useSettingsStore.setState({ showTabBar: false });
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+    expect(screen.queryByTestId('tab-bar')).not.toBeInTheDocument();
+
+    act(() => useQuickSwitcherStore.getState().togglePinned('notes/first.md'));
+    expect(screen.getByTestId('tab-bar')).toBeInTheDocument();
+  });
+
+  it('keeps the pins reachable from the welcome screen', () => {
+    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/roadmap.md'] });
+    useSettingsStore.setState({ showTabBar: false });
+    render(<Editor />);
+
+    expect(screen.getByTestId('tab-bar').parentElement).toHaveClass('editor-welcome');
+  });
+
+  it('pins and unpins the open note from its corner', async () => {
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pin notes/first to the top bar' }));
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual(['notes/first.md']);
+    fireEvent.click(screen.getByRole('button', { name: 'Unpin notes/first from the top bar' }));
+    expect(useQuickSwitcherStore.getState().pinnedNoteIds).toEqual([]);
+  });
+});
+
+describe('Editor writing toolbar', () => {
+  it('is on by default on the desktop and follows its setting', async () => {
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+    expect(screen.getByTestId('writing-toolbar')).toBeInTheDocument();
+
+    act(() => useSettingsStore.setState({ showWritingToolbar: false }));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
+  });
+
+  // A phone has the formatting row above the keyboard instead.
+  it('is never on a phone', async () => {
+    platform.mobile = true;
+    await renderEditor(note('notes/first.md', '<p>First note body</p>'));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
+  });
+
+  it('is not offered on a note that is only open for viewing', async () => {
+    const locked = note('notes/locked.md', '<p>Secret</p>');
+    setOpenNotes(locked);
+    useNoteStore.setState({ unlockedNotes: new Set([locked.id]) });
+    render(<Editor />);
+
+    await waitFor(() => expect(tiptapHarness.editor?.isEditable).toBe(false));
+    expect(screen.queryByTestId('writing-toolbar')).not.toBeInTheDocument();
   });
 });
 

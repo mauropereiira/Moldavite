@@ -5,6 +5,7 @@ import { useOverlayPresence } from '@/components/overlays/useOverlayPresence';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
 import type { TrashedNote } from '@/types';
 import { useTrashConfirmations } from './useTrashConfirmations';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const TrashPreviewModal = lazy(() =>
   import('./TrashPreviewModal').then((module) => ({ default: module.TrashPreviewModal }))
@@ -78,7 +79,7 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           {
             '--index': 0,
             display: 'flex',
-            alignItems: 'baseline',
+            alignItems: 'center',
             justifyContent: 'space-between',
             gap: '24px',
             paddingBottom: '18px',
@@ -102,20 +103,7 @@ export function TrashPage({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             {trashedNotes.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="focus-ring app-overlay-close"
-          style={{
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-display)',
-            fontSize: '24px',
-            lineHeight: 1,
-          }}
-          aria-label="Close Trash"
-        >
-          ×
-        </button>
+        <CloseButton onClick={onClose} label="Close Trash" />
       </header>
 
       <div

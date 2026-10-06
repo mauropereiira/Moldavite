@@ -21,19 +21,14 @@ export function CollapsibleSection({
 }: CollapsibleSectionProps) {
   const autumnArt = useAutumnArt();
   const SectionIcon = autumnArt ? SECTION_ICONS[title] : undefined;
+  // A card in the Index and a band across the pinned column: the header is a
+  // filled strip holding the toggle, the count and the section's actions.
   return (
-    <div className="flex flex-col">
-      <div className="section-header mx-3">
+    <section className="index-section flex flex-col" data-collapsed={isCollapsed || undefined}>
+      <div className="section-header section-band">
         <button
           onClick={onToggle}
-          className="flex min-w-0 items-center gap-2 text-left transition-colors"
-          style={{ color: 'inherit' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = '';
-          }}
+          className="section-toggle flex min-w-0 items-center gap-2 text-left transition-colors"
           aria-expanded={!isCollapsed}
         >
           <span
@@ -41,24 +36,24 @@ export function CollapsibleSection({
             className={`sidebar-caret ${isCollapsed ? '' : 'sidebar-caret-expanded'}`}
           />
           {SectionIcon && <SectionIcon className="seasonal-section-icon" />}
-          <span>{title}</span>
+          <span className="section-title truncate">{title}</span>
         </button>
-        <div className="ml-auto flex items-center gap-2">
-          {rightAction && !isCollapsed && <div className="flex items-center">{rightAction}</div>}
-          {count !== undefined && <span className="count-badge">{count}</span>}
-        </div>
+        {count !== undefined && <span className="count-badge section-count">{count}</span>}
+        {rightAction && !isCollapsed && (
+          <div className="section-actions flex items-center">{rightAction}</div>
+        )}
       </div>
       <div
         hidden={isCollapsed}
-        className={`overflow-hidden ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
+        className={`section-panel overflow-hidden ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
         style={{
           transform: isCollapsed ? 'translateY(-4px)' : 'translateY(0)',
           transition:
             'opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard)',
         }}
       >
-        <div className="pt-2">{children}</div>
+        <div className="section-body">{children}</div>
       </div>
-    </div>
+    </section>
   );
 }

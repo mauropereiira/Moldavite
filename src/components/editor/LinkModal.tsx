@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DialogSurface } from '@/components/ui/DialogSurface';
 import { isMobilePlatform } from '@/lib/platform';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -122,14 +123,7 @@ export function LinkModal({
               {initialUrl ? 'Edit Link' : 'Insert Link'}
             </h2>
           </div>
-          <button
-            onClick={handleClose}
-            className="dialog-close p-1 rounded focus-ring hover:text-[var(--text-secondary)]"
-            style={{ color: 'var(--text-muted)' }}
-            aria-label="Close link modal"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+          <CloseButton onClick={handleClose} label="Close link modal" />
         </div>
 
         <div className="p-6 space-y-4">
@@ -243,14 +237,7 @@ export function LinkModal({
               >
                 Enter
               </kbd>{' '}
-              to insert or{' '}
-              <kbd
-                className="px-1.5 py-0.5 text-xs font-semibold border rounded"
-                style={keyboardHintStyle}
-              >
-                Esc
-              </kbd>{' '}
-              to cancel
+              to insert
             </p>
           </div>
         )}

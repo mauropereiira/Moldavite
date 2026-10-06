@@ -281,6 +281,18 @@ pub(crate) fn preserve_conflict_versions(
     Ok(copies)
 }
 
+/// Keep `bytes`, which `note` held, as a `(conflict …)` copy beside it and
+/// return the copy's file name.
+pub(crate) fn preserve_conflict_bytes(note: &Path, bytes: &[u8]) -> Result<String, String> {
+    let _guard = conflict_copy_lock()
+        .lock()
+        .map_err(|_| "Conflict-copy lock poisoned".to_string())?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H%M").to_string();
+    let (path, name) = conflict_copy_destination(note, &stamp)?;
+    write_atomic(&path, bytes, Some(0o600))?;
+    Ok(name)
+}
+
 fn delete_note_at(path: &Path, base_hash: Option<&str>) -> Result<bool, String> {
     if !path.exists() {
         return Ok(false);
@@ -540,10 +552,16 @@ pub(crate) fn scan_notes_recursive(dir: &Path, relative_path: &str, notes: &mut 
 
 #[tauri::command]
 pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
+    let mut notes = list_notes_in(&get_notes_dir()?);
+    crate::cloud_forge::merge_notes(&mut notes)?;
+    Ok(notes)
+}
+
+fn list_notes_in(forge_root: &Path) -> Vec<NoteFile> {
     let mut notes = Vec::new();
 
     // List daily notes (non-recursive, daily notes are only at root level)
-    let daily_dir = get_daily_dir()?;
+    let daily_dir = forge_root.join("daily");
     if daily_dir.exists() {
         if let Ok(entries) = fs::read_dir(&daily_dir) {
             for entry in entries.flatten() {
@@ -575,7 +593,7 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List weekly notes (non-recursive, weekly notes are only at root level)
-    let weekly_dir = get_weekly_dir()?;
+    let weekly_dir = forge_root.join("weekly");
     if weekly_dir.exists() {
         if let Ok(entries) = fs::read_dir(&weekly_dir) {
             for entry in entries.flatten() {
@@ -607,13 +625,21 @@ pub(crate) fn list_notes() -> Result<Vec<NoteFile>, String> {
     }
 
     // List standalone notes (recursive to support folders)
-    let standalone_dir = get_standalone_dir()?;
+    let standalone_dir = forge_root.join("notes");
     if standalone_dir.exists() {
         scan_notes_recursive(&standalone_dir, "", &mut notes);
     }
 
-    crate::cloud_forge::merge_notes(&mut notes)?;
-    Ok(notes)
+    // A crash between the two steps of locking or unlocking leaves `<name>.md`
+    // beside `<name>.md.locked`. The pair is one note, listed as locked: an
+    // unlock settles it once the password proves what the ciphertext holds.
+    let locked: std::collections::HashSet<String> = notes
+        .iter()
+        .filter(|note| note.is_locked)
+        .map(|note| note.path.clone())
+        .collect();
+    notes.retain(|note| note.is_locked || !locked.contains(&note.path));
+    notes
 }
 
 /// Read one addressed note body plus the hash used for optimistic conflict checks.
@@ -1650,8 +1676,10 @@ mod tests {
                 "correct horse".into(),
                 false,
                 false,
+                &BacklinksIndex::new(),
             )
-            .unwrap(),
+            .unwrap()
+            .content,
             "body"
         );
 
@@ -1959,6 +1987,43 @@ mod tests {
 
         let result = preserve_conflict_copy_at(&path, Some(&base), "mine", STAMP).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn regression_173_an_interrupted_lock_is_listed_once_as_locked() {
+        let tmp = TempDir::new("list-pair");
+        for folder in ["daily", "weekly", "notes/Projects"] {
+            fs::create_dir_all(tmp.path().join(folder)).unwrap();
+        }
+        for pair in [
+            "daily/2026-10-05.md",
+            "weekly/2026-W40.md",
+            "notes/Plan.md",
+            "notes/Projects/Plan.md",
+        ] {
+            fs::write(tmp.path().join(pair), "plaintext").unwrap();
+            fs::write(tmp.path().join(format!("{pair}.locked")), "ciphertext").unwrap();
+        }
+        fs::write(tmp.path().join("notes/Open.md"), "open").unwrap();
+        fs::write(tmp.path().join("notes/Shut.md.locked"), "ciphertext").unwrap();
+
+        let mut listed: Vec<(String, bool)> = list_notes_in(tmp.path())
+            .into_iter()
+            .map(|note| (note.path, note.is_locked))
+            .collect();
+        listed.sort();
+        assert_eq!(
+            listed,
+            [
+                ("daily/2026-10-05.md", true),
+                ("notes/Open.md", false),
+                ("notes/Plan.md", true),
+                ("notes/Projects/Plan.md", true),
+                ("notes/Shut.md", true),
+                ("weekly/2026-W40.md", true),
+            ]
+            .map(|(path, locked)| (path.to_string(), locked))
+        );
     }
 
     #[test]

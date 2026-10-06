@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FolderInfo } from '@/types';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface MoveToFolderModalProps {
   isOpen: boolean;
@@ -137,13 +138,16 @@ export function MoveToFolderModal({
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: 'var(--border-default)' }}
         >
-          <h2
-            id="move-to-folder-title"
-            className="text-lg font-semibold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
-          </h2>
+          <div className="dialog-head">
+            <h2
+              id="move-to-folder-title"
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {bulkCount && bulkCount > 1 ? `Move ${bulkCount} Notes` : 'Move Note'}
+            </h2>
+            <CloseButton onClick={onClose} label="Close" />
+          </div>
         </div>
 
         <div className="p-4">

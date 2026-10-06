@@ -11,6 +11,7 @@ import { useWhatsNewStore } from '@/stores/whatsNewStore';
 import { formatShortcut } from '@/lib/shortcuts';
 import type { DefaultAppStatus } from '@/lib/defaultApp';
 import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
+import { JACK_O_LANTERN_SRC } from '@/lib/seasons';
 
 const mocks = vi.hoisted(() => ({
   mobile: false,
@@ -22,7 +23,8 @@ vi.mock('@tauri-apps/api/app', () => ({ getVersion: mocks.getVersion }));
 vi.mock('@tauri-apps/plugin-shell', () => ({ open: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: () => mocks.mobile }));
-vi.mock('@/lib/seasons', () => ({
+vi.mock('@/lib/seasons', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/seasons')>()),
   get ACTIVE_SEASON() {
     return mocks.season;
   },
@@ -60,7 +62,7 @@ describe('release welcome tour', () => {
     );
     expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
     const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
-    expect(pumpkin?.style.maskImage).toBe('url("/seasonal/pumpkin.webp")');
+    expect(pumpkin?.style.maskImage).toBe(`url("${JACK_O_LANTERN_SRC}")`);
     expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(2);
     await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
@@ -270,6 +272,51 @@ describe('release welcome tour', () => {
     useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     render(<CalendarOnboardingModal />);
     expect(screen.getByText('Calendar Events in Your Timeline')).toBeInTheDocument();
+  });
+
+  it('keeps both release pages in one stack so the card keeps its size', () => {
+    render(<AppOnboardingModal />);
+    const dialog = screen.getByRole('dialog');
+    const card = [dialog.className, dialog.getAttribute('style')];
+    const pages = () => Array.from(dialog.querySelectorAll('.step-stack > .step-stack-page'));
+    const shown = () => pages().filter((page) => !page.hasAttribute('inert'));
+
+    expect(pages()).toHaveLength(2);
+    expect(shown()[0]).toBe(pages()[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
+    expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
+    expect([dialog.className, dialog.getAttribute('style')]).toEqual(card);
+    expect(pages()).toHaveLength(2);
+    expect(shown()).toEqual([pages()[1]]);
+    expect(pages()[0]).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('keeps both calendar steps in one stack so Next does not move the dots', () => {
+    useCalendarStore.setState({
+      hasSeenOnboarding: false,
+      sources: [
+        {
+          source: 'google',
+          available: true,
+          connected: true,
+          account: null,
+          permission: null,
+          error: null,
+        },
+      ],
+    });
+    const { container } = render(<CalendarOnboardingModal />);
+    const pages = () => Array.from(container.querySelectorAll('.step-stack > .step-stack-page'));
+
+    expect(pages()).toHaveLength(2);
+    expect(screen.getByRole('heading')).toHaveTextContent('Calendar Events in Your Timeline');
+    expect(pages()[1]).toHaveAttribute('inert');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(pages()).toHaveLength(2);
+    expect(screen.getByRole('heading')).toHaveTextContent('Customize Your Calendar');
+    expect(pages()[0]).toHaveAttribute('inert');
+    expect(pages()[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(pages()[1]).not.toHaveAttribute('inert');
   });
 
   it('records the version when no mobile update pages apply', () => {

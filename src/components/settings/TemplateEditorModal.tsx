@@ -5,6 +5,7 @@ import { useTemplateStore } from '@/stores/templateStore';
 import { useToast } from '@/hooks/useToast';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 interface TemplateEditorModalProps {
   isOpen: boolean;
@@ -117,17 +118,7 @@ export function TemplateEditorModal({ isOpen, onClose }: TemplateEditorModalProp
           >
             New Template
           </h2>
-          <button
-            onClick={onClose}
-            disabled={isSaving}
-            className="settings-close p-1 focus-ring disabled:opacity-50"
-            style={{
-              color: 'var(--text-muted)',
-            }}
-            aria-label="Close"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+          <CloseButton onClick={onClose} disabled={isSaving} label="Close" />
         </div>
 
         <form

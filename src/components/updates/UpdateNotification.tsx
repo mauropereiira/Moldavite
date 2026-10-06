@@ -67,8 +67,8 @@ export function UpdateNotification() {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss update notification"
+          className="pad-hover"
           style={{
-            padding: '4px 0',
             border: 0,
             backgroundColor: 'transparent',
             color: 'var(--text-secondary)',
@@ -192,8 +192,8 @@ export function UpdateNotification() {
             <button
               type="button"
               onClick={dismiss}
+              className="pad-hover"
               style={{
-                padding: '4px 0',
                 border: 0,
                 backgroundColor: 'transparent',
                 color: 'var(--text-secondary)',

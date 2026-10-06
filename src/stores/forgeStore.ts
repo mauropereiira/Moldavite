@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { safeInvoke } from '@/lib/ipc';
 import { clearForgeStorage, moveForgeStorage, rememberActiveForge } from '@/lib/forgeStorage';
-import { flushPendingAutosave, getPendingAutosaveNoteId } from '@/lib/autosaveFlush';
+import { settleOwedWritesFor } from '@/lib/autosaveFlush';
 
 export interface Forge {
   id?: string;
@@ -35,11 +35,7 @@ interface ForgeState {
 }
 
 async function runForgeTransition<T>(transition: () => Promise<T>): Promise<T> {
-  await flushPendingAutosave();
-  const pendingNoteId = getPendingAutosaveNoteId();
-  if (pendingNoteId) {
-    throw new Error(`Forge change cancelled because ${pendingNoteId} could not be saved`);
-  }
+  await settleOwedWritesFor('Forge change');
 
   const result = await transition();
   if (typeof window !== 'undefined') {

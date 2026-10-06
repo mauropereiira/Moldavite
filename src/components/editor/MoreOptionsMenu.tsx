@@ -16,6 +16,7 @@ import { noteDeepLink } from '@/hooks/usePluginDeepLinks';
 import { isDroppedId, isLooseNote } from '@/lib/looseId';
 import { revealLooseFile, saveLooseCopy } from '@/lib/looseFiles';
 import { CURRENT_PLATFORM } from '@/lib/shortcuts';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const REVEAL_LABEL =
   CURRENT_PLATFORM === 'macos'
@@ -342,12 +343,15 @@ export function MoreOptionsMenu({
                 className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
                 style={{ borderRadius: 'var(--radius-md)' }}
               >
-                <h3
-                  className="text-base font-semibold mb-4"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  Note Info
-                </h3>
+                <div className="dialog-head">
+                  <h3
+                    className="text-base font-semibold mb-4"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Note Info
+                  </h3>
+                  <CloseButton onClick={() => setShowNoteInfo(false)} label="Close" />
+                </div>
                 <div className="space-y-2 text-sm">
                   <div
                     className="flex justify-between py-1.5"

@@ -7,6 +7,34 @@ All notable changes to Moldavite are documented here.
 ### Changed
 
 - The Moldavite website moved to [moldavite.dev](https://moldavite.dev), and the app's Privacy link now opens the policy there. Agent Skills have a page on it too, at [moldavite.dev/skills](https://moldavite.dev/skills).
+- Typing in a large Forge is faster: the sidebar no longer redraws on every keystroke, and the backlinks index rebuilds in a fraction of the time.
+- Opening the Graph and renaming or moving notes and folders no longer freeze the window on Windows and Linux.
+- With semantic search on, the search index is written at most every 30 seconds instead of on every save.
+
+### Fixed
+
+- Code samples keep `[[...]]` as written when a note is saved; it is no longer turned into a link inside code.
+- Strikethrough, brackets inside to-do text like `arr[x]`, and headings 4 to 6 survive saving.
+- Undoing back to the saved text and then leaving the note no longer saves the undone text.
+- An edit that failed to save is kept and retried when you close its tab, and Moldavite won't switch Forge or relaunch for an update while a save is still failing.
+- Emptying one copy of a daily or weekly note (a conflict copy, for example) no longer hides the other copies from the note list.
+- A note left both locked and unlocked by an interrupted lock is listed once, and unlocking it settles the pair. If the two differ, the unlocked text is kept as a conflict copy first.
+- Folders renamed or moved outside the app (Finder, git, a sync tool) keep search and backlinks pointing at the right notes, and notes changed outside the app are refreshed in semantic search.
+- Wiki links to weekly notes, like `[[2026-W40]]`, resolve.
+- Sidebar tag counts update right after a save.
+- A daily note made from a template gets its own date and day, not today's, and a weekly note gets its week.
+- Adding Option (Alt) to a shortcut no longer triggers the shortcut without it.
+- If Moldavite fails to start, it shows its recovery screen instead of an empty window.
+- Renaming a folder inside another folder on Windows no longer breaks saving the notes in it.
+- A clip saved with the same name as a locked note gets a new name instead of sitting beside it.
+
+### Security
+
+- Plugins run under the app's Content Security Policy, so a plugin can only reach the sites it declared.
+- Plugins can't read a locked note while it is open for viewing.
+- Search no longer shows results from notes that were locked or deleted since they were indexed, and the search index overwrites deleted text.
+- Uninstalling a plugin deletes the secrets it stored.
+- Repeated wrong passwords keep the unlock delay growing instead of resetting it.
 
 ## [2.10.1] - 2026-10-03
 

@@ -77,7 +77,6 @@ export function EditorNavigation() {
         zIndex: 20,
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
         transform: 'translateX(-50%)',
       }}
     >

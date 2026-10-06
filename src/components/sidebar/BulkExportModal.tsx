@@ -15,6 +15,7 @@ import { usePdfExportStore } from '@/stores';
 import { useToast } from '@/hooks/useToast';
 import type { NoteFile } from '@/types';
 import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 type BulkFormat = 'markdown' | 'pdf' | 'plaintext';
 
@@ -183,13 +184,16 @@ export function BulkExportModal({ isOpen, onClose }: BulkExportModalProps) {
         className="modal-elevated modal-content-enter p-6 max-w-sm mx-4 w-full"
         style={{ borderRadius: 'var(--radius-md)' }}
       >
-        <h3
-          id="bulk-export-title"
-          className="text-base font-semibold mb-1"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Export {count} note{count === 1 ? '' : 's'}
-        </h3>
+        <div className="dialog-head">
+          <h3
+            id="bulk-export-title"
+            className="text-base font-semibold mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Export {count} note{count === 1 ? '' : 's'}
+          </h3>
+          <CloseButton onClick={onClose} label="Close" disabled={busy} />
+        </div>
         <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
           {isMobilePlatform()
             ? 'Save the selected Markdown notes as a ZIP archive. Folder paths are preserved.'

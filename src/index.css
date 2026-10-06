@@ -181,6 +181,15 @@
   --radius-3xl: 0;
   --radius-4xl: 0;
 
+  /* CONTROL PADDING
+     Room between a control's hover or active fill and its letters. The fill
+     itself is --hover-overlay and --active-overlay, painted on every button
+     by INTERACTION FILLS. A text control takes --control-pad-*; a list row
+     whose fill spans the row takes --row-pad-x at each side. */
+  --control-pad-y: 3px;
+  --control-pad-x: 6px;
+  --row-pad-x: 8px;
+
   /* MOTION */
   --dur-micro: 120ms;
   --dur-press: 90ms;
@@ -798,6 +807,29 @@
   --accent-danger: var(--error);
 }
 
+/* An Index card. Light themes step down from the page towards the sidebar's
+   warmer ground, the way dark themes step up to --bg-elevated, so a card is
+   never near-white on a tinted page. */
+:root,
+:root[data-theme='sage'],
+:root[data-theme='slate'],
+:root[data-theme='clay'],
+:root[data-theme='plum'],
+:root[data-theme='graphite'],
+:root[data-theme='autumn'] {
+  --bg-card: color-mix(in srgb, var(--bg-base) 40%, var(--bg-sidebar));
+}
+
+.dark,
+:root[data-theme='sage'].dark,
+:root[data-theme='slate'].dark,
+:root[data-theme='clay'].dark,
+:root[data-theme='plum'].dark,
+:root[data-theme='graphite'].dark,
+:root[data-theme='autumn'].dark {
+  --bg-card: var(--bg-elevated);
+}
+
 /* BASE STYLES */
 
 body {
@@ -882,6 +914,62 @@ time,
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1;
+}
+
+/* INDEX SECTIONS
+   Each section's header is a filled band holding the toggle (caret, the
+   season's icon, the name), a count chip and the section's actions. In the
+   pinned column the band runs across the column; in the Index each section
+   is a card with the band on top (see INDEX CARDS). */
+.section-band {
+  gap: 10px;
+  min-height: 36px;
+  margin-top: 20px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-inset);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* In the pinned column the band sits on the sidebar's own ground, which in
+   dark themes is as deep as --bg-inset; the overlay tint keeps it visible. */
+.app-sidebar .section-band {
+  background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
+}
+
+.section-band .seasonal-section-icon {
+  color: var(--text-secondary);
+}
+
+.section-count {
+  min-width: 20px;
+  padding: 3px 5px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.section-actions {
+  gap: 12px;
+  margin-left: auto;
+}
+
+.section-actions button {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section-body {
+  padding-top: 8px;
 }
 
 .sidebar-caret {
@@ -1555,16 +1643,7 @@ html:not([data-platform='mobile'])
   }
 }
 
-.settings-close {
-  min-width: 28px;
-  padding: 2px 6px;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
-}
-
-.settings-dialog :is(.settings-close, .settings-nav-link, .settings-info):hover,
+.settings-dialog :is(.settings-nav-link, .settings-info):hover,
 .settings-dialog .settings-info[aria-expanded='true'] {
   color: var(--text-primary) !important;
   background: var(--hover-overlay) !important;
@@ -1799,15 +1878,20 @@ html:not([data-platform='mobile'])
   border-color: color-mix(in srgb, var(--error) 50%, transparent);
 }
 
-/* A text action inside copy: the hover fill gets its own padding, pulled back
-   by a negative margin so the word still lines up with the text around it. */
+/* A text action in Settings copy; `pad-hover` gives it room round its fill. */
 .settings-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin: 0 -6px;
-  padding: 2px 6px;
   font-size: var(--text-xs);
+}
+
+.settings-dialog .close-button:hover {
+  background: var(--hover-overlay) !important;
+}
+
+.settings-dialog .close-button:is(:hover, :focus-visible) svg {
+  color: var(--text-primary) !important;
 }
 
 .settings-snippet pre {
@@ -2050,73 +2134,76 @@ html:not([data-platform='mobile'])
   backdrop-filter: none;
 }
 
-/* TAB BAR - typographic index */
+/* TOP BAR - pinned notes, then open tabs */
 
 .tab-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   min-height: 38px;
-  padding: 0 20px 0 56px;
+  padding: 0 10px 0 16px;
   background: transparent;
   border-bottom: 1px solid var(--border-muted);
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
 }
 
-.tab-bar::-webkit-scrollbar {
-  display: none;
+/* The tabs that fit. Its width is the bar's, never its contents', so folding
+   tabs into the menu cannot change the width that decided to fold them. */
+.tab-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* A copy of every tab at its natural width, for measuring only. */
+.tab-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 8px;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 10px;
   min-width: 0;
-  max-width: 180px;
+  max-width: 200px;
+  flex: 0 1 auto;
   border: 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition:
     color var(--dur-micro) var(--ease-standard),
-    background-color var(--dur-micro) var(--ease-standard),
-    transform var(--dur-press) var(--ease-standard);
-  flex-shrink: 0;
-  position: relative;
-  font-family: var(--font-display);
-  font-size: 11px;
+    background-color var(--dur-micro) var(--ease-standard);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
   font-weight: 400;
   letter-spacing: 0;
+}
+
+.tab-measure .tab {
+  flex-shrink: 0;
 }
 
 .tab:hover {
   color: var(--text-primary);
 }
 
-/* Active tab indicator line */
-.tab::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  width: calc(100% - 16px);
-  height: 1px;
-  background: var(--text-primary);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--dur-base) var(--ease-standard);
-}
-
-.tab.active::after {
-  transform: scaleX(1);
-}
-
 .tab.active {
   color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .tab-title {
@@ -2128,194 +2215,259 @@ html:not([data-platform='mobile'])
   font-weight: inherit;
 }
 
+/* Pin and close sit in the tab at full width, hidden until the tab is
+   hovered, focused or current, so revealing them never moves the bar. */
+.tab-pin,
+.tab-close,
+.tab-pin-mark {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    opacity var(--dur-micro) var(--ease-standard);
+}
+
+.tab-pin,
 .tab-close {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0;
+}
+
+.tab:hover :is(.tab-pin, .tab-close),
+.tab:focus-within :is(.tab-pin, .tab-close),
+.tab.active :is(.tab-pin, .tab-close) {
+  opacity: 1;
+}
+
+:is(.tab-pin, .tab-close, .tab-pin-mark):hover,
+:is(.tab-pin, .tab-close, .tab-pin-mark):focus-visible {
+  color: var(--text-primary);
+}
+
+.tab.tab-pinned {
+  padding: 0 10px 0 4px;
+  max-width: 160px;
+  color: var(--text-secondary);
+}
+
+.tab.tab-pinned:hover,
+.tab.tab-pinned.active {
+  color: var(--text-primary);
+}
+
+.tab-pin-mark {
   width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 300;
-  line-height: 1;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
+  color: var(--accent-primary);
 }
 
-.tab:hover .tab-close {
-  opacity: 1;
-}
-
-.tab:focus-within .tab-close {
-  opacity: 1;
-}
-
-.tab-close:hover {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-@keyframes tab-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.tab-pin {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
-}
-
-.tab:hover .tab-pin {
-  opacity: 1;
-}
-
-.tab-pin:hover {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.pinned-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.regular-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.regular-tabs::-webkit-scrollbar {
+/* A pinned mark turns into "unpin" under the pointer or the keyboard. */
+.tab-glyph-unpin {
   display: none;
+}
+
+:is(.tab-pin-mark, .note-corner-button[data-on]):is(:hover, :focus-visible) .tab-glyph-pinned {
+  display: none;
+}
+
+:is(.tab-pin-mark, .note-corner-button[data-on]):is(:hover, :focus-visible) .tab-glyph-unpin {
+  display: block;
 }
 
 .tabs-divider {
   width: 1px;
-  height: 16px;
+  height: 14px;
+  margin: 0 6px;
   background: var(--border-muted);
-  margin: 0 4px;
   flex-shrink: 0;
-}
-
-.tab-actions {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border-muted);
-}
-
-.tab-action {
-  color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tab-action:hover {
-  color: var(--text-primary);
-}
-
-/* Pinned tabs keep their title; pinning changes persistence, not hierarchy. */
-.tab.tab-pinned {
-  width: auto;
-  min-width: 0;
-  max-width: 180px;
-  height: auto;
-  padding: 0 8px;
-  justify-content: flex-start;
-}
-
-.tab.tab-pinned:hover {
-  background: transparent;
-}
-
-.tab.tab-pinned.active {
-  background: transparent;
-}
-
-.tab-unpin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition:
-    color var(--duration-fast) var(--ease-snap),
-    opacity var(--duration-fast) var(--ease-snap);
-  z-index: 1;
-}
-
-.tab.tab-pinned:hover .tab-unpin {
-  opacity: 1;
-}
-
-.tab-unpin:hover {
-  background: transparent;
-  color: var(--text-primary);
 }
 
 .tab-dragging {
   opacity: 0.5;
 }
 
+/* Where a dragged tab will land. A line rather than a moving gap: the row is
+   short and reflowing it on every dragover reads as jitter. */
 .tab-drag-over {
-  background: transparent !important;
-  color: var(--text-primary) !important;
+  box-shadow: inset 2px 0 0 0 var(--text-primary) !important;
 }
 
-.tab-drag-over::after {
-  width: calc(100% - 16px);
-  background: var(--border-strong);
+.tab-overflow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 6px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color var(--dur-micro) var(--ease-standard);
+}
+
+.tab-overflow:hover,
+.tab-overflow:focus-visible,
+.tab-overflow[aria-expanded='true'] {
+  color: var(--text-primary);
+}
+
+.tab-overflow-label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* Open tabs and a tab's context menu. */
+.tabs-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 50;
+  width: 300px;
+  max-width: calc(100% - 16px);
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  box-shadow: var(--shadow-md);
+}
+
+.tabs-context-menu {
+  position: fixed;
+  right: auto;
+  width: max-content;
+  min-width: 200px;
+}
+
+.tabs-menu-list {
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tabs-menu-label {
+  padding: 8px 12px 4px;
+}
+
+.tabs-menu-footer {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.tabs-menu-row {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  box-shadow: inset 2px 0 0 0 transparent;
+}
+
+.tabs-menu-row[data-active] {
+  box-shadow: inset 2px 0 0 0 var(--text-primary);
+}
+
+.tabs-menu-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tabs-menu-pin-mark {
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+.tabs-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+:is(.tabs-menu-open, .tabs-menu-icon):focus-visible {
+  color: var(--text-primary);
+  background: var(--hover-overlay);
+  outline: none;
+}
+
+/* Pin and close in the open note's top-right corner. */
+.note-corner-actions {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  display: flex;
+  gap: 2px;
+  pointer-events: auto;
+}
+
+/* The close control everywhere (CloseButton) shares the corner's look: a
+   16px hairline × in a 28px square that takes the hover fill. */
+:is(.note-corner-button, .close-button) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+:is(.note-corner-button, .close-button):hover {
+  color: var(--text-primary);
+  background: var(--hover-overlay);
+}
+
+/* Surfaces hand the × focus as they open; the ring alone marks it, so a
+   dialog opened from the keyboard does not show a filled box at rest. */
+:is(.note-corner-button, .close-button):focus-visible {
+  color: var(--text-primary);
+}
+
+.close-button-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* A small dialog's title row: the title, then the × at the top-right, its
+   glyph lined up with the content edge. */
+.dialog-head {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-head > .close-button {
+  margin: -2px -6px 0 0;
+}
+
+.note-corner-button[data-on] {
+  color: var(--accent-primary);
 }
 
 /* EDITOR STYLES */
@@ -2586,7 +2738,10 @@ html.icon-rail-right {
 /* Editor headings are always at least 16px, so the display face stays legible. */
 .tiptap h1,
 .tiptap h2,
-.tiptap h3 {
+.tiptap h3,
+.tiptap h4,
+.tiptap h5,
+.tiptap h6 {
   font-family: var(--font-display);
   font-weight: 500;
   line-height: 1.2;
@@ -2611,6 +2766,19 @@ html.icon-rail-right {
   letter-spacing: -0.015em;
   margin: 1.6em 0 0.5em;
   color: var(--syntax-h3);
+}
+
+.tiptap h4,
+.tiptap h5,
+.tiptap h6 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin: 1.4em 0 0.4em;
+  color: var(--text-primary);
+}
+
+.tiptap h6 {
+  color: var(--text-secondary);
 }
 
 .tiptap ul,
@@ -3129,16 +3297,6 @@ wiki-link {
   position: absolute;
   top: 0;
   right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 1;
-  background: transparent;
 }
 
 .wn-section {
@@ -3176,8 +3334,9 @@ wiki-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 1rem 0;
+  width: calc(100% + 2 * var(--row-pad-x));
+  margin-inline: calc(-1 * var(--row-pad-x));
+  padding: 1rem var(--row-pad-x);
   text-align: left;
   background: transparent;
 }
@@ -3223,8 +3382,6 @@ button[aria-expanded='true'] .wn-caret {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
   background: transparent;
 }
 
@@ -3942,6 +4099,56 @@ button[aria-expanded='true'] .wn-caret {
   margin: 0 4px;
 }
 
+/* The writing toolbar wears the selection toolbar's look, but floats in the
+   note's scroll container above the block being written. */
+.writing-toolbar {
+  position: absolute;
+  z-index: 11;
+  box-shadow: var(--shadow-md);
+  animation: writing-toolbar-in var(--dur-micro) var(--ease-standard);
+}
+
+@keyframes writing-toolbar-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.selection-toolbar .block-type-trigger {
+  gap: 6px;
+  padding: 0 6px 0 8px;
+}
+
+/* A hairline caret, like the rest of the chrome's disclosure marks. */
+.block-type-caret {
+  width: 5px;
+  height: 5px;
+  margin-top: -3px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.writing-plus {
+  position: absolute;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+.writing-plus:hover,
+.writing-plus:focus-visible {
+  color: var(--text-primary);
+}
+
 /* Tippy hosts the wiki-link, tag and slash suggestion lists. Its stock theme,
    a dark rounded box with an arrow, is not imported: the lists draw their own
    ground and hairlines, and the box around them adds nothing. */
@@ -3968,122 +4175,13 @@ button[aria-expanded='true'] .wn-caret {
 
 /* EDITOR FOOTER */
 
-/* Pinned notes, above the editor. Same typographic register as the footer —
-   Geist Mono, uppercase, letter-spaced — so it reads as chrome rather than as
-   content competing with the note. The bar only renders when something is
-   pinned, so it costs nothing until it is asked for. */
-.pinned-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 6px 20px;
-  border-bottom: 1px solid var(--border-muted);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  line-height: 1.6;
-  text-transform: uppercase;
-}
-
-.pinned-bar-item {
-  display: inline-flex;
-  align-items: center;
-  /* Never shrink past the label. The footer taught this lesson: these buttons
-     are their text, so a clipped one is unreadable rather than merely small. */
-  flex: 0 0 auto;
-  min-width: max-content;
-  color: var(--text-muted);
-  transition: color var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-item:hover,
-.pinned-bar-item[data-current] {
-  color: var(--text-primary);
-}
-
-.pinned-bar-open,
-.pinned-bar-unpin {
-  padding: 2px 4px;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
-/* Unpin stays quiet until the item is hovered or focused, so the bar reads as
-   a row of names rather than a row of dismiss buttons — but it must appear on
-   keyboard focus too, or it is unreachable without a mouse. */
-.pinned-bar-unpin {
-  opacity: 0;
-  transition: opacity var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-item:hover .pinned-bar-unpin,
-.pinned-bar-unpin:focus-visible {
-  opacity: 0.7;
-}
-
-.pinned-bar-unpin:hover {
-  opacity: 1;
-}
-
-.focus-mode .pinned-bar {
-  display: none;
-}
-
-/* Where a dragged pin will land. A line rather than a moving gap: the row is
-   short and reflowing it on every dragover reads as jitter. */
-.pinned-bar-item[data-drop] {
-  box-shadow: inset 2px 0 0 0 var(--accent);
-}
-
-.pinned-bar-item[draggable='true'] {
-  cursor: grab;
-}
-
-.pinned-bar-item[draggable='true']:active {
-  cursor: grabbing;
-}
-
-/* Divides the pins that fit from the overflow count, so "+8" reads as a
-   continuation rather than another pin. */
-.pinned-bar-sep {
-  width: 1px;
-  height: 12px;
-  margin-left: 8px;
-  background: var(--border-muted);
-}
-
-.pinned-bar-more {
-  padding: 2px 6px;
-  color: var(--text-muted);
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-  transition: color var(--dur-micro) var(--ease-standard);
-}
-
-.pinned-bar-more:hover {
-  color: var(--text-primary);
-}
-
-/* The bar is chrome, and its menu is not: reset the uppercase letterspacing
-   so note names in the overflow read as names. */
-.pinned-bar [role='menu'] {
-  letter-spacing: normal;
-  line-height: var(--text-sm--line-height);
-  text-transform: none;
-}
-
 .editor-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 34px;
-  padding: 0 20px;
+  /* The right edge is 8px short because the last control's padding makes it up. */
+  padding: 0 12px 0 20px;
   border-top: 1px solid var(--border-muted);
   background: transparent;
   color: var(--text-muted);
@@ -4182,20 +4280,15 @@ button[aria-expanded='true'] .wn-caret {
   color: var(--text-primary);
 }
 
-/* Text links reveal their hairline from the left. These include prose and
-   wiki links plus the two families of typographic navigation controls. */
-:is(.text-link, .editor-navigation-links button, .welcome-note-action, .tiptap a, wiki-link) {
+/* Links in a note reveal their hairline from the left. Controls in the
+   chrome never underline; they take a padded hover fill instead (see SMALL
+   CHROME CONTROLS). */
+:is(.tiptap a, wiki-link) {
   position: relative;
   text-decoration: none;
 }
 
-:is(
-  .text-link,
-  .editor-navigation-links button,
-  .welcome-note-action,
-  .tiptap a,
-  wiki-link
-)::after {
+:is(.tiptap a, wiki-link)::after {
   content: '';
   position: absolute;
   right: 0;
@@ -4209,29 +4302,16 @@ button[aria-expanded='true'] .wn-caret {
   pointer-events: none;
 }
 
-:is(
-    .text-link,
-    .editor-navigation-links button,
-    .welcome-note-action,
-    .tiptap a,
-    wiki-link
-  ):hover::after,
-:is(
-    .text-link,
-    .editor-navigation-links button,
-    .welcome-note-action,
-    .tiptap a,
-    wiki-link
-  ):focus-visible::after {
+:is(.tiptap a, wiki-link):hover::after,
+:is(.tiptap a, wiki-link):focus-visible::after {
   transform: scaleX(1);
 }
 
 /* Colour alone is not enough to mark a link — someone who cannot separate that
    hue from the body ink gets nothing. The hairline is therefore present at
    rest, just quiet, and comes up to full on hover rather than being drawn from
-   nothing. Scoped to note content: the navigation controls that share the rule
-   above are standalone and already read as controls. These rules tie with that
-   one on specificity and must stay after it, or it hides the hairline at rest. */
+   nothing. These rules tie with that one on specificity and must stay after
+   it, or it hides the hairline at rest. */
 .tiptap a::after,
 .tiptap wiki-link::after {
   transform: scaleX(1);
@@ -4669,15 +4749,71 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   background: color-mix(in srgb, var(--bg-base) 94%, transparent);
 }
 
+/* One card size for every step (see .step-stack). A window shorter than the
+   card scrolls the body rather than pushing the card off screen. */
+.app-onboarding-card {
+  display: flex;
+  flex-direction: column;
+  width: min(32rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+}
+
+.app-onboarding-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-onboarding-steps,
+.app-onboarding-footer {
+  flex: none;
+}
+
+/* The last steps' buttons are bordered and Next is not; a transparent border
+   evens them out so the footer is the same height on every step. */
+.app-onboarding-footer button {
+  border: 1px solid transparent;
+}
+
+/* The inset keeps a focused button's outline (offset outside the button)
+   from being cut off by the scroll box. */
+.app-onboarding-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
+/* A stepped flow renders every step into one grid cell and hides all but
+   the current one, so the tallest step sizes the card and the progress
+   indicator, icon and buttons hold still from step to step. Auto margins
+   centre the stack where its container has room to spare (the phone sheet)
+   and fall to zero when it overflows, where `justify-content: center` would
+   push the top out of scroll reach. */
+.step-stack {
+  display: grid;
+  margin-block: auto;
+}
+
+.step-stack-page {
+  grid-area: 1 / 1;
+}
+
+.step-stack-page[inert] {
+  visibility: hidden;
+}
+
 .editor-footer-right {
   display: flex;
   align-items: center;
   /* Never squeezed: these controls are their labels. */
   flex: 0 0 auto;
-  /* Roomier than the 8px these started at. The labels are uppercase and
-     letterspaced, so at 8px the gap between two controls read as narrower than
-     the gap inside one word and the row scanned as a single run of text. */
-  gap: 18px;
+  /* The labels are uppercase and letterspaced, so at 8px apart two controls
+     read as one run of text. They sit 18px apart: each control's 8px padding
+     on either side plus this gap. */
+  gap: 2px;
 }
 
 .editor-footer .toolbar-button,
@@ -4699,8 +4835,8 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   flex: 0 0 auto;
   min-width: max-content;
   white-space: nowrap;
-  height: 32px;
-  padding: 0;
+  height: 24px;
+  padding: 0 8px;
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 500;
@@ -4712,6 +4848,139 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
 .editor-footer-overflow-toggle:hover,
 .editor-footer-overflow-toggle[aria-expanded='true'] {
   color: var(--text-primary);
+}
+
+/* Every control along the bottom shares one look: a padded wash on hover and,
+   while its menu is open, the outline the current tab wears. */
+.editor-navigation-links button {
+  height: 24px;
+  padding: 0 8px;
+  transition:
+    color var(--dur-micro) var(--ease-standard),
+    background-color var(--dur-micro) var(--ease-standard);
+}
+
+/* SMALL CHROME CONTROLS
+   The one padded-hover rule for text controls: section titles and actions,
+   the Index's links, empty-state actions, the welcome actions, the calendar
+   arrows, toast actions and the text buttons in Settings, Graph and plugin
+   dialogs. Every button gets the hover fill; this gives it room round the
+   letters, and the negative margins keep each one where it was laid out.
+   Add `pad-hover` to a new text control rather than another selector here. */
+:is(
+  .pad-hover,
+  .section-header button,
+  .sidebar-footer-links .text-link,
+  .welcome-note-action,
+  .calendar-nav-button
+) {
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin: calc(-1 * var(--control-pad-y)) calc(-1 * var(--control-pad-x));
+}
+
+/* A control inside a sentence ("No folders yet. New folder") keeps its word
+   spaces and pads inside them, so its fill never reaches a neighbouring
+   letter; the sentence makes room rather than the fill overlapping it. */
+.pad-hover-inline {
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin: calc(-1 * var(--control-pad-y)) 0;
+}
+
+/* The Forge switcher: a captioned name with a caret, the same padded fill,
+   and a menu as wide as its longest Forge rather than the whole column. */
+.forge-switcher-trigger {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.forge-switcher-trigger[aria-expanded='true'] {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.forge-switcher-caption {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.forge-switcher-name {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.forge-switcher-caret {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-right: 1px solid var(--text-muted);
+  border-bottom: 1px solid var(--text-muted);
+  transform: rotate(45deg);
+}
+
+.forge-switcher-menu {
+  position: absolute;
+  top: 100%;
+  left: -8px;
+  z-index: 30;
+  min-width: 240px;
+  max-width: calc(100% + 16px);
+  margin-top: 6px;
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  box-shadow: var(--shadow-md);
+}
+
+.forge-switcher-row {
+  padding: 7px 14px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  box-shadow: inset 2px 0 0 0 transparent;
+}
+
+.forge-switcher-row[aria-selected='true'] {
+  box-shadow: inset 2px 0 0 0 var(--text-primary);
+}
+
+.forge-switcher-divider {
+  margin: 4px 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+/* Options sits absolutely at the row's end, so only its own edge moves back. */
+.row-options {
+  padding: var(--control-pad-y) var(--control-pad-x);
+  margin-right: calc(-1 * var(--control-pad-x));
+}
+
+.editor-footer :is(.toolbar-button, .editor-footer-overflow-toggle)[aria-expanded='true'],
+:is(.editor-footer, .editor-navigation-links)
+  [aria-expanded='true']
+  > :is(.toolbar-button, .editor-footer-overflow-toggle, button) {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .editor-footer-color svg {
@@ -4835,6 +5104,98 @@ html.welcome-asteroid-cursor-active:not(.welcome-asteroid-yielded) * {
   --index: 0;
   animation: app-overlay-section-enter var(--dur-slow) var(--ease-standard) both;
   animation-delay: calc(var(--index) * var(--stagger-step));
+}
+
+/* INDEX CARDS
+   In the Index every section is a square card: the band on top, flush with
+   the card's edges, and its list below. The Index is fixed to the window:
+   Sidebar.tsx measures how many cards fit side by side and gives each row of
+   them a share of the height (a row of folded cards only its bands), and each
+   list scrolls inside its own card. Stacked in one column, on a phone or a
+   narrow window, and in the pinned column, the sections share the height by
+   their length instead: the longest give way first, never below a minimum. */
+.app-index-grid {
+  --index-card-min-height: 200px;
+  gap: 24px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 20px 12px 28px;
+}
+
+.app-index-grid > .index-card {
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+}
+
+.index-card {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Backlinks draws nothing without an open note; no empty frame then. */
+.index-card:empty {
+  display: none;
+}
+
+.app-index-grid > .index-card:has(> .index-section[data-collapsed]) {
+  align-self: start;
+}
+
+.sidebar-sections {
+  --index-card-min-height: 140px;
+  display: flex;
+  height: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+:is(.app-index-grid[data-stacked], .sidebar-sections) > .index-card {
+  flex: 0 1 auto;
+  min-height: var(--index-card-min-height);
+}
+
+:is(.app-index-grid[data-stacked], .sidebar-sections)
+  > .index-card:has(> .index-section[data-collapsed]) {
+  flex: none;
+  min-height: 0;
+}
+
+/* Inside a card the band stays put and the list scrolls. A folded panel keeps
+   its `hidden`. */
+.index-card > .index-section {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.index-card .section-panel:not([hidden]) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.index-card .section-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-index-grid .section-band {
+  margin-top: 0;
+  border-top: 0;
+}
+
+/* A folded card is only its band; the card's own edge closes it. */
+.app-index-grid .index-section[data-collapsed] .section-band {
+  border-bottom-color: transparent;
+}
+
+.app-index-grid .section-body {
+  padding-bottom: 12px;
 }
 
 .index-overlay-content .note-card-title {
@@ -5915,11 +6276,6 @@ button.editor-index-trigger:not(:disabled):hover {
   max-height: 82vh;
   padding: 1.5rem;
   overflow-y: auto;
-}
-
-.obs-import-close {
-  padding: 0.25rem;
-  color: var(--text-muted);
 }
 
 .obs-import-grid {

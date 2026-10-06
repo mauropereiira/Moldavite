@@ -6,6 +6,7 @@ import {
   useFolderStore,
   useNoteStore,
   useOverlayStore,
+  useQuickSwitcherStore,
   useSettingsStore,
   useTagStore,
 } from '@/stores';
@@ -106,6 +107,7 @@ function buildVault(): { notes: NoteFile[]; folders: FolderInfo[] } {
 function resetStores(notes: NoteFile[] = [], folders: FolderInfo[] = [], notesAvailable = true) {
   ipc.notesAvailable = notesAvailable;
   ipc.notes = notes;
+  useQuickSwitcherStore.setState({ pinnedNoteIds: [] });
   ipc.folders = folders;
   const currentFile = notes.find((note) => !note.isDaily && !note.isWeekly);
   const currentNote = currentFile
@@ -286,6 +288,96 @@ describe('IndexOverlay', () => {
     await waitFor(() => expect(useTagStore.getState().allTags.size).toBeGreaterThan(0));
   });
 
+  // Direction C: each section is a card whose filled band holds the toggle,
+  // a count chip and the section's actions.
+  it('shows every section as a card with its band, count and actions', async () => {
+    const vault = buildVault();
+    resetStores(vault.notes, vault.folders);
+    const { container } = render(<IndexOverlay isOpen onClose={vi.fn()} />);
+
+    const cards = Array.from(container.querySelectorAll('.app-index-grid > .app-overlay-section'));
+    const names = cards.map((card) => card.querySelector('.section-title')?.textContent);
+    expect(names).toEqual(['Notes', 'Folders', 'Daily', 'Tags', 'Backlinks']);
+    for (const card of cards) {
+      const band = card.querySelector('.section-band');
+      expect(band).not.toBeNull();
+      expect(band?.querySelector('.section-toggle')).toHaveAttribute('aria-expanded', 'true');
+    }
+
+    const notes = within(cards[0] as HTMLElement);
+    expect(cards[0].querySelector('.section-count')).toHaveTextContent('5');
+    expect(notes.getByRole('button', { name: 'New' })).toBeInTheDocument();
+    expect(
+      within(cards[1] as HTMLElement).getByRole('button', { name: 'New' })
+    ).toBeInTheDocument();
+    expect(cards[2].querySelector('.section-count')).toHaveTextContent('111');
+    expect(within(cards[2] as HTMLElement).getByText('Today')).toBeInTheDocument();
+    await waitFor(() => expect(useTagStore.getState().allTags.size).toBeGreaterThan(0));
+  });
+
+  it('folds a card to its band, keeping the count and hiding the list and actions', () => {
+    const vault = buildVault();
+    resetStores(vault.notes, vault.folders);
+    const { container } = render(<IndexOverlay isOpen onClose={vi.fn()} />);
+    const card = container.querySelectorAll('.app-index-grid > .app-overlay-section')[1];
+    const folders = within(card as HTMLElement);
+
+    expect(folders.getByText('Projects')).toBeVisible();
+    fireEvent.click(folders.getByRole('button', { name: 'Folders' }));
+
+    expect(useFolderStore.getState().sectionsCollapsed.folders).toBe(true);
+    expect(folders.getByRole('button', { name: 'Folders' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(folders.queryByRole('button', { name: 'New' })).not.toBeInTheDocument();
+    expect(card.querySelector('.section-count')).toHaveTextContent('3');
+    expect(folders.queryByText('Projects')).not.toBeVisible();
+  });
+
+  // The Index is fixed to the window: rows of cards share its height, and a
+  // row of folded cards takes only its bands.
+  it('lays the cards out from the measured width and folds rows to their bands', () => {
+    const observed: Array<() => void> = [];
+    let width = 1500;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private cb: (entries: Array<{ contentRect: { width: number } }>) => void) {}
+        observe() {
+          const fire = () => this.cb([{ contentRect: { width } }]);
+          observed.push(fire);
+          fire();
+        }
+        disconnect() {}
+      }
+    );
+    const vault = buildVault();
+    resetStores(vault.notes, vault.folders);
+    useNoteStore.setState({ currentNote: null });
+    const { container } = render(<IndexOverlay isOpen onClose={vi.fn()} />);
+    const grid = container.querySelector('.app-index-grid') as HTMLElement;
+
+    expect(grid.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
+    expect(grid.style.gridTemplateRows).toBe('minmax(var(--index-card-min-height), 1fr)');
+
+    width = 800;
+    act(() => observed.forEach((fire) => fire()));
+    expect(grid.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
+    act(() => {
+      useFolderStore.setState((state) => ({
+        sectionsCollapsed: { ...state.sectionsCollapsed, tags: true },
+      }));
+    });
+    expect(grid.style.gridTemplateRows).toBe('minmax(var(--index-card-min-height), 1fr) auto');
+
+    width = 360;
+    act(() => observed.forEach((fire) => fire()));
+    expect(grid).toHaveAttribute('data-stacked');
+    expect(grid.style.display).toBe('flex');
+    vi.unstubAllGlobals();
+  });
+
   it('renders with empty stores when Tauri IPC is unavailable', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<IndexOverlay isOpen onClose={vi.fn()} />);
@@ -419,10 +511,7 @@ describe('IndexOverlay', () => {
       isLocked: false,
     }));
     resetStores(notes, []);
-    useNoteStore.setState((state) => ({
-      openTabs: state.openTabs.map((tab) => ({ ...tab, isPinned: true })),
-      currentNote: state.currentNote ? { ...state.currentNote, isPinned: true } : null,
-    }));
+    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/Pinned.md'] });
 
     render(<IndexOverlay isOpen onClose={vi.fn()} />);
 
@@ -435,23 +524,18 @@ describe('IndexOverlay', () => {
     expect(state.openTabs.map((tab) => tab.id)).toEqual(['notes/Pinned.md', 'notes/Delta.md']);
   });
 
-  // Got this wrong twice by positioning the two independently: first 32px
-  // apart, which read as one crowded object; then with the hint at top-left,
-  // where it landed on top of the Forge name in the sidebar's own header.
-  // Keeping them in one container is what makes overlap impossible — absolute
-  // coordinates only ever move the collision somewhere else.
-  it('keeps the shortcut hint and the close button in one row', () => {
-    render(<IndexOverlay isOpen onClose={() => {}} />);
+  // The shortcut used to sit in a hint line beside the ×, where it crowded the
+  // Forge name. It lives in the tooltip now, on the same × the note uses.
+  it('closes with the shared × and keeps the shortcut in its tooltip', () => {
+    const onClose = vi.fn();
+    render(<IndexOverlay isOpen onClose={onClose} />);
 
     const close = screen.getByRole('button', { name: 'Close Index' });
-    const hint = screen.getByText(/Esc closes/i);
+    expect(close).toHaveClass('close-button');
+    expect(close.getAttribute('title')).toMatch(/^Close \(Esc, .+\\\)$/);
+    expect(screen.queryByText(/Esc closes/i)).not.toBeInTheDocument();
 
-    // Siblings under a single positioned parent, not two floating elements.
-    expect(close.parentElement).toBe(hint.parentElement);
-    expect(close.parentElement).toHaveStyle({ display: 'flex' });
-
-    // Neither carries its own absolute position any more.
-    expect(close).not.toHaveStyle({ position: 'absolute' });
-    expect(hint).not.toHaveStyle({ position: 'absolute' });
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

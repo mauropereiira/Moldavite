@@ -546,7 +546,7 @@ export function PluginsSection() {
                           <button
                             type="button"
                             onClick={() => setSheet({ info, mode: 'view' })}
-                            className="settings-link"
+                            className="settings-link pad-hover"
                           >
                             View permissions
                           </button>
@@ -555,7 +555,7 @@ export function PluginsSection() {
                           type="button"
                           onClick={() => setPendingUninstall(info)}
                           disabled={busy}
-                          className="settings-link"
+                          className="settings-link pad-hover"
                         >
                           <Trash2 aria-hidden="true" className="w-3 h-3" />
                           Uninstall
@@ -592,7 +592,7 @@ export function PluginsSection() {
               <button
                 type="button"
                 onClick={() => openExternal(RECOVERY_DOC_URL)}
-                className="settings-link"
+                className="settings-link pad-hover-inline"
               >
                 start it without plugins
               </button>
@@ -860,7 +860,7 @@ export function PluginsSection() {
                         <button
                           type="button"
                           onClick={() => openExternal(communityPluginSourceUrl(plugin))}
-                          className="settings-link"
+                          className="settings-link pad-hover"
                         >
                           View source
                         </button>
@@ -871,7 +871,7 @@ export function PluginsSection() {
                               `${COMMUNITY_REPORT_URL}&title=${encodeURIComponent(`Report: ${plugin.id}`)}`
                             )
                           }
-                          className="settings-link"
+                          className="settings-link pad-hover"
                         >
                           Report a problem
                         </button>
@@ -892,7 +892,7 @@ export function PluginsSection() {
       {pendingUninstall && (
         <ConfirmDialog
           title="Uninstall Plugin"
-          message={`Uninstall "${pendingUninstall.manifest.name}"? This deletes its folder from your Forge. Your notes aren't touched.`}
+          message={`Uninstall "${pendingUninstall.manifest.name}"? This deletes its folder from your Forge and the credentials it saved, unless another Forge still has it. Your notes aren't touched.`}
           confirmLabel="Uninstall"
           danger
           onConfirm={confirmUninstall}

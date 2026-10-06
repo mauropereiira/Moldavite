@@ -49,7 +49,6 @@ const openNote: Note = {
   updatedAt: new Date(0),
   isDaily: false,
   isWeekly: false,
-  isPinned: true,
 };
 const movedFile: NoteFile = {
   ...oldFile,
@@ -168,7 +167,6 @@ describe('useFolders folder renames', () => {
     ...openNote,
     id: 'notes/Projects/Plan.md',
     title: 'Plan',
-    isPinned: false,
   };
 
   beforeEach(() => {

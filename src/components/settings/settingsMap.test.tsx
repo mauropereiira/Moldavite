@@ -203,6 +203,7 @@ const CONTROLS: Record<string, [SettingsTab, Interaction, unknown, Partial<Setti
   sortOption: ['layout', { group: 'Sort notes by', radio: 'Manual' }, 'manual'],
   sidebarWidth: ['layout', { slider: 'Index width', value: 300 }, 300, PINNED],
   rightPanelWidth: ['layout', { slider: 'Agenda width', value: 400 }, 400, PINNED],
+  showWritingToolbar: ['writing', { switch: 'Writing toolbar' }, false],
   spellCheck: ['writing', { switch: 'Spell check' }, false],
   autoCapitalize: ['writing', { switch: 'Auto-capitalize' }, false],
   showWordCount: ['writing', { switch: 'Word count' }, true],

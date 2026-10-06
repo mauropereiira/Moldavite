@@ -2,9 +2,10 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { EmptyGraphEmptyState } from '@/components/ui';
 import { safeInvoke } from '@/lib/ipc';
 import { isMobilePlatform } from '@/lib/platform';
-import { useGraphStore, useNoteStore, useThemeStore } from '@/stores';
+import { useGraphStore, useNoteStore } from '@/stores';
 import { useNotes } from '@/hooks';
 import { noteForGraphNode } from './addressing';
+import { createLabelPlacer } from './labels';
 import {
   collisionRadius,
   initLayout,
@@ -14,6 +15,8 @@ import {
   type LayoutNode,
   type LayoutOptions,
 } from './layout';
+import { CloseButton } from '@/components/ui/CloseButton';
+import { approach, clamp01, easeOutCubic, viewAt, type View, type ViewTween } from './motion';
 
 interface NoteGraphResponse {
   nodes: GraphNode[];
@@ -21,14 +24,28 @@ interface NoteGraphResponse {
 }
 
 interface PointerInteraction {
-  mode: 'pan' | 'node';
+  mode: 'pan' | 'node' | 'pinch';
   pointerId: number;
-  nodeId: string | null;
+  /** Index of the dragged star, or -1. */
+  node: number;
   startX: number;
   startY: number;
   lastX: number;
   lastY: number;
   moved: boolean;
+  /** Pan velocity in px/ms, for the glide after release. */
+  velocityX: number;
+  velocityY: number;
+  sampledAt: number;
+  pendingX: number;
+  pendingY: number;
+}
+
+interface Pinch {
+  distance: number;
+  zoom: number;
+  logicalX: number;
+  logicalY: number;
 }
 
 /** Drawn size and brightness of one star, derived from its link count. */
@@ -53,10 +70,47 @@ interface EntranceOrigin {
 interface Entrance {
   /** Timestamp of the first drawn frame. */
   start: number | null;
+  progress: number;
   origins: EntranceOrigin[];
   x: Float64Array;
   y: Float64Array;
   t: Float64Array;
+}
+
+/** What only changes when the graph is refetched, indexed like `graph.nodes`. */
+interface GraphScene {
+  neighbors: number[][];
+  styles: StarStyle[];
+  /** The zoom at which a note's label is first offered: hubs before leaves. */
+  labelZoom: Float32Array;
+  /** Most-linked first, the order labels claim space in. */
+  labelOrder: number[];
+  labelText: string[];
+  edgeSource: Int32Array;
+  edgeTarget: Int32Array;
+}
+
+/**
+ * Hover, view and glide state shared by the pointer handlers and the frame
+ * loop. It lives outside React on purpose: hovering was React state, so every
+ * star crossed re-rendered the view, tore the loop down and reset the canvas.
+ */
+interface Motion {
+  /** Index of the highlighted star, or -1. */
+  hover: number;
+  fromKeyboard: boolean;
+  /** The pointer has left the star; the highlight holds for a moment first. */
+  leaving: boolean;
+  leaveStart: number | null;
+  /** Eased highlight of each star that is lit or still fading, 0 to 1. */
+  focus: Map<number, number>;
+  /** Eased dimming of everything outside the highlight, 0 to 1. */
+  dim: number;
+  tween: ViewTween | null;
+  zoomTarget: { zoom: number; anchorX: number; anchorY: number } | null;
+  inertia: { vx: number; vy: number } | null;
+  /** The user has panned or zoomed, so the automatic fit after settling must not move the view. */
+  viewTouched: boolean;
 }
 
 // Stars. Radius and brightness both rise with a note's link count, mirroring
@@ -67,9 +121,11 @@ const STAR_HOVER_GROWTH = 1.8;
 const STAR_ALPHA_MIN = 0.55;
 const STAR_ALPHA_MAX = 1;
 const STAR_DIMMED_ALPHA = 0.14;
-const FALLBACK_STAR: StarStyle = { radius: STAR_RADIUS_MIN, alpha: STAR_ALPHA_MIN };
+/** Stars are filled in batches of equal opacity, one path per step. */
+const ALPHA_STEPS = 32;
 /** Thin ring around the star of the note currently open behind the graph. */
 const CURRENT_RING_GAP = 4;
+const KEYBOARD_RING_GAP = 6;
 
 // Constellation lines: hairlines, never gradients or glow.
 const EDGE_ALPHA = 0.42;
@@ -78,11 +134,18 @@ const EDGE_ALPHA_ACTIVE = 0.8;
 
 const LABEL_SIZE_PX = 11;
 const LABEL_VISIBILITY_THRESHOLD = 0.62;
-const LABEL_ALL_NODE_LIMIT = 180;
+/** Zoom at which the best-linked notes are labelled; others follow as you zoom in. */
+const HUB_LABEL_ZOOM = 0.22;
+const LABEL_DIMMED_ALPHA = 0.3;
+const LABEL_MAX_CHARS = 32;
+/** Placement stops after this many labels, which bounds text work at any zoom. */
+const MAX_LABELS = 240;
 const MAX_RENDERED_EDGES = 12_000;
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 3;
 const SETTLED_TEMPERATURE = 0.35;
+/** Dragging warms the layout only enough for neighbours to follow the star. */
+const DRAG_TEMPERATURE = 5;
 /**
  * Panning is free. The field may still travel this many viewport-widths past
  * the edge before it stops — far enough to scroll away from the graph
@@ -100,6 +163,39 @@ const ENTRANCE_TWIST = 0.5;
 /** Fraction of the entrance that passes before links and labels fade in. */
 const ENTRANCE_REVEAL_LEAD = 0.55;
 
+// Motion. Time constants, so each fade is frame-rate independent.
+const HOVER_FADE_MS = 110;
+const LABEL_FADE_MS = 90;
+const WHEEL_ZOOM_MS = 70;
+const PAN_FRICTION_MS = 280;
+const FIT_MS = 520;
+/**
+ * The highlight holds this long after the pointer leaves a star. Moving
+ * between two stars crosses empty sky, and without the hold the whole field
+ * flashed from dimmed to lit and back on every crossing (measured: six full
+ * reversals in a 130px sweep across 16 stars).
+ */
+const HOVER_GRACE_MS = 140;
+const HOVER_REACH_PX = 12;
+/** A lit star stays lit until the pointer is this much further away than it took to light it. */
+const HOVER_KEEP_FACTOR = 1.6;
+/** How far from a star a fingertip still picks it. */
+const TOUCH_REACH_PX = 24;
+/** A wheel event this large is a mouse notch, which glides; trackpad deltas apply directly. */
+const WHEEL_NOTCH_PX = 50;
+const WHEEL_ZOOM_RATE = 0.0015;
+const PINCH_ZOOM_RATE = 0.01;
+const KEY_ZOOM_STEP = 1.25;
+const FRAME_MS = 16;
+const MAX_FRAME_STEP_MS = 64;
+
+const ARROW_DIRECTIONS: Record<string, { x: number; y: number }> = {
+  ArrowRight: { x: 1, y: 0 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowUp: { x: 0, y: -1 },
+};
+
 /**
  * Zoom and pan survive close → reopen for the life of the session, so returning
  * to the graph resumes where you left it. `fitted` records that this session
@@ -113,6 +209,17 @@ function readCssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+function readColors() {
+  return {
+    edge: readCssVar('--border-strong', '#b8b09c'),
+    star: readCssVar('--text-primary', '#0e0d0a'),
+    missing: readCssVar('--text-muted', '#9a8268'),
+    label: readCssVar('--text-secondary', '#5a4530'),
+    halo: readCssVar('--bg-base', '#f4efe2'),
+    focus: readCssVar('--focus-ring', '#0e0d0a'),
+  };
+}
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -121,12 +228,8 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-function clamp01(value: number): number {
-  return value < 0 ? 0 : value > 1 ? 1 : value;
-}
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
+function clampZoom(zoom: number): number {
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 }
 
 function optionsForNodeCount(count: number): Required<LayoutOptions> {
@@ -176,10 +279,75 @@ function entranceFor(nodes: LayoutNode[]): Entrance {
   });
   return {
     start: null,
+    progress: 0,
     origins,
     x: Float64Array.from(origins, (origin) => origin.x),
     y: Float64Array.from(origins, (origin) => origin.y),
     t: new Float64Array(origins.length),
+  };
+}
+
+function buildScene(graph: NoteGraphResponse): GraphScene {
+  const indexById = new Map(graph.nodes.map((node, index) => [node.id, index]));
+  const linked = graph.nodes.map(() => new Set<number>());
+  const edgeSource: number[] = [];
+  const edgeTarget: number[] = [];
+  const stride =
+    graph.edges.length > MAX_RENDERED_EDGES
+      ? Math.ceil(graph.edges.length / MAX_RENDERED_EDGES)
+      : 1;
+  graph.edges.forEach((edge, index) => {
+    const source = indexById.get(edge.source);
+    const target = indexById.get(edge.target);
+    if (source === undefined || target === undefined) return;
+    if (source !== target) {
+      linked[source].add(target);
+      linked[target].add(source);
+    }
+    if (index % stride === 0) {
+      edgeSource.push(source);
+      edgeTarget.push(target);
+    }
+  });
+  const neighbors = linked.map((set) => [...set]);
+  const maxDegree = neighbors.reduce((max, list) => Math.max(max, list.length), 0);
+  const magnitude = neighbors.map((list) =>
+    maxDegree > 0 ? Math.sqrt(list.length / maxDegree) : 0
+  );
+  return {
+    neighbors,
+    // Hubs read as brighter, larger stars; a note with no links is the faintest.
+    styles: magnitude.map((value) => ({
+      radius: STAR_RADIUS_MIN + (STAR_RADIUS_MAX - STAR_RADIUS_MIN) * value,
+      alpha: STAR_ALPHA_MIN + (STAR_ALPHA_MAX - STAR_ALPHA_MIN) * value,
+    })),
+    labelZoom: Float32Array.from(
+      magnitude,
+      (value) => LABEL_VISIBILITY_THRESHOLD - (LABEL_VISIBILITY_THRESHOLD - HUB_LABEL_ZOOM) * value
+    ),
+    labelOrder: graph.nodes
+      .map((_, index) => index)
+      .sort((a, b) => neighbors[b].length - neighbors[a].length || a - b),
+    labelText: graph.nodes.map((node) =>
+      node.name.length > LABEL_MAX_CHARS ? `${node.name.slice(0, LABEL_MAX_CHARS - 1)}…` : node.name
+    ),
+    edgeSource: Int32Array.from(edgeSource),
+    edgeTarget: Int32Array.from(edgeTarget),
+  };
+}
+
+function newMotion(): Motion {
+  return {
+    hover: -1,
+    fromKeyboard: false,
+    leaving: false,
+    leaveStart: null,
+    focus: new Map(),
+    dim: 0,
+    tween: null,
+    zoomTarget: null,
+    inertia: null,
+    viewTouched: false,
   };
 }
 
@@ -193,9 +361,6 @@ const editorialLabel: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-/** How far from a star a fingertip still picks it; a pointer gets 12px. */
-const TOUCH_REACH_PX = 24;
-
 function isTouch(event: React.PointerEvent): boolean {
   return event.pointerType === 'touch' || event.pointerType === 'pen';
 }
@@ -206,17 +371,16 @@ export function GraphView() {
   const close = useGraphStore((state) => state.close);
   const notes = useNoteStore((state) => state.notes);
   const currentNoteId = useNoteStore((state) => state.currentNote?.id ?? null);
-  const theme = useThemeStore((state) => state.theme);
-  const preset = useThemeStore((state) => state.preset);
   const { loadNote } = useNotes();
 
   const [graph, setGraph] = useState<NoteGraphResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const announceRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const layoutRef = useRef<LayoutNode[]>([]);
@@ -227,56 +391,21 @@ export function GraphView() {
   const entranceRef = useRef<Entrance | null>(null);
   const initialFitRef = useRef(false);
   const interactionRef = useRef<PointerInteraction | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<Pinch | null>(null);
   const openOnClickRef = useRef<string | null>(null);
   const scheduleDrawRef = useRef<() => void>(() => undefined);
+  const motionRef = useRef<Motion>(newMotion());
+  /** Where each star was last painted, in canvas px: what hit-testing reads. */
+  const screenRef = useRef({ x: new Float32Array(0), y: new Float32Array(0), painted: false });
+  const currentNoteRef = useRef<string | null>(currentNoteId);
 
-  const adjacency = useMemo(() => {
-    const result = new Map<string, Set<string>>();
-    if (!graph) return result;
-    for (const edge of graph.edges) {
-      if (!result.has(edge.source)) result.set(edge.source, new Set());
-      if (!result.has(edge.target)) result.set(edge.target, new Set());
-      result.get(edge.source)?.add(edge.target);
-      result.get(edge.target)?.add(edge.source);
-    }
-    return result;
-  }, [graph]);
+  const scene = useMemo(() => (graph ? buildScene(graph) : null), [graph]);
 
-  /** Hubs read as brighter, larger stars; a note with no links is the faintest. */
-  const starStyles = useMemo(() => {
-    const styles = new Map<string, StarStyle>();
-    if (!graph) return styles;
-    let maxDegree = 0;
-    for (const neighbors of adjacency.values()) maxDegree = Math.max(maxDegree, neighbors.size);
-    for (const node of graph.nodes) {
-      const degree = adjacency.get(node.id)?.size ?? 0;
-      const magnitude = maxDegree > 0 ? Math.sqrt(degree / maxDegree) : 0;
-      styles.set(node.id, {
-        radius: STAR_RADIUS_MIN + (STAR_RADIUS_MAX - STAR_RADIUS_MIN) * magnitude,
-        alpha: STAR_ALPHA_MIN + (STAR_ALPHA_MAX - STAR_ALPHA_MIN) * magnitude,
-      });
-    }
-    return styles;
-  }, [graph, adjacency]);
-
-  const renderedEdges = useMemo(() => {
-    if (!graph || graph.edges.length <= MAX_RENDERED_EDGES) return graph?.edges ?? [];
-    const stride = Math.ceil(graph.edges.length / MAX_RENDERED_EDGES);
-    return graph.edges.filter((_, index) => index % stride === 0);
-  }, [graph]);
-
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }, []);
+  useEffect(() => {
+    currentNoteRef.current = currentNoteId;
+    scheduleDrawRef.current();
+  }, [currentNoteId]);
 
   /**
    * Free panning with a very loose backstop. The graph is allowed to leave the
@@ -301,27 +430,50 @@ export function GraphView() {
     };
   }, []);
 
-  const fitToView = useCallback(() => {
+  const fitTarget = useCallback((): View | null => {
     const container = containerRef.current;
-    if (!container || layoutRef.current.length === 0) return;
+    if (!container || layoutRef.current.length === 0) return null;
     const rect = container.getBoundingClientRect();
     const bounds = layoutBounds(layoutRef.current);
     const availableWidth = Math.max(1, rect.width - 80);
     const availableHeight = Math.max(1, rect.height - 80);
-    zoomRef.current = Math.max(
-      MIN_ZOOM,
+    const zoom = clampZoom(
       Math.min(
-        MAX_ZOOM,
         availableWidth / Math.max(1, bounds.maxX - bounds.minX),
         availableHeight / Math.max(1, bounds.maxY - bounds.minY)
       )
     );
-    panRef.current = {
-      x: -((bounds.minX + bounds.maxX) / 2) * zoomRef.current,
-      y: -((bounds.minY + bounds.maxY) / 2) * zoomRef.current,
+    return {
+      zoom,
+      x: -((bounds.minX + bounds.maxX) / 2) * zoom,
+      y: -((bounds.minY + bounds.maxY) / 2) * zoom,
     };
+  }, []);
+
+  /** Glide to `target`, or jump there under reduced motion or when `animate` is false. */
+  const moveViewTo = useCallback((target: View, animate: boolean) => {
+    const motion = motionRef.current;
+    motion.zoomTarget = null;
+    motion.inertia = null;
+    if (!animate || prefersReducedMotion()) {
+      motion.tween = null;
+      zoomRef.current = target.zoom;
+      panRef.current = { x: target.x, y: target.y };
+    } else {
+      motion.tween = {
+        from: { zoom: zoomRef.current, ...panRef.current },
+        to: target,
+        start: null,
+        duration: FIT_MS,
+      };
+    }
     scheduleDrawRef.current();
   }, []);
+
+  const fitToView = useCallback(() => {
+    const target = fitTarget();
+    if (target) moveViewTo(target, true);
+  }, [fitTarget, moveViewTo]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -329,7 +481,6 @@ export function GraphView() {
     queueMicrotask(() => {
       if (cancelled) return;
       setGraph(null);
-      setHoveredId(null);
       setLoading(true);
       setError(null);
     });
@@ -340,6 +491,7 @@ export function GraphView() {
         layoutOptionsRef.current = options;
         layoutRef.current = initLayout(result.nodes, options, result.edges);
         temperatureRef.current = options.initialTemperature;
+        motionRef.current = newMotion();
         // Resume the view this session was left at; only a session's first
         // graph is framed automatically.
         zoomRef.current = sessionView.zoom;
@@ -385,190 +537,441 @@ export function GraphView() {
     };
   }, [isOpen]);
 
+  // The one frame loop. It depends on the graph alone: hover, the open note,
+  // theme and view changes all reach it through refs and ask for a frame, and
+  // it stops asking once nothing is moving.
   useEffect(() => {
-    if (!isOpen || !graph) return;
-    let frameId: number | null = null;
-    // The one automatic fit a session gets. Hover, theme, preset and every
-    // other re-render deliberately leave the view exactly where the user put it.
-    let fitAfterSettling = !sessionView.fitted;
-    const indexById = new Map(layoutRef.current.map((node, index) => [node.id, index]));
-    const neighbors = hoveredId ? adjacency.get(hoveredId) : undefined;
-
-    const colors = {
-      edge: readCssVar('--border-strong', '#b8b09c'),
-      star: readCssVar('--text-primary', '#0e0d0a'),
-      missing: readCssVar('--text-muted', '#9a8268'),
-      label: readCssVar('--text-secondary', '#5a4530'),
-      current: readCssVar('--accent-primary', '#2e5b3c'),
-    };
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    const context = canvas?.getContext('2d');
+    if (!isOpen || !graph || !scene || !canvas || !container || !context) return;
+    const nodes = layoutRef.current;
+    const count = nodes.length;
+    const motion = motionRef.current;
+    const indexById = new Map(nodes.map((node, index) => [node.id, index]));
+    const screen = { x: new Float32Array(count), y: new Float32Array(count), painted: false };
+    screenRef.current = screen;
+    const radius = new Float32Array(count);
+    const labelAlpha = new Float32Array(count);
+    const labelWidth = new Float32Array(count).fill(-1);
+    const placed = new Uint8Array(count);
+    const liveLabels = new Set<number>();
+    /** This frame's labels as index, opacity pairs. */
+    const labelDraw: number[] = [];
+    const placer = createLabelPlacer();
+    const emphasis = new Map<number, number>();
+    const fillBuckets: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+    const strokeBuckets: number[][] = Array.from({ length: ALPHA_STEPS + 1 }, () => []);
+    const ring = { x: NaN, y: NaN, size: NaN, opacity: NaN, shown: false };
+    let colors = readColors();
+    const motionQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    const reducedMotion = () => motionQuery?.matches ?? false;
     const labelFont = `${LABEL_SIZE_PX}px ${readCssVar('--font-sans', 'ui-sans-serif, system-ui, sans-serif')}`;
+    let width = 0;
+    let height = 0;
+    let frameId: number | null = null;
+    let lastTime: number | null = null;
+    // The one automatic fit a session gets, unless the user moves the view first.
+    let fitAfterSettling = !sessionView.fitted;
 
-    const schedule = () => {
-      if (frameId === null) frameId = requestAnimationFrame(draw);
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      width = rect.width;
+      height = rect.height;
+      const pixelWidth = Math.max(1, Math.round(rect.width * dpr));
+      const pixelHeight = Math.max(1, Math.round(rect.height * dpr));
+      // Assigning either dimension clears the bitmap even when the value is
+      // unchanged, so only a real size change may touch them.
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      context.setTransform(
+        pixelWidth / Math.max(1, rect.width),
+        0,
+        0,
+        pixelHeight / Math.max(1, rect.height),
+        0,
+        0
+      );
     };
-    scheduleDrawRef.current = schedule;
 
-    const draw = (time: number) => {
-      frameId = null;
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !container || !context) return;
+    const advance = (time: number, elapsed: number): boolean => {
+      let active = false;
+      const instant = reducedMotion();
+      const interaction = interactionRef.current;
+      const pinned = interaction?.mode === 'node' ? interaction.node : -1;
 
-      const simulating = temperatureRef.current > SETTLED_TEMPERATURE;
-      if (simulating) {
-        stepLayout(
-          layoutRef.current,
-          graph.edges,
-          temperatureRef.current,
-          layoutOptionsRef.current,
-          {
-            pinnedNodeId:
-              interactionRef.current?.mode === 'node' ? interactionRef.current.nodeId : null,
-          }
-        );
+      if (count > 0 && temperatureRef.current > SETTLED_TEMPERATURE) {
+        stepLayout(nodes, graph.edges, temperatureRef.current, layoutOptionsRef.current, {
+          pinnedNodeId: pinned >= 0 ? nodes[pinned].id : null,
+        });
         temperatureRef.current *= layoutOptionsRef.current.cooling;
+        active = true;
       }
 
-      // Entrance positions are computed for every node up front so hit-testing,
-      // edges and labels all read the same frame.
       const entrance = entranceRef.current;
-      let entranceProgress = 1;
       if (entrance) {
         entrance.start ??= time;
-        const elapsed = time - entrance.start;
-        entranceProgress = clamp01(elapsed / (ENTRANCE_STAGGER_MS + ENTRANCE_TRAVEL_MS));
-        for (let index = 0; index < layoutRef.current.length; index++) {
-          const node = layoutRef.current[index];
+        const sinceStart = time - entrance.start;
+        entrance.progress = clamp01(sinceStart / (ENTRANCE_STAGGER_MS + ENTRANCE_TRAVEL_MS));
+        for (let index = 0; index < count; index++) {
           const origin = entrance.origins[index];
-          const t = easeOutCubic(clamp01((elapsed - origin.delay) / ENTRANCE_TRAVEL_MS));
+          const t = easeOutCubic(clamp01((sinceStart - origin.delay) / ENTRANCE_TRAVEL_MS));
           entrance.t[index] = t;
-          entrance.x[index] = origin.x + (node.x - origin.x) * t;
-          entrance.y[index] = origin.y + (node.y - origin.y) * t;
+          entrance.x[index] = origin.x + (nodes[index].x - origin.x) * t;
+          entrance.y[index] = origin.y + (nodes[index].y - origin.y) * t;
         }
-        if (entranceProgress >= 1) entranceRef.current = null;
+        if (entrance.progress < 1) active = true;
       }
-      const revealAlpha = clamp01(
-        (entranceProgress - ENTRANCE_REVEAL_LEAD) / (1 - ENTRANCE_REVEAL_LEAD)
+
+      if (motion.leaving) {
+        motion.leaveStart ??= time;
+        if (instant || time - motion.leaveStart >= HOVER_GRACE_MS) {
+          motion.hover = -1;
+          motion.leaving = false;
+          motion.leaveStart = null;
+        } else {
+          active = true;
+        }
+      }
+      const fade = instant ? 0 : HOVER_FADE_MS;
+      if (motion.hover >= 0 && !motion.focus.has(motion.hover)) motion.focus.set(motion.hover, 0);
+      for (const [index, level] of motion.focus) {
+        const target = index === motion.hover ? 1 : 0;
+        const next = approach(level, target, elapsed, fade);
+        if (next === 0 && target === 0) motion.focus.delete(index);
+        else motion.focus.set(index, next);
+        if (next !== target) active = true;
+      }
+      const dimTarget = motion.hover >= 0 ? 1 : 0;
+      motion.dim = approach(motion.dim, dimTarget, elapsed, fade);
+      if (motion.dim !== dimTarget) active = true;
+
+      if (motion.tween) {
+        motion.tween.start ??= time;
+        const { view, done } = viewAt(motion.tween, time);
+        zoomRef.current = view.zoom;
+        panRef.current = { x: view.x, y: view.y };
+        if (done) motion.tween = null;
+        else active = true;
+      } else if (motion.zoomTarget) {
+        const target = motion.zoomTarget;
+        const oldZoom = zoomRef.current;
+        const nextZoom = approach(
+          oldZoom,
+          target.zoom,
+          elapsed,
+          instant ? 0 : WHEEL_ZOOM_MS,
+          target.zoom * 0.002
+        );
+        const logicalX = (target.anchorX - panRef.current.x) / oldZoom;
+        const logicalY = (target.anchorY - panRef.current.y) / oldZoom;
+        zoomRef.current = nextZoom;
+        panRef.current = {
+          x: target.anchorX - logicalX * nextZoom,
+          y: target.anchorY - logicalY * nextZoom,
+        };
+        clampPan();
+        if (nextZoom === target.zoom) motion.zoomTarget = null;
+        else active = true;
+      } else if (motion.inertia) {
+        const inertia = motion.inertia;
+        panRef.current = {
+          x: panRef.current.x + inertia.vx * elapsed,
+          y: panRef.current.y + inertia.vy * elapsed,
+        };
+        const decay = Math.exp(-elapsed / PAN_FRICTION_MS);
+        inertia.vx *= decay;
+        inertia.vy *= decay;
+        clampPan();
+        if (Math.hypot(inertia.vx, inertia.vy) < 0.01) motion.inertia = null;
+        else active = true;
+      }
+      return active;
+    };
+
+    const labelWidthOf = (index: number) => {
+      if (labelWidth[index] < 0)
+        labelWidth[index] = context.measureText(scene.labelText[index]).width;
+      return labelWidth[index];
+    };
+
+    /** Draw the frame; returns whether label fades still need frames. */
+    const paint = (elapsed: number): boolean => {
+      const entrance = entranceRef.current;
+      const live = entrance && entrance.progress < 1 ? entrance : null;
+      if (entrance && !live) entranceRef.current = null;
+      const reveal = clamp01(
+        ((live ? live.progress : 1) - ENTRANCE_REVEAL_LEAD) / (1 - ENTRANCE_REVEAL_LEAD)
       );
-
-      const rect = container.getBoundingClientRect();
-      context.clearRect(0, 0, rect.width, rect.height);
-      const centerX = rect.width / 2 + panRef.current.x;
-      const centerY = rect.height / 2 + panRef.current.y;
       const zoom = zoomRef.current;
-      const nodeX = (index: number) =>
-        centerX + (entrance ? entrance.x[index] : layoutRef.current[index].x) * zoom;
-      const nodeY = (index: number) =>
-        centerY + (entrance ? entrance.y[index] : layoutRef.current[index].y) * zoom;
+      const centerX = width / 2 + panRef.current.x;
+      const centerY = height / 2 + panRef.current.y;
+      for (let index = 0; index < count; index++) {
+        screen.x[index] = centerX + (live ? live.x[index] : nodes[index].x) * zoom;
+        screen.y[index] = centerY + (live ? live.y[index] : nodes[index].y) * zoom;
+      }
+      screen.painted = true;
 
-      const drawEdge = (edge: GraphEdge) => {
-        const source = indexById.get(edge.source);
-        const target = indexById.get(edge.target);
-        if (source === undefined || target === undefined) return;
-        context.moveTo(nodeX(source), nodeY(source));
-        context.lineTo(nodeX(target), nodeY(target));
-      };
+      emphasis.clear();
+      for (const [index, level] of motion.focus) {
+        if (level > (emphasis.get(index) ?? 0)) emphasis.set(index, level);
+        for (const neighbor of scene.neighbors[index]) {
+          if (level > (emphasis.get(neighbor) ?? 0)) emphasis.set(neighbor, level);
+        }
+      }
+      const dim = motion.dim;
+      context.clearRect(0, 0, width, height);
 
+      // Links fade in once the stars are mostly home.
+      const edgeAlpha = EDGE_ALPHA + (EDGE_ALPHA_DIMMED - EDGE_ALPHA) * dim;
       context.strokeStyle = colors.edge;
       context.lineWidth = 1;
-      context.globalAlpha = (hoveredId ? EDGE_ALPHA_DIMMED : EDGE_ALPHA) * revealAlpha;
+      context.globalAlpha = edgeAlpha * reveal;
       context.beginPath();
-      for (const edge of renderedEdges) drawEdge(edge);
+      for (let edge = 0; edge < scene.edgeSource.length; edge++) {
+        const source = scene.edgeSource[edge];
+        const target = scene.edgeTarget[edge];
+        context.moveTo(screen.x[source], screen.y[source]);
+        context.lineTo(screen.x[target], screen.y[target]);
+      }
       context.stroke();
-
-      if (hoveredId) {
-        context.globalAlpha = EDGE_ALPHA_ACTIVE * revealAlpha;
+      for (const [index, level] of motion.focus) {
+        context.globalAlpha = (edgeAlpha + (EDGE_ALPHA_ACTIVE - edgeAlpha) * level) * reveal;
         context.beginPath();
-        for (const edge of graph.edges) {
-          if (edge.source === hoveredId || edge.target === hoveredId) drawEdge(edge);
+        for (const neighbor of scene.neighbors[index]) {
+          context.moveTo(screen.x[index], screen.y[index]);
+          context.lineTo(screen.x[neighbor], screen.y[neighbor]);
         }
         context.stroke();
       }
 
-      for (let index = 0; index < layoutRef.current.length; index++) {
-        const node = layoutRef.current[index];
-        const x = nodeX(index);
-        const y = nodeY(index);
-        if (x < -20 || y < -20 || x > rect.width + 20 || y > rect.height + 20) continue;
-        const style = starStyles.get(node.id) ?? FALLBACK_STAR;
-        const isHovered = node.id === hoveredId;
-        const isNeighbor = neighbors?.has(node.id) ?? false;
-        const radius = isHovered ? style.radius + STAR_HOVER_GROWTH : style.radius;
-        const dimmed = hoveredId !== null && !isHovered && !isNeighbor;
-        // Stars resolve out of the dark rather than arriving already lit.
-        const arrival = entrance ? 0.2 + 0.8 * entrance.t[index] : 1;
-        context.globalAlpha =
-          (dimmed ? STAR_DIMMED_ALPHA : isHovered ? STAR_ALPHA_MAX : style.alpha) * arrival;
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
-        if (node.isMissing) {
-          context.strokeStyle = colors.missing;
-          context.stroke();
-        } else {
-          context.fillStyle = colors.star;
-          context.fill();
+      const current = currentNoteRef.current ? (indexById.get(currentNoteRef.current) ?? -1) : -1;
+
+      // Labels claim space in priority order: the highlighted star and its
+      // neighbours, the open note, labels already showing (so they do not
+      // flicker as you pan), then the best-linked notes.
+      let labelsMoving = false;
+      context.font = labelFont;
+      placer.reset();
+      placed.fill(0);
+      let budget = MAX_LABELS;
+      const labelLeft = (index: number) =>
+        screen.x[index] + scene.styles[index].radius + STAR_HOVER_GROWTH + 4;
+      const offer = (index: number) => {
+        if (placed[index] || budget <= 0) return;
+        const x = screen.x[index];
+        const y = screen.y[index];
+        if (x < -240 || x > width || y < -10 || y > height + 10) return;
+        const textWidth =
+          index === motion.hover
+            ? context.measureText(nodes[index].name).width
+            : labelWidthOf(index);
+        const left = labelLeft(index);
+        if (placer.place(left - 2, y - LABEL_SIZE_PX * 0.75, textWidth + 4, LABEL_SIZE_PX * 1.5)) {
+          placed[index] = 1;
+          budget--;
+          liveLabels.add(index);
         }
-        // The one rationed accent on this surface.
-        if (node.id === currentNoteId) {
-          context.globalAlpha = (dimmed ? STAR_DIMMED_ALPHA : 1) * arrival;
-          context.strokeStyle = colors.current;
-          context.beginPath();
-          context.arc(x, y, radius + CURRENT_RING_GAP, 0, Math.PI * 2);
-          context.stroke();
+      };
+      if (reveal > 0) {
+        if (motion.hover >= 0) {
+          offer(motion.hover);
+          for (const neighbor of scene.neighbors[motion.hover]) offer(neighbor);
+        }
+        if (current >= 0 && zoom >= HUB_LABEL_ZOOM) offer(current);
+        if (zoom >= HUB_LABEL_ZOOM) {
+          for (const index of scene.labelOrder) {
+            if (labelAlpha[index] > 0.5 && zoom >= scene.labelZoom[index]) offer(index);
+          }
+          for (const index of scene.labelOrder) {
+            if (budget <= 0) break;
+            if (zoom >= scene.labelZoom[index]) offer(index);
+          }
+        }
+      }
+      const labelFade = reducedMotion() ? 0 : LABEL_FADE_MS;
+      labelDraw.length = 0;
+      for (const index of liveLabels) {
+        const target = placed[index] ? 1 : 0;
+        const level = approach(labelAlpha[index], target, elapsed, labelFade, 0.01);
+        labelAlpha[index] = level;
+        if (level !== target) labelsMoving = true;
+        if (level === 0) {
+          liveLabels.delete(index);
+          continue;
+        }
+        const emphasized = emphasis.get(index) ?? 0;
+        const alpha =
+          level *
+          reveal *
+          (1 + (LABEL_DIMMED_ALPHA - 1) * dim * (1 - emphasized)) *
+          (live ? live.t[index] : 1);
+        if (alpha >= 0.01) labelDraw.push(index, alpha);
+      }
+      const labelText = (index: number) =>
+        index === motion.hover ? nodes[index].name : scene.labelText[index];
+      // A halo in the page colour, under the stars, keeps text legible where
+      // links cross it without cutting the stars beneath it into crescents.
+      context.textBaseline = 'middle';
+      context.lineJoin = 'round';
+      context.lineWidth = 3;
+      context.strokeStyle = colors.halo;
+      for (let item = 0; item < labelDraw.length; item += 2) {
+        const index = labelDraw[item];
+        context.globalAlpha = labelDraw[item + 1];
+        context.strokeText(labelText(index), labelLeft(index), screen.y[index]);
+      }
+      context.lineWidth = 1;
+
+      for (const bucket of fillBuckets) bucket.length = 0;
+      for (const bucket of strokeBuckets) bucket.length = 0;
+      for (let index = 0; index < count; index++) {
+        const style = scene.styles[index];
+        const self = motion.focus.get(index) ?? 0;
+        radius[index] = style.radius + STAR_HOVER_GROWTH * self;
+        const x = screen.x[index];
+        const y = screen.y[index];
+        if (x < -20 || y < -20 || x > width + 20 || y > height + 20) continue;
+        const rest = style.alpha + (STAR_DIMMED_ALPHA - style.alpha) * dim;
+        const lit = style.alpha + (STAR_ALPHA_MAX - style.alpha) * self;
+        // Stars resolve out of the dark rather than arriving already lit.
+        const arrival = live ? 0.2 + 0.8 * live.t[index] : 1;
+        const alpha = (rest + (lit - rest) * (emphasis.get(index) ?? 0)) * arrival;
+        const bucket = Math.round(clamp01(alpha) * ALPHA_STEPS);
+        (nodes[index].isMissing ? strokeBuckets : fillBuckets)[bucket].push(index);
+      }
+      context.fillStyle = colors.star;
+      context.strokeStyle = colors.missing;
+      const drawStars = (bucket: number[], step: number, filled: boolean) => {
+        if (bucket.length === 0) return;
+        context.globalAlpha = step / ALPHA_STEPS;
+        context.beginPath();
+        for (const index of bucket) {
+          context.moveTo(screen.x[index] + radius[index], screen.y[index]);
+          context.arc(screen.x[index], screen.y[index], radius[index], 0, Math.PI * 2);
+        }
+        if (filled) context.fill();
+        else context.stroke();
+      };
+      for (let step = 1; step <= ALPHA_STEPS; step++) {
+        drawStars(fillBuckets[step], step, true);
+        drawStars(strokeBuckets[step], step, false);
+      }
+
+      if (motion.fromKeyboard && motion.hover >= 0) {
+        const index = motion.hover;
+        context.globalAlpha = 1;
+        context.strokeStyle = colors.focus;
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.arc(
+          screen.x[index],
+          screen.y[index],
+          radius[index] + KEYBOARD_RING_GAP,
+          0,
+          Math.PI * 2
+        );
+        context.stroke();
+        context.lineWidth = 1;
+      }
+
+      // The open note's ring is a DOM element so its slow breathing runs on
+      // the compositor; a canvas ring would need this loop awake forever.
+      const ringElement = ringRef.current;
+      if (ringElement) {
+        const x = current >= 0 ? screen.x[current] : NaN;
+        const y = current >= 0 ? screen.y[current] : NaN;
+        const shown = current >= 0 && x > -20 && y > -20 && x < width + 20 && y < height + 20;
+        if (shown !== ring.shown) {
+          ring.shown = shown;
+          ringElement.style.display = shown ? 'block' : 'none';
+        }
+        if (shown) {
+          const size = Math.round((radius[current] + CURRENT_RING_GAP) * 2 * 2) / 2;
+          const emphasized = emphasis.get(current) ?? 0;
+          const opacity =
+            Math.round(
+              (1 + (STAR_DIMMED_ALPHA - 1) * dim * (1 - emphasized)) *
+                (live ? live.t[current] : 1) *
+                100
+            ) / 100;
+          if (size !== ring.size) {
+            ring.size = size;
+            ringElement.style.width = `${size}px`;
+            ringElement.style.height = `${size}px`;
+          }
+          if (x !== ring.x || y !== ring.y || size !== ring.size) {
+            ring.x = x;
+            ring.y = y;
+            ringElement.style.transform = `translate(${x - size / 2}px, ${y - size / 2}px)`;
+          }
+          if (opacity !== ring.opacity) {
+            ring.opacity = opacity;
+            ringElement.style.opacity = String(opacity);
+          }
         }
       }
 
-      const showAllLabels =
-        graph.nodes.length <= LABEL_ALL_NODE_LIMIT && zoom >= LABEL_VISIBILITY_THRESHOLD;
-      context.globalAlpha = revealAlpha;
-      context.font = labelFont;
-      context.fillStyle = colors.label;
-      context.textBaseline = 'middle';
-      for (let index = 0; index < layoutRef.current.length; index++) {
-        const node = layoutRef.current[index];
-        const showLabel =
-          showAllLabels || node.id === hoveredId || (neighbors?.has(node.id) ?? false);
-        if (!showLabel) continue;
-        const x = nodeX(index);
-        const y = nodeY(index);
-        if (x < -100 || y < -20 || x > rect.width + 20 || y > rect.height + 20) continue;
-        const style = starStyles.get(node.id) ?? FALLBACK_STAR;
-        context.fillText(node.name, x + style.radius + STAR_HOVER_GROWTH + 4, y);
+      for (let item = 0; item < labelDraw.length; item += 2) {
+        const index = labelDraw[item];
+        context.globalAlpha = labelDraw[item + 1];
+        context.fillStyle = index === motion.hover ? colors.star : colors.label;
+        context.fillText(labelText(index), labelLeft(index), screen.y[index]);
       }
       context.globalAlpha = 1;
+      return labelsMoving;
+    };
 
-      if (simulating || entranceRef.current) {
+    const schedule = () => {
+      if (frameId === null) frameId = requestAnimationFrame(frame);
+    };
+    scheduleDrawRef.current = schedule;
+
+    const frame = (time: number) => {
+      frameId = null;
+      const elapsed = lastTime === null ? FRAME_MS : Math.min(MAX_FRAME_STEP_MS, time - lastTime);
+      lastTime = time;
+      const advancing = advance(time, elapsed);
+      const labelsMoving = paint(elapsed);
+      if (advancing || labelsMoving || entranceRef.current) {
         schedule();
-      } else if (fitAfterSettling) {
+        return;
+      }
+      lastTime = null;
+      if (fitAfterSettling) {
         fitAfterSettling = false;
         sessionView.fitted = true;
-        fitToView();
+        if (!motion.viewTouched) fitToView();
       }
     };
 
-    resizeCanvas();
+    resize();
     if (initialFitRef.current) {
       initialFitRef.current = false;
-      fitToView();
+      const target = fitTarget();
+      if (target) moveViewTo(target, false);
     }
     schedule();
 
+    // Resizing clears the bitmap, so repaint before the browser presents it.
     const handleResize = () => {
-      resizeCanvas();
+      resize();
+      paint(0);
       schedule();
     };
     const observer =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(handleResize);
-    if (observer) observer.observe(containerRef.current as Element);
+    if (observer) observer.observe(container);
     else window.addEventListener('resize', handleResize);
 
     const themeObserver = new MutationObserver(() => {
-      colors.edge = readCssVar('--border-strong', colors.edge);
-      colors.star = readCssVar('--text-primary', colors.star);
-      colors.missing = readCssVar('--text-muted', colors.missing);
-      colors.label = readCssVar('--text-secondary', colors.label);
-      colors.current = readCssVar('--accent-primary', colors.current);
+      colors = readColors();
       schedule();
     });
     themeObserver.observe(document.documentElement, {
@@ -582,44 +985,49 @@ export function GraphView() {
       themeObserver.disconnect();
       if (!observer) window.removeEventListener('resize', handleResize);
       scheduleDrawRef.current = () => undefined;
+      screen.painted = false;
     };
-  }, [
-    isOpen,
-    graph,
-    hoveredId,
-    adjacency,
-    starStyles,
-    currentNoteId,
-    renderedEdges,
-    resizeCanvas,
-    fitToView,
-    theme,
-    preset,
-  ]);
+  }, [isOpen, graph, scene, clampPan, fitTarget, moveViewTo, fitToView]);
 
-  const pickNode = useCallback((clientX: number, clientY: number, reach = 12) => {
+  /** The star painted nearest the pointer within `reach` px, or -1. */
+  const pickNode = useCallback((clientX: number, clientY: number, reach = HOVER_REACH_PX) => {
     const container = containerRef.current;
-    if (!container) return null;
+    const screen = screenRef.current;
+    if (!container || !screen.painted) return -1;
     const rect = container.getBoundingClientRect();
     const pointerX = clientX - rect.left;
     const pointerY = clientY - rect.top;
-    const centerX = rect.width / 2 + panRef.current.x;
-    const centerY = rect.height / 2 + panRef.current.y;
-    const entrance = entranceRef.current;
-    let closest: LayoutNode | null = null;
+    let closest = -1;
     let closestDistance = reach;
-    for (let index = 0; index < layoutRef.current.length; index++) {
-      const node = layoutRef.current[index];
-      const distance = Math.hypot(
-        centerX + (entrance ? entrance.x[index] : node.x) * zoomRef.current - pointerX,
-        centerY + (entrance ? entrance.y[index] : node.y) * zoomRef.current - pointerY
-      );
+    for (let index = 0; index < screen.x.length; index++) {
+      const distance = Math.hypot(screen.x[index] - pointerX, screen.y[index] - pointerY);
       if (distance < closestDistance) {
-        closest = node;
+        closest = index;
         closestDistance = distance;
       }
     }
     return closest;
+  }, []);
+
+  /** Light `index`, or start letting go of the lit star when it is -1. */
+  const setHover = useCallback((index: number, fromKeyboard = false) => {
+    const motion = motionRef.current;
+    if (index >= 0) {
+      motion.leaving = false;
+      motion.leaveStart = null;
+      if (motion.hover === index && motion.fromKeyboard === fromKeyboard) return;
+      motion.hover = index;
+      motion.fromKeyboard = fromKeyboard;
+    } else {
+      if (motion.hover < 0 || motion.leaving) return;
+      motion.leaving = true;
+      motion.leaveStart = null;
+    }
+    const canvas = canvasRef.current;
+    if (canvas && !interactionRef.current) {
+      canvas.style.cursor = index >= 0 && !fromKeyboard ? 'pointer' : 'grab';
+    }
+    scheduleDrawRef.current();
   }, []);
 
   const openGraphNode = useCallback(
@@ -639,18 +1047,67 @@ export function GraphView() {
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) return;
-      const node = pickNode(event.clientX, event.clientY, isTouch(event) ? TOUCH_REACH_PX : 12);
+      const motion = motionRef.current;
+      motion.tween = null;
+      motion.inertia = null;
+      motion.zoomTarget = null;
+      const pointers = pointersRef.current;
+      // Nothing in progress means no finger is down, whatever a lost pointerup left behind.
+      if (!interactionRef.current) pointers.clear();
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const container = containerRef.current;
+      if (pointers.size === 2 && container) {
+        // A second finger turns whatever the first was doing into a pinch.
+        const [a, b] = [...pointers.values()];
+        const rect = container.getBoundingClientRect();
+        const midX = (a.x + b.x) / 2 - rect.left - rect.width / 2;
+        const midY = (a.y + b.y) / 2 - rect.top - rect.height / 2;
+        pinchRef.current = {
+          distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+          zoom: zoomRef.current,
+          logicalX: (midX - panRef.current.x) / zoomRef.current,
+          logicalY: (midY - panRef.current.y) / zoomRef.current,
+        };
+        interactionRef.current = {
+          mode: 'pinch',
+          pointerId: -1,
+          node: -1,
+          startX: 0,
+          startY: 0,
+          lastX: 0,
+          lastY: 0,
+          moved: true,
+          velocityX: 0,
+          velocityY: 0,
+          sampledAt: 0,
+          pendingX: 0,
+          pendingY: 0,
+        };
+        motion.viewTouched = true;
+        return;
+      }
+      if (pointers.size > 2) return;
+      const node = pickNode(
+        event.clientX,
+        event.clientY,
+        isTouch(event) ? TOUCH_REACH_PX : HOVER_REACH_PX
+      );
       interactionRef.current = {
-        mode: node ? 'node' : 'pan',
+        mode: node >= 0 ? 'node' : 'pan',
         pointerId: event.pointerId,
-        nodeId: node?.id ?? null,
+        node,
         startX: event.clientX,
         startY: event.clientY,
         lastX: event.clientX,
         lastY: event.clientY,
         moved: false,
+        velocityX: 0,
+        velocityY: 0,
+        sampledAt: window.performance.now(),
+        pendingX: 0,
+        pendingY: 0,
       };
-      event.currentTarget.setPointerCapture(event.pointerId);
       event.currentTarget.style.cursor = 'grabbing';
     },
     [pickNode]
@@ -658,12 +1115,41 @@ export function GraphView() {
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      const pointer = pointersRef.current.get(event.pointerId);
+      if (pointer) {
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+      }
       const interaction = interactionRef.current;
+      const motion = motionRef.current;
       if (!interaction) {
-        const node = pickNode(event.clientX, event.clientY);
-        setHoveredId((current) => (current === node?.id ? current : (node?.id ?? null)));
+        let index = pickNode(event.clientX, event.clientY);
+        if (index < 0 && motion.hover >= 0 && !motion.fromKeyboard && !motion.leaving) {
+          // Hysteresis: a lit star lets go a little further out than it lights.
+          const kept = pickNode(event.clientX, event.clientY, HOVER_REACH_PX * HOVER_KEEP_FACTOR);
+          if (kept === motion.hover) index = kept;
+        }
+        setHover(index);
         return;
       }
+      const container = containerRef.current;
+      if (interaction.mode === 'pinch') {
+        const pinch = pinchRef.current;
+        if (!pinch || !container || pointersRef.current.size < 2) return;
+        const [a, b] = [...pointersRef.current.values()];
+        const rect = container.getBoundingClientRect();
+        const zoom = clampZoom(
+          pinch.zoom * (Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) / pinch.distance)
+        );
+        const midX = (a.x + b.x) / 2 - rect.left - rect.width / 2;
+        const midY = (a.y + b.y) / 2 - rect.top - rect.height / 2;
+        zoomRef.current = zoom;
+        panRef.current = { x: midX - pinch.logicalX * zoom, y: midY - pinch.logicalY * zoom };
+        clampPan();
+        scheduleDrawRef.current();
+        return;
+      }
+      if (event.pointerId !== interaction.pointerId) return;
       const deltaX = event.clientX - interaction.lastX;
       const deltaY = event.clientY - interaction.lastY;
       if (Math.hypot(event.clientX - interaction.startX, event.clientY - interaction.startY) > 3) {
@@ -672,94 +1158,247 @@ export function GraphView() {
       if (interaction.mode === 'pan') {
         panRef.current = { x: panRef.current.x + deltaX, y: panRef.current.y + deltaY };
         clampPan();
-      } else if (interaction.nodeId) {
-        const node = layoutRef.current.find((candidate) => candidate.id === interaction.nodeId);
-        const container = containerRef.current;
-        if (node && container) {
-          const rect = container.getBoundingClientRect();
-          node.x =
-            (event.clientX - rect.left - rect.width / 2 - panRef.current.x) / zoomRef.current;
-          node.y =
-            (event.clientY - rect.top - rect.height / 2 - panRef.current.y) / zoomRef.current;
-          const options = layoutOptionsRef.current;
-          const margin = collisionRadius(node);
-          node.x = Math.max(
-            -options.width / 2 + margin,
-            Math.min(options.width / 2 - margin, node.x)
-          );
-          node.y = Math.max(
-            -options.height / 2 + margin,
-            Math.min(options.height / 2 - margin, node.y)
-          );
-          temperatureRef.current = Math.max(temperatureRef.current, 9);
+        if (interaction.moved) motion.viewTouched = true;
+        interaction.pendingX += deltaX;
+        interaction.pendingY += deltaY;
+        const now = window.performance.now();
+        const sinceSample = now - interaction.sampledAt;
+        if (sinceSample >= 8) {
+          interaction.velocityX =
+            interaction.velocityX * 0.3 + (interaction.pendingX / sinceSample) * 0.7;
+          interaction.velocityY =
+            interaction.velocityY * 0.3 + (interaction.pendingY / sinceSample) * 0.7;
+          interaction.pendingX = 0;
+          interaction.pendingY = 0;
+          interaction.sampledAt = now;
         }
+      } else if (interaction.node >= 0 && container) {
+        const node = layoutRef.current[interaction.node];
+        const rect = container.getBoundingClientRect();
+        const options = layoutOptionsRef.current;
+        const margin = collisionRadius(node);
+        const x = (event.clientX - rect.left - rect.width / 2 - panRef.current.x) / zoomRef.current;
+        const y = (event.clientY - rect.top - rect.height / 2 - panRef.current.y) / zoomRef.current;
+        node.x = Math.max(-options.width / 2 + margin, Math.min(options.width / 2 - margin, x));
+        node.y = Math.max(-options.height / 2 + margin, Math.min(options.height / 2 - margin, y));
+        temperatureRef.current = Math.max(temperatureRef.current, DRAG_TEMPERATURE);
       }
       interaction.lastX = event.clientX;
       interaction.lastY = event.clientY;
       scheduleDrawRef.current();
     },
-    [pickNode, clampPan]
+    [pickNode, clampPan, setHover]
   );
 
   const finishPointer = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>, cancelled = false) => {
-      const interaction = interactionRef.current;
-      if (!interaction || interaction.pointerId !== event.pointerId) return;
-      interactionRef.current = null;
+      const pointers = pointersRef.current;
+      pointers.delete(event.pointerId);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      event.currentTarget.style.cursor = hoveredId ? 'pointer' : 'grab';
-      if (interaction.mode === 'node' && interaction.moved) {
-        temperatureRef.current = Math.max(temperatureRef.current, 9);
+      const interaction = interactionRef.current;
+      if (!interaction) return;
+      const motion = motionRef.current;
+      if (interaction.mode === 'pinch') {
+        pinchRef.current = null;
+        const remaining = [...pointers.entries()][0];
+        // The finger still down carries on as a pan, from where it is now.
+        interactionRef.current = remaining
+          ? {
+              ...interaction,
+              mode: 'pan',
+              pointerId: remaining[0],
+              lastX: remaining[1].x,
+              lastY: remaining[1].y,
+              velocityX: 0,
+              velocityY: 0,
+            }
+          : null;
+        return;
+      }
+      if (interaction.pointerId !== event.pointerId) return;
+      interactionRef.current = null;
+      event.currentTarget.style.cursor =
+        motion.hover >= 0 && !motion.fromKeyboard ? 'pointer' : 'grab';
+      const nodeId = interaction.node >= 0 ? layoutRef.current[interaction.node]?.id : undefined;
+      if (interaction.mode === 'pan' && interaction.moved) {
+        const speed = Math.hypot(interaction.velocityX, interaction.velocityY);
+        const recent = window.performance.now() - interaction.sampledAt < 60;
+        if (!cancelled && recent && speed > 0.25 && !prefersReducedMotion()) {
+          motion.inertia = { vx: interaction.velocityX, vy: interaction.velocityY };
+          scheduleDrawRef.current();
+        }
+      } else if (interaction.mode === 'node' && interaction.moved) {
+        temperatureRef.current = Math.max(temperatureRef.current, DRAG_TEMPERATURE);
         scheduleDrawRef.current();
       } else if (!cancelled && !interaction.moved && isTouch(event)) {
         // A finger cannot hover to learn which note a star is before opening
         // it: the first tap names the star and its neighbours, a second opens it.
-        if (interaction.nodeId && interaction.nodeId === hoveredId) {
+        if (nodeId && interaction.node === motion.hover) {
           // Opened by the click that follows the lift. Closing the graph now
           // would hand that click to the note underneath, raising the keyboard.
-          openOnClickRef.current = interaction.nodeId;
+          openOnClickRef.current = nodeId;
         } else {
-          setHoveredId(interaction.nodeId);
+          setHover(interaction.node);
         }
-      } else if (!cancelled && !interaction.moved && interaction.nodeId) {
-        void openGraphNode(interaction.nodeId);
+      } else if (!cancelled && !interaction.moved && nodeId) {
+        void openGraphNode(nodeId);
       }
     },
-    [hoveredId, openGraphNode]
+    [openGraphNode, setHover]
   );
 
   const handleWheel = useCallback(
-    (event: React.WheelEvent<HTMLCanvasElement>) => {
+    (event: React.WheelEvent['nativeEvent']) => {
       event.preventDefault();
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const oldZoom = zoomRef.current;
-      const nextZoom = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, oldZoom * Math.exp(-event.deltaY * 0.0015))
-      );
-      const pointerX = event.clientX - rect.left - rect.width / 2;
-      const pointerY = event.clientY - rect.top - rect.height / 2;
-      const logicalX = (pointerX - panRef.current.x) / oldZoom;
-      const logicalY = (pointerY - panRef.current.y) / oldZoom;
-      zoomRef.current = nextZoom;
-      panRef.current = {
-        x: pointerX - logicalX * nextZoom,
-        y: pointerY - logicalY * nextZoom,
-      };
-      clampPan();
+      const motion = motionRef.current;
+      motion.tween = null;
+      motion.inertia = null;
+      motion.viewTouched = true;
+      const pixels =
+        event.deltaMode === 1
+          ? event.deltaY * 33
+          : event.deltaMode === 2
+            ? event.deltaY * rect.height
+            : event.deltaY;
+      // Trackpad pinches arrive as ctrl+wheel with small deltas.
+      const rate = event.ctrlKey ? PINCH_ZOOM_RATE : WHEEL_ZOOM_RATE;
+      const anchorX = event.clientX - rect.left - rect.width / 2;
+      const anchorY = event.clientY - rect.top - rect.height / 2;
+      if (Math.abs(pixels) >= WHEEL_NOTCH_PX) {
+        const base = motion.zoomTarget?.zoom ?? zoomRef.current;
+        motion.zoomTarget = {
+          zoom: clampZoom(base * Math.exp(-pixels * rate)),
+          anchorX,
+          anchorY,
+        };
+      } else {
+        motion.zoomTarget = null;
+        const oldZoom = zoomRef.current;
+        const nextZoom = clampZoom(oldZoom * Math.exp(-pixels * rate));
+        const logicalX = (anchorX - panRef.current.x) / oldZoom;
+        const logicalY = (anchorY - panRef.current.y) / oldZoom;
+        zoomRef.current = nextZoom;
+        panRef.current = { x: anchorX - logicalX * nextZoom, y: anchorY - logicalY * nextZoom };
+        clampPan();
+      }
       scheduleDrawRef.current();
     },
     [clampPan]
   );
 
+  // React registers wheel listeners as passive, which would ignore preventDefault.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!isOpen || !canvas) return;
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [isOpen, handleWheel]);
+
+  /** Light a star from the keyboard, say its name, and bring it into view. */
+  const focusNode = useCallback(
+    (index: number) => {
+      const screen = screenRef.current;
+      const container = containerRef.current;
+      const node = layoutRef.current[index];
+      if (!node || !container || !scene) return;
+      setHover(index, true);
+      const links = scene.neighbors[index].length;
+      if (announceRef.current) {
+        announceRef.current.textContent = `${node.name}, ${links} ${links === 1 ? 'link' : 'links'}`;
+      }
+      const rect = container.getBoundingClientRect();
+      const margin = Math.min(80, rect.width / 4, rect.height / 4);
+      const x = screen.x[index];
+      const y = screen.y[index];
+      if (x < margin || y < margin || x > rect.width - margin || y > rect.height - margin) {
+        moveViewTo(
+          {
+            zoom: zoomRef.current,
+            x: panRef.current.x + rect.width / 2 - x,
+            y: panRef.current.y + rect.height / 2 - y,
+          },
+          true
+        );
+      }
+    },
+    [scene, setHover, moveViewTo]
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+      const screen = screenRef.current;
+      const container = containerRef.current;
+      if (!screen.painted || screen.x.length === 0 || !container) return;
+      const motion = motionRef.current;
+      const direction = ARROW_DIRECTIONS[event.key];
+      if (direction) {
+        event.preventDefault();
+        const from = motion.hover;
+        let best = -1;
+        let bestScore = Infinity;
+        const rect = container.getBoundingClientRect();
+        const originX = from >= 0 ? screen.x[from] : rect.width / 2;
+        const originY = from >= 0 ? screen.y[from] : rect.height / 2;
+        for (let index = 0; index < screen.x.length; index++) {
+          if (index === from) continue;
+          const dx = screen.x[index] - originX;
+          const dy = screen.y[index] - originY;
+          if (from < 0) {
+            const distance = Math.hypot(dx, dy);
+            if (distance < bestScore) {
+              best = index;
+              bestScore = distance;
+            }
+            continue;
+          }
+          const along = dx * direction.x + dy * direction.y;
+          const across = Math.abs(dx * direction.y - dy * direction.x);
+          if (along <= 0 || across > along * 2) continue;
+          const score = along + across * 2;
+          if (score < bestScore) {
+            best = index;
+            bestScore = score;
+          }
+        }
+        if (best >= 0) focusNode(best);
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && motion.hover >= 0) {
+        event.preventDefault();
+        const node = layoutRef.current[motion.hover];
+        if (node) void openGraphNode(node.id);
+        return;
+      }
+      const zoomStep =
+        event.key === '+' || event.key === '='
+          ? KEY_ZOOM_STEP
+          : event.key === '-' || event.key === '_'
+            ? 1 / KEY_ZOOM_STEP
+            : 0;
+      if (zoomStep) {
+        event.preventDefault();
+        motion.tween = null;
+        motion.viewTouched = true;
+        const base = motion.zoomTarget?.zoom ?? zoomRef.current;
+        motion.zoomTarget = { zoom: clampZoom(base * zoomStep), anchorX: 0, anchorY: 0 };
+        scheduleDrawRef.current();
+      } else if (event.key === '0') {
+        event.preventDefault();
+        fitToView();
+      }
+    },
+    [focusNode, openGraphNode, fitToView]
+  );
+
   /** Double-clicking empty sky is the shortcut for Fit view. */
   const handleDoubleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
-      if (pickNode(event.clientX, event.clientY)) return;
+      if (pickNode(event.clientX, event.clientY) >= 0) return;
       fitToView();
     },
     [pickNode, fitToView]
@@ -786,7 +1425,7 @@ export function GraphView() {
       aria-labelledby="graph-view-title"
     >
       <div
-        className="graph-view-header flex items-baseline justify-between gap-6 px-5 py-3"
+        className="graph-view-header flex items-center justify-between gap-6 px-5 py-3"
         style={{ borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="flex items-baseline gap-4">
@@ -813,7 +1452,7 @@ export function GraphView() {
             <span style={{ ...editorialLabel, color: 'var(--accent-danger)' }}>{error}</span>
           )}
         </div>
-        <div className="flex items-baseline gap-5">
+        <div className="flex items-center gap-5">
           <span className="app-overlay-hint" style={editorialLabel}>
             Drag to pan · Scroll to zoom · Double-click to fit
           </span>
@@ -821,7 +1460,7 @@ export function GraphView() {
             <button
               type="button"
               onClick={fitToView}
-              className="focus-ring graph-view-fit"
+              className="pad-hover focus-ring graph-view-fit"
               style={{
                 color: 'var(--text-secondary)',
                 fontFamily: 'var(--font-display)',
@@ -839,35 +1478,26 @@ export function GraphView() {
               Fit view
             </button>
           )}
-          <button
-            ref={closeBtnRef}
-            type="button"
-            onClick={close}
-            className="focus-ring app-overlay-close"
-            style={{
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-display)',
-              fontSize: '20px',
-              lineHeight: 1,
-            }}
-            aria-label="Close graph view"
-            title="Close (Esc)"
-          >
-            ×
-          </button>
+          <CloseButton ref={closeBtnRef} onClick={close} label="Close graph view" />
         </div>
       </div>
 
       <div ref={containerRef} className="graph-view-canvas relative flex-1 overflow-hidden">
         <canvas
           ref={canvasRef}
+          tabIndex={0}
+          role="application"
+          aria-label="Note graph. Arrow keys move between notes, Enter opens one, plus and minus zoom, 0 fits the view."
+          className="focus-ring"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => finishPointer(event)}
           onPointerCancel={(event) => finishPointer(event, true)}
           // A lifted finger also leaves, which would drop the star its tap just named.
           onPointerLeave={(event) => {
-            if (!interactionRef.current && !isTouch(event)) setHoveredId(null);
+            if (!interactionRef.current && !isTouch(event) && !motionRef.current.fromKeyboard) {
+              setHover(-1);
+            }
           }}
           onClick={() => {
             const nodeId = openOnClickRef.current;
@@ -875,9 +1505,28 @@ export function GraphView() {
             if (nodeId) void openGraphNode(nodeId);
           }}
           onDoubleClick={handleDoubleClick}
-          onWheel={handleWheel}
-          style={{ display: 'block', cursor: hoveredId ? 'pointer' : 'grab', touchAction: 'none' }}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            if (motionRef.current.fromKeyboard) setHover(-1);
+          }}
+          style={{ display: 'block', cursor: 'grab', touchAction: 'none' }}
         />
+        <div
+          ref={ringRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0"
+          style={{ display: 'none', willChange: 'transform' }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              border: '1px solid var(--accent-primary)',
+              borderRadius: '50%',
+              animation: 'pulse-subtle 4.8s ease-in-out infinite',
+            }}
+          />
+        </div>
+        <div ref={announceRef} className="sr-only" aria-live="polite" />
         {graph && graph.nodes.length === 0 && !loading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <EmptyGraphEmptyState />

@@ -35,7 +35,6 @@ const openNote: Note = {
   updatedAt: new Date(0),
   isDaily: false,
   isWeekly: false,
-  isPinned: true,
 };
 
 beforeEach(() => {
