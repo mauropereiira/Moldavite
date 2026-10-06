@@ -26,7 +26,7 @@ describe('notice and toast stacking', () => {
 
   it('renders the toast container on the toast layer', () => {
     useToastStore.setState({
-      toasts: [{ id: 'saved', type: 'info', message: 'Saved', duration: 0 }],
+      toasts: [{ id: 'saved', type: 'success', message: 'Saved', duration: 0 }],
     });
     const { container } = render(<ToastContainer />);
     expect(container.querySelector('.toast-container')?.className).toContain('z-[var(--z-toast)]');
