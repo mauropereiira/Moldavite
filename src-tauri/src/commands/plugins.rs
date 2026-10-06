@@ -1,4 +1,4 @@
-//! Plugin system backend: enumerate, uninstall, and install-example plugins
+//! Plugin system backend: enumerate, install and uninstall plugins
 //! living under the active Forge's `.plugins/` directory. Plugin source
 //! crosses the backend boundary only in the same snapshot as its consent
 //! hash.

@@ -568,7 +568,6 @@ pub fn run() {
             #[cfg(desktop)]
             uninstall_plugin,
             #[cfg(desktop)]
-            #[cfg(desktop)]
             install_wordpress_plugin,
             #[cfg(desktop)]
             install_plugin_from_data,
