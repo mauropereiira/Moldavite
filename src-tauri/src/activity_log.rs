@@ -226,7 +226,6 @@ fn local_day(ms: i64) -> Option<NaiveDate> {
 struct ForgeLog {
     file: PathBuf,
     conn: Mutex<Option<Connection>>,
-    inserts: Mutex<u32>,
 }
 
 static REGISTRY: OnceLock<Mutex<HashMap<PathBuf, Arc<ForgeLog>>>> = OnceLock::new();
@@ -242,7 +241,6 @@ fn handle(forge_root: &Path) -> Arc<ForgeLog> {
             Arc::new(ForgeLog {
                 file: dir.join(LOG_FILE),
                 conn: Mutex::new(None),
-                inserts: Mutex::new(0),
             })
         })
         .clone()
@@ -405,6 +403,11 @@ fn insert(conn: &Connection, event: &Event, first_ms: i64) -> rusqlite::Result<(
             event.source.as_str(),
         ],
     )?;
+    // AUTOINCREMENT counts inserts from both app and watcher jobs. A prune
+    // that fails is tried again 500 rows later; the event itself is in.
+    if conn.last_insert_rowid() % i64::from(PRUNE_EVERY) == 0 {
+        let _ = prune(conn, now_ms());
+    }
     Ok(())
 }
 
@@ -742,14 +745,6 @@ fn apply(job: Job) {
         Job::Event(root, event) => {
             let log = handle(&root);
             let inserted = log.with_conn(true, |conn| apply_event(conn, &event));
-            if let Ok(true) = inserted {
-                let mut count = log.inserts.lock().unwrap_or_else(|e| e.into_inner());
-                *count += 1;
-                if *count >= PRUNE_EVERY {
-                    *count = 0;
-                    let _ = log.with_conn(true, |conn| prune(conn, now_ms()));
-                }
-            }
             inserted.map(|_| ())
         }
         Job::Outside(root, rels, at) => {
@@ -1500,6 +1495,60 @@ mod tests {
                 ("edited".into(), "notes/a.md".into()),
             ]
         );
+    }
+
+    #[test]
+    fn outside_batches_share_insert_accounting_and_prune_retention_and_row_cap() {
+        for app_events in [0, 1] {
+            let forge = TempForge::new("outside-prune");
+            let now = now_ms();
+            event_at(
+                &forge,
+                Action::Created,
+                "notes/old.md",
+                None,
+                Source::Outside,
+                now - RETENTION_MS - MIN,
+            );
+            let log = handle(forge.path());
+            log.with_conn(true, |conn| {
+                let tx = conn.transaction()?;
+                for i in 0..MAX_ROWS - 1 {
+                    tx.execute(
+                        "INSERT INTO events(first_ms, at_ms, action, path, note_path, source) \
+                         VALUES (?1, ?1, 'edited', 'notes/seed.md', 'notes/seed.md', 'outside')",
+                        [now - MIN + i],
+                    )?;
+                }
+                tx.commit()
+            })
+            .unwrap();
+            for i in 0..app_events {
+                record_in(
+                    forge.path(),
+                    Action::Created,
+                    &format!("notes/app-{i}.md"),
+                    None,
+                    Source::App,
+                );
+            }
+            let rels: Vec<String> = (0..PRUNE_EVERY - app_events)
+                .map(|i| {
+                    let rel = format!("notes/outside-{i}.md");
+                    forge.write(&rel, "outside change");
+                    rel
+                })
+                .collect();
+            outside_changes_in(forge.path(), rels);
+
+            log.with_conn(false, |conn| {
+                let count: i64 = conn.query_row("SELECT count(*) FROM events", [], |r| r.get(0))?;
+                assert_eq!(count, MAX_ROWS, "app events: {app_events}");
+                assert!(!has_rows(conn, "notes/old.md")?);
+                Ok(())
+            })
+            .unwrap();
+        }
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAutumnArt } from '@/lib/seasons';
+import { useSeasonArt } from '@/lib/seasons';
 import { SECTION_ICONS } from '@/components/ui/SeasonalIcons';
 
 interface CollapsibleSectionProps {
@@ -19,8 +19,8 @@ export function CollapsibleSection({
   children,
   count,
 }: CollapsibleSectionProps) {
-  const autumnArt = useAutumnArt();
-  const SectionIcon = autumnArt ? SECTION_ICONS[title] : undefined;
+  const seasonArt = useSeasonArt();
+  const SectionIcon = seasonArt ? SECTION_ICONS[seasonArt][title] : undefined;
   // A card in the Index and a band across the pinned column: the header is a
   // filled strip holding the toggle, the count and the section's actions.
   return (

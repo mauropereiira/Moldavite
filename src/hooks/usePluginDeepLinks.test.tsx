@@ -8,6 +8,7 @@ import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useOverlayStore } from '@/stores/overlayStore';
 import type { Note, NoteFile } from '@/types';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { installWindowDropGuard } from '@/lib/dropGuard';
@@ -321,5 +322,48 @@ describe('routeTodayRequest', () => {
     await waitFor(() => {
       expect(useNoteStore.getState().selectedDate.toDateString()).toBe(new Date().toDateString());
     });
+  });
+});
+
+describe('deep links reveal the routed note', () => {
+  it.each(
+    (['index', 'agenda', 'search', 'trash'] as const).flatMap((surface) =>
+      (['note', 'today'] as const).map((kind) => ({ surface, kind }))
+    )
+  )('closes $surface after a $kind link loads', async ({ surface, kind }) => {
+    useNoteStore.setState({ notes: [rootNote] });
+    useOverlayStore.getState().openSurface(surface);
+    const load = vi.fn().mockResolvedValue(undefined);
+    if (kind === 'note') await routeNoteRequest('Root note.md', load, vi.fn());
+    else await routeTodayRequest(load);
+    expect(useOverlayStore.getState().activeOverlay).toBeNull();
+  });
+
+  it('keeps the Index open when the note it loaded is waiting for its password', async () => {
+    useNoteStore.setState({ notes: [rootNote] });
+    // A locked daily note asks for its password in the Index, as openNoteFile does.
+    const load = vi.fn().mockImplementation(async () => {
+      useNoteStore.setState({ pendingUnlock: { ...rootNote, isLocked: true } });
+      useOverlayStore.getState().openSurface('index');
+    });
+    await routeTodayRequest(load);
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    useNoteStore.setState({ pendingUnlock: null });
+  });
+
+  it('keeps navigation open when a link is missing, locked or fails to load', async () => {
+    useOverlayStore.getState().openSurface('index');
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    expect(await routeNoteRequest('Missing.md', vi.fn(), refresh)).toBe(false);
+    useNoteStore.setState({ notes: [{ ...rootNote, isLocked: true }] });
+    expect(await routeNoteRequest('Root note.md', vi.fn(), refresh)).toBe(false);
+    useNoteStore.setState({ notes: [rootNote] });
+    await expect(
+      routeNoteRequest('Root note.md', vi.fn().mockRejectedValue(new Error('read failed')), refresh)
+    ).rejects.toThrow('read failed');
+    await expect(
+      routeTodayRequest(vi.fn().mockRejectedValue(new Error('read failed')))
+    ).rejects.toThrow('read failed');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
   });
 });

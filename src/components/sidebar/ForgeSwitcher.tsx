@@ -18,7 +18,7 @@ interface ForgeSwitcherProps {
  * explicitly through `WatcherSlot`.
  */
 export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
-  const { forges, active, loadForges, switchTo, createForge } = useForgeStore();
+  const { forges, active, loadForges, switchTo, createForge, switcherRequested } = useForgeStore();
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -31,16 +31,13 @@ export function ForgeSwitcher({ onManage }: ForgeSwitcherProps) {
     });
   }, [loadForges]);
 
-  // Listen for the QuickSwitcher "Switch Forge…" command which dispatches
-  // a window event after closing itself.
+  // Keep the request until the Index has mounted its Forge picker.
   useEffect(() => {
-    const onOpen = () => {
-      clearImpactOrigin();
-      void loadForges().finally(() => setOpen(true));
-    };
-    window.addEventListener('moldavite:open-forge-switcher', onOpen);
-    return () => window.removeEventListener('moldavite:open-forge-switcher', onOpen);
-  }, [loadForges]);
+    if (!switcherRequested) return;
+    useForgeStore.setState({ switcherRequested: false });
+    clearImpactOrigin();
+    void loadForges().finally(() => setOpen(true));
+  }, [switcherRequested, loadForges]);
 
   useEffect(() => {
     if (!open) return;

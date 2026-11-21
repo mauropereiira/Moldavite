@@ -54,12 +54,16 @@ import { LayoutSection } from './sections/LayoutSection';
 import { WritingSection } from './sections/WritingSection';
 import { InfoTooltip } from './common';
 import { searchSettings, settingsTab, visibleTabs, type SettingsTabSpec } from './settingsMap';
-import { JACK_O_LANTERN_SMALL_SRC, useSeasonalTouches } from '@/lib/seasons';
+import { SEASON_MASCOT, type Season, useSeasonArt, useSeasonalTouches } from '@/lib/seasons';
 import { MaskArt } from '@/components/ui/MaskArt';
 import { CloseButton } from '@/components/ui/CloseButton';
 
-const AUTUMN_PUMPKIN = (
-  <MaskArt src={JACK_O_LANTERN_SMALL_SRC} className="size-[22px]" label="Happy autumn" />
+const seasonMascot = (season: Season) => (
+  <MaskArt
+    src={SEASON_MASCOT[season].smallSrc}
+    className="size-[22px]"
+    label={SEASON_MASCOT[season].label}
+  />
 );
 
 const ICON = { className: 'w-4 h-4', strokeWidth: 1.25, 'aria-hidden': true } as const;
@@ -253,7 +257,9 @@ function DesktopSettingsPage() {
   const setActiveTab = useSettingsStore((state) => state.setActiveSettingsTab);
   const close = () => useSettingsStore.getState().setIsSettingsOpen(false);
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
-  const season = useSeasonalTouches();
+  // A seasonal theme keeps its own mascot; any other theme gets the season's.
+  const releaseSeason = useSeasonalTouches();
+  const season = useSeasonArt() ?? releaseSeason;
   const [query, setQuery] = useState('');
   const bodyRef = useRef<HTMLDivElement>(null);
   const tabs = visibleTabs(false);
@@ -309,9 +315,9 @@ function DesktopSettingsPage() {
                 ))}
             </div>
           ))}
-          {season === 'autumn' && (
+          {season && (
             <div className="mt-auto px-3 pt-4" style={{ color: 'var(--text-muted)' }}>
-              {AUTUMN_PUMPKIN}
+              {seasonMascot(season)}
             </div>
           )}
         </nav>
@@ -359,7 +365,9 @@ const TOUCH_TARGET = 'var(--touch-target)';
  * The list is a `<nav>` of plain buttons in the same groups as the desktop.
  */
 function MobileSettingsPage() {
-  const season = useSeasonalTouches();
+  // A seasonal theme keeps its own mascot; any other theme gets the season's.
+  const releaseSeason = useSeasonalTouches();
+  const season = useSeasonArt() ?? releaseSeason;
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
   // In the store rather than local state so the rail's Settings button can
   // walk back to the list from a section.
@@ -499,9 +507,9 @@ function MobileSettingsPage() {
                 </div>
               ))
             )}
-            {season === 'autumn' && !query.trim() && (
+            {season && !query.trim() && (
               <div className="flex justify-center py-6" style={{ color: 'var(--text-muted)' }}>
-                {AUTUMN_PUMPKIN}
+                {seasonMascot(season)}
               </div>
             )}
           </nav>

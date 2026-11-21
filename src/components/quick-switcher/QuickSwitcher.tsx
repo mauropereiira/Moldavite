@@ -22,6 +22,8 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useGraphStore } from '@/stores/graphStore';
+import { useForgeStore } from '@/stores/forgeStore';
+import { useOverlayStore } from '@/stores/overlayStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useNotes } from '@/hooks/useNotes';
 import { routeNoteRequest } from '@/hooks/usePluginDeepLinks';
@@ -318,6 +320,7 @@ export function QuickSwitcher() {
     const rows: Row[] = [];
     /** Map from row index → header to render BEFORE that row. */
     const headers = new Map<number, { label: string; icon?: React.ReactNode }>();
+    if (!isOpen) return { rows, headers };
 
     const commandCatalog: QuickSwitcherCommand[] = [
       ...QUICK_SWITCHER_COMMANDS.filter((c) => !(isMobile && c.desktopOnly)),
@@ -463,6 +466,7 @@ export function QuickSwitcher() {
 
     return { rows, headers };
   }, [
+    isOpen,
     query,
     contentHits,
     notes,
@@ -573,10 +577,15 @@ export function QuickSwitcher() {
         case 'shortcut-help':
           dispatchModKey('/');
           return;
-        case 'switch-forge':
-          // Sidebar listens for this event and opens the Forge dropdown.
-          window.dispatchEvent(new Event('moldavite:open-forge-switcher'));
+        case 'switch-forge': {
+          // The Forge picker lives in the Index, so the Index opens first and
+          // the picker follows once it has mounted. No Index, no picker.
+          const { indexMode } = useSettingsStore.getState();
+          if (indexMode === 'off') return;
+          useForgeStore.setState({ switcherRequested: true });
+          useOverlayStore.getState().openIndex(indexMode === 'pinned');
           return;
+        }
         case 'open-graph':
           openGraph();
           return;

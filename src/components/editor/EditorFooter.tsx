@@ -104,11 +104,7 @@ export function EditorFooter({
 
       {/* Publish to WordPress — absent unless the build has credentials */}
       {!isMobilePlatform() && !readOnly && !isLoose && (
-        <WordPressMenu
-          onShowToast={showToast}
-          onShowError={(message) => toast.error(message)}
-          openDirection="up"
-        />
+        <WordPressMenu onShowToast={toast.success} onShowError={toast.error} openDirection="up" />
       )}
 
       {/* Share Menu */}

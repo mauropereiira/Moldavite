@@ -112,13 +112,13 @@ fn prepare_mobile_export(
         directory,
     };
     match request {
-        MobileExport::Notes => export_notes_to(notes, &prepared.file)?,
+        MobileExport::Notes => export_notes_from(notes, &prepared.file)?,
         MobileExport::Backup { password } => {
             let password = Zeroizing::new(password);
-            export_encrypted_backup_to(notes, &prepared.file, &password)?;
+            export_encrypted_backup_from(notes, &prepared.file, &password)?;
         }
         MobileExport::Settings { json } => {
-            export_settings_json(prepared.file.to_string_lossy().into_owned(), json)?;
+            write_settings_json(&prepared.file, &json)?;
         }
         MobileExport::Note { path } => {
             let source = mobile_note_source(notes, &path)?;
@@ -335,11 +335,13 @@ fn preflight_archive<R: IoRead + Seek>(
         let file = archive
             .by_index(index)
             .map_err(|e| format!("Failed to inspect {label} entry: {e}"))?;
-        let name = file.name();
+        let name = file
+            .name()
+            .map_err(|e| format!("Failed to read {label} entry name: {e}"))?;
         if name.ends_with('/') {
             continue;
         }
-        if validated_archive_destination(notes_dir, name).is_none() {
+        if validated_archive_destination(notes_dir, &name).is_none() {
             return Err(format!("{label} contains unsafe entry path '{name}'"));
         }
         if file.size() > MAX_ENTRY_UNCOMPRESSED_SIZE {
@@ -377,7 +379,10 @@ fn extract_archive<R: IoRead + Seek>(
         let mut file = archive
             .by_index(index)
             .map_err(|e| format!("Failed to read {label} entry: {e}"))?;
-        let name = file.name().to_string();
+        let name = file
+            .name()
+            .map_err(|e| format!("Failed to read {label} entry name: {e}"))?
+            .to_string();
         if name.ends_with('/') {
             continue;
         }
@@ -784,7 +789,10 @@ fn import_encrypted_backup_into(
 pub(crate) fn export_settings_json(path: String, json: String) -> Result<(), String> {
     let file_path = Path::new(&path);
     validate_user_export_path(file_path, "json")?;
+    write_settings_json(file_path, &json)
+}
 
+fn write_settings_json(file_path: &Path, json: &str) -> Result<(), String> {
     // Reject oversized payloads (settings JSON should be tiny).
     if json.len() > 2 * 1024 * 1024 {
         return Err("Settings JSON too large".to_string());
@@ -926,6 +934,46 @@ mod tests {
             "private note"
         );
         drop(prepared);
+        assert_eq!(fs::read_dir(&cache).unwrap().count(), 0);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn mobile_exports_allow_private_cache_but_desktop_exports_reject_it() {
+        let tmp = TempDir::new("mobile-private-cache");
+        let source = tmp.0.join("source");
+        let cache = tmp.0.join("cache");
+        scaffold(&source);
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(source.join("notes/note.md"), "private note").unwrap();
+        let blocked = "Cannot write to system directories".to_string();
+        assert_eq!(
+            export_notes_to(&source, &cache.join("notes.zip")),
+            Err(blocked.clone())
+        );
+        assert_eq!(
+            export_encrypted_backup_to(&source, &cache.join("notes.moldavite-backup"), "password"),
+            Err(blocked.clone())
+        );
+        assert_eq!(
+            export_settings_json(
+                cache.join("settings.json").to_string_lossy().into_owned(),
+                "{}".into()
+            ),
+            Err(blocked)
+        );
+
+        let errors: Vec<_> = [
+            MobileExport::Notes,
+            MobileExport::Backup {
+                password: "password".into(),
+            },
+            MobileExport::Settings { json: "{}".into() },
+        ]
+        .into_iter()
+        .filter_map(|request| prepare_mobile_export(&source, &cache, request).err())
+        .collect();
+        assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(fs::read_dir(&cache).unwrap().count(), 0);
     }
 

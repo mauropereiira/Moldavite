@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { TrashedNote } from '@/types';
 import { applyImpactOrigin, impactPointFromElement } from '@/lib/impactOrigin';
 import { SignatureEmptyState } from '@/components/ui/SignatureMark';
@@ -7,6 +7,7 @@ import { CloseButton } from '@/components/ui/CloseButton';
 const POPOVER_WIDTH = 380;
 const POPOVER_MAX_HEIGHT = 520;
 const GAP = 12;
+const draggedPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
 
 interface TrashPopoverProps {
   isOpen: boolean;
@@ -50,28 +51,45 @@ export function TrashPopover({
   // side facing the note, without covering it. The rail and the Index can sit
   // on either edge, so an anchor in the right half opens leftwards.
   // Subsequent opens during the same session reuse the dragged position.
-  useEffect(() => {
-    if (!isOpen || !anchor) return;
-    setPosition((prev) => {
-      if (prev) {
-        // Clamp previous position in case the viewport shrank since.
-        return {
-          left: Math.max(GAP, Math.min(window.innerWidth - POPOVER_WIDTH - GAP, prev.left)),
-          top: Math.max(GAP, Math.min(window.innerHeight - 80 - GAP, prev.top)),
-        };
-      }
+  const place = useCallback(() => {
+    if (!anchor) return;
+    const height = popoverRef.current?.offsetHeight ?? 0;
+    const prev = draggedPositions.get(anchor);
+    let next: { left: number; top: number };
+    if (prev) {
+      // Clamp previous position in case the viewport shrank since.
+      next = {
+        left: Math.max(GAP, Math.min(window.innerWidth - POPOVER_WIDTH - GAP, prev.left)),
+        top: Math.max(GAP, Math.min(window.innerHeight - height - GAP, prev.top)),
+      };
+    } else {
       const rect = anchor.getBoundingClientRect();
       const opensLeft = rect.left + rect.width / 2 > window.innerWidth / 2;
-      const left = opensLeft
-        ? Math.max(GAP, rect.left - GAP - POPOVER_WIDTH)
-        : Math.min(window.innerWidth - POPOVER_WIDTH - GAP, rect.right + GAP);
-      const top = Math.max(
-        GAP,
-        Math.min(window.innerHeight - POPOVER_MAX_HEIGHT - GAP, rect.bottom - POPOVER_MAX_HEIGHT)
-      );
-      return { left, top };
-    });
-  }, [isOpen, anchor]);
+      next = {
+        left: opensLeft
+          ? Math.max(GAP, rect.left - GAP - POPOVER_WIDTH)
+          : Math.max(GAP, Math.min(window.innerWidth - POPOVER_WIDTH - GAP, rect.right + GAP)),
+        top: Math.max(GAP, Math.min(window.innerHeight - height - GAP, rect.bottom - height)),
+      };
+    }
+    setPosition((current) =>
+      current && current.left === next.left && current.top === next.top ? current : next
+    );
+  }, [anchor]);
+
+  useLayoutEffect(() => {
+    if (isOpen) place();
+  }, [isOpen, place, trashedNotes.length]);
+
+  // The list can settle a moment after the popover draws, and its height
+  // decides where the bottom edge sits.
+  useEffect(() => {
+    const node = popoverRef.current;
+    if (!isOpen || !node || isDragging || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(place);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isOpen, isDragging, place]);
 
   // Drag handlers: the header is a drag handle. Updates `position` via
   // mousemove and clamps to the viewport on mouseup.
@@ -98,7 +116,12 @@ export function TrashPopover({
         GAP,
         Math.min(window.innerWidth - POPOVER_WIDTH - GAP, e.clientX - drag.offsetX)
       );
-      const top = Math.max(GAP, Math.min(window.innerHeight - 80 - GAP, e.clientY - drag.offsetY));
+      const height = popoverRef.current?.offsetHeight ?? 0;
+      const top = Math.max(
+        GAP,
+        Math.min(window.innerHeight - height - GAP, e.clientY - drag.offsetY)
+      );
+      if (anchor) draggedPositions.set(anchor, { left, top });
       setPosition({ left, top });
     };
     const handleUp = () => {
@@ -111,7 +134,7 @@ export function TrashPopover({
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
     };
-  }, [isDragging]);
+  }, [isDragging, anchor]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -139,7 +162,7 @@ export function TrashPopover({
     };
   }, [isOpen, anchor, onClose]);
 
-  if (!isOpen || !position) return null;
+  if (!isOpen) return null;
 
   // Trash entries live 7 days, so `daysAgo = 7 - daysRemaining` (clamped
   // to 0). This avoids calling `Date.now()` during render, which the
@@ -156,10 +179,12 @@ export function TrashPopover({
       ref={setPopoverRef}
       className="fixed z-[9999] flex flex-col modal-content-enter impact-surface"
       style={{
-        left: position.left,
-        top: position.top,
+        left: position?.left ?? GAP,
+        top: position?.top ?? GAP,
+        visibility: position ? 'visible' : 'hidden',
         width: POPOVER_WIDTH,
-        maxHeight: POPOVER_MAX_HEIGHT,
+        maxWidth: 'calc(100vw - 24px)',
+        maxHeight: Math.min(POPOVER_MAX_HEIGHT, window.innerHeight - GAP * 2),
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',

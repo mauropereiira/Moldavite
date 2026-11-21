@@ -98,6 +98,11 @@ const toastSpies = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 const getTemplateContent = vi.hoisted(() => vi.fn());
+const processAndSaveImage = vi.hoisted(() => vi.fn());
+vi.mock('@/lib', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib')>()),
+  processAndSaveImage,
+}));
 
 vi.mock('@/hooks', () => ({
   useAutoSave: vi.fn(),
@@ -309,6 +314,7 @@ beforeEach(() => {
   toastSpies.success.mockReset();
   toastSpies.error.mockReset();
   getTemplateContent.mockReset().mockResolvedValue('# Template content');
+  processAndSaveImage.mockReset();
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -1325,4 +1331,78 @@ describe('Editor typing settings', () => {
     expect(dom).toHaveAttribute('spellcheck', 'false');
     expect(dom).toHaveAttribute('autocapitalize', 'off');
   });
+});
+
+describe('Editor pending insertions', () => {
+  it('drops a template when the originating note is no longer active', async () => {
+    let finish!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    getTemplateContent.mockReturnValueOnce(pending);
+    const first = note('notes/first.md', '<p></p>');
+    const second = note('notes/second.md', '<p>Second</p>');
+    const { editor } = await renderEditor(first, [second]);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
+    expect(getTemplateContent).toHaveBeenCalled();
+    act(() => useNoteStore.getState().switchTab(second.id));
+    await act(async () => {
+      finish('# Wrong note');
+      await pending;
+    });
+    expect(editor.getText()).toBe('Second');
+    expect(useNoteStore.getState().openTabs.find((tab) => tab.id === first.id)?.content).toBe(
+      '<p></p>'
+    );
+    expect(toastSpies.success).not.toHaveBeenCalledWith('Template applied');
+  });
+
+  it.each(['paste', 'drop'] as const)(
+    'drops a pending image %s when the originating note is no longer active',
+    async (kind) => {
+      let finish!: (value: string) => void;
+      const pending = new Promise<string>((resolve) => {
+        finish = resolve;
+      });
+      processAndSaveImage.mockReturnValueOnce(pending);
+      const first = note('notes/first.md', '<p>First</p>');
+      const second = note('notes/second.md', '<p>Second</p>');
+      const { editor } = await renderEditor(first, [second]);
+      const file = new File(['image'], 'picture.png', { type: 'image/png' });
+      act(() => {
+        if (kind === 'paste') {
+          editor.options.editorProps?.handlePaste?.(
+            editor.view,
+            {
+              clipboardData: { items: [{ type: file.type, getAsFile: () => file }] },
+              preventDefault: vi.fn(),
+            } as unknown as ClipboardEvent,
+            null as never
+          );
+        } else {
+          editor.options.editorProps?.handleDrop?.(
+            editor.view,
+            {
+              dataTransfer: { files: [file] },
+              preventDefault: vi.fn(),
+            } as unknown as DragEvent,
+            null as never,
+            false
+          );
+        }
+      });
+      expect(processAndSaveImage).toHaveBeenCalledWith(file);
+      act(() => useNoteStore.getState().switchTab(second.id));
+      await act(async () => {
+        finish('images/picture.png');
+        await pending;
+      });
+      expect(editor.getHTML()).not.toContain('<img');
+      expect(editor.getText()).toBe('Second');
+      expect(useNoteStore.getState().openTabs.find((tab) => tab.id === first.id)?.content).toBe(
+        '<p>First</p>'
+      );
+      expect(toastSpies.success).not.toHaveBeenCalledWith('Image added');
+    }
+  );
 });

@@ -1471,9 +1471,13 @@ html[data-platform='mobile'] .mobile-field-keyboard-bar button {
   color: var(--text-primary);
 }
 
-html[data-platform='mobile'][data-keyboard='open'] :is(.modal-backdrop-dark, .settings-backdrop) {
+html[data-platform='mobile'][data-keyboard='open'] :is(.modal-backdrop-dark, .settings-scrim) {
   bottom: auto;
   height: var(--app-height);
+}
+
+html[data-platform='mobile'] .settings-scrim > [aria-labelledby='template-editor-title'] {
+  max-height: calc(100% - 32px);
 }
 
 html[data-platform='mobile'][data-keyboard='closed'] .mobile-formatting-bar {

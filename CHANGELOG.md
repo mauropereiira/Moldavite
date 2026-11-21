@@ -2,6 +2,32 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.12.0] - 2026-11-21
+
+### Added
+
+- **Winter.** A new Winter theme in Settings → Appearance, light and dark: soft snow with cranberry, pine and gingerbread by day, midnight blue and candlelight by night. With it on, the home screen shows a cabin in the hills. In light mode a snowman skis down the slope with a dog at his heels; in dark mode it's the same view on a festive evening, with lights on the cabin and a Christmas tree. Selected text, the typing cursor and ticked to-dos take the theme's accent, divider lines carry a tiny snowflake, and the Index shows small icons beside Notes, Folders, Daily and Tags. With any theme, snow falls across the home screen, a small snowman sits in the corner of Settings, and About says it's the Winter edition. Turn the seasonal bits off in Settings → Appearance → Seasonal touches.
+
+### Changed
+
+- Autumn stays as a theme you can keep, with its own field, leaves and pumpkin.
+- Updated the libraries that clean and render Markdown, read and write zip files, secure connections and hold the search index, for their latest security fixes.
+
+### Fixed
+
+- A note's header shows the date the note was last edited, not the date you opened it.
+- Buttons filled with the accent colour, like Next and Done on the welcome pages and Enable on a plugin's permission sheet, have readable labels in dark themes.
+- On iPhone and iPad, exporting your notes, an encrypted backup or your settings works again. It used to stop with "Cannot write to system directories" before the save sheet opened.
+- On iPhone and iPad, Settings dialogs such as New template stay above the keyboard.
+- A template, or an image you paste or drop, no longer lands in a different note if you switch notes while it is loading.
+- **Switch Forge…** in the Quick Switcher opens the Forge list even when the Index is closed.
+- A link to a note or to today's note, like the one the iPhone widget uses, no longer opens the note underneath an open Index, Agenda or Search.
+- The Settings (⌘,) and New note (⌘N) shortcuts work while the Timeline is open.
+- The Trash popover opens beside its button instead of floating above it when the Trash is nearly empty.
+- Restoring one note out of a folder in the Trash shows up in the Timeline and in search at the place it was restored to.
+- The Timeline's history stays within its size limit when another app changes many notes.
+- Typing no longer re-registers the WordPress sign-in listener on every keystroke, and a closed Quick Switcher no longer redoes its last search after each save.
+
 ## [2.11.0] - 2026-10-06
 
 ### Added

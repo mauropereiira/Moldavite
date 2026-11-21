@@ -173,7 +173,13 @@ fn read_zip_package(path: &Path, size: u64) -> Result<(Vec<u8>, Vec<u8>), String
     if archive.len() > MAX_ZIP_ENTRIES {
         return Err("The .zip holds too many files to be a plugin.".into());
     }
-    let prefix = zip_prefix(archive.file_names())?;
+    let prefix = {
+        let names = archive
+            .file_names()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "This isn't a readable .zip file.".to_string())?;
+        zip_prefix(names.iter().map(|name| &**name))?
+    };
     Ok((
         read_zip_entry(
             &mut archive,

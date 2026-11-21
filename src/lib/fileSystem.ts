@@ -2051,8 +2051,10 @@ export function filenameToNote(file: NoteFile, content: string): Note {
     id: file.path,
     title,
     content: content ? DOMPurify.sanitize(content, DOMPURIFY_CONFIG) : content,
-    createdAt: new Date(), // Would need file metadata for actual values
-    updatedAt: new Date(),
+    // The listing carries the file's own times, in seconds; a note it has not
+    // seen yet (just created, or opened from outside the Forge) starts now.
+    createdAt: file.createdAt ? new Date(file.createdAt * 1000) : new Date(),
+    updatedAt: file.modifiedAt ? new Date(file.modifiedAt * 1000) : new Date(),
     isDaily: file.isDaily,
     isWeekly: file.isWeekly,
     date: file.date,

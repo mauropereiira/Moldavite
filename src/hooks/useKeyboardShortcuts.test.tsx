@@ -199,3 +199,39 @@ describe('useKeyboardShortcuts with ⌥ held', () => {
     expect(handlers.onNewNote).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('pending shortcut template insertion', () => {
+  it('drops a template when the originating note is no longer active', async () => {
+    let finish!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    invokeMock.mockImplementation((command: string) =>
+      command === 'apply_template' ? pending : undefined
+    );
+    const first = {
+      id: 'notes/first.md',
+      title: 'First',
+      content: '',
+      isDaily: false,
+      isWeekly: false,
+    };
+    useNoteStore.setState({ currentNote: first as never });
+    const setContent = vi.fn();
+    const editor = { commands: { setContent } } as unknown as Parameters<
+      typeof useKeyboardShortcuts
+    >[0]['editor'];
+    const hook = renderHook(() => useKeyboardShortcuts({ editor }));
+    let applying!: Promise<void>;
+    act(() => {
+      applying = hook.result.current.handleTemplateSelect('example');
+    });
+    expect(invokeMock).toHaveBeenCalledWith('apply_template', { templateId: 'example' });
+    act(() => useNoteStore.setState({ currentNote: { ...first, id: 'notes/second.md' } as never }));
+    await act(async () => {
+      finish('# Wrong note');
+      await applying;
+    });
+    expect(setContent).not.toHaveBeenCalled();
+  });
+});

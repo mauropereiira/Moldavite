@@ -55,7 +55,7 @@ function closeActiveNote(event: KeyboardEvent) {
  * Registered in `src/lib/shortcuts.ts` so the help modal lists them.
  */
 export function ChromeShortcutHost() {
-  const { loadNote, refresh } = useNotes();
+  const { loadNote, refresh, createNote } = useNotes();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,6 +75,19 @@ export function ChromeShortcutHost() {
       if (!isPrimaryModifier(e)) return;
 
       const key = e.key.toLowerCase();
+      // Timeline replaces the editor and its shortcut listener.
+      if (useOverlayStore.getState().activeOverlay === 'timeline' && !e.altKey && !e.shiftKey) {
+        if (key === ',') {
+          e.preventDefault();
+          useSettingsStore.getState().setIsSettingsOpen(true);
+          return;
+        }
+        if (key === 'n') {
+          e.preventDefault();
+          void createNote('Untitled', null, { discardIfLeftEmpty: true });
+          return;
+        }
+      }
       if (key === 'p' && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         useQuickSwitcherStore.getState().toggle();
@@ -114,7 +127,7 @@ export function ChromeShortcutHost() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [loadNote, refresh]);
+  }, [loadNote, refresh, createNote]);
 
   return null;
 }

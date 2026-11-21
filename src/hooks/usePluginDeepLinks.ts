@@ -7,6 +7,7 @@ import { safeInvoke } from '@/lib/ipc';
 import { whenForgeReady } from '@/lib/forgeReadiness';
 import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
 import { useGraphStore } from '@/stores/graphStore';
+import { useOverlayStore } from '@/stores/overlayStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
@@ -128,6 +129,15 @@ async function findLinkedNote(
   return note ?? null;
 }
 
+/**
+ * Put away the Index, Agenda or Search covering the note a link just opened.
+ * A locked note opens the Index to ask for its password, so that stays.
+ */
+function closeNavigationOverNote(): void {
+  if (useNoteStore.getState().pendingUnlock) return;
+  useOverlayStore.getState().closeOverlay();
+}
+
 /** Resolve a validated note reference and use the normal editor navigation path. */
 export async function routeNoteRequest(
   value: unknown,
@@ -150,6 +160,7 @@ export async function routeNoteRequest(
 
   useSettingsStore.getState().setIsSettingsOpen(false);
   await loadNote(note);
+  closeNavigationOverNote();
   return true;
 }
 
@@ -161,6 +172,7 @@ export async function routeTodayRequest(loadDailyNote: LoadDailyNote): Promise<v
   const today = new Date();
   useNoteStore.getState().setSelectedDate(today);
   await loadDailyNote(today);
+  closeNavigationOverNote();
 }
 
 function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {

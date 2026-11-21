@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { selectHasPendingUpdate, useGraphStore, useTimelineStore, useUpdateStore } from '@/stores';
 import { formatShortcut } from '@/lib/shortcuts';
-import { JACK_O_LANTERN_SMALL_SRC, useAutumnArt } from '@/lib/seasons';
+import { SEASON_MASCOT, useSeasonArt } from '@/lib/seasons';
 import { MaskArt } from '@/components/ui/MaskArt';
 
 interface SidebarFooterProps {
@@ -23,7 +23,7 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
   const { isOpen: isTimelineOpen, toggle: toggleTimeline } = useTimelineStore();
   const { isOpen: isGraphOpen, toggle: toggleGraph } = useGraphStore();
   const hasPendingUpdate = useUpdateStore(selectHasPendingUpdate);
-  const autumnArt = useAutumnArt();
+  const seasonArt = useSeasonArt();
 
   useEffect(() => {
     getVersion()
@@ -152,7 +152,9 @@ export function SidebarFooter({ onToday, onNewNote, onSettings, onTrash }: Sideb
 
       <div className="sidebar-footer-version px-3 pb-3 flex flex-col items-center">
         <div className="text-center">
-          {autumnArt && <MaskArt src={JACK_O_LANTERN_SMALL_SRC} className="seasonal-brand-icon" />}
+          {seasonArt && (
+            <MaskArt src={SEASON_MASCOT[seasonArt].smallSrc} className="seasonal-brand-icon" />
+          )}
           <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
             MOLDAVITE
           </p>

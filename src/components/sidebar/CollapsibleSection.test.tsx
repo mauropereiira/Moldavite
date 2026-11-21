@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { GiftIcon, PineIcon, SECTION_ICONS, SnowflakeIcon } from '@/components/ui/SeasonalIcons';
 import { CollapsibleSection } from './CollapsibleSection';
 
 describe('CollapsibleSection', () => {
@@ -53,21 +54,32 @@ describe('CollapsibleSection', () => {
     useSettingsStore.setState({ showSeasonalTouches: true });
   });
 
-  it('draws the section icon only with the Autumn theme and seasonal touches on', () => {
-    const section = (
-      <CollapsibleSection title="Folders" isCollapsed={false} onToggle={vi.fn()}>
-        <span />
-      </CollapsibleSection>
-    );
-    const { container, rerender } = render(section);
-    expect(container.querySelector('.seasonal-section-icon')).toBeNull();
-
-    useThemeStore.setState({ preset: 'autumn' });
-    rerender(section);
-    expect(container.querySelector('.seasonal-section-icon')).not.toBeNull();
-
-    useSettingsStore.setState({ showSeasonalTouches: false });
-    rerender(section);
-    expect(container.querySelector('.seasonal-section-icon')).toBeNull();
+  it('gives each seasonal theme its own section icons', () => {
+    expect(Object.keys(SECTION_ICONS.winter)).toEqual(Object.keys(SECTION_ICONS.autumn));
+    expect(SECTION_ICONS.winter.Notes).toBe(SnowflakeIcon);
+    expect(SECTION_ICONS.winter.Folders).toBe(GiftIcon);
+    expect(SECTION_ICONS.winter.Tags).toBe(PineIcon);
+    expect(SECTION_ICONS.winter.Notes).not.toBe(SECTION_ICONS.autumn.Notes);
   });
+
+  it.each(['autumn', 'winter'] as const)(
+    'draws the section icon only with the %s theme and seasonal touches on',
+    (preset) => {
+      const section = (
+        <CollapsibleSection title="Folders" isCollapsed={false} onToggle={vi.fn()}>
+          <span />
+        </CollapsibleSection>
+      );
+      const { container, rerender } = render(section);
+      expect(container.querySelector('.seasonal-section-icon')).toBeNull();
+
+      useThemeStore.setState({ preset });
+      rerender(section);
+      expect(container.querySelector('.seasonal-section-icon')).not.toBeNull();
+
+      useSettingsStore.setState({ showSeasonalTouches: false });
+      rerender(section);
+      expect(container.querySelector('.seasonal-section-icon')).toBeNull();
+    }
+  );
 });

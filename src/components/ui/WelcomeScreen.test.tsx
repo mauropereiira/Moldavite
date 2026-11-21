@@ -59,8 +59,8 @@ describe('WelcomeScreen layout settings', () => {
     expect(container.querySelector('.welcome-constellation-field')).not.toBeInTheDocument();
     expect(container.querySelector('.welcome-sun')).not.toBeInTheDocument();
     expect(container.querySelector('.welcome-moon')).not.toBeInTheDocument();
-    expect(container.querySelector('.welcome-leaf')).not.toBeInTheDocument();
-    expect(container.querySelector('.autumn-field')).not.toBeInTheDocument();
+    expect(container.querySelector('.welcome-flake')).not.toBeInTheDocument();
+    expect(container.querySelector('.winter-field')).not.toBeInTheDocument();
     expect(container.querySelector('.welcome-reveal-stats')).not.toBeInTheDocument();
   });
 
@@ -104,21 +104,28 @@ describe('WelcomeScreen layout settings', () => {
     { preset: 'autumn', touches: true, sky: true, field: true },
     { preset: 'autumn', touches: false, sky: true, field: false },
     { preset: 'autumn', touches: true, sky: false, field: false },
-  ] as const)('shows the autumn field only with its theme and decorations: %j', (settings) => {
-    useThemeStore.setState({ preset: settings.preset });
-    useSettingsStore.setState({
-      showSeasonalTouches: settings.touches,
-      quietHomeScreen: !settings.sky,
-    });
-    const { container } = render(
-      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
-    );
-    const field = container.querySelector<HTMLElement>('.autumn-field');
-    expect(Boolean(field)).toBe(settings.field);
-    if (field) {
-      expect(field).toHaveAttribute('aria-hidden', 'true');
+    { preset: 'winter', touches: true, sky: true, field: true },
+    { preset: 'winter', touches: false, sky: true, field: false },
+    { preset: 'winter', touches: true, sky: false, field: false },
+  ] as const)(
+    "shows a seasonal theme's field only with its theme and decorations: %j",
+    (settings) => {
+      useThemeStore.setState({ preset: settings.preset });
+      useSettingsStore.setState({
+        showSeasonalTouches: settings.touches,
+        quietHomeScreen: !settings.sky,
+      });
+      const { container } = render(
+        <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+      );
+      const field = container.querySelector<HTMLElement>('.autumn-field, .winter-field');
+      expect(Boolean(field)).toBe(settings.field);
+      if (field) expect(field).toHaveClass(`${settings.preset}-field`);
+      if (field) {
+        expect(field).toHaveAttribute('aria-hidden', 'true');
+      }
     }
-  });
+  );
 
   it('shows a meteor after the randomized cadence', () => {
     vi.useFakeTimers();
@@ -149,7 +156,39 @@ describe('WelcomeScreen layout settings', () => {
 
     expect(container.querySelector('[data-testid="welcome-meteor"]')).not.toBeInTheDocument();
   });
-  it('drifts autumn leaves across the sky only while seasonal touches are on', () => {
+  it('lets snow fall across the sky only while seasonal touches are on', () => {
+    const { container, unmount } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    const flakes = container.querySelectorAll<HTMLElement>(
+      '.welcome-flake-falling:not(.welcome-snow-dot)'
+    );
+    expect(flakes).toHaveLength(9);
+    const variants = ['dendrite', 'star', 'fern', 'plate'];
+    flakes.forEach((flake, index) => {
+      expect(flake.style.maskImage).toBe(`url("/seasonal/flake-${variants[index % 4]}.webp")`);
+      expect(flake).toHaveAttribute('aria-hidden', 'true');
+      expect(parseFloat(flake.style.width)).toBeGreaterThanOrEqual(14);
+      expect(parseFloat(flake.style.width)).toBeLessThanOrEqual(32);
+    });
+    const dots = container.querySelectorAll<HTMLElement>('.welcome-snow-dot.welcome-flake-falling');
+    expect(dots).toHaveLength(10);
+    dots.forEach((dot) => {
+      expect(dot).toHaveAttribute('aria-hidden', 'true');
+      expect(parseFloat(dot.style.width)).toBeLessThanOrEqual(5);
+    });
+    expect(container.querySelector('.welcome-leaf')).not.toBeInTheDocument();
+    unmount();
+
+    useSettingsStore.setState({ showSeasonalTouches: false });
+    const { container: plain } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    expect(plain.querySelectorAll('.welcome-flake').length).toBe(0);
+  });
+
+  it('drifts leaves across the sky of the Autumn theme only while seasonal touches are on', () => {
+    useThemeStore.setState({ preset: 'autumn' });
     const { container, unmount } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
     );
@@ -162,6 +201,7 @@ describe('WelcomeScreen layout settings', () => {
       expect(parseFloat(leaf.style.width)).toBeGreaterThanOrEqual(26);
       expect(parseFloat(leaf.style.width)).toBeLessThanOrEqual(40);
     });
+    expect(container.querySelector('.welcome-flake')).not.toBeInTheDocument();
     unmount();
 
     useSettingsStore.setState({ showSeasonalTouches: false });
@@ -171,7 +211,8 @@ describe('WelcomeScreen layout settings', () => {
     expect(plain.querySelectorAll('.welcome-leaf').length).toBe(0);
   });
 
-  it('keeps the leaves still when reduced motion is preferred', () => {
+  it('keeps the leaves of the Autumn theme still when reduced motion is preferred', () => {
+    useThemeStore.setState({ preset: 'autumn' });
     setPointerPreferences({ reducedMotion: true });
     const { container } = render(
       <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
@@ -182,6 +223,21 @@ describe('WelcomeScreen layout settings', () => {
       expect(leaf.style.top).toBe(`${15 + index * 16}%`);
     });
     expect(container.querySelectorAll('.welcome-leaf-falling').length).toBe(0);
+  });
+
+  it('keeps the snow still when reduced motion is preferred', () => {
+    setPointerPreferences({ reducedMotion: true });
+    const { container } = render(
+      <WelcomeEmptyState onCreateToday={vi.fn()} onCreateNote={vi.fn()} />
+    );
+    const flakes = container.querySelectorAll<HTMLElement>('.welcome-flake');
+    expect(flakes).toHaveLength(19);
+    flakes.forEach((flake) => {
+      const top = parseFloat(flake.style.top);
+      expect(top).toBeGreaterThanOrEqual(6);
+      expect(top).toBeLessThan(90);
+    });
+    expect(container.querySelectorAll('.welcome-flake-falling').length).toBe(0);
   });
 
   const welcome = () =>

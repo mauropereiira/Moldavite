@@ -1292,8 +1292,7 @@ mod tests {
         .unwrap();
         note_removed_in("notes/secret.md", forge.path().into());
         eventually("dropped the locked note", || {
-            query(forge.path(), forge.path(), "confidential", 10)
-                .is_some_and(|hits| hits.is_empty())
+            status(forge.path()).note_count == 0
         });
 
         fs::rename(

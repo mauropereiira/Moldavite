@@ -25,6 +25,7 @@ interface ForgeState {
   active: string | null;
   forgesRoot: string | null;
   loading: boolean;
+  switcherRequested: boolean;
   loadForges: () => Promise<void>;
   switchTo: (name: string) => Promise<void>;
   createForge: (name: string) => Promise<Forge>;
@@ -49,6 +50,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
   active: null,
   forgesRoot: null,
   loading: false,
+  switcherRequested: false,
 
   loadForges: async () => {
     set({ loading: true });

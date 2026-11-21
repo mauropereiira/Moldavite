@@ -1,6 +1,6 @@
 import { ACTIVE_SEASON } from '@/lib/seasons';
 
-export const APP_ONBOARDING_VERSION = 3;
+export const APP_ONBOARDING_VERSION = 4;
 
 type StepKey = 'welcome' | 'forge' | 'tour' | 'ai-agents' | 'ai-search' | 'season' | 'open-files';
 
@@ -10,7 +10,9 @@ const STEPS: ReadonlyArray<{ key: StepKey; since: number; mobile: boolean }> = [
   { key: 'tour', since: 1, mobile: true },
   { key: 'ai-agents', since: 2, mobile: false },
   { key: 'ai-search', since: 2, mobile: false },
-  { key: 'season', since: 3, mobile: true },
+  // Raise `since` (and the version) with each seasonal release so the new
+  // season is announced to people who saw the last one.
+  { key: 'season', since: 4, mobile: true },
   { key: 'open-files', since: 3, mobile: false },
 ];
 

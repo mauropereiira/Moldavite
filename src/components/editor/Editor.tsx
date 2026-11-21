@@ -312,9 +312,17 @@ export function Editor() {
       isLooseNote(useNoteStore.getState().currentNote)
     )
       return;
+    const noteId = useNoteStore.getState().currentNote?.id;
+    if (!noteId) return;
     try {
       const markdownContent = await getTemplateContent(templateId);
-      if (editor) {
+      if (
+        editor &&
+        !editor.isDestroyed &&
+        editorRef.current === editor &&
+        useNoteStore.getState().currentNote?.id === noteId &&
+        !isCurrentNoteViewOnly(useNoteStore.getState())
+      ) {
         const htmlContent = markdownToHtml(markdownContent);
         editor.commands.setContent(htmlContent);
         dismissInlineTemplatePicker();
@@ -827,10 +835,18 @@ export function Editor() {
         return;
       }
 
+      const noteId = useNoteStore.getState().currentNote?.id;
+      if (!noteId || isCurrentNoteViewOnly(useNoteStore.getState())) return;
       try {
         const savedPath = await processAndSaveImage(file);
 
-        if (editor && !editor.isDestroyed) {
+        if (
+          editor &&
+          !editor.isDestroyed &&
+          editorRef.current === editor &&
+          useNoteStore.getState().currentNote?.id === noteId &&
+          !isCurrentNoteViewOnly(useNoteStore.getState())
+        ) {
           editor
             .chain()
             .focus()

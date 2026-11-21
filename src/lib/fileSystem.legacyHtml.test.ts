@@ -74,6 +74,24 @@ describe('markdownToHtml on image-first notes', () => {
   });
 });
 
+describe('filenameToNote times', () => {
+  it("dates the note by the file's own times, not by when it was opened", () => {
+    const note = filenameToNote(
+      { ...noteFile, createdAt: 1_700_000_000, modifiedAt: 1_750_000_000 },
+      ''
+    );
+    expect(note.createdAt.getTime()).toBe(1_700_000_000_000);
+    expect(note.updatedAt.getTime()).toBe(1_750_000_000_000);
+  });
+
+  it('starts a note the listing has no times for at now', () => {
+    const before = Date.now();
+    const note = filenameToNote({ ...noteFile, createdAt: undefined, modifiedAt: undefined }, '');
+    expect(note.updatedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(note.createdAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+});
+
 describe('filenameToNote sanitization', () => {
   it('sanitizes legacy HTML bodies that never pass through markdownToHtml', () => {
     const legacy = '<p>Hello</p><script>alert(1)</script><p onclick="steal()">Bye</p>';
