@@ -8,14 +8,14 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { aggregateTags, hasTag, extractTags, readNoteSnapshot, noteFileBackendPath } from '@/lib';
+import { normalizeTag, extractTags, readNoteSnapshot, noteFileBackendPath } from '@/lib';
 import { isNotDownloadedError } from '@/lib/cloudNotes';
 import { markNoteTagsStale, takeNoteTagsStale, useSettingsStore, useTagStore } from '@/stores';
 import type { NoteFile } from '@/types';
 
 /**
  * Reads every unlocked note (results cached in-memory per path and modification time),
- * feeds them into `aggregateTags`, keeps `useTagStore` in sync, and
+ * caches their extracted tags, keeps `useTagStore` in sync, and
  * exposes helpers for the sidebar to look up tags on a single note and
  * to filter a list of notes by the user's selected tag(s).
  */
@@ -23,14 +23,12 @@ export function useSidebarTags(notes: NoteFile[]) {
   const { tagsEnabled } = useSettingsStore();
   const { selectedTags, setAllTags, setSelectedTag } = useTagStore();
 
-  const noteContentCacheRef = useRef<Map<string, { modifiedAt?: number; content: string }>>(
-    new Map()
-  );
+  const noteContentCacheRef = useRef<
+    Map<string, { modifiedAt?: number; content: string; tags: string[] }>
+  >(new Map());
 
   const getNoteTags = (notePath: string): string[] => {
-    const content = noteContentCacheRef.current.get(notePath)?.content;
-    if (!content) return [];
-    return extractTags(content);
+    return noteContentCacheRef.current.get(notePath)?.tags ?? [];
   };
 
   // Aggregate tags from all notes (only when tags are enabled).
@@ -44,11 +42,18 @@ export function useSidebarTags(notes: NoteFile[]) {
     let cancelled = false;
 
     const run = async () => {
-      const contents: string[] = [];
+      const tags = new Map<string, number>();
+      const readablePaths = new Set(
+        notes.filter((note) => !note.isLocked && !note.notDownloaded).map((note) => note.path)
+      );
+      for (const path of noteContentCacheRef.current.keys()) {
+        if (!readablePaths.has(path)) noteContentCacheRef.current.delete(path);
+      }
       for (const note of notes) {
         if (cancelled) return;
         if (note.isLocked || note.notDownloaded) continue;
         const cached = noteContentCacheRef.current.get(note.path);
+        let noteTags = cached?.tags ?? [];
         const stale = takeNoteTagsStale(note.path);
         let content =
           !stale && cached?.modifiedAt === note.modifiedAt ? cached?.content : undefined;
@@ -69,20 +74,23 @@ export function useSidebarTags(notes: NoteFile[]) {
               return;
             }
             content = snapshot.content;
+            noteTags = cached?.content === content ? cached.tags : extractTags(content);
             noteContentCacheRef.current.set(note.path, {
               modifiedAt: note.modifiedAt,
               content,
+              tags: noteTags,
             });
           } catch (error) {
             if (isNotDownloadedError(error)) continue;
             console.error('[Sidebar] Failed to read note for tags:', note.name);
-            content = '';
+            noteTags = [];
           }
         }
-        contents.push(content);
+        for (const tag of noteTags) {
+          tags.set(tag, (tags.get(tag) ?? 0) + 1);
+        }
       }
       if (cancelled) return;
-      const tags = aggregateTags(contents);
       setAllTags(tags);
       // Only a finished scan can say a tag is gone; earlier, a tag just tapped would be cleared.
       const { selectedTag } = useTagStore.getState();
@@ -102,9 +110,9 @@ export function useSidebarTags(notes: NoteFile[]) {
   const filterByTag = (list: NoteFile[]): NoteFile[] => {
     if (selectedTags.length === 0) return list;
     return list.filter((note) => {
-      const content = noteContentCacheRef.current.get(note.path)?.content;
-      if (!content) return false;
-      return selectedTags.every((tag) => hasTag(content, tag));
+      const tags = noteContentCacheRef.current.get(note.path)?.tags;
+      if (!tags) return false;
+      return selectedTags.every((tag) => tags.includes(normalizeTag(tag)));
     });
   };
 

@@ -378,9 +378,11 @@ struct NoteRow {
 /// outside `daily/`, `weekly/` and `notes/`.
 fn read_row(forge_root: &Path, rel: &str) -> Option<NoteRow> {
     let abs = forge_root.join(rel);
+    crate::validation::validate_path_within_base(&abs, forge_root).ok()?;
     let metadata = fs::symlink_metadata(&abs).ok()?;
     if metadata.file_type().is_symlink()
         || !metadata.is_file()
+        || abs.with_extension("md.locked").exists()
         || crate::cloud_forge::is_evicted(&abs)
     {
         return None;
@@ -984,6 +986,27 @@ mod tests {
     use crate::commands::search::scan_notes_content_in;
 
     struct TempForge(PathBuf);
+
+    #[test]
+    fn interrupted_lock_plaintext_is_not_read_into_keyword_rows() {
+        let forge = TempForge::new("interrupted-lock");
+        forge.write("notes/secret.md", "confidential needle");
+        assert!(read_row(forge.path(), "notes/secret.md").is_some());
+        forge.write("notes/secret.md.locked", "ciphertext");
+        assert!(read_row(forge.path(), "notes/secret.md").is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_note_roots_cannot_be_read_into_keyword_rows() {
+        let forge = TempForge::new("symlinked-root");
+        let outside = TempForge::new("symlinked-root-outside");
+        outside.write("notes/secret.md", "outside needle");
+        fs::remove_dir_all(forge.path().join("notes")).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("notes"), forge.path().join("notes"))
+            .unwrap();
+        assert!(read_row(forge.path(), "notes/secret.md").is_none());
+    }
 
     impl TempForge {
         fn new(tag: &str) -> Self {

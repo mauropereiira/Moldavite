@@ -1,6 +1,6 @@
 import { BannerAction } from './BannerAction';
 import { isMobilePlatform } from '@/lib/platform';
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { format, isValid, parse } from 'date-fns';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -112,9 +112,25 @@ function fieldOutsideNoteHasFocus(editor: TiptapEditor): boolean {
   );
 }
 
-function wikiTargetExists(notes: NoteFile[], target: string): boolean {
-  const targetSlug = slugifyNoteName(target);
-  return notes.some((n) => n.name === target || slugifyNoteName(n.name) === targetSlug);
+let cachedWikiNotes: NoteFile[] | null = null;
+let cachedWikiNames = '';
+let cachedWikiTargets = new Set<string>();
+
+function wikiTargetsFor(notes: NoteFile[]): Set<string> {
+  if (cachedWikiNotes !== notes) {
+    const names = notes.map((note) => note.name).join('\0');
+    if (names !== cachedWikiNames) {
+      cachedWikiNames = names;
+      const filenames = names ? names.split('\0') : [];
+      cachedWikiTargets = new Set(filenames.flatMap((name) => [name, slugifyNoteName(name)]));
+    }
+    cachedWikiNotes = notes;
+  }
+  return cachedWikiTargets;
+}
+
+function wikiTargetExists(targets: Set<string>, target: string): boolean {
+  return targets.has(target) || targets.has(slugifyNoteName(target));
 }
 
 export function Editor() {
@@ -131,6 +147,7 @@ export function Editor() {
       closeTab: state.closeTab,
     }))
   );
+  const wikiTargets = useMemo(() => wikiTargetsFor(notes), [notes]);
   const currentNoteId = currentNote?.id;
   const currentNoteContent = currentNote?.content;
   // A file outside the Forge: nothing that reads or writes the Forge by this
@@ -380,7 +397,8 @@ export function Editor() {
         ...createNoteExtensions(tagsEnabled, {
           wikiLink: {
             onLinkClick: handleWikiLinkClick,
-            noteExists: (target) => wikiTargetExists(useNoteStore.getState().notes, target),
+            noteExists: (target) =>
+              wikiTargetExists(wikiTargetsFor(useNoteStore.getState().notes), target),
           },
           tagMark: { onTagClick: handleTagClick },
         }),
@@ -1006,9 +1024,6 @@ export function Editor() {
 
   // Resolve wiki-link existence once the note is loaded so stale links render
   // with the `wiki-link-missing` style and live ones with `wiki-link-exists`.
-  // We match the in-memory notes list (already authoritative) rather than
-  // round-tripping to the backend — resolution is O(links × notes) but
-  // typical notes have a handful of wiki links.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (!currentNoteId) return;
@@ -1016,14 +1031,12 @@ export function Editor() {
     const raf = requestAnimationFrame(() => {
       if (!isMountedRef.current || !editor || editor.isDestroyed) return;
 
-      const currentNotes = useNoteStore.getState().notes;
-
       const updates: Array<{ pos: number; exists: string }> = [];
       editor.state.doc.descendants((node, pos) => {
         if (node.type.name !== 'wikiLink') return;
         const target = (node.attrs['data-target'] || '') as string;
         if (!target) return;
-        const nextExists = wikiTargetExists(currentNotes, target) ? 'true' : 'false';
+        const nextExists = wikiTargetExists(wikiTargets, target) ? 'true' : 'false';
         if (node.attrs['data-exists'] !== nextExists) {
           updates.push({ pos, exists: nextExists });
         }
@@ -1047,7 +1060,7 @@ export function Editor() {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [editor, currentNoteId, notes]);
+  }, [editor, currentNoteId, wikiTargets]);
 
   useAutoSave();
 

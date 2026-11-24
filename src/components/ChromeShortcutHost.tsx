@@ -14,6 +14,8 @@ import {
 } from '@/stores';
 import { hasOpenDialog } from '@/components/ui/DialogSurface';
 
+export const indexSearchRequest = { pending: false };
+
 /**
  * Esc leaves the open note, landing back on the wordmark screen when it was the
  * last one. Esc is the most contested key in the app, so it only acts when
@@ -87,6 +89,16 @@ export function ChromeShortcutHost() {
           void createNote('Untitled', null, { discardIfLeftEmpty: true });
           return;
         }
+      }
+      if (key === 'f' && !e.altKey && !e.shiftKey) {
+        const { indexMode: mode, isSettingsOpen } = useSettingsStore.getState();
+        // The Index would open underneath Settings or a dialog and take the typing.
+        if (mode === 'off' || isSettingsOpen || hasOpenDialog() || isMobilePlatform()) return;
+        e.preventDefault();
+        indexSearchRequest.pending = true;
+        useOverlayStore.getState().openIndex(mode === 'pinned');
+        window.dispatchEvent(new Event('moldavite:focus-index-search'));
+        return;
       }
       if (key === 'p' && !e.altKey && !e.shiftKey) {
         e.preventDefault();

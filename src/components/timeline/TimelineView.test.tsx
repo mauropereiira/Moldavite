@@ -189,6 +189,36 @@ describe('TimelineView', () => {
     ).toHaveClass('sticky');
   });
 
+  it.each(['midnight', 'visibility', 'focus'])(
+    'refreshes the local day after %s',
+    async (trigger) => {
+      vi.setSystemTime(new Date(2026, 9, 6, 23, 59, 59));
+      api.log = [entry({ path: 'notes/Yesterday.md', atMs: at(6, 12) })];
+      render(<TimelineView />);
+      await screen.findByText('Yesterday', { selector: 'span' });
+      api.log.push(entry({ path: 'notes/New day.md', atMs: at(7, 0) }));
+      if (trigger === 'midnight') {
+        vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+        // Remount so the midnight timeout uses the fake clock.
+        const { cleanup } = await import('@testing-library/react');
+        cleanup();
+        render(<TimelineView />);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000);
+        });
+        vi.useFakeTimers({ toFake: ['Date'] });
+      } else {
+        vi.setSystemTime(new Date(2026, 9, 7, 8));
+        if (trigger === 'visibility') fireEvent(document, new Event('visibilitychange'));
+        else fireEvent.focus(window);
+      }
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Today/ })).toHaveTextContent('Wednesday 7 Oct')
+      );
+      expect(await screen.findByText('New day')).toBeInTheDocument();
+    }
+  );
+
   it('shows ten rows of a day and loads more on request', async () => {
     api.log = Array.from({ length: 25 }, (_, index) =>
       entry({ path: `notes/n${index}.md`, atMs: at(6, 14) - index * 60_000 })

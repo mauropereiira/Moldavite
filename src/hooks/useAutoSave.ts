@@ -63,6 +63,7 @@ export function useAutoSave() {
    * against the note it actually belongs to.
    */
   const pendingRef = useRef<Note | null>(null);
+  const inFlightRef = useRef(new Set<{ note: Note }>());
   const heldPathChangeNoteRef = useRef<Note | null>(null);
   const pathChangeRef = useRef<{ oldId: string; newId?: string } | null>(null);
 
@@ -90,12 +91,14 @@ export function useAutoSave() {
         getState().markNoteSaved(note.id, note.content);
         discardLeaveSave(note.id);
       };
+      const inFlight = { note };
       if (isLooseNote(note)) {
         if (isLooseViewOnly(note)) {
           if (pendingRef.current === note) pendingRef.current = null;
           return;
         }
         try {
+          inFlightRef.current.add(inFlight);
           setIsSaving(true);
           await writeLooseNote(note);
           settled();
@@ -103,11 +106,13 @@ export function useAutoSave() {
           if (pendingRef.current === note) pendingRef.current = null;
           reportLooseSaveFailure(note, error);
         } finally {
+          inFlightRef.current.delete(inFlight);
           setIsSaving(false);
         }
         return;
       }
       try {
+        inFlightRef.current.add(inFlight);
         setIsSaving(true);
 
         let filename: string;
@@ -219,6 +224,7 @@ export function useAutoSave() {
         useSaveFailureStore.getState().markSaveFailed(note.id, msg);
         throw error;
       } finally {
+        inFlightRef.current.delete(inFlight);
         setIsSaving(false);
       }
     },
@@ -435,9 +441,11 @@ export function useAutoSave() {
       return;
     }
 
-    // Undoing back to the saved text leaves nothing owed; a pending write of
-    // the text in between would otherwise be flushed when the note is left.
-    if (currentNote.content === lastContentRef.current) {
+    // Undo still owes a write if different text is already on its way to disk.
+    const differentWriteInFlight = [...inFlightRef.current].some(
+      ({ note }) => note.id === currentNote.id && note.content !== currentNote.content
+    );
+    if (currentNote.content === lastContentRef.current && !differentWriteInFlight) {
       if (pendingRef.current?.id === currentNote.id) {
         if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
         timeoutRef.current = null;

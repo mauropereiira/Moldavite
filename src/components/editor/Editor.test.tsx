@@ -4,6 +4,7 @@ import type { DependencyList } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Editor as TiptapEditor } from '@tiptap/core';
 import type { Note } from '@/types';
+import * as fileSystem from '@/lib/fileSystem';
 
 const tiptapHarness = vi.hoisted(() => ({
   editor: null as TiptapEditor | null,
@@ -808,6 +809,69 @@ describe('Editor external change decisions', () => {
 });
 
 describe('Editor wiki links', () => {
+  it('indexes wiki names once and skips existence work for modification-only saves', async () => {
+    const slug = vi.spyOn(fileSystem, 'slugifyNoteName');
+    const files = Array.from({ length: 30 }, (_, i) => ({
+      name: `Target ${i}.md`,
+      isLocked: false,
+      path: `notes/Target ${i}.md`,
+      isDaily: false,
+      isWeekly: false,
+    }));
+    useNoteStore.setState({ notes: files });
+    const body = Array.from(
+      { length: 20 },
+      (_, i) =>
+        `<wiki-link data-target="target-${i}.md" data-label="Target ${i}">Target ${i}</wiki-link>`
+    ).join('');
+    try {
+      await renderEditor(note('notes/links.md', `<p>${body}</p>`));
+      await waitFor(() =>
+        expect(document.querySelectorAll('wiki-link[data-exists="true"]')).toHaveLength(20)
+      );
+      expect(slug.mock.calls.filter(([name]) => name === 'Target 0.md')).toHaveLength(1);
+      const descendants = vi.spyOn((tiptapHarness.editor as TiptapEditor).state.doc, 'descendants');
+      slug.mockClear();
+      act(() =>
+        useNoteStore.setState({ notes: files.map((file) => ({ ...file, modifiedAt: 100 })) })
+      );
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(slug).not.toHaveBeenCalled();
+      expect(descendants).not.toHaveBeenCalled();
+      act(() => useNoteStore.setState({ notes: files.slice(1) }));
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'false'
+        )
+      );
+      act(() => useNoteStore.setState({ notes: files }));
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'true'
+        )
+      );
+      act(() =>
+        useNoteStore.setState({
+          notes: files.map((file, index) => (index === 0 ? { ...file, name: 'Renamed.md' } : file)),
+        })
+      );
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'false'
+        )
+      );
+      act(() => useNoteStore.setState({ notes: [] }));
+      await waitFor(() =>
+        expect(document.querySelectorAll('wiki-link[data-exists="true"]')).toHaveLength(0)
+      );
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it('opens a missing daily-note link as the daily note, not a standalone one', async () => {
     const user = userEvent.setup();
     await renderEditor(

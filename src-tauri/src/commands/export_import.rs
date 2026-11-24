@@ -300,7 +300,10 @@ fn add_archive_tree<W: IoWrite + Seek>(
         })
         .flatten()
     {
-        if !entry.file_type().is_file() {
+        if !entry.file_type().is_file()
+            || (entry.path().extension().and_then(|ext| ext.to_str()) == Some("md")
+                && entry.path().with_extension("md.locked").exists())
+        {
             continue;
         }
         let relative = entry
@@ -1084,6 +1087,28 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    #[test]
+    fn interrupted_lock_exports_keep_ciphertext_without_stale_plaintext() {
+        let tmp = ExportTempDir::new("interrupted-lock");
+        let source = tmp.0.join("source");
+        scaffold(&source);
+        fs::write(source.join("notes/secret.md"), "confidential needle").unwrap();
+        fs::write(source.join("notes/secret.md.locked"), "ciphertext").unwrap();
+        fs::write(source.join("notes/visible.md"), "visible").unwrap();
+        let destination = tmp.0.join("notes.zip");
+        export_notes_from(&source, &destination).unwrap();
+        let mut archive = ZipArchive::new(fs::File::open(destination).unwrap()).unwrap();
+        assert!(archive.by_name("notes/secret.md").is_err());
+        let mut ciphertext = String::new();
+        archive
+            .by_name("notes/secret.md.locked")
+            .unwrap()
+            .read_to_string(&mut ciphertext)
+            .unwrap();
+        assert_eq!(ciphertext, "ciphertext");
+        assert!(archive.by_name("notes/visible.md").is_ok());
     }
 
     #[test]

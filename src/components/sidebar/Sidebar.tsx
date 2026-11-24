@@ -63,7 +63,7 @@ import { SidebarDailyList } from './SidebarDailyList';
 import { SidebarFooter } from './SidebarFooter';
 import { isMobilePlatform } from '@/lib/platform';
 import { holdKeyboard } from '@/lib/noteTitleFocus';
-import { isPrimaryModifier } from '@/lib/shortcuts';
+import { indexSearchRequest } from '@/components/ChromeShortcutHost';
 import type { NoteFile, FolderInfo, TrashedNote } from '@/types';
 import type { DropPlace } from '@/stores/sidebarOrderStore';
 import { CloseButton } from '@/components/ui/CloseButton';
@@ -328,24 +328,23 @@ export function Sidebar({
     return unfiledNotes;
   }, [unfiledNotes, filterByTag, selectedTags.length, notes]);
 
-  // Not ⌘K: the editor's Insert link owns it.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPrimaryModifier(e) && !e.altKey && e.key === 'f') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
+    const focusSearch = () => {
+      indexSearchRequest.pending = false;
+      searchInputRef.current?.focus();
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('moldavite:focus-index-search', focusSearch);
+    return () => window.removeEventListener('moldavite:focus-index-search', focusSearch);
   }, []);
 
   useEffect(() => {
-    if (!autoFocusSearch) return;
+    if (!autoFocusSearch && !indexSearchRequest.pending) return;
     let focusFrame = 0;
     const trapFrame = window.requestAnimationFrame(() => {
-      focusFrame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+      focusFrame = window.requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        indexSearchRequest.pending = false;
+      });
     });
     return () => {
       window.cancelAnimationFrame(trapFrame);

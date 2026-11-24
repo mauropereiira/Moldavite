@@ -159,7 +159,7 @@ pub(crate) fn semantic_set_enabled(enabled: bool, _app: AppHandle) -> Result<(),
 #[tauri::command]
 #[cfg(semantic_runtime)]
 pub(crate) fn semantic_search(query: String, limit: u32) -> Result<Vec<SemanticHit>, String> {
-    semantic::service().search(&query, limit as usize)
+    semantic::service().search(&get_notes_dir()?, &query, limit as usize)
 }
 
 #[tauri::command]
@@ -173,7 +173,7 @@ pub(crate) fn semantic_search(_query: String, _limit: u32) -> Result<Vec<Semanti
 #[tauri::command]
 #[cfg(semantic_runtime)]
 pub(crate) fn semantic_related(path: String, limit: u32) -> Result<Vec<SemanticHit>, String> {
-    semantic::service().related(&path, limit as usize)
+    semantic::service().related(&get_notes_dir()?, &path, limit as usize)
 }
 
 #[tauri::command]

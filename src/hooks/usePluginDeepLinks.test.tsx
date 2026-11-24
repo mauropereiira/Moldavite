@@ -145,6 +145,21 @@ describe('app deep links', () => {
     ).toBe('moldavite://note/weekly%2F2026-W33.md');
   });
 
+  it.each(['daily/2026-11-20.md', 'weekly/2026-W47.md', 'notes/Plan.md'])(
+    'keeps the canonical standalone path for %s',
+    async (path) => {
+      const canonical = `notes/${path}`;
+      const note = { ...rootNote, path: canonical };
+      useNoteStore.setState({ notes: [note, { ...rootNote, path }] });
+      const url = noteDeepLink({ id: canonical, isDaily: false, isWeekly: false });
+      const reference = decodeURIComponent(url.slice('moldavite://note/'.length));
+      expect(reference).toBe(canonical);
+      const load = vi.fn();
+      await routeNoteRequest(reference, load, vi.fn());
+      expect(load).toHaveBeenCalledWith(note);
+    }
+  );
+
   it('opens a validated cold-start note through the normal tab flow', async () => {
     pendingRequests = [{ kind: 'note', path: 'Projects/café notes.md' }];
 

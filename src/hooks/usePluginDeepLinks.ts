@@ -69,6 +69,9 @@ export function noteDeepLink(
     reference = `weekly/${note.week}.md`;
   } else {
     reference = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : note.id;
+    if (/^(notes|daily|weekly)\//.test(reference) && note.id.startsWith('notes/')) {
+      reference = note.id;
+    }
   }
   return `moldavite://note/${encodeURIComponent(reference)}`;
 }

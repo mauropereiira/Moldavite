@@ -16,7 +16,7 @@
  * while something is pinned, as the separate pinned bar used to.
  */
 
-import React, { memo, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useMemo, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, Pin, PinOff, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useNoteStore, useQuickSwitcherStore, useSettingsStore } from '@/stores';
@@ -99,8 +99,11 @@ const TopBar = memo(function TopBar({
   const activeTabId = useNoteStore((state) => state.activeTabId);
   const pinnedNoteIds = useQuickSwitcherStore((state) => state.pinnedNoteIds);
   const tabFields = useNoteStore(useShallow((state) => openTabFields(state.openTabs)));
-  const pinnedFiles = useNoteStore(
-    useShallow((state) => pinnedNoteIds.map((id) => state.notes.find((note) => note.path === id)))
+  const notes = useNoteStore((state) => state.notes);
+  const notesByPath = useMemo(() => new Map(notes.map((note) => [note.path, note])), [notes]);
+  const pinnedFiles = useMemo(
+    () => pinnedNoteIds.map((id) => notesByPath.get(id)),
+    [pinnedNoteIds, notesByPath]
   );
   const showTabBar = useSettingsStore((state) => state.showTabBar);
   const { switchTab, closeTab, reorderTabs } = useNoteStore.getState();

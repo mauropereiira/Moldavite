@@ -11,7 +11,7 @@ All notable changes to Moldavite are documented here.
 ### Changed
 
 - Autumn stays as a theme you can keep, with its own field, leaves and pumpkin.
-- Updated the libraries that clean and render Markdown, read and write zip files and secure connections, for their latest security fixes.
+- Updated the libraries that clean and render Markdown, read and write zip files, secure connections and parse web addresses, for their latest security fixes.
 
 ### Fixed
 
@@ -27,6 +27,23 @@ All notable changes to Moldavite are documented here.
 - Restoring one note out of a folder in the Trash shows up in the Timeline and in search at the place it was restored to.
 - The Timeline's history stays within its size limit when another app changes many notes.
 - Typing no longer re-registers the WordPress sign-in listener on every keystroke, and a closed Quick Switcher no longer redoes its last search after each save.
+- Clicking the note you already have open no longer discards what you typed while it was being read again.
+- Undoing back to the last saved text while a save is still being written no longer loses the undo.
+- Clearing a daily or weekly note and leaving it keeps your change and tries again if the note could not be removed.
+- On Windows, installing an update waits for your last edits to be saved first.
+- A to-do item with a second paragraph keeps the blank line between its paragraphs, and to-do lists with blank lines between items no longer show an empty line in each item.
+- Bold, italic, code and links in a centred or right-aligned paragraph are kept when the note is reopened.
+- A numbered to-do list (`1. [ ] item`) keeps its numbers. It shows as Markdown text for now, because the editor cannot hold a numbered checkbox yet.
+- A note that starts with an HTML block and continues in Markdown opens as formatted text.
+- **Copy URL** on a note inside a folder called `daily`, `weekly` or `notes` opens that note and not a different one.
+- The Timeline moves on to the new day when it is left open past midnight.
+- Find (⌘F) opens the Index and its search box when the Index is closed.
+- On iPhone and iPad, tapping an event in the Agenda shows its full details.
+- If locking a note was interrupted, the text left behind can no longer be found through search, agents or an export.
+- An agent connected to semantic search no longer gets notes that were locked or deleted after it connected.
+- The app can now load only pictures from a Forge's `images` folder into the page, not other files.
+- A `notes` folder that is a link to somewhere outside the Forge is no longer written to or indexed.
+- Saving is faster in large Forges: wiki links, pinned tabs and tags are no longer checked against every note after each save or keystroke.
 
 ## [2.11.0] - 2026-10-06
 

@@ -90,7 +90,13 @@ turndownService.addRule('textAlign', {
     const element = node as HTMLElement;
     const align = element.style.textAlign;
     if (align && align !== 'left') {
-      return `<p style="text-align: ${align}">${content}</p>\n\n`;
+      // Backlinks, the Graph and renames read `[[links]]`, so a link keeps that
+      // spelling here while the rest of the line is saved as HTML.
+      const inner = element.cloneNode(true) as HTMLElement;
+      inner
+        .querySelectorAll('wiki-link, [data-wiki-link="true"]')
+        .forEach((link) => link.replaceWith(wikiLinkSource(link, link.textContent ?? '')));
+      return `<p style="text-align: ${align}">${inner.innerHTML}</p>\n\n`;
     }
     return content + '\n\n';
   },
@@ -103,14 +109,14 @@ turndownService.addRule('wikiLink', {
       (node.getAttribute && node.getAttribute('data-wiki-link') === 'true')
     );
   },
-  replacement: (content, node) => {
-    const element = node as HTMLElement;
-    const label = element.getAttribute('data-label') || content || '';
-    const rawTarget = element.getAttribute('data-raw-target');
-
-    return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
-  },
+  replacement: (content, node) => wikiLinkSource(node as HTMLElement, content),
 });
+
+function wikiLinkSource(element: Element, content: string): string {
+  const label = element.getAttribute('data-label') || content || '';
+  const rawTarget = element.getAttribute('data-raw-target');
+  return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
+}
 
 // Add rule to ignore checkbox inputs inside task items (we handle them via data-checked attribute)
 turndownService.addRule('taskItemCheckbox', {
@@ -192,10 +198,7 @@ turndownService.addRule('taskItem', {
       // Only a remnant at the start: the same brackets later are the user's text.
       .replace(ESCAPED_CHECKBOX, '')
       .trim()
-      // A blank line would close the list, so a nested task list has to stay
-      // attached to its parent item and indented under the `- [ ] ` marker.
-      .replace(/\n{2,}/g, '\n')
-      .replace(/\n/g, `\n${' '.repeat(marker.length)}`);
+      .replace(/\n(?=[^\n])/g, `\n${' '.repeat(marker.length)}`);
     const gap = node.nextSibling && element.getAttribute('data-gap-after') === 'true' ? '\n' : '';
     return `${marker}${checkbox} ${cleanContent}\n${gap}`;
   },
@@ -569,6 +572,33 @@ md.use(markdownItTaskLists, {
   label: false,
 });
 md.use(markdownSourcePlugin);
+
+// Ordered lists cannot contain taskItem nodes. Keep their whole source block,
+// including any enclosing list or quote, until the editor can represent them.
+md.core.ruler.before('source_map', 'raw_ordered_tasks', (state) => {
+  const lines = state.src.split('\n');
+  for (let start = 0; start < state.tokens.length; start++) {
+    const token = state.tokens[start];
+    if (token.level !== 0 || token.nesting !== 1 || !token.map) continue;
+    let end = start + 1;
+    while (end < state.tokens.length && state.tokens[end].level !== 0) end++;
+    const orderedTasks = state.tokens
+      .slice(start, end)
+      .some(
+        (child) =>
+          child.type === 'ordered_list_open' && child.attrGet('class') === 'contains-task-list'
+      );
+    if (!orderedTasks) continue;
+    const raw = new state.Token('raw_block', 'pre', 0);
+    raw.block = true;
+    raw.map = token.map;
+    raw.content = lines
+      .slice(...token.map)
+      .join('\n')
+      .replace(/\n+$/, '');
+    state.tokens.splice(start, end - start + 1, raw);
+  }
+});
 
 // TipTap drops a text node that is only a line break, taking it for the
 // indentation between tags, so a soft break between two marks or links (as in
@@ -1150,6 +1180,9 @@ function taskListsToTipTapHtml(html: string): string {
 
     const body = doc.createElement('div');
     while (li.firstChild) body.appendChild(li.firstChild);
+    while (body.firstChild?.nodeType === Node.TEXT_NODE && !body.firstChild.textContent?.trim()) {
+      body.firstChild.remove();
+    }
 
     // TipTap's taskItem schema is `paragraph block*`, so the body must open
     // with one; markdown-it emits the item text bare in a tight list.
@@ -1551,12 +1584,26 @@ const TABLE_DELIMITER_LINE = new RegExp(`^${TABLE_DELIMITER_SOURCE}$`, 'm');
 export function isHtmlContent(content: string): boolean {
   if (!content) return false;
   const trimmed = content.trim();
-  return (
-    LEGACY_HTML_OPENER.test(trimmed) &&
-    LEGACY_HTML_CLOSER.test(trimmed) &&
-    !MARKDOWN_BLOCK_MARKER.test(trimmed) &&
-    !TABLE_DELIMITER_LINE.test(trimmed)
-  );
+  if (
+    !LEGACY_HTML_OPENER.test(trimmed) ||
+    !LEGACY_HTML_CLOSER.test(trimmed) ||
+    MARKDOWN_BLOCK_MARKER.test(trimmed) ||
+    TABLE_DELIMITER_LINE.test(trimmed)
+  )
+    return false;
+  const body = new DOMParser().parseFromString(trimmed, 'text/html').body;
+  return !Array.from(body.childNodes).some((node) => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) return false;
+    const text = node.textContent;
+    if (new RegExp(WIKI_LINK_SOURCE).test(text)) return true;
+    return md
+      .parseInline(text, {})
+      .some((token) =>
+        token.children?.some((child) =>
+          /^(?:strong_open|em_open|s_open|code_inline|link_open|image)$/.test(child.type)
+        )
+      );
+  });
 }
 
 /**

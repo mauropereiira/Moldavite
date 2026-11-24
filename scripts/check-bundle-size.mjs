@@ -199,7 +199,10 @@ const BUDGETS = [
 // season's mascot and welcome page) for 3.7 KB raw / 1.1 KB gz. Measured
 // 721.3 KB / 219.0 KB gz locally; Linux CI has run about 3 KB higher. No new
 // dependencies.
-const APP_JS_BUDGET = { rawKb: 727, gzipKb: 221 };
+// 734 / 223: holding a save while a note changed on disk awaits its answer,
+// queued undo saves, the phone's event details and the Index search shortcut
+// for 5.4 KB raw / 1.8 KB gz. Measured 726.7 KB / 220.8 KB gz locally.
+const APP_JS_BUDGET = { rawKb: 734, gzipKb: 223 };
 
 async function main() {
   let entries;

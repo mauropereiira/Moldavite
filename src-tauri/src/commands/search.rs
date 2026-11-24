@@ -164,7 +164,10 @@ pub(crate) fn scan_notes_content_in(
         if filename.starts_with('.') || filename.ends_with(".md.locked") {
             continue;
         }
-        if !filename.ends_with(".md") || crate::cloud_forge::is_evicted(path) {
+        if !filename.ends_with(".md")
+            || path.with_extension("md.locked").exists()
+            || crate::cloud_forge::is_evicted(path)
+        {
             continue;
         }
 
@@ -274,6 +277,20 @@ mod tests {
         assert!(results[0].snippet.contains("Quick Brown"));
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn interrupted_lock_plaintext_is_not_returned_by_the_scan() {
+        let base = tmp_notes_dir("interrupted-lock");
+        fs::write(base.join("notes/secret.md"), "confidential needle").unwrap();
+        fs::write(base.join("notes/secret.md.locked"), "ciphertext").unwrap();
+        assert!(scan_notes_content_in(&base, &base.join(".trash"), "needle", 10).is_empty());
+        fs::remove_file(base.join("notes/secret.md.locked")).unwrap();
+        assert_eq!(
+            scan_notes_content_in(&base, &base.join(".trash"), "needle", 10).len(),
+            1
+        );
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]

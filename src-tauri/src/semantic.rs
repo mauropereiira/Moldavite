@@ -403,6 +403,15 @@ pub(crate) fn top_k_similar(
     hits
 }
 
+/// Whether an indexed path still names a plaintext note inside the Forge.
+fn is_current_note(forge_root: &Path, rel_path: &str) -> bool {
+    let path = forge_root.join(rel_path);
+    is_valid_note_index_path(rel_path)
+        && crate::validation::validate_path_within_base(&path, forge_root).is_ok()
+        && path.is_file()
+        && !path.with_extension("md.locked").exists()
+}
+
 /// A note eligible for indexing: forge-relative path, title, body.
 pub(crate) struct NoteSource {
     pub(crate) rel_path: String,
@@ -418,7 +427,7 @@ fn title_from_rel_path(rel_path: &str) -> String {
 }
 
 fn push_note_source(abs: &Path, rel_path: String, out: &mut Vec<NoteSource>) {
-    if crate::cloud_forge::is_evicted(abs) {
+    if abs.with_extension("md.locked").exists() || crate::cloud_forge::is_evicted(abs) {
         return;
     }
     let Ok(raw) = fs::read_to_string(abs) else {
@@ -450,7 +459,9 @@ pub(crate) fn scan_note_paths(forge_root: &Path) -> Vec<(PathBuf, String)> {
     }
     // Standalone notes may live in nested folders.
     let notes_dir = forge_root.join("notes");
-    scan_standalone(&notes_dir, "", &mut out);
+    if crate::validation::validate_path_within_base(&notes_dir, forge_root).is_ok() {
+        scan_standalone(&notes_dir, "", &mut out);
+    }
     out
 }
 
@@ -459,6 +470,10 @@ pub(crate) fn scan_note_paths(forge_root: &Path) -> Vec<(PathBuf, String)> {
 /// yields nothing, since the full scan never descends through one.
 pub(crate) fn scan_note_paths_in(forge_root: &Path, rel_dir: &str) -> Vec<(PathBuf, String)> {
     let mut out = Vec::new();
+    if crate::validation::validate_path_within_base(&forge_root.join(rel_dir), forge_root).is_err()
+    {
+        return out;
+    }
     match rel_dir.split_once('/') {
         None if rel_dir == "daily" || rel_dir == "weekly" => {
             scan_flat(forge_root, rel_dir, &mut out)
@@ -482,6 +497,9 @@ pub(crate) fn scan_note_paths_in(forge_root: &Path, rel_dir: &str) -> Vec<(PathB
 /// Daily and weekly notes live flat at the top level.
 fn scan_flat(forge_root: &Path, top: &str, out: &mut Vec<(PathBuf, String)>) {
     let dir = forge_root.join(top);
+    if crate::validation::validate_path_within_base(&dir, forge_root).is_err() {
+        return;
+    }
     let Ok(entries) = fs::read_dir(&dir) else {
         return;
     };
@@ -610,7 +628,10 @@ pub(crate) fn refresh_entry(
 
     let abs = forge_root.join(rel_path);
     // Locked notes are encrypted — never read them; drop any stale entry.
-    if !abs.is_file() {
+    if crate::validation::validate_path_within_base(&abs, forge_root).is_err()
+        || !abs.is_file()
+        || abs.with_extension("md.locked").exists()
+    {
         return Ok(remove(entries));
     }
     let raw = fs::read_to_string(&abs).map_err(|e| format!("Failed to read note: {}", e))?;
@@ -869,8 +890,34 @@ impl SemanticService {
         }
     }
 
+    /// The best `limit` hits whose note is still a readable file with no
+    /// locked twin. A session can outlive a lock or a delete made elsewhere,
+    /// so the files are asked, and only for the hits about to be returned.
+    fn current_hits(
+        &self,
+        forge_root: &Path,
+        query: &[f32],
+        limit: usize,
+        exclude_path: Option<&str>,
+    ) -> Result<Vec<SemanticHit>, String> {
+        let entries = self
+            .entries
+            .read()
+            .map_err(|_| "index lock poisoned".to_string())?;
+        Ok(top_k_similar(&entries, query, entries.len(), exclude_path)
+            .into_iter()
+            .filter(|hit| is_current_note(forge_root, &hit.path))
+            .take(limit.clamp(1, 100))
+            .collect())
+    }
+
     /// Embed `query` and return the `limit` most similar notes.
-    pub(crate) fn search(&self, query: &str, limit: usize) -> Result<Vec<SemanticHit>, String> {
+    pub(crate) fn search(
+        &self,
+        forge_root: &Path,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticHit>, String> {
         if !self.is_ready() {
             return Err("Semantic search is not ready".to_string());
         }
@@ -884,36 +931,38 @@ impl SemanticService {
         let Some(qv) = embed_note_body(embedder.as_ref(), query)? else {
             return Ok(Vec::new());
         };
-        let entries = self
-            .entries
-            .read()
-            .map_err(|_| "index lock poisoned".to_string())?;
-        Ok(top_k_similar(&entries, &qv, limit.clamp(1, 100), None))
+        self.current_hits(forge_root, &qv, limit, None)
     }
 
     /// Nearest neighbours of an already-indexed note, excluding itself.
-    pub(crate) fn related(&self, path: &str, limit: usize) -> Result<Vec<SemanticHit>, String> {
+    pub(crate) fn related(
+        &self,
+        forge_root: &Path,
+        path: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticHit>, String> {
         if !is_valid_note_index_path(path) {
             return Err("Invalid note path".to_string());
         }
         if !self.is_ready() {
             return Err("Semantic search is not ready".to_string());
         }
-        let entries = self
-            .entries
-            .read()
-            .map_err(|_| "index lock poisoned".to_string())?;
-        let target = entries
-            .iter()
-            .find(|e| e.path == path)
-            .ok_or_else(|| "Note is not in the semantic index".to_string())?;
-        let qv = target.embedding.clone();
-        Ok(top_k_similar(
-            &entries,
-            &qv,
-            limit.clamp(1, 100),
-            Some(path),
-        ))
+        if !is_current_note(forge_root, path) {
+            return Err("Note is not in the semantic index".to_string());
+        }
+        let qv = {
+            let entries = self
+                .entries
+                .read()
+                .map_err(|_| "index lock poisoned".to_string())?;
+            entries
+                .iter()
+                .find(|e| e.path == path)
+                .ok_or_else(|| "Note is not in the semantic index".to_string())?
+                .embedding
+                .clone()
+        };
+        self.current_hits(forge_root, &qv, limit, Some(path))
     }
 }
 
@@ -1177,6 +1226,68 @@ mod tests {
             title: title_from_rel_path(path),
             embedding,
         }
+    }
+
+    #[test]
+    fn interrupted_lock_plaintext_is_not_semantically_indexed() {
+        let forge = TempForge::new("interrupted-lock");
+        let fake = FakeEmbedder::new();
+        let rel = "notes/secret.md";
+        fs::write(forge.path().join(rel), "confidential needle").unwrap();
+        let entries = reconcile_index(forge.path(), &fake, &[], |_, _| true).unwrap();
+        assert_eq!(entries.len(), 1);
+        fs::write(forge.path().join("notes/secret.md.locked"), "ciphertext").unwrap();
+        assert!(scan_note_sources(forge.path()).is_empty());
+    }
+
+    #[test]
+    fn interrupted_lock_refresh_drops_stale_semantic_entry() {
+        let forge = TempForge::new("interrupted-lock-refresh");
+        let fake = FakeEmbedder::new();
+        let rel = "notes/secret.md";
+        fs::write(forge.path().join(rel), "confidential needle").unwrap();
+        let mut entries = reconcile_index(forge.path(), &fake, &[], |_, _| true).unwrap();
+        fs::write(forge.path().join("notes/secret.md.locked"), "ciphertext").unwrap();
+        assert!(refresh_entry(forge.path(), &fake, &mut entries, rel).unwrap());
+        assert!(entries.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_note_roots_are_not_walked_by_either_index() {
+        let forge = TempForge::new("symlinked-roots");
+        let outside = TempForge::new("symlinked-roots-outside");
+        for top in ["daily", "weekly", "notes"] {
+            fs::write(outside.path().join(top).join("secret.md"), "outside needle").unwrap();
+            fs::remove_dir_all(forge.path().join(top)).unwrap();
+            std::os::unix::fs::symlink(outside.path().join(top), forge.path().join(top)).unwrap();
+        }
+        fs::write(
+            outside.path().join("notes/Projects/secret.md"),
+            "nested needle",
+        )
+        .unwrap();
+        let mut scans = vec![scan_note_paths(forge.path())];
+        for top in ["daily", "weekly", "notes", "notes/Projects"] {
+            scans.push(scan_note_paths_in(forge.path(), top));
+        }
+        assert!(scans.iter().all(Vec::is_empty), "{scans:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_note_roots_cannot_be_read_by_semantic_refresh() {
+        let forge = TempForge::new("symlinked-refresh");
+        let outside = TempForge::new("symlinked-refresh-outside");
+        fs::write(outside.path().join("notes/secret.md"), "outside needle").unwrap();
+        fs::remove_dir_all(forge.path().join("notes")).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("notes"), forge.path().join("notes"))
+            .unwrap();
+        let fake = FakeEmbedder::new();
+        let mut entries = vec![entry("notes/secret.md", bag_of_words("old needle"))];
+        refresh_entry(forge.path(), &fake, &mut entries, "notes/secret.md").unwrap();
+        assert!(entries.is_empty());
+        assert_eq!(fake.embed_calls(), 0);
     }
 
     #[test]
@@ -1612,6 +1723,57 @@ mod tests {
             std::thread::sleep(Duration::from_millis(25));
         }
         panic!("the semantic index never reached the expected state (waited 10s)");
+    }
+
+    #[test]
+    fn stale_semantic_search_filters_locked_and_deleted_notes() {
+        let forge = TempForge::new("stale-search");
+        let (svc, fake) = ready_service();
+        for name in ["a-twin", "b-locked", "c-deleted", "z-visible"] {
+            fs::write(forge.path().join(format!("notes/{name}.md")), "needle").unwrap();
+        }
+        let entries = reconcile_index(forge.path(), fake.as_ref(), &[], |_, _| true).unwrap();
+        save_index(forge.path(), &entries, DEFAULT_MODEL_ID).unwrap();
+        svc.replace_entries(load_index(forge.path(), DEFAULT_MODEL_ID).unwrap());
+        assert_eq!(svc.search(forge.path(), "needle", 10).unwrap().len(), 4);
+        fs::write(forge.path().join("notes/a-twin.md.locked"), "ciphertext").unwrap();
+        fs::rename(
+            forge.path().join("notes/b-locked.md"),
+            forge.path().join("notes/b-locked.md.locked"),
+        )
+        .unwrap();
+        fs::remove_file(forge.path().join("notes/c-deleted.md")).unwrap();
+        let hits = svc.search(forge.path(), "needle", 1).unwrap();
+        assert_eq!(
+            hits.iter().map(|hit| hit.path.as_str()).collect::<Vec<_>>(),
+            ["notes/z-visible.md"]
+        );
+    }
+
+    #[test]
+    fn stale_semantic_related_filters_locked_and_deleted_notes() {
+        let forge = TempForge::new("stale-related");
+        let (svc, fake) = ready_service();
+        for name in ["source", "twin", "deleted"] {
+            fs::write(forge.path().join(format!("notes/{name}.md")), "needle").unwrap();
+        }
+        svc.replace_entries(
+            reconcile_index(forge.path(), fake.as_ref(), &[], |_, _| true).unwrap(),
+        );
+        assert_eq!(
+            svc.related(forge.path(), "notes/source.md", 10)
+                .unwrap()
+                .len(),
+            2
+        );
+        fs::write(forge.path().join("notes/twin.md.locked"), "ciphertext").unwrap();
+        fs::remove_file(forge.path().join("notes/deleted.md")).unwrap();
+        assert!(svc
+            .related(forge.path(), "notes/source.md", 10)
+            .unwrap()
+            .is_empty());
+        fs::write(forge.path().join("notes/source.md.locked"), "ciphertext").unwrap();
+        assert!(svc.related(forge.path(), "notes/source.md", 10).is_err());
     }
 
     #[test]

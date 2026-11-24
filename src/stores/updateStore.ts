@@ -162,7 +162,7 @@ export const useUpdateStore = create<UpdateState>()(
         },
 
         installUpdate: async () => {
-          // On Windows the updater exits the process inside downloadAndInstall,
+          // On Windows the updater exits the process inside install,
           // so the clear that follows it below never runs there and the
           // installed app comes back with the old version still pending
           // (#125). Never act on a pending version the running app already has.
@@ -198,7 +198,7 @@ export const useUpdateStore = create<UpdateState>()(
             let downloaded = 0;
             let contentLength = 0;
 
-            await update.downloadAndInstall((event) => {
+            await update.download((event) => {
               switch (event.event) {
                 case 'Started':
                   contentLength = event.data.contentLength || 0;
@@ -216,8 +216,10 @@ export const useUpdateStore = create<UpdateState>()(
               }
             });
 
-            // Relaunch bypasses React cleanup. Settle the live editor buffer and
-            // abort the relaunch if persistence left any note outstanding.
+            // Windows installation exits the process, bypassing React cleanup.
+            await settleOwedWritesFor('Relaunch');
+            await update.install();
+            // Elsewhere install returns, and anything typed while it ran is owed too.
             await settleOwedWritesFor('Relaunch');
 
             // Clear persisted pending state before relaunch so the installed
