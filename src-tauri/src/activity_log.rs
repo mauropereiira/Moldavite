@@ -1879,13 +1879,15 @@ mod tests {
     #[test]
     fn the_watcher_pairs_one_disappearance_with_one_unfamiliar_note_as_a_move() {
         let forge = TempForge::new("watcher-move");
+        // Measured from now like the move below; an hour of the day would
+        // put this edit after the move on any run before 07:00.
         event_at(
             &forge,
             Action::Edited,
             "notes/a.md",
             None,
             Source::Files,
-            noon() - 300 * MIN,
+            now_ms() - 300 * MIN,
         );
         forge.write("notes/Archive/a.md", "moved by Finder");
         let at = now_ms() + 10 * FRESH_FILE_MS;
