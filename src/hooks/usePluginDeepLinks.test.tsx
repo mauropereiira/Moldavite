@@ -1,7 +1,8 @@
 /** Validation and cold/running delivery tests for app deep links. */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { format } from 'date-fns';
 import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
@@ -326,6 +327,17 @@ describe('routeTodayRequest', () => {
 });
 
 describe('deep links reveal the routed note', () => {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const opened = (note: Partial<Note>) =>
+    vi.fn().mockImplementation(async () => {
+      useNoteStore.setState({ currentNote: { id: 'x', title: 'x', content: '', ...note } as Note });
+    });
+
+  afterEach(() => {
+    useNoteStore.setState({ currentNote: null, pendingUnlock: null });
+    useOverlayStore.getState().closeOverlay();
+  });
+
   it.each(
     (['index', 'agenda', 'search', 'trash'] as const).flatMap((surface) =>
       (['note', 'today'] as const).map((kind) => ({ surface, kind }))
@@ -333,11 +345,26 @@ describe('deep links reveal the routed note', () => {
   )('closes $surface after a $kind link loads', async ({ surface, kind }) => {
     useNoteStore.setState({ notes: [rootNote] });
     useOverlayStore.getState().openSurface(surface);
-    const load = vi.fn().mockResolvedValue(undefined);
-    if (kind === 'note') await routeNoteRequest('Root note.md', load, vi.fn());
-    else await routeTodayRequest(load);
+    if (kind === 'note') {
+      await routeNoteRequest('Root note.md', opened({ id: rootNote.path }), vi.fn());
+    } else {
+      await routeTodayRequest(opened({ isDaily: true, date: today }));
+    }
     expect(useOverlayStore.getState().activeOverlay).toBeNull();
   });
+
+  it.each(['note', 'today'] as const)(
+    'keeps the Index open when a %s link resolves without opening its note',
+    async (kind) => {
+      // The real loader shows a toast for a file it cannot read and resolves.
+      useNoteStore.setState({ notes: [rootNote], currentNote: null });
+      useOverlayStore.getState().openSurface('index');
+      const failedQuietly = vi.fn().mockResolvedValue(undefined);
+      if (kind === 'note') await routeNoteRequest('Root note.md', failedQuietly, vi.fn());
+      else await routeTodayRequest(failedQuietly);
+      expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    }
+  );
 
   it('keeps the Index open when the note it loaded is waiting for its password', async () => {
     useNoteStore.setState({ notes: [rootNote] });
@@ -348,7 +375,6 @@ describe('deep links reveal the routed note', () => {
     });
     await routeTodayRequest(load);
     expect(useOverlayStore.getState().activeOverlay).toBe('index');
-    useNoteStore.setState({ pendingUnlock: null });
   });
 
   it('keeps navigation open when a link is missing, locked or fails to load', async () => {

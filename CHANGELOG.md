@@ -11,7 +11,7 @@ All notable changes to Moldavite are documented here.
 ### Changed
 
 - Autumn stays as a theme you can keep, with its own field, leaves and pumpkin.
-- Updated the libraries that clean and render Markdown, read and write zip files, secure connections and hold the search index, for their latest security fixes.
+- Updated the libraries that clean and render Markdown, read and write zip files and secure connections, for their latest security fixes.
 
 ### Fixed
 

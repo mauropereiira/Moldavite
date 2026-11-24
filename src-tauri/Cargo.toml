@@ -94,7 +94,7 @@ fastembed = { version = "5.17", default-features = false, features = [
 # iOS ships SQLite with FTS5. Use the system library so the app does not
 # bundle SQLite's desktop filesystem probes (statfs/fstatfs). The iOS 17
 # deployment floor also covers rusqlite's SQLite 3.34.1 minimum.
-rusqlite = { version = "0.43" }
+rusqlite = { version = "0.40" }
 tauri-plugin-icloud = { path = "plugins/tauri-plugin-icloud" }
 tauri-plugin-calendar = { path = "plugins/tauri-plugin-calendar" }
 tauri-plugin-document-export = { path = "plugins/tauri-plugin-document-export" }
@@ -102,7 +102,7 @@ tauri-plugin-mobile-ui = { path = "plugins/tauri-plugin-mobile-ui" }
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 # Keep bundled FTS5 on desktop and Android, independent of the OS library.
-rusqlite = { version = "0.43", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 xattr = "1.6"
