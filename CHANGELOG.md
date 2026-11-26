@@ -36,6 +36,7 @@ All notable changes to Moldavite are documented here.
 - A to-do item with a second paragraph keeps the blank line between its paragraphs, and to-do lists with blank lines between items no longer show an empty line in each item.
 - Bold, italic, code and links in a centred or right-aligned paragraph are kept when the note is reopened.
 - A numbered to-do list (`1. [ ] item`) keeps its numbers when the note is saved. It used to come back as a plain bulleted to-do list.
+- An empty checkbox left at the end of a to-do list stays a checkbox when the note is opened again. It used to come back as a bullet reading `[ ]`.
 - A note that starts with an HTML block and continues in Markdown opens as formatted text.
 - **Copy URL** on a note inside a folder called `daily`, `weekly` or `notes` opens that note and not a different one.
 - The Timeline moves on to the new day when it is left open past midnight.

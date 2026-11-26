@@ -190,6 +190,65 @@ describe('numbered to-do lists', () => {
     expect(save()).toBe('1. plain\n2. [ ] task\n3. [ ] more\n4. last');
   });
 
+  /** The first number each list in the document shows, in order. */
+  function shownStarts(): number[] {
+    const starts: number[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'orderedList' || node.type.name === 'taskList') {
+        starts.push(Number(node.attrs.start ?? 1));
+      }
+    });
+    return starts;
+  }
+
+  it('shows the new numbers at once when a mixed list grows or shrinks', () => {
+    open('1. plain\n2. [ ] task\n3. last');
+    expect(shownStarts()).toEqual([1, 2, 3]);
+    editor.commands.setTextSelection(after('task'));
+    editor.commands.splitListItem('taskItem');
+    typeInto('more');
+    expect(shownStarts()).toEqual([1, 2, 4]);
+    editor.commands.setTextSelection(after('plain'));
+    editor.commands.splitListItem('listItem');
+    typeInto('second');
+    expect(shownStarts()).toEqual([1, 3, 5]);
+    expect(save()).toBe('1. plain\n2. second\n3. [ ] task\n4. [ ] more\n5. last');
+    editor.commands.undo();
+    expect(shownStarts()).toEqual([1, 2, 4]);
+    expect(save()).toBe('1. plain\n2. [ ] task\n3. [ ] more\n4. last');
+  });
+
+  it('keeps counting across a blank line, which is still one Markdown list', () => {
+    open('1. plain\n\n2. [ ] task\n\n3. last');
+    editor.commands.setTextSelection(after('plain'));
+    editor.commands.splitListItem('listItem');
+    typeInto('second');
+    expect(shownStarts()).toEqual([1, 3, 4]);
+    const saved = save();
+    expect(saved.match(/^\d+/gm)).toEqual(['1', '2', '3', '4']);
+    editor.commands.setContent(noteContentToEditorHtml(saved));
+    expect(shownStarts()).toEqual([1, 3, 4]);
+  });
+
+  it('does not carry numbers into a list written with the other marker', () => {
+    open('1. [ ] a\n2. [ ] b\n1) c\n2) d');
+    expect(shownStarts()).toEqual([1, 1]);
+    editor.commands.setTextSelection(after('c'));
+    typeInto('Z');
+    expect(shownStarts()).toEqual([1, 1]);
+    expect(save().replace(/\n+/g, '\n')).toBe('1. [ ] a\n2. [ ] b\n1) cZ\n2) d');
+  });
+
+  it('keeps a bulleted list after numbered to-dos as its own list', () => {
+    open('1. [ ] a\n- b\n- [ ] c');
+    editor.commands.setTextSelection(after('a'));
+    typeInto('Z');
+    const saved = save();
+    editor.commands.setContent(noteContentToEditorHtml(saved));
+    expect(save()).toBe(saved);
+    expect(saved.replace(/\n+/g, '\n')).toBe('1. [ ] aZ\n- b\n- [ ] c');
+  });
+
   it('turns a numbered item into a numbered to-do when [ ] is typed at its start', () => {
     open('');
     typeInto('1. ');
@@ -223,6 +282,44 @@ describe('numbered to-do lists', () => {
     editor.commands.setTextSelection(after('one') - 3);
     typeInto('[ ] ');
     expect(editor.state.doc.firstChild?.type.name).toBe('bulletList');
+  });
+});
+
+describe('empty to-do items', () => {
+  it.each([
+    ['a bulleted', '- [ ] a', '- [ ] a\n- [ ]'],
+    ['a numbered', '1. [ ] a', '1. [ ] a\n2. [ ]'],
+  ])('keeps the empty box at the end of %s list through a reload', (_name, markdown, saved) => {
+    open(markdown);
+    editor.commands.setTextSelection(after('a'));
+    editor.commands.splitListItem('taskItem');
+    expect(save()).toBe(saved);
+    editor.commands.setContent(noteContentToEditorHtml(saved));
+    const list = editor.state.doc.firstChild;
+    expect(list?.type.name).toBe('taskList');
+    expect(list?.childCount).toBe(2);
+    expect(list?.lastChild?.textContent).toBe('');
+    expect(editor.state.doc.childCount).toBe(2);
+    expect(save()).toBe(saved);
+  });
+
+  it('reads a ticked box with nothing after it, and one that only holds a list', () => {
+    open('- [x]\n- [ ]\n  - child\n- [ ] b');
+    const list = editor.state.doc.firstChild;
+    expect(list?.type.name).toBe('taskList');
+    expect(list?.childCount).toBe(3);
+    expect(list?.firstChild?.attrs.checked).toBe(true);
+    expect(list?.child(1).textContent).toBe('child');
+    expect(save()).toBe('- [x]\n- [ ]\n  - child\n- [ ] b');
+    editor.commands.setTextSelection(after('b'));
+    typeInto('Z');
+    expect(save()).toBe('- [x]\n- [ ]\n  - child\n- [ ] bZ');
+  });
+
+  it('leaves brackets with other text, or outside a list, as text', () => {
+    open('- [ ]x\n- [y]\n\n[ ]');
+    expect(editor.state.doc.firstChild?.type.name).toBe('bulletList');
+    expect(editor.state.doc.child(1).textContent).toBe('[ ]');
   });
 });
 

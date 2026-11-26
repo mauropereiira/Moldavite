@@ -228,9 +228,11 @@ function joinsPreviousList(list: Element | null): boolean {
   const previous = list?.previousElementSibling;
   if (!list || !previous) return false;
   const numberedTasks = (element: Element) => element.nodeName === 'UL' && isOrderedList(element);
+  const delimiter = (element: Element) =>
+    (element.getAttribute('data-md-marker') ?? '').startsWith(')') ? ')' : '.';
   const sameList =
     numberedTasks(list) || numberedTasks(previous)
-      ? isOrderedList(list) && isOrderedList(previous)
+      ? isOrderedList(list) && isOrderedList(previous) && delimiter(list) === delimiter(previous)
       : list.nodeName === 'UL' && previous.nodeName === 'UL';
   return sameList && previous.lastElementChild?.getAttribute('data-gap-after') !== 'true';
 }
@@ -588,6 +590,19 @@ const md = new MarkdownIt({
 md.use(markdownItTaskLists, {
   enabled: true,
   label: false,
+});
+// The task list plugin wants text after the box, but Enter in the editor makes
+// an empty one and saves it as `- [ ]`, which came back as a bullet reading "[ ]".
+md.core.ruler.before('github-task-lists', 'empty_tasks', (state) => {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'inline' || !/^\[[ xX]\]$/.test(token.content)) return;
+    if (state.tokens[index - 1]?.type !== 'paragraph_open') return;
+    if (state.tokens[index - 2]?.type !== 'list_item_open') return;
+    const text = token.children?.length === 1 ? token.children[0] : null;
+    if (text?.type !== 'text') return;
+    token.content += ' ';
+    text.content += ' ';
+  });
 });
 md.use(markdownSourcePlugin);
 

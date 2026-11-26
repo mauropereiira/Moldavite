@@ -1,6 +1,6 @@
 import { InputRule } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
-import { TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection, type Transaction } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
@@ -27,6 +27,40 @@ const NoteLink = Link.extend({
   },
 });
 
+const isNumberedList = (node: PMNode) =>
+  node.type.name === 'orderedList' || (node.type.name === 'taskList' && node.attrs.start !== null);
+
+const listDelimiter = (node: PMNode) =>
+  String(node.attrs['data-md-marker'] ?? '').startsWith(')') ? ')' : '.';
+
+/**
+ * Numbered to-dos among numbered items are one list in Markdown but a row of
+ * lists here, so each one counts on from the one before it as items come and go.
+ */
+function renumberRuns(parent: PMNode, offset: number, tr: Transaction): void {
+  let previous: { node: PMNode; start: number } | null = null;
+  let pos = offset;
+  for (let index = 0; index < parent.childCount; index++) {
+    const child = parent.child(index);
+    let run: { node: PMNode; start: number } | null = null;
+    if (isNumberedList(child)) {
+      run = { node: child, start: Number(child.attrs.start ?? 1) };
+      const carriesOn =
+        previous !== null &&
+        (child.type.name === 'taskList' || previous.node.type.name === 'taskList') &&
+        listDelimiter(child) === listDelimiter(previous.node);
+      if (previous !== null && carriesOn) {
+        const expected = previous.start + previous.node.childCount;
+        if (expected !== run.start) tr.setNodeAttribute(pos, 'start', expected);
+        run.start = expected;
+      }
+    }
+    previous = run;
+    if (!child.isTextblock && !child.isLeaf) renumberRuns(child, pos + 1, tr);
+    pos += child.nodeSize;
+  }
+}
+
 /**
  * A numbered to-do list (`1. [ ] item`) is a task list that knows the number
  * it starts at, so it keeps its checkboxes and saves its numbers.
@@ -50,6 +84,20 @@ const NoteTaskList = TaskList.extend({
             : {},
       },
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('numberedTaskRuns'),
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (!transactions.some((transaction) => transaction.docChanged)) return null;
+          const tr = newState.tr;
+          renumberRuns(newState.doc, 0, tr);
+          return tr.docChanged ? tr : null;
+        },
+      }),
+    ];
   },
 
   // Typing `[ ] ` at the start of a numbered item turns that item into a
