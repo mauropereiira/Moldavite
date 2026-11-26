@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createNoteExtensions } from '@/components/editor/noteExtensions';
-import { htmlToMarkdown, isHtmlContent, noteContentToEditorHtml } from './fileSystem';
+import {
+  filenameToNote,
+  htmlToMarkdown,
+  isHtmlContent,
+  noteContentToEditorHtml,
+} from './fileSystem';
 
 let editor: Editor;
 afterEach(() => editor?.destroy());
@@ -44,19 +49,180 @@ describe('task item paragraphs', () => {
   });
 });
 
-describe('ordered task lists', () => {
-  it.each([
+function typeInto(text: string) {
+  for (const char of text) {
+    const { from, to } = editor.state.selection;
+    const handled = editor.view.someProp('handleTextInput', (handle) =>
+      handle(editor.view, from, to, char, () => editor.state.tr.insertText(char, from, to))
+    );
+    if (!handled) editor.view.dispatch(editor.state.tr.insertText(char, from, to));
+  }
+}
+
+/** The document position just after the first occurrence of `text`. */
+function after(text: string): number {
+  let found = -1;
+  editor.state.doc.descendants((node, pos) => {
+    if (found !== -1 || !node.isText) return;
+    const at = (node.text ?? '').indexOf(text);
+    if (at !== -1) found = pos + at + text.length;
+  });
+  if (found === -1) throw new Error(`"${text}" is not in the document`);
+  return found;
+}
+
+function save(): string {
+  return htmlToMarkdown(editor.getHTML());
+}
+
+function shape(): unknown {
+  type Json = { type: string; attrs?: Record<string, unknown>; content?: Json[]; text?: string };
+  const strip = (node: Json): unknown => ({
+    type: node.type,
+    ...(node.type === 'taskList' ? { start: node.attrs?.start ?? null } : {}),
+    ...(node.type === 'taskItem' ? { checked: node.attrs?.checked } : {}),
+    ...(node.type === 'text' ? { text: node.text } : {}),
+    ...(node.content ? { content: node.content.map(strip) } : {}),
+  });
+  return strip(editor.getJSON() as Json);
+}
+
+describe('numbered to-do lists', () => {
+  const cases = [
     ['numbered tasks', '1. [ ] a\n2. [x] b'],
+    ['a list that starts later', '3. [ ] a\n4. [x] b'],
     ['parenthesized markers', '3) [ ] a\n4) [X] b'],
     ['tasks mixed with ordinary items', '1. plain\n2. [ ] [[Other]]\n3. last'],
-    ['a nested ordered task list', '- outer\n  1. [ ] a\n  2. [x] b'],
-    ['a quoted ordered task list', '> 1. [ ] a\n> 2. [x] b'],
-  ])('keeps %s as raw Markdown after an edit elsewhere', (_name, tasks) => {
+    ['a nested numbered task list', '- outer\n  1. [ ] a\n  2. [x] b'],
+    ['a quoted numbered task list', '> 1. [ ] a\n> 2. [x] b'],
+    ['a task holding a nested list', '1. [ ] a\n   - inner\n2. [ ] b'],
+    ['items with blank lines between', '1. [ ] a\n\n2. [ ] b'],
+  ] as const;
+
+  it('loads as checkboxes that know their first number', () => {
+    open('3. [ ] a\n4. [x] b');
+    expect(shape()).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'taskList',
+          start: 3,
+          content: [
+            {
+              type: 'taskItem',
+              checked: false,
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }],
+            },
+            {
+              type: 'taskItem',
+              checked: true,
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }],
+            },
+          ],
+        },
+      ],
+    });
+    const list = editor.view.dom.querySelector('ul[data-type="taskList"]');
+    expect(list).toHaveAttribute('start', '3');
+    expect((list as HTMLElement).style.counterReset).toBe('task-number 2');
+    expect(list?.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+  });
+
+  it('keeps the first number through the sanitizer every note body crosses', () => {
+    const html = noteContentToEditorHtml('3. [ ] a');
+    const file = {
+      name: 'a.md',
+      path: 'notes/a.md',
+      isDaily: false,
+      isWeekly: false,
+      isLocked: false,
+    };
+    expect(filenameToNote(file, html).content).toContain('start="3"');
+  });
+
+  it('leaves an ordinary to-do list without a number', () => {
+    open('- [ ] a\n- [x] b');
+    expect(editor.state.doc.firstChild?.attrs.start).toBeNull();
+    expect(editor.view.dom.querySelector('ul[data-type="taskList"]')).not.toHaveAttribute('start');
+    typeInto('!');
+    expect(save()).toMatch(/^- \[ \] /);
+  });
+
+  it.each(cases)('saves %s as written when nothing in it changed', (_name, tasks) => {
     open(`${tasks}\n\nAfter`);
-    expect(editor.state.doc.firstChild?.type.name).toBe('rawMarkdown');
-    expect(editor.state.doc.firstChild?.textContent).toBe(tasks);
+    expect(save()).toBe(`${tasks}\n\nAfter`);
     editor.commands.insertContentAt(editor.state.doc.content.size - 1, ' edited');
-    expect(htmlToMarkdown(editor.getHTML())).toBe(`${tasks}\n\nAfter edited`);
+    expect(save()).toBe(`${tasks}\n\nAfter edited`);
+  });
+
+  it.each(cases)('keeps the numbers and boxes of %s when an item is edited', (_name, tasks) => {
+    open(tasks);
+    editor.commands.setTextSelection(after('a'));
+    typeInto('Z');
+    const saved = save();
+    expect(saved).toBe(tasks.replace('a', 'aZ'));
+    const edited = shape();
+    editor.commands.setContent(noteContentToEditorHtml(saved));
+    expect(shape()).toEqual(edited);
+  });
+
+  it('ticks a box without touching the numbers', () => {
+    open('1. [ ] a\n2. [ ] b');
+    const box = editor.view.dom.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1];
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    expect(save()).toBe('1. [ ] a\n2. [x] b');
+  });
+
+  it('numbers an item added with Enter', () => {
+    open('7. [ ] a\n8. [x] b');
+    editor.commands.setTextSelection(after('a'));
+    editor.commands.splitListItem('taskItem');
+    typeInto('new');
+    expect(save()).toBe('7. [ ] a\n8. [ ] new\n9. [x] b');
+  });
+
+  it('renumbers the items after a to-do added in the middle of a mixed list', () => {
+    open('1. plain\n2. [ ] task\n3. last');
+    editor.commands.setTextSelection(after('task'));
+    editor.commands.splitListItem('taskItem');
+    typeInto('more');
+    expect(save()).toBe('1. plain\n2. [ ] task\n3. [ ] more\n4. last');
+  });
+
+  it('turns a numbered item into a numbered to-do when [ ] is typed at its start', () => {
+    open('');
+    typeInto('1. ');
+    typeInto('[ ] buy milk');
+    expect(editor.state.doc.firstChild?.type.name).toBe('taskList');
+    expect(editor.state.doc.firstChild?.attrs.start).toBe(1);
+    editor.commands.splitListItem('taskItem');
+    typeInto('call home');
+    expect(save()).toBe('1. [ ] buy milk\n2. [ ] call home');
+  });
+
+  it('converts only the item typed in and keeps the numbers around it', () => {
+    open('1. one\n2. two\n3. three');
+    editor.commands.setTextSelection(after('two') - 3);
+    typeInto('[x] ');
+    const blocks = (shape() as { content: unknown[] }).content.slice(0, 3);
+    expect(blocks).toMatchObject([
+      { type: 'orderedList' },
+      { type: 'taskList', start: 2, content: [{ type: 'taskItem', checked: true }] },
+      { type: 'orderedList' },
+    ]);
+    expect(save()).toBe('1. one\n2. [x] two\n3. three');
+  });
+
+  it('leaves [ ] typed in a bullet or later in a numbered item as text', () => {
+    open('1. one');
+    editor.commands.setTextSelection(after('one'));
+    typeInto(' [ ] ');
+    expect(editor.state.doc.firstChild?.type.name).toBe('orderedList');
+    open('- one');
+    editor.commands.setTextSelection(after('one') - 3);
+    typeInto('[ ] ');
+    expect(editor.state.doc.firstChild?.type.name).toBe('bulletList');
   });
 });
 

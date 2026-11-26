@@ -170,15 +170,30 @@ turndownService.addRule('taskItemDiv', {
  */
 function listItemMarker(item: Element, fallback: string): string {
   const list = item.parentElement;
-  const ordered = list?.nodeName === 'OL';
+  const ordered = isOrderedList(list);
   const written = /^([-*+.)])([1-4])$/.exec(list?.getAttribute('data-md-marker') ?? '');
   const fits = written !== null && ordered === /[.)]/.test(written[1]);
   const marker = fits ? written[1] : null;
   const spaces = ' '.repeat(fits ? Number(written[2]) : 1);
   if (!ordered) return `${marker ?? fallback}${spaces}`;
-  const start = Number(list.getAttribute('start') ?? 1);
   const index = Array.prototype.indexOf.call(list.children, item);
-  return `${start + index}${marker ?? '.'}${spaces}`;
+  return `${orderedListStart(list) + index}${marker ?? '.'}${spaces}`;
+}
+
+/** An `<ol>`, or a numbered to-do list, which the editor draws as a task list with a `start`. */
+function isOrderedList(list: Element | null | undefined): list is Element {
+  return (
+    list?.nodeName === 'OL' ||
+    (list?.getAttribute('data-type') === 'taskList' && list.hasAttribute('start'))
+  );
+}
+
+/** A run that carries on the list before it counts on from that list's last item. */
+function orderedListStart(list: Element): number {
+  const previous = list.previousElementSibling;
+  return joinsPreviousList(list) && previous
+    ? orderedListStart(previous) + previous.children.length
+    : Number(list.getAttribute('start') ?? 1);
 }
 
 turndownService.addRule('taskItem', {
@@ -207,14 +222,17 @@ turndownService.addRule('taskItem', {
 /**
  * The editor splits a list where bullets meet tasks, but in Markdown the two
  * runs are one list, so they meet with a blank line only if the note had one.
+ * The same goes for numbered to-dos among numbered items.
  */
 function joinsPreviousList(list: Element | null): boolean {
   const previous = list?.previousElementSibling;
-  return (
-    list?.nodeName === 'UL' &&
-    previous?.nodeName === 'UL' &&
-    previous.lastElementChild?.getAttribute('data-gap-after') !== 'true'
-  );
+  if (!list || !previous) return false;
+  const numberedTasks = (element: Element) => element.nodeName === 'UL' && isOrderedList(element);
+  const sameList =
+    numberedTasks(list) || numberedTasks(previous)
+      ? isOrderedList(list) && isOrderedList(previous)
+      : list.nodeName === 'UL' && previous.nodeName === 'UL';
+  return sameList && previous.lastElementChild?.getAttribute('data-gap-after') !== 'true';
 }
 
 function listMarkdown(list: Element, content: string): string {
@@ -572,33 +590,6 @@ md.use(markdownItTaskLists, {
   label: false,
 });
 md.use(markdownSourcePlugin);
-
-// Ordered lists cannot contain taskItem nodes. Keep their whole source block,
-// including any enclosing list or quote, until the editor can represent them.
-md.core.ruler.before('source_map', 'raw_ordered_tasks', (state) => {
-  const lines = state.src.split('\n');
-  for (let start = 0; start < state.tokens.length; start++) {
-    const token = state.tokens[start];
-    if (token.level !== 0 || token.nesting !== 1 || !token.map) continue;
-    let end = start + 1;
-    while (end < state.tokens.length && state.tokens[end].level !== 0) end++;
-    const orderedTasks = state.tokens
-      .slice(start, end)
-      .some(
-        (child) =>
-          child.type === 'ordered_list_open' && child.attrGet('class') === 'contains-task-list'
-      );
-    if (!orderedTasks) continue;
-    const raw = new state.Token('raw_block', 'pre', 0);
-    raw.block = true;
-    raw.map = token.map;
-    raw.content = lines
-      .slice(...token.map)
-      .join('\n')
-      .replace(/\n+$/, '');
-    state.tokens.splice(start, end - start + 1, raw);
-  }
-});
 
 // TipTap drops a text node that is only a line break, taking it for the
 // indentation between tags, so a soft break between two marks or links (as in
@@ -1119,10 +1110,11 @@ function blocksToMarkdown(root: Element): string {
  * @param root - The wrapper element holding the rendered Markdown
  */
 function splitMixedTaskLists(root: Element): void {
-  const taskLists = root.querySelectorAll('ul.contains-task-list');
+  const taskLists = root.querySelectorAll('ul.contains-task-list, ol.contains-task-list');
 
   taskLists.forEach((ul) => {
     const items = Array.from(ul.children);
+    const first = Number(ul.getAttribute('start') ?? 1);
     const hasTaskItems = items.some((item) => item.classList.contains('task-list-item'));
     const hasRegularItems = items.some((item) => !item.classList.contains('task-list-item'));
     if (!hasTaskItems || !hasRegularItems) return;
@@ -1132,11 +1124,12 @@ function splitMixedTaskLists(root: Element): void {
     const fragment = root.ownerDocument.createDocumentFragment();
     let currentList: Element | null = null;
     let currentRunIsTask: boolean | null = null;
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       const isTask = item.classList.contains('task-list-item');
       if (currentList === null || currentRunIsTask !== isTask) {
         currentList = ul.cloneNode(false) as Element;
         if (!isTask) currentList.classList.remove('contains-task-list');
+        if (ul.nodeName === 'OL') currentList.setAttribute('start', String(first + index));
         fragment.appendChild(currentList);
         currentRunIsTask = isTask;
       }
@@ -1171,6 +1164,18 @@ function taskListsToTipTapHtml(html: string): string {
   for (const ul of Array.from(root.querySelectorAll('ul.contains-task-list'))) {
     ul.removeAttribute('class');
     ul.setAttribute('data-type', 'taskList');
+  }
+  // The editor has one kind of task list, so a numbered one is that list with
+  // the number it starts at.
+  for (const ol of Array.from(root.querySelectorAll('ol.contains-task-list'))) {
+    const list = doc.createElement('ul');
+    for (const { name, value } of Array.from(ol.attributes)) {
+      if (name !== 'class') list.setAttribute(name, value);
+    }
+    list.setAttribute('data-type', 'taskList');
+    list.setAttribute('start', ol.getAttribute('start') ?? '1');
+    while (ol.firstChild) list.appendChild(ol.firstChild);
+    ol.replaceWith(list);
   }
 
   for (const li of items) {

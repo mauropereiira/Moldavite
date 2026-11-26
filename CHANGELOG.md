@@ -8,6 +8,8 @@ All notable changes to Moldavite are documented here.
 
 - **Winter.** A new Winter theme in Settings → Appearance, light and dark: soft snow with cranberry, pine and gingerbread by day, midnight blue and candlelight by night. With it on, the home screen shows a cabin in the hills. In light mode a snowman skis down the slope with a dog at his heels; in dark mode it's the same view on a festive evening, with lights on the cabin and a Christmas tree. Selected text, the typing cursor and ticked to-dos take the theme's accent, divider lines carry a tiny snowflake, and the Index shows small icons beside Notes, Folders, Daily and Tags. With any theme, snow falls across the home screen, a small snowman sits in the corner of Settings, and About says it's the Winter edition. Turn the seasonal bits off in Settings → Appearance → Seasonal touches.
 
+- **Numbered to-do lists.** A list written as `1. [ ] item` shows a number and a checkbox on every item. Type `[ ] ` at the start of a numbered item to make one, and press Enter for the next number.
+
 ### Changed
 
 - Autumn stays as a theme you can keep, with its own field, leaves and pumpkin.
@@ -33,7 +35,7 @@ All notable changes to Moldavite are documented here.
 - On Windows, installing an update waits for your last edits to be saved first.
 - A to-do item with a second paragraph keeps the blank line between its paragraphs, and to-do lists with blank lines between items no longer show an empty line in each item.
 - Bold, italic, code and links in a centred or right-aligned paragraph are kept when the note is reopened.
-- A numbered to-do list (`1. [ ] item`) keeps its numbers. It shows as Markdown text for now, because the editor cannot hold a numbered checkbox yet.
+- A numbered to-do list (`1. [ ] item`) keeps its numbers when the note is saved. It used to come back as a plain bulleted to-do list.
 - A note that starts with an HTML block and continues in Markdown opens as formatted text.
 - **Copy URL** on a note inside a folder called `daily`, `weekly` or `notes` opens that note and not a different one.
 - The Timeline moves on to the new day when it is left open past midnight.

@@ -3215,6 +3215,26 @@ wiki-link {
   padding-left: 0;
 }
 
+/* A numbered to-do list: each item's number sits before its box, on the first line. */
+.tiptap ul[data-type='taskList'][start] > li::before {
+  counter-increment: task-number;
+  content: counter(task-number) '.';
+  flex-shrink: 0;
+  /* Room for two digits, so the boxes of items 9 and 10 line up. */
+  min-width: 1.6em;
+  height: calc(var(--editor-line-height) * 1em);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiptap ul[data-type='taskList'][start][data-md-marker^=')'] > li::before {
+  content: counter(task-number) ')';
+}
+
 /* These are the rules a task item actually gets. TipTap's task item node view
    does not put `data-type='taskItem'` on the <li> it draws, so the rules above
    keyed on it never match in the editor. The item anchors to its top and the
