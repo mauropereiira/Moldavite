@@ -266,6 +266,22 @@ mod tests {
     }
 
     #[test]
+    fn static_asset_scope_names_only_image_folders() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(
+            config["app"]["security"]["assetProtocol"]["scope"]["allow"],
+            serde_json::json!([
+                "$DOCUMENT/Moldavite/*/images/**",
+                "$DOCUMENT/Moldavite/images/**"
+            ])
+        );
+    }
+
+    /// The matcher needs a Documents folder, which a Linux CI machine lacks,
+    /// and tauri's mock app, which is not built on Windows.
+    #[test]
+    #[cfg(target_os = "macos")]
     fn static_asset_scope_allows_only_image_trees_at_the_default_location() {
         use tauri::Manager;
 
