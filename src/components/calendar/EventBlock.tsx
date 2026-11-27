@@ -1,4 +1,7 @@
 import { useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+import { DialogSurface } from '@/components/ui/DialogSurface';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { format } from 'date-fns';
 import { open } from '@tauri-apps/plugin-shell';
 import { safeInvoke as invoke } from '@/lib/ipc';
@@ -57,7 +60,9 @@ export function EventBlock({
 }: EventBlockProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const handleClick = () => openEventUrl(event.url);
+  const mobile = isMobilePlatform();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const handleClick = () => (mobile ? setDetailsOpen(true) : openEventUrl(event.url));
 
   // Position by elapsed instants and clip to the displayed local day. Wall
   // clock fields collide during a fall-back hour and go negative overnight.
@@ -93,10 +98,14 @@ export function EventBlock({
         } as CSSProperties
       }
       onClick={handleClick}
-      role={event.url ? 'button' : undefined}
-      tabIndex={event.url ? 0 : undefined}
+      role={mobile || event.url ? 'button' : undefined}
+      tabIndex={mobile || event.url ? 0 : undefined}
       onKeyDown={(e) => {
-        if (event.url && (e.key === 'Enter' || e.key === ' ')) {
+        if (
+          e.target === e.currentTarget &&
+          (mobile || event.url) &&
+          (e.key === 'Enter' || e.key === ' ')
+        ) {
           e.preventDefault();
           void handleClick();
         }
@@ -141,7 +150,7 @@ export function EventBlock({
       </div>
 
       {/* Tooltip on hover */}
-      {showTooltip && (
+      {showTooltip && !mobile && (
         <div
           className="absolute left-full top-0 ml-2 z-30 p-3 min-w-[200px] max-w-[280px] modal-content-enter"
           style={{
@@ -190,6 +199,38 @@ export function EventBlock({
           )}
         </div>
       )}
+      {detailsOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 modal-backdrop-dark flex items-center justify-center z-[var(--z-dialog)] p-4"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailsOpen(false);
+            }}
+          >
+            <DialogSurface
+              aria-label={event.title}
+              onEscape={() => setDetailsOpen(false)}
+              onClick={(e) => e.stopPropagation()}
+              className="modal-elevated p-4 w-full max-w-sm break-words"
+              style={{ maxHeight: 'calc(var(--app-height) - 2rem)', overflowY: 'auto' }}
+            >
+              <div className="dialog-head">
+                <h3 className="text-sm min-w-0">{event.title}</h3>
+                <CloseButton onClick={() => setDetailsOpen(false)} label="Close event details" />
+              </div>
+              <p className="text-xs mt-2">{timeDisplay}</p>
+              {event.location && <p className="text-xs mt-2">Location: {event.location}</p>}
+              {event.notes && <p className="text-xs mt-2 whitespace-pre-wrap">{event.notes}</p>}
+              {event.url && (
+                <button className="btn mt-3" onClick={() => void openEventUrl(event.url)}>
+                  Open in calendar
+                </button>
+              )}
+            </DialogSurface>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

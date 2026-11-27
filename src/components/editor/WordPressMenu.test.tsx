@@ -1,9 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WordPressMenu } from './WordPressMenu';
 import { useWordPressStore } from '@/stores/wordpressStore';
-import { useNoteStore } from '@/stores';
+import { useNoteStore, useSettingsStore } from '@/stores';
+import { listen } from '@tauri-apps/api/event';
+import { Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { EditorFooter } from './EditorFooter';
 
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => undefined),
@@ -234,5 +238,38 @@ describe('WordPressMenu', () => {
     expect(state.connected).toBe(false);
     expect(state.chosenSiteId).toBeNull();
     expect(state.postsByNote).toEqual({});
+  });
+});
+
+describe('footer WordPress auth subscription', () => {
+  it('keeps the auth listener registered while typing', async () => {
+    vi.clearAllMocks();
+    const off = vi.fn();
+    vi.mocked(listen).mockResolvedValue(off);
+    status.mockResolvedValue({ available: false, connected: false, error: null });
+    useNoteStore.setState({
+      currentNote: { id: 'notes/a.md', title: 'A', content: '<p>one</p>' } as never,
+    });
+    useSettingsStore.setState({ showWordCount: true });
+    const editor = new Editor({ extensions: [StarterKit], content: '<p>one</p>' });
+    const { unmount } = render(
+      <EditorFooter editor={editor} onDelete={vi.fn()} onRenameNote={vi.fn()} />
+    );
+    try {
+      await waitFor(() => expect(screen.getByText('1 words')).toBeInTheDocument());
+      await act(async () => {});
+      const registrations = vi.mocked(listen).mock.calls.length;
+      const removals = off.mock.calls.length;
+      act(() => {
+        editor.commands.setContent('<p>one two three</p>');
+      });
+      await waitFor(() => expect(screen.getByText('3 words')).toBeInTheDocument());
+      expect(listen).toHaveBeenCalledTimes(registrations);
+      expect(off).toHaveBeenCalledTimes(removals);
+    } finally {
+      unmount();
+      editor.destroy();
+      useSettingsStore.setState({ showWordCount: false });
+    }
   });
 });

@@ -4,6 +4,7 @@ import type { DependencyList } from 'react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Editor as TiptapEditor } from '@tiptap/core';
 import type { Note } from '@/types';
+import * as fileSystem from '@/lib/fileSystem';
 
 const tiptapHarness = vi.hoisted(() => ({
   editor: null as TiptapEditor | null,
@@ -98,6 +99,11 @@ const toastSpies = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 const getTemplateContent = vi.hoisted(() => vi.fn());
+const processAndSaveImage = vi.hoisted(() => vi.fn());
+vi.mock('@/lib', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib')>()),
+  processAndSaveImage,
+}));
 
 vi.mock('@/hooks', () => ({
   useAutoSave: vi.fn(),
@@ -309,6 +315,7 @@ beforeEach(() => {
   toastSpies.success.mockReset();
   toastSpies.error.mockReset();
   getTemplateContent.mockReset().mockResolvedValue('# Template content');
+  processAndSaveImage.mockReset();
   useNoteStore.setState({
     notes: [],
     openTabs: [],
@@ -802,6 +809,69 @@ describe('Editor external change decisions', () => {
 });
 
 describe('Editor wiki links', () => {
+  it('indexes wiki names once and skips existence work for modification-only saves', async () => {
+    const slug = vi.spyOn(fileSystem, 'slugifyNoteName');
+    const files = Array.from({ length: 30 }, (_, i) => ({
+      name: `Target ${i}.md`,
+      isLocked: false,
+      path: `notes/Target ${i}.md`,
+      isDaily: false,
+      isWeekly: false,
+    }));
+    useNoteStore.setState({ notes: files });
+    const body = Array.from(
+      { length: 20 },
+      (_, i) =>
+        `<wiki-link data-target="target-${i}.md" data-label="Target ${i}">Target ${i}</wiki-link>`
+    ).join('');
+    try {
+      await renderEditor(note('notes/links.md', `<p>${body}</p>`));
+      await waitFor(() =>
+        expect(document.querySelectorAll('wiki-link[data-exists="true"]')).toHaveLength(20)
+      );
+      expect(slug.mock.calls.filter(([name]) => name === 'Target 0.md')).toHaveLength(1);
+      const descendants = vi.spyOn((tiptapHarness.editor as TiptapEditor).state.doc, 'descendants');
+      slug.mockClear();
+      act(() =>
+        useNoteStore.setState({ notes: files.map((file) => ({ ...file, modifiedAt: 100 })) })
+      );
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(slug).not.toHaveBeenCalled();
+      expect(descendants).not.toHaveBeenCalled();
+      act(() => useNoteStore.setState({ notes: files.slice(1) }));
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'false'
+        )
+      );
+      act(() => useNoteStore.setState({ notes: files }));
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'true'
+        )
+      );
+      act(() =>
+        useNoteStore.setState({
+          notes: files.map((file, index) => (index === 0 ? { ...file, name: 'Renamed.md' } : file)),
+        })
+      );
+      await waitFor(() =>
+        expect(document.querySelector('wiki-link[data-target="target-0.md"]')).toHaveAttribute(
+          'data-exists',
+          'false'
+        )
+      );
+      act(() => useNoteStore.setState({ notes: [] }));
+      await waitFor(() =>
+        expect(document.querySelectorAll('wiki-link[data-exists="true"]')).toHaveLength(0)
+      );
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it('opens a missing daily-note link as the daily note, not a standalone one', async () => {
     const user = userEvent.setup();
     await renderEditor(
@@ -1325,4 +1395,78 @@ describe('Editor typing settings', () => {
     expect(dom).toHaveAttribute('spellcheck', 'false');
     expect(dom).toHaveAttribute('autocapitalize', 'off');
   });
+});
+
+describe('Editor pending insertions', () => {
+  it('drops a template when the originating note is no longer active', async () => {
+    let finish!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    getTemplateContent.mockReturnValueOnce(pending);
+    const first = note('notes/first.md', '<p></p>');
+    const second = note('notes/second.md', '<p>Second</p>');
+    const { editor } = await renderEditor(first, [second]);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
+    expect(getTemplateContent).toHaveBeenCalled();
+    act(() => useNoteStore.getState().switchTab(second.id));
+    await act(async () => {
+      finish('# Wrong note');
+      await pending;
+    });
+    expect(editor.getText()).toBe('Second');
+    expect(useNoteStore.getState().openTabs.find((tab) => tab.id === first.id)?.content).toBe(
+      '<p></p>'
+    );
+    expect(toastSpies.success).not.toHaveBeenCalledWith('Template applied');
+  });
+
+  it.each(['paste', 'drop'] as const)(
+    'drops a pending image %s when the originating note is no longer active',
+    async (kind) => {
+      let finish!: (value: string) => void;
+      const pending = new Promise<string>((resolve) => {
+        finish = resolve;
+      });
+      processAndSaveImage.mockReturnValueOnce(pending);
+      const first = note('notes/first.md', '<p>First</p>');
+      const second = note('notes/second.md', '<p>Second</p>');
+      const { editor } = await renderEditor(first, [second]);
+      const file = new File(['image'], 'picture.png', { type: 'image/png' });
+      act(() => {
+        if (kind === 'paste') {
+          editor.options.editorProps?.handlePaste?.(
+            editor.view,
+            {
+              clipboardData: { items: [{ type: file.type, getAsFile: () => file }] },
+              preventDefault: vi.fn(),
+            } as unknown as ClipboardEvent,
+            null as never
+          );
+        } else {
+          editor.options.editorProps?.handleDrop?.(
+            editor.view,
+            {
+              dataTransfer: { files: [file] },
+              preventDefault: vi.fn(),
+            } as unknown as DragEvent,
+            null as never,
+            false
+          );
+        }
+      });
+      expect(processAndSaveImage).toHaveBeenCalledWith(file);
+      act(() => useNoteStore.getState().switchTab(second.id));
+      await act(async () => {
+        finish('images/picture.png');
+        await pending;
+      });
+      expect(editor.getHTML()).not.toContain('<img');
+      expect(editor.getText()).toBe('Second');
+      expect(useNoteStore.getState().openTabs.find((tab) => tab.id === first.id)?.content).toBe(
+        '<p>First</p>'
+      );
+      expect(toastSpies.success).not.toHaveBeenCalledWith('Image added');
+    }
+  );
 });

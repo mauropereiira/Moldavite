@@ -911,7 +911,7 @@ mod tests {
         let recent = RecentWrites::new();
         let indexed = || {
             let mut paths: Vec<String> = svc
-                .search("anything", 100)
+                .search(root, "anything", 100)
                 .unwrap()
                 .into_iter()
                 .map(|hit| hit.path)

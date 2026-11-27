@@ -229,6 +229,30 @@ mod tests {
     }
 
     #[test]
+    fn interrupted_lock_plaintext_is_not_returned_by_mcp_backlinks() {
+        let root = temp_forge("interrupted-lock");
+        fs::write(root.join("notes/target.md"), "# Target").unwrap();
+        fs::write(root.join("notes/source.md"), "confidential [[target]]").unwrap();
+        let context = ToolContext::new(root.clone(), false, false);
+        let args = json!({"path": "notes/target.md"});
+        assert_eq!(
+            context.call("get_backlinks", &args)["structuredContent"]["backlinks"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        fs::write(root.join("notes/source.md.locked"), "ciphertext").unwrap();
+        assert!(
+            context.call("get_backlinks", &args)["structuredContent"]["backlinks"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn protocol_round_trip_covers_every_tool() {
         let root = temp_forge("roundtrip");
         fs::write(

@@ -230,9 +230,10 @@ export function PluginPermissionSheet({
               </button>
               <button
                 onClick={onEnable}
-                className="px-4 py-2 text-sm font-medium text-white transition-colors"
+                className="px-4 py-2 text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: 'var(--accent-primary)',
+                  color: 'var(--text-on-accent)',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -242,8 +243,12 @@ export function PluginPermissionSheet({
           ) : (
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-white transition-colors"
-              style={{ backgroundColor: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)' }}
+              className="px-4 py-2 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'var(--accent-primary)',
+                color: 'var(--text-on-accent)',
+                borderRadius: 'var(--radius-sm)',
+              }}
             >
               Done
             </button>

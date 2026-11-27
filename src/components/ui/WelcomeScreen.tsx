@@ -4,7 +4,7 @@ import { formatShortcut } from '@/lib/shortcuts';
 import { useNoteStore, useOverlayStore, useSettingsStore } from '@/stores';
 import { CONSTELLATIONS } from './constellations';
 import { WORDMARK_BOX, WORDMARK_GLYPHS } from './wordmarkGlyphs';
-import { useAutumnArt, useSeasonalTouches } from '@/lib/seasons';
+import { useSeasonArt, useSeasonalTouches } from '@/lib/seasons';
 import { MaskArt } from './MaskArt';
 import { isMobilePlatform } from '@/lib/platform';
 
@@ -508,6 +508,69 @@ function FallingLeaves({ reducedMotion }: { reducedMotion: boolean }) {
   });
 }
 
+const FALLING_FLAKES = [
+  { left: 6, size: 22, duration: 38, delay: -6, sway: 18 },
+  { left: 15, size: 30, duration: 46, delay: -31, sway: -24 },
+  { left: 24, size: 18, duration: 34, delay: -17, sway: 14 },
+  { left: 36, size: 14, duration: 41, delay: -3, sway: -12 },
+  { left: 58, size: 16, duration: 36, delay: -24, sway: 16 },
+  { left: 69, size: 28, duration: 44, delay: -12, sway: 26 },
+  { left: 79, size: 20, duration: 39, delay: -35, sway: -20 },
+  { left: 88, size: 32, duration: 48, delay: -20, sway: 22 },
+  { left: 95, size: 17, duration: 33, delay: -9, sway: -14 },
+];
+const FLAKE_MASKS = ['dendrite', 'star', 'fern', 'plate'];
+/** Small round flakes between the drawn ones, so the snowfall has some depth. */
+const SNOW_DOTS = [
+  { left: 3, size: 4, duration: 27, delay: -14, sway: 10 },
+  { left: 11, size: 3, duration: 31, delay: -2, sway: -8 },
+  { left: 19, size: 5, duration: 24, delay: -21, sway: 12 },
+  { left: 29, size: 3, duration: 29, delay: -9, sway: -10 },
+  { left: 41, size: 4, duration: 33, delay: -26, sway: 8 },
+  { left: 52, size: 3, duration: 26, delay: -5, sway: -12 },
+  { left: 63, size: 5, duration: 30, delay: -17, sway: 10 },
+  { left: 73, size: 3, duration: 25, delay: -23, sway: -8 },
+  { left: 84, size: 4, duration: 32, delay: -11, sway: 12 },
+  { left: 92, size: 3, duration: 28, delay: -19, sway: -10 },
+];
+
+function FallingSnow({ reducedMotion }: { reducedMotion: boolean }) {
+  const motion = reducedMotion ? '' : ' welcome-flake-falling';
+  const flakeStyle = (
+    { left, size, duration, delay, sway }: (typeof FALLING_FLAKES)[number],
+    restingTop: number
+  ): CSSProperties & { '--leaf-sway': string } => ({
+    '--leaf-sway': `${sway}px`,
+    left: `${left}%`,
+    top: reducedMotion ? `${restingTop}%` : undefined,
+    width: size,
+    height: size,
+    animationDuration: `${duration}s`,
+    animationDelay: `${delay}s`,
+  });
+
+  return (
+    <>
+      {FALLING_FLAKES.map((flake, index) => (
+        <MaskArt
+          key={`flake-${index}`}
+          src={`/seasonal/flake-${FLAKE_MASKS[index % FLAKE_MASKS.length]}.webp`}
+          className={`welcome-flake${motion}`}
+          style={flakeStyle(flake, 10 + ((index * 37) % 70))}
+        />
+      ))}
+      {SNOW_DOTS.map((dot, index) => (
+        <span
+          key={`dot-${index}`}
+          aria-hidden="true"
+          className={`welcome-flake welcome-snow-dot${motion}`}
+          style={flakeStyle(dot, 6 + ((index * 53) % 80))}
+        />
+      ))}
+    </>
+  );
+}
+
 export function WelcomeEmptyState({
   onCreateToday,
   onCreateNote,
@@ -517,7 +580,9 @@ export function WelcomeEmptyState({
 }) {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const season = useSeasonalTouches();
-  const autumnArt = useAutumnArt();
+  const seasonArt = useSeasonArt();
+  // A seasonal theme brings its own weather; any other theme gets the season's.
+  const falling = seasonArt ?? season;
   const { quietHomeScreen, isSettingsOpen } = useSettingsStore();
   const activeOverlay = useOverlayStore((state) => state.activeOverlay);
   const documentHidden = useDocumentHidden();
@@ -565,8 +630,9 @@ export function WelcomeEmptyState({
           {['sun', 'moon'].map((art) => (
             <MaskArt key={art} src={`/sky/${art}.webp`} className={`welcome-${art}`} />
           ))}
-          {season === 'autumn' && <FallingLeaves reducedMotion={reducedMotion} />}
-          {autumnArt && <div aria-hidden="true" className="mask-art autumn-field" />}
+          {falling === 'autumn' && <FallingLeaves reducedMotion={reducedMotion} />}
+          {falling === 'winter' && <FallingSnow reducedMotion={reducedMotion} />}
+          {seasonArt && <div aria-hidden="true" className={`mask-art ${seasonArt}-field`} />}
         </>
       )}
       {!quietHomeScreen && (

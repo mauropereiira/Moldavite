@@ -87,3 +87,23 @@ describe('the phone stylesheet on a landscape phone', () => {
     expect(clear).toContain('min-height: var(--touch-target)');
   });
 });
+
+describe('phone dialogs above the keyboard', () => {
+  it('sizes the Settings scrim to the visible viewport', () => {
+    expect(
+      rule(
+        css,
+        "html[data-platform='mobile'][data-keyboard='open'] :is(.modal-backdrop-dark, .settings-scrim)"
+      )
+    ).toContain('height: var(--app-height)');
+  });
+
+  it('caps the template editor inside the available scrim height', () => {
+    expect(
+      rule(
+        css,
+        "html[data-platform='mobile'] .settings-scrim > [aria-labelledby='template-editor-title']"
+      )
+    ).toContain('max-height: calc(100% - 32px)');
+  });
+});

@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   useGraphStore,
@@ -12,6 +12,7 @@ import {
 import type { Note } from '@/types';
 import { ChromeShortcutHost } from './ChromeShortcutHost';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { invoke } from '@tauri-apps/api/core';
 
 beforeEach(() => {
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
@@ -273,4 +274,55 @@ describe('ChromeShortcutHost with ⌥ held', () => {
     fireEvent.keyDown(window, { key: 'G', code: 'KeyG', metaKey: true, shiftKey: true });
     expect(useGraphStore.getState().isOpen).toBe(true);
   });
+});
+
+describe('Timeline application shortcuts', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ isSettingsOpen: false });
+    useNoteStore.setState({ notes: [], openTabs: [], activeTabId: null, currentNote: null });
+    useTimelineStore.getState().open();
+    vi.mocked(invoke)
+      .mockReset()
+      .mockImplementation(async (command) => {
+        if (command === 'create_note') return 'Untitled.md';
+        if (command === 'read_note') return { content: '', color: null, contentHash: 'h' };
+        return undefined;
+      });
+  });
+
+  it.each(['Mac', 'Windows'])(
+    'opens Settings over Timeline with the %s primary modifier',
+    (platform) => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        platform === 'Mac' ? 'Macintosh' : 'Windows'
+      );
+      render(<ChromeShortcutHost />);
+      const modifiers = platform === 'Mac' ? { metaKey: true } : { ctrlKey: true };
+      fireEvent.keyDown(window, { key: ',', ...modifiers, altKey: true });
+      expect(useSettingsStore.getState().isSettingsOpen).toBe(false);
+      fireEvent.keyDown(window, { key: ',', ...modifiers });
+      expect(useSettingsStore.getState().isSettingsOpen).toBe(true);
+    }
+  );
+
+  it.each(['Mac', 'Windows'])(
+    'creates one note and leaves Timeline with the %s primary modifier',
+    async (platform) => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        platform === 'Mac' ? 'Macintosh' : 'Windows'
+      );
+      render(<ChromeShortcutHost />);
+      const modifiers = platform === 'Mac' ? { metaKey: true } : { ctrlKey: true };
+      fireEvent.keyDown(window, { key: 'n', ...modifiers, altKey: true });
+      expect(invoke).not.toHaveBeenCalledWith('create_note', expect.anything());
+      fireEvent.keyDown(window, { key: 'n', ...modifiers });
+      await waitFor(() =>
+        expect(useNoteStore.getState().currentNote?.id).toBe('notes/Untitled.md')
+      );
+      expect(
+        vi.mocked(invoke).mock.calls.filter(([command]) => command === 'create_note')
+      ).toHaveLength(1);
+      expect(useTimelineStore.getState().isOpen).toBe(false);
+    }
+  );
 });

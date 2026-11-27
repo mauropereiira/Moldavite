@@ -36,7 +36,8 @@ const mockGetVersion = vi.mocked(getVersion);
 function mockUpdate(version = '1.8.0') {
   return {
     version,
-    downloadAndInstall: vi.fn().mockResolvedValue(undefined),
+    download: vi.fn().mockResolvedValue(undefined),
+    install: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -152,7 +153,7 @@ describe('updateStore', () => {
 
     await useUpdateStore.getState().installUpdate();
 
-    expect(update.downloadAndInstall).toHaveBeenCalled();
+    expect(update.install).toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBeNull();
     expect(mockRelaunch).toHaveBeenCalled();
   });
@@ -171,6 +172,7 @@ describe('updateStore', () => {
     unregisterFlush();
     consoleError.mockRestore();
     expect(flush).toHaveBeenCalledTimes(1);
+    expect(update.install).not.toHaveBeenCalled();
     expect(mockRelaunch).not.toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBe(update.version);
     expect(useUpdateStore.getState().error).not.toBeNull();
@@ -215,8 +217,34 @@ describe('updateStore', () => {
     await useUpdateStore.getState().installUpdate();
 
     expect(mockCheck).toHaveBeenCalledTimes(1);
-    expect(update.downloadAndInstall).toHaveBeenCalled();
+    expect(update.install).toHaveBeenCalled();
     expect(useUpdateStore.getState().availableVersion).toBeNull();
+  });
+
+  it('downloads, settles pending writes, then installs with progress', async () => {
+    const update = mockUpdate();
+    const order: string[] = [];
+    update.download.mockImplementation(async (onEvent) => {
+      order.push('download');
+      onEvent({ event: 'Started', data: { contentLength: 100 } });
+      onEvent({ event: 'Progress', data: { chunkLength: 40 } });
+      expect(useUpdateStore.getState().progress).toBe(40);
+      onEvent({ event: 'Finished' });
+    });
+    update.install.mockImplementation(async () => {
+      order.push('install');
+    });
+    const unregister = registerAutosaveFlush(async () => {
+      order.push('save');
+    });
+    useUpdateStore.setState({ availableVersion: update.version, update: update as never });
+    try {
+      await useUpdateStore.getState().installUpdate();
+      expect(order).toEqual(['download', 'save', 'install', 'save']);
+      expect(useUpdateStore.getState().progress).toBe(100);
+    } finally {
+      unregister();
+    }
   });
 
   it('compares versions numerically', () => {

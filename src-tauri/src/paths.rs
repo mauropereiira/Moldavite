@@ -265,6 +265,56 @@ mod tests {
         );
     }
 
+    #[test]
+    fn static_asset_scope_names_only_image_folders() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(
+            config["app"]["security"]["assetProtocol"]["scope"]["allow"],
+            serde_json::json!([
+                "$DOCUMENT/Moldavite/*/images/**",
+                "$DOCUMENT/Moldavite/images/**"
+            ])
+        );
+    }
+
+    /// The matcher needs a Documents folder, which a Linux CI machine lacks,
+    /// and tauri's mock app, which is not built on Windows.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn static_asset_scope_allows_only_image_trees_at_the_default_location() {
+        use tauri::Manager;
+
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let scope: tauri::utils::config::FsScope =
+            serde_json::from_value(config["app"]["security"]["assetProtocol"]["scope"].clone())
+                .unwrap();
+        let app = tauri::test::mock_app();
+        let scope = tauri::scope::fs::Scope::new(app.handle(), &scope).unwrap();
+        let root = app.path().document_dir().unwrap().join("Moldavite");
+        for relative in [
+            "Default/images/pasted.png",
+            "Default/images/sub/folder/photo.png",
+            "Work/images/photo with spaces.png",
+            "images/legacy.png",
+            "images/sub/legacy.png",
+        ] {
+            assert!(scope.is_allowed(root.join(relative)), "{relative}");
+        }
+        for relative in [
+            "Work/private.txt",
+            "private.txt",
+            "Default/notes/private.txt",
+            "Default/images/secret.md",
+            "Default/images/secret.md.locked",
+            "Default/images/settings.json",
+            "Default/images/.trash/private.png",
+        ] {
+            assert!(!scope.is_allowed(root.join(relative)), "{relative}");
+        }
+    }
+
     use super::*;
 
     #[test]

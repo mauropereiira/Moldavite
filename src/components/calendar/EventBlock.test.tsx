@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { open } from '@tauri-apps/plugin-shell';
 import { safeInvoke } from '@/lib/ipc';
@@ -68,6 +68,37 @@ describe('EventBlock', () => {
     await waitFor(() => expect(safeInvoke).toHaveBeenCalledWith('open_external_link', { url }));
     expect(open).not.toHaveBeenCalled();
   });
+
+  it.each(['', 'https://calendar.google.com/event?eid=1'])(
+    'shows full phone event details in a viewport-bound dialog for URL %s',
+    async (url) => {
+      platform.mobile = true;
+      const title = 'A long event title that needs room to be read in full';
+      const notes = 'Detailed event notes '.repeat(50);
+      const { container } = render(
+        <EventBlock event={buildEvent({ title, notes, url })} columnIndex={0} totalColumns={1} />
+      );
+      const block = container.firstElementChild as HTMLElement;
+      block.focus();
+      fireEvent.click(block);
+      const dialog = screen.getByRole('dialog', { name: title });
+      expect(dialog.parentElement?.parentElement).toBe(document.body);
+      expect(dialog.style.maxHeight).toContain('--app-height');
+      expect(dialog.style.overflowY).toBe('auto');
+      expect(within(dialog).getByText(notes.trim())).not.toHaveClass('line-clamp-3');
+      expect(safeInvoke).not.toHaveBeenCalled();
+      if (url) {
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Open in calendar' }));
+        await waitFor(() => expect(safeInvoke).toHaveBeenCalledWith('open_external_link', { url }));
+      }
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() => expect(block).toHaveFocus());
+      fireEvent.click(block);
+      fireEvent.click(screen.getByRole('button', { name: 'Close event details' }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }
+  );
 
   it('shows times on the same 24-hour clock as the timeline axis', () => {
     const { container } = render(

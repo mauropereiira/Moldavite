@@ -90,7 +90,13 @@ turndownService.addRule('textAlign', {
     const element = node as HTMLElement;
     const align = element.style.textAlign;
     if (align && align !== 'left') {
-      return `<p style="text-align: ${align}">${content}</p>\n\n`;
+      // Backlinks, the Graph and renames read `[[links]]`, so a link keeps that
+      // spelling here while the rest of the line is saved as HTML.
+      const inner = element.cloneNode(true) as HTMLElement;
+      inner
+        .querySelectorAll('wiki-link, [data-wiki-link="true"]')
+        .forEach((link) => link.replaceWith(wikiLinkSource(link, link.textContent ?? '')));
+      return `<p style="text-align: ${align}">${inner.innerHTML}</p>\n\n`;
     }
     return content + '\n\n';
   },
@@ -103,14 +109,14 @@ turndownService.addRule('wikiLink', {
       (node.getAttribute && node.getAttribute('data-wiki-link') === 'true')
     );
   },
-  replacement: (content, node) => {
-    const element = node as HTMLElement;
-    const label = element.getAttribute('data-label') || content || '';
-    const rawTarget = element.getAttribute('data-raw-target');
-
-    return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
-  },
+  replacement: (content, node) => wikiLinkSource(node as HTMLElement, content),
 });
+
+function wikiLinkSource(element: Element, content: string): string {
+  const label = element.getAttribute('data-label') || content || '';
+  const rawTarget = element.getAttribute('data-raw-target');
+  return rawTarget ? `[[${label}|${rawTarget}]]` : `[[${label}]]`;
+}
 
 // Add rule to ignore checkbox inputs inside task items (we handle them via data-checked attribute)
 turndownService.addRule('taskItemCheckbox', {
@@ -164,15 +170,30 @@ turndownService.addRule('taskItemDiv', {
  */
 function listItemMarker(item: Element, fallback: string): string {
   const list = item.parentElement;
-  const ordered = list?.nodeName === 'OL';
+  const ordered = isOrderedList(list);
   const written = /^([-*+.)])([1-4])$/.exec(list?.getAttribute('data-md-marker') ?? '');
   const fits = written !== null && ordered === /[.)]/.test(written[1]);
   const marker = fits ? written[1] : null;
   const spaces = ' '.repeat(fits ? Number(written[2]) : 1);
   if (!ordered) return `${marker ?? fallback}${spaces}`;
-  const start = Number(list.getAttribute('start') ?? 1);
   const index = Array.prototype.indexOf.call(list.children, item);
-  return `${start + index}${marker ?? '.'}${spaces}`;
+  return `${orderedListStart(list) + index}${marker ?? '.'}${spaces}`;
+}
+
+/** An `<ol>`, or a numbered to-do list, which the editor draws as a task list with a `start`. */
+function isOrderedList(list: Element | null | undefined): list is Element {
+  return (
+    list?.nodeName === 'OL' ||
+    (list?.getAttribute('data-type') === 'taskList' && list.hasAttribute('start'))
+  );
+}
+
+/** A run that carries on the list before it counts on from that list's last item. */
+function orderedListStart(list: Element): number {
+  const previous = list.previousElementSibling;
+  return joinsPreviousList(list) && previous
+    ? orderedListStart(previous) + previous.children.length
+    : Number(list.getAttribute('start') ?? 1);
 }
 
 turndownService.addRule('taskItem', {
@@ -192,10 +213,7 @@ turndownService.addRule('taskItem', {
       // Only a remnant at the start: the same brackets later are the user's text.
       .replace(ESCAPED_CHECKBOX, '')
       .trim()
-      // A blank line would close the list, so a nested task list has to stay
-      // attached to its parent item and indented under the `- [ ] ` marker.
-      .replace(/\n{2,}/g, '\n')
-      .replace(/\n/g, `\n${' '.repeat(marker.length)}`);
+      .replace(/\n(?=[^\n])/g, `\n${' '.repeat(marker.length)}`);
     const gap = node.nextSibling && element.getAttribute('data-gap-after') === 'true' ? '\n' : '';
     return `${marker}${checkbox} ${cleanContent}\n${gap}`;
   },
@@ -204,14 +222,19 @@ turndownService.addRule('taskItem', {
 /**
  * The editor splits a list where bullets meet tasks, but in Markdown the two
  * runs are one list, so they meet with a blank line only if the note had one.
+ * The same goes for numbered to-dos among numbered items.
  */
 function joinsPreviousList(list: Element | null): boolean {
   const previous = list?.previousElementSibling;
-  return (
-    list?.nodeName === 'UL' &&
-    previous?.nodeName === 'UL' &&
-    previous.lastElementChild?.getAttribute('data-gap-after') !== 'true'
-  );
+  if (!list || !previous) return false;
+  const numberedTasks = (element: Element) => element.nodeName === 'UL' && isOrderedList(element);
+  const delimiter = (element: Element) =>
+    (element.getAttribute('data-md-marker') ?? '').startsWith(')') ? ')' : '.';
+  const sameList =
+    numberedTasks(list) || numberedTasks(previous)
+      ? isOrderedList(list) && isOrderedList(previous) && delimiter(list) === delimiter(previous)
+      : list.nodeName === 'UL' && previous.nodeName === 'UL';
+  return sameList && previous.lastElementChild?.getAttribute('data-gap-after') !== 'true';
 }
 
 function listMarkdown(list: Element, content: string): string {
@@ -567,6 +590,19 @@ const md = new MarkdownIt({
 md.use(markdownItTaskLists, {
   enabled: true,
   label: false,
+});
+// The task list plugin wants text after the box, but Enter in the editor makes
+// an empty one and saves it as `- [ ]`, which came back as a bullet reading "[ ]".
+md.core.ruler.before('github-task-lists', 'empty_tasks', (state) => {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'inline' || !/^\[[ xX]\]$/.test(token.content)) return;
+    if (state.tokens[index - 1]?.type !== 'paragraph_open') return;
+    if (state.tokens[index - 2]?.type !== 'list_item_open') return;
+    const text = token.children?.length === 1 ? token.children[0] : null;
+    if (text?.type !== 'text') return;
+    token.content += ' ';
+    text.content += ' ';
+  });
 });
 md.use(markdownSourcePlugin);
 
@@ -1089,10 +1125,11 @@ function blocksToMarkdown(root: Element): string {
  * @param root - The wrapper element holding the rendered Markdown
  */
 function splitMixedTaskLists(root: Element): void {
-  const taskLists = root.querySelectorAll('ul.contains-task-list');
+  const taskLists = root.querySelectorAll('ul.contains-task-list, ol.contains-task-list');
 
   taskLists.forEach((ul) => {
     const items = Array.from(ul.children);
+    const first = Number(ul.getAttribute('start') ?? 1);
     const hasTaskItems = items.some((item) => item.classList.contains('task-list-item'));
     const hasRegularItems = items.some((item) => !item.classList.contains('task-list-item'));
     if (!hasTaskItems || !hasRegularItems) return;
@@ -1102,11 +1139,12 @@ function splitMixedTaskLists(root: Element): void {
     const fragment = root.ownerDocument.createDocumentFragment();
     let currentList: Element | null = null;
     let currentRunIsTask: boolean | null = null;
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       const isTask = item.classList.contains('task-list-item');
       if (currentList === null || currentRunIsTask !== isTask) {
         currentList = ul.cloneNode(false) as Element;
         if (!isTask) currentList.classList.remove('contains-task-list');
+        if (ul.nodeName === 'OL') currentList.setAttribute('start', String(first + index));
         fragment.appendChild(currentList);
         currentRunIsTask = isTask;
       }
@@ -1142,6 +1180,18 @@ function taskListsToTipTapHtml(html: string): string {
     ul.removeAttribute('class');
     ul.setAttribute('data-type', 'taskList');
   }
+  // The editor has one kind of task list, so a numbered one is that list with
+  // the number it starts at.
+  for (const ol of Array.from(root.querySelectorAll('ol.contains-task-list'))) {
+    const list = doc.createElement('ul');
+    for (const { name, value } of Array.from(ol.attributes)) {
+      if (name !== 'class') list.setAttribute(name, value);
+    }
+    list.setAttribute('data-type', 'taskList');
+    list.setAttribute('start', ol.getAttribute('start') ?? '1');
+    while (ol.firstChild) list.appendChild(ol.firstChild);
+    ol.replaceWith(list);
+  }
 
   for (const li of items) {
     const marker = li.querySelector('input.task-list-item-checkbox');
@@ -1150,6 +1200,9 @@ function taskListsToTipTapHtml(html: string): string {
 
     const body = doc.createElement('div');
     while (li.firstChild) body.appendChild(li.firstChild);
+    while (body.firstChild?.nodeType === Node.TEXT_NODE && !body.firstChild.textContent?.trim()) {
+      body.firstChild.remove();
+    }
 
     // TipTap's taskItem schema is `paragraph block*`, so the body must open
     // with one; markdown-it emits the item text bare in a tight list.
@@ -1551,12 +1604,26 @@ const TABLE_DELIMITER_LINE = new RegExp(`^${TABLE_DELIMITER_SOURCE}$`, 'm');
 export function isHtmlContent(content: string): boolean {
   if (!content) return false;
   const trimmed = content.trim();
-  return (
-    LEGACY_HTML_OPENER.test(trimmed) &&
-    LEGACY_HTML_CLOSER.test(trimmed) &&
-    !MARKDOWN_BLOCK_MARKER.test(trimmed) &&
-    !TABLE_DELIMITER_LINE.test(trimmed)
-  );
+  if (
+    !LEGACY_HTML_OPENER.test(trimmed) ||
+    !LEGACY_HTML_CLOSER.test(trimmed) ||
+    MARKDOWN_BLOCK_MARKER.test(trimmed) ||
+    TABLE_DELIMITER_LINE.test(trimmed)
+  )
+    return false;
+  const body = new DOMParser().parseFromString(trimmed, 'text/html').body;
+  return !Array.from(body.childNodes).some((node) => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) return false;
+    const text = node.textContent;
+    if (new RegExp(WIKI_LINK_SOURCE).test(text)) return true;
+    return md
+      .parseInline(text, {})
+      .some((token) =>
+        token.children?.some((child) =>
+          /^(?:strong_open|em_open|s_open|code_inline|link_open|image)$/.test(child.type)
+        )
+      );
+  });
 }
 
 /**
@@ -2051,8 +2118,10 @@ export function filenameToNote(file: NoteFile, content: string): Note {
     id: file.path,
     title,
     content: content ? DOMPurify.sanitize(content, DOMPURIFY_CONFIG) : content,
-    createdAt: new Date(), // Would need file metadata for actual values
-    updatedAt: new Date(),
+    // The listing carries the file's own times, in seconds; a note it has not
+    // seen yet (just created, or opened from outside the Forge) starts now.
+    createdAt: file.createdAt ? new Date(file.createdAt * 1000) : new Date(),
+    updatedAt: file.modifiedAt ? new Date(file.modifiedAt * 1000) : new Date(),
     isDaily: file.isDaily,
     isWeekly: file.isWeekly,
     date: file.date,

@@ -76,7 +76,14 @@ export function useKeyboardShortcuts({
 
       try {
         if (currentNote && editor) {
+          const noteId = currentNote.id;
           const markdownContent = await applyTemplate(templateId);
+          if (
+            editor.isDestroyed ||
+            useNoteStore.getState().currentNote?.id !== noteId ||
+            isCurrentNoteViewOnly(useNoteStore.getState())
+          )
+            return;
           const htmlContent = markdownToHtml(markdownContent);
           editor.commands.setContent(htmlContent);
           toast.success('Template applied');

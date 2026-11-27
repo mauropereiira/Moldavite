@@ -13,7 +13,7 @@ import { openShortcutHelp } from '@/components/ShortcutHelpModal';
 import { DotLoader } from '@/components/ui/DotLoader';
 import { useToast } from '@/hooks/useToast';
 import { safeInvoke } from '@/lib/ipc';
-import { useSeasonalTouches } from '@/lib/seasons';
+import { SEASON_MASCOT, useSeasonalTouches } from '@/lib/seasons';
 
 function SoftwareUpdates() {
   const {
@@ -118,7 +118,9 @@ export function AboutSection() {
         <Row
           id="version"
           note={
-            appVersion ? `${appVersion}${season === 'autumn' ? ', Autumn edition' : ''}` : '...'
+            appVersion
+              ? `${appVersion}${season ? `, ${SEASON_MASCOT[season].edition}` : ''}`
+              : '...'
           }
           detail="Moldavite is a tektite: natural glass formed by a meteorite impact, found in Bohemia."
         >

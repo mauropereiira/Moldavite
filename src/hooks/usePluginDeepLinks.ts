@@ -2,11 +2,13 @@ import { isMobilePlatform } from '@/lib/platform';
 /** Cold-start and running-instance delivery for validated app deep links. */
 
 import { useEffect } from 'react';
+import { format } from 'date-fns';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { safeInvoke } from '@/lib/ipc';
 import { whenForgeReady } from '@/lib/forgeReadiness';
 import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
 import { useGraphStore } from '@/stores/graphStore';
+import { useOverlayStore } from '@/stores/overlayStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
@@ -67,6 +69,9 @@ export function noteDeepLink(
     reference = `weekly/${note.week}.md`;
   } else {
     reference = note.id.startsWith('notes/') ? note.id.slice('notes/'.length) : note.id;
+    if (/^(notes|daily|weekly)\//.test(reference) && note.id.startsWith('notes/')) {
+      reference = note.id;
+    }
   }
   return `moldavite://note/${encodeURIComponent(reference)}`;
 }
@@ -128,6 +133,17 @@ async function findLinkedNote(
   return note ?? null;
 }
 
+/**
+ * Put away the Index, Agenda or Search covering the note a link just opened.
+ * A load that fails only shows a toast, and a locked note opens the Index to
+ * ask for its password, so navigation closes only once the note is showing.
+ */
+function closeNavigationOver(isOpened: (note: Note) => boolean): void {
+  const { currentNote, pendingUnlock } = useNoteStore.getState();
+  if (pendingUnlock || !currentNote || !isOpened(currentNote)) return;
+  useOverlayStore.getState().closeOverlay();
+}
+
 /** Resolve a validated note reference and use the normal editor navigation path. */
 export async function routeNoteRequest(
   value: unknown,
@@ -150,6 +166,7 @@ export async function routeNoteRequest(
 
   useSettingsStore.getState().setIsSettingsOpen(false);
   await loadNote(note);
+  closeNavigationOver((opened) => opened.id === note.path);
   return true;
 }
 
@@ -161,6 +178,8 @@ export async function routeTodayRequest(loadDailyNote: LoadDailyNote): Promise<v
   const today = new Date();
   useNoteStore.getState().setSelectedDate(today);
   await loadDailyNote(today);
+  const date = format(today, 'yyyy-MM-dd');
+  closeNavigationOver((opened) => opened.isDaily && opened.date === date);
 }
 
 function isDeepLinkRequest(value: unknown): value is DeepLinkRequest {

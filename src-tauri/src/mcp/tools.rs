@@ -192,7 +192,9 @@ impl ToolContext {
             && forge_root == self.semantic_root
             && crate::semantic::service().is_ready()
         {
-            if let Ok(results) = crate::semantic::service().search(query, limit as usize) {
+            if let Ok(results) =
+                crate::semantic::service().search(forge_root, query, limit as usize)
+            {
                 return Ok(json!({ "mode": "semantic", "results": results }));
             }
         }
@@ -285,6 +287,7 @@ impl ToolContext {
         {
             if !entry.file_type().is_file()
                 || entry.path().extension().and_then(|ext| ext.to_str()) != Some("md")
+                || entry.path().with_extension("md.locked").exists()
             {
                 continue;
             }

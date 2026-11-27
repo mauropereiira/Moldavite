@@ -1,13 +1,15 @@
 /** Validation and cold/running delivery tests for app deep links. */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { format } from 'date-fns';
 import { useGraphStore } from '@/stores/graphStore';
 import { useNoteStore } from '@/stores/noteStore';
 import { usePluginInstallStore } from '@/stores/pluginInstallStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useOverlayStore } from '@/stores/overlayStore';
 import type { Note, NoteFile } from '@/types';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { installWindowDropGuard } from '@/lib/dropGuard';
@@ -142,6 +144,21 @@ describe('app deep links', () => {
       })
     ).toBe('moldavite://note/weekly%2F2026-W33.md');
   });
+
+  it.each(['daily/2026-11-20.md', 'weekly/2026-W47.md', 'notes/Plan.md'])(
+    'keeps the canonical standalone path for %s',
+    async (path) => {
+      const canonical = `notes/${path}`;
+      const note = { ...rootNote, path: canonical };
+      useNoteStore.setState({ notes: [note, { ...rootNote, path }] });
+      const url = noteDeepLink({ id: canonical, isDaily: false, isWeekly: false });
+      const reference = decodeURIComponent(url.slice('moldavite://note/'.length));
+      expect(reference).toBe(canonical);
+      const load = vi.fn();
+      await routeNoteRequest(reference, load, vi.fn());
+      expect(load).toHaveBeenCalledWith(note);
+    }
+  );
 
   it('opens a validated cold-start note through the normal tab flow', async () => {
     pendingRequests = [{ kind: 'note', path: 'Projects/café notes.md' }];
@@ -321,5 +338,73 @@ describe('routeTodayRequest', () => {
     await waitFor(() => {
       expect(useNoteStore.getState().selectedDate.toDateString()).toBe(new Date().toDateString());
     });
+  });
+});
+
+describe('deep links reveal the routed note', () => {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const opened = (note: Partial<Note>) =>
+    vi.fn().mockImplementation(async () => {
+      useNoteStore.setState({ currentNote: { id: 'x', title: 'x', content: '', ...note } as Note });
+    });
+
+  afterEach(() => {
+    useNoteStore.setState({ currentNote: null, pendingUnlock: null });
+    useOverlayStore.getState().closeOverlay();
+  });
+
+  it.each(
+    (['index', 'agenda', 'search', 'trash'] as const).flatMap((surface) =>
+      (['note', 'today'] as const).map((kind) => ({ surface, kind }))
+    )
+  )('closes $surface after a $kind link loads', async ({ surface, kind }) => {
+    useNoteStore.setState({ notes: [rootNote] });
+    useOverlayStore.getState().openSurface(surface);
+    if (kind === 'note') {
+      await routeNoteRequest('Root note.md', opened({ id: rootNote.path }), vi.fn());
+    } else {
+      await routeTodayRequest(opened({ isDaily: true, date: today }));
+    }
+    expect(useOverlayStore.getState().activeOverlay).toBeNull();
+  });
+
+  it.each(['note', 'today'] as const)(
+    'keeps the Index open when a %s link resolves without opening its note',
+    async (kind) => {
+      // The real loader shows a toast for a file it cannot read and resolves.
+      useNoteStore.setState({ notes: [rootNote], currentNote: null });
+      useOverlayStore.getState().openSurface('index');
+      const failedQuietly = vi.fn().mockResolvedValue(undefined);
+      if (kind === 'note') await routeNoteRequest('Root note.md', failedQuietly, vi.fn());
+      else await routeTodayRequest(failedQuietly);
+      expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    }
+  );
+
+  it('keeps the Index open when the note it loaded is waiting for its password', async () => {
+    useNoteStore.setState({ notes: [rootNote] });
+    // A locked daily note asks for its password in the Index, as openNoteFile does.
+    const load = vi.fn().mockImplementation(async () => {
+      useNoteStore.setState({ pendingUnlock: { ...rootNote, isLocked: true } });
+      useOverlayStore.getState().openSurface('index');
+    });
+    await routeTodayRequest(load);
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+  });
+
+  it('keeps navigation open when a link is missing, locked or fails to load', async () => {
+    useOverlayStore.getState().openSurface('index');
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    expect(await routeNoteRequest('Missing.md', vi.fn(), refresh)).toBe(false);
+    useNoteStore.setState({ notes: [{ ...rootNote, isLocked: true }] });
+    expect(await routeNoteRequest('Root note.md', vi.fn(), refresh)).toBe(false);
+    useNoteStore.setState({ notes: [rootNote] });
+    await expect(
+      routeNoteRequest('Root note.md', vi.fn().mockRejectedValue(new Error('read failed')), refresh)
+    ).rejects.toThrow('read failed');
+    await expect(
+      routeTodayRequest(vi.fn().mockRejectedValue(new Error('read failed')))
+    ).rejects.toThrow('read failed');
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
   });
 });

@@ -136,15 +136,20 @@ fn zip_prefix<'a>(names: impl Iterator<Item = &'a str>) -> Result<String, String
     }
 }
 
+/// Entries are read by index: zip looks a name up by its raw bytes, which
+/// misses a decoded name the archive stored in an older encoding.
 fn read_zip_entry<R: Read + std::io::Seek>(
     archive: &mut zip::ZipArchive<R>,
+    names: &[String],
     name: &str,
     file: &str,
     limit: u64,
 ) -> Result<Vec<u8>, String> {
-    let entry = archive
-        .by_name(name)
-        .map_err(|_| format!("the package has no readable {file}"))?;
+    let entry = names
+        .iter()
+        .position(|candidate| candidate == name)
+        .and_then(|index| archive.by_index(index).ok())
+        .ok_or_else(|| format!("the package has no readable {file}"))?;
     let is_link = entry
         .unix_mode()
         .is_some_and(|mode| mode & S_IFMT == S_IFLNK);
@@ -173,16 +178,27 @@ fn read_zip_package(path: &Path, size: u64) -> Result<(Vec<u8>, Vec<u8>), String
     if archive.len() > MAX_ZIP_ENTRIES {
         return Err("The .zip holds too many files to be a plugin.".into());
     }
-    let prefix = zip_prefix(archive.file_names())?;
+    let names = (0..archive.len())
+        .map(|index| {
+            archive
+                .name_for_index(index)?
+                .ok()
+                .map(|name| name.into_owned())
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| "This isn't a readable .zip file.".to_string())?;
+    let prefix = zip_prefix(names.iter().map(String::as_str))?;
     Ok((
         read_zip_entry(
             &mut archive,
+            &names,
             &format!("{prefix}manifest.json"),
             "manifest.json",
             MAX_MANIFEST_BYTES,
         )?,
         read_zip_entry(
             &mut archive,
+            &names,
             &format!("{prefix}plugin.js"),
             "plugin.js",
             MAX_PLUGIN_JS_BYTES,
@@ -350,6 +366,31 @@ mod tests {
             ],
         );
         assert_eq!(read_package_at(&nested).unwrap().plugin_js, CODE);
+    }
+
+    #[test]
+    fn reads_a_zip_whose_folder_name_is_in_the_old_dos_encoding() {
+        let root = scratch("zip-cp437");
+        let path = root.join("cafe.zip");
+        zip_with(
+            &path,
+            &[("CafX/manifest.json", MANIFEST), ("CafX/plugin.js", CODE)],
+        );
+        // 0x82 is "é" in CP437, and these entries carry no UTF-8 flag.
+        let mut bytes = fs::read(&path).unwrap();
+        let mut patched = 0;
+        for at in 0..bytes.len() - 3 {
+            if &bytes[at..at + 4] == b"CafX" {
+                bytes[at + 3] = 0x82;
+                patched += 1;
+            }
+        }
+        assert_eq!(patched, 4, "two local headers and two directory entries");
+        fs::write(&path, bytes).unwrap();
+
+        let package = read_package_at(&path).unwrap();
+        assert_eq!(package.manifest_json, MANIFEST);
+        assert_eq!(package.plugin_js, CODE);
     }
 
     #[test]

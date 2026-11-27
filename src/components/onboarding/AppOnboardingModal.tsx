@@ -43,7 +43,7 @@ import {
 } from '@/lib/defaultApp';
 import { useLaunchContextStore, wasLaunchedWithFile } from '@/lib/launchContext';
 import { APP_ONBOARDING_VERSION, getAppOnboardingSteps } from '@/lib/appOnboarding';
-import { ACTIVE_SEASON, JACK_O_LANTERN_SRC, type Season } from '@/lib/seasons';
+import { ACTIVE_SEASON, SEASON_MASCOT, type Season } from '@/lib/seasons';
 import { applyTheme, PRESETS, useThemeStore, type ThemePreset } from '@/stores/themeStore';
 import { useSettingsHydration } from '@/hooks/useSettingsHydration';
 import { MaskArt } from '@/components/ui/MaskArt';
@@ -58,7 +58,13 @@ const SEASON_PAGES: Record<
     title: 'Autumn is here',
     body: 'Try a warm Autumn theme in light and dark, with leaves and a few small touches that work with any theme. Turn the touches off in Settings › Appearance › Seasonal touches.',
     preset: 'autumn',
-    icon: <MaskArt src={JACK_O_LANTERN_SRC} className="w-10 h-10" />,
+    icon: <MaskArt src={SEASON_MASCOT.autumn.src} className="w-10 h-10" />,
+  },
+  winter: {
+    title: 'Winter is here',
+    body: 'Try a cosy Winter theme in light and dark, with falling snow, a little cabin in the hills on the home screen and a few small touches that work with any theme. Turn the touches off in Settings › Appearance › Seasonal touches.',
+    preset: 'winter',
+    icon: <MaskArt src={SEASON_MASCOT.winter.src} className="w-10 h-10" />,
   },
 };
 
@@ -444,9 +450,10 @@ export function AppOnboardingModal() {
                   ref={primaryButtonRef}
                   type="button"
                   onClick={goNext}
-                  className="px-4 py-2 text-sm font-medium text-white transition-colors flex items-center gap-1.5 focus-ring"
+                  className="px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5 focus-ring"
                   style={{
                     backgroundColor: 'var(--accent-primary)',
+                    color: 'var(--text-on-accent)',
                     borderRadius: 'var(--radius-sm)',
                   }}
                 >
@@ -472,9 +479,10 @@ export function AppOnboardingModal() {
                     ref={primaryButtonRef}
                     type="button"
                     onClick={close}
-                    className="px-4 py-2 text-sm font-medium text-white transition-colors focus-ring"
+                    className="px-4 py-2 text-sm font-medium transition-colors focus-ring"
                     style={{
                       backgroundColor: 'var(--accent-primary)',
+                      color: 'var(--text-on-accent)',
                       borderRadius: 'var(--radius-sm)',
                     }}
                   >

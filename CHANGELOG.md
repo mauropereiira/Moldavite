@@ -2,6 +2,52 @@
 
 All notable changes to Moldavite are documented here.
 
+## [2.12.0] - 2026-11-26
+
+### Added
+
+- **Winter.** A new Winter theme in Settings → Appearance, light and dark: soft snow with cranberry, pine and gingerbread by day, midnight blue and candlelight by night. With it on, the home screen shows a cabin in the hills. In light mode a snowman skis down the slope with a dog at his heels; in dark mode it's the same view on a festive evening, with lights on the cabin and a Christmas tree. Selected text, the typing cursor and ticked to-dos take the theme's accent, divider lines carry a tiny snowflake, and the Index shows small icons beside Notes, Folders, Daily and Tags. With any theme, snow falls across the home screen, a small snowman sits in the corner of Settings, and About says it's the Winter edition. Turn the seasonal bits off in Settings → Appearance → Seasonal touches.
+
+- **Numbered to-do lists.** A list written as `1. [ ] item` shows a number and a checkbox on every item. Type `[ ] ` at the start of a numbered item to make one, and press Enter for the next number.
+
+### Changed
+
+- Autumn stays as a theme you can keep, with its own field, leaves and pumpkin.
+- Updated the libraries that clean and render Markdown, read and write zip files, secure connections and parse web addresses, for their latest security fixes.
+
+### Fixed
+
+- A note's header shows the date the note was last edited, not the date you opened it.
+- Buttons filled with the accent colour, like Next and Done on the welcome pages and Enable on a plugin's permission sheet, have readable labels in dark themes.
+- On iPhone and iPad, exporting your notes, an encrypted backup or your settings works again. It used to stop with "Cannot write to system directories" before the save sheet opened.
+- On iPhone and iPad, Settings dialogs such as New template stay above the keyboard.
+- A template, or an image you paste or drop, no longer lands in a different note if you switch notes while it is loading.
+- **Switch Forge…** in the Quick Switcher opens the Forge list even when the Index is closed.
+- A link to a note or to today's note, like the one the iPhone widget uses, no longer opens the note underneath an open Index, Agenda or Search.
+- The Settings (⌘,) and New note (⌘N) shortcuts work while the Timeline is open.
+- The Trash popover opens beside its button instead of floating above it when the Trash is nearly empty.
+- Restoring one note out of a folder in the Trash shows up in the Timeline and in search at the place it was restored to.
+- The Timeline's history stays within its size limit when another app changes many notes.
+- Typing no longer re-registers the WordPress sign-in listener on every keystroke, and a closed Quick Switcher no longer redoes its last search after each save.
+- Clicking the note you already have open no longer discards what you typed while it was being read again.
+- Undoing back to the last saved text while a save is still being written no longer loses the undo.
+- Clearing a daily or weekly note and leaving it keeps your change and tries again if the note could not be removed.
+- On Windows, installing an update waits for your last edits to be saved first.
+- A to-do item with a second paragraph keeps the blank line between its paragraphs, and to-do lists with blank lines between items no longer show an empty line in each item.
+- Bold, italic, code and links in a centred or right-aligned paragraph are kept when the note is reopened.
+- A numbered to-do list (`1. [ ] item`) keeps its numbers when the note is saved. It used to come back as a plain bulleted to-do list.
+- An empty checkbox left at the end of a to-do list stays a checkbox when the note is opened again. It used to come back as a bullet reading `[ ]`.
+- A note that starts with an HTML block and continues in Markdown opens as formatted text.
+- **Copy URL** on a note inside a folder called `daily`, `weekly` or `notes` opens that note and not a different one.
+- The Timeline moves on to the new day when it is left open past midnight.
+- Find (⌘F) opens the Index and its search box when the Index is closed.
+- On iPhone and iPad, tapping an event in the Agenda shows its full details.
+- If locking a note was interrupted, the text left behind can no longer be found through search, agents or an export.
+- An agent connected to semantic search no longer gets notes that were locked or deleted after it connected.
+- The app can now load only pictures from a Forge's `images` folder into the page, not other files.
+- A `notes` folder that is a link to somewhere outside the Forge is no longer written to or indexed.
+- Saving is faster in large Forges: wiki links, pinned tabs and tags are no longer checked against every note after each save or keystroke.
+
 ## [2.11.0] - 2026-10-06
 
 ### Added

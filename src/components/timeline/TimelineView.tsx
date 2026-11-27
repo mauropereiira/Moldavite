@@ -65,7 +65,7 @@ export function TimelineView() {
   const notes = useNoteStore((state) => state.notes);
   const close = useTimelineStore((state) => state.close);
   const { loadNote } = useNotes();
-  const [now] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
   const [weeks, setWeeks] = useState(1);
   const days = useMemo(() => recentDays(weeks, now), [weeks, now]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -79,6 +79,37 @@ export function TimelineView() {
   const latest = useRef({ open, rows, days });
   latest.current = { open, rows, days };
   const loadedRef = useRef(false);
+
+  useEffect(() => {
+    const updateDay = () => {
+      const next = new Date();
+      if (next.toDateString() !== now.toDateString()) {
+        setOpen(
+          (current) =>
+            new Set([
+              ...current,
+              ...recentDays(1, next)
+                .slice(0, 2)
+                .map((day) => day.key),
+            ])
+        );
+      }
+      setNow(next);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') updateDay();
+    };
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const timer = window.setTimeout(updateDay, midnight.getTime() - Date.now());
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', updateDay);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', updateDay);
+    };
+  }, [now]);
 
   const notesByPath = useMemo(() => new Map(notes.map((note) => [note.path, note])), [notes]);
 
@@ -123,7 +154,7 @@ export function TimelineView() {
 
   useEffect(() => {
     if (loadedRef.current) void refresh();
-  }, [weeks, refresh]);
+  }, [days, refresh]);
 
   // The first launch reads file dates in the background; look again until it has.
   const pollsRef = useRef(0);

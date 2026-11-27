@@ -1,9 +1,11 @@
 /**
  * Small seasonal icons. AcornIcon, LeafIcon, MugIcon and MushroomIcon are
  * Tabler Icons 3.48 (https://tabler.io/icons),
- * MIT License, Copyright (c) 2020-2026 Paweł Kuna.
+ * MIT License, Copyright (c) 2020-2026 Paweł Kuna. SnowflakeIcon, GiftIcon,
+ * PineIcon and CandyCaneIcon are Lucide (https://lucide.dev), ISC License.
  */
 import type { ReactNode } from 'react';
+import type { Season } from '@/lib/seasons';
 
 interface IconProps {
   className?: string;
@@ -61,10 +63,61 @@ export const MushroomIcon = (props: IconProps) => (
   </LineIcon>
 );
 
-/** Index section-title icons, by section title. */
-export const SECTION_ICONS: Record<string, (props: IconProps) => ReactNode> = {
-  Folders: AcornIcon,
-  Notes: LeafIcon,
-  Daily: MugIcon,
-  Tags: MushroomIcon,
+export const SnowflakeIcon = (props: IconProps) => (
+  <LineIcon {...props}>
+    <path d="m10 20-1.25-2.5L6 18" />
+    <path d="M10 4 8.75 6.5 6 6" />
+    <path d="m14 20 1.25-2.5L18 18" />
+    <path d="m14 4 1.25 2.5L18 6" />
+    <path d="m17 21-3-6h-4" />
+    <path d="m17 3-3 6 1.5 3" />
+    <path d="M2 12h6.5L10 9" />
+    <path d="m20 10-1.5 2 1.5 2" />
+    <path d="M22 12h-6.5L14 15" />
+    <path d="m4 10 1.5 2L4 14" />
+    <path d="m7 21 3-6-1.5-3" />
+    <path d="m7 3 3 6h4" />
+  </LineIcon>
+);
+
+export const GiftIcon = (props: IconProps) => (
+  <LineIcon {...props}>
+    <rect x="3" y="8" width="18" height="4" rx="1" />
+    <path d="M12 8v13" />
+    <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+    <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
+  </LineIcon>
+);
+
+export const PineIcon = (props: IconProps) => (
+  <LineIcon {...props}>
+    <path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17Z" />
+    <path d="M12 22v-3" />
+  </LineIcon>
+);
+
+export const CandyCaneIcon = (props: IconProps) => (
+  <LineIcon {...props}>
+    <path d="M5.7 21a2 2 0 0 1-3.5-2l8.6-14a6 6 0 0 1 10.4 6 2 2 0 1 1-3.464-2 2 2 0 1 0-3.464-2Z" />
+    <path d="M17.75 7 15 2.1" />
+    <path d="M10.9 4.8 13 9" />
+    <path d="m7.9 9.7 2 4.4" />
+    <path d="M4.9 14.7 7 18.9" />
+  </LineIcon>
+);
+
+/** Index section-title icons for each seasonal theme, by section title. */
+export const SECTION_ICONS: Record<Season, Record<string, (props: IconProps) => ReactNode>> = {
+  autumn: {
+    Folders: AcornIcon,
+    Notes: LeafIcon,
+    Daily: MugIcon,
+    Tags: MushroomIcon,
+  },
+  winter: {
+    Folders: GiftIcon,
+    Notes: SnowflakeIcon,
+    Daily: MugIcon,
+    Tags: PineIcon,
+  },
 };

@@ -11,11 +11,11 @@ import { useWhatsNewStore } from '@/stores/whatsNewStore';
 import { formatShortcut } from '@/lib/shortcuts';
 import type { DefaultAppStatus } from '@/lib/defaultApp';
 import { markLaunchedWithFile, useLaunchContextStore } from '@/lib/launchContext';
-import { JACK_O_LANTERN_SRC } from '@/lib/seasons';
+import { SEASON_MASCOT } from '@/lib/seasons';
 
 const mocks = vi.hoisted(() => ({
   mobile: false,
-  season: 'autumn' as 'autumn' | null,
+  season: 'winter' as 'winter' | null,
   getVersion: vi.fn<() => Promise<string>>(),
 }));
 
@@ -41,7 +41,7 @@ function answer(status: DefaultAppStatus) {
 describe('release welcome tour', () => {
   beforeEach(() => {
     mocks.mobile = false;
-    mocks.season = 'autumn';
+    mocks.season = 'winter';
     useLaunchContextStore.setState({ ready: true, launchedWithFile: false });
     mocks.getVersion.mockReset().mockResolvedValue('2.10.0');
     vi.mocked(invoke).mockReset();
@@ -60,10 +60,10 @@ describe('release welcome tour', () => {
         <AppOnboardingModal />
       </>
     );
-    expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
-    const pumpkin = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
-    expect(pumpkin?.style.maskImage).toBe(`url("${JACK_O_LANTERN_SRC}")`);
-    expect(pumpkin).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('heading', { name: 'Winter is here' })).toBeInTheDocument();
+    const mascot = document.querySelector<HTMLElement>('.app-onboarding-body .mask-art');
+    expect(mascot?.style.maskImage).toBe(`url("${SEASON_MASCOT.winter.src}")`);
+    expect(mascot).toHaveAttribute('aria-hidden', 'true');
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(2);
     await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
@@ -76,7 +76,7 @@ describe('release welcome tour', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(4);
 
     first.unmount();
     render(
@@ -97,31 +97,31 @@ describe('release welcome tour', () => {
   it('shows only season on mobile and records completion', () => {
     mocks.mobile = true;
     render(<AppOnboardingModal />);
-    expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Winter is here' })).toBeInTheDocument();
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(4);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  it('Use Autumn applies the preset immediately and continues', async () => {
+  it('Use Winter applies the preset immediately and continues', async () => {
     useThemeStore.getState().setTheme('dark');
     render(<AppOnboardingModal />);
     await act(async () => {});
-    fireEvent.click(screen.getByRole('button', { name: 'Use Autumn' }));
-    expect(useThemeStore.getState().preset).toBe('autumn');
-    expect(document.documentElement).toHaveAttribute('data-theme', 'autumn');
+    fireEvent.click(screen.getByRole('button', { name: 'Use Winter' }));
+    expect(useThemeStore.getState().preset).toBe('winter');
+    expect(document.documentElement).toHaveAttribute('data-theme', 'winter');
     expect(document.documentElement).toHaveClass('dark');
     expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
   });
 
-  it('already-Autumn users get the alternate copy and a single Continue', async () => {
-    useThemeStore.getState().setPreset('autumn');
+  it('already-Winter users get the alternate copy and a single Continue', async () => {
+    useThemeStore.getState().setPreset('winter');
     render(<AppOnboardingModal />);
     await act(async () => {});
-    expect(screen.getByText("You're already using Autumn")).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Use Autumn' })).toBeNull();
+    expect(screen.getByText("You're already using Winter")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use Winter' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Keep my theme' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { name: 'Open any Markdown file' })).toBeInTheDocument();
@@ -131,10 +131,10 @@ describe('release welcome tour', () => {
     useThemeStore.getState().setTheme(mode);
     render(<AppOnboardingModal />);
     await act(async () => {});
-    const preset = PRESETS.find((preset) => preset.id === 'autumn');
-    if (!preset) throw new Error('Expected Autumn preset');
+    const preset = PRESETS.find((preset) => preset.id === 'winter');
+    if (!preset) throw new Error('Expected Winter preset');
     const colors = Object.values(mode === 'dark' ? preset.darkSwatches : preset.swatches);
-    const row = screen.getByRole('img', { name: 'Autumn palette' });
+    const row = screen.getByRole('img', { name: 'Winter palette' });
     expect(row.children).toHaveLength(colors.length);
     for (const [index, color] of colors.entries()) {
       expect(row.children[index]).toHaveStyle({ backgroundColor: color });
@@ -153,7 +153,7 @@ describe('release welcome tour', () => {
     expect(screen.queryByRole('button', { name: 'Make default' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open Default Apps settings' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(4);
   });
 
   it('appends season after the existing first-run desktop pages', async () => {
@@ -171,10 +171,10 @@ describe('release welcome tour', () => {
       expect(screen.getByRole('heading', { name })).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /^(Next|Continue)$/ }));
     }
-    expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Winter is here' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep my theme' }));
     expect(useSettingsStore.getState().hasSeenAppOnboarding).toBe(true);
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(4);
   });
 
   it.each([false, true])(
@@ -216,7 +216,7 @@ describe('release welcome tour', () => {
       );
       expect(
         screen.getByRole('heading', {
-          name: existingUser ? 'Autumn is here' : 'Welcome to Moldavite',
+          name: existingUser ? 'Winter is here' : 'Welcome to Moldavite',
         })
       ).toBeInTheDocument();
       await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
@@ -224,7 +224,7 @@ describe('release welcome tour', () => {
   );
 
   it('defers automatic release notes until the next normal launch', async () => {
-    useSettingsStore.setState({ lastSeenOnboardingVersion: 3 });
+    useSettingsStore.setState({ lastSeenOnboardingVersion: 4 });
     markLaunchedWithFile();
     const first = render(<WhatsNewModal />);
     await act(async () => {});
@@ -324,19 +324,19 @@ describe('release welcome tour', () => {
     mocks.season = null;
     render(<AppOnboardingModal />);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(3);
+    expect(useSettingsStore.getState().lastSeenOnboardingVersion).toBe(4);
   });
 
   it('omits season when inactive and leaves release notes unchanged when no update pages apply', async () => {
     mocks.season = null;
-    useSettingsStore.setState({ lastSeenOnboardingVersion: 3 });
+    useSettingsStore.setState({ lastSeenOnboardingVersion: 4 });
     render(
       <>
         <WhatsNewModal />
         <AppOnboardingModal />
       </>
     );
-    expect(screen.queryByRole('heading', { name: 'Autumn is here' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Winter is here' })).toBeNull();
     expect(
       await screen.findByRole('heading', { name: /what's new in version 2.10.0/i })
     ).toBeInTheDocument();
@@ -351,9 +351,17 @@ describe('release welcome tour', () => {
     expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(1);
   });
 
-  it.each([false, true])('shows nothing to a v3 user (mobile: %s)', (mobile) => {
+  it.each([false, true])('shows a v3 user only the new season (mobile: %s)', (mobile) => {
     mocks.mobile = mobile;
     useSettingsStore.setState({ lastSeenOnboardingVersion: 3 });
+    render(<AppOnboardingModal />);
+    expect(screen.getByRole('heading', { name: 'Winter is here' })).toBeInTheDocument();
+    expect(document.querySelectorAll('.app-onboarding-steps > div')).toHaveLength(1);
+  });
+
+  it.each([false, true])('shows nothing to a v4 user (mobile: %s)', (mobile) => {
+    mocks.mobile = mobile;
+    useSettingsStore.setState({ lastSeenOnboardingVersion: 4 });
     render(<AppOnboardingModal />);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
@@ -415,7 +423,7 @@ describe('release welcome tour', () => {
       });
       await waitFor(() => expect(useWhatsNewStore.getState().lastSeenVersion).toBe('2.10.0'));
       expect(screen.getAllByRole('dialog')).toHaveLength(1);
-      expect(screen.getByRole('heading', { name: 'Autumn is here' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Winter is here' })).toBeInTheDocument();
       expect(useWhatsNewStore.getState().isOpen).toBe(false);
     } finally {
       getItem.mockRestore();

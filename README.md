@@ -136,12 +136,12 @@ and troubleshooting. The full iOS guide will follow separately.
 
 ## What else it does
 
-Settings → Appearance offers seven themes, Cream, Sage, Slate, Clay, Plum,
-Graphite and the seasonal Autumn, each in light and dark, and S–XL text sizes for the editor and
-desktop Settings. Settings → Layout puts the icon rail on the left or the right. The home screen
-has faint constellations with a sun or moon (Settings → Appearance → Home screen → Quiet home screen
-hides them), and the seasonal theme adds an autumn field and falling leaves (Seasonal touches turns
-them off).
+Settings → Appearance offers eight themes, Cream, Sage, Slate, Clay, Plum,
+Graphite and the seasonal Autumn and Winter, each in light and dark, and S–XL text sizes for the
+editor and desktop Settings. Settings → Layout puts the icon rail on the left or the right. The home
+screen has faint constellations with a sun or moon (Settings → Appearance → Home screen → Quiet home
+screen hides them). A seasonal theme adds its own scene, a snowy cabin in the hills for Winter and a
+field for Autumn, and the season's snow falls on every theme (Seasonal touches turns them off).
 
 Wiki-links with vault-wide rename, backlinks, a graph view, tags, templates,
 Markdown tables you edit in place, daily and weekly notes, an Agenda with Apple and Google Calendar events on an hourly timeline (Apple on a Mac,

@@ -2,10 +2,17 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import process from 'node:process';
 import { invoke } from '@tauri-apps/api/core';
-import { useFolderStore, useNoteColorsStore, useNoteStore, useSettingsStore } from '@/stores';
+import {
+  useFolderStore,
+  useNoteColorsStore,
+  useNoteStore,
+  useSettingsStore,
+  useOverlayStore,
+} from '@/stores';
 import { useToastStore } from '@/stores/toastStore';
 import type { FolderInfo, NoteFile } from '@/types';
 import { Sidebar } from './Sidebar';
+import { ChromeShortcutHost } from '@/components/ChromeShortcutHost';
 
 vi.mock('@/lib/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/platform')>()),
@@ -150,7 +157,12 @@ describe('the search shortcut on a Mac', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('focuses search on ⌘F only, leaving ⌘K to Insert link and Ctrl to the text', async () => {
-    render(<Sidebar />);
+    render(
+      <>
+        <ChromeShortcutHost />
+        <Sidebar />
+      </>
+    );
     const search = screen.getByPlaceholderText(/Search notes/i);
 
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
@@ -161,5 +173,54 @@ describe('the search shortcut on a Mac', () => {
     expect(search).not.toHaveFocus();
     fireEvent.keyDown(window, { key: 'f', metaKey: true });
     expect(search).toHaveFocus();
+  });
+});
+
+describe('Index search shortcut under Settings', () => {
+  it('leaves the Index closed while Settings is open', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Macintosh');
+    useSettingsStore.setState({ indexMode: 'overlay', isSettingsOpen: true });
+    useOverlayStore.setState({ activeOverlay: null });
+    const { unmount } = render(<ChromeShortcutHost />);
+    const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true, cancelable: true });
+    window.dispatchEvent(event);
+    expect(useOverlayStore.getState().activeOverlay).toBeNull();
+    expect(event.defaultPrevented).toBe(false);
+    unmount();
+    useSettingsStore.setState({ isSettingsOpen: false });
+  });
+});
+
+describe('Index search while the Sidebar is unmounted', () => {
+  it.each(['Mac', 'Windows'])('opens and focuses search with the %s modifier', async (platform) => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+      platform === 'Mac' ? 'Macintosh' : 'Windows'
+    );
+    useSettingsStore.setState({ indexMode: 'overlay' });
+    useOverlayStore.setState({ activeOverlay: null });
+    function Host() {
+      const open = useOverlayStore((state) => state.activeOverlay === 'index');
+      return (
+        <>
+          <ChromeShortcutHost />
+          {open && <Sidebar />}
+        </>
+      );
+    }
+    render(<Host />);
+    expect(screen.queryByPlaceholderText(/Search notes/i)).not.toBeInTheDocument();
+    fireEvent.keyDown(window, {
+      key: 'f',
+      ...(platform === 'Mac' ? { metaKey: true } : { ctrlKey: true }),
+    });
+    await waitFor(() => expect(screen.getByPlaceholderText(/Search notes/i)).toHaveFocus());
+    fireEvent.blur(screen.getByPlaceholderText(/Search notes/i));
+    fireEvent.keyDown(window, {
+      key: 'f',
+      ...(platform === 'Mac' ? { metaKey: true } : { ctrlKey: true }),
+    });
+    await waitFor(() => expect(screen.getByPlaceholderText(/Search notes/i)).toHaveFocus());
+    expect(useOverlayStore.getState().activeOverlay).toBe('index');
+    vi.restoreAllMocks();
   });
 });

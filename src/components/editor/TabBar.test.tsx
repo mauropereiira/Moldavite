@@ -502,6 +502,32 @@ describe('TabBar', () => {
     expect(commits).toBeGreaterThan(settled);
   });
 
+  it('does not resolve pinned paths again on keystrokes and follows note-list changes', () => {
+    openNotes('notes/writing.md');
+    const pathRead = vi.fn(() => 'notes/pinned.md');
+    const pinned = {
+      ...file('notes/pinned.md'),
+      get path() {
+        return pathRead();
+      },
+    };
+    useNoteStore.setState({ notes: [file('notes/writing.md'), pinned] });
+    useQuickSwitcherStore.setState({ pinnedNoteIds: ['notes/pinned.md'] });
+    render(<TabBar />);
+    expect(tabNames()).toEqual(['pinned', 'writing']);
+    pathRead.mockClear();
+    act(() => {
+      for (const text of ['t', 'ty', 'typ']) {
+        useNoteStore.getState().updateNoteContent(text, 'notes/writing.md');
+      }
+    });
+    expect(pathRead).not.toHaveBeenCalled();
+    act(() => useNoteStore.setState({ notes: [file('notes/writing.md')] }));
+    expect(tabNames()).toEqual(['writing']);
+    act(() => useNoteStore.setState({ notes: [file('notes/writing.md'), pinned] }));
+    expect(tabNames()).toEqual(['pinned', 'writing']);
+  });
+
   // Pins are Forge-relative paths, so each Forge keeps its own.
   it('shows each Forge’s own pins across a Forge switch', async () => {
     rememberActiveForge('Alpha');

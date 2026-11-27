@@ -790,6 +790,84 @@
   --focus-ring: var(--text-primary);
 }
 
+/* Winter Light: a snow day in a wool jumper. Soft snow, cranberry, pine, gingerbread. */
+:root[data-theme='winter'] {
+  --bg-base: #eef1ee;
+  --bg-sidebar: #e3e9e4;
+  --bg-editor: #fbfbf8;
+  --bg-panel: #e3e9e4;
+  --bg-elevated: #fbfbf8;
+  --bg-inset: #dbe3dd;
+
+  --border-default: rgba(26, 35, 30, 0.13);
+  --border-strong: rgba(26, 35, 30, 0.24);
+  --border-muted: rgba(26, 35, 30, 0.08);
+
+  --text-primary: #1a231e;
+  --text-secondary: rgba(26, 35, 30, 0.7);
+  --text-tertiary: rgba(26, 35, 30, 0.45);
+  --text-muted: rgba(26, 35, 30, 0.34);
+
+  --accent-primary: #a8293d;
+  --accent-hover: #b93a4e;
+  --accent-active: #901f32;
+  --accent-muted: rgba(168, 41, 61, 0.55);
+  --accent-subtle: rgba(26, 35, 30, 0.06);
+
+  --syntax-bold: #1a231e;
+  --syntax-italic: var(--text-secondary);
+  --syntax-h1: #1f5c46;
+  --syntax-h2: #a8293d;
+  --syntax-h3: #8a5526;
+  --syntax-code: #6a3f78;
+  --syntax-link: #23607f;
+  --syntax-highlight: rgba(226, 178, 74, 0.3);
+
+  --hover-overlay: rgba(26, 35, 30, 0.06);
+  --active-overlay: rgba(26, 35, 30, 0.12);
+  --folder-icon-bg: rgba(168, 41, 61, 0.1);
+  --focus-ring: var(--text-primary);
+}
+
+/* Winter Dark: by the fire on a snowy night. Midnight blue, candlelight, warm cream. */
+:root[data-theme='winter'].dark {
+  --bg-base: #121823;
+  --bg-sidebar: #0d121b;
+  --bg-editor: #181e2a;
+  --bg-panel: #0d121b;
+  --bg-elevated: #181e2a;
+  --bg-inset: #090d14;
+
+  --border-default: rgba(244, 234, 217, 0.14);
+  --border-strong: rgba(244, 234, 217, 0.26);
+  --border-muted: rgba(244, 234, 217, 0.08);
+
+  --text-primary: #f4ead9;
+  --text-secondary: rgba(244, 234, 217, 0.62);
+  --text-tertiary: rgba(244, 234, 217, 0.45);
+  --text-muted: rgba(244, 234, 217, 0.34);
+
+  --accent-primary: #f2b866;
+  --accent-hover: #fbc87a;
+  --accent-active: #dca552;
+  --accent-muted: rgba(242, 184, 102, 0.55);
+  --accent-subtle: rgba(244, 234, 217, 0.08);
+
+  --syntax-bold: #f4ead9;
+  --syntax-italic: var(--text-secondary);
+  --syntax-h1: #9ad1b0;
+  --syntax-h2: #f2b866;
+  --syntax-h3: #f2a0a6;
+  --syntax-code: #cdb5ea;
+  --syntax-link: #9ccbea;
+  --syntax-highlight: rgba(226, 178, 74, 0.26);
+
+  --hover-overlay: rgba(244, 234, 217, 0.08);
+  --active-overlay: rgba(244, 234, 217, 0.15);
+  --folder-icon-bg: rgba(242, 184, 102, 0.15);
+  --focus-ring: var(--text-primary);
+}
+
 /* Legacy semantic aliases. Keep every surface theme-aware instead of hiding
    missing tokens behind hardcoded var() fallbacks. */
 :root,
@@ -805,7 +883,9 @@
 :root[data-theme='graphite'],
 :root[data-theme='graphite'].dark,
 :root[data-theme='autumn'],
-:root[data-theme='autumn'].dark {
+:root[data-theme='autumn'].dark,
+:root[data-theme='winter'],
+:root[data-theme='winter'].dark {
   --bg-hover: var(--hover-overlay);
   --border-primary: var(--border-default);
   --bg-surface: var(--bg-elevated);
@@ -830,7 +910,8 @@
 :root[data-theme='clay'],
 :root[data-theme='plum'],
 :root[data-theme='graphite'],
-:root[data-theme='autumn'] {
+:root[data-theme='autumn'],
+:root[data-theme='winter'] {
   --bg-card: color-mix(in srgb, var(--bg-base) 40%, var(--bg-sidebar));
 }
 
@@ -840,7 +921,8 @@
 :root[data-theme='clay'].dark,
 :root[data-theme='plum'].dark,
 :root[data-theme='graphite'].dark,
-:root[data-theme='autumn'].dark {
+:root[data-theme='autumn'].dark,
+:root[data-theme='winter'].dark {
   --bg-card: var(--bg-elevated);
 }
 
@@ -3133,6 +3215,26 @@ wiki-link {
   padding-left: 0;
 }
 
+/* A numbered to-do list: each item's number sits before its box, on the first line. */
+.tiptap ul[data-type='taskList'][start] > li::before {
+  counter-increment: task-number;
+  content: counter(task-number) '.';
+  flex-shrink: 0;
+  /* Room for two digits, so the boxes of items 9 and 10 line up. */
+  min-width: 1.6em;
+  height: calc(var(--editor-line-height) * 1em);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiptap ul[data-type='taskList'][start][data-md-marker^=')'] > li::before {
+  content: counter(task-number) ')';
+}
+
 /* These are the rules a task item actually gets. TipTap's task item node view
    does not put `data-type='taskItem'` on the <li> it draws, so the rules above
    keyed on it never match in the editor. The item anchors to its top and the
@@ -4333,24 +4435,30 @@ button[aria-expanded='true'] .wn-caret {
 
 /* The welcome composition tells the brand story in three beats: the letters
    land, the impact-glass `a` reflects, then the useful controls arrive. */
-/* Autumn's own touches in notes: maple selection, caret and ticks, and a leaf on dividers. */
+/* A seasonal theme's own touches in notes: accent selection, caret and ticks,
+   and a leaf (Autumn) or snowflake (Winter) on dividers. */
 :root[data-theme='autumn'] ::selection,
-:root[data-theme='autumn'] .tiptap ::selection {
+:root[data-theme='autumn'] .tiptap ::selection,
+:root[data-theme='winter'] ::selection,
+:root[data-theme='winter'] .tiptap ::selection {
   background-color: var(--accent-primary) !important;
   color: var(--bg-editor) !important;
 }
 
-:root[data-theme='autumn'] .tiptap {
+:root[data-theme='autumn'] .tiptap,
+:root[data-theme='winter'] .tiptap {
   caret-color: var(--accent-primary);
 }
 
-:root[data-theme='autumn'] .tiptap input[type='checkbox']:checked {
+:root[data-theme='autumn'] .tiptap input[type='checkbox']:checked,
+:root[data-theme='winter'] .tiptap input[type='checkbox']:checked {
   border-color: var(--accent-primary) !important;
   background: var(--accent-primary) !important;
   background-color: var(--accent-primary) !important;
 }
 
-:root[data-theme='autumn'] .tiptap hr {
+:root[data-theme='autumn'] .tiptap hr,
+:root[data-theme='winter'] .tiptap hr {
   position: relative;
   overflow: visible;
   border-top: none;
@@ -4362,7 +4470,8 @@ button[aria-expanded='true'] .wn-caret {
       1px no-repeat;
 }
 
-:root[data-theme='autumn'] .tiptap hr::after {
+:root[data-theme='autumn'] .tiptap hr::after,
+:root[data-theme='winter'] .tiptap hr::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -4374,6 +4483,14 @@ button[aria-expanded='true'] .wn-caret {
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 19c0-7.5 5.2-12.6 14-14-1.1 8.6-6.4 14-14 14z'/%3E%3Cpath d='M5 19l8.5-8.5'/%3E%3C/svg%3E")
     center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 19c0-7.5 5.2-12.6 14-14-1.1 8.6-6.4 14-14 14z'/%3E%3Cpath d='M5 19l8.5-8.5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/* Winter's divider carries a snowflake (Lucide, ISC) instead of the leaf. */
+:root[data-theme='winter'] .tiptap hr::after {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m10 20-1.25-2.5L6 18M10 4 8.75 6.5 6 6m8 14 1.25-2.5L18 18M14 4l1.25 2.5L18 6m-1 15-3-6h-4m7-12-3 6 1.5 3M2 12h6.5L10 9m10 1-1.5 2 1.5 2m2-2h-6.5L14 15M4 10l1.5 2L4 14m3 7 3-6-1.5-3M7 3l3 6h4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m10 20-1.25-2.5L6 18M10 4 8.75 6.5 6 6m8 14 1.25-2.5L18 18M14 4l1.25 2.5L18 6m-1 15-3-6h-4m7-12-3 6 1.5 3M2 12h6.5L10 9m10 1-1.5 2 1.5 2m2-2h-6.5L14 15M4 10l1.5 2L4 14m3 7 3-6-1.5-3M7 3l3 6h4'/%3E%3C/svg%3E")
     center / contain no-repeat;
 }
 
@@ -4468,6 +4585,86 @@ button[aria-expanded='true'] .wn-caret {
     opacity: 0.4;
     -webkit-mask-image: url('/seasonal/autumn-field-narrow.webp');
     mask-image: url('/seasonal/autumn-field-narrow.webp');
+  }
+}
+
+/* Snow falls slower and straighter than leaves, with a gentle sway and barely any spin. */
+.welcome-flake {
+  --leaf-sway: 0px;
+  position: absolute;
+  color: var(--text-muted);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.welcome-flake-falling {
+  top: -6%;
+  animation-name: welcome-flake-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes welcome-flake-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(var(--leaf-sway), 28vh) rotate(20deg);
+  }
+  50% {
+    transform: translate(0, 56vh) rotate(45deg);
+  }
+  75% {
+    transform: translate(calc(var(--leaf-sway) * -1), 84vh) rotate(70deg);
+  }
+  100% {
+    transform: translate(0, 112vh) rotate(90deg);
+  }
+}
+
+.welcome-snow-dot {
+  display: block;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.55;
+}
+
+/* One landscape drawn twice: by day for light mode, the same view on a
+   festive evening for dark mode. */
+.winter-field {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 34px;
+  aspect-ratio: 2172 / 543;
+  color: var(--text-primary);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: url('/seasonal/winter-field-day.webp');
+  mask-image: url('/seasonal/winter-field-day.webp');
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.dark .winter-field {
+  -webkit-mask-image: url('/seasonal/winter-field-night.webp');
+  mask-image: url('/seasonal/winter-field-night.webp');
+}
+
+@media (max-width: 600px) {
+  .winter-field {
+    bottom: 16px;
+    aspect-ratio: 1259 / 543;
+    opacity: 0.4;
+    -webkit-mask-image: url('/seasonal/winter-field-day-narrow.webp');
+    mask-image: url('/seasonal/winter-field-day-narrow.webp');
+  }
+
+  .dark .winter-field {
+    -webkit-mask-image: url('/seasonal/winter-field-night-narrow.webp');
+    mask-image: url('/seasonal/winter-field-night-narrow.webp');
   }
 }
 

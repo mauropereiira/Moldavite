@@ -1,6 +1,6 @@
 [package]
 name = "moldavite"
-version = "2.11.0"
+version = "2.12.0"
 description = "A local-first note-taking app for connected thinking"
 authors = ["Mauro Pereira"]
 license = "MIT"
@@ -47,7 +47,7 @@ base64 = "0.22"
 zeroize = { version = "1.7", features = ["derive"] }
 
 # Export/Import and file dialogs
-zip = "2.2"
+zip = "9"
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"
 

@@ -37,7 +37,9 @@ const BUDGETS = [
   { pattern: /^changelog-.*\.js$/, rawKb: 160, gzipKb: 55 },
   // 137 / 26: the shared close button and padded hover rule, the Index cards,
   // the top bar and the Settings page. Measured 135.2 KB / 24.8 KB gz.
-  { pattern: /^index-.*\.css$/, rawKb: 137, gzipKb: 26 },
+  // 141 / 27: the Winter theme (two palettes, the day and evening field, the
+  // falling snow and the snowflake divider). Measured 138.8 KB / 25.5 KB gz.
+  { pattern: /^index-.*\.css$/, rawKb: 141, gzipKb: 27 },
   // Mobile CSS loads only on mobile, before the first render.
   // 22: pinning the onboarding step indicator and footer needs a real flex
   // column rather than an auto-height centred sheet, which is ~0.4 KB raw.
@@ -193,7 +195,14 @@ const BUDGETS = [
 // 720 / 219: the Agenda's hourly events column comes back and the rail
 // Timeline returns as a day-by-day history of note changes (collapsed days,
 // paging, week by week). Measured 717.6 KB / 217.9 KB gz; no new dependencies.
-const APP_JS_BUDGET = { rawKb: 720, gzipKb: 219 };
+// 727 / 221: the Winter season (falling snow, four Index card icons, the
+// season's mascot and welcome page) for 3.7 KB raw / 1.1 KB gz. Measured
+// 721.3 KB / 219.0 KB gz locally; Linux CI has run about 3 KB higher. No new
+// dependencies.
+// 734 / 223: holding a save while a note changed on disk awaits its answer,
+// queued undo saves, the phone's event details and the Index search shortcut
+// for 5.4 KB raw / 1.8 KB gz. Measured 726.7 KB / 220.8 KB gz locally.
+const APP_JS_BUDGET = { rawKb: 734, gzipKb: 223 };
 
 async function main() {
   let entries;

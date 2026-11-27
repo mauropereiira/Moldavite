@@ -840,7 +840,7 @@ pub(crate) fn restore_note_from_folder(
     }
 
     let standalone_dir = get_standalone_dir()?;
-    let dest_path = restore_note_from_folder_on_disk(
+    let (dest_path, source) = restore_note_from_folder_on_disk(
         &trash_folder_path,
         &standalone_dir,
         &item.original_path,
@@ -849,18 +849,12 @@ pub(crate) fn restore_note_from_folder(
 
     // Ciphertext is never indexed.
     if !note_filename.ends_with(".md.locked") {
-        if let Some(source) = crate::backlinks_index::source_path_under(&standalone_dir, &dest_path)
-        {
-            let content = fs::read_to_string(&dest_path).unwrap_or_default();
-            index.update_note(&source, &content);
-        }
-        crate::semantic::note_changed(&format!("notes/{}", note_filename));
-        crate::search_index::note_changed(&format!("notes/{}", note_filename));
+        let content = fs::read_to_string(&dest_path).unwrap_or_default();
+        index.update_note(&source, &content);
+        crate::semantic::note_changed(&source);
+        crate::search_index::note_changed(&source);
     }
-    crate::activity_log::record(
-        crate::activity_log::Action::Restored,
-        &format!("notes/{}", note_filename),
-    );
+    crate::activity_log::record(crate::activity_log::Action::Restored, &source);
 
     let item = &mut metadata.items[item_index];
     item.contained_files.retain(|f| f != &note_filename);
@@ -887,7 +881,7 @@ fn restore_note_from_folder_on_disk(
     standalone_dir: &std::path::Path,
     folder_original_path: &str,
     note_filename: &str,
-) -> Result<std::path::PathBuf, String> {
+) -> Result<(std::path::PathBuf, String), String> {
     let note_path_in_trash = trash_folder_path.join(note_filename);
     validate_path_within_base(&note_path_in_trash, trash_folder_path)
         .map_err(|_| "Invalid note filename".to_string())?;
@@ -927,9 +921,11 @@ fn restore_note_from_folder_on_disk(
         .map_err(|_| "Invalid note filename".to_string())?;
     validate_path_within_base(&dest_path, standalone_dir)
         .map_err(|_| "Invalid restore destination".to_string())?;
+    let source = crate::backlinks_index::source_path_under(standalone_dir, &dest_path)
+        .ok_or_else(|| "Invalid restore destination".to_string())?;
     fs::rename(&note_path_in_trash, &dest_path)
         .map_err(|e| format!("Failed to restore note: {e}"))?;
-    Ok(dest_path)
+    Ok((dest_path, source))
 }
 
 #[cfg(test)]
@@ -1520,12 +1516,34 @@ mod tests {
     }
 
     #[test]
+    fn a_nested_note_restored_from_a_folder_reports_its_actual_destination() {
+        let tmp = TempDir::new("folder-nested-note");
+        let notes = tmp.0.join("notes");
+        fs::create_dir_all(notes.join("Projects/Sub")).unwrap();
+        fs::write(notes.join("Projects/Sub/plan.md"), "the plan").unwrap();
+        let folder = trash_projects(&tmp.0, "folder-nested");
+
+        let (restored, source) = restore_note_from_folder_on_disk(
+            &trash_item_path(&tmp.0.join("trash"), &folder),
+            &notes,
+            &folder.original_path,
+            "Sub/plan.md",
+        )
+        .unwrap();
+
+        assert_eq!(restored, notes.join("plan.md"));
+        assert_eq!(fs::read_to_string(&restored).unwrap(), "the plan");
+        assert_eq!(source, "notes/plan.md");
+        assert_eq!(tmp.0.join(&source), restored);
+    }
+
+    #[test]
     fn a_locked_note_restored_from_a_trashed_folder_returns_to_its_path_and_unlocks() {
         let tmp = TempDir::new("folder-locked-note");
         lock(&tmp.0, "Projects/Secret.md", "the plan");
         let folder = trash_projects(&tmp.0, "folder-locked");
 
-        let restored = restore_note_from_folder_on_disk(
+        let (restored, _) = restore_note_from_folder_on_disk(
             &trash_item_path(&tmp.0.join("trash"), &folder),
             &tmp.0.join("notes"),
             &folder.original_path,

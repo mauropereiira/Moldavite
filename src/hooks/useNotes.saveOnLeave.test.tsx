@@ -21,7 +21,7 @@ import {
   saveFailedNoteAsCopy,
 } from '@/lib/leaveSave';
 import { useSaveFailureStore } from '@/stores/saveFailureStore';
-import { htmlToMarkdown, markdownToHtml } from '@/lib/fileSystem';
+import { getLastPersistedMarkdown, htmlToMarkdown, markdownToHtml } from '@/lib/fileSystem';
 
 const invokeMock = vi.fn();
 
@@ -115,6 +115,39 @@ async function holdSave(hook: ReturnType<typeof renderNotes>, name: string, type
 }
 
 describe('save on leave', () => {
+  it.each([false, true])(
+    'keeps edits made while reopening the active note (saved during read: %s)',
+    async (savedDuringRead) => {
+      disk = { 'Reopened.md': 'before' };
+      const hook = renderNotes();
+      const file = standalone('Reopened.md');
+      await act(() => hook.result.current.loadNote(file));
+      const baseline = useNoteStore.getState().savedContent.get(file.path);
+      let finishRead!: (result: unknown) => void;
+      invokeMock.mockImplementationOnce(() => new Promise((resolve) => (finishRead = resolve)));
+      let reopening!: Promise<void>;
+      await act(async () => {
+        reopening = hook.result.current.loadNote(file);
+      });
+
+      const typed = '<p>typed during read</p>';
+      act(() => useNoteStore.getState().updateNoteContent(typed, file.path));
+      if (savedDuringRead) await act(() => flushPendingAutosave());
+      await act(async () => {
+        finishRead({ content: 'before', color: null, contentHash: 'old-read' });
+        await reopening;
+      });
+
+      expect(useNoteStore.getState().currentNote?.content).toBe(typed);
+      expect(useNoteStore.getState().savedContent.get(file.path)).toBe(
+        savedDuringRead ? typed : baseline
+      );
+      expect(getLastPersistedMarkdown(file.name, false, false)).toBe(
+        savedDuringRead ? 'typed during read' : 'before'
+      );
+    }
+  );
+
   it('does not write a note that was only viewed', async () => {
     disk = { 'Viewed.md': '| a | b |\n| - | - |\n| 1 | 2 |', 'Next.md': 'next' };
     const hook = renderNotes();
@@ -138,6 +171,55 @@ describe('save on leave', () => {
     expect(writes()[0][1]).toMatchObject({ filename: 'Edited.md', content: 'typed' });
     expect(useNoteStore.getState().currentNote?.id).toBe('notes/Other.md');
   });
+
+  it.each(['daily', 'weekly'] as const)(
+    'retains an emptied %s note when deletion fails on leave and retries it',
+    async (kind) => {
+      vi.useFakeTimers();
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const stem = kind === 'daily' ? '2026-09-21' : '2026-W39';
+      const file: NoteFile = {
+        name: `${stem}.md`,
+        path: `${kind}/${stem}.md`,
+        isDaily: kind === 'daily',
+        isWeekly: kind === 'weekly',
+        isLocked: false,
+        ...(kind === 'daily' ? { date: stem } : { week: stem }),
+      };
+      disk = { [file.name]: 'before' };
+      useNoteStore.setState({ notes: [file] });
+      const originalInvoke = invokeMock.getMockImplementation();
+      if (!originalInvoke) throw new Error('Expected IPC mock');
+      let deleteFails = true;
+      invokeMock.mockImplementation(async (command, payload) => {
+        if (command === 'delete_note' && deleteFails) throw new Error('directory read-only');
+        return originalInvoke(command, payload);
+      });
+      const hook = renderNotes();
+      await act(() => hook.result.current.loadNote(file));
+      const baseline = useNoteStore.getState().savedContent.get(file.path);
+      act(() => useNoteStore.getState().updateNoteContent('<p></p>', file.path));
+      await act(() => hook.result.current.loadNote(standalone('Away.md')));
+
+      expect(heldLeaveSaveIds()).toContain(file.path);
+      expect(useNoteStore.getState().openTabs.find((tab) => tab.id === file.path)?.content).toBe(
+        '<p></p>'
+      );
+      expect(useNoteStore.getState().savedContent.get(file.path)).toBe(baseline);
+      expect(useSaveFailureStore.getState().failures[file.path]).toBeDefined();
+
+      deleteFails = false;
+      await act(() => retryFailedSave(file.path));
+      expect(heldLeaveSaveIds()).not.toContain(file.path);
+      expect(useNoteStore.getState().notes).not.toContainEqual(file);
+      expect(useNoteStore.getState().savedContent.get(file.path)).toBe('<p></p>');
+      expect(useSaveFailureStore.getState().failures[file.path]).toBeUndefined();
+      expect(invokeMock.mock.calls.filter(([command]) => command === 'delete_note')).toHaveLength(
+        2
+      );
+      consoleError.mockRestore();
+    }
+  );
 
   it('does not delete an empty daily note that was only viewed', async () => {
     const daily: NoteFile = {
@@ -485,6 +567,58 @@ describe('writes that race new typing', () => {
 });
 
 describe('undoing back to the saved text', () => {
+  it.each([false, true])(
+    'saves an undo behind an in-flight autosave before leaving (debounce elapsed: %s)',
+    async (debounceElapsed) => {
+      vi.useFakeTimers();
+      autoSaveTiming.delayMs = 300;
+      disk = { 'Undo.md': 'start', 'Other.md': 'other' };
+      let finishWrite!: () => void;
+      invokeMock.mockImplementation(
+        async (command: string, payload?: { filename: string; content?: string }) => {
+          const filename = payload?.filename ?? '';
+          if (command === 'read_note') {
+            const content = disk[filename] ?? '';
+            return { content, color: null, contentHash: `hash:${content}` };
+          }
+          if (command === 'write_note') {
+            if (payload?.content === 'AB') {
+              await new Promise<void>((resolve) => (finishWrite = resolve));
+            }
+            disk[filename] = payload?.content ?? '';
+            return { contentHash: `hash:${disk[filename]}`, conflictCopy: null };
+          }
+          return undefined;
+        }
+      );
+      const hook = renderNotes();
+      await act(() => hook.result.current.loadNote(standalone('Undo.md')));
+      act(() => useNoteStore.getState().updateNoteContent('<p>A</p>', 'notes/Undo.md'));
+      await act(() => flushPendingAutosave());
+      act(() => useNoteStore.getState().updateNoteContent('<p>AB</p>', 'notes/Undo.md'));
+      await act(() => vi.advanceTimersByTimeAsync(300));
+      expect(writes()).toHaveLength(2);
+
+      act(() => useNoteStore.getState().updateNoteContent('<p>A</p>', 'notes/Undo.md'));
+      const pendingAfterUndo = getPendingAutosaveNoteId();
+      if (debounceElapsed) await act(() => vi.advanceTimersByTimeAsync(300));
+      let leaving!: Promise<void>;
+      await act(async () => {
+        leaving = hook.result.current.loadNote(standalone('Other.md'));
+      });
+      await act(async () => {
+        finishWrite();
+        await leaving;
+      });
+      await act(() => flushPendingAutosave());
+
+      expect(disk['Undo.md']).toBe('A');
+      expect(pendingAfterUndo).toBe('notes/Undo.md');
+      expect(getPendingAutosaveNoteId()).toBeNull();
+      expect(useNoteStore.getState().currentNote?.id).toBe('notes/Other.md');
+    }
+  );
+
   const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
 
   it('writes nothing more when the user leaves after undoing to what autosave wrote', async () => {

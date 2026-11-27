@@ -100,7 +100,7 @@ async function writeNoteToDisk(note: Note): Promise<void> {
           setNotes(freshNotes.filter((n) => n.path !== note.id));
         } catch (error) {
           console.error('[leaveSave] Delete failed:', error);
-          return;
+          throw error;
         }
       }
     } else {
@@ -128,7 +128,7 @@ async function writeNoteToDisk(note: Note): Promise<void> {
           setNotes(freshNotes.filter((n) => n.path !== note.id));
         } catch (error) {
           console.error('[leaveSave] Delete weekly note failed:', error);
-          return;
+          throw error;
         }
       }
     } else {

@@ -319,11 +319,13 @@ never get it: there the rail it hides is the only way back to Settings, so
    colours, generated in OKLCH so every preset holds the same contrast
    (`themePalettes.test.ts` enforces it). Within a preset the chrome stays
    two-colour; presets differ by which two colours. Any new token added to
-   `:root` must be considered across all twelve blocks, and `themeStore.ts`'s
-   `PRESETS[]` light and dark swatches need hand-syncing. One more preset is
-   **seasonal** (Autumn now): it ships with a release and is retired when the
-   next seasonal release replaces it, through `RETIRED_PRESETS`. Seasonal art
-   (the field, falling leaves and Settings pumpkin) and welcome sky art are
+   `:root` must be considered across every preset's light and dark block, and
+   `themeStore.ts`'s `PRESETS[]` light and dark swatches need hand-syncing. Two
+   more presets are **seasonal** (Autumn and Winter): each shipped with a
+   release and stays as a theme afterwards, keeping its own scene and mascot.
+   `ACTIVE_SEASON` in `src/lib/seasons.ts` names the season whose small touches
+   every theme gets. Seasonal art (the home screen scene, falling leaves or
+   snow and the Settings mascot) and welcome sky art are
    line drawings converted to tinted masks (`scripts/art`), faded into the
    background behind the wordmark. Index icons stay hairline SVGs at 1.25 stroke.
    Seasonal touches are never animated under reduced motion and are

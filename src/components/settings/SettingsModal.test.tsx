@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSettingsStore } from '@/stores';
-import { JACK_O_LANTERN_SMALL_SRC } from '@/lib/seasons';
+import { useSettingsStore, useThemeStore } from '@/stores';
+import { SEASON_MASCOT } from '@/lib/seasons';
 import { SettingsModal } from './SettingsModal';
 
 const platform = vi.hoisted(() => ({ mobile: true }));
@@ -32,23 +32,36 @@ const search = () => screen.getByRole('searchbox', { name: 'Search settings' });
 
 describe('Settings seasonal art', () => {
   it.each([true, false])(
-    'shows a labelled pumpkin mask while touches are on (phone: %s)',
+    'shows a labelled mascot mask while touches are on (phone: %s)',
     (mobile) => {
       platform.mobile = mobile;
       useSettingsStore.setState({ isSettingsOpen: true, showSeasonalTouches: true });
       render(<SettingsModal />);
 
-      const pumpkin = screen.getByRole('img', { name: 'Happy autumn' });
-      expect(pumpkin).toHaveAttribute('title', 'Happy autumn');
-      expect(pumpkin).not.toHaveAttribute('aria-hidden');
-      expect(pumpkin.style.maskImage).toBe(`url("${JACK_O_LANTERN_SMALL_SRC}")`);
-      expect(pumpkin.tagName).toBe('SPAN');
-      expect(pumpkin.closest('nav')).not.toBeNull();
+      const mascot = screen.getByRole('img', { name: 'Happy winter' });
+      expect(mascot).toHaveAttribute('title', 'Happy winter');
+      expect(mascot).not.toHaveAttribute('aria-hidden');
+      expect(mascot.style.maskImage).toBe(`url("${SEASON_MASCOT.winter.smallSrc}")`);
+      expect(mascot.tagName).toBe('SPAN');
+      expect(mascot.closest('nav')).not.toBeNull();
 
       act(() => useSettingsStore.setState({ showSeasonalTouches: false }));
-      expect(screen.queryByRole('img', { name: 'Happy autumn' })).toBeNull();
+      expect(screen.queryByRole('img', { name: 'Happy winter' })).toBeNull();
     }
   );
+});
+
+describe('Settings seasonal art under a seasonal theme', () => {
+  it("keeps the Autumn theme's pumpkin after the season has moved on", () => {
+    platform.mobile = false;
+    useThemeStore.setState({ preset: 'autumn' });
+    useSettingsStore.setState({ isSettingsOpen: true, showSeasonalTouches: true });
+    render(<SettingsModal />);
+    const mascot = screen.getByRole('img', { name: 'Happy autumn' });
+    expect(mascot.style.maskImage).toBe(`url("${SEASON_MASCOT.autumn.smallSrc}")`);
+    expect(screen.queryByRole('img', { name: 'Happy winter' })).toBeNull();
+    useThemeStore.setState({ preset: 'default' });
+  });
 });
 
 describe('old tab ids', () => {

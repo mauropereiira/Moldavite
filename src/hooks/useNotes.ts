@@ -27,7 +27,7 @@ import { useWordPressStore } from '@/stores/wordpressStore';
 import {
   ensureDirectories,
   listNotes,
-  readNote,
+  adoptNoteSnapshot,
   readNoteSnapshot,
   readNoteWithMeta,
   createNote as createNoteFile,
@@ -221,15 +221,29 @@ export function useNotes() {
         return;
       }
 
+      const contentBeforeRead = state.openTabs.find((tab) => tab.id === noteFile.path)?.content;
       try {
         setIsLoading(true);
-        const rawContent = await readNote(
+        const disk = await readNoteSnapshot(
           noteFileBackendPath(noteFile),
           noteFile.isDaily,
           noteFile.isWeekly || false
         );
         if (navigation !== latestNavigation) return;
+        const liveState = getState();
+        const liveTab = liveState.openTabs.find((tab) => tab.id === noteFile.path);
+        if (liveTab && (hasUnsavedEdits(noteFile.path) || liveTab.content !== contentBeforeRead)) {
+          liveState.switchTab(noteFile.path);
+          return;
+        }
 
+        adoptNoteSnapshot(
+          noteFileBackendPath(noteFile),
+          noteFile.isDaily,
+          noteFile.isWeekly || false,
+          disk
+        );
+        const rawContent = disk.content;
         // Check if content is already HTML (backwards compatibility with old format)
         let htmlContent: string;
         if (isHtmlContent(rawContent)) {

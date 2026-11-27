@@ -81,6 +81,8 @@ fn validate_new_folder_path(path: &str) -> Result<(), String> {
 }
 
 fn create_folder_in(standalone_dir: &Path, path: &str) -> Result<(), String> {
+    let forge_root = standalone_dir.parent().ok_or("Invalid notes directory")?;
+    validate_path_within_base(standalone_dir, forge_root)?;
     if !is_safe_existing_note_path(path) {
         return Err("Invalid folder path".to_string());
     }
@@ -523,6 +525,23 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_note_roots_cannot_receive_new_folders() {
+        let forge = TempDir::new("symlinked-root");
+        let outside = TempDir::new("symlinked-root-outside");
+        let notes = forge.0.join("notes");
+        std::os::unix::fs::symlink(&outside.0, &notes).unwrap();
+        assert!(create_folder_in(&notes, "New").is_err());
+        assert!(!outside.0.join("New").exists());
+        fs::remove_file(&notes).unwrap();
+        let internal = forge.0.join("real-notes");
+        fs::create_dir(&internal).unwrap();
+        std::os::unix::fs::symlink(&internal, &notes).unwrap();
+        assert!(create_folder_in(&notes, "New").is_err());
+        assert!(!internal.join("New").exists());
     }
 
     #[test]

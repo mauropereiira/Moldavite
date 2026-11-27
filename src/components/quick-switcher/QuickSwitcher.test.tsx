@@ -1,11 +1,15 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NoteFile } from '@/types';
 import { useNoteStore } from '@/stores/noteStore';
 import { useQuickSwitcherStore } from '@/stores/quickSwitcherStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { isMobilePlatform } from '@/lib/platform';
 import { holdKeyboard } from '@/lib/noteTitleFocus';
 import { QuickSwitcher } from './QuickSwitcher';
+import { ForgeSwitcher } from '@/components/sidebar/ForgeSwitcher';
+import { useOverlayStore } from '@/stores/overlayStore';
+import { useForgeStore } from '@/stores/forgeStore';
 
 vi.mock('@/lib/platform', () => ({ isMobilePlatform: vi.fn(() => false) }));
 
@@ -16,6 +20,7 @@ const search = vi.hoisted(() => ({
 vi.mock('@/lib/ipc', () => ({ safeInvoke: search.invoke }));
 
 const notesHarness = vi.hoisted(() => ({
+  notes: null as NoteFile[] | null,
   loadNote: vi.fn().mockResolvedValue(undefined),
   createFromTemplate: vi.fn().mockResolvedValue(undefined),
   note: {
@@ -36,7 +41,7 @@ const notesHarness = vi.hoisted(() => ({
 
 vi.mock('@/hooks/useNotes', () => ({
   useNotes: () => ({
-    notes: [notesHarness.note, notesHarness.groceries],
+    notes: notesHarness.notes ?? [notesHarness.note, notesHarness.groceries],
     loadNote: notesHarness.loadNote,
     loadDailyNote: vi.fn().mockResolvedValue(undefined),
     createNote: vi.fn().mockResolvedValue(undefined),
@@ -337,5 +342,79 @@ describe('QuickSwitcher search field focus', () => {
     act(() => useQuickSwitcherStore.getState().open());
 
     expect(document.activeElement).toBe(screen.getByRole('textbox'));
+  });
+});
+
+describe('Switch Forge command', () => {
+  it.each(['overlay', 'pinned'] as const)(
+    'opens the %s Index before showing the Forge picker',
+    async (indexMode) => {
+      useSettingsStore.setState({ indexMode });
+      useOverlayStore.setState({ activeOverlay: null, isSidebarHidden: true });
+      useForgeStore.setState({ loadForges: vi.fn().mockResolvedValue(undefined) });
+      function IndexHarness() {
+        const activeOverlay = useOverlayStore((s) => s.activeOverlay);
+        const hidden = useOverlayStore((s) => s.isSidebarHidden);
+        const visible = indexMode === 'pinned' ? !hidden : activeOverlay === 'index';
+        return (
+          <>
+            {visible && <ForgeSwitcher onManage={() => {}} />}
+            <QuickSwitcher />
+          </>
+        );
+      }
+      useQuickSwitcherStore.getState().open();
+      render(<IndexHarness />);
+      expect(screen.queryByRole('button', { name: /Switch Forge$/ })).not.toBeInTheDocument();
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Switch Forge' } });
+      fireEvent.click(screen.getByRole('button', { name: /Switch\s*Forge/ }));
+      expect(await screen.findByRole('listbox', { name: 'Forges' })).toBeInTheDocument();
+      expect(useQuickSwitcherStore.getState().isOpen).toBe(false);
+    }
+  );
+});
+
+describe('Switch Forge command without an Index', () => {
+  it('leaves no request behind when the Index is switched off', () => {
+    useSettingsStore.setState({ indexMode: 'off' });
+    useOverlayStore.setState({ activeOverlay: null });
+    useQuickSwitcherStore.getState().open();
+    const { unmount } = render(<QuickSwitcher />);
+    try {
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Switch Forge' } });
+      fireEvent.click(screen.getByRole('button', { name: /Switch\s*Forge/ }));
+      expect(useForgeStore.getState().switcherRequested).toBe(false);
+      expect(useOverlayStore.getState().activeOverlay).toBeNull();
+    } finally {
+      unmount();
+      useSettingsStore.setState({ indexMode: 'overlay' });
+    }
+  });
+});
+
+describe('closed QuickSwitcher search work', () => {
+  it('does not read note titles again on a save after closing a populated search', () => {
+    const titleRead = vi.fn(() => 'Keyboard.md');
+    const trackedNote = {
+      ...notesHarness.note,
+      get name() {
+        return titleRead();
+      },
+    };
+    notesHarness.notes = [trackedNote];
+    useQuickSwitcherStore.getState().open();
+    const { rerender, unmount } = render(<QuickSwitcher />);
+    try {
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'key' } });
+      expect(titleRead).toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Close search' }));
+      titleRead.mockClear();
+      notesHarness.notes = [trackedNote];
+      rerender(<QuickSwitcher />);
+      expect(titleRead).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      notesHarness.notes = null;
+    }
   });
 });
