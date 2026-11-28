@@ -91,8 +91,12 @@ jobs:
             --pattern "Moldavite_${VERSION}_x64.dmg"
           shasum -a 256 "$dir/Moldavite_${VERSION}_aarch64.dmg" "$dir/Moldavite_${VERSION}_x64.dmg"
 
+      # Homebrew refuses to load a cask from a tap it has not been told to trust,
+      # which stopped the 2.12.0 bump at "Refusing to load cask ... from untrusted tap".
       - name: Tap the cask repository
-        run: brew tap "${TAP_OWNER}/${TAP_NAME}" "https://github.com/${TAP_REPO}"
+        run: |
+          brew tap "${TAP_OWNER}/${TAP_NAME}" "https://github.com/${TAP_REPO}"
+          brew trust "${TAP_OWNER}/${TAP_NAME}"
 
       - name: Bump the cask
         env:
